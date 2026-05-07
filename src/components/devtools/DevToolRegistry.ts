@@ -1,0 +1,51 @@
+export interface DevTool {
+  id: string
+  name: string
+  icon: string
+  category: 'crypto' | 'encode' | 'time' | 'code' | 'text' | 'network' | 'convert' | 'format' | 'misc'
+  description: string
+  offline: boolean
+}
+
+export const DEV_TOOL_REGISTRY: DevTool[] = [
+  { id: 'crypto', name: '哈希计算', icon: '🔐', category: 'crypto', description: 'MD5, SHA1, SHA256, SHA512, SM3, 批量处理, 文件哈希', offline: true },
+  { id: 'encrypt', name: '加密/解密', icon: '🔒', category: 'crypto', description: 'AES, DES, RC4, Rabbit, TripleDES, SM2, SM4, Bcrypt', offline: true },
+  { id: 'base64', name: 'BASE64编码', icon: '📝', category: 'encode', description: '编码, 解码, 支持文件', offline: true },
+  { id: 'url', name: 'URL编码', icon: '🔗', category: 'encode', description: '编码, 解码', offline: true },
+  { id: 'unicode', name: 'Unicode转换', icon: '🌐', category: 'encode', description: '双向转换, emoji, HTML实体, CSS实体', offline: true },
+  { id: 'hex', name: 'Hex转换', icon: '🔢', category: 'encode', description: 'Hex/String, Hex/Base64 互转', offline: true },
+  { id: 'time', name: '时间戳', icon: '⏰', category: 'time', description: '时间戳双向转换, 毫秒, 时区', offline: true },
+  { id: 'timecalc', name: '时间计算器', icon: '📅', category: 'time', description: '日期加减, 间隔计算', offline: true },
+  { id: 'crontab', name: 'Crontab', icon: '⏱️', category: 'time', description: '规则, 校验, 例子', offline: true },
+  { id: 'qrcode', name: '二维码', icon: '📱', category: 'misc', description: '生成, 解析', offline: true },
+  { id: 'barcode', name: '条形码', icon: '📊', category: 'misc', description: '生成多种格式条形码', offline: true },
+  { id: 'pinyin', name: '汉字转拼音', icon: '🔤', category: 'text', description: '声调, 首字母, 分隔符', offline: true },
+  { id: 'ip', name: 'IP地址查询', icon: '🌍', category: 'network', description: '运营商, 城市', offline: false },
+  { id: 'ipcalc', name: 'IP网络计算器', icon: '🖧', category: 'network', description: '子网掩码, IP进制换算', offline: true },
+  { id: 'codeformat', name: '代码格式化', icon: '💻', category: 'code', description: 'JS, TS, HTML, CSS, LESS, SCSS, Vue, JSON, YAML, SQL 等', offline: true },
+  { id: 'json', name: 'JSON工具', icon: '📋', category: 'code', description: '格式化, 校验, 压缩, 转义, jsonpath, 转GET参数, 转Java/C#/Go/Dart', offline: true },
+  { id: 'serial', name: '序列化转换', icon: '🔄', category: 'code', description: 'JSON, XML, YAML, PHP Array, PHP Serialize, Properties', offline: true },
+  { id: 'diff', name: '文本对比', icon: '📃', category: 'text', description: '行, 单词, CSS 差异对比', offline: true },
+  { id: 'regex', name: '正则表达式', icon: '🔍', category: 'text', description: '匹配, 查找, 替换', offline: true },
+  { id: 'random', name: '随机生成器', icon: '🎲', category: 'misc', description: '批量生成, 特殊字符', offline: true },
+  { id: 'text', name: '文本处理', icon: '📄', category: 'text', description: '大小写, 标点, 简繁, 统计, 去重, 排序, 过滤', offline: true },
+  { id: 'html', name: 'HTML编码', icon: '🏷️', category: 'encode', description: 'HTML 实体编码/解码', offline: true },
+  { id: 'baseconv', name: '进制转换', icon: '🔣', category: 'convert', description: '2-64进制互转', offline: true },
+  { id: 'variable', name: '变量名转换', icon: '🔀', category: 'text', description: '驼峰, 蛇形, 横线, 常量 等格式互转', offline: true },
+  { id: 'jwt', name: 'JWT解码', icon: '🔑', category: 'encode', description: 'Header, Payload 解码', offline: true },
+  { id: 'ascii', name: 'ASCII编码', icon: '🅰️', category: 'convert', description: '十进制, 十六进制, 八进制, 二进制, 字符串', offline: true },
+  { id: 'complement', name: '原码/反码/补码', icon: '💾', category: 'convert', description: '二进制补码运算', offline: true },
+  { id: 'armhex', name: 'ARM/HEX', icon: '🔧', category: 'network', description: 'ARM指令与HEX互转', offline: false },
+  { id: 'unit', name: '单位换算', icon: '📐', category: 'convert', description: '长度, 面积, 体积, 质量, 温度, 速度, 数据存储等', offline: true },
+  { id: 'uuid', name: 'UUID生成', icon: '🆔', category: 'misc', description: '在线生成 UUID v4', offline: true },
+  { id: 'ws', name: 'WebSocket调试', icon: '🔌', category: 'network', description: 'WebSocket 在线调试', offline: false },
+  { id: 'apidebugger', name: '接口调试', icon: '🚀', category: 'network', description: 'HTTP 接口调试，仿 Postman', offline: false },
+]
+
+export function getToolById(id: string): DevTool | undefined {
+  return DEV_TOOL_REGISTRY.find(t => t.id === id)
+}
+
+export function getToolsByCategory(category: string): DevTool[] {
+  return DEV_TOOL_REGISTRY.filter(t => t.category === category)
+}
