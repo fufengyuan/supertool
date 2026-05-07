@@ -1,0 +1,68 @@
+[package]
+name = "supertool-tauri"
+version = "3.1.9"
+description = "SuperTool - Tauri 2.0 Migration"
+authors = ["fufengyuan"]
+edition = "2024"
+
+[[bin]]
+name = "supertool-tauri"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "devtools"] }
+tauri-plugin-notification = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+
+# Database
+rusqlite = { version = "0.32", features = ["bundled"] }
+mysql_async = "0.35"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+postgres-native-tls = "0.5"
+redis = { version = "0.32", features = ["tokio-comp", "streams"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+libc = "0.2"
+
+# Encryption
+aes-gcm = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+scrypt = "0.11"
+
+# Async
+tokio = { version = "1", features = ["full"] }
+
+# SSH (later: openssh crate)
+# For now: exec via shell
+
+# Compression
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+
+# Error handling
+thiserror = "1"
+dirs = "6.0.0"
+hmac = "0.13.0"
+sha1 = "0.11.0"
+log = { version = "0.4.29", features = ["std"] }
+anyhow = "1.0.102"
+ssh2 = "0.9.5"
+notify-rust = "4"
+openssl = { version = "0.10", features = ["vendored"] }
+boringtun = "0.7"
+tun2 = { version = "4", features = ["async"] }
+rand = "0.8"
+if-addrs = "0.13"
+socket2 = "0.5"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
