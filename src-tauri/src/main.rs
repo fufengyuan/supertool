@@ -582,6 +582,7 @@ fn main() {
             commands::nginx::save_nginx_config_version,
             commands::nginx::set_active_nginx_version,
             // Disk cleaner commands
+            commands::disk_cleaner::get_home_dir,
             commands::disk_cleaner::get_disk_info,
             commands::disk_cleaner::scan_directory,
             commands::disk_cleaner::scan_by_category,
