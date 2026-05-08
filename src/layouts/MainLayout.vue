@@ -51,13 +51,13 @@
                sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
              ]"
              :style="{ minWidth: sidebarCollapsed ? '4rem' : '16rem' }">
-        <nav class="menu menu-sm p-2 gap-1">
+        <nav class="menu menu-sm p-2 gap-1 w-full">
           <!-- 业务 -->
           <div class="menu-title px-3" v-show="!sidebarCollapsed">
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">业务</span>
           </div>
-          <li v-for="item in navGroups.business" :key="item.path">
-            <router-link :to="item.path" class="gap-3" active-class="active" @click="sidebarOpen = false">
+          <li v-for="item in navGroups.business" :key="item.path" class="w-full">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -67,8 +67,8 @@
           <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">运维</span>
           </div>
-          <li v-for="item in navGroups.ops" :key="item.path">
-            <router-link :to="item.path" class="gap-3" active-class="active" @click="sidebarOpen = false">
+          <li v-for="item in navGroups.ops" :key="item.path" class="w-full">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -78,8 +78,8 @@
           <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">开发</span>
           </div>
-          <li v-for="item in navGroups.dev" :key="item.path">
-            <router-link :to="item.path" class="gap-3" active-class="active" @click="sidebarOpen = false">
+          <li v-for="item in navGroups.dev" :key="item.path" class="w-full">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -89,8 +89,8 @@
           <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">安全</span>
           </div>
-          <li v-for="item in navGroups.security" :key="item.path">
-            <router-link :to="item.path" class="gap-3" active-class="active" @click="sidebarOpen = false">
+          <li v-for="item in navGroups.security" :key="item.path" class="w-full">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
