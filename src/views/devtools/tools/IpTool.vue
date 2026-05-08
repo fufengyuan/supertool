@@ -1,24 +1,24 @@
 <template>
-  <div class="tool-panel">
-    <h3>🌍 IP 地址查询</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🌍 IP 地址查询</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">IP 地址</label>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">IP 地址</label>
       <div class="ip-input-row">
         <input
           v-model="input"
-          class="tool-input"
+          class="input input-bordered w-full font-mono text-xs"
           placeholder="输入 IP 地址或留空查询本机 IP..."
           @keyup.enter="query"
         />
-        <button class="tool-btn" @click="queryCurrentIp" style="margin-left: 8px">
+        <button class="btn btn-ghost btn-sm" @click="queryCurrentIp" style="margin-left: 8px">
           📡 查询本机 IP
         </button>
       </div>
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn primary" @click="query">查询</button>
-        <button class="tool-btn" @click="clear">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="query">查询</button>
+        <button class="btn btn-ghost btn-sm" @click="clear">清空</button>
       </div>
 
       <div v-if="loading" class="loading-box">
@@ -226,5 +226,3 @@ function clear() {
   result.value = null
 }
 </script>
-
-

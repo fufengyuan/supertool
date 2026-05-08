@@ -1,12 +1,12 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔀 变量名格式转换</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🔀 变量名格式转换</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">输入变量名</label>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入变量名</label>
       <input
         v-model="input"
-        class="tool-input"
+        class="input input-bordered w-full font-mono text-xs"
         placeholder="输入变量名 (任意格式)..."
         @input="convert"
       />

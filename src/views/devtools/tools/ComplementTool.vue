@@ -1,12 +1,12 @@
 <template>
-  <div class="tool-panel">
-    <h3>💾 原码 / 反码 / 补码</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">💾 原码 / 反码 / 补码</h3>
 
-    <div class="tool-section">
-      <div class="tool-row">
+    <div class="mb-5">
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <div>
-          <label class="tool-label">位宽</label>
-          <select v-model.number="bitWidth" class="tool-select" @change="convert">
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">位宽</label>
+          <select v-model.number="bitWidth" class="select select-bordered select-sm" @change="convert">
             <option :value="8">8 位</option>
             <option :value="16">16 位</option>
             <option :value="32" selected>32 位</option>
@@ -14,10 +14,10 @@
           </select>
         </div>
         <div style="flex: 1">
-          <label class="tool-label">十进制数</label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">十进制数</label>
           <input
             v-model.number="input"
-            class="tool-input"
+            class="input input-bordered w-full font-mono text-xs"
             type="number"
             placeholder="输入十进制整数..."
             @input="convert"
@@ -250,5 +250,3 @@ watch([input, bitWidth], () => {
   convert()
 })
 </script>
-
-
