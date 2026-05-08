@@ -124,7 +124,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '@/utils/tauri-api'
-import LanUsers from '@/components/lan/LanUsers.vue'
+import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 
 const sidebarOpen = ref(false)

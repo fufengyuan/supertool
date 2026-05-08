@@ -14,17 +14,17 @@ const routes = [
       {
         path: 'weekly',
         name: 'WeeklyReport',
-        component: () => import('../views/WeeklyReport.vue'),
+        component: () => import('../views/weekly/WeeklyReport.vue'),
       },
       {
         path: 'projects',
         name: 'Projects',
-        component: () => import('../views/ProjectList.vue'),
+        component: () => import('../views/projects/ProjectList.vue'),
       },
       {
         path: 'project/:id',
         name: 'ProjectDetail',
-        component: () => import('../views/ProjectDetail.vue'),
+        component: () => import('../views/projects/ProjectDetail.vue'),
       },
       {
         path: 'servers',
@@ -44,42 +44,42 @@ const routes = [
       {
         path: 'git',
         name: 'Git',
-        component: () => import('../views/GitRepoList.vue'),
+        component: () => import('../views/git/GitRepoList.vue'),
       },
       {
         path: 'notes',
         name: 'Notes',
-        component: () => import('../views/NoteManager.vue'),
+        component: () => import('../views/notes/NoteManager.vue'),
       },
       {
         path: 'logs',
         name: 'Logs',
-        component: () => import('../views/LogAggregator.vue'),
+        component: () => import('../views/logs/LogAggregator.vue'),
       },
       {
         path: 'vpn',
         name: 'VPN',
-        component: () => import('../views/VPNManager.vue'),
+        component: () => import('../views/vpn/VPNManager.vue'),
       },
       {
         path: 'backup',
         name: 'Backup',
-        component: () => import('../views/DataBackup.vue'),
+        component: () => import('../views/backup/DataBackup.vue'),
       },
       {
         path: 'mfa',
         name: 'MFA',
-        component: () => import('../views/MfaManager.vue'),
+        component: () => import('../views/mfa/MfaManager.vue'),
       },
       {
         path: 'accounting',
         name: 'Accounting',
-        component: () => import('../views/AccountingBook.vue'),
+        component: () => import('../views/accounting/AccountingBook.vue'),
       },
       {
         path: 'report',
         name: 'Report',
-        component: () => import('../views/TodoReport.vue'),
+        component: () => import('../views/reports/TodoReport.vue'),
       },
       {
         path: 'devtools',
@@ -89,7 +89,7 @@ const routes = [
       {
         path: 'settings',
         name: 'Settings',
-        component: () => import('../views/SettingsView.vue'),
+        component: () => import('../views/settings/SettingsView.vue'),
       },
     ],
   },

@@ -1,0 +1,25 @@
+{
+  "startDate": "2026-04-07",
+  "endDate": "2026-04-14",
+  "exportedAt": "2026-04-14T02:15:23.232Z",
+  "summary": {
+    "total": 2,
+    "completed": 0,
+    "pending": 2
+  },
+  "completedTodos": [],
+  "pendingTodos": [
+    {
+      "id": "1775638967707",
+      "text": "测试任务1",
+      "priority": "high",
+      "tag": "work"
+    },
+    {
+      "id": "1775789163008",
+      "text": "测试任务CLI",
+      "priority": "high",
+      "tag": "work"
+    }
+  ]
+}
