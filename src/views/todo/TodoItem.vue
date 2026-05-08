@@ -101,7 +101,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
-import SubtaskList from '@/components/subtask/SubtaskList.vue'
+import SubtaskList from '@/views/subtask/SubtaskList.vue'
 
 defineOptions({ inheritAttrs: false })
 
