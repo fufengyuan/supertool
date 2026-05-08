@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full overflow-hidden bg-base-200 text-base-content text-[13px]">
+  <div class="git-manager">
     <GitTopBar
       :repo="repo"
       :current-branch="currentBranch"
@@ -24,7 +24,7 @@
     />
 
     <!-- ===== 主内容区域 ===== -->
-    <div class="flex flex-1 overflow-hidden">
+    <div class="git-main">
       <!-- ===== 左侧：提交面板 ===== -->
       <GitCommitPanel
         :status-data="statusData"
@@ -60,7 +60,7 @@
       />
 
       <!-- ===== 中间分割条 ===== -->
-      <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150" @mousedown="startResize"></div>
+      <div class="splitter" @mousedown="startResize"></div>
 
       <!-- ===== 右侧：日志面板 ===== -->
       <GitLogPanel
@@ -121,57 +121,57 @@
     <!-- ===== 右键菜单 ===== -->
     <div
       v-if="contextMenu.show"
-      class="fixed z-[1000] bg-base-100 border border-base-content/10 rounded-btn shadow-lg min-w-[180px] py-1"
+      class="context-menu"
       :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
       @click.stop
     >
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('diff')">
+      <div class="context-menu-item" @click="contextMenuAction('diff')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
         </svg>
         Diff
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('history')">
+      <div class="context-menu-item" @click="contextMenuAction('history')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
         </svg>
         Show History
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('blame')">
+      <div class="context-menu-item" @click="contextMenuAction('blame')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
         </svg>
         Blame
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('compareBranch')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="contextMenuAction('compareBranch')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
         Compare with Branch...
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('discard')" v-if="contextMenu.fileType !== 'untracked'">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="contextMenuAction('discard')" v-if="contextMenu.fileType !== 'untracked'">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
         </svg>
         Discard Changes
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('add')" v-if="contextMenu.fileType === 'untracked'">
+      <div class="context-menu-item" @click="contextMenuAction('add')" v-if="contextMenu.fileType === 'untracked'">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
         </svg>
         Add to VCS
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('reset')" v-if="contextMenu.fileType !== 'untracked'">
+      <div class="context-menu-item" @click="contextMenuAction('reset')" v-if="contextMenu.fileType !== 'untracked'">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
         </svg>
         Remove from VCS
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('gitignore')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="contextMenuAction('gitignore')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
@@ -185,39 +185,39 @@
     <!-- ===== 日志行右键菜单 ===== -->
     <div
       v-if="logContextMenu.show"
-      class="fixed z-[1000] bg-base-100 border border-base-content/10 rounded-btn shadow-lg min-w-[180px] py-1"
+      class="context-menu"
       :style="{ left: logContextMenu.x + 'px', top: logContextMenu.y + 'px' }"
       @click.stop
     >
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick')">
+      <div class="context-menu-item" @click="logContextAction('cherry-pick')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="18" r="3" /><circle cx="12" cy="6" r="3" />
           <path d="m17 11-5 5-5-5" />
         </svg>
         Cherry-pick
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('revert')">
+      <div class="context-menu-item" @click="logContextAction('revert')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
         </svg>
         Revert Commit
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('create-tag')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="logContextAction('create-tag')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
           <line x1="7" y1="7" x2="7.01" y2="7" />
         </svg>
         Create Tag...
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-commits')">
+      <div class="context-menu-item" @click="logContextAction('compare-commits')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
         </svg>
         Compare with Another Commit...
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('get-file')">
+      <div class="context-menu-item" @click="logContextAction('get-file')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
           <polyline points="14 2 14 8 20 8" />
@@ -225,8 +225,8 @@
         </svg>
         Get File at Revision...
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick-multi')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="logContextAction('cherry-pick-multi')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="18" r="3" /><circle cx="12" cy="6" r="3" />
           <path d="m17 11-5 5-5-5" />
@@ -234,8 +234,8 @@
         </svg>
         Cherry-pick Multiple...
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-with')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item" @click="logContextAction('compare-with')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
@@ -247,17 +247,17 @@
     <!-- ===== Stash 右键菜单 ===== -->
     <div
       v-if="stashContextMenu.show"
-      class="fixed z-[1000] bg-base-100 border border-base-content/10 rounded-btn shadow-lg min-w-[180px] py-1"
+      class="context-menu"
       :style="{ left: stashContextMenu.x + 'px', top: stashContextMenu.y + 'px' }"
       @click.stop
     >
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('apply')">
+      <div class="context-menu-item" @click="stashContextAction('apply')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="15 10 20 15 15 20" /><path d="M4 4v7a4 4 0 0 0 4 4h12" />
         </svg>
         Apply
       </div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('pop')">
+      <div class="context-menu-item" @click="stashContextAction('pop')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
           <polyline points="17 8 12 3 7 8" />
@@ -265,8 +265,8 @@
         </svg>
         Pop
       </div>
-      <div class="h-px bg-base-content/10 my-1"></div>
-      <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)] hover:text-red-500 hover:bg-red-500/10" @click="stashContextAction('drop')">
+      <div class="context-menu-separator"></div>
+      <div class="context-menu-item context-menu-item-danger" @click="stashContextAction('drop')">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
@@ -307,25 +307,25 @@
     />
 
     <!-- ===== Stash 保存对话框 ===== -->
-    <div v-if="showStashSaveDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showStashSaveDialog = false">
+    <div v-if="showStashSaveDialog" class="modal-overlay" @click="showStashSaveDialog = false">
       <div class="stash-save-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">保存 Stash</h3>
-        <div class="flex flex-col gap-2.5 mb-4">
-          <label class="text-xs font-semibold text-base-content/60">描述</label>
+        <h3 class="dialog-title">保存 Stash</h3>
+        <div class="dialog-form">
+          <label class="form-label">描述</label>
           <input
             v-model="stashSaveMessage"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="输入 stash 描述..."
             @keydown.enter="doStashSave"
             spellcheck="false"
             ref="stashSaveInput"
           />
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="stashIncludeUntracked" />
             包含未跟踪文件
           </label>
         </div>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showStashSaveDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doStashSave" :disabled="!stashSaveMessage.trim()">保存</button>
         </div>
@@ -333,17 +333,17 @@
     </div>
 
     <!-- ===== 文件历史对话框 ===== -->
-    <div v-if="showFileHistoryDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showFileHistoryDialog = false">
+    <div v-if="showFileHistoryDialog" class="modal-overlay" @click="showFileHistoryDialog = false">
       <div class="file-history-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">文件历史: {{ fileHistoryFile }}</span>
+        <div class="popup-header">
+          <span class="popup-title">文件历史: {{ fileHistoryFile }}</span>
           <button class="btn btn-ghost btn-xs" @click="showFileHistoryDialog = false">✕</button>
         </div>
         <div class="file-history-list">
           <div v-for="commit in fileHistoryData" :key="commit.hash" class="file-history-item">
-            <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ commit.hash.substring(0, 7) }}</code>
+            <code class="hash-code">{{ commit.hash.substring(0, 7) }}</code>
             <span class="commit-date" :title="formatFullDate(commit.date)">{{ formatRelativeDate(commit.date) }}</span>
-            <span class="text-base-content/60 truncate block max-w-[560px]">{{ commit.message }}</span>
+            <span class="commit-msg">{{ commit.message }}</span>
             <span class="author-name">{{ getAuthorName(commit.author) }}</span>
           </div>
           <div v-if="fileHistoryData.length === 0 && !loading" class="file-history-empty">没有历史记录</div>
@@ -352,10 +352,10 @@
     </div>
 
     <!-- ===== Blame 对话框 ===== -->
-    <div v-if="showBlameDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showBlameDialog = false">
+    <div v-if="showBlameDialog" class="modal-overlay" @click="showBlameDialog = false">
       <div class="blame-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">Blame: {{ blameFile }}</span>
+        <div class="popup-header">
+          <span class="popup-title">Blame: {{ blameFile }}</span>
           <button class="btn btn-ghost btn-xs" @click="showBlameDialog = false">✕</button>
         </div>
         <div class="blame-content">
@@ -365,13 +365,13 @@
     </div>
 
     <!-- ===== Cherry-pick 确认对话框 ===== -->
-    <div v-if="cherryPickTarget" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="cherryPickTarget = null">
+    <div v-if="cherryPickTarget" class="modal-overlay" @click="cherryPickTarget = null">
       <div class="cherry-pick-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">Cherry-pick</h3>
-        <p class="m-0 mb-4 text-[13px] leading-relaxed">
-          将提交 <code class="bg-primary/10 text-primary px-1 py-[1px] rounded-sm font-mono text-xs">{{ cherryPickTarget.substring(0, 7) }}</code> 应用到当前分支？
+        <h3 class="dialog-title">Cherry-pick</h3>
+        <p class="dialog-text">
+          将提交 <code class="code-highlight">{{ cherryPickTarget.substring(0, 7) }}</code> 应用到当前分支？
         </p>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="cherryPickTarget = null">取消</button>
           <button class="btn btn-primary btn-sm" @click="doCherryPick" :disabled="cherryPicking">Cherry-pick</button>
         </div>
@@ -379,13 +379,13 @@
     </div>
 
     <!-- ===== Revert 确认对话框 ===== -->
-    <div v-if="revertTarget" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="revertTarget = null">
+    <div v-if="revertTarget" class="modal-overlay" @click="revertTarget = null">
       <div class="revert-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">Revert Commit</h3>
-        <p class="m-0 mb-4 text-[13px] leading-relaxed">
-          创建一个新的提交来撤销 <code class="bg-primary/10 text-primary px-1 py-[1px] rounded-sm font-mono text-xs">{{ revertTarget.substring(0, 7) }}</code> 的变更？
+        <h3 class="dialog-title">Revert Commit</h3>
+        <p class="dialog-text">
+          创建一个新的提交来撤销 <code class="code-highlight">{{ revertTarget.substring(0, 7) }}</code> 的变更？
         </p>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="revertTarget = null">取消</button>
           <button class="btn btn-primary btn-sm" @click="doRevert" :disabled="reverting">Revert</button>
         </div>
@@ -393,34 +393,34 @@
     </div>
 
     <!-- ===== Tag 创建对话框 ===== -->
-    <div v-if="showCreateTagDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCreateTagDialog = false">
+    <div v-if="showCreateTagDialog" class="modal-overlay" @click="showCreateTagDialog = false">
       <div class="create-tag-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">创建 Tag</h3>
-        <div class="flex flex-col gap-2.5 mb-4">
-          <label class="text-xs font-semibold text-base-content/60">Tag 名称</label>
+        <h3 class="dialog-title">创建 Tag</h3>
+        <div class="dialog-form">
+          <label class="form-label">Tag 名称</label>
           <input
             v-model="newTagName"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="v1.0.0"
             @keydown.enter="doCreateTag"
             spellcheck="false"
           />
-          <label class="text-xs font-semibold text-base-content/60">指向提交</label>
+          <label class="form-label">指向提交</label>
           <input
             v-model="newTagCommit"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="HEAD"
             spellcheck="false"
           />
-          <label class="text-xs font-semibold text-base-content/60">消息 (可选)</label>
+          <label class="form-label">消息 (可选)</label>
           <input
             v-model="newTagMessage"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="Tag 描述..."
             spellcheck="false"
           />
         </div>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showCreateTagDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doCreateTag" :disabled="!newTagName.trim()">创建</button>
         </div>
@@ -428,13 +428,13 @@
     </div>
 
     <!-- ===== Tag 管理对话框 ===== -->
-    <div v-if="showTagsDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showTagsDialog = false">
+    <div v-if="showTagsDialog" class="modal-overlay" @click="showTagsDialog = false">
       <div class="tags-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">标签管理</span>
+        <div class="popup-header">
+          <span class="popup-title">标签管理</span>
           <button class="btn btn-ghost btn-xs" @click="showTagsDialog = false">✕</button>
         </div>
-        <div class="px-4 py-2 border-b border-base-content/10">
+        <div class="popup-actions">
           <button class="btn btn-primary btn-sm" @click="openCreateTag">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -471,20 +471,20 @@
     </div>
 
     <!-- ===== Compare Branches 对话框 ===== -->
-    <div v-if="showCompareBranchesDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCompareBranchesDialog = false">
+    <div v-if="showCompareBranchesDialog" class="modal-overlay" @click="showCompareBranchesDialog = false">
       <div class="compare-branches-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">比较分支</span>
+        <div class="popup-header">
+          <span class="popup-title">比较分支</span>
           <button class="btn btn-ghost btn-xs" @click="showCompareBranchesDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
+        <div class="dialog-form" style="padding: 12px 16px;">
           <div class="compare-row">
-            <label class="text-xs font-semibold text-base-content/60">当前分支</label>
+            <label class="form-label">当前分支</label>
             <span class="compare-branch-name">{{ currentBranch }}</span>
           </div>
           <div class="compare-row">
-            <label class="text-xs font-semibold text-base-content/60">对比分支</label>
-            <select v-model="compareBranchTarget" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" @change="doCompareBranches">
+            <label class="form-label">对比分支</label>
+            <select v-model="compareBranchTarget" class="form-input" @change="doCompareBranches">
               <option value="">选择分支...</option>
               <option v-for="b in localBranches" :key="b.name" :value="b.name" :disabled="b.name === currentBranch">{{ b.name }}</option>
             </select>
@@ -504,32 +504,32 @@
             <span class="stat-value deletions">{{ compareResult.deletions }}</span>
           </div>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showCompareBranchesDialog = false">关闭</button>
         </div>
       </div>
     </div>
 
     <!-- ===== Rebase 对话框 ===== -->
-    <div v-if="showRebaseDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showRebaseDialog = false">
+    <div v-if="showRebaseDialog" class="modal-overlay" @click="showRebaseDialog = false">
       <div class="rebase-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">Rebase</h3>
+        <h3 class="dialog-title">Rebase</h3>
         <div v-if="rebaseInProgress" class="rebase-status">
-          <p class="m-0 mb-4 text-[13px] leading-relaxed">Rebase 进行中，存在冲突。请解决冲突后选择：</p>
-          <div class="flex justify-end gap-2">
+          <p class="dialog-text">Rebase 进行中，存在冲突。请解决冲突后选择：</p>
+          <div class="dialog-actions">
             <button class="btn btn-ghost btn-sm" @click="doRebaseAbort">中止 Rebase</button>
             <button class="btn btn-primary btn-sm" @click="doRebaseContinue">继续</button>
           </div>
         </div>
         <div v-else>
-          <div class="flex flex-col gap-2.5 mb-4">
-            <label class="text-xs font-semibold text-base-content/60">Rebase 到</label>
-            <select v-model="rebaseTarget" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+          <div class="dialog-form">
+            <label class="form-label">Rebase 到</label>
+            <select v-model="rebaseTarget" class="form-input">
               <option value="">选择分支...</option>
               <option v-for="b in localBranches" :key="b.name" :value="b.name" :disabled="b.name === currentBranch">{{ b.name }}</option>
             </select>
           </div>
-          <div class="flex justify-end gap-2">
+          <div class="dialog-actions">
             <button class="btn btn-ghost btn-sm" @click="showRebaseDialog = false">取消</button>
             <button class="btn btn-primary btn-sm" @click="doRebase" :disabled="!rebaseTarget || rebasing">Rebase</button>
           </div>
@@ -538,17 +538,17 @@
     </div>
 
     <!-- ===== Compare with (commit) 对话框 ===== -->
-    <div v-if="showCompareWithDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCompareWithDialog = false">
+    <div v-if="showCompareWithDialog" class="modal-overlay" @click="showCompareWithDialog = false">
       <div class="compare-with-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">比较提交</h3>
-        <div class="flex flex-col gap-2.5 mb-4">
-          <label class="text-xs font-semibold text-base-content/60">对比分支</label>
-          <select v-model="compareWithTarget" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+        <h3 class="dialog-title">比较提交</h3>
+        <div class="dialog-form">
+          <label class="form-label">对比分支</label>
+          <select v-model="compareWithTarget" class="form-input">
             <option value="">选择分支...</option>
             <option v-for="b in localBranches" :key="b.name" :value="b.name">{{ b.name }}</option>
           </select>
         </div>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showCompareWithDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doCompareWith" :disabled="!compareWithTarget">比较</button>
         </div>
@@ -556,24 +556,24 @@
     </div>
 
     <!-- ===== Push 对话框 ===== -->
-    <div v-if="showPushDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showPushDialog = false">
+    <div v-if="showPushDialog" class="modal-overlay" @click="showPushDialog = false">
       <div class="push-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">推送到远程</span>
+        <div class="popup-header">
+          <span class="popup-title">推送到远程</span>
           <button class="btn btn-ghost btn-xs" @click="showPushDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
-          <select v-model="pushRemote" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">远程仓库</label>
+          <select v-model="pushRemote" class="form-input">
             <option v-for="r in remotesList" :key="r" :value="r">{{ r }}</option>
           </select>
-          <label class="text-xs font-semibold text-base-content/60">目标分支</label>
-          <input v-model="pushBranch" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="默认当前分支" />
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-label">目标分支</label>
+          <input v-model="pushBranch" class="form-input" placeholder="默认当前分支" />
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="pushForce" />
             强制推送 (--force)
           </label>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="pushSetUpstream" />
             设置上游分支 (--set-upstream)
           </label>
@@ -581,11 +581,11 @@
         <div v-if="pushUnpushedCommits.length > 0" class="push-commits-list">
           <div class="push-commits-header">待推送提交 ({{ pushUnpushedCommits.length }})</div>
           <div v-for="c in pushUnpushedCommits" :key="c.hash" class="push-commit-item">
-            <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ c.hash.substring(0, 7) }}</code>
-            <span class="text-base-content/60 truncate block max-w-[560px]">{{ c.message }}</span>
+            <code class="hash-code">{{ c.hash.substring(0, 7) }}</code>
+            <span class="commit-msg">{{ c.message }}</span>
           </div>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showPushDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doPushWithOptions" :disabled="pushing">
             <svg v-if="pushing" class="spin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -598,30 +598,30 @@
     </div>
 
     <!-- ===== Pull 对话框 ===== -->
-    <div v-if="showPullDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showPullDialog = false">
+    <div v-if="showPullDialog" class="modal-overlay" @click="showPullDialog = false">
       <div class="pull-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">从远程拉取</span>
+        <div class="popup-header">
+          <span class="popup-title">从远程拉取</span>
           <button class="btn btn-ghost btn-xs" @click="showPullDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
-          <select v-model="pullRemote" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">远程仓库</label>
+          <select v-model="pullRemote" class="form-input">
             <option v-for="r in remotesList" :key="r" :value="r">{{ r }}</option>
           </select>
-          <label class="text-xs font-semibold text-base-content/60">来源分支</label>
-          <input v-model="pullBranch" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="默认当前分支" />
-          <label class="text-xs font-semibold text-base-content/60">拉取方式</label>
-          <select v-model="pullRebase" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+          <label class="form-label">来源分支</label>
+          <input v-model="pullBranch" class="form-input" placeholder="默认当前分支" />
+          <label class="form-label">拉取方式</label>
+          <select v-model="pullRebase" class="form-input">
             <option :value="false">Merge</option>
             <option :value="true">Rebase</option>
           </select>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="pullAutoStash" />
             自动 Stash 未提交的变更 (Auto-stash)
           </label>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showPullDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doPullWithOptions" :disabled="pulling">
             <svg v-if="pulling" class="spin-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -634,11 +634,11 @@
     </div>
 
     <!-- ===== Amend 对话框 ===== -->
-    <div v-if="showAmendDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showAmendDialog = false">
+    <div v-if="showAmendDialog" class="modal-overlay" @click="showAmendDialog = false">
       <div class="amend-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">修改最后一次提交</h3>
-        <div class="flex flex-col gap-2.5 mb-4">
-          <label class="text-xs font-semibold text-base-content/60">新的提交信息</label>
+        <h3 class="dialog-title">修改最后一次提交</h3>
+        <div class="dialog-form">
+          <label class="form-label">新的提交信息</label>
           <textarea
             v-model="amendMessage"
             class="commit-message-input"
@@ -646,12 +646,12 @@
             placeholder="输入新的提交信息 (留空则使用原信息)"
             spellcheck="false"
           />
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="amendNoEdit" />
             不修改提交信息 (仅添加变更)
           </label>
         </div>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showAmendDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doAmend" :disabled="amending">Amend</button>
         </div>
@@ -659,20 +659,20 @@
     </div>
 
     <!-- ===== Reset 对话框 ===== -->
-    <div v-if="showResetDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showResetDialog = false">
+    <div v-if="showResetDialog" class="modal-overlay" @click="showResetDialog = false">
       <div class="reset-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">重置到提交</h3>
-        <div class="flex flex-col gap-2.5 mb-4">
-          <label class="text-xs font-semibold text-base-content/60">提交 Hash / 引用</label>
+        <h3 class="dialog-title">重置到提交</h3>
+        <div class="dialog-form">
+          <label class="form-label">提交 Hash / 引用</label>
           <input
             v-model="resetTarget"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="HEAD~1, abc1234, etc."
             @keydown.enter="doReset"
             spellcheck="false"
           />
-          <label class="text-xs font-semibold text-base-content/60">重置模式</label>
-          <select v-model="resetMode" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary">
+          <label class="form-label">重置模式</label>
+          <select v-model="resetMode" class="form-input">
             <option value="soft">Soft — 保留变更到暂存区</option>
             <option value="mixed">Mixed — 保留变更到工作区 (默认)</option>
             <option value="hard">Hard — 丢弃所有变更</option>
@@ -681,7 +681,7 @@
             ⚠️ Hard Reset 将丢弃所有未提交的变更，此操作不可撤销！
           </div>
         </div>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="showResetDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doReset" :disabled="!resetTarget.trim() || resetting">Reset</button>
         </div>
@@ -689,17 +689,17 @@
     </div>
 
     <!-- ===== Interactive Rebase 对话框 ===== -->
-    <div v-if="showInteractiveRebaseDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showInteractiveRebaseDialog = false">
+    <div v-if="showInteractiveRebaseDialog" class="modal-overlay" @click="showInteractiveRebaseDialog = false">
       <div class="interactive-rebase-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">交互式 Rebase</span>
+        <div class="popup-header">
+          <span class="popup-title">交互式 Rebase</span>
           <button class="btn btn-ghost btn-xs" @click="showInteractiveRebaseDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 8px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">Rebase 起点</label>
+        <div class="dialog-form" style="padding: 8px 16px;">
+          <label class="form-label">Rebase 起点</label>
           <input
             v-model="interactiveRebaseBase"
-            class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary"
+            class="form-input"
             placeholder="HEAD~6, 提交hash, 分支名..."
             spellcheck="false"
           />
@@ -723,13 +723,13 @@
               <option value="fixup">fixup</option>
               <option value="drop">drop</option>
             </select>
-            <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ c.hash.substring(0, 7) }}</code>
-            <span class="text-base-content/60 truncate block max-w-[560px]">{{ c.message }}</span>
+            <code class="hash-code">{{ c.hash.substring(0, 7) }}</code>
+            <span class="commit-msg">{{ c.message }}</span>
             <button class="btn btn-ghost btn-xs ir-move-btn" @click.stop="irMoveUp(idx)" :disabled="idx === 0" title="上移">↑</button>
             <button class="btn btn-ghost btn-xs ir-move-btn" @click.stop="irMoveDown(idx)" :disabled="idx === irCommits.length - 1" title="下移">↓</button>
           </div>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showInteractiveRebaseDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doInteractiveRebase" :disabled="irCommits.length === 0 || irLoading">开始 Rebase</button>
         </div>
@@ -737,13 +737,13 @@
     </div>
 
     <!-- ===== Remotes 对话框 ===== -->
-    <div v-if="showRemotesDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showRemotesDialog = false">
+    <div v-if="showRemotesDialog" class="modal-overlay" @click="showRemotesDialog = false">
       <div class="remotes-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">远程仓库管理</span>
+        <div class="popup-header">
+          <span class="popup-title">远程仓库管理</span>
           <button class="btn btn-ghost btn-xs" @click="showRemotesDialog = false">✕</button>
         </div>
-        <div class="px-4 py-2 border-b border-base-content/10">
+        <div class="popup-actions">
           <button class="btn btn-primary btn-sm" @click="openAddRemote">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -751,12 +751,12 @@
             添加远程
           </button>
         </div>
-        <div v-if="showAddRemoteForm" class="flex flex-col gap-2.5 mb-4" style="padding: 8px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">名称</label>
-          <input v-model="newRemoteName" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="origin" spellcheck="false" />
-          <label class="text-xs font-semibold text-base-content/60">URL</label>
-          <input v-model="newRemoteUrl" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="git@github.com:user/repo.git" spellcheck="false" />
-          <div class="flex justify-end gap-2">
+        <div v-if="showAddRemoteForm" class="dialog-form" style="padding: 8px 16px;">
+          <label class="form-label">名称</label>
+          <input v-model="newRemoteName" class="form-input" placeholder="origin" spellcheck="false" />
+          <label class="form-label">URL</label>
+          <input v-model="newRemoteUrl" class="form-input" placeholder="git@github.com:user/repo.git" spellcheck="false" />
+          <div class="dialog-actions">
             <button class="btn btn-ghost btn-sm" @click="showAddRemoteForm = false">取消</button>
             <button class="btn btn-primary btn-sm" @click="doAddRemote" :disabled="!newRemoteName.trim() || !newRemoteUrl.trim()">添加</button>
           </div>
@@ -778,13 +778,13 @@
     </div>
 
     <!-- ===== Submodule 管理对话框 ===== -->
-    <div v-if="showSubmodulesDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showSubmodulesDialog = false">
+    <div v-if="showSubmodulesDialog" class="modal-overlay" @click="showSubmodulesDialog = false">
       <div class="submodules-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">Submodules</span>
+        <div class="popup-header">
+          <span class="popup-title">Submodules</span>
           <button class="btn btn-ghost btn-xs" @click="showSubmodulesDialog = false">✕</button>
         </div>
-        <div class="px-4 py-2 border-b border-base-content/10">
+        <div class="popup-actions">
           <button class="btn btn-primary btn-sm" @click="doSubmoduleInitAll" :disabled="smLoading">Init All</button>
           <button class="btn btn-ghost btn-sm" @click="doSubmoduleUpdateAll" :disabled="smLoading">Update All</button>
           <button class="btn btn-ghost btn-sm" @click="loadSubmodules" :disabled="smLoading">Refresh</button>
@@ -814,49 +814,49 @@
           <div v-if="submodulesList.length === 0 && !smLoading" class="submodules-empty">No submodules defined in .gitmodules</div>
           <div v-if="smLoading" class="submodules-loading">Loading...</div>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showSubmodulesDialog = false">关闭</button>
         </div>
       </div>
     </div>
 
     <!-- ===== Compare Two Commits 对话框 ===== -->
-    <div v-if="showCompareCommitsDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCompareCommitsDialog = false">
+    <div v-if="showCompareCommitsDialog" class="modal-overlay" @click="showCompareCommitsDialog = false">
       <div class="compare-commits-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">比较两个提交</span>
+        <div class="popup-header">
+          <span class="popup-title">比较两个提交</span>
           <button class="btn btn-ghost btn-xs" @click="showCompareCommitsDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">From Commit</label>
-          <input v-model="compareCommitFrom" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref (e.g., HEAD~5)" spellcheck="false" />
-          <label class="text-xs font-semibold text-base-content/60">To Commit</label>
-          <input v-model="compareCommitTo" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref (e.g., HEAD)" spellcheck="false" />
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">From Commit</label>
+          <input v-model="compareCommitFrom" class="form-input" placeholder="Commit hash or ref (e.g., HEAD~5)" spellcheck="false" />
+          <label class="form-label">To Commit</label>
+          <input v-model="compareCommitTo" class="form-input" placeholder="Commit hash or ref (e.g., HEAD)" spellcheck="false" />
           <button class="btn btn-ghost btn-sm" @click="doCompareCommits" :disabled="!compareCommitFrom || !compareCommitTo || ccLoading">比较</button>
         </div>
         <div v-if="compareCommitsDiff" class="compare-commits-result">
           <pre class="diff-content">{{ compareCommitsDiff }}</pre>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showCompareCommitsDialog = false">关闭</button>
         </div>
       </div>
     </div>
 
     <!-- ===== Get File at Revision 对话框 ===== -->
-    <div v-if="showGetFileRevisionDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showGetFileRevisionDialog = false">
+    <div v-if="showGetFileRevisionDialog" class="modal-overlay" @click="showGetFileRevisionDialog = false">
       <div class="get-file-revision-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">获取指定版本的文件</span>
+        <div class="popup-header">
+          <span class="popup-title">获取指定版本的文件</span>
           <button class="btn btn-ghost btn-xs" @click="showGetFileRevisionDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">Commit</label>
-          <input v-model="getFileCommit" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref" spellcheck="false" />
-          <label class="text-xs font-semibold text-base-content/60">File Path</label>
-          <input v-model="getFilePath" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="path/to/file.txt" spellcheck="false" />
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">Commit</label>
+          <input v-model="getFileCommit" class="form-input" placeholder="Commit hash or ref" spellcheck="false" />
+          <label class="form-label">File Path</label>
+          <input v-model="getFilePath" class="form-input" placeholder="path/to/file.txt" spellcheck="false" />
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px;">
+        <div class="dialog-actions" style="padding: 8px 16px;">
           <button class="btn btn-ghost btn-sm" @click="showGetFileRevisionDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doGetFileAtRevision" :disabled="!getFileCommit || !getFilePath">预览文件</button>
         </div>
@@ -864,10 +864,10 @@
     </div>
 
     <!-- ===== File Preview 对话框 ===== -->
-    <div v-if="showGetFilePreviewDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showGetFilePreviewDialog = false">
+    <div v-if="showGetFilePreviewDialog" class="modal-overlay" @click="showGetFilePreviewDialog = false">
       <div class="file-preview-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">文件预览: {{ getFilePath }}</span>
+        <div class="popup-header">
+          <span class="popup-title">文件预览: {{ getFilePath }}</span>
           <div style="display:flex;gap:4px;">
             <button class="btn btn-ghost btn-xs" @click="copyFileContent" title="复制">📋 复制</button>
             <button class="btn btn-ghost btn-xs" @click="showGetFilePreviewDialog = false">✕</button>
@@ -878,21 +878,21 @@
     </div>
 
     <!-- ===== Create Patch 对话框 ===== -->
-    <div v-if="showCreatePatchDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCreatePatchDialog = false">
+    <div v-if="showCreatePatchDialog" class="modal-overlay" @click="showCreatePatchDialog = false">
       <div class="create-patch-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">创建 Patch</span>
+        <div class="popup-header">
+          <span class="popup-title">创建 Patch</span>
           <button class="btn btn-ghost btn-xs" @click="showCreatePatchDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">From (exclusive)</label>
-          <input v-model="patchFrom" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="HEAD~5 or commit hash" spellcheck="false" />
-          <label class="text-xs font-semibold text-base-content/60">To (inclusive)</label>
-          <input v-model="patchTo" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="HEAD or commit hash" spellcheck="false" />
-          <label class="text-xs font-semibold text-base-content/60">Output Directory</label>
-          <input v-model="patchOutputDir" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Leave empty for repo root" spellcheck="false" />
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">From (exclusive)</label>
+          <input v-model="patchFrom" class="form-input" placeholder="HEAD~5 or commit hash" spellcheck="false" />
+          <label class="form-label">To (inclusive)</label>
+          <input v-model="patchTo" class="form-input" placeholder="HEAD or commit hash" spellcheck="false" />
+          <label class="form-label">Output Directory</label>
+          <input v-model="patchOutputDir" class="form-input" placeholder="Leave empty for repo root" spellcheck="false" />
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showCreatePatchDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doCreatePatch" :disabled="!patchFrom || !patchTo">创建 Patch</button>
         </div>
@@ -900,27 +900,27 @@
     </div>
 
     <!-- ===== Apply Patch 对话框 ===== -->
-    <div v-if="showApplyPatchDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showApplyPatchDialog = false">
+    <div v-if="showApplyPatchDialog" class="modal-overlay" @click="showApplyPatchDialog = false">
       <div class="apply-patch-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">应用 Patch</span>
+        <div class="popup-header">
+          <span class="popup-title">应用 Patch</span>
           <button class="btn btn-ghost btn-xs" @click="showApplyPatchDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 12px 16px;">
-          <label class="text-xs font-semibold text-base-content/60">Patch File</label>
+        <div class="dialog-form" style="padding: 12px 16px;">
+          <label class="form-label">Patch File</label>
           <div class="file-input-wrap">
-            <input v-model="applyPatchFile" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="选择或输入 patch 文件路径" spellcheck="false" />
+            <input v-model="applyPatchFile" class="form-input" placeholder="选择或输入 patch 文件路径" spellcheck="false" />
             <button class="btn btn-ghost btn-xs" @click="selectPatchFile" title="选择文件">📁</button>
           </div>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="applyPatchCheck" />
             先检查 (--check, 不实际应用)
           </label>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="applyPatchSign" />
             添加 Signed-off-by (--signoff)
           </label>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="applyPatch3way" />
             三路合并 (--3way)
           </label>
@@ -928,7 +928,7 @@
         <div v-if="applyPatchResult" class="patch-result" :class="{ 'result-error': applyPatchError }">
           <pre>{{ applyPatchResult }}</pre>
         </div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showApplyPatchDialog = false">关闭</button>
           <button class="btn btn-primary btn-sm" @click="doApplyPatch" :disabled="!applyPatchFile">应用</button>
         </div>
@@ -936,23 +936,23 @@
     </div>
 
     <!-- ===== Cherry-pick Multiple 对话框 ===== -->
-    <div v-if="showCherryPickMultiDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCherryPickMultiDialog = false">
+    <div v-if="showCherryPickMultiDialog" class="modal-overlay" @click="showCherryPickMultiDialog = false">
       <div class="cherry-pick-multi-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">Cherry-pick 多个提交 ({{ selectedLogCommits.size }})</span>
+        <div class="popup-header">
+          <span class="popup-title">Cherry-pick 多个提交 ({{ selectedLogCommits.size }})</span>
           <button class="btn btn-ghost btn-xs" @click="showCherryPickMultiDialog = false">✕</button>
         </div>
         <div class="cherry-pick-multi-list">
           <div v-for="hash in Array.from(selectedLogCommits)" :key="hash" class="cp-multi-item">
-            <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ hash.substring(0, 7) }}</code>
-            <span class="text-base-content/60 truncate block max-w-[560px]">{{ getCommitMessage(hash) }}</span>
+            <code class="hash-code">{{ hash.substring(0, 7) }}</code>
+            <span class="commit-msg">{{ getCommitMessage(hash) }}</span>
           </div>
         </div>
-        <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary" style="padding: 8px 16px;">
+        <label class="form-checkbox-label" style="padding: 8px 16px;">
           <input type="checkbox" v-model="cherryPickMultiNoCommit" />
           不自动提交 (--no-commit)
         </label>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showCherryPickMultiDialog = false">取消</button>
           <button class="btn btn-primary btn-sm" @click="doCherryPickMulti" :disabled="selectedLogCommits.size === 0 || cherryPicking">
             Cherry-pick All
@@ -962,18 +962,18 @@
     </div>
 
     <!-- ===== Git Clean 对话框 ===== -->
-    <div v-if="showGitCleanDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showGitCleanDialog = false">
+    <div v-if="showGitCleanDialog" class="modal-overlay" @click="showGitCleanDialog = false">
       <div class="git-clean-dialog" @click.stop>
-        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-          <span class="font-semibold text-sm">Clean Working Tree</span>
+        <div class="popup-header">
+          <span class="popup-title">Clean Working Tree</span>
           <button class="btn btn-ghost btn-xs" @click="showGitCleanDialog = false">✕</button>
         </div>
-        <div class="flex flex-col gap-2.5 mb-4" style="padding: 8px 16px;">
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+        <div class="dialog-form" style="padding: 8px 16px;">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="gitCleanIncludeIgnored" />
             包含忽略的文件 (-x)
           </label>
-          <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
+          <label class="form-checkbox-label">
             <input type="checkbox" v-model="gitCleanForceDirectories" />
             删除目录 (-d)
           </label>
@@ -989,7 +989,7 @@
           </div>
         </div>
         <div v-if="gitCleanFiles.length === 0 && !gcLoading" class="git-clean-empty">没有未跟踪的文件需要清理</div>
-        <div class="flex justify-end gap-2" style="padding: 8px 16px 12px;">
+        <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showGitCleanDialog = false">取消</button>
           <button class="btn btn-error btn-sm" @click="doGitClean" :disabled="gitCleanFiles.length === 0 || gcLoading">
             确认清理
@@ -999,13 +999,13 @@
     </div>
 
     <!-- ===== Delete Remote Branch 确认对话框 ===== -->
-    <div v-if="deleteRemoteBranchTarget" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="deleteRemoteBranchTarget = null">
+    <div v-if="deleteRemoteBranchTarget" class="modal-overlay" @click="deleteRemoteBranchTarget = null">
       <div class="delete-remote-branch-dialog" @click.stop>
-        <h3 class="text-lg font-semibold m-0 mb-4">删除远程分支</h3>
-        <p class="m-0 mb-4 text-[13px] leading-relaxed">
-          确定要删除远程分支 <code class="bg-primary/10 text-primary px-1 py-[1px] rounded-sm font-mono text-xs">{{ deleteRemoteBranchTarget }}</code>？此操作不可撤销！
+        <h3 class="dialog-title">删除远程分支</h3>
+        <p class="dialog-text">
+          确定要删除远程分支 <code class="code-highlight">{{ deleteRemoteBranchTarget }}</code>？此操作不可撤销！
         </p>
-        <div class="flex justify-end gap-2">
+        <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="deleteRemoteBranchTarget = null">取消</button>
           <button class="btn btn-error btn-sm" @click="doDeleteRemoteBranch" :disabled="deletingBranch">删除</button>
         </div>
@@ -1344,7 +1344,6 @@ function handleGitAction(action: string) {
 }
 </script>
 <style>
-/* GitManager 及子组件样式 — 需要后续转换为 Tailwind */
 /* ===================== 下拉菜单 ===================== */
 .dropdown-wrap {
   position: relative;
