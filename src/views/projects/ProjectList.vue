@@ -78,7 +78,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import ProjectItem from '@/views/projects/ProjectItem.vue';
 import ProjectForm from '@/views/projects/ProjectForm.vue';
 import UiButton from '@/components/ui/Button.vue';
@@ -90,6 +90,7 @@ import { getTauriAPI } from '../../utils/tauri-api';
 import type { Project } from '../../types';
 
 const router = useRouter();
+const route = useRoute();
 
 const projectsApi = useProjects();
 const { handleError } = useErrorHandler();
@@ -221,6 +222,12 @@ const toggleArchive = async (project: Project) => {
 onMounted(async () => {
     console.log("[components/ProjectList.vue] mounted")
   await loadProjects();
+  // 从详情页点编辑跳回来时自动打开编辑弹窗
+  const editId = route.query.edit as string;
+  if (editId) {
+    const target = projects.value.find(p => p.id === editId);
+    if (target) openEditModal(target);
+  }
 });
 </script>
 
