@@ -183,7 +183,7 @@ defineExpose({ enabled, conditions, activeCount })
 
 <style scoped>
 .filter-bar {
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .filter-header {
@@ -198,24 +198,24 @@ defineExpose({ enabled, conditions, activeCount })
   align-items: center;
   gap: 6px;
   padding: 5px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .filter-toggle-btn:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .filter-toggle-btn.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .filter-badge {
@@ -228,7 +228,7 @@ defineExpose({ enabled, conditions, activeCount })
 }
 
 .filter-toggle-btn:not(.active) .filter-badge {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
@@ -260,7 +260,7 @@ defineExpose({ enabled, conditions, activeCount })
 .where-label {
   font-size: 12px;
   font-weight: 700;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   padding: 0 4px;
 }
 
@@ -284,10 +284,10 @@ defineExpose({ enabled, conditions, activeCount })
 .filter-select,
 .filter-input {
   padding: 5px 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   outline: none;
   transition: border-color 0.15s ease;
@@ -295,8 +295,8 @@ defineExpose({ enabled, conditions, activeCount })
 
 .filter-select:focus,
 .filter-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .filter-input {
@@ -309,7 +309,7 @@ defineExpose({ enabled, conditions, activeCount })
 
 .between-sep {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
 }
 
@@ -323,7 +323,7 @@ defineExpose({ enabled, conditions, activeCount })
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
   transition: all 0.1s ease;
 }
@@ -337,16 +337,16 @@ defineExpose({ enabled, conditions, activeCount })
   padding: 4px 8px;
   font-size: 11px;
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-xs:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .btn-xs:disabled {
@@ -355,9 +355,9 @@ defineExpose({ enabled, conditions, activeCount })
 }
 
 .btn-primary.btn-xs {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .btn-primary.btn-xs:hover {

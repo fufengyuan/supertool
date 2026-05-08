@@ -38,33 +38,33 @@ defineProps({
 /* Priority variants */
 .badge-high {
   background: rgba(210, 15, 57, 0.1);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .badge-medium {
   background: rgba(223, 142, 29, 0.1);
-  color: oklch(var(--wa));
+  color: var(--color-warning);
 }
 
 .badge-low {
   background: rgba(64, 160, 43, 0.1);
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 /* General variants */
 .badge-tag {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .badge-primary {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .badge-default {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 </style>

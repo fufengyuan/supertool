@@ -183,8 +183,8 @@ defineExpose({ open, close })
 .quick-switch-container {
   width: 520px;
   max-height: 420px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -210,11 +210,11 @@ defineExpose({ open, close })
 }
 
 .quick-switch-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .quick-switch-item.active {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .item-icon {
@@ -224,8 +224,8 @@ defineExpose({ open, close })
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: oklch(var(--p) / 0.2);
-  color: oklch(var(--bc));
+  background: color-mix(in oklab, var(--color-primary) 20%, transparent);
+  color: var(--color-base-content);
   flex-shrink: 0;
 }
 
@@ -245,21 +245,21 @@ defineExpose({ open, close })
 .item-label {
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .item-group {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .item-shortcut {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 5px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
-  color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-family: inherit;
   flex-shrink: 0;
 }
@@ -269,10 +269,10 @@ defineExpose({ open, close })
   display: flex;
   gap: 16px;
   padding: 12px 16px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b2));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-200);
 }
 
 .quick-switch-hints span {
@@ -289,7 +289,7 @@ defineExpose({ open, close })
   background: transparent;
 }
 .quick-switch-list::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
 }
 </style>

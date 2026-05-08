@@ -122,7 +122,7 @@ async function assign() {
 }
 
 .task-assign-modal {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 16px;
   width: 90%;
   max-width: 600px;
@@ -138,10 +138,10 @@ async function assign() {
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: sticky;
   top: 0;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 16px 16px 0 0;
   z-index: 1;
 }
@@ -150,7 +150,7 @@ async function assign() {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .task-assign-close-btn {
@@ -159,7 +159,7 @@ async function assign() {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -170,8 +170,8 @@ async function assign() {
 }
 
 .task-assign-close-btn:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .task-assign-body {
@@ -183,6 +183,6 @@ async function assign() {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 </style>

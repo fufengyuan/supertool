@@ -196,14 +196,14 @@ const fieldRules = [
 .crontab-tool h3 {
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0 0 20px 0;
 }
 
 .tool-section h4 {
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0 0 10px 0;
 }
 
@@ -217,12 +217,12 @@ const fieldRules = [
 .tool-result {
   margin-top: 10px;
   padding: 10px 12px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   white-space: pre-wrap;
   word-break: break-all;
 }
@@ -233,7 +233,7 @@ const fieldRules = [
 }
 
 .tool-result.desc {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .mono {
@@ -247,7 +247,7 @@ const fieldRules = [
 }
 
 .next-time-index {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   min-width: 24px;
 }
 
@@ -259,8 +259,8 @@ const fieldRules = [
 
 .example-item {
   padding: 8px 12px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.15s;
@@ -270,24 +270,24 @@ const fieldRules = [
 }
 
 .example-item:hover {
-  border-color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .example-expr {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   white-space: nowrap;
 }
 
 .example-desc {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .field-table {
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -297,7 +297,7 @@ const fieldRules = [
   grid-template-columns: 80px 1fr 1fr;
   padding: 8px 12px;
   font-size: 13px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .field-row:last-child {
@@ -305,9 +305,9 @@ const fieldRules = [
 }
 
 .field-row.header {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .field-name {
@@ -322,7 +322,7 @@ const fieldRules = [
 .field-note {
   margin-top: 12px;
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .field-note p {
@@ -331,7 +331,7 @@ const fieldRules = [
 
 .field-note code {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   padding: 2px 6px;
   border-radius: 3px;
   font-size: 12px;
@@ -339,13 +339,13 @@ const fieldRules = [
 
 .tool-btn {
   padding: 7px 16px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
   transition: all 0.15s;
   display: inline-flex;
   align-items: center;
@@ -353,14 +353,14 @@ const fieldRules = [
 }
 
 .tool-btn:hover {
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .tool-btn.primary {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .tool-btn.primary:hover {
@@ -369,30 +369,30 @@ const fieldRules = [
 
 .tool-divider {
   border: none;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin: 20px 0;
 }
 
 .tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: oklch(var(--bc)); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: oklch(var(--p)); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; }
-.tool-input:focus { border-color: oklch(var(--p)); }
+.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
+.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
+.tool-textarea:focus { border-color: var(--color-primary); }
+.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
+.tool-input:focus { border-color: var(--color-primary); }
 .tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: oklch(var(--b1)); color: oklch(var(--bc)); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
-.tool-btn.primary { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
+.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 .tool-btn.primary:hover { opacity: 0.9; }
 .tool-btn-group { display: flex; gap: 4px; }
 .tool-btn-group .tool-btn { border-radius: 0; }
 .tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
 .tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: oklch(var(--bc)); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: oklch(var(--bc) / 0.6); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; }
-.tool-select:focus { border-color: oklch(var(--p)); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: oklch(var(--bc)); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid oklch(var(--bc) / 0.1); margin: 20px 0; }
+.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
+.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
+.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
+.tool-select:focus { border-color: var(--color-primary); }
+.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
+.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
 </style>

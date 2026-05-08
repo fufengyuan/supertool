@@ -480,7 +480,7 @@ onMounted(async () => {
 
 .git-repo-header h2 {
   margin: 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 24px;
   font-weight: 600;
 }
@@ -505,29 +505,29 @@ onMounted(async () => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 14px 10px 36px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   outline: none;
   transition: all 0.15s ease;
 }
 
 .search-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .search-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.7;
 }
 
@@ -543,15 +543,15 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   padding: 16px 20px;
-  background: oklch(var(--b1));
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
 }
 
 .repo-card:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   transform: translateY(-1px);
 }
@@ -569,14 +569,14 @@ onMounted(async () => {
 }
 
 .repo-icon {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   flex-shrink: 0;
 }
 
 .repo-name {
   font-size: 16px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -587,7 +587,7 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -612,7 +612,7 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -630,8 +630,8 @@ onMounted(async () => {
 .branch-badge {
   padding: 2px 8px;
   border-radius: 10px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 500;
   font-size: 11px;
 }
@@ -653,19 +653,19 @@ onMounted(async () => {
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 13px;
   font-weight: 500;
 }
 
 .form-field .required {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .form-field-hint {
   display: block;
   margin-top: 4px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
 }
 
@@ -677,10 +677,10 @@ onMounted(async () => {
 .path-input-group .form-input {
   flex: 1;
   padding: 10px 14px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -688,12 +688,12 @@ onMounted(async () => {
 }
 
 .path-input-group .form-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .path-input-group .form-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.7;
 }
 
@@ -709,10 +709,10 @@ onMounted(async () => {
 .form-row .form-input {
   width: 100%;
   padding: 10px 14px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -720,12 +720,12 @@ onMounted(async () => {
 }
 
 .form-row .form-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .form-row .form-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.7;
 }
 
@@ -739,7 +739,7 @@ onMounted(async () => {
 }
 
 .validation-msg.success {
-  color: oklch(var(--su));
+  color: var(--color-success);
   background: rgba(64, 160, 43, 0.1);
 }
 
@@ -748,7 +748,7 @@ onMounted(async () => {
 }
 
 .validation-msg.error {
-  color: oklch(var(--er));
+  color: var(--color-error);
   background: rgba(210, 15, 57, 0.1);
 }
 
@@ -757,6 +757,6 @@ onMounted(async () => {
 }
 
 .validation-msg.validating {
-  color: oklch(var(--wa));
+  color: var(--color-warning);
 }
 </style>

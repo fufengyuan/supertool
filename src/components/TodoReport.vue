@@ -169,7 +169,7 @@ const nextWeek = () => {
 .report-title {
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0;
 }
 
@@ -183,7 +183,7 @@ const nextWeek = () => {
 .week-btn {
   padding: 5px 12px;
   font-size: 12px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 4px;
@@ -192,13 +192,13 @@ const nextWeek = () => {
 }
 
 .week-btn:hover {
-  background: oklch(var(--p) / 0.8);
+  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
 }
 
 .week-label {
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .report-grid {
@@ -211,20 +211,20 @@ const nextWeek = () => {
 .report-section {
   margin-bottom: 12px;
   padding: 14px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   margin-bottom: 10px;
 }
 
 .comparison-section {
-  background: linear-gradient(135deg, oklch(var(--su) / 0.1), oklch(var(--b2)));
+  background: linear-gradient(135deg, color-mix(in oklab, var(--color-success) 10%, transparent), var(--color-base-200));
 }
 
 .task-list-section {
@@ -234,7 +234,7 @@ const nextWeek = () => {
 .task-list-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 12px;
 }
 
@@ -250,28 +250,28 @@ const nextWeek = () => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   margin-bottom: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .task-text {
   font-size: 14px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .task-date {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.4);
-  background: oklch(var(--su) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+  background: color-mix(in oklab, var(--color-success) 10%, transparent);
   padding: 4px 8px;
   border-radius: 6px;
 }
 
 .empty-text {
   text-align: center;
-  color: oklch(var(--bc) / 0.4);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
   font-size: 14px;
   padding: 20px;
 }

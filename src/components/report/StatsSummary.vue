@@ -57,11 +57,11 @@ const props = defineProps({
 }
 
 .stat-card {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   padding: 16px;
   border-radius: 12px;
   text-align: center;
-  border: 2px solid oklch(var(--bc) / 0.1);
+  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   transition: all 0.3s ease;
 }
 
@@ -73,13 +73,13 @@ const props = defineProps({
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   margin-bottom: 8px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: oklch(var(--bc) / 0.4);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
 }
 
 .task-list-section {
@@ -89,7 +89,7 @@ const props = defineProps({
 .task-list-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 12px;
 }
 
@@ -105,28 +105,28 @@ const props = defineProps({
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   margin-bottom: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .task-text {
   font-size: 14px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .task-date {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.4);
-  background: oklch(var(--su) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+  background: color-mix(in oklab, var(--color-success) 10%, transparent);
   padding: 4px 8px;
   border-radius: 6px;
 }
 
 .empty-text {
   text-align: center;
-  color: oklch(var(--bc) / 0.4);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
   font-size: 14px;
   padding: 20px;
 }

@@ -78,7 +78,7 @@ const contentStyle = {
 }
 
 .modal-content {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 16px;
   width: 90%;
   max-height: v-bind(maxHeight);
@@ -91,14 +91,14 @@ const contentStyle = {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .modal-close-btn {
@@ -107,7 +107,7 @@ const contentStyle = {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -117,8 +117,8 @@ const contentStyle = {
 }
 
 .modal-close-btn:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
 }
 
 .modal-body {
@@ -130,7 +130,7 @@ const contentStyle = {
   gap: 12px;
   justify-content: flex-end;
   padding: 16px 24px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* Transitions */

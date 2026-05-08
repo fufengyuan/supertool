@@ -128,10 +128,10 @@ const addTodo = () => {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 20px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   padding: 16px;
   border-radius: 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 .input-row {
   display: grid;
@@ -141,16 +141,16 @@ const addTodo = () => {
 }
 .todo-input-field {
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   outline: none;
 }
 .todo-input-field:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 .todo-input-field.textarea {
   resize: vertical;
@@ -158,17 +158,17 @@ const addTodo = () => {
 }
 .priority-select {
   padding: 8px 10px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   cursor: pointer;
 }
 .add-btn {
   align-self: flex-end;
   padding: 8px 20px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 6px;
@@ -177,7 +177,7 @@ const addTodo = () => {
   cursor: pointer;
 }
 .add-btn:hover {
-  background: oklch(var(--p) / 0.8);
+  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
   transform: translateY(-1px);
 }
 </style>

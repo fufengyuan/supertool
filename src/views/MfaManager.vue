@@ -498,7 +498,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 28px 32px;
   border-radius: 16px;
-  background: linear-gradient(135deg, oklch(var(--p)), oklch(var(--p) / 0.8), #7c3aed);
+  background: linear-gradient(135deg, var(--color-primary), color-mix(in oklab, var(--color-primary) 80%, transparent), #7c3aed);
   box-shadow: 0 4px 16px rgba(136, 57, 239, 0.2);
   position: relative;
   overflow: hidden;
@@ -570,7 +570,7 @@ onUnmounted(() => {
 
 .mfa-header .btn-add:hover {
   background: #ffffff;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   border-color: #ffffff;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -582,9 +582,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 0;
   padding: 18px 24px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -600,13 +600,13 @@ onUnmounted(() => {
 .stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -615,7 +615,7 @@ onUnmounted(() => {
 .stat-divider {
   width: 1px;
   height: 32px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   flex-shrink: 0;
 }
 
@@ -626,7 +626,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
   gap: 16px;
 }
@@ -635,7 +635,7 @@ onUnmounted(() => {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, oklch(var(--p) / 0.1), oklch(var(--b2)));
+  background: linear-gradient(135deg, color-mix(in oklab, var(--color-primary) 10%, transparent), var(--color-base-200));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -645,14 +645,14 @@ onUnmounted(() => {
 
 .empty-icon-wrapper svg {
   opacity: 0.4;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .empty-text {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .empty-hint {
@@ -670,7 +670,7 @@ onUnmounted(() => {
   font-weight: 500;
   border: none;
   border-radius: 10px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -678,7 +678,7 @@ onUnmounted(() => {
 }
 
 .btn-add-empty:hover {
-  background: oklch(var(--p) / 0.8);
+  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(136, 57, 239, 0.3);
 }
@@ -694,9 +694,9 @@ onUnmounted(() => {
 }
 
 .mfa-card {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 0;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -711,7 +711,7 @@ onUnmounted(() => {
 
 .card-color-bar {
   height: 4px;
-  background: linear-gradient(90deg, var(--card-color), oklch(var(--p) / 0.8));
+  background: linear-gradient(90deg, var(--card-color), color-mix(in oklab, var(--color-primary) 80%, transparent));
   flex-shrink: 0;
 }
 
@@ -753,7 +753,7 @@ onUnmounted(() => {
 .mfa-issuer {
   font-size: 15px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -761,7 +761,7 @@ onUnmounted(() => {
 
 .mfa-account {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -784,7 +784,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -793,13 +793,13 @@ onUnmounted(() => {
 }
 
 .mfa-action-btn:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .mfa-action-delete:hover {
   background: rgba(210, 15, 57, 0.1);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 /* 底部：验证码 + 倒计时 */
@@ -821,7 +821,7 @@ onUnmounted(() => {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 4px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   text-align: center;
   display: block;
 }
@@ -847,7 +847,7 @@ onUnmounted(() => {
 
 .timer-bg {
   fill: none;
-  stroke: oklch(var(--bc) / 0.1);
+  stroke: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   stroke-width: 3;
 }
 
@@ -865,7 +865,7 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   font-size: 14px;
   font-weight: 700;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ======================== 复制提示 ======================== */
@@ -874,8 +874,8 @@ onUnmounted(() => {
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
-  background: oklch(var(--bc));
-  color: oklch(var(--b1));
+  background: var(--color-base-content);
+  color: var(--color-base-100);
   padding: 10px 20px;
   border-radius: 24px;
   font-size: 14px;
@@ -923,7 +923,7 @@ onUnmounted(() => {
 }
 
 .mfa-dialog {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 20px;
   width: 90%;
   max-width: 520px;
@@ -931,7 +931,7 @@ onUnmounted(() => {
   overflow-y: auto;
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.3);
   animation: dialogIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 @keyframes dialogIn {
@@ -948,14 +948,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .mfa-dialog-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .mfa-dialog-close {
@@ -964,7 +964,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -974,8 +974,8 @@ onUnmounted(() => {
 }
 
 .mfa-dialog-close:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .mfa-dialog-body {
@@ -1007,33 +1007,33 @@ onUnmounted(() => {
 /* ======================== 高级选项 ======================== */
 .mfa-advanced {
   margin-bottom: 16px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
   overflow: hidden;
   transition: border-color 0.15s ease;
 }
 
 .mfa-advanced:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .mfa-advanced summary {
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s ease;
 }
 
 .mfa-advanced summary:hover {
-  background: oklch(var(--b2)));
+  background: var(--color-base-200));
 }
 
 .mfa-advanced .form-row {
   padding: 14px 16px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .mfa-advanced .form-row .form-field {
@@ -1042,9 +1042,9 @@ onUnmounted(() => {
 
 /* ======================== 预览验证码 ======================== */
 .mfa-preview {
-  background: oklch(var(--b2)));
+  background: var(--color-base-200));
   border-radius: 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 14px 16px;
   display: flex;
   align-items: center;
@@ -1054,7 +1054,7 @@ onUnmounted(() => {
 
 .preview-label {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-weight: 500;
 }
 
@@ -1063,11 +1063,11 @@ onUnmounted(() => {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 4px;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .mfa-error {
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-size: 13px;
   margin: 0 0 16px 0;
   padding: 10px 14px;
@@ -1081,7 +1081,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* ======================== 表单覆盖 ======================== */
@@ -1090,7 +1090,7 @@ onUnmounted(() => {
 .mfa-dialog-body .form-input,
 .mfa-dialog-body .form-select {
   border-radius: 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   padding: 10px 14px;
   transition: all 0.15s ease;
   outline: none;
@@ -1099,8 +1099,8 @@ onUnmounted(() => {
 .mfa-dialog-body .form-textarea:focus,
 .mfa-dialog-body .form-input:focus,
 .mfa-dialog-body .form-select:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* 对话框内按钮圆角 */

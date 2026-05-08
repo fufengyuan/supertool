@@ -204,7 +204,7 @@ interface TagCloudItem {
 }
 
 const tagColors = [
-  'oklch(var(--p) / 0.1)',
+  'color-mix(in oklab, var(--color-primary) 10%, transparent)',
   'rgba(34, 197, 94, 0.15)',
   'rgba(245, 158, 11, 0.15)',
   'rgba(239, 68, 68, 0.15)',
@@ -271,8 +271,8 @@ const dailyMotivation = computed(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   flex-wrap: wrap;
 }
@@ -291,28 +291,28 @@ const dailyMotivation = computed(() => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .stat-value.success {
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .stat-value.streak {
-  color: oklch(var(--wa));
+  color: var(--color-warning);
   font-size: 15px;
 }
 
 .stat-value.mini {
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   min-width: 32px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .trend {
@@ -323,33 +323,33 @@ const dailyMotivation = computed(() => {
 }
 
 .trend.up {
-  color: oklch(var(--su));
+  color: var(--color-success);
   background: rgba(34, 197, 94, 0.1);
 }
 
 .trend.down {
-  color: oklch(var(--er));
+  color: var(--color-error);
   background: rgba(239, 68, 68, 0.1);
 }
 
 .stat-divider {
   width: 1px;
   height: 20px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   flex-shrink: 0;
 }
 
 .mini-progress {
   width: 48px;
   height: 6px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .mini-progress-fill {
   height: 100%;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   border-radius: 3px;
   transition: width 0.4s ease;
 }

@@ -104,16 +104,16 @@ const formatDate = (dateStr: string) => {
   align-items: stretch;
   gap: 16px;
   padding: 16px 20px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
-  border-left: 4px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-left: 4px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   cursor: pointer;
   transition: all 0.15s ease;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .project-card:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   transform: translateY(-1px);
 }
@@ -123,21 +123,21 @@ const formatDate = (dateStr: string) => {
 .card-main { flex: 1; min-width: 0; }
 
 .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-.project-name { margin: 0; color: oklch(var(--bc)); font-size: 18px; font-weight: 700; }
-.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
-.archived-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: oklch(var(--wa) / 0.1); color: oklch(var(--wa)); }
+.project-name { margin: 0; color: var(--color-base-content); font-size: 18px; font-weight: 700; }
+.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
+.archived-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: color-mix(in oklab, var(--color-warning) 10%, transparent); color: var(--color-warning); }
 
-.project-description { margin: 0 0 8px 0; color: oklch(var(--bc) / 0.6); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.project-description { margin: 0 0 8px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .meta-row { display: flex; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
-.meta-item { font-size: 12px; color: oklch(var(--bc) / 0.6); display: flex; align-items: center; gap: 4px; }
+.meta-item { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); display: flex; align-items: center; gap: 4px; }
 .meta-icon { font-size: 13px; }
 
 .git-repos { display: flex; flex-direction: column; gap: 4px; }
-.git-repo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: oklch(var(--bc) / 0.6); }
+.git-repo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .git-icon { flex-shrink: 0; font-size: 14px; }
 .git-url { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono', monospace; font-size: 11px; }
-.branch-badge { padding: 1px 8px; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.branch-badge { padding: 1px 8px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 
 /* 右侧统计+操作 */
 .card-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; flex-shrink: 0; gap: 12px; min-width: 200px; }
@@ -145,18 +145,18 @@ const formatDate = (dateStr: string) => {
 .stats-section { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .stats-numbers { display: flex; gap: 16px; }
 .stat { display: flex; flex-direction: column; align-items: center; }
-.stat-val { font-size: 18px; font-weight: 700; color: oklch(var(--bc)); }
-.stat-lbl { font-size: 11px; color: oklch(var(--bc) / 0.6); }
+.stat-val { font-size: 18px; font-weight: 700; color: var(--color-base-content); }
+.stat-lbl { font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .stat.completed .stat-val { color: #10b981; }
 .stat.active .stat-val { color: #f59e0b; }
 
 .progress-section { display: flex; align-items: center; gap: 8px; }
-.progress-bar { flex: 1; height: 8px; background: oklch(var(--b2)); border-radius: 4px; overflow: hidden; min-width: 100px; }
+.progress-bar { flex: 1; height: 8px; background: var(--color-base-200); border-radius: 4px; overflow: hidden; min-width: 100px; }
 .progress-fill { height: 100%; transition: width 0.3s ease; border-radius: 4px; }
-.progress-pct { font-size: 13px; font-weight: 600; color: oklch(var(--bc)); white-space: nowrap; min-width: 36px; text-align: right; }
+.progress-pct { font-size: 13px; font-weight: 600; color: var(--color-base-content); white-space: nowrap; min-width: 36px; text-align: right; }
 
 .card-actions { display: flex; gap: 6px; }
-.action-btn { padding: 6px 10px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; background: oklch(var(--b1)); color: oklch(var(--bc)); cursor: pointer; font-size: 14px; transition: all 0.15s; }
-.action-btn:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
-.action-btn.primary:hover { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
+.action-btn { padding: 6px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-100); color: var(--color-base-content); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.action-btn.primary:hover { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 </style>

@@ -481,9 +481,9 @@ function formatGitSyncTime(iso: string): string {
 
 .backup-card {
   padding: 20px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -495,7 +495,7 @@ function formatGitSyncTime(iso: string): string {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .section-title .icon {
@@ -528,7 +528,7 @@ function formatGitSyncTime(iso: string): string {
 
 .setting-row label {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   min-width: 80px;
 }
 
@@ -541,7 +541,7 @@ function formatGitSyncTime(iso: string): string {
 }
 
 .toggle-label span:first-child {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-weight: 500;
 }
 
@@ -566,7 +566,7 @@ function formatGitSyncTime(iso: string): string {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: oklch(var(--bc) / 0.1);
+  background-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -584,7 +584,7 @@ function formatGitSyncTime(iso: string): string {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: oklch(var(--p));
+  background-color: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -593,19 +593,19 @@ function formatGitSyncTime(iso: string): string {
 
 .form-select {
   padding: 6px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
   font-size: 13px;
 }
 
 .form-input {
   padding: 6px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
   font-size: 13px;
   flex: 1;
   min-width: 150px;
@@ -637,13 +637,13 @@ function formatGitSyncTime(iso: string): string {
 
 .backup-status.success {
   background: rgba(34, 197, 94, 0.1);
-  color: oklch(var(--su));
+  color: var(--color-success);
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .backup-status.error {
   background: rgba(239, 68, 68, 0.1);
-  color: oklch(var(--er));
+  color: var(--color-error);
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 

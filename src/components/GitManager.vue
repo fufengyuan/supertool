@@ -2067,8 +2067,8 @@ const {
   top: 100%;
   right: 0;
   z-index: 1000;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   min-width: 200px;
@@ -2084,7 +2084,7 @@ const {
   cursor: pointer;
   font-size: 13px;
   transition: background 0.1s;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .dropdown-menu-item:hover {
@@ -2093,19 +2093,19 @@ const {
 
 .dropdown-menu-item svg {
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .dropdown-menu-separator {
   height: 1px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin: 4px 0;
 }
 
 /* ===================== 右键菜单分隔线 ===================== */
 .context-menu-separator {
   height: 1px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin: 4px 0;
 }
 
@@ -2118,10 +2118,10 @@ const {
 .stash-panel {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   max-height: 40%;
   flex-shrink: 0;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
 }
 
 .stash-list {
@@ -2145,19 +2145,19 @@ const {
 }
 
 .stash-item.selected {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .stash-item svg {
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .stash-name {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 11px;
-  color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   padding: 1px 4px;
   border-radius: 2px;
   flex-shrink: 0;
@@ -2167,7 +2167,7 @@ const {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .stash-empty {
@@ -2175,12 +2175,12 @@ const {
   align-items: center;
   justify-content: center;
   padding: 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
 }
 
 .stash-preview {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   max-height: 200px;
   overflow-y: auto;
 }
@@ -2188,8 +2188,8 @@ const {
 /* ===================== Stash 保存对话框 ===================== */
 .stash-save-dialog {
   width: 500px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -2200,20 +2200,20 @@ const {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   cursor: pointer;
 }
 
 .form-checkbox-label input[type="checkbox"] {
-  accent-color: oklch(var(--p));
+  accent-color: var(--color-primary);
 }
 
 /* ===================== 文件历史对话框 ===================== */
 .file-history-dialog {
   width: 600px;
   max-height: 70vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -2251,15 +2251,15 @@ const {
 .file-history-empty {
   padding: 20px;
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ===================== Blame 对话框 ===================== */
 .blame-dialog {
   width: 700px;
   max-height: 80vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -2278,15 +2278,15 @@ const {
   font-size: 11px;
   line-height: 1.6;
   white-space: pre;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 /* ===================== Cherry-pick / Revert 对话框 ===================== */
 .cherry-pick-dialog,
 .revert-dialog {
   width: 480px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -2295,8 +2295,8 @@ const {
 /* ===================== Tag 创建对话框 ===================== */
 .create-tag-dialog {
   width: 560px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -2306,8 +2306,8 @@ const {
 .tags-dialog {
   width: 480px;
   max-height: 70vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -2337,7 +2337,7 @@ const {
 
 .tag-item svg {
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .tag-label {
@@ -2347,21 +2347,21 @@ const {
 
 .tag-commit {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-family: 'JetBrains Mono', 'Consolas', monospace;
 }
 
 .tags-empty {
   padding: 20px;
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ===================== Compare Branches 对话框 ===================== */
 .compare-branches-dialog {
   width: 420px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -2383,14 +2383,14 @@ const {
 
 .compare-branch-name {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .compare-result {
   padding: 12px 16px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .compare-stat {
@@ -2402,7 +2402,7 @@ const {
 }
 
 .stat-label {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   min-width: 80px;
 }
 
@@ -2421,8 +2421,8 @@ const {
 /* ===================== Rebase 对话框 ===================== */
 .rebase-dialog {
   width: 480px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -2443,8 +2443,8 @@ const {
 /* ===================== Compare with 对话框 ===================== */
 .compare-with-dialog {
   width: 480px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -2464,8 +2464,8 @@ const {
   height: 18px;
   padding: 0 4px;
   border-radius: 9px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-size: 10px;
   font-weight: 600;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
@@ -2477,8 +2477,8 @@ const {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
 }
 
@@ -2488,8 +2488,8 @@ const {
   align-items: center;
   padding: 6px 12px;
   gap: 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   min-height: 40px;
   flex-shrink: 0;
 }
@@ -2523,7 +2523,7 @@ const {
 
 .repo-path {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2543,24 +2543,24 @@ const {
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   cursor: pointer;
   transition: border-color 0.15s ease;
 }
 
 .branch-selector:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .branch-name {
   font-weight: 500;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .dropdown-arrow {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .ahead-behind {
@@ -2596,7 +2596,7 @@ const {
 .commit-panel {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid oklch(var(--bc) / 0.1);
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   min-width: 200px;
   flex-shrink: 0;
 }
@@ -2604,14 +2604,14 @@ const {
 /* ===================== 分割条 ===================== */
 .splitter {
   width: 4px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   cursor: col-resize;
   transition: background 0.15s;
   flex-shrink: 0;
 }
 
 .splitter:hover {
-  background: oklch(var(--p));
+  background: var(--color-primary);
 }
 
 /* ===================== 面板头部 ===================== */
@@ -2620,8 +2620,8 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   flex-shrink: 0;
 }
 
@@ -2634,8 +2634,8 @@ const {
 }
 
 .change-count {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   padding: 1px 6px;
   border-radius: 10px;
   font-size: 11px;
@@ -2650,7 +2650,7 @@ const {
 }
 
 .file-group {
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .group-header {
@@ -2659,7 +2659,7 @@ const {
   gap: 6px;
   padding: 4px 10px;
   cursor: pointer;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   user-select: none;
   transition: background 0.1s;
 }
@@ -2670,7 +2670,7 @@ const {
 
 .group-arrow {
   transition: transform 0.15s;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .group-arrow.collapsed {
@@ -2722,7 +2722,7 @@ const {
 .group-count {
   margin-left: auto;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .group-files {
@@ -2744,7 +2744,7 @@ const {
 }
 
 .file-item.selected {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .file-item.conflicted-item {
@@ -2755,7 +2755,7 @@ const {
   flex-shrink: 0;
   width: 14px;
   height: 14px;
-  accent-color: oklch(var(--p));
+  accent-color: var(--color-primary);
   cursor: pointer;
 }
 
@@ -2811,7 +2811,7 @@ const {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   gap: 8px;
   padding: 24px;
 }
@@ -2828,14 +2828,14 @@ const {
 .commit-area {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   flex-shrink: 0;
 }
 
 .commit-header {
   padding: 6px 10px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .commit-title {
@@ -2847,21 +2847,21 @@ const {
   width: 100%;
   padding: 8px 10px;
   border: none;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   font-family: inherit;
   resize: vertical;
   outline: none;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .commit-message-input:focus {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .commit-message-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
 }
 
@@ -2895,16 +2895,16 @@ const {
   left: 8px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .log-search-input {
   padding: 3px 8px 3px 26px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   outline: none;
   width: 150px;
@@ -2912,16 +2912,16 @@ const {
 }
 
 .log-search-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   width: 200px;
 }
 
 .log-branch-filter {
   padding: 3px 6px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   outline: none;
   cursor: pointer;
@@ -2950,9 +2950,9 @@ const {
   padding: 5px 10px;
   text-align: left;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   white-space: nowrap;
   font-size: 11px;
   text-transform: uppercase;
@@ -2975,30 +2975,30 @@ const {
 }
 
 .log-row.selected {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .log-row td {
   padding: 4px 10px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   vertical-align: middle;
 }
 
 .hash-code {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-size: 11px;
-  color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   padding: 1px 4px;
   border-radius: 2px;
 }
 
 .author-name {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .commit-date {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 11px;
 }
 
@@ -3043,21 +3043,21 @@ const {
   align-items: center;
   justify-content: center;
   height: 100px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .load-more-wrap {
   display: flex;
   justify-content: center;
   padding: 6px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 /* ===================== 提交详情 ===================== */
 .commit-detail {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   max-height: 40%;
   overflow-y: auto;
   flex-shrink: 0;
@@ -3068,7 +3068,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 6px 10px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .detail-title {
@@ -3089,13 +3089,13 @@ const {
 
 .detail-label {
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   min-width: 50px;
   flex-shrink: 0;
 }
 
 .detail-value {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .hash-full {
@@ -3108,7 +3108,7 @@ const {
 }
 
 .detail-diff {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 8px 10px;
 }
 
@@ -3125,7 +3125,7 @@ const {
 }
 
 .diff-content {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   padding: 10px;
   border-radius: 4px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
@@ -3134,12 +3134,12 @@ const {
   overflow-x: auto;
   max-height: 300px;
   white-space: pre-wrap;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .diff-empty {
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
   padding: 16px;
 }
@@ -3148,8 +3148,8 @@ const {
 .context-menu {
   position: fixed;
   z-index: 1000;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   min-width: 180px;
@@ -3172,7 +3172,7 @@ const {
 
 .context-menu-item svg {
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ===================== 弹窗 ===================== */
@@ -3189,8 +3189,8 @@ const {
 .branches-popup {
   width: 420px;
   max-height: 70vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3203,7 +3203,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .popup-title {
@@ -3213,7 +3213,7 @@ const {
 
 .popup-actions {
   padding: 8px 16px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .branches-content {
@@ -3229,7 +3229,7 @@ const {
 .section-label {
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding: 4px 16px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -3255,7 +3255,7 @@ const {
 }
 
 .branch-item.current {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .branch-item.remote {
@@ -3272,7 +3272,7 @@ const {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   font-weight: 600;
 }
@@ -3294,7 +3294,7 @@ const {
 
 .branch-empty {
   padding: 8px 16px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
 }
 
@@ -3302,8 +3302,8 @@ const {
 .create-branch-dialog,
 .merge-dialog {
   width: 480px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -3337,21 +3337,21 @@ const {
 .form-label {
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .form-input {
   padding: 8px 10px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   outline: none;
 }
 
 .form-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .dialog-text {
@@ -3361,8 +3361,8 @@ const {
 }
 
 .code-highlight {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   padding: 1px 4px;
   border-radius: 3px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
@@ -3408,19 +3408,19 @@ const {
 
 .btn-ghost {
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   border-color: transparent;
 }
 
 .btn-ghost:hover:not(:disabled) {
   background: var(--hover-bg);
-  border-color: oklch(var(--bc) / 0.1);
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .btn-primary {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -3475,7 +3475,7 @@ const {
 .log-table-wrap::-webkit-scrollbar-thumb,
 .branches-content::-webkit-scrollbar-thumb,
 .diff-content::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
 }
 
@@ -3483,7 +3483,7 @@ const {
 .log-table-wrap::-webkit-scrollbar-thumb:hover,
 .branches-content::-webkit-scrollbar-thumb:hover,
 .diff-content::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ===================== 响应式 ===================== */
@@ -3494,7 +3494,7 @@ const {
 
   .commit-panel {
     border-right: none;
-    border-bottom: 1px solid oklch(var(--bc) / 0.1);
+    border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
     max-height: 40%;
   }
 
@@ -3519,9 +3519,9 @@ const {
   align-items: center;
   gap: 2px;
   padding: 2px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 6px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
 }
 
 .view-toggle-btn {
@@ -3533,20 +3533,20 @@ const {
   padding: 0;
   border: none;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .view-toggle-btn:hover {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   background: var(--hover-bg);
 }
 
 .view-toggle-btn.active {
-  color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* ===================== Git Graph ===================== */
@@ -3575,7 +3575,7 @@ const {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .graph-loading svg {
@@ -3701,8 +3701,8 @@ const {
 .push-dialog {
   width: 460px;
   max-height: 70vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3713,15 +3713,15 @@ const {
 .push-commits-list {
   max-height: 200px;
   overflow-y: auto;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .push-commits-header {
   padding: 8px 16px;
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b2));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-200);
   position: sticky;
   top: 0;
 }
@@ -3749,8 +3749,8 @@ const {
 /* ===================== Pull 对话框 ===================== */
 .pull-dialog {
   width: 420px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3761,8 +3761,8 @@ const {
 /* ===================== Amend 对话框 ===================== */
 .amend-dialog {
   width: 420px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -3771,8 +3771,8 @@ const {
 /* ===================== Reset 对话框 ===================== */
 .reset-dialog {
   width: 420px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -3792,8 +3792,8 @@ const {
 .interactive-rebase-dialog {
   width: 600px;
   max-height: 80vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3824,14 +3824,14 @@ const {
 }
 
 .ir-commit-item.selected {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .ir-action-select {
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 11px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   padding: 2px 4px;
@@ -3864,8 +3864,8 @@ const {
 .remotes-dialog {
   width: 520px;
   max-height: 70vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3895,20 +3895,20 @@ const {
 
 .remote-item svg {
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .remote-name {
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   font-weight: 600;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   min-width: 60px;
 }
 
 .remote-url {
   flex: 1;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3918,14 +3918,14 @@ const {
 .remotes-empty {
   padding: 20px;
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* ===================== 分支重命名对话框 ===================== */
 .branch-rename-dialog {
   width: 380px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   padding: 20px;
@@ -3952,8 +3952,8 @@ const {
 .file-preview-dialog {
   width: 800px;
   max-height: 80vh;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -3970,8 +3970,8 @@ const {
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-all;
-  color: oklch(var(--bc));
-  background: oklch(var(--b2));
+  color: var(--color-base-content);
+  background: var(--color-base-200);
   margin: 0;
 }
 

@@ -22,7 +22,7 @@ defineEmits(['toggle-selected', 'delete']);
 .todo-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; margin-left: 4px; }
 .select-checkbox { cursor: pointer; width: 14px; height: 14px; }
 .delete-btn {
-  padding: 3px 8px; border: none; border-radius: 4px; background: oklch(var(--er));
+  padding: 3px 8px; border: none; border-radius: 4px; background: var(--color-error);
   color: white; cursor: pointer; font-size: 11px; transition: opacity 0.15s;
 }
 .delete-btn:hover { opacity: 0.8; }

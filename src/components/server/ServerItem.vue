@@ -96,7 +96,7 @@ const statusGradient = computed(() => {
     case 'online': return 'linear-gradient(180deg, #a6e3a1, #40c057)';
     case 'connecting': return 'linear-gradient(180deg, #f9a825, #f59e0b)';
     case 'heartbeat_failed': return 'linear-gradient(180deg, #f38ba8, #e04560)';
-    default: return 'linear-gradient(180deg, oklch(var(--bc) / 0.1), transparent)';
+    default: return 'linear-gradient(180deg, color-mix(in oklab, var(--color-base-content) 10%, transparent), transparent)';
   }
 });
 </script>
@@ -104,9 +104,9 @@ const statusGradient = computed(() => {
 <style scoped>
 .server-card {
   position: relative;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
@@ -114,7 +114,7 @@ const statusGradient = computed(() => {
 .server-card:hover {
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .server-card.connected {
@@ -160,7 +160,7 @@ const statusGradient = computed(() => {
 .server-name {
   font-weight: 600;
   font-size: 12px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,22 +187,22 @@ const statusGradient = computed(() => {
 
 .status-badge.online {
   background: rgba(166, 227, 161, 0.12);
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .status-badge.connecting {
   background: rgba(249, 168, 37, 0.12);
-  color: oklch(var(--wa));
+  color: var(--color-warning);
 }
 
 .status-badge.offline {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .status-badge.heartbeat_failed {
   background: rgba(243, 139, 168, 0.12);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .status-pulse {
@@ -213,22 +213,22 @@ const statusGradient = computed(() => {
 }
 
 .status-pulse.online {
-  background: oklch(var(--su));
-  box-shadow: 0 0 6px oklch(var(--su));
+  background: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
 }
 
 .status-pulse.connecting {
-  background: oklch(var(--wa));
+  background: var(--color-warning);
   animation: dot-blink 0.8s ease-in-out infinite;
 }
 
 .status-pulse.offline {
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .status-pulse.heartbeat_failed {
-  background: oklch(var(--er));
-  box-shadow: 0 0 6px oklch(var(--er));
+  background: var(--color-error);
+  box-shadow: 0 0 6px var(--color-error);
   animation: dot-blink-danger 1s ease-in-out infinite;
 }
 
@@ -253,7 +253,7 @@ const statusGradient = computed(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 11px;
 }
 
@@ -271,7 +271,7 @@ const statusGradient = computed(() => {
 }
 
 .info-port {
-  color: oklch(var(--bc) / 0.4);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
 }
 
 .server-tags {
@@ -283,11 +283,11 @@ const statusGradient = computed(() => {
 
 .server-tags .tag {
   padding: 1px 5px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 3px;
   font-size: 9px;
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .server-actions {
@@ -306,34 +306,34 @@ const statusGradient = computed(() => {
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
 }
 
 .action-btn.terminal:hover {
   background: rgba(108, 99, 255, 0.12);
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .action-btn.sftp:hover {
   background: rgba(108, 99, 255, 0.12);
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .action-btn.delete:hover {
   background: rgba(243, 139, 168, 0.12);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .action-separator {
   width: 1px;
   height: 14px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin: 0 3px;
 }
 </style>

@@ -106,26 +106,26 @@ const close = () => {
   display: flex; align-items: center; justify-content: center; z-index: 10000;
 }
 .modal-content {
-  background: oklch(var(--b1)); border-radius: 16px; padding: 24px;
+  background: var(--color-base-100); border-radius: 16px; padding: 24px;
   max-width: 460px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.2);
 }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.modal-header h3 { margin: 0; font-size: 18px; color: oklch(var(--bc)); }
-.modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: oklch(var(--bc) / 0.6); padding: 0 4px; line-height: 1; }
+.modal-header h3 { margin: 0; font-size: 18px; color: var(--color-base-content); }
+.modal-close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); padding: 0 4px; line-height: 1; }
 .modal-body { padding: 10px 0; }
 .update-state { text-align: center; padding: 20px 0; }
-.spinner { width: 40px; height: 40px; border: 3px solid oklch(var(--bc) / 0.1); border-top-color: oklch(var(--p)); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+.spinner { width: 40px; height: 40px; border: 3px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.success-icon, .error-icon { color: oklch(var(--p)); margin-bottom: 16px; }
+.success-icon, .error-icon { color: var(--color-primary); margin-bottom: 16px; }
 .error-icon { color: #ef4444; }
-.update-hint { color: oklch(var(--bc) / 0.6); font-size: 13px; margin: 8px 0; }
+.update-hint { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 13px; margin: 8px 0; }
 .error-message { color: #ef4444; font-size: 13px; margin: 8px 0; }
 .update-actions { display: flex; gap: 12px; justify-content: center; margin-top: 20px; }
 .btn { padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; }
-.btn-primary { background: oklch(var(--p)); color: white; }
+.btn-primary { background: var(--color-primary); color: white; }
 .btn-primary:hover { opacity: 0.9; }
-.btn-secondary { background: oklch(var(--b2)); color: oklch(var(--bc) / 0.6); border: 1px solid oklch(var(--bc) / 0.1); }
-.btn-secondary:hover { border-color: oklch(var(--p)); }
+.btn-secondary { background: var(--color-base-200); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
+.btn-secondary:hover { border-color: var(--color-primary); }
 .modal-enter-active, .modal-leave-active { transition: opacity 0.25s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }
 </style>

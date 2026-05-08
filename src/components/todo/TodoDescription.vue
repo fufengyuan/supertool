@@ -64,24 +64,24 @@ const renderedHtml = computed(() => {
 .markdown-section { margin-top: 8px; }
 .markdown-editor { display: flex; flex-direction: column; gap: 8px; }
 .markdown-textarea {
-  width: 100%; padding: 8px; border: 1px solid oklch(var(--bc) / 0.2);
-  border-radius: 6px; background: oklch(var(--b2)); color: oklch(var(--bc));
+  width: 100%; padding: 8px; border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
+  border-radius: 6px; background: var(--color-base-200); color: var(--color-base-content);
   font-size: 13px; font-family: monospace; resize: vertical; outline: none;
 }
-.markdown-textarea:focus { border-color: oklch(var(--p)); }
+.markdown-textarea:focus { border-color: var(--color-primary); }
 .markdown-actions { display: flex; gap: 8px; }
 .save-markdown-btn, .cancel-markdown-btn {
   padding: 4px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px;
 }
-.save-markdown-btn { background: oklch(var(--p)); color: white; }
-.cancel-markdown-btn { background: oklch(var(--bc) / 0.1); color: oklch(var(--bc)); }
+.save-markdown-btn { background: var(--color-primary); color: white; }
+.cancel-markdown-btn { background: color-mix(in oklab, var(--color-base-content) 10%, transparent); color: var(--color-base-content); }
 .markdown-display {
-  padding: 8px; background: oklch(var(--b2)); border-radius: 6px; cursor: pointer;
+  padding: 8px; background: var(--color-base-200); border-radius: 6px; cursor: pointer;
 }
-.markdown-display:hover { background: oklch(var(--bc) / 0.1); }
+.markdown-display:hover { background: color-mix(in oklab, var(--color-base-content) 10%, transparent); }
 .markdown-placeholder {
-  padding: 8px; border: 1px dashed oklch(var(--bc) / 0.1); border-radius: 6px;
-  color: oklch(var(--bc) / 0.6); cursor: pointer; text-align: center;
+  padding: 8px; border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; text-align: center;
 }
-.markdown-placeholder:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
+.markdown-placeholder:hover { border-color: var(--color-primary); color: var(--color-primary); }
 </style>

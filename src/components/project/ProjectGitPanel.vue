@@ -149,25 +149,25 @@ onMounted(loadGitCommits)
 .git-panel { margin: 16px 0; }
 
 .repos-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.git-repo-card { padding: 12px; background: oklch(var(--b2)); border-radius: 8px; border-left: 3px solid oklch(var(--p)); }
+.git-repo-card { padding: 12px; background: var(--color-base-200); border-radius: 8px; border-left: 3px solid var(--color-primary); }
 .repo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.repo-label { font-size: 13px; font-weight: 600; color: oklch(var(--bc)); }
-.branch-badge { padding: 1px 8px; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); border-radius: 10px; font-size: 11px; font-weight: 600; }
-.repo-path { font-size: 12px; color: oklch(var(--bc) / 0.6); font-family: 'SF Mono', monospace; word-break: break-all; }
+.repo-label { font-size: 13px; font-weight: 600; color: var(--color-base-content); }
+.branch-badge { padding: 1px 8px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 10px; font-size: 11px; font-weight: 600; }
+.repo-path { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-family: 'SF Mono', monospace; word-break: break-all; }
 
-.git-commits-section { padding: 20px; background: oklch(var(--b1)); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.git-commits-section { padding: 20px; background: var(--color-base-100); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .commits-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.commits-header h3 { margin: 0; color: oklch(var(--bc)); font-size: 18px; }
-.repo-select { padding: 6px 12px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; background: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 13px; outline: none; }
+.commits-header h3 { margin: 0; color: var(--color-base-content); font-size: 18px; }
+.repo-select { padding: 6px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-200); color: var(--color-base-content); font-size: 13px; outline: none; }
 
-.loading-commits, .no-commits { text-align: center; padding: 24px; color: oklch(var(--bc) / 0.6); font-size: 14px; }
+.loading-commits, .no-commits { text-align: center; padding: 24px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; }
 .commits-list { max-height: 400px; overflow-y: auto; }
-.commit-item { padding: 12px; margin-bottom: 10px; background: oklch(var(--b2)); border-radius: 8px; border-left: 3px solid oklch(var(--p)); }
+.commit-item { padding: 12px; margin-bottom: 10px; background: var(--color-base-200); border-radius: 8px; border-left: 3px solid var(--color-primary); }
 .commit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
 .commit-left { display: flex; align-items: center; gap: 8px; }
-.commit-repo-tag { font-size: 11px; padding: 1px 6px; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); border-radius: 4px; font-weight: 600; }
-.commit-hash { font-family: 'SF Mono', monospace; font-size: 12px; color: oklch(var(--bc) / 0.6); }
-.commit-date { font-size: 12px; color: oklch(var(--bc) / 0.6); white-space: nowrap; }
-.commit-author { font-size: 13px; color: oklch(var(--p)); margin-bottom: 4px; }
-.commit-message { font-size: 14px; color: oklch(var(--bc)); word-break: break-word; }
+.commit-repo-tag { font-size: 11px; padding: 1px 6px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 4px; font-weight: 600; }
+.commit-hash { font-family: 'SF Mono', monospace; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+.commit-date { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); white-space: nowrap; }
+.commit-author { font-size: 13px; color: var(--color-primary); margin-bottom: 4px; }
+.commit-message { font-size: 14px; color: var(--color-base-content); word-break: break-word; }
 </style>

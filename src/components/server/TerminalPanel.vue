@@ -1091,8 +1091,8 @@ defineExpose({ addTab })
   max-width: 340px;
   max-height: 400px;
   overflow-y: auto;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   padding: 8px 0;

@@ -156,7 +156,7 @@ const defaultPort = computed(() => {
 
 .form-divider {
   margin: 8px 0;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .form-checkbox-security {

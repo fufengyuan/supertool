@@ -477,7 +477,7 @@ watch(() => props.connectionId, (newId) => {
 .backup-desc {
   margin: 0;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* Two-column layout */
@@ -500,7 +500,7 @@ watch(() => props.connectionId, (newId) => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid oklch(var(--bc) / 0.1);
+  border-left: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding-left: 24px;
 }
 
@@ -523,22 +523,22 @@ watch(() => props.connectionId, (newId) => {
   margin-bottom: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .select-input {
   width: 100%;
   padding: 7px 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   outline: none;
 }
 
 .select-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .select-input:disabled {
@@ -560,14 +560,14 @@ watch(() => props.connectionId, (newId) => {
 
 .selected-info {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* Object selection */
 .object-selection {
   flex: 1;
   min-height: 0;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -579,8 +579,8 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: oklch(var(--b2));
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
@@ -598,15 +598,15 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-section + .object-section {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .section-label {
   padding: 6px 14px;
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b1));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-100);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -631,7 +631,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .object-item.selected {
@@ -639,7 +639,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-item input[type="checkbox"] {
-  accent-color: oklch(var(--p));
+  accent-color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -657,18 +657,18 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
 }
 
 .include-data input {
-  accent-color: oklch(var(--p));
+  accent-color: var(--color-primary);
 }
 
 .no-objects {
   text-align: center;
   padding: 40px 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 13px;
 }
 
@@ -686,13 +686,13 @@ watch(() => props.connectionId, (newId) => {
 .history-count {
   font-size: 11px;
   font-weight: 400;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .history-loading, .history-empty {
   text-align: center;
   padding: 30px 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
 }
 
@@ -713,7 +713,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .history-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .history-item.selected {
@@ -740,13 +740,13 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .item-db {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .item-conn {
   font-size: 10px;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b1));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-100);
   padding: 1px 6px;
   border-radius: 3px;
   white-space: nowrap;
@@ -757,7 +757,7 @@ watch(() => props.connectionId, (newId) => {
 
 .item-file {
   font-size: 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -769,7 +769,7 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   gap: 10px;
   font-size: 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding-left: 22px;
 }
 
@@ -785,8 +785,8 @@ watch(() => props.connectionId, (newId) => {
 .progress-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid oklch(var(--bc) / 0.1);
-  border-top-color: oklch(var(--p));
+  border: 3px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -798,14 +798,14 @@ watch(() => props.connectionId, (newId) => {
 .progress-text {
   margin: 0;
   font-size: 14px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* Context menu */
 .context-menu {
   position: fixed;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   z-index: 3000;
@@ -822,11 +822,11 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .context-menu-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .context-menu-item.danger {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 /* Confirm dialog */
@@ -841,7 +841,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .confirm-dialog {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   padding: 24px;
   width: 400px;
@@ -860,7 +860,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .confirm-warn {
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-weight: 500;
 }
 

@@ -328,26 +328,26 @@ onBeforeUnmount(() => {
 <style scoped>
 .weekly-report-container { padding: 20px; width: 100%; max-width: 100%; }
 .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
-.report-header h2 { margin: 0; color: oklch(var(--bc)); font-size: 24px; }
+.report-header h2 { margin: 0; color: var(--color-base-content); font-size: 24px; }
 .report-controls { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid oklch(var(--bc) / 0.1); }
-.tab-btn { padding: 8px 20px; border: none; background: transparent; color: oklch(var(--bc) / 0.6); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
-.tab-btn:hover { color: oklch(var(--bc)); }
-.tab-btn.active { color: oklch(var(--p)); border-bottom-color: oklch(var(--p)); }
+.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
+.tab-btn { padding: 8px 20px; border: none; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
+.tab-btn:hover { color: var(--color-base-content); }
+.tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .history-list { margin-bottom: 20px; }
-.loading-state, .empty-state { text-align: center; padding: 40px; color: oklch(var(--bc) / 0.6); }
+.loading-state, .empty-state { text-align: center; padding: 40px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .history-items { display: flex; flex-direction: column; gap: 8px; }
-.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: oklch(var(--b1)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
-.history-item:hover { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
-.history-item.selected { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--color-base-100); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+.history-item:hover { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.history-item.selected { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
 .history-item-info { display: flex; flex-direction: column; gap: 4px; }
-.history-date { font-weight: 500; color: oklch(var(--bc)); }
-.history-created { font-size: 12px; color: oklch(var(--bc) / 0.6); }
-.history-load-btn { padding: 6px 16px; border: 1px solid oklch(var(--p)); background: transparent; color: oklch(var(--p)); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
-.history-load-btn:hover { background: oklch(var(--p)); color: white; }
+.history-date { font-weight: 500; color: var(--color-base-content); }
+.history-created { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+.history-load-btn { padding: 6px 16px; border: 1px solid var(--color-primary); background: transparent; color: var(--color-primary); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
+.history-load-btn:hover { background: var(--color-primary); color: white; }
 .history-report-view { margin-top: 20px; }
 .history-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.history-report-header h3 { margin: 0; color: oklch(var(--bc)); }
-.btn-ghost { padding: 6px 14px; border: 1px solid oklch(var(--bc) / 0.1); background: transparent; color: oklch(var(--bc) / 0.6); border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-ghost:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
+.history-report-header h3 { margin: 0; color: var(--color-base-content); }
+.btn-ghost { padding: 6px 14px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-ghost:hover { border-color: var(--color-primary); color: var(--color-primary); }
 </style>

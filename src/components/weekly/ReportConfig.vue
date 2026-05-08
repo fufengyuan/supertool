@@ -77,7 +77,7 @@ defineExpose({ selectedRange, startDate, endDate });
 }
 
 .date-separator {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding-bottom: 10px;
   font-size: 13px;
 }

@@ -211,7 +211,7 @@ function clearLog() {
 .tool-panel h3 {
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0 0 20px 0;
 }
 
@@ -221,8 +221,8 @@ function clearLog() {
   gap: 8px;
   padding: 8px 12px;
   margin-top: 12px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
 }
 
@@ -230,7 +230,7 @@ function clearLog() {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .status-dot.connected {
@@ -254,7 +254,7 @@ function clearLog() {
 
 .status-text {
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .message-log {
@@ -262,15 +262,15 @@ function clearLog() {
   height: 300px;
   overflow-y: auto;
   padding: 12px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
 }
 
 .empty-log {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
   padding: 40px 0;
 }
@@ -279,7 +279,7 @@ function clearLog() {
   display: flex;
   gap: 8px;
   padding: 4px 0;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   line-height: 1.5;
 }
 
@@ -288,7 +288,7 @@ function clearLog() {
 }
 
 .message-time {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
   min-width: 65px;
 }
@@ -316,7 +316,7 @@ function clearLog() {
 
 .message-content {
   flex: 1;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   word-break: break-all;
   white-space: pre-wrap;
 }
@@ -347,25 +347,25 @@ function clearLog() {
 }
 
 .tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: oklch(var(--bc)); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: oklch(var(--p)); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; }
-.tool-input:focus { border-color: oklch(var(--p)); }
+.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
+.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
+.tool-textarea:focus { border-color: var(--color-primary); }
+.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
+.tool-input:focus { border-color: var(--color-primary); }
 .tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: oklch(var(--b1)); color: oklch(var(--bc)); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
-.tool-btn.primary { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
+.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 .tool-btn.primary:hover { opacity: 0.9; }
 .tool-btn-group { display: flex; gap: 4px; }
 .tool-btn-group .tool-btn { border-radius: 0; }
 .tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
 .tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: oklch(var(--bc)); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: oklch(var(--bc) / 0.6); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-size: 13px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; }
-.tool-select:focus { border-color: oklch(var(--p)); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: oklch(var(--bc)); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid oklch(var(--bc) / 0.1); margin: 20px 0; }
+.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
+.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
+.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
+.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
+.tool-select:focus { border-color: var(--color-primary); }
+.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
+.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
 </style>

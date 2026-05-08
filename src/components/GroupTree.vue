@@ -129,8 +129,8 @@ function toggle() {
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: relative;
   overflow: hidden;
 }
@@ -147,7 +147,7 @@ function toggle() {
 }
 
 .drawer-handle:hover {
-  border-color: var(--group-color, oklch(var(--p)));
+  border-color: var(--group-color, var(--color-primary));
   box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
   transform: translateY(-1px);
 }
@@ -161,14 +161,14 @@ function toggle() {
 }
 
 .drawer-chevron {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
 .drawer-chevron.expanded {
   transform: rotate(180deg);
-  color: var(--group-color, oklch(var(--p)));
+  color: var(--group-color, var(--color-primary));
 }
 
 .drawer-icon {
@@ -179,7 +179,7 @@ function toggle() {
 .drawer-name {
   font-weight: 600;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .drawer-count {
@@ -203,7 +203,7 @@ function toggle() {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: oklch(var(--su));
+  color: var(--color-success);
   font-weight: 500;
 }
 
@@ -211,8 +211,8 @@ function toggle() {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: oklch(var(--su));
-  box-shadow: 0 0 4px oklch(var(--su));
+  background: var(--color-success);
+  box-shadow: 0 0 4px var(--color-success);
 }
 
 /* ── 抽屉面板（内容区）── */
@@ -220,8 +220,8 @@ function toggle() {
   margin-top: 4px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, oklch(var(--b1)) 80%, oklch(var(--bc) / 0.1) 20%);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: color-mix(in srgb, var(--color-base-100) 80%, color-mix(in oklab, var(--color-base-content) 10%, transparent) 20%);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-top: none;
 }
 
@@ -241,11 +241,11 @@ function toggle() {
 .drawer-empty {
   text-align: center;
   padding: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 6px;
-  border: 1px dashed oklch(var(--bc) / 0.1);
+  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* 多级缩进 */

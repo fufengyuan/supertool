@@ -38,7 +38,7 @@ defineProps({
   align-items: center;
   padding: 40px 20px;
   gap: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
 }
 

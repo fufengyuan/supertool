@@ -33,7 +33,7 @@ const getTagPercentage = (tag) => {
 .tag-analysis h4 {
   font-size: 15px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 12px;
 }
 
@@ -52,13 +52,13 @@ const getTagPercentage = (tag) => {
 .tag-label {
   min-width: 80px;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .tag-count-bar {
   flex: 1;
   height: 24px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -68,7 +68,7 @@ const getTagPercentage = (tag) => {
 
 .tag-fill {
   height: 100%;
-  background: linear-gradient(135deg, oklch(var(--p)), #4cc9f0);
+  background: linear-gradient(135deg, var(--color-primary), #4cc9f0);
   border-radius: 12px;
   transition: width 0.3s ease;
 }
@@ -78,6 +78,6 @@ const getTagPercentage = (tag) => {
   right: 8px;
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 </style>

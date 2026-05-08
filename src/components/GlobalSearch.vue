@@ -370,8 +370,8 @@ onUnmounted(() => {
 .global-search-container {
   width: 560px;
   max-width: 90vw;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -384,13 +384,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .search-icon {
   position: absolute;
   left: 24px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
@@ -400,21 +400,21 @@ onUnmounted(() => {
   outline: none;
   font-size: 16px;
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   padding-left: 32px;
 }
 
 .search-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .shortcut-hint {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .search-results,
@@ -429,7 +429,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   letter-spacing: 0.5px;
 }
 
@@ -480,7 +480,7 @@ onUnmounted(() => {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -496,7 +496,7 @@ onUnmounted(() => {
 .result-subtitle {
   display: block;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-top: 2px;
 }
 
@@ -527,9 +527,9 @@ onUnmounted(() => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   flex-shrink: 0;
 }
 
@@ -538,7 +538,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 40px 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .no-results svg {
@@ -561,8 +561,8 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   padding: 10px 20px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
 }
 
 .footer-item {
@@ -570,15 +570,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .footer-item kbd {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* 过渡动画 */

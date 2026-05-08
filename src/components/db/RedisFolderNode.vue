@@ -132,7 +132,7 @@ function typeIcon(type: string): string {
   cursor: pointer;
   font-size: 12px;
   line-height: 1.5;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-weight: 500;
   transition: background 0.12s ease, color 0.12s ease;
   user-select: none;
@@ -141,7 +141,7 @@ function typeIcon(type: string): string {
 }
 
 .tree-item.tree-folder:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .tree-item.tree-folder.expanded {
@@ -165,8 +165,8 @@ function typeIcon(type: string): string {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
   line-height: 1.4;
   transition: background 0.12s ease, color 0.12s ease;
@@ -178,7 +178,7 @@ function typeIcon(type: string): string {
 }
 
 .tree-item.tree-folder:hover .tree-count {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* Folder label */
@@ -199,12 +199,12 @@ function typeIcon(type: string): string {
   justify-content: center;
   font-size: 8px;
   flex-shrink: 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: transform 0.15s ease, color 0.12s ease;
 }
 
 .tree-item.tree-folder .tree-toggle:hover {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 /* ── Leaf key node ───────────────────────────────────────── */
@@ -220,7 +220,7 @@ function typeIcon(type: string): string {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
   font-size: 11.5px;
   line-height: 1.5;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   transition: background 0.12s ease, color 0.12s ease;
   user-select: none;
   white-space: nowrap;
@@ -228,7 +228,7 @@ function typeIcon(type: string): string {
 }
 
 .tree-item.tree-redis-key:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* Key type dot */
@@ -286,7 +286,7 @@ function typeIcon(type: string): string {
   top: 0;
   bottom: 0;
   width: 1px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   opacity: 0.6;
   pointer-events: none;
 }

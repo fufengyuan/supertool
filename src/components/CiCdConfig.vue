@@ -544,7 +544,7 @@
                   <input v-model="config.healthCheckUrl" class="form-input" placeholder="http://localhost:8080/health" />
                 </div>
 
-                <div class="approval-divider" style="margin: 12px 0; border-top: 1px solid oklch(var(--bc) / 0.1);"></div>
+                <div class="approval-divider" style="margin: 12px 0; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);"></div>
 
                 <label class="form-checkbox form-checkbox-approval">
                   <input v-model="config.requiresApproval" type="checkbox" />
@@ -802,7 +802,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   display: flex;
   height: 100%;
   overflow: hidden;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 /* ─── Sidebar ─── */
@@ -810,8 +810,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   width: 300px;
   min-width: 260px;
   max-width: 360px;
-  border-right: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -827,7 +827,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .cicd-sidebar.collapsed:hover {
-  border-right-color: oklch(var(--bc) / 0.1);
+  border-right-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .sidebar-header {
@@ -880,7 +880,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .btn-action {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
@@ -898,14 +898,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .btn-action-collapse {
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .btn-action-collapse:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border-color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .btn-action-collapse svg {
@@ -947,7 +947,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .btn-icon {
@@ -961,7 +961,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   cursor: pointer;
   padding: 0;
   color: white;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   transition: all 0.15s ease;
 }
 
@@ -978,13 +978,13 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .btn-ghost.btn-icon {
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 .btn-ghost.btn-icon:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border-color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .sidebar-search {
@@ -997,23 +997,23 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   left: 28px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 8px 12px 8px 32px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .config-list {
@@ -1028,7 +1028,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   padding: 40px 20px;
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   gap: 12px;
 }
 
@@ -1045,13 +1045,13 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .config-card:hover {
-  background: oklch(var(--b2));
-  border-color: oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .config-card.active {
-  background: oklch(var(--p) / 0.1);
-  border-color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
 }
 
 .config-card-header {
@@ -1064,7 +1064,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .config-name {
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1074,7 +1074,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .config-project {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1086,14 +1086,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
 }
 
 .config-card.active .config-branch {
   background: rgba(255,255,255,0.2);
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .config-approval-badge {
@@ -1110,7 +1110,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .config-server {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1129,7 +1129,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .config-time {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.6;
 }
 
@@ -1139,13 +1139,13 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0;
   transition: all 0.15s;
 }
 
 .config-card:hover .config-delete { opacity: 1; }
-.config-delete:hover { color: oklch(var(--er)); background: rgba(239, 68, 68, 0.1); }
+.config-delete:hover { color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
 
 /* ─── Group Styles ─── */
 .config-group {
@@ -1179,7 +1179,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .group-name {
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex: 1;
@@ -1187,7 +1187,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .group-count {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.6;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 10px;
@@ -1202,7 +1202,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   cursor: pointer;
   padding: 3px;
   border-radius: 4px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0;
   transition: all 0.15s;
   display: flex;
@@ -1250,11 +1250,11 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   justify-content: center;
   gap: 16px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .editor-empty-icon { opacity: 0.2; }
-.editor-empty h3 { margin: 0; font-size: 20px; color: oklch(var(--bc)); }
+.editor-empty h3 { margin: 0; font-size: 20px; color: var(--color-base-content); }
 .editor-empty p { margin: 0; font-size: 14px; }
 
 .editor-content {
@@ -1266,8 +1266,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 /* Editor Header */
 .editor-header {
   padding: 20px 24px 0;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 .editor-title-row {
@@ -1281,7 +1281,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin: 0;
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .editor-actions {
@@ -1304,28 +1304,28 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   gap: 4px;
   padding: 8px 16px;
   border-radius: 8px;
-  background: oklch(var(--b2));
-  border: 1px dashed oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
   min-width: 80px;
 }
 
 .pipeline-node.filled {
-  background: oklch(var(--p) / 0.1);
-  border: 1px solid oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border: 1px solid var(--color-primary);
 }
 
 .pipeline-node.deploy-node {
-  background: oklch(var(--p));
-  border: 1px solid oklch(var(--p));
+  background: var(--color-primary);
+  border: 1px solid var(--color-primary);
 }
 
 .pipeline-node.deploy-node .pipeline-label { color: white; }
 
 .pipeline-icon { font-size: 18px; }
-.pipeline-label { font-size: 12px; font-weight: 500; color: oklch(var(--bc)); }
+.pipeline-label { font-size: 12px; font-weight: 500; color: var(--color-base-content); }
 
 .pipeline-arrow {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 16px;
   opacity: 0.4;
 }
@@ -1340,8 +1340,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .editor-column {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   padding: 20px;
 }
@@ -1353,9 +1353,9 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin-bottom: 16px;
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   padding-bottom: 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .column-icon { font-size: 18px; }
@@ -1370,25 +1370,25 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin-bottom: 5px;
   font-size: 12px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-.form-field .required { color: oklch(var(--er)); text-transform: none; letter-spacing: 0; }
+.form-field .required { color: var(--color-error); text-transform: none; letter-spacing: 0; }
 
 .form-input {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   transition: border-color 0.2s;
 }
 
-.form-input:focus { outline: none; border-color: oklch(var(--p)); }
+.form-input:focus { outline: none; border-color: var(--color-primary); }
 
 /* ─── Version selector next to path input ─── */
 .path-input-with-select {
@@ -1425,7 +1425,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 /* Auto-detected input highlight */
 .form-input.auto-detected {
-  border-color: oklch(var(--su));
+  border-color: var(--color-success);
   background: rgba(16, 185, 129, 0.05);
 }
 
@@ -1438,14 +1438,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   user-select: none;
   transition: color 0.15s;
 }
 .advanced-toggle:hover {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 .advanced-chevron {
   transition: transform 0.2s ease;
@@ -1466,10 +1466,10 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   width: 120px;
   min-width: 80px;
   padding: 9px 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   cursor: pointer;
   transition: border-color 0.2s;
@@ -1479,7 +1479,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 .version-select:focus {
   outline: none;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .lib-filter-input {
@@ -1497,7 +1497,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .local-path-group .form-input {
   flex: 1;
   font-size: 12px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 .local-path-hint {
   display: flex;
@@ -1505,20 +1505,20 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   gap: 6px;
   margin-top: 6px;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   line-height: 1.4;
 }
 .hint-icon { font-size: 14px; flex-shrink: 0; }
 .local-path-hint code {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   padding: 1px 4px;
   border-radius: 3px;
   font-size: 11px;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   word-break: break-all;
 }
 .hint-use-btn {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 1px 6px;
@@ -1532,7 +1532,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .optional {
   font-size: 11px;
   font-weight: 400;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-left: 4px;
 }
 
@@ -1547,7 +1547,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin: 8px 0 14px;
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   opacity: 0.7;
@@ -1556,7 +1556,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   content: '';
   flex: 1;
   height: 1px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* ─── Server List ─── */
@@ -1565,8 +1565,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 700;
 }
 
@@ -1580,20 +1580,20 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .server-entry {
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .server-entry:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .server-entry.active {
-  border-color: oklch(var(--p));
-  background: oklch(var(--b1));
+  border-color: var(--color-primary);
+  background: var(--color-base-100);
   box-shadow: 0 2px 8px rgba(46, 171, 124, 0.08);
 }
 
@@ -1611,7 +1611,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   font-size: 11px;
   font-weight: 700;
@@ -1631,14 +1631,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   background: transparent;
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   width: 100%;
   min-width: 0;
   outline: none;
 }
 
 .server-label-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-weight: 400;
 }
 
@@ -1648,14 +1648,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   cursor: pointer;
   padding: 4px;
   border-radius: 6px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0;
   transition: all 0.15s;
   flex-shrink: 0;
 }
 
 .server-entry:hover .server-remove-btn { opacity: 0.6; }
-.server-remove-btn:hover { opacity: 1 !important; color: oklch(var(--er)); background: rgba(239, 68, 68, 0.1); }
+.server-remove-btn:hover { opacity: 1 !important; color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
 
 .server-entry-body {
   padding: 0 12px 12px;
@@ -1663,14 +1663,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .add-server-btn {
   margin-top: 8px;
-  border: 1px dashed oklch(var(--bc) / 0.1);
-  color: oklch(var(--bc) / 0.6);
+  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .add-server-btn:hover {
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .test-mini {
@@ -1700,31 +1700,31 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   cursor: pointer;
   transition: all 0.15s;
   text-align: left;
   font-size: 13px;
 }
-.source-tab:hover { border-color: oklch(var(--p)); }
+.source-tab:hover { border-color: var(--color-primary); }
 .source-tab.active {
-  border-color: oklch(var(--p));
-  background: oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 .source-tab-icon { font-size: 16px; flex-shrink: 0; }
-.source-tab-label { font-weight: 600; color: oklch(var(--bc)); flex-shrink: 0; min-width: 70px; }
+.source-tab-label { font-weight: 600; color: var(--color-base-content); flex-shrink: 0; min-width: 70px; }
 .source-tab-path {
   flex: 1;
   font-family: 'SF Mono', monospace;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.source-tab.active .source-tab-path { color: oklch(var(--p)); }
+.source-tab.active .source-tab-path { color: var(--color-primary); }
 
 /* Branch Select Group */
 .branch-select-group {
@@ -1737,7 +1737,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .branch-select-group > svg {
   position: absolute;
   left: 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
   z-index: 1;
 }
@@ -1780,7 +1780,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin-top: 6px;
   padding: 4px 10px;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .branch-hint .hint-icon {
@@ -1796,9 +1796,9 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .project-info-card {
   margin-top: 16px;
   padding: 12px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .info-row {
@@ -1809,8 +1809,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .info-row:last-child { margin-bottom: 0; }
-.info-label { color: oklch(var(--bc) / 0.6); flex-shrink: 0; min-width: 60px; }
-.info-value { color: oklch(var(--bc)); word-break: break-all; }
+.info-label { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); flex-shrink: 0; min-width: 60px; }
+.info-value { color: var(--color-base-content); word-break: break-all; }
 
 /* Server Quick Select */
 .server-quick-select { margin-bottom: 14px; }
@@ -1819,7 +1819,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin-bottom: 8px;
   font-size: 12px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -1832,10 +1832,10 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .server-chip {
   padding: 6px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   cursor: pointer;
   display: flex;
@@ -1844,14 +1844,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   transition: all 0.15s;
 }
 
-.server-chip:hover { border-color: oklch(var(--p)); }
-.server-chip.active { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
+.server-chip:hover { border-color: var(--color-primary); }
+.server-chip.active { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
 
 .server-chip-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: oklch(var(--su));
+  background: var(--color-success);
 }
 
 /* Auth Toggle */
@@ -1860,16 +1860,16 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .auth-btn {
   flex: 1;
   padding: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   cursor: pointer;
   font-size: 12px;
   transition: all 0.15s;
 }
 
-.auth-btn.active { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
+.auth-btn.active { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
 
 /* Test Result */
 .test-result-banner {
@@ -1882,8 +1882,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   margin-top: 12px;
 }
 
-.test-result-banner.success { background: rgba(16, 185, 129, 0.1); color: oklch(var(--su)); border: 1px solid rgba(16, 185, 129, 0.2); }
-.test-result-banner.error { background: rgba(239, 68, 68, 0.1); color: oklch(var(--er)); border: 1px solid rgba(239, 68, 68, 0.2); }
+.test-result-banner.success { background: rgba(16, 185, 129, 0.1); color: var(--color-success); border: 1px solid rgba(16, 185, 129, 0.2); }
+.test-result-banner.error { background: rgba(239, 68, 68, 0.1); color: var(--color-error); border: 1px solid rgba(239, 68, 68, 0.2); }
 
 /* Build Tool Grid */
 .build-tool-grid {
@@ -1898,24 +1898,24 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   flex-direction: column;
   align-items: center;
   padding: 12px 8px;
-  border: 2px solid oklch(var(--bc) / 0.1);
+  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
   cursor: pointer;
   transition: all 0.15s;
   position: relative;
 }
 
-.build-tool-card:hover { border-color: oklch(var(--p)); }
-.build-tool-card.selected { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
+.build-tool-card:hover { border-color: var(--color-primary); }
+.build-tool-card.selected { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
 
 .build-tool-card .tool-icon { font-size: 22px; margin-bottom: 4px; }
-.build-tool-card .tool-name { font-size: 12px; font-weight: 600; color: oklch(var(--bc)); }
-.build-tool-card .tool-version { font-size: 10px; color: oklch(var(--bc) / 0.6); margin-top: 2px; }
+.build-tool-card .tool-name { font-size: 12px; font-weight: 600; color: var(--color-base-content); }
+.build-tool-card .tool-version { font-size: 10px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-top: 2px; }
 
 /* Deploy Settings */
 .deploy-settings {
   padding-top: 14px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* Form Checkbox */
@@ -1924,12 +1924,12 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   cursor: pointer;
   margin-top: 8px;
 }
 
-.form-checkbox input { accent-color: oklch(var(--p)); }
+.form-checkbox input { accent-color: var(--color-primary); }
 
 /* Approval checkbox */
 .form-checkbox-approval {
@@ -1957,15 +1957,15 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   transition: border-color 0.3s, background 0.3s;
 }
 .parent-build-section.active {
-  border-left-color: oklch(var(--p));
-  background: color-mix(in srgb, oklch(var(--p)) 5%, transparent);
+  border-left-color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
   margin: 0 12px;
   padding: 12px;
   border-radius: 8px;
 }
 .parent-build-section.auto-detected {
-  border-left-color: oklch(var(--su));
-  background: color-mix(in srgb, oklch(var(--su)) 5%, transparent);
+  border-left-color: var(--color-success);
+  background: color-mix(in srgb, var(--color-success) 5%, transparent);
 }
 .parent-build-toggle {
   margin-bottom: 8px;
@@ -1983,7 +1983,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .toggle-switch {
   width: 44px;
   height: 24px;
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   border-radius: 12px;
   position: relative;
   transition: background 0.3s;
@@ -2001,7 +2001,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   transition: transform 0.3s;
 }
 .toggle-input:checked + .toggle-switch {
-  background: oklch(var(--p));
+  background: var(--color-primary);
 }
 .toggle-input:checked + .toggle-switch::after {
   transform: translateX(20px);
@@ -2009,12 +2009,12 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .toggle-text {
   font-size: 14px;
   font-weight: 500;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 .toggle-hint {
   display: block;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-top: 4px;
   margin-left: 54px;
 }
@@ -2022,7 +2022,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   display: inline-block;
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--su));
+  color: var(--color-success);
   background: rgba(16, 185, 129, 0.1);
   border: 1px solid rgba(16, 185, 129, 0.3);
   padding: 2px 8px;
@@ -2060,15 +2060,15 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .section-icon { font-size: 18px; }
-.section-hint { font-size: 12px; font-weight: 400; color: oklch(var(--bc) / 0.6); margin-left: 8px; }
+.section-hint { font-size: 12px; font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-left: 8px; }
 .section-hint-inline {
   font-size: 11px;
   font-weight: 400;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   margin-left: 8px;
 }
 
@@ -2105,9 +2105,9 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 /* Module Tree Dropdown */
 .module-tree-dropdown {
   margin-bottom: 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   overflow: hidden;
 }
 
@@ -2118,18 +2118,18 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   padding: 10px 14px;
   cursor: pointer;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   transition: background 0.15s;
 }
 
 .tree-trigger:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .tree-arrow {
   margin-left: auto;
   transition: transform 0.2s ease;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .tree-arrow.open {
@@ -2137,13 +2137,13 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .tree-content {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   max-height: 400px;
   overflow-y: auto;
 }
 
 .tree-item {
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .tree-item:last-child {
@@ -2160,12 +2160,12 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .tree-item-header:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .tree-expand {
   transition: transform 0.2s ease;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
 }
 
@@ -2189,14 +2189,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .tree-name {
   font-weight: 600;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   min-width: 100px;
 }
 
 .tree-path {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2205,10 +2205,10 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .tree-add-btn {
   padding: 4px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   background: transparent;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
@@ -2216,14 +2216,14 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .tree-add-btn:hover {
-  background: oklch(var(--p) / 0.1);
-  border-color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
 }
 
 .tree-add-btn.added {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   cursor: default;
 }
 
@@ -2241,8 +2241,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   padding: 12px 14px;
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
 }
 
 /* Detected Modules */
@@ -2251,13 +2251,13 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   border-radius: 8px;
-  border: 1px solid oklch(var(--p));
+  border: 1px solid var(--color-primary);
   margin-bottom: 10px;
 }
 
-.detected-label { font-size: 12px; color: oklch(var(--p)); font-weight: 500; white-space: nowrap; }
+.detected-label { font-size: 12px; color: var(--color-primary); font-weight: 500; white-space: nowrap; }
 
 .detected-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
@@ -2266,20 +2266,20 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   cursor: pointer;
   font-size: 12px;
   transition: all 0.15s;
 }
 
-.detected-chip.selected { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
-.chip-check { accent-color: oklch(var(--p)); }
+.detected-chip.selected { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.chip-check { accent-color: var(--color-primary); }
 
 /* Modules Table */
 .modules-table {
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -2289,10 +2289,10 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   grid-template-columns: 1.5fr 1.5fr 1.2fr 60px 60px 36px;
   gap: 8px;
   padding: 10px 14px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -2305,15 +2305,15 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .module-card {
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
   overflow: hidden;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   transition: all 0.15s ease;
 }
 
 .module-card:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .module-card-header {
@@ -2323,7 +2323,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .module-card-header:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .module-title-row {
@@ -2334,7 +2334,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 
 .expand-icon {
   transition: transform 0.2s ease;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
 }
 
@@ -2345,32 +2345,32 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .module-index {
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
 }
 
 .module-name-input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   font-weight: 500;
   min-width: 0;
 }
 
 .module-name-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   outline: none;
-  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .module-card-body {
   padding: 0 14px 14px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
 }
 
 .module-fields {
@@ -2387,7 +2387,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .field-hint {
   display: block;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-top: 4px;
 }
 
@@ -2407,7 +2407,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .toggle-slider {
   position: absolute;
   inset: 0;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 20px;
   cursor: pointer;
   transition: 0.2s;
@@ -2425,7 +2425,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
   transition: 0.2s;
 }
 
-.toggle-switch input:checked + .toggle-slider { background: oklch(var(--p)); }
+.toggle-switch input:checked + .toggle-slider { background: var(--color-primary); }
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
 
 /* Buttons */
@@ -2443,10 +2443,10 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-primary { background: oklch(var(--p)); color: white; }
+.btn-primary { background: var(--color-primary); color: white; }
 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-.btn-ghost { background: transparent; border: 1px solid oklch(var(--bc) / 0.1); color: oklch(var(--bc)); }
-.btn-danger { background: transparent; color: oklch(var(--er)); }
+.btn-ghost { background: transparent; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); color: var(--color-base-content); }
+.btn-danger { background: transparent; color: var(--color-error); }
 .btn-danger:hover { background: rgba(239, 68, 68, 0.1); }
 .btn-sm { padding: 6px 12px; font-size: 12px; }
 .btn-lg { padding: 12px 32px; font-size: 16px; }
@@ -2463,8 +2463,8 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 }
 
 .group-dialog {
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   padding: 24px;
   width: 360px;
@@ -2476,7 +2476,7 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 .group-dialog h4 {
   margin: 0 0 16px;
   font-size: 16px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .group-dialog-input {

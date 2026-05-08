@@ -501,8 +501,8 @@ const {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
 }
 
 /* ============ Toolbar ============ */
@@ -511,8 +511,8 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
   flex-shrink: 0;
 }
 
@@ -535,8 +535,8 @@ const {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -552,10 +552,10 @@ const {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -564,9 +564,9 @@ const {
 }
 
 .ts-btn:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.1);
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .ts-btn:disabled {
@@ -575,13 +575,13 @@ const {
 }
 
 .ts-btn-primary {
-  background: oklch(var(--p));
-  border-color: oklch(var(--p));
+  background: var(--color-primary);
+  border-color: var(--color-primary);
   color: #fff;
 }
 
 .ts-btn-primary:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.8);
+  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
   color: #fff;
 }
 
@@ -591,14 +591,14 @@ const {
 }
 
 .ts-btn-ghost:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   border-color: transparent;
 }
 
 .ts-btn-danger:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.1);
-  border-color: oklch(var(--er));
-  color: oklch(var(--er));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .ts-btn-sm {
@@ -619,20 +619,20 @@ const {
   height: 24px;
   border: none;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .ts-btn-icon:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .ts-btn-icon.ts-btn-danger:hover {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--er));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-error);
 }
 
 .ts-btn-close {
@@ -643,13 +643,13 @@ const {
   height: 28px;
   border: none;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .ts-btn-close:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* ============ Loading / Error ============ */
@@ -659,7 +659,7 @@ const {
   justify-content: center;
   gap: 8px;
   padding: 48px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 13px;
 }
 
@@ -684,7 +684,7 @@ const {
   margin: 16px;
   border-radius: 8px;
   background: rgba(210, 15, 57, 0.08);
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-size: 13px;
 }
 
@@ -697,10 +697,10 @@ const {
   display: flex;
   align-items: center;
   gap: 0;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 0 16px;
   flex-shrink: 0;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .ts-tab {
@@ -710,7 +710,7 @@ const {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
@@ -718,13 +718,13 @@ const {
 }
 
 .ts-tab:hover {
-  color: oklch(var(--bc));
-  background: oklch(var(--p) / 0.1);
+  color: var(--color-base-content);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .ts-tab.active {
-  color: oklch(var(--p));
-  border-bottom-color: oklch(var(--p));
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
 }
 
 .ts-tab-badge {
@@ -735,7 +735,7 @@ const {
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -754,13 +754,13 @@ const {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   flex-shrink: 0;
 }
 
 .ts-hint {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-left: auto;
 }
 
@@ -787,16 +787,16 @@ const {
   text-align: left;
   font-weight: 600;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b2));
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-200);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   white-space: nowrap;
   user-select: none;
 }
 
 .ts-table td {
   padding: 2px 4px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -850,7 +850,7 @@ const {
 }
 
 .ts-row-selected td {
-  background: oklch(var(--p) / 0.1) !important;
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent) !important;
 }
 
 .ts-row-dragging {
@@ -858,14 +858,14 @@ const {
 }
 
 .ts-row-dragging td {
-  border-top: 2px solid oklch(var(--p)) !important;
-  border-bottom: 2px solid oklch(var(--p)) !important;
+  border-top: 2px solid var(--color-primary) !important;
+  border-bottom: 2px solid var(--color-primary) !important;
 }
 
 /* Drop indicator */
 .ts-drop-indicator {
   height: 3px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   position: relative;
 }
 
@@ -877,7 +877,7 @@ const {
   transform: translateY(-50%);
   width: 8px;
   height: 8px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   border-radius: 50%;
 }
 
@@ -891,7 +891,7 @@ const {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 12px;
   font-family: inherit;
   outline: none;
@@ -899,13 +899,13 @@ const {
 }
 
 .ts-input:hover {
-  border-color: oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 .ts-input:focus {
-  border-color: oklch(var(--p));
-  background: oklch(var(--b1));
+  border-color: var(--color-primary);
+  background: var(--color-base-100);
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
 }
 
@@ -921,7 +921,7 @@ const {
 }
 
 .ts-input-pri {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .ts-select {
@@ -930,7 +930,7 @@ const {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   outline: none;
@@ -939,13 +939,13 @@ const {
 }
 
 .ts-select:hover {
-  border-color: oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 .ts-select:focus {
-  border-color: oklch(var(--p));
-  background: oklch(var(--b1));
+  border-color: var(--color-primary);
+  background: var(--color-base-100);
 }
 
 .ts-select-sm {
@@ -972,7 +972,7 @@ const {
   width: 32px;
   height: 18px;
   border-radius: 9px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: relative;
   transition: all 0.2s;
 }
@@ -984,13 +984,13 @@ const {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: oklch(var(--bc));
+  background: var(--color-base-content);
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .ts-toggle input:checked + .ts-toggle-track {
-  background: oklch(var(--p));
+  background: var(--color-primary);
 }
 
 .ts-toggle input:checked + .ts-toggle-track .ts-toggle-thumb {
@@ -1000,7 +1000,7 @@ const {
 /* ============ Drag Handle ============ */
 .ts-drag-handle {
   display: inline-block;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 14px;
   line-height: 1;
   cursor: grab;
@@ -1031,7 +1031,7 @@ const {
   padding: 1px 6px;
   border-radius: 3px;
   background: rgba(210, 15, 57, 0.1);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 :root.dark .ts-deleted-badge {
@@ -1042,7 +1042,7 @@ const {
 .ts-empty {
   text-align: center;
   padding: 32px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 13px;
 }
 
@@ -1067,7 +1067,7 @@ const {
   width: 720px;
   max-width: 90vw;
   max-height: 80vh;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -1086,7 +1086,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .ts-modal-title {
@@ -1110,12 +1110,12 @@ const {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .ts-modal-hint {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin: 0 0 12px;
 }
 
@@ -1124,7 +1124,7 @@ const {
   padding: 8px 12px;
   border-radius: 6px;
   background: rgba(210, 15, 57, 0.08);
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-size: 12px;
 }
 
@@ -1134,13 +1134,13 @@ const {
 
 /* ============ SQL Preview ============ */
 .ts-sql-stmt code {
-  color: oklch(var(--su));
+  color: var(--color-success);
   word-break: break-all;
 }
 
 .ts-sql-preview {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   padding: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -1154,7 +1154,7 @@ const {
   display: flex;
   gap: 8px;
   padding: 4px 0;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .ts-sql-stmt:last-child {
@@ -1162,7 +1162,7 @@ const {
 }
 
 .ts-sql-num {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   user-select: none;
   min-width: 20px;
   text-align: right;
@@ -1180,12 +1180,12 @@ const {
 }
 
 .ts-table-wrapper::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 4px;
 }
 
 .ts-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .ts-sql-preview::-webkit-scrollbar {
@@ -1197,7 +1197,7 @@ const {
 }
 
 .ts-sql-preview::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
 }
 
@@ -1209,12 +1209,12 @@ const {
 .ts-loading-inline {
   text-align: center;
   padding: 24px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .ts-create-sql {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   padding: 16px;
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
@@ -1236,7 +1236,7 @@ const {
 }
 
 .ts-create-sql::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
 }
 </style>
