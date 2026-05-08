@@ -160,7 +160,7 @@ const onRepoSelect = async (repo) => {
   branchesLoading.value = true;
   try {
     console.log("[components/ProjectForm.vue] onRepoSelect() called")
-    availableBranches.value = (await getTauriAPI().getGitBranches(repo.path)) || [];
+    availableBranches.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
   } catch (error) {
     handleError(error, { context: 'onRepoSelect', showToast: false });
   } finally {
@@ -179,7 +179,7 @@ const onRepoSelect2 = async (repo) => {
   branchesLoading2.value = true;
   try {
     console.log("[components/ProjectForm.vue] onRepoSelect2() called")
-    availableBranches2.value = (await getTauriAPI().getGitBranches(repo.path)) || [];
+    availableBranches2.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
   } catch (error) {
     handleError(error, { context: 'onRepoSelect2', showToast: false });
   } finally {
@@ -199,7 +199,7 @@ const loadBranchesForRepo = async (repoPath, currentBranch) => {
   branchesLoading.value = true;
   try {
     console.log("[components/ProjectForm.vue] loadBranchesForRepo() called")
-    availableBranches.value = (await getTauriAPI().getGitBranches(repoPath)) || [];
+    availableBranches.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
     formData.branch = currentBranch || '';
   } catch (error) {
     handleError(error, { context: 'loadBranchesForRepo', showToast: false });
@@ -212,7 +212,7 @@ const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
   branchesLoading2.value = true;
   try {
     console.log("[components/ProjectForm.vue] loadBranchesForRepo2() called")
-    availableBranches2.value = (await getTauriAPI().getGitBranches(repoPath)) || [];
+    availableBranches2.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
     formData.branch2 = currentBranch || '';
   } catch (error) {
     handleError(error, { context: 'loadBranchesForRepo2', showToast: false });

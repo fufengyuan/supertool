@@ -116,7 +116,7 @@ export function useProjects() {
     console.log("[useProjects.ts] getGitBranches() called")
     error.value = null;
     try {
-      return (await getTauriAPI().getGitBranches(gitUrl)) || [];
+      return ((await getTauriAPI().getGitBranches(gitUrl)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'getGitBranches', showToast: false });
