@@ -39,9 +39,9 @@
       "minimumSystemVersion": "10.15"
     },
     "resources": [
-      "../../resources/openvpn/linux-x64/openvpn",
-      "../../resources/openvpn/macos-arm64",
-      "../../resources/openvpn/macos-x64"
+      "../resources/openvpn/linux-x64/openvpn",
+      "../resources/openvpn/macos-arm64",
+      "../resources/openvpn/macos-x64"
     ]
   }
 }
