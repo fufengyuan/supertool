@@ -5,7 +5,7 @@ import App from "./App.vue";
 import router from "./router";
 
 // Tailwind CSS + daisyUI + global CSS variables
-import "./assets/main.css";
+import "./styles.css";
 
 // i18n
 import zhCN from "./locales/zh-CN";
