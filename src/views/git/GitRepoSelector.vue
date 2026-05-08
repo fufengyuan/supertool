@@ -28,6 +28,22 @@
       </button>
     </div>
 
+    <!-- 扫描目录配置 -->
+    <div class="scan-dirs-section">
+      <button type="button" class="scan-dirs-toggle" @click="showScanDirs = !showScanDirs">
+        📂 {{ showScanDirs ? '收起' : '设置扫描目录' }}
+      </button>
+      <div v-if="showScanDirs" class="scan-dirs-body">
+        <textarea
+          v-model="scanDirsText"
+          class="scan-dirs-input"
+          placeholder="每行一个目录，留空则自动扫描常用目录&#10;~/projects&#10;~/IdeaProjects&#10;~/WebstormProjects"
+          rows="3"
+        ></textarea>
+        <button type="button" class="scan-dirs-confirm" @click="scanWithCustomDirs">🔍 扫描</button>
+      </div>
+    </div>
+
     <!-- 手动输入路径 -->
     <div class="manual-path-row">
       <svg class="path-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -125,6 +141,10 @@ const repos = ref<any[]>([]);
 const loading = ref(false);
 const searchQuery = ref('');
 
+// 扫描目录配置
+const showScanDirs = ref(false);
+const scanDirsText = ref('');
+
 // 手动输入路径
 const manualPath = ref('');
 const manualPathValid = ref(false);
@@ -144,6 +164,19 @@ const loadRepos = async () => {
   try {
     console.log("[GitRepoSelector.vue] loadRepos() called")
     repos.value = (await getTauriAPI().scanLocalGitRepos()) || [];
+  } catch (error) {
+    handleError(error, { context: '扫描本地仓库', showToast: true });
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 使用自定义目录扫描
+const scanWithCustomDirs = async () => {
+  const dirs = scanDirsText.value.split('\n').map(s => s.trim()).filter(Boolean);
+  loading.value = true;
+  try {
+    repos.value = (await getTauriAPI().scanLocalGitRepos(dirs.length > 0 ? dirs : undefined)) || [];
   } catch (error) {
     handleError(error, { context: '扫描本地仓库', showToast: true });
   } finally {
@@ -228,6 +261,25 @@ const clearManualPath = () => {
 .refresh-btn:hover { background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
 .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+
+/* 扫描目录配置 */
+.scan-dirs-section { margin-top: 6px; padding: 0 12px; }
+.scan-dirs-toggle {
+  font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: none; border: none; padding: 2px 0; cursor: pointer;
+}
+.scan-dirs-toggle:hover { color: var(--color-primary); }
+.scan-dirs-body { margin-top: 4px; display: flex; gap: 6px; align-items: flex-start; }
+.scan-dirs-input {
+  flex: 1; font-size: 11px; padding: 6px 8px; resize: vertical;
+  background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  border-radius: 6px; color: var(--color-base-content); font-family: monospace;
+}
+.scan-dirs-confirm {
+  font-size: 11px; padding: 6px 10px; border-radius: 6px;
+  background: var(--color-primary); color: var(--color-primary-content); border: none;
+  white-space: nowrap;
+}
 
 /* 手动输入路径 */
 .manual-path-row {
