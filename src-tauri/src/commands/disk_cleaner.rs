@@ -33,11 +33,6 @@ pub struct CachePath {
     pub safe_to_clean: bool,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct DeleteParams {
-    pub paths: Vec<String>,
-}
-
 #[derive(Debug, Serialize)]
 pub struct DeleteResult {
     pub success: Vec<String>,
@@ -60,6 +55,15 @@ pub struct DuplicateGroup {
     pub files: Vec<DirEntry>,
     pub total_size: u64,
     pub wasted_space: u64,
+}
+
+// ─── Home Dir ───
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_home_dir() -> String {
+    dirs::home_dir()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 // ─── Disk Info ───
@@ -126,6 +130,10 @@ pub fn scan_directory(path: String) -> Result<Vec<DirEntry>, String> {
         };
         let entry_path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
+        // Skip symlinks to avoid infinite loops
+        if entry_path.is_symlink() {
+            continue;
+        }
         let metadata = match entry_path.symlink_metadata() {
             Ok(m) => m,
             Err(_) => continue,
@@ -418,6 +426,15 @@ pub fn get_cache_paths() -> Vec<CachePath> {
 
 // ─── Delete Items ───
 
+/// Protected paths that cannot be deleted
+fn is_protected_path(path: &Path) -> bool {
+    let protected = ["/", "/usr", "/etc", "/var", "/bin", "/sbin", "/lib", "/System", "/Applications"];
+    let path_str = path.to_string_lossy();
+    protected.iter().any(|p| {
+        path_str == *p || path_str.starts_with(&format!("{}/", p))
+    })
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub fn delete_items(paths: Vec<String>) -> DeleteResult {
     let mut success = Vec::new();
@@ -428,6 +445,11 @@ pub fn delete_items(paths: Vec<String>) -> DeleteResult {
         let path = PathBuf::from(path_str);
         if !path.exists() {
             failed.push((path_str.clone(), "路径不存在".to_string()));
+            continue;
+        }
+        // Safety: prevent deletion of system paths
+        if is_protected_path(&path) {
+            failed.push((path_str.clone(), "系统保护路径，禁止删除".to_string()));
             continue;
         }
 
@@ -501,6 +523,10 @@ fn calculate_dir_size(dir: &Path) -> io::Result<u64> {
         for entry in entries {
             if let Ok(entry) = entry {
                 let path = entry.path();
+                // Skip symlinks to avoid infinite loops
+                if path.is_symlink() {
+                    continue;
+                }
                 if path.is_dir() {
                     if let Ok(s) = calculate_dir_size(&path) {
                         total += s;
@@ -535,7 +561,7 @@ fn walk_for_duplicates(
     let mut processed = 0;
 
     while let Some(current) = stack.pop() {
-        if processed >= 10000 {
+        if processed >= 50000 {
             return;
         }
         if let Ok(entries) = fs::read_dir(&current) {
@@ -543,6 +569,10 @@ fn walk_for_duplicates(
                 if let Ok(entry) = entry {
                     processed += 1;
                     let path = entry.path();
+                    // Skip symlinks
+                    if path.is_symlink() {
+                        continue;
+                    }
                     if let Ok(metadata) = entry.metadata() {
                         if metadata.is_dir() {
                             stack.push(path);

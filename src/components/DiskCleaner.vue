@@ -40,7 +40,7 @@
         <button class="btn btn-sm btn-warning gap-1" @click="deleteSelected">
           🗑️ 删除选中
         </button>
-        <button class="btn btn-sm btn-ghost" @click="selectedPaths.clear()">取消</button>
+        <button class="btn btn-sm btn-ghost" @click="clearSelection">取消</button>
       </div>
     </div>
 
@@ -63,6 +63,11 @@
             <span v-if="scanning" class="loading loading-spinner loading-xs"></span>
             {{ scanning ? '扫描中...' : '🔍 扫描' }}
           </button>
+        </div>
+
+        <div v-if="errorMessage" class="alert alert-error my-3">
+          <span>{{ errorMessage }}</span>
+          <button class="btn btn-sm btn-ghost" @click="errorMessage = ''">✕</button>
         </div>
 
         <div v-if="dirEntries.length === 0 && !scanning" class="text-center py-20 text-base-content/40">
@@ -232,13 +237,15 @@ interface DiskInfo { mountPoint: string; total: number; used: number; free: numb
 
 const activeTab = ref('directory')
 const scanning = ref(false)
+const errorMessage = ref('')
 const currentPath = ref('/')
+const defaultScanPath = ref('/')
 const dirEntries = ref<DirEntry[]>([])
 const categories = ref<FileCategory[]>([])
 const cachePaths = ref<CachePath[]>([])
 const duplicateGroups = ref<DuplicateGroup[]>([])
 const diskInfo = ref<DiskInfo[]>([])
-const selectedPaths = ref(new Set<string>())
+const selectedPaths = ref<Map<string, number>>(new Map())
 const selectedTotalSize = ref(0)
 
 const categoryScanPath = ref('/')
@@ -278,21 +285,29 @@ function getFileIcon(name: string): string {
 }
 
 function toggleSelect(path: string, size: number) {
-  if (selectedPaths.value.has(path)) {
-    selectedPaths.value.delete(path)
+  const map = new Map(selectedPaths.value)
+  if (map.has(path)) {
+    map.delete(path)
     selectedTotalSize.value -= size
   } else {
-    selectedPaths.value.add(path)
+    map.set(path, size)
     selectedTotalSize.value += size
   }
+  selectedPaths.value = map
+}
+
+function clearSelection() {
+  selectedPaths.value = new Map()
+  selectedTotalSize.value = 0
 }
 
 async function scanCurrentDir() {
   scanning.value = true
+  errorMessage.value = ''
   try {
     dirEntries.value = await invoke('scan_directory', { path: currentPath.value })
   } catch (e: any) {
-    console.error('扫描失败:', e)
+    errorMessage.value = e.message || '扫描失败'
   } finally {
     scanning.value = false
   }
@@ -367,7 +382,7 @@ function deleteSelected() {
 }
 
 async function confirmDelete() {
-  const paths = Array.from(selectedPaths.value)
+  const paths = Array.from(selectedPaths.value.keys())
   try {
     const result: any = await invoke('delete_items', { paths })
     if (result.success?.length > 0) {
@@ -381,8 +396,7 @@ async function confirmDelete() {
   } catch (e: any) {
     alert('删除失败: ' + e.message)
   } finally {
-    selectedPaths.value.clear()
-    selectedTotalSize.value = 0
+    clearSelection()
     deleteDialog.value?.close()
   }
 }
@@ -418,8 +432,18 @@ function refreshCurrentView() {
   else if (activeTab.value === 'duplicate') scanDuplicates()
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadDiskInfo()
   loadCachePaths()
+  // Detect home directory for default scan paths
+  try {
+    const home = await invoke<string>('get_home_dir')
+    if (home) {
+      defaultScanPath.value = home
+      categoryScanPath.value = home
+      dupScanPath.value = home
+      currentPath.value = home
+    }
+  } catch {}
 })
 </script>
