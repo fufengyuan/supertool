@@ -322,8 +322,13 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             checksum TEXT NOT NULL DEFAULT '',
             comment TEXT NOT NULL DEFAULT '',
             isCurrent INTEGER NOT NULL DEFAULT 0,
-            createdAt TEXT NOT NULL
+            createdAt TEXT NOT NULL,
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
         );
+
+        CREATE INDEX IF NOT EXISTS idx_nginx_config_versions_preset ON nginx_config_versions(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_config_versions_current ON nginx_config_versions(presetId, isCurrent);
+        CREATE INDEX IF NOT EXISTS idx_nginx_presets_server ON nginx_presets(serverId);
 
         "#,
     )?;

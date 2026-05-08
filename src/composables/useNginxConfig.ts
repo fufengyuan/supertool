@@ -93,10 +93,10 @@ export function useNginxConfig() {
   }
 
   // Test nginx config
-  const testConfig = async (serverId: string) => {
+  const testConfig = async (serverId: string, configPath: string) => {
     try {
       loading.value = true
-      const result = await getTauriAPI().testNginxConfig(serverId)
+      const result = await getTauriAPI().testNginxConfig(serverId, configPath)
       testResult.value = result?.data || result
       return result?.data || result
     } catch (err) {
@@ -145,7 +145,10 @@ export function useNginxConfig() {
     try {
       loading.value = true
       const version = versions.value.find(v => v.id === versionId)
-      if (!version) return
+      if (!version) {
+        toast.error('未找到指定版本')
+        return
+      }
 
       // Deploy the old version's content
       const p = currentPreset.value

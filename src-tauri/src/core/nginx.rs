@@ -15,6 +15,11 @@ pub struct NginxDeployResult {
     pub message: String,
 }
 
+/// Escape a path for safe use in shell single quotes
+fn shell_escape_path(path: &str) -> String {
+    path.replace('\'', "'\\''")
+}
+
 impl CoreService {
     /// Fetch nginx config content from remote server
     pub async fn fetch_nginx_config(
@@ -23,21 +28,27 @@ impl CoreService {
         config_path: &str,
     ) -> Result<ApiResponse<String>, String> {
         let sid = server_id.to_string();
-        let path = config_path.to_string();
+        let safe_path = shell_escape_path(config_path);
         let result = self
-            .run_ssh_blocking(move |ssh| ssh.exec_command(&sid, &format!("cat {}", path)))
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid, &format!("cat '{}'", safe_path))
+            })
             .await?;
         Ok(ApiResponse::ok(result.output))
     }
 
-    /// Test nginx config on remote server (nginx -t)
+    /// Test nginx config on remote server (nginx -t -c <path>)
     pub async fn test_nginx_config(
         &self,
         server_id: &str,
+        config_path: &str,
     ) -> Result<ApiResponse<NginxTestResult>, String> {
         let sid = server_id.to_string();
+        let safe_path = shell_escape_path(config_path);
         let result = self
-            .run_ssh_blocking(move |ssh| ssh.exec_command(&sid, "nginx -t 2>&1"))
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid, &format!("nginx -t -c '{}' 2>&1", safe_path))
+            })
             .await?;
         let output = result.output.clone();
         let passed =
@@ -54,60 +65,98 @@ impl CoreService {
         server_id: &str,
         config_path: &str,
         content: &str,
-        _comment: &str,
     ) -> Result<ApiResponse<NginxDeployResult>, String> {
         let sid = server_id.to_string();
-        let path = config_path.to_string();
-        let ts = chrono::Utc::now().format("%Y%m%d%H%M%S").to_string();
-        let backup_path = format!("{}.bak.{}", path, ts);
+        let safe_path = shell_escape_path(config_path);
+        let ts = chrono::Utc::now().format("%Y%m%d%H%M%S%3f").to_string();
+        let backup_path = format!("{}.bak.{}", config_path, ts);
+        let safe_backup = shell_escape_path(&backup_path);
 
         // 1. Backup current config
         let sid2 = sid.clone();
-        let backup_cmd = format!("cp {} {}", path, backup_path);
-        self.run_ssh_blocking(move |ssh| ssh.exec_command(&sid2, &backup_cmd))
+        let sp2 = safe_path.clone();
+        let sb2 = safe_backup.clone();
+        let backup_result = self
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid2, &format!("cp '{}' '{}'", sp2, sb2))
+            })
             .await?;
+        if !backup_result.success {
+            return Ok(ApiResponse::err(format!(
+                "Backup failed: {}",
+                backup_result.output
+            )));
+        }
 
         // 2. Write new config via base64 to avoid shell escaping issues
         let encoded =
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
-        let write_cmd = format!(
-            "echo '{}' | base64 -d > {}",
-            encoded, path
-        );
         let sid3 = sid.clone();
-        self.run_ssh_blocking(move |ssh| ssh.exec_command(&sid3, &write_cmd))
+        let sp3 = safe_path.clone();
+        // Use printf instead of echo to avoid portability issues
+        let write_result = self
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(
+                    &sid3,
+                    &format!("printf '%s' '{}' | base64 -d > '{}'", encoded, sp3),
+                )
+            })
             .await?;
+        if !write_result.success {
+            // Rollback: restore backup
+            let sid_rb = sid.clone();
+            let sb_rb = safe_backup.clone();
+            let sp_rb = safe_path.clone();
+            self.run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid_rb, &format!("cp '{}' '{}'", sb_rb, sp_rb))
+            })
+            .await?;
+            return Ok(ApiResponse::err(format!(
+                "Write failed, rolled back: {}",
+                write_result.output
+            )));
+        }
 
         // 3. Test new config
         let sid4 = sid.clone();
+        let sp4 = safe_path.clone();
         let test_result = self
-            .run_ssh_blocking(move |ssh| ssh.exec_command(&sid4, "nginx -t 2>&1"))
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid4, &format!("nginx -t -c '{}' 2>&1", sp4))
+            })
             .await?;
         if !test_result.output.contains("syntax is ok")
             && !test_result.output.contains("test is successful")
         {
             // Rollback: restore backup
             let sid5 = sid.clone();
-            let rb_cmd = format!("cp {} {}", backup_path, path);
-            self.run_ssh_blocking(move |ssh| ssh.exec_command(&sid5, &rb_cmd))
-                .await?;
+            let sb5 = safe_backup.clone();
+            let sp5 = safe_path.clone();
+            self.run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid5, &format!("cp '{}' '{}'", sb5, sp5))
+            })
+            .await?;
             return Ok(ApiResponse::err(format!(
                 "nginx -t failed, rolled back: {}",
                 test_result.output
             )));
         }
 
-        // 4. Reload nginx
+        // 4. Reload nginx (try systemctl first, fallback to nginx -s)
         let sid6 = sid.clone();
-        self.run_ssh_blocking(move |ssh| {
-            ssh.exec_command(&sid6, "nginx -s reload 2>&1")
-        })
-        .await?;
+        let reload_result = self
+            .run_ssh_blocking(move |ssh| {
+                ssh.exec_command(
+                    &sid6,
+                    "systemctl reload nginx 2>/dev/null || nginx -s reload 2>&1",
+                )
+            })
+            .await?;
 
         Ok(ApiResponse::ok(NginxDeployResult {
             success: true,
             backup_path,
-            message: "Config deployed and nginx reloaded".to_string(),
+            message: format!("Config deployed. Reload: {}", reload_result.output.trim()),
         }))
     }
 
@@ -119,13 +168,20 @@ impl CoreService {
         backup_path: &str,
     ) -> Result<ApiResponse<String>, String> {
         let sid = server_id.to_string();
-        let path = config_path.to_string();
-        let bp = backup_path.to_string();
-        let cmd = format!("cp {} {} && nginx -t 2>&1 && nginx -s reload", bp, path);
+        let safe_path = shell_escape_path(config_path);
+        let safe_backup = shell_escape_path(backup_path);
+        let cmd = format!(
+            "cp '{}' '{}' && nginx -t -c '{}' 2>&1 && (systemctl reload nginx 2>/dev/null || nginx -s reload 2>&1)",
+            safe_backup, safe_path, safe_path
+        );
         let result = self
             .run_ssh_blocking(move |ssh| ssh.exec_command(&sid, &cmd))
             .await?;
-        Ok(ApiResponse::ok(result.output))
+        if result.output.contains("syntax is ok") || result.output.contains("test is successful") {
+            Ok(ApiResponse::ok(result.output))
+        } else {
+            Ok(ApiResponse::err(format!("Rollback test failed: {}", result.output)))
+        }
     }
 
     // ============ Nginx DB Operations ============
