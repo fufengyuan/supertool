@@ -901,7 +901,7 @@ pub async fn rollback(
         rolled_back: true,
         rolled_back_at: Some(now.clone()),
     };
-    core.db_write(|conn| cicd_add_deploy_history(conn, &history))?;
+    let _ = core.db_write(|conn| cicd_add_deploy_history(conn, &history))?;
 
     Ok(serde_json::json!({
         "success": rollback_errors.is_empty(),
@@ -1205,7 +1205,7 @@ pub async fn delete_deploy_module(
     module_id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_deploy_module() called");
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         crate::db::cicd::delete_deploy_module(conn, &module_id).map_err(|e| e.to_string())
     })?;
     Ok(serde_json::json!({ "success": true }))

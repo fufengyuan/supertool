@@ -308,7 +308,7 @@ impl JsonRouter {
         });
         router.register("openvpn:delete", |core, params| async move {
             let id = params.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            core.db_write(|conn| {
+            let _ = core.db_write(|conn| {
                 crate::db::openvpn::delete(conn, &id).map_err(|e| e.to_string())
             })?;
             Ok(serde_json::json!({ "success": true }))
@@ -605,7 +605,7 @@ impl JsonRouter {
             let branch = params.get("branch").and_then(|v| v.as_str()).unwrap_or("main").to_string();
             let id = uuid::Uuid::new_v4().to_string();
             let now = chrono::Utc::now().to_rfc3339();
-            core.db_write(|conn| {
+            let _ = core.db_write(|conn| {
                 match conn.execute(
                     "INSERT INTO git_repos (id, path, remote, branch, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?)",
                     &[&id as &dyn rusqlite::ToSql, &path, &remote, &branch, &now, &now]
@@ -618,7 +618,7 @@ impl JsonRouter {
         });
         router.register("git:repos:delete", |core, params| async move {
             let id = params.get("id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-            core.db_write(|conn| {
+            let _ = core.db_write(|conn| {
                 match conn.execute("DELETE FROM git_repos WHERE id = ?", &[&id as &dyn rusqlite::ToSql]) {
                     Ok(_) => Ok(()),
                     Err(e) => Err(e.to_string()),
@@ -632,7 +632,7 @@ impl JsonRouter {
             let remote = params.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
             let branch = params.get("branch").and_then(|v| v.as_str()).unwrap_or("main").to_string();
             let now = chrono::Utc::now().to_rfc3339();
-            core.db_write(|conn| {
+            let _ = core.db_write(|conn| {
                 match conn.execute(
                     "UPDATE git_repos SET path=?, remote=?, branch=?, updatedAt=? WHERE id=?",
                     &[&path as &dyn rusqlite::ToSql, &remote, &branch, &now, &id]

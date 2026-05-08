@@ -141,7 +141,7 @@ pub async fn update_order(
     for item in &items {
         let id = item["id"].as_str().unwrap_or("").to_string();
         let order_num = item["orderNum"].as_i64().unwrap_or(0);
-        core.db_write(|conn| {
+        let _ = core.db_write(|conn| {
             conn.execute(
                 "UPDATE todos SET orderNum = ?1, updatedAt = ?2 WHERE id = ?3",
                 rusqlite::params![order_num, now, id],
@@ -190,7 +190,7 @@ pub async fn create_repeat_instance(
         ?.ok_or("Todo not found".to_string())?;
 
     let parent_id = todo_id.clone();
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         conn.execute(
             "INSERT INTO todos (id, text, completed, priority, dueDate, description, markdownDescription, tag, createdAt, updatedAt, orderNum, repeatCount, parentTodoId, projectId) VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11)",
             params![

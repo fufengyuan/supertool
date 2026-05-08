@@ -57,6 +57,7 @@ impl UdsResponse {
 
 /// 流式事件 — 用于 log:tail / cicd:deploy-stream
 #[derive(Debug, Serialize)]
+#[allow(dead_code)]
 pub struct StreamEvent {
     pub stream: bool,
     pub event: String,
@@ -65,6 +66,7 @@ pub struct StreamEvent {
 }
 
 impl StreamEvent {
+    #[allow(dead_code)]
     pub fn new(event: &str, payload: Value) -> Self {
         Self {
             stream: true,
@@ -73,6 +75,7 @@ impl StreamEvent {
         }
     }
 
+    #[allow(dead_code)]
     pub fn to_line(&self) -> String {
         format!("{}\n", serde_json::to_string(self).unwrap_or_default())
     }
@@ -109,6 +112,7 @@ impl LineBuffer {
         lines
     }
 
+    #[allow(dead_code)]
     pub fn clear(&mut self) {
         self.buffer.clear();
     }

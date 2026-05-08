@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 /// Tray + Notification 管理
 ///
 /// Tauri 2.0 原生支持系统托盘和通知，无需额外依赖。

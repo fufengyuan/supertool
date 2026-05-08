@@ -230,6 +230,7 @@ impl UdsServer {
     }
 
     /// 请求停止
+    #[allow(dead_code)]
     pub async fn stop(&self) {
         let mut flag = self.shutdown.lock().await;
         *flag = true;

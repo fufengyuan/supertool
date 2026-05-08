@@ -266,6 +266,7 @@ pub fn delete_server_group(db: &mut Database, group_id: String) -> ApiResponse<S
 
 // ============ Connection Test ============
 
+#[allow(dead_code)]
 pub fn test_connection(
     host: String,
     port: i64,

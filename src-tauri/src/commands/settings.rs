@@ -52,7 +52,7 @@ pub async fn get_app_version() -> Result<serde_json::Value, String> {
 // =================== Additional Commands ===================
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn check_network_permission(host: String, port: i64) -> Result<serde_json::Value, String> {
+pub fn check_network_permission(_host: String, port: i64) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] check_network_permission() called");
     use std::net::UdpSocket;
     

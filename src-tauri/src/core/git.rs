@@ -57,6 +57,7 @@ async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
 }
 
 /// 执行 git 命令并返回 JSON 格式结果
+#[allow(dead_code)]
 async fn run_git_json(repo_path: &str, args: &[&str]) -> Result<Value, String> {
     let output = run_git(repo_path, args).await?;
     Ok(json!({"output": output}))

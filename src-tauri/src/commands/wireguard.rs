@@ -65,7 +65,7 @@ pub async fn wireguard_update(
     let peer_keepalive = data["peerPersistentKeepalive"].as_i64();
     let preshared_key = data["presharedKey"].as_str().map(|s| s.to_string());
 
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         db_wg::update(
             conn, &id, &name, &private_key, &public_key, &address,
             dns.as_deref(), mtu,
@@ -81,7 +81,7 @@ pub async fn wireguard_delete(
     core: tauri::State<'_, crate::core::CoreService>,
     id: String,
 ) -> Result<serde_json::Value, String> {
-    core.db_write(|conn| db_wg::delete(conn, &id).map_err(|e| e.to_string()))?;
+    let _ = core.db_write(|conn| db_wg::delete(conn, &id).map_err(|e| e.to_string()))?;
     Ok(serde_json::json!({ "success": true }))
 }
 

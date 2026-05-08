@@ -175,7 +175,7 @@ pub async fn upload_accounting_receipt(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_accounting_receipt_file(
-    core: State<'_, CoreService>,
+    _core: State<'_, CoreService>,
     file_path: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_accounting_receipt_file() called: {}", file_path);

@@ -1,7 +1,7 @@
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use scrypt::{Scrypt, Params as ScryptParams};
+use scrypt::Params as ScryptParams;
 use std::sync::LazyLock;
 
 /// AES-256-GCM 加密密钥（生产环境应从 keychain/keystore 读取）
@@ -107,7 +107,7 @@ pub fn decrypt_password_electron(stored: &str) -> Result<String, String> {
     let iv_array: [u8; 12] = iv.try_into().map_err(|_| "IV 长度不正确".to_string())?;
     let nonce = Nonce::from_slice(&iv_array);
 
-    let payload = Payload {
+    let _payload = Payload {
         msg: &encrypted_data,
         aad: &[],
     };
