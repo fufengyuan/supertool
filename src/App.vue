@@ -17,12 +17,14 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 import GlobalSearch from '@/components/GlobalSearch.vue'
 import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
+import { useAppStore } from '@/stores/appStore'
 
 const isDark = ref(false)
 const showAboutDialog = ref(false)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
 const globalSearchRef = ref<InstanceType<typeof GlobalSearch> | null>(null)
 const router = useRouter()
+const appStore = useAppStore()
 
 async function onQuickSwitchSelect(viewId: string) {
   // Navigate via router
@@ -78,6 +80,9 @@ onMounted(async () => {
     globalSearchRef.value?.open()
   }).catch(() => () => {})
   unlistenFns.push(unlistenSearch as () => void)
+
+  // Initialize frequent menu with stored click data
+  setTimeout(() => appStore.updateNativeFrequentMenu(), 500)
 })
 
 onUnmounted(async () => {
