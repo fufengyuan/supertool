@@ -2,12 +2,56 @@
 ///
 /// 完整部署流水线：Git同步 → 构建 → 收集产物 → SFTP上传 → 远程重启
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
+
+/// 获取用户登录 shell 的完整环境变量（加载 .zshrc/.zprofile/.bash_profile）
+fn get_user_shell_env() -> HashMap<String, String> {
+    let output = std::process::Command::new("zsh")
+        .args(["-l", "-c", "env"])
+        .output()
+        .ok();
+    
+    let mut env = HashMap::new();
+    if let Some(out) = output {
+        let text = String::from_utf8_lossy(&out.stdout);
+        for line in text.lines() {
+            if let Some(pos) = line.find('=') {
+                let key = &line[..pos];
+                let value = &line[pos + 1..];
+                env.insert(key.to_string(), value.to_string());
+            }
+        }
+    }
+    env
+}
+
+/// 创建继承用户 shell 环境变量的本地 Command（替代 Command::new）
+/// 自动加载 NVM、Homebrew、nvm、rvm 等所有 shell 初始化的环境变量
+pub fn user_shell_cmd(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    let shell_env = get_user_shell_env();
+    // 注入用户 shell 的完整环境变量
+    for (key, value) in shell_env {
+        cmd.env(key, value);
+    }
+    cmd
+}
+
+/// 同步版本（用于 collect_artifacts 等非异步场景）
+fn user_shell_cmd_sync(program: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new(program);
+    let shell_env = get_user_shell_env();
+    for (key, value) in shell_env {
+        cmd.env(key, value);
+    }
+    cmd
+}
 
 // =================== Types ===================
 
@@ -141,6 +185,9 @@ pub async fn execute_deploy(
     deploy_id: &str,
     on_progress: impl Fn(ProgressEvent) + Send + Sync,
 ) -> Result<DeployResult, String> {
+    // Load user shell environment (zsh login shell gets NVM, Homebrew, etc.)
+    let shell_env = get_user_shell_env();
+
     let log_dir = PathBuf::from(data_dir).join("deploy-logs");
     fs::create_dir_all(&log_dir).map_err(|e| format!("创建日志目录失败: {}", e))?;
 
@@ -525,7 +572,7 @@ async fn build_single_module(
     if let Some(ref cmd) = module.build_command {
         emit("build", "starting", &format!("执行构建命令: {}", cmd));
 
-        let mut child = Command::new("sh")
+        let mut child = user_shell_cmd("sh")
             .arg("-c")
             .arg(cmd)
             .current_dir(&build_path)
@@ -599,7 +646,7 @@ async fn run_maven_build(
         args.push(settings);
     }
 
-    let mut cmd = Command::new(&mvn);
+    let mut cmd = user_shell_cmd(&mvn.to_string_lossy());
     cmd.args(&args).current_dir(build_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
@@ -662,7 +709,7 @@ async fn run_npm_build(
 
     let npm_cmd = resolve_npm_cmd(config, tool);
 
-    let mut cmd = Command::new(&npm_cmd);
+    let mut cmd = user_shell_cmd(&npm_cmd);
     cmd.args(["run", script]).current_dir(build_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
@@ -723,7 +770,7 @@ async fn run_gradle_build(
         "gradle".to_string()
     };
 
-    let mut cmd = Command::new("sh");
+    let mut cmd = user_shell_cmd("sh");
     cmd.arg("-c").arg(format!("{} clean build", gradle));
     cmd.current_dir(build_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
@@ -803,27 +850,7 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
             extra_paths.push(format!("{}/bin", nh));
         }
     }
-    // Homebrew (Apple Silicon)
-    extra_paths.push("/opt/homebrew/bin".to_string());
-    // Homebrew (Intel)
     extra_paths.push("/usr/local/bin".to_string());
-    // NVM default
-    if let Ok(home) = std::env::var("HOME") {
-        let nvm_versions = PathBuf::from(&home).join(".nvm/versions/node");
-        if nvm_versions.is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
-                let mut versions: Vec<_> = entries
-                    .filter_map(|e| e.ok())
-                    .filter(|e| e.path().is_dir())
-                    .filter_map(|e| e.file_name().into_string().ok())
-                    .collect();
-                versions.sort();
-                if let Some(latest) = versions.last() {
-                    extra_paths.push(format!("{}/{}/bin", nvm_versions.display(), latest));
-                }
-            }
-        }
-    }
     extra_paths.push("/usr/bin".to_string());
     extra_paths.push("/bin".to_string());
 
