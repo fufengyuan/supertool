@@ -1,125 +1,125 @@
 <template>
-  <div class="note-manager">
-    <div class="note-header">
-      <div class="note-header-left">
-        <div class="header-icon">📝</div>
-        <div class="header-info">
-          <h2 class="note-title">笔记</h2>
-          <p class="note-subtitle">记录工作与生活的灵感</p>
+  <div class="w-full max-w-[1400px] mx-auto flex flex-col gap-5 h-[calc(100vh-40px)] p-2">
+    <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-br from-base-100 to-[rgba(66,133,244,0.05)] rounded-xl border border-base-content/10 shrink-0">
+      <div class="flex items-center gap-3.5">
+        <div class="w-12 h-12 flex items-center justify-center text-2xl bg-gradient-to-br from-[#fbbc04] to-[#ff6d01] rounded-xl shadow-[0_3px_10px_rgba(251,188,4,0.25)]">📝</div>
+        <div class="flex flex-col gap-0.5">
+          <h2 class="text-xl font-bold text-base-content m-0">笔记</h2>
+          <p class="text-xs text-base-content/60 m-0 opacity-80">记录工作与生活的灵感</p>
         </div>
       </div>
-      <div class="note-header-actions">
-        <div class="search-wrapper">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input v-model="searchQuery" class="search-input" placeholder="搜索笔记..." @input="onSearch"/>
+      <div class="flex items-center gap-3">
+        <div class="relative flex items-center text-base-content/60">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-2.5 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input v-model="searchQuery" class="input input-bordered rounded-full px-3 py-2 pl-9 text-xs w-[200px] transition-all duration-200 focus:w-[260px] focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="搜索笔记..." @input="onSearch"/>
         </div>
-        <button class="btn-new" @click="createNewNote">
+        <button class="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-none rounded-full bg-gradient-to-br from-primary to-[#34a853] text-white cursor-pointer transition-all duration-200 shadow-[0_2px_6px_rgba(66,133,244,0.25)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(66,133,244,0.35)]" @click="createNewNote">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           新建笔记
         </button>
       </div>
     </div>
-    <div class="note-layout">
-      <aside class="note-sidebar">
-        <div class="group-section">
-          <div class="group-header" @click="groupsCollapsed = !groupsCollapsed">
-            <span class="group-header-title">📁 分组</span>
-            <svg class="group-chevron" :class="{ collapsed: groupsCollapsed }" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    <div class="flex gap-4 flex-1 min-h-0">
+      <aside class="w-72 min-w-[280px] bg-base-100 rounded-xl border border-base-content/10 overflow-y-auto shrink-0 flex flex-col">
+        <div class="border-b border-base-content/10 shrink-0">
+          <div class="flex items-center justify-between px-3.5 py-2.5 cursor-pointer select-none transition-colors duration-150 hover:bg-base-200" @click="groupsCollapsed = !groupsCollapsed">
+            <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">📁 分组</span>
+            <svg :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
-          <div v-show="!groupsCollapsed" class="group-list">
-            <div class="group-item" :class="{ active: selectedGroupId === '__all__' }" @click="selectGroup('__all__')">
-              <span class="group-icon">📋</span><span class="group-name">全部</span>
+          <div v-show="!groupsCollapsed" class="px-2 pb-2 pt-1">
+            <div :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
+              <span class="text-sm shrink-0">📋</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">全部</span>
             </div>
-            <div class="group-item" :class="{ active: selectedGroupId === '__ungrouped__' }" @click="selectGroup('__ungrouped__')">
-              <span class="group-icon">📄</span><span class="group-name">未分组</span>
+            <div :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
+              <span class="text-sm shrink-0">📄</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">未分组</span>
             </div>
-            <div v-for="group in noteGroups" :key="group.id" class="group-item" :class="{ active: selectedGroupId === group.id }" @click="selectGroup(group.id)">
-              <span class="group-icon">{{ group.icon || '📁' }}</span>
-              <span class="group-name">{{ group.name }}</span>
-              <div class="group-actions" @click.stop>
-                <button class="group-action-btn" @click="startRenameGroup(group)" title="重命名">✏️</button>
-                <button class="group-action-btn group-action-delete" @click="confirmDeleteGroup(group)" title="删除">🗑️</button>
+            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
+              <span class="text-sm shrink-0">{{ group.icon || '📁' }}</span>
+              <span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ group.name }}</span>
+              <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150" @click.stop>
+                <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-black/8" @click="startRenameGroup(group)" title="重命名">✏️</button>
+                <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-[rgba(210,15,57,0.15)]" @click="confirmDeleteGroup(group)" title="删除">🗑️</button>
               </div>
             </div>
-            <div class="group-add" @click="showCreateGroup = true">
+            <div class="flex items-center gap-1.5 px-2.5 py-[7px] rounded-lg cursor-pointer text-base-content/60 text-xs transition-all duration-150 mt-0.5 hover:bg-base-200 hover:text-primary" @click="showCreateGroup = true">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>新建分组</span>
             </div>
           </div>
         </div>
-        <div v-if="filteredNotes.length === 0" class="sidebar-empty">
+        <div v-if="filteredNotes.length === 0" class="px-5 py-10 text-center text-base-content/60 text-sm">
           <p>{{ searchQuery ? '没有匹配的笔记' : '暂无笔记' }}</p>
         </div>
-        <div v-else class="note-list">
-          <div v-for="note in filteredNotes" :key="note.id" class="note-list-item" :class="{ active: selectedNote?.id === note.id, pinned: note.pinned }" @click="selectNote(note)">
-            <div class="note-item-top">
-              <div class="note-item-title">
-                <span v-if="note.pinned" class="pin-icon">📌</span>
-                <span class="title-text" v-html="highlightText(note.title || '无标题')"></span>
+        <div v-else class="flex flex-col overflow-y-auto flex-1">
+          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3.5 py-3 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.08)] border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-[rgba(251,188,4,0.05)]': note.pinned }]" @click="selectNote(note)">
+            <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center gap-1 min-w-0 flex-1">
+                <span v-if="note.pinned" class="text-xs shrink-0">📌</span>
+                <span class="text-sm font-semibold text-base-content overflow-hidden text-ellipsis whitespace-nowrap" v-html="highlightText(note.title || '无标题')"></span>
               </div>
-              <button class="note-item-delete" @click.stop="confirmDelete(note)" title="删除">
+              <button class="w-6 h-6 flex items-center justify-center border-none rounded-lg bg-transparent text-base-content/60 cursor-pointer opacity-0 transition-all duration-150 shrink-0 group-hover/item:opacity-100 hover:bg-[rgba(210,15,57,0.1)] hover:text-error" @click.stop="confirmDelete(note)" title="删除">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div class="note-item-preview" v-html="highlightText(getPreview(note.content))"></div>
-            <div class="note-item-meta">
-              <span class="note-item-date">{{ formatDate(note.updatedAt) }}</span>
-              <span v-if="getGroupName(note.groupId)" class="note-item-group">{{ getGroupName(note.groupId) }}</span>
+            <div class="text-xs text-base-content/60 opacity-80 overflow-hidden text-ellipsis whitespace-nowrap mb-1" v-html="highlightText(getPreview(note.content))"></div>
+            <div class="flex items-center justify-between text-[11px] text-base-content/60 opacity-60">
+              <span>{{ formatDate(note.updatedAt) }}</span>
+              <span v-if="getGroupName(note.groupId)" class="badge badge-sm badge-ghost text-primary bg-[rgba(66,133,244,0.1)] border-none text-[10px]">{{ getGroupName(note.groupId) }}</span>
             </div>
           </div>
         </div>
       </aside>
-      <main class="note-editor">
+      <main class="flex-1 min-w-0 bg-base-100 rounded-xl border border-base-content/10 flex flex-col overflow-hidden">
         <template v-if="selectedNote">
-          <div class="editor-toolbar">
-            <div class="toolbar-left">
-              <button class="toolbar-btn" :class="{ active: editMode }" @click="editMode = !editMode" :title="editMode ? '预览' : '编辑'">{{ editMode ? '👁️ 预览' : '✏️ 编辑' }}</button>
-              <button class="toolbar-btn" :class="{ active: selectedNote.pinned }" @click="togglePin" title="置顶">📌 置顶</button>
-              <div class="group-selector-wrapper">
-                <button class="toolbar-btn group-selector-btn" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'">📁 {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
-                <div v-if="showGroupSelector" class="group-selector-dropdown">
-                  <div class="group-option" :class="{ selected: selectedNote.groupId === null }" @click="assignGroup(null)"><span>📄 未分组</span></div>
-                  <div v-for="group in noteGroups" :key="group.id" class="group-option" :class="{ selected: selectedNote.groupId === group.id }" @click="assignGroup(group.id)"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
+          <div class="flex items-center justify-between px-4 py-2.5 border-b border-base-content/10 shrink-0">
+            <div class="flex items-center gap-2">
+              <button :class="['px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': editMode }]" @click="editMode = !editMode" :title="editMode ? '预览' : '编辑'">{{ editMode ? '👁️ 预览' : '✏️ 编辑' }}</button>
+              <button :class="['px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': selectedNote.pinned }]" @click="togglePin" title="置顶">📌 置顶</button>
+              <div class="relative">
+                <button class="px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'">📁 {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
+                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.15)] z-[100] min-w-[180px] max-h-60 overflow-y-auto p-1">
+                  <div :class="['px-3 py-2 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span>📄 未分组</span></div>
+                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-2 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === group.id }]" @click="assignGroup(group.id)"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
                 </div>
               </div>
             </div>
-            <div class="toolbar-right"><span class="save-status">{{ saveStatus }}</span></div>
+            <div class="flex items-center gap-2"><span class="text-xs text-base-content/60">{{ saveStatus }}</span></div>
           </div>
-          <div class="editor-title-row">
-            <input v-model="editorTitle" class="editor-title-input" placeholder="输入标题..." @input="onTitleChange"/>
+          <div class="px-5 pt-4 pb-2 shrink-0">
+            <input v-model="editorTitle" class="input w-full text-[22px] font-bold text-base-content border-none bg-transparent px-0 focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="输入标题..." @input="onTitleChange"/>
           </div>
-          <div v-if="editMode" class="editor-content">
-            <textarea v-model="editorContent" class="editor-textarea" placeholder="开始用 Markdown 编写笔记..." @input="onContentChange" spellcheck="false"></textarea>
+          <div v-if="editMode" class="flex-1 min-h-0 px-5 pb-5 pt-2">
+            <textarea v-model="editorContent" class="w-full h-full min-h-[300px] text-sm leading-relaxed text-base-content bg-transparent border-none resize-none font-mono focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="开始用 Markdown 编写笔记..." @input="onContentChange" spellcheck="false"></textarea>
           </div>
-          <div v-else class="editor-preview" v-html="renderedContent"></div>
+          <div v-else class="editor-preview flex-1 min-h-0 px-5 pb-5 pt-2 overflow-y-auto leading-relaxed text-base-content" v-html="renderedContent"></div>
         </template>
-        <div v-else class="editor-empty">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <p>选择或创建一个笔记</p>
+        <div v-else class="flex-1 flex flex-col items-center justify-center text-base-content/60 opacity-50">
+          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p class="text-sm">选择或创建一个笔记</p>
         </div>
       </main>
     </div>
     <Teleport to="body">
-      <div v-if="deleteTarget" class="note-overlay" @click.self="deleteTarget = null">
-        <div class="note-dialog" @click.stop>
-          <h3>⚠️ 确认删除</h3>
-          <p>确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</p>
-          <div class="dialog-actions">
+      <div v-if="deleteTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteTarget = null">
+        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+          <h3 class="text-lg font-bold m-0 mb-3 text-base-content">⚠️ 确认删除</h3>
+          <p class="text-sm text-base-content/60 m-0 mb-5">确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</p>
+          <div class="flex justify-end gap-2.5">
             <button class="btn btn-ghost" @click="deleteTarget = null">取消</button>
-            <button class="btn btn-danger" @click="executeDelete">删除</button>
+            <button class="btn btn-error" @click="executeDelete">删除</button>
           </div>
         </div>
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="showCreateGroup || editingGroup" class="note-overlay" @click.self="cancelGroupEdit">
-        <div class="note-dialog" @click.stop>
-          <h3>{{ editingGroup ? '✏️ 重命名分组' : '📁 新建分组' }}</h3>
-          <div class="group-form">
-            <div class="form-group"><label>名称</label><input v-model="groupForm.name" class="form-input" placeholder="分组名称" @keyup.enter="saveGroup" ref="groupInputRef"/></div>
-            <div class="form-group"><label>图标</label><div class="icon-picker"><button v-for="icon in iconOptions" :key="icon" class="icon-option" :class="{ active: groupForm.icon === icon }" @click="groupForm.icon = icon">{{ icon }}</button></div></div>
+      <div v-if="showCreateGroup || editingGroup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="cancelGroupEdit">
+        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+          <h3 class="text-lg font-bold m-0 mb-3 text-base-content">{{ editingGroup ? '✏️ 重命名分组' : '📁 新建分组' }}</h3>
+          <div class="mb-5">
+            <div class="mb-3.5"><label class="block text-xs font-semibold text-base-content/60 mb-1.5">名称</label><input v-model="groupForm.name" class="input input-bordered w-full px-3 py-2 text-sm rounded-lg bg-base-200 text-base-content focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="分组名称" @keyup.enter="saveGroup" ref="groupInputRef"/></div>
+            <div class="mb-3.5"><label class="block text-xs font-semibold text-base-content/60 mb-1.5">图标</label><div class="flex flex-wrap gap-1"><button v-for="icon in iconOptions" :key="icon" :class="['w-8 h-8 flex items-center justify-center text-base border-2 border-transparent rounded-lg bg-transparent cursor-pointer transition-all duration-150 hover:bg-base-200', { 'border-primary bg-[rgba(66,133,244,0.1)]': groupForm.icon === icon }]" @click="groupForm.icon = icon">{{ icon }}</button></div></div>
           </div>
-          <div class="dialog-actions">
+          <div class="flex justify-end gap-2.5">
             <button class="btn btn-ghost" @click="cancelGroupEdit">取消</button>
             <button class="btn btn-primary" @click="saveGroup" :disabled="!groupForm.name.trim()">保存</button>
           </div>
@@ -127,13 +127,13 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="deleteGroupTarget" class="note-overlay" @click.self="deleteGroupTarget = null">
-        <div class="note-dialog" @click.stop>
-          <h3>⚠️ 删除分组</h3>
-          <p>确定要删除分组「{{ deleteGroupTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</p>
-          <div class="dialog-actions">
+      <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteGroupTarget = null">
+        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+          <h3 class="text-lg font-bold m-0 mb-3 text-base-content">⚠️ 删除分组</h3>
+          <p class="text-sm text-base-content/60 m-0 mb-5">确定要删除分组「{{ deleteGroupTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</p>
+          <div class="flex justify-end gap-2.5">
             <button class="btn btn-ghost" @click="deleteGroupTarget = null">取消</button>
-            <button class="btn btn-danger" @click="executeDeleteGroup">删除</button>
+            <button class="btn btn-error" @click="executeDeleteGroup">删除</button>
           </div>
         </div>
       </div>
@@ -198,11 +198,11 @@ const renderedContent = computed(() => {
   return html
 })
 
-function escapeRegex(str: string): string { return str.replace(/[.*+?${}()|[\]\\]/g, '\\$&') }
+function escapeRegex(str: string): string { return str.replace(/[.*+?${}()|[\\]\\\\]/g, '\\\\$&') }
 
 function getPreview(content: string): string {
   if (!content) return '空笔记'
-  const plain = content.replace(/[#*`>-\[\]()!]/g, '').trim()
+  const plain = content.replace(/[#*`>-\\[\\]()!]/g, '').trim()
   return plain.slice(0, 80) + (plain.length > 80 ? '...' : '')
 }
 
@@ -389,120 +389,26 @@ onMounted(() => {
     loadGroups(); loadNotes() })
 </script>
 
-<style scoped>
-.note-manager { width: 100%; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; height: calc(100vh - 40px); padding: 8px; }
-.note-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; background: linear-gradient(135deg, var(--color-base-100) 0%, rgba(66, 133, 244, 0.05) 100%); border-radius: 14px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); flex-shrink: 0; }
-.note-header-left { display: flex; align-items: center; gap: 14px; }
-.header-icon { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; font-size: 24px; background: linear-gradient(135deg, #fbbc04, #ff6d01); border-radius: 12px; box-shadow: 0 3px 10px rgba(251, 188, 4, 0.25); }
-.header-info { display: flex; flex-direction: column; gap: 2px; }
-.note-title { font-size: 20px; font-weight: 700; color: var(--color-base-content); margin: 0; }
-.note-subtitle { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin: 0; opacity: 0.8; }
-.note-header-actions { display: flex; align-items: center; gap: 12px; }
-.search-wrapper { position: relative; display: flex; align-items: center; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.search-wrapper svg { position: absolute; left: 10px; pointer-events: none; }
-.search-input { padding: 8px 12px 8px 34px; font-size: 13px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 20px; background: var(--color-base-200); color: var(--color-base-content); width: 200px; transition: all 0.2s ease; }
-.search-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15); width: 260px; }
-.btn-new { display: flex; align-items: center; gap: 6px; padding: 8px 16px; font-size: 13px; font-weight: 600; border: none; border-radius: 20px; background: linear-gradient(135deg, var(--color-primary), #34a853); color: white; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 6px rgba(66, 133, 244, 0.25); }
-.btn-new:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(66, 133, 244, 0.35); }
-.note-layout { display: flex; gap: 16px; flex: 1; min-height: 0; }
-.note-sidebar { width: 300px; min-width: 280px; background: var(--color-base-100); border-radius: 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); overflow-y: auto; flex-shrink: 0; display: flex; flex-direction: column; }
-.group-section { border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); flex-shrink: 0; }
-.group-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; cursor: pointer; user-select: none; transition: background 0.15s ease; }
-.group-header:hover { background: var(--color-base-200); }
-.group-header-title { font-size: 12px; font-weight: 600; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); text-transform: uppercase; letter-spacing: 0.5px; }
-.group-chevron { transition: transform 0.2s ease; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.group-chevron.collapsed { transform: rotate(-90deg); }
-.group-list { padding: 4px 8px 8px; }
-.group-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; cursor: pointer; transition: all 0.15s ease; position: relative; }
-.group-item:hover { background: var(--color-base-200); }
-.group-item:hover .group-actions { opacity: 1; }
-.group-item.active { background: rgba(66, 133, 244, 0.12); }
-.group-icon { font-size: 14px; flex-shrink: 0; }
-.group-name { font-size: 13px; color: var(--color-base-content); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.group-actions { display: flex; gap: 2px; opacity: 0; transition: opacity 0.15s ease; }
-.group-action-btn { width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 4px; background: transparent; cursor: pointer; font-size: 10px; padding: 0; }
-.group-action-btn:hover { background: rgba(0, 0, 0, 0.08); }
-.group-action-delete:hover { background: rgba(210, 15, 57, 0.15); }
-.group-add { display: flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 8px; cursor: pointer; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 12px; transition: all 0.15s ease; margin-top: 2px; }
-.group-add:hover { background: var(--color-base-200); color: var(--color-primary); }
-.sidebar-empty { padding: 40px 20px; text-align: center; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; }
-.note-list { display: flex; flex-direction: column; overflow-y: auto; flex: 1; }
-.note-list-item { padding: 12px 14px; cursor: pointer; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); transition: all 0.15s ease; }
-.note-list-item:hover { background: var(--color-base-200); }
-.note-list-item.active { background: rgba(66, 133, 244, 0.08); border-left: 3px solid var(--color-primary); }
-.note-list-item.pinned { background: rgba(251, 188, 4, 0.05); }
-.note-item-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-.note-item-title { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; }
-.pin-icon { font-size: 12px; flex-shrink: 0; }
-.title-text { font-size: 14px; font-weight: 600; color: var(--color-base-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.note-item-delete { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border: none; border-radius: 6px; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; opacity: 0; transition: all 0.15s ease; flex-shrink: 0; }
-.note-list-item:hover .note-item-delete { opacity: 1; }
-.note-item-delete:hover { background: rgba(210, 15, 57, 0.1); color: var(--color-error); }
-.note-item-preview { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 4px; }
-.note-item-meta { display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.6; }
-.note-item-group { background: rgba(66, 133, 244, 0.1); color: var(--color-primary); padding: 1px 6px; border-radius: 4px; font-size: 10px; }
-.note-editor { flex: 1; min-width: 0; background: var(--color-base-100); border-radius: 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); display: flex; flex-direction: column; overflow: hidden; }
-.editor-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); flex-shrink: 0; }
-.toolbar-left, .toolbar-right { display: flex; align-items: center; gap: 8px; }
-.toolbar-btn { padding: 6px 12px; font-size: 12px; font-weight: 500; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; transition: all 0.15s ease; white-space: nowrap; }
-.toolbar-btn:hover { background: var(--color-base-200); color: var(--color-base-content); }
-.toolbar-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.group-selector-wrapper { position: relative; }
-.group-selector-btn { display: flex; align-items: center; gap: 4px; }
-.group-selector-dropdown { position: absolute; top: 100%; left: 0; margin-top: 4px; background: var(--color-base-100); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15); z-index: 100; min-width: 180px; max-height: 240px; overflow-y: auto; padding: 4px; }
-.group-option { padding: 8px 12px; font-size: 13px; cursor: pointer; border-radius: 6px; transition: background 0.1s ease; }
-.group-option:hover { background: var(--color-base-200); }
-.group-option.selected { background: rgba(66, 133, 244, 0.12); color: var(--color-primary); font-weight: 500; }
-.save-status { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.editor-title-row { padding: 16px 20px 8px; flex-shrink: 0; }
-.editor-title-input { width: 100%; font-size: 22px; font-weight: 700; color: var(--color-base-content); border: none; background: transparent; padding: 0; }
-.editor-title-input:focus { outline: none; }
-.editor-title-input::placeholder { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.4; }
-.editor-content { flex: 1; min-height: 0; padding: 8px 20px 20px; }
-.editor-textarea { width: 100%; height: 100%; min-height: 300px; font-size: 14px; line-height: 1.7; color: var(--color-base-content); background: transparent; border: none; resize: none; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-.editor-textarea:focus { outline: none; }
-.editor-textarea::placeholder { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.4; }
-.editor-preview { flex: 1; min-height: 0; padding: 8px 20px 20px; overflow-y: auto; line-height: 1.7; color: var(--color-base-content); }
-.editor-preview :deep(h1) { font-size: 28px; font-weight: 700; margin: 24px 0 12px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-bottom: 8px; }
-.editor-preview :deep(h2) { font-size: 22px; font-weight: 600; margin: 20px 0 10px; }
-.editor-preview :deep(h3) { font-size: 18px; font-weight: 600; margin: 16px 0 8px; }
-.editor-preview :deep(p) { margin: 8px 0; }
-.editor-preview :deep(code) { background: var(--color-base-200); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 13px; }
-.editor-preview :deep(pre) { background: var(--color-base-200); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
-.editor-preview :deep(pre code) { background: none; padding: 0; }
-.editor-preview :deep(blockquote) { border-left: 3px solid var(--color-primary); padding-left: 16px; margin: 12px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.editor-preview :deep(ul), .editor-preview :deep(ol) { padding-left: 24px; margin: 8px 0; }
-.editor-preview :deep(li) { margin: 4px 0; }
-.editor-preview :deep(a) { color: var(--color-primary); text-decoration: underline; }
-.editor-preview :deep(img) { max-width: 100%; border-radius: 8px; margin: 12px 0; }
-.editor-preview :deep(table) { border-collapse: collapse; width: 100%; margin: 12px 0; }
-.editor-preview :deep(th), .editor-preview :deep(td) { border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding: 8px 12px; text-align: left; }
-.editor-preview :deep(th) { background: var(--color-base-200); font-weight: 600; }
-.editor-preview :deep(.search-highlight) { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
+<style>
+/* Markdown 预览内容样式 — 无法使用 Tailwind 实用类，因为由 marked 动态渲染（v-html） */
+.editor-preview h1 { font-size: 28px; font-weight: 700; margin: 24px 0 12px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-bottom: 8px; }
+.editor-preview h2 { font-size: 22px; font-weight: 600; margin: 20px 0 10px; }
+.editor-preview h3 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; }
+.editor-preview p { margin: 8px 0; }
+.editor-preview code { background: var(--color-base-200); padding: 2px 6px; border-radius: 4px; font-family: 'SF Mono', monospace; font-size: 13px; }
+.editor-preview pre { background: var(--color-base-200); padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0; }
+.editor-preview pre code { background: none; padding: 0; }
+.editor-preview blockquote { border-left: 3px solid var(--color-primary); padding-left: 16px; margin: 12px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+.editor-preview ul, .editor-preview ol { padding-left: 24px; margin: 8px 0; }
+.editor-preview li { margin: 4px 0; }
+.editor-preview a { color: var(--color-primary); text-decoration: underline; }
+.editor-preview img { max-width: 100%; border-radius: 8px; margin: 12px 0; }
+.editor-preview table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.editor-preview th, .editor-preview td { border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding: 8px 12px; text-align: left; }
+.editor-preview th { background: var(--color-base-200); font-weight: 600; }
+.editor-preview .search-highlight { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
 .editor-preview .preview-empty { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.5; }
-.editor-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.5; }
-.editor-empty svg { margin-bottom: 16px; }
-.editor-empty p { font-size: 14px; }
-.note-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; }
-.note-dialog { background: var(--color-base-100); border-radius: 16px; padding: 24px; max-width: 400px; width: 90%; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3); }
-.note-dialog h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; color: var(--color-base-content); }
-.note-dialog p { font-size: 14px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin: 0 0 20px; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { padding: 8px 16px; font-size: 13px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.15s ease; border: none; }
-.btn-ghost { background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
-.btn-ghost:hover { background: var(--color-base-200); }
-.btn-danger { background: var(--color-error); color: white; }
-.btn-danger:hover { opacity: 0.9; }
-.btn-primary { background: var(--color-primary); color: white; }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.group-form { margin-bottom: 20px; }
-.form-group { margin-bottom: 14px; }
-.form-group label { display: block; font-size: 12px; font-weight: 600; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 6px; }
-.form-input { width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; background: var(--color-base-200); color: var(--color-base-content); }
-.form-input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15); }
-.icon-picker { display: flex; flex-wrap: wrap; gap: 4px; }
-.icon-option { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 2px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; transition: all 0.15s ease; }
-.icon-option:hover { background: var(--color-base-200); }
-.icon-option.active { border-color: var(--color-primary); background: rgba(66, 133, 244, 0.1); }
-.note-list-item :deep(mark) { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
+
+/* 搜索高亮 — 由 highlightText() 注入的 <mark> 元素 */
+.note-list-item mark { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
 </style>

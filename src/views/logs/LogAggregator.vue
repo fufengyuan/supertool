@@ -1,46 +1,47 @@
 <template>
-  <div class="log-aggregator">
-    <div class="log-layout">
+  <div class="h-full flex flex-col p-4 bg-base-200 text-base-content">
+    <div class="flex gap-4 flex-1 min-h-0">
       <!-- 左侧：预设列表（按分组展示） -->
-      <div class="log-sidebar">
-        <div class="preset-section">
-          <h3>查询预设</h3>
+      <div class="w-[260px] flex flex-col gap-4 overflow-y-auto">
+        <div class="bg-base-100 rounded-box p-3">
+          <h3 class="text-sm text-base-content/70 mb-3 font-medium">查询预设</h3>
 
           <!-- 分组 -->
           <div
             v-for="groupEntry in groupedPresets"
             :key="groupEntry.presetGroup"
-            class="preset-group"
+            class="mb-1"
           >
-            <div class="preset-group-header" @click="togglePresetGroup(groupEntry.presetGroup)">
-              <span class="group-toggle">{{ collapsedPresetGroups.has(groupEntry.presetGroup) ? '▶' : '▼' }}</span>
-              <span class="group-label">{{ groupEntry.presetGroup }}</span>
-              <span class="group-count">{{ groupEntry.presets.length }}</span>
+            <div class="flex items-center gap-1.5 px-2 py-1 cursor-pointer select-none rounded transition-colors duration-200 hover:bg-primary/10" @click="togglePresetGroup(groupEntry.presetGroup)">
+              <span class="text-[10px] text-base-content/60 min-w-[10px]">{{ collapsedPresetGroups.has(groupEntry.presetGroup) ? '▶' : '▼' }}</span>
+              <span class="font-semibold text-xs text-base-content/60 flex-1">{{ groupEntry.presetGroup }}</span>
+              <span class="text-[11px] text-base-content/60 opacity-60">{{ groupEntry.presets.length }}</span>
             </div>
-            <div v-show="!collapsedPresetGroups.has(groupEntry.presetGroup)" class="preset-group-body">
+            <div v-show="!collapsedPresetGroups.has(groupEntry.presetGroup)" class="pl-1 flex flex-col gap-0.5">
               <div
                 v-for="preset in groupEntry.presets"
                 :key="preset.id"
-                class="preset-item"
-                :class="{ active: selectedPreset?.id === preset.id, streaming: isStreaming && selectedPreset?.id === preset.id }"
+                class="flex justify-between items-center px-2.5 py-2 bg-base-200 rounded-lg cursor-pointer transition-all duration-200 relative"
+                :class="{ 'bg-primary text-primary-content': selectedPreset?.id === preset.id }"
                 @click="selectAndQuery(preset)"
               >
-                <div class="preset-info">
-                  <span class="preset-name">{{ preset.name }}</span>
-                  <span class="preset-meta">{{ preset.serverIds.length }} 节点 · {{ preset.logType }}</span>
+                <div class="flex flex-col mr-7">
+                  <span class="font-medium">{{ preset.name }}</span>
+                  <span class="text-xs opacity-70">{{ preset.serverIds.length }} 节点 · {{ preset.logType }}</span>
                 </div>
-                <button @click.stop="editPreset(preset)" class="btn-edit-preset" title="编辑">✏️</button>
-                <button @click.stop="deletePreset(preset.id)" class="btn-delete-preset" title="删除">×</button>
+                <button @click.stop="editPreset(preset)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100" title="编辑">✏️</button>
+                <button @click.stop="deletePreset(preset.id)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100 hover:text-error" title="删除">×</button>
+                <span v-if="isStreaming && selectedPreset?.id === preset.id" class="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               </div>
             </div>
           </div>
 
-          <div v-if="presets.length === 0" class="empty-presets">
+          <div v-if="presets.length === 0" class="text-center text-base-content/60 text-xs p-3">
             <template v-if="allServers.length === 0">
-              <div class="empty-presets-guide">
+              <div class="text-center">
                 <p>🔌 尚未配置服务器</p>
-                <p class="guide-text">日志聚合需要先添加 SSH 服务器：</p>
-                <button @click="goToServers" class="btn-guide">前往配置服务器 →</button>
+                <p class="text-xs opacity-70 mt-1">日志聚合需要先添加 SSH 服务器：</p>
+                <button @click="goToServers" class="btn btn-primary btn-sm mt-2">前往配置服务器 →</button>
               </div>
             </template>
             <template v-else>
@@ -51,40 +52,40 @@
       </div>
 
       <!-- 右侧：日志输出 -->
-      <div class="log-main">
+      <div class="flex-1 flex flex-col min-h-0 bg-base-100 rounded-box overflow-hidden relative">
         <!-- 查询模式切换栏 -->
-        <div class="mode-bar">
-          <div class="mode-tabs">
+        <div class="flex items-center gap-3 px-3 py-2 border-b border-base-content/10 bg-base-100">
+          <div class="flex gap-0.5 bg-base-200 rounded-lg p-0.5">
             <button
-              :class="['mode-tab', { active: queryMode === 'stream' }]"
+              :class="['btn btn-sm rounded text-xs transition-all', queryMode === 'stream' ? 'btn-primary' : 'btn-ghost text-base-content/60']"
               @click="switchQueryMode('stream')"
             >📡 流式查询</button>
             <button
-              :class="['mode-tab', { active: queryMode === 'search' }]"
+              :class="['btn btn-sm rounded text-xs transition-all', queryMode === 'search' ? 'btn-primary' : 'btn-ghost text-base-content/60']"
               @click="switchQueryMode('search')"
             >🔍 日志搜索</button>
           </div>
-          <button @click="openNewPresetForm" class="btn-add-preset">+ 新增预设</button>
+          <button @click="openNewPresetForm" class="btn btn-primary btn-sm">+ 新增预设</button>
 
           <!-- 搜索模式：关键字输入 -->
-          <div v-if="queryMode === 'search'" class="search-bar">
+          <div v-if="queryMode === 'search'" class="flex items-center gap-2 flex-1">
             <input
               v-model="searchKeyword"
               placeholder="搜索关键字"
-              class="search-input"
+              class="input input-bordered flex-1 h-8 min-h-0 text-xs"
               @keyup.enter="doSearch"
             />
-            <div class="search-options">
+            <div class="flex items-center gap-1.5 text-xs text-base-content/60 whitespace-nowrap">
               <label>
                 上下文行数
-                <div class="context-controls">
+                <div class="inline-flex items-center gap-1">
                   <button
-                    :class="['context-btn', { active: searchContextLines === 0 }]"
+                    :class="['btn btn-xs rounded', searchContextLines === 0 ? 'btn-primary' : 'btn-ghost border border-base-content/10']"
                     @click="searchContextLines = 0"
                     title="精准搜索（仅匹配行）"
                   >0行</button>
                   <button
-                    :class="['context-btn', { active: searchContextLines === 10 }]"
+                    :class="['btn btn-xs rounded', searchContextLines === 10 ? 'btn-primary' : 'btn-ghost border border-base-content/10']"
                     @click="searchContextLines = 10"
                     title="模糊搜索（匹配行上下各10行）"
                   >±10行</button>
@@ -93,34 +94,34 @@
                     type="number"
                     min="0"
                     max="500"
-                    class="context-input"
+                    class="input input-bordered w-[60px] h-7 min-h-0 text-xs text-center px-1"
                     placeholder="自定义"
                   />
                 </div>
               </label>
-              <span class="context-hint">{{ searchContextLines === 0 ? '精确匹配' : `匹配行上下各 ${searchContextLines} 行` }}</span>
+              <span class="text-[11px]">{{ searchContextLines === 0 ? '精确匹配' : `匹配行上下各 ${searchContextLines} 行` }}</span>
             </div>
             <button
               @click="doSearch"
               :disabled="!selectedPreset || !searchKeyword.trim() || isSearching"
-              class="btn-search"
+              class="btn btn-primary btn-sm whitespace-nowrap"
             >
               {{ isSearching ? '🔄 搜索中...' : '🔍 搜索' }}
             </button>
           </div>
         </div>
 
-        <div class="log-toolbar">
-          <div class="log-stats">
+        <div class="flex justify-between items-center px-3 py-2 border-b border-base-content/10 text-xs flex-wrap gap-2">
+          <div class="text-base-content/60 flex gap-1 flex-wrap">
             <span>{{ displayLines.length }} 行</span>
             <span v-if="activeServers.size > 0">· {{ activeServers.size }} 个节点在线</span>
-            <span v-if="selectedPreset" class="current-preset">· 当前：{{ selectedPreset.name }}</span>
+            <span v-if="selectedPreset" class="text-primary font-medium">· 当前：{{ selectedPreset.name }}</span>
           </div>
-          <div class="toolbar-actions">
+          <div class="flex items-center gap-2">
             <button
               @click="stopQuery"
               v-if="isStreaming"
-              class="btn-stop"
+              class="btn btn-error btn-sm animate-pulse"
               title="终止当前日志查询"
             >
               ⏹ 终止
@@ -128,8 +129,7 @@
             <button
               v-if="queryMode === 'stream'"
               @click="toggleFollowMode"
-              class="btn-follow"
-              :class="{ active: followMode }"
+              :class="['btn btn-sm gap-1 rounded-md transition-all', followMode ? 'btn-primary animate-pulse' : 'btn-ghost border border-base-content/10 text-base-content/60']"
               :title="followMode ? '关闭跟踪（自由滚动）' : '开启跟踪（始终显示最新日志）'"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -137,30 +137,34 @@
               </svg>
               {{ followMode ? '📌 跟踪中' : '📍 跟踪' }}
             </button>
-            <button @click="clearLogs" class="btn-clear">清除</button>
-            <button @click="exportLogs" class="btn-export">📋 导出</button>
+            <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
+            <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10">📋 导出</button>
           </div>
         </div>
 
-        <div class="log-content" ref="logContainer" @scroll="onScroll">
-          <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched" class="log-empty">
+        <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed" ref="logContainer" @scroll="onScroll">
+          <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched" class="flex items-center justify-center h-full text-base-content/60">
             <p v-if="queryMode === 'stream'">选择左侧预设开始查询日志</p>
             <p v-else>输入关键字后点击搜索</p>
           </div>
 
-          <div v-if="queryMode === 'search' && searchKeyword.trim() && !isSearching && displayLines.length === 0 && hasSearched" class="search-empty">
+          <div v-if="queryMode === 'search' && searchKeyword.trim() && !isSearching && displayLines.length === 0 && hasSearched" class="flex items-center justify-center h-full text-base-content/60">
             <p>未找到匹配结果</p>
           </div>
 
           <div
             v-for="line in displayLines"
             :key="line.id"
-            class="log-line"
-            :class="[`level-${line.level}`, { 'is-match': line.isMatch }]"
+            class="flex gap-2 py-0.5 hover:bg-white/5"
+            :class="{ 'bg-warning/10 border-l-4 border-warning': line.isMatch }"
           >
-            <span v-if="queryMode === 'search'" class="log-line-num">{{ line.lineNum || '' }}</span>
-            <span class="log-server" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
-            <span class="log-content-text" v-html="highlightSearchResult(line.content)"></span>
+            <span v-if="queryMode === 'search'" class="text-base-content/60 min-w-[50px] text-[11px] opacity-60 text-right">{{ line.lineNum || '' }}</span>
+            <span class="min-w-[80px] font-medium" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
+            <span
+              class="log-line-text flex-1 whitespace-pre-wrap break-all"
+              :class="{ 'text-error': line.level === 'error', 'text-warning': line.level === 'warn', 'text-base-content/40': line.level === 'debug' }"
+              v-html="highlightSearchResult(line.content)"
+            ></span>
           </div>
         </div>
 
@@ -168,7 +172,7 @@
         <button
           v-if="queryMode === 'stream' && showScrollBottom"
           @click="scrollToBottom"
-          class="btn-scroll-bottom"
+          class="btn btn-primary btn-sm rounded-full absolute bottom-4 right-4 z-10 shadow-lg animate-pulse hover:scale-105 hover:shadow-xl transition-all"
           title="点击后进入跟踪模式"
         >
           ↓ 回到底部并跟踪
@@ -177,20 +181,20 @@
     </div>
 
     <!-- 预设表单弹窗 -->
-    <div v-if="showPresetForm" class="modal-overlay" @click.self="showPresetForm = false">
-      <div class="modal-content">
-        <h3>{{ editingPreset ? '编辑预设' : '新增预设' }}</h3>
-        <div class="form-group">
-          <label>预设名称</label>
-          <input v-model="presetForm.name" placeholder="例如：API服务日志" class="form-input" />
+    <div v-if="showPresetForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" @click.self="showPresetForm = false">
+      <div class="bg-base-100 p-5 rounded-2xl w-[680px] max-h-[80vh] overflow-y-auto">
+        <h3 class="mt-0 mb-4 text-lg font-semibold">{{ editingPreset ? '编辑预设' : '新增预设' }}</h3>
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">预设名称</label>
+          <input v-model="presetForm.name" placeholder="例如：API服务日志" class="input input-bordered w-full" />
         </div>
-        <div class="form-group">
-          <label>分组</label>
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">分组</label>
           <input
             v-model="presetForm.presetGroup"
             list="group-suggestions"
             placeholder="例如：生产 / 测试"
-            class="form-input"
+            class="input input-bordered w-full"
           />
           <datalist id="group-suggestions">
             <option value="生产" />
@@ -199,8 +203,8 @@
             <option value="预发" />
           </datalist>
         </div>
-        <div class="form-group">
-          <label>服务器</label>
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">服务器</label>
           <GroupedServerSelector
             :servers="allServers"
             :groups="allGroups"
@@ -208,30 +212,30 @@
             mode="multi"
           />
         </div>
-        <div class="form-group">
-          <label>日志类型</label>
-          <select v-model="presetForm.logType" class="form-select">
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">日志类型</label>
+          <select v-model="presetForm.logType" class="select select-bordered w-full">
             <option value="file">文件 (tail)</option>
             <option value="journalctl">Journalctl</option>
             <option value="docker">Docker</option>
             <option value="custom">自定义</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>日志路径 / 容器名</label>
-          <textarea v-model="presetForm.logPath" placeholder="/var/log/app/api.log&#10;/var/log/app/error.log&#10;(每行一个路径)" class="form-input form-textarea" rows="3" />
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">日志路径 / 容器名</label>
+          <textarea v-model="presetForm.logPath" placeholder="/var/log/app/api.log&#10;/var/log/app/error.log&#10;(每行一个路径)" class="textarea textarea-bordered w-full font-mono resize-y leading-relaxed min-h-[60px]" rows="3" />
         </div>
-        <div class="form-group">
-          <label>关键字（逗号分隔）</label>
-          <input v-model="presetForm.keywordsInput" placeholder="ERROR, Exception" class="form-input" />
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">关键字（逗号分隔）</label>
+          <input v-model="presetForm.keywordsInput" placeholder="ERROR, Exception" class="input input-bordered w-full" />
         </div>
-        <div class="form-group">
-          <label>初始行数</label>
-          <input v-model.number="presetForm.maxLines" type="number" min="50" max="50000" class="form-input small" />
+        <div class="mb-3">
+          <label class="block text-xs mb-1 text-base-content/60">初始行数</label>
+          <input v-model.number="presetForm.maxLines" type="number" min="50" max="50000" class="input input-bordered w-20" />
         </div>
-        <div class="modal-actions">
-          <button @click="showPresetForm = false" class="btn-cancel">取消</button>
-          <button @click="savePreset" class="btn-save">保存</button>
+        <div class="flex justify-end gap-2 mt-5">
+          <button @click="showPresetForm = false" class="btn btn-ghost">取消</button>
+          <button @click="savePreset" class="btn btn-primary">保存</button>
         </div>
       </div>
     </div>
@@ -347,7 +351,7 @@ function buildCommand(preset: any): string {
       return `journalctl ${paths.map((u: string) => `-u ${quotePath(u)}`).join(' ')} -n ${preset.maxLines} -f --no-pager`
     case 'docker':
       // docker logs doesn't support multiple containers, chain them
-      return paths.map((c: string) => `(echo "=== ${quotePath(c)} ===" && docker logs --tail ${preset.maxLines} -f ${quotePath(c)} 2>&1)`).join(' & ')
+      return paths.map((c: string) => `(echo \"=== ${quotePath(c)} ===\" && docker logs --tail ${preset.maxLines} -f ${quotePath(c)} 2>&1)`).join(' & ')
     case 'custom':
       return preset.logPath
     default:
@@ -832,618 +836,12 @@ onUnmounted(async () => {
 })
 </script>
 
-<style scoped>
-.log-aggregator {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  background: var(--color-base-200);
-  color: var(--text-primary);
-}
-
-.log-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.log-header h2 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.btn-add-preset {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.log-layout {
-  display: flex;
-  gap: 16px;
-  flex: 1;
-  min-height: 0;
-}
-
-.log-sidebar {
-  width: 260px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  overflow-y: auto;
-}
-
-.preset-section {
-  background: var(--color-base-100);
-  border-radius: 8px;
-  padding: 12px;
-}
-
-.preset-section h3 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-/* 预设分组 */
-.preset-group {
-  margin-bottom: 4px;
-}
-
-.preset-group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  cursor: pointer;
-  user-select: none;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.preset-group-header:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.group-toggle {
-  font-size: 10px;
-  color: var(--text-secondary);
-  min-width: 10px;
-}
-
-.group-label {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-secondary);
-  flex: 1;
-}
-
-.group-count {
-  font-size: 11px;
-  color: var(--text-secondary);
-  opacity: 0.6;
-}
-
-.preset-group-body {
-  padding-left: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.preset-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.preset-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 10px;
-  background: var(--color-base-200);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-}
-
-.preset-item:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.preset-item.active {
-  background: var(--color-primary);
-  color: white;
-}
-
-.preset-item.streaming::after {
-  content: '';
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 8px;
-  height: 8px;
-  background: #4ade80;
-  border-radius: 50%;
-  animation: pulse-dot 1.5s infinite;
-}
-
-@keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
-  50% { opacity: 0.5; transform: translateY(-50%) scale(1.3); }
-}
-
-.preset-info {
-  display: flex;
-  flex-direction: column;
-  margin-right: 28px;
-}
-
-.preset-name {
-  font-weight: 500;
-}
-
-.preset-meta {
-  font-size: 12px;
-  opacity: 0.7;
-}
-
-.btn-edit-preset {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 14px;
-  opacity: 0.5;
-  padding: 2px;
-}
-
-.btn-edit-preset:hover {
-  opacity: 1;
-}
-
-.btn-delete-preset {
-  background: none;
-  border: none;
-  color: inherit;
-  cursor: pointer;
-  font-size: 18px;
-  opacity: 0.5;
-  padding: 2px;
-}
-
-.btn-delete-preset:hover {
-  opacity: 1;
-  color: #f87171;
-}
-
-.empty-presets {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-  padding: 12px;
-}
-
-.form-group {
-  margin-bottom: 12px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  margin-bottom: 4px;
-  color: var(--text-secondary);
-}
-
-.form-input, .form-select {
-  width: 100%;
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  color: var(--text-primary);
-  font-size: 13px;
-}
-.form-textarea {
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  resize: vertical;
-  line-height: 1.5;
-}
-
-.form-input.small {
-  width: 80px;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--color-base-100);
-  padding: 20px;
-  border-radius: 12px;
-  width: 680px;
-  max-height: 80vh;
-  overflow-y: auto;
-}
-
-.modal-content h3 {
-  margin: 0 0 16px 0;
-}
-
-.modal-content .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
-.btn-cancel {
-  background: none;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.btn-save {
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.log-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* 模式切换栏 */
-.mode-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-}
-
-.mode-tabs {
-  display: flex;
-  gap: 2px;
-  background: var(--color-base-200);
-  border-radius: 6px;
-  padding: 3px;
-}
-
-.mode-tab {
-  padding: 6px 14px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.mode-tab.active {
-  background: var(--color-primary);
-  color: white;
-  font-weight: 500;
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.search-input {
-  flex: 1;
-  padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  color: var(--text-primary);
-  font-size: 13px;
-}
-
-.search-options {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.context-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.context-btn {
-  padding: 3px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: var(--color-base-200);
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.context-btn:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--text-primary);
-  border-color: var(--color-primary);
-}
-
-.context-btn.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.context-input {
-  width: 60px;
-  padding: 3px 6px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  color: var(--text-primary);
-  font-size: 12px;
-  text-align: center;
-}
-
-.context-hint {
-  font-size: 11px;
-}
-
-.btn-search {
-  padding: 6px 16px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  white-space: nowrap;
-}
-
-.btn-search:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.log-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 13px;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.log-stats {
-  color: var(--text-secondary);
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-
-.current-preset {
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-/* 跟踪按钮 */
-.btn-follow {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: none;
-  color: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-follow:hover {
-  background: var(--color-base-200);
-  color: var(--text-primary);
-}
-
-.btn-follow.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-  animation: follow-pulse 2s infinite;
-}
-
-@keyframes follow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 74, 222, 128), 0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(var(--primary-rgb, 74, 222, 128), 0); }
-}
-
-.btn-stop {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 4px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 600;
-  animation: pulse-stop 1.5s infinite;
-}
-
-.btn-stop:hover {
-  background: #dc2626;
-}
-
-@keyframes pulse-stop {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-  50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0); }
-}
-
-.btn-clear, .btn-export {
-  background: none;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-primary);
-}
-
-.btn-clear:hover, .btn-export:hover {
-  background: var(--color-base-200);
-}
-
-.log-content {
-  flex: 1;
-  overflow-y: auto;
-  max-height: 100vh;
-  padding: 8px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.log-empty, .search-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text-secondary);
-}
-
-.log-line {
-  display: flex;
-  gap: 8px;
-  padding: 2px 0;
-}
-
-.log-line:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.log-server {
-  min-width: 80px;
-  font-weight: 500;
-}
-
-.log-content-text {
-  flex: 1;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.level-error .log-content-text {
-  color: #f87171;
-}
-
-.level-warn .log-content-text {
-  color: #fbbf24;
-}
-
-.level-debug .log-content-text {
-  color: #6b7280;
-}
-
-.log-content-text mark {
+<!-- 用于 v-html 渲染的 <mark> 标签样式（必须全局/非 scoped） -->
+<style>
+.log-line-text mark {
   background: #fbbf24;
   color: #000;
   padding: 0 2px;
   border-radius: 2px;
-}
-
-.log-line.is-match {
-  background: rgba(251, 191, 36, 0.08);
-  border-left: 3px solid #fbbf24;
-}
-
-.log-line-num {
-  color: var(--text-secondary);
-  min-width: 50px;
-  font-size: 11px;
-  opacity: 0.6;
-  text-align: right;
-}
-
-/* 回到底部浮动按钮 */
-.btn-scroll-bottom {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  z-index: 10;
-  padding: 8px 14px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 20px;
-  font-size: 12px;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  transition: all 0.2s;
-  animation: pulse-glow 2s infinite;
-}
-
-.btn-scroll-bottom:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-  50% { box-shadow: 0 2px 16px rgba(74, 222, 128, 0.4); }
 }
 </style>

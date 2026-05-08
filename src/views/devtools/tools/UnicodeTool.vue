@@ -1,71 +1,71 @@
 <template>
-  <div class="tool-panel">
-    <h3>🌐 Unicode 转换</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">🌐 Unicode 转换</h3>
 
     <!-- Input -->
-    <div class="tool-section">
-      <label class="tool-label">输入</label>
+    <div class="mb-5">
+      <span class="label-text text-xs font-medium opacity-60 mb-1 block">输入</span>
       <textarea
         v-model="inputText"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
         placeholder="输入文本，如：Hello 你好 👋"
       ></textarea>
     </div>
 
     <!-- Action Buttons -->
-    <div class="tool-row">
-      <button class="tool-btn primary" @click="toUnicode">String → Unicode</button>
-      <button class="tool-btn" @click="fromUnicode">Unicode → String</button>
-      <button class="tool-btn" @click="toHtmlEntity">String → HTML实体</button>
-      <button class="tool-btn" @click="fromHtmlEntity">HTML实体 → String</button>
-      <button class="tool-btn" @click="toCssEntity">String → CSS实体</button>
-      <button class="tool-btn" @click="fromCssEntity">CSS实体 → String</button>
+    <div class="flex flex-wrap gap-2.5 mb-3">
+      <button class="btn btn-primary" @click="toUnicode">String → Unicode</button>
+      <button class="btn btn-ghost" @click="fromUnicode">Unicode → String</button>
+      <button class="btn btn-ghost" @click="toHtmlEntity">String → HTML实体</button>
+      <button class="btn btn-ghost" @click="fromHtmlEntity">HTML实体 → String</button>
+      <button class="btn btn-ghost" @click="toCssEntity">String → CSS实体</button>
+      <button class="btn btn-ghost" @click="fromCssEntity">CSS实体 → String</button>
     </div>
 
-    <div class="tool-row">
-      <button class="tool-btn" @click="copyResult">复制结果</button>
-      <button class="tool-btn" @click="clearAll">清空</button>
+    <div class="flex flex-wrap gap-2.5 mb-3">
+      <button class="btn btn-ghost" @click="copyResult">复制结果</button>
+      <button class="btn btn-ghost" @click="clearAll">清空</button>
     </div>
 
     <!-- Output -->
-    <div class="tool-section">
-      <label class="tool-label">输出</label>
-      <div class="tool-result">{{ outputText || '结果将显示在这里...' }}</div>
+    <div class="mb-5">
+      <span class="label-text text-xs font-medium opacity-60 mb-1 block">输出</span>
+      <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">{{ outputText || '结果将显示在这里...' }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Live Preview -->
-    <div class="tool-section">
-      <h4>实时预览</h4>
-      <div class="tool-row">
-        <div style="flex: 1;">
-          <label class="tool-label">Unicode → 文本</label>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">实时预览</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <div class="flex-1">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">Unicode → 文本</span>
           <textarea
             v-model="unicodeInput"
-            class="tool-textarea"
+            class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
             placeholder="输入 Unicode，如：\u4f60\u597d"
             @input="previewUnicode"
           ></textarea>
         </div>
-        <div style="flex: 1;">
-          <label class="tool-label">HTML实体 → 文本</label>
+        <div class="flex-1">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">HTML实体 → 文本</span>
           <textarea
             v-model="htmlInput"
-            class="tool-textarea"
+            class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
             placeholder="输入 HTML 实体，如：&#20320;&#22909;"
             @input="previewHtml"
           ></textarea>
         </div>
       </div>
-      <div class="preview-results" v-if="unicodePreview || htmlPreview">
-        <div v-if="unicodePreview" class="preview-item">
-          <span class="preview-label">Unicode 预览:</span>
-          <span class="preview-value">{{ unicodePreview }}</span>
+      <div v-if="unicodePreview || htmlPreview" class="mt-3 flex flex-col gap-2">
+        <div v-if="unicodePreview" class="flex gap-2 items-center">
+          <span class="text-xs font-semibold text-primary min-w-[100px]">Unicode 预览:</span>
+          <span class="text-base text-base-content">{{ unicodePreview }}</span>
         </div>
-        <div v-if="htmlPreview" class="preview-item">
-          <span class="preview-label">HTML实体 预览:</span>
-          <span class="preview-value" v-html="htmlPreview"></span>
+        <div v-if="htmlPreview" class="flex gap-2 items-center">
+          <span class="text-xs font-semibold text-primary min-w-[100px]">HTML实体 预览:</span>
+          <span class="text-base text-base-content" v-html="htmlPreview"></span>
         </div>
       </div>
     </div>
@@ -246,60 +246,3 @@ function clearAll() {
   htmlPreview.value = ''
 }
 </script>
-
-<style scoped>
-.tool-panel h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.preview-results {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.preview-item {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.preview-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  min-width: 100px;
-}
-
-.preview-value {
-  font-size: 16px;
-  color: var(--color-base-content);
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

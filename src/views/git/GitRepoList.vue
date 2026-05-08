@@ -1,8 +1,8 @@
 <template>
-  <div class="git-repo-list-container">
-    <div class="git-repo-header">
-      <h2>Git 仓库</h2>
-      <div class="header-actions">
+  <div class="p-5 max-w-[1200px] mx-auto">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="m-0 text-2xl font-semibold text-base-content">Git 仓库</h2>
+      <div class="flex gap-2">
         <UiButton @click="showScanSection = !showScanSection">
           🔍 扫描本地目录
         </UiButton>
@@ -11,33 +11,33 @@
     </div>
 
     <!-- 扫描本地目录面板 -->
-    <div v-if="showScanSection" class="scan-panel">
-      <div class="scan-panel-header">
-        <span class="scan-panel-title">📂 扫描本地目录</span>
+    <div v-if="showScanSection" class="mb-5 border border-base-content/20 rounded-xl bg-base-100 overflow-hidden">
+      <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
+        <span class="text-sm font-semibold text-base-content">📂 扫描本地目录</span>
         <button class="btn btn-ghost btn-xs" @click="showScanSection = false">✕</button>
       </div>
-      <div class="scan-panel-body">
-        <p class="scan-hint">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
+      <div class="p-4">
+        <p class="m-0 mb-3 text-xs text-base-content/60">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
         <textarea
           v-model="scanDirectories"
-          class="scan-directories-input"
+          class="textarea textarea-bordered w-full font-mono text-xs resize-y"
           placeholder="/home/fufengyuan/projects&#10;/home/fufengyuan/workspace&#10;/home/fufengyuan/code"
           rows="4"
         ></textarea>
-        <div class="scan-actions">
+        <div class="flex items-center gap-3 mt-3">
           <UiButton variant="primary" @click="doScan" :loading="scanning">
             {{ scanning ? '扫描中...' : '🔍 扫描' }}
           </UiButton>
-          <span v-if="scanResult !== null" class="scan-result-text">
+          <span v-if="scanResult !== null" class="text-xs text-base-content/70">
             {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}
           </span>
         </div>
         <!-- 扫描结果列表 -->
-        <div v-if="scannedRepos.length > 0" class="scanned-repos">
-          <div v-for="repo in scannedRepos" :key="repo.path" class="scanned-repo-item">
-            <div class="scanned-repo-info">
-              <span class="scanned-repo-name">{{ repo.name }}</span>
-              <span class="scanned-repo-path">{{ repo.path }}</span>
+        <div v-if="scannedRepos.length > 0" class="mt-4 flex flex-col gap-2 max-h-[300px] overflow-y-auto">
+          <div v-for="repo in scannedRepos" :key="repo.path" class="flex justify-between items-center px-3 py-2.5 rounded-lg bg-base-200 border border-base-content/10">
+            <div class="flex flex-col gap-0.5 min-w-0">
+              <span class="text-sm font-medium text-base-content">{{ repo.name }}</span>
+              <span class="text-xs text-base-content/50 font-mono truncate">{{ repo.path }}</span>
             </div>
             <UiButton
               variant="success"
@@ -53,65 +53,65 @@
     </div>
 
     <!-- 搜索栏 -->
-    <div class="filters-bar">
-      <div class="search-wrapper">
-        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="flex gap-3 mb-5 flex-wrap items-center">
+      <div class="relative flex-1 min-w-[200px]">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
-        <input v-model="searchQuery" type="text" class="search-input" placeholder="搜索仓库名称、路径或远程地址..." />
+        <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9" placeholder="搜索仓库名称、路径或远程地址..." />
       </div>
     </div>
 
     <!-- 仓库列表 - 卡片形式 -->
-    <div v-if="filteredRepos.length > 0" class="repo-list">
+    <div v-if="filteredRepos.length > 0" class="flex flex-col gap-3">
       <div
         v-for="repo in filteredRepos"
         :key="repo.id"
-        class="repo-card"
+        class="flex items-center gap-4 px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl transition-all duration-200 cursor-pointer hover:border-primary hover:shadow-lg hover:-translate-y-px"
         @dblclick="openRepo(repo)"
       >
-        <div class="repo-main">
-          <div class="repo-name-row">
-            <svg class="repo-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1.5">
+            <svg class="text-primary shrink-0" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
             </svg>
-            <span class="repo-name">{{ repo.name }}</span>
+            <span class="text-base font-semibold text-base-content truncate">{{ repo.name }}</span>
           </div>
-          <div class="repo-path" :title="repo.path">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.path">
+            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
             </svg>
             <span>{{ repo.path }}</span>
           </div>
         </div>
 
-        <div class="repo-meta">
-          <div v-if="repo.remote" class="meta-item" :title="repo.remote">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="flex flex-col gap-1.5 min-w-[180px] max-w-[280px]">
+          <div v-if="repo.remote" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.remote">
+            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
               <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
             </svg>
-            <span class="meta-text">{{ repo.remote }}</span>
+            <span class="truncate">{{ repo.remote }}</span>
           </div>
-          <div v-if="repo.branch" class="meta-item">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <div v-if="repo.branch" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
+            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="6" y1="3" x2="6" y2="15" />
               <circle cx="18" cy="6" r="3" />
               <circle cx="6" cy="18" r="3" />
               <path d="M18 9a9 9 0 0 1-9 9" />
             </svg>
-            <span class="branch-badge">{{ repo.branch }}</span>
+            <span class="badge badge-sm">{{ repo.branch }}</span>
           </div>
-          <div v-if="repo.lastOpened" class="meta-item">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <div v-if="repo.lastOpened" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
+            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
-            <span class="meta-text">{{ formatTime(repo.lastOpened) }}</span>
+            <span class="truncate">{{ formatTime(repo.lastOpened) }}</span>
           </div>
         </div>
 
-        <div class="repo-actions">
+        <div class="flex gap-2 shrink-0">
           <UiButton variant="success" size="sm" @click="openRepo(repo)" title="打开仓库">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
@@ -153,19 +153,19 @@
       @close="resetModal"
       width="640px"
     >
-      <div class="form-field">
-        <label for="repo-path">
+      <div class="mb-4">
+        <label for="repo-path" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
           </svg>
-          本地路径 <span class="required">*</span>
+          本地路径 <span class="text-error">*</span>
         </label>
-        <div class="path-input-group">
+        <div class="flex gap-2">
           <input
             id="repo-path"
             v-model="formData.path"
             type="text"
-            class="form-input"
+            class="input input-bordered flex-1"
             placeholder="/path/to/your/repo"
             @input="onPathChange"
           />
@@ -176,26 +176,32 @@
             选择
           </UiButton>
         </div>
-        <div v-if="validationStatus" class="validation-msg" :class="validationStatus.type">
+        <div v-if="validationStatus"
+          class="mt-1.5 text-xs font-medium px-2 py-1 rounded-md"
+          :class="{
+            'text-success bg-success/10': validationStatus.type === 'success',
+            'text-error bg-error/10': validationStatus.type === 'error',
+            'text-warning': validationStatus.type === 'validating'
+          }">
           {{ validationStatus.message }}
         </div>
-        <small class="form-field-hint">输入或选择一个 Git 仓库的本地路径</small>
+        <small class="block mt-1 text-xs text-base-content/60">输入或选择一个 Git 仓库的本地路径</small>
       </div>
 
-      <div class="form-field">
-        <label for="repo-name">
+      <div class="mb-4">
+        <label for="repo-name" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
           仓库名称
         </label>
-        <input id="repo-name" v-model="formData.name" type="text" class="form-input" placeholder="仓库名称（留空将自动从路径提取）" />
+        <input id="repo-name" v-model="formData.name" type="text" class="input input-bordered w-full" placeholder="仓库名称（留空将自动从路径提取）" />
       </div>
 
-      <div class="form-row">
-        <div class="form-field">
-          <label for="repo-remote">
+      <div class="flex gap-4">
+        <div class="flex-1 mb-4">
+          <label for="repo-remote" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="2" y1="12" x2="22" y2="12" />
@@ -203,10 +209,10 @@
             </svg>
             远程 URL
           </label>
-          <input id="repo-remote" v-model="formData.remote" type="text" class="form-input" placeholder="https://github.com/user/repo.git" />
+          <input id="repo-remote" v-model="formData.remote" type="text" class="input input-bordered w-full" placeholder="https://github.com/user/repo.git" />
         </div>
-        <div class="form-field">
-          <label for="repo-branch">
+        <div class="flex-1 mb-4">
+          <label for="repo-branch" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="6" y1="3" x2="6" y2="15" />
               <circle cx="18" cy="6" r="3" />
@@ -215,7 +221,7 @@
             </svg>
             当前分支
           </label>
-          <input id="repo-branch" v-model="formData.branch" type="text" class="form-input" placeholder="main" />
+          <input id="repo-branch" v-model="formData.branch" type="text" class="input input-bordered w-full" placeholder="main" />
         </div>
       </div>
 
@@ -582,417 +588,3 @@ onMounted(async () => {
   await loadRepos();
 });
 </script>
-
-<style scoped>
-.git-repo-list-container {
-  padding: 20px;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-/* 头部 */
-.git-repo-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.git-repo-header h2 {
-  margin: 0;
-  color: var(--color-base-content);
-  font-size: 24px;
-  font-weight: 600;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* 扫描面板 */
-.scan-panel {
-  margin-bottom: 20px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 12px;
-  background: var(--color-base-100);
-  overflow: hidden;
-}
-
-.scan-panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.scan-panel-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.scan-panel-body {
-  padding: 16px;
-}
-
-.scan-hint {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.scan-directories-input {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-  font-family: monospace;
-  resize: vertical;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.scan-directories-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.scan-directories-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-
-.scan-actions {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.scan-result-text {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
-}
-
-/* 扫描结果列表 */
-.scanned-repos {
-  margin-top: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.scanned-repo-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.scanned-repo-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.scanned-repo-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-base-content);
-}
-
-.scanned-repo-path {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
-  font-family: monospace;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* 筛选栏 */
-.filters-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.search-wrapper {
-  position: relative;
-  flex: 1;
-  min-width: 200px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  pointer-events: none;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 14px 10px 36px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  outline: none;
-  transition: all 0.15s ease;
-}
-
-.search-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.search-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.7;
-}
-
-/* 仓库卡片列表 */
-.repo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.repo-card {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 20px;
-  background: var(--color-base-100);
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.repo-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-  transform: translateY(-1px);
-}
-
-.repo-main {
-  flex: 1;
-  min-width: 0;
-}
-
-.repo-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-
-.repo-icon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.repo-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.repo-path {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.repo-path svg {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-/* 元信息 */
-.repo-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 180px;
-  max-width: 280px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-.meta-item svg {
-  flex-shrink: 0;
-  opacity: 0.6;
-}
-
-.meta-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.branch-badge {
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-  font-weight: 500;
-  font-size: 11px;
-}
-
-/* 操作按钮 */
-.repo-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* 表单 */
-.form-field {
-  margin-bottom: 16px;
-}
-
-.form-field label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  color: var(--color-base-content);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.form-field .required {
-  color: var(--color-error);
-}
-
-.form-field-hint {
-  display: block;
-  margin-top: 4px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-.path-input-group {
-  display: flex;
-  gap: 8px;
-}
-
-.path-input-group .form-input {
-  flex: 1;
-  padding: 10px 14px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  font-family: inherit;
-  transition: all 0.15s ease;
-  outline: none;
-}
-
-.path-input-group .form-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.path-input-group .form-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.7;
-}
-
-.form-row {
-  display: flex;
-  gap: 16px;
-}
-
-.form-row > * {
-  flex: 1;
-}
-
-.form-row .form-input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  font-family: inherit;
-  transition: all 0.15s ease;
-  outline: none;
-}
-
-.form-row .form-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.form-row .form-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.7;
-}
-
-/* 验证消息 */
-.validation-msg {
-  margin-top: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.validation-msg.success {
-  color: var(--color-success);
-  background: rgba(64, 160, 43, 0.1);
-}
-
-:root.dark .validation-msg.success {
-  background: rgba(166, 227, 161, 0.1);
-}
-
-.validation-msg.error {
-  color: var(--color-error);
-  background: rgba(210, 15, 57, 0.1);
-}
-
-:root.dark .validation-msg.error {
-  background: rgba(243, 139, 168, 0.1);
-}
-
-.validation-msg.validating {
-  color: var(--color-warning);
-}
-</style>

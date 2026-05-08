@@ -1,5 +1,5 @@
 <template>
-  <div class="data-grid">
+  <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
     <!-- Filter Bar -->
     <FilterBar
       :columns="columns"
@@ -8,24 +8,24 @@
     />
 
     <!-- Header: tabs + actions -->
-    <div class="grid-header">
-      <div class="grid-tabs">
-        <button class="grid-tab" :class="{ active: viewMode === 'table' }" @click="viewMode = 'table'">
+    <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-100 shrink-0 gap-2 min-h-10">
+      <div class="flex gap-0.5">
+        <button class="btn btn-xs" :class="viewMode === 'table' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'table'">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" />
           </svg>
           表格
         </button>
-        <button class="grid-tab" :class="{ active: viewMode === 'json' }" @click="viewMode = 'json'">
+        <button class="btn btn-xs" :class="viewMode === 'json' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'json'">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
           </svg>
           JSON
         </button>
       </div>
-      <div class="grid-actions">
-        <span class="grid-info" v-if="rows.length > 0">
+      <div class="flex items-center gap-2">
+        <span v-if="rows.length > 0" class="text-xs text-base-content/60 px-2 py-0.5 bg-base-200 rounded-md border border-base-content/10">
           共 {{ total }} 条，显示 {{ (page - 1) * pageSize + 1 }}-{{ Math.min(page * pageSize, total) }}
         </span>
         <template v-if="dirtyRows.size > 0">
@@ -41,7 +41,7 @@
     </div>
 
     <!-- Empty state -->
-    <div v-if="rows.length === 0 && !loading" class="grid-empty">
+    <div v-if="rows.length === 0 && !loading" class="flex flex-col items-center justify-center p-12 text-base-content/60 gap-3">
       <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
         <line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
@@ -51,91 +51,102 @@
     </div>
 
     <!-- Loading -->
-    <div v-if="loading" class="grid-loading">加载中...</div>
+    <div v-if="loading" class="flex items-center justify-center p-8 text-base-content/60 text-sm">加载中...</div>
 
     <!-- Table view -->
-    <div v-if="viewMode === 'table' && (rows.length > 0 || newRowData)" class="grid-table-wrapper"
+    <div v-if="viewMode === 'table' && (rows.length > 0 || newRowData)" class="flex-1 overflow-auto min-h-0 rounded-b-lg"
          @contextmenu.prevent="onTableContext($event)">
-      <table class="grid-table">
+      <table class="border-collapse w-max min-w-full">
         <thead>
           <tr>
-            <th class="row-num">#</th>
-            <th v-for="col in columns" :key="col" class="grid-col-th"
-                :class="{ 'sortable': true, 'sort-asc': sortColumn === col && sortDirection === 'asc', 'sort-desc': sortColumn === col && sortDirection === 'desc' }"
+            <th class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 top-0 z-40 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">#</th>
+            <th v-for="col in columns" :key="col"
+                class="bg-base-200 border-t border-b-2 border-r border-base-content/10 sticky top-0 z-20 select-none font-semibold text-[11px] tracking-wider min-w-[60px] px-0 py-0 align-middle whitespace-nowrap cursor-pointer group"
+                :class="{ 'text-primary': sortColumn === col }"
                 @click.stop="() => toggleSort(col)"
                 :title="columnComments && columnComments[col] ? `${col}: ${columnComments[col]}` : col">
-              <div class="grid-col">
-                <div class="col-name-row">
-                  <span class="col-name">{{ col }}</span>
-                  <span v-if="sortColumn === col" class="sort-icon sort-icon-active">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
-                  <span v-else class="sort-icon sort-icon-hint">⇅</span>
+              <div class="flex flex-col items-start gap-px px-3 py-2 min-h-8">
+                <div class="flex items-center gap-1 w-full">
+                  <span class="font-semibold text-[11px] uppercase tracking-wider flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                        :class="{ 'text-primary': sortColumn === col }">{{ col }}</span>
+                  <span v-if="sortColumn === col" class="text-primary font-bold text-[10px] shrink-0">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+                  <span v-else class="text-base-content/60 opacity-30 text-xs shrink-0 group-hover:text-primary group-hover:opacity-70 transition-all duration-150">⇅</span>
                 </div>
-                <span v-if="columnComments && columnComments[col]" class="col-comment" :title="columnComments[col]">{{ columnComments[col] }}</span>
+                <span v-if="columnComments && columnComments[col]" class="text-[9px] text-base-content/60 opacity-50 max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap font-normal normal-case tracking-normal leading-tight" :title="columnComments[col]">{{ columnComments[col] }}</span>
               </div>
             </th>
-            <th class="row-actions" v-if="dirtyRows.size > 0 || newRowData">操作</th>
+            <th v-if="dirtyRows.size > 0 || newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap font-semibold text-[11px] tracking-wider">操作</th>
           </tr>
         </thead>
         <tbody>
           <!-- Existing rows -->
           <tr v-for="(row, idx) in rows" :key="`row-${idx}-${getRowHash(row)}`"
-              :class="{ 'dirty-row': dirtyRows.has(idx), 'new-row': false }"
+              :class="dirtyRows.has(idx)
+                ? 'bg-warning/5 border-l-[3px] border-l-warning hover:bg-warning/10'
+                : 'even:bg-black/[0.015] hover:bg-primary/10'"
               @contextmenu.prevent="onRowContext($event, row, idx)">
-            <td class="row-num">
-              <span v-if="dirtyRows.has(idx)" class="dirty-indicator" title="已修改">*</span>
+            <td class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 z-30 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+              <span v-if="dirtyRows.has(idx)" class="text-warning font-bold text-sm" title="已修改">*</span>
               <span v-else>{{ (page - 1) * pageSize + idx + 1 }}</span>
             </td>
-            <td v-for="col in columns" :key="col" class="grid-cell"
-                :class="{ 'is-pk': primaryKeyColumns.includes(col) }"
+            <td v-for="col in columns" :key="col"
+                class="px-3 py-1.5 border-r border-b border-base-content/10 text-left align-middle text-xs leading-5 whitespace-nowrap max-w-[400px] overflow-hidden text-ellipsis relative cursor-[cell] transition-colors duration-100 hover:bg-primary/10 hover:outline hover:outline-1 hover:outline-base-content/10 hover:-outline-offset-1"
+                :class="{ 'font-semibold !text-primary !bg-primary/5': primaryKeyColumns.includes(col) }"
                 @dblclick="startEdit(idx, col)"
                 :title="String(formatValue(getDisplayValue(idx, col)) ?? 'NULL')">
               <!-- Editing cell -->
               <template v-if="editingCell.row === idx && editingCell.col === col">
                 <input v-if="editingCell.isDatetime" v-model="editingValue"
-                       type="datetime-local" class="cell-editor cell-editor-datetime"
+                       type="datetime-local"
+                       class="input input-sm w-full font-mono min-w-[180px]"
                        @blur="finishEdit" @keydown.enter="finishEdit"
                        @keydown.escape="cancelEdit" @keydown.tab="handleEditTab($event, col)" />
                 <input v-else-if="!isComplexType(getDisplayValue(idx, col))" ref="editInput" v-model="editingValue"
-                       class="cell-editor" @blur="finishEdit" @keydown.enter="finishEdit"
+                       class="input input-sm w-full"
+                       @blur="finishEdit" @keydown.enter="finishEdit"
                        @keydown.escape="cancelEdit" @keydown.tab="handleEditTab($event, col)" />
                 <textarea v-else ref="editInput" v-model="editingValue"
-                          class="cell-editor cell-editor-multiline"
+                          class="textarea textarea-sm w-full min-h-[80px] resize-y font-mono"
                           @blur="finishEdit" @keydown.ctrl.enter="finishEdit"
                           @keydown.escape="cancelEdit"></textarea>
               </template>
               <!-- Normal cell -->
               <template v-else>
-                <span v-if="getDisplayValue(idx, col) === null || getDisplayValue(idx, col) === undefined" class="null-value">NULL</span>
-                <span v-else class="cell-value">{{ formatValue(getDisplayValue(idx, col)) }}</span>
+                <span v-if="getDisplayValue(idx, col) === null || getDisplayValue(idx, col) === undefined" class="text-base-content/60 opacity-45 italic text-[11px] font-mono tracking-wider">NULL</span>
+                <span v-else class="inline font-mono text-xs text-base-content">{{ formatValue(getDisplayValue(idx, col)) }}</span>
               </template>
             </td>
-            <td class="row-actions" v-if="dirtyRows.size > 0 || newRowData">
-              <button class="row-action-btn delete-btn" @click.stop="confirmDeleteRow(row, idx)" title="删除行">🗑️</button>
+            <td v-if="dirtyRows.size > 0 || newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+              <button class="btn btn-ghost btn-xs" @click.stop="confirmDeleteRow(row, idx)" title="删除行">🗑️</button>
             </td>
           </tr>
 
           <!-- New row -->
-          <tr v-if="newRowData" class="new-row">
-            <td class="row-num"><span class="new-indicator">+</span></td>
-            <td v-for="col in columns" :key="col" class="grid-cell"
+          <tr v-if="newRowData" class="bg-success/5 border-l-[3px] border-l-success hover:bg-success/10">
+            <td class="w-14 min-w-14 text-center bg-base-200 text-base-content/60 text-[11px] font-mono sticky left-0 z-30 border-r-2 border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+              <span class="text-success font-bold text-sm">+</span>
+            </td>
+            <td v-for="col in columns" :key="col"
+                class="px-3 py-1.5 border-r border-b border-base-content/10 text-left align-middle text-xs leading-5 whitespace-nowrap max-w-[400px] overflow-hidden text-ellipsis relative cursor-[cell] transition-colors duration-100 hover:bg-primary/10 hover:outline hover:outline-1 hover:outline-base-content/10 hover:-outline-offset-1"
                 @dblclick="startNewEdit(col)">
               <template v-if="editingCell.row === -1 && editingCell.col === col">
                 <input v-if="!isComplexType(newRowData[col])" ref="editInput" v-model="editingValue"
-                       class="cell-editor" @blur="finishNewEdit" @keydown.enter="finishNewEdit"
+                       class="input input-sm w-full"
+                       @blur="finishNewEdit" @keydown.enter="finishNewEdit"
                        @keydown.escape="cancelNewEdit" @keydown.tab="handleEditTab($event, col)" />
                 <textarea v-else ref="editInput" v-model="editingValue"
-                          class="cell-editor cell-editor-multiline"
+                          class="textarea textarea-sm w-full min-h-[80px] resize-y font-mono"
                           @blur="finishNewEdit" @keydown.ctrl.enter="finishNewEdit"
                           @keydown.escape="cancelNewEdit"></textarea>
               </template>
               <template v-else>
-                <span v-if="newRowData[col] === null || newRowData[col] === undefined" class="null-value">NULL</span>
-                <span v-else class="cell-value">{{ formatValue(newRowData[col]) }}</span>
+                <span v-if="newRowData[col] === null || newRowData[col] === undefined" class="text-base-content/60 opacity-45 italic text-[11px] font-mono tracking-wider">NULL</span>
+                <span v-else class="inline font-mono text-xs text-base-content">{{ formatValue(newRowData[col]) }}</span>
               </template>
             </td>
-            <td class="row-actions" v-if="newRowData">
-              <button class="row-action-btn save-btn" @click.stop="saveNewRow" title="保存新行">💾</button>
-              <button class="row-action-btn delete-btn" @click.stop="cancelNewRow" title="取消新增">✖</button>
+            <td v-if="newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
+              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行">💾</button>
+              <button class="btn btn-ghost btn-xs" @click.stop="cancelNewRow" title="取消新增">✖</button>
             </td>
           </tr>
         </tbody>
@@ -143,15 +154,14 @@
     </div>
 
     <!-- JSON view -->
-    <pre v-if="viewMode === 'json' && rows.length > 0" class="grid-json"
-    >{{ formatJson(rows) }}</pre>
+    <pre v-if="viewMode === 'json' && rows.length > 0" class="flex-1 p-4 m-0 overflow-auto font-mono text-xs leading-5 bg-base-200 text-base-content">{{ formatJson(rows) }}</pre>
 
     <!-- Pagination -->
-    <div v-if="total > pageSize" class="grid-pagination">
+    <div v-if="total > pageSize" class="flex items-center justify-center gap-3 px-3 py-2 border-t border-base-content/10 bg-base-100 shrink-0 min-h-[38px]">
       <button class="btn btn-ghost btn-sm" :disabled="page <= 1" @click="handlePrevPage">
         ‹ 上一页
       </button>
-      <span class="page-info">第 {{ page }} / {{ totalPages }} 页</span>
+      <span class="text-xs text-base-content/60">第 {{ page }} / {{ totalPages }} 页</span>
       <button class="btn btn-ghost btn-sm" :disabled="page >= totalPages" @click="handleNextPage">
         下一页 ›
       </button>
@@ -159,16 +169,20 @@
 
     <!-- Context Menu -->
     <Teleport to="body">
-      <div v-if="contextMenu.visible" class="context-menu"
+      <div v-if="contextMenu.visible" class="fixed z-[9999] bg-base-100 border border-base-content/10 rounded-lg shadow-lg p-1 min-w-[180px]"
            :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }" @click.stop>
-        <div v-for="(item, i) in contextMenu.items" :key="i" class="context-menu-item"
-             :class="{ disabled: item.disabled }" @click="item.disabled ? null : item.action()">
-          <span class="context-menu-icon">{{ item.icon }}</span>
-          <span class="context-menu-label">{{ item.label }}</span>
+        <div v-for="(item, i) in contextMenu.items" :key="i"
+             class="flex items-center gap-2 px-3 py-2 text-xs text-base-content rounded-md cursor-pointer transition-colors duration-100"
+             :class="item.disabled
+               ? '!opacity-40 !cursor-not-allowed'
+               : 'hover:bg-base-200'"
+             @click="item.disabled ? null : item.action()">
+          <span>{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
         </div>
       </div>
     </Teleport>
-    <div v-if="contextMenu.visible" class="context-menu-overlay" @click="closeContextMenu"></div>
+    <div v-if="contextMenu.visible" class="fixed inset-0 z-[9998]" @click="closeContextMenu"></div>
   </div>
 </template>
 
@@ -691,453 +705,3 @@ function onFilterClear() {
   emit('filter-clear')
 }
 </script>
-
-<style scoped>
-.data-grid {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.grid-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  flex-shrink: 0;
-  gap: 8px;
-  min-height: 40px;
-}
-
-.grid-tabs {
-  display: flex;
-  gap: 2px;
-}
-
-.grid-tab {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  font-size: 12px;
-  border: none;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.15s ease;
-}
-
-.grid-tab:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.grid-tab.active {
-  background: var(--color-primary);
-  color: white;
-}
-
-.grid-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.grid-info {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding: 2px 8px;
-  background: var(--color-base-200);
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.grid-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  gap: 12px;
-}
-
-.grid-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 14px;
-}
-
-.grid-table-wrapper {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
-  border-radius: 0 0 8px 8px;
-}
-
-/* 自定义滚动条 */
-.grid-table-wrapper::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.grid-table-wrapper::-webkit-scrollbar-track {
-  background: var(--color-base-200);
-}
-.grid-table-wrapper::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-}
-.grid-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.grid-table {
-  border-collapse: collapse;
-  width: max-content;
-  min-width: 100%;
-}
-
-.grid-table th,
-.grid-table td {
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 8px 14px;
-  text-align: left;
-  vertical-align: middle;
-  font-size: 13px;
-  line-height: 1.5;
-  white-space: nowrap;
-}
-
-.grid-table td {
-  white-space: nowrap;
-  max-width: 400px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.row-num {
-  width: 56px;
-  min-width: 56px;
-  text-align: center;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 11px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  border-right: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.grid-col-th {
-  background: var(--color-base-200);
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  user-select: none;
-  white-space: nowrap;
-  font-weight: 600;
-  font-size: 11px;
-  letter-spacing: 0.5px;
-  min-width: 60px;
-}
-
-.grid-col-th .grid-col {
-  padding: 8px 12px;
-  min-height: 32px;
-}
-
-.grid-col-th.sortable {
-  cursor: pointer;
-}
-
-.grid-col-th.sortable:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.grid-col {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1px;
-  padding: 4px 12px 6px;
-  min-height: 32px;
-}
-
-.col-name-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-}
-
-.col-name {
-  font-weight: 600;
-  font-size: 11px;
-  color: var(--color-base-content);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.col-comment {
-  font-size: 9px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.5;
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: normal;
-  line-height: 1.2;
-}
-
-.sort-icon {
-  font-size: 11px;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-}
-
-.sort-icon-hint {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.3;
-  font-size: 12px;
-}
-
-.grid-col-th.sortable:hover .sort-icon-hint {
-  opacity: 0.7;
-  color: var(--color-primary);
-}
-
-.sort-icon-active {
-  color: var(--color-primary);
-  font-weight: 700;
-  font-size: 10px;
-}
-
-.grid-col-th.sort-asc .col-name,
-.grid-col-th.sort-desc .col-name {
-  color: var(--color-primary);
-}
-
-.grid-cell {
-  padding: 6px 12px;
-  position: relative;
-  cursor: cell;
-  transition: background 0.1s ease;
-}
-
-.grid-cell:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  outline: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  outline-offset: -1px;
-}
-
-.grid-cell.is-pk {
-  font-weight: 600;
-  color: var(--color-primary);
-  background: rgba(var(--primary-rgb, 100, 100, 255), 0.05);
-}
-
-.dirty-row {
-  background: rgba(245, 158, 11, 0.06);
-  border-left: 3px solid var(--color-warning);
-}
-
-.dirty-row:hover {
-  background: rgba(245, 158, 11, 0.12);
-}
-
-.new-row {
-  background: rgba(34, 197, 94, 0.06);
-  border-left: 3px solid var(--color-success);
-}
-
-.new-row:hover {
-  background: rgba(34, 197, 94, 0.12);
-}
-
-.grid-table tbody tr:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row) {
-  background: rgba(0, 0, 0, 0.015);
-}
-
-.grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row):hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.dirty-indicator {
-  color: var(--color-warning);
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.new-row {
-  background: rgba(34, 197, 94, 0.08);
-}
-
-.new-indicator {
-  color: var(--color-success);
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.cell-value {
-  display: inline;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12.5px;
-  color: var(--color-base-content);
-}
-
-.null-value {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.45;
-  font-style: italic;
-  font-size: 11px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  letter-spacing: 0.5px;
-}
-
-.cell-editor {
-  width: 100%;
-  padding: 4px 6px;
-  border: 2px solid var(--color-primary);
-  border-radius: 4px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  font-size: 13px;
-  font-family: inherit;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.cell-editor-datetime {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  min-width: 180px;
-}
-
-.cell-editor-datetime::-webkit-calendar-picker-indicator {
-  cursor: pointer;
-  opacity: 0.6;
-}
-
-.cell-editor-datetime::-webkit-calendar-picker-indicator:hover {
-  opacity: 1;
-}
-
-.cell-editor-multiline {
-  min-height: 80px;
-  resize: vertical;
-  font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-}
-
-.row-actions {
-  width: 60px;
-  text-align: center;
-  background: var(--color-base-200);
-}
-
-.row-action-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 4px;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.row-action-btn:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.grid-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 8px 12px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  flex-shrink: 0;
-  min-height: 38px;
-}
-
-.page-info {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.grid-json {
-  flex: 1;
-  padding: 16px;
-  margin: 0;
-  overflow: auto;
-  font-family: 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.5;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-/* Context Menu */
-.context-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  padding: 4px;
-  min-width: 180px;
-}
-
-.context-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--color-base-content);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.context-menu-item:hover {
-  background: var(--color-base-200);
-}
-
-.context-menu-item.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.context-menu-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-}
-</style>

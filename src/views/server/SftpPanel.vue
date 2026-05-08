@@ -1,15 +1,25 @@
 <template>
-  <div class="sftp-panel" :style="panelStyle">
-    <div class="sftp-header" @mousedown="startDrag">
-      <div class="sftp-header-left">
-        <span class="sftp-title">{{ server.name }} - SFTP</span>
-        <span class="connection-badge" :class="connectionStatus">
-          <span class="badge-dot" :class="connectionStatus"></span>
+  <div class="fixed flex flex-col overflow-hidden rounded-xl border border-base-content/10 bg-base-100 shadow-2xl z-[1000]" :style="panelStyle">
+    <div class="flex items-center justify-between rounded-t-xl border-b border-base-content/10 bg-base-200 px-4 py-3" @mousedown="startDrag">
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-semibold">{{ server.name }} - SFTP</span>
+        <span :class="[
+          'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs',
+          connectionStatus === 'online' ? 'bg-success/15 text-success' : '',
+          connectionStatus === 'offline' ? 'bg-error/15 text-error' : '',
+          connectionStatus === 'connecting' ? 'bg-warning/15 text-warning' : '',
+        ]">
+          <span :class="[
+            'inline-block h-1.5 w-1.5 rounded-full',
+            connectionStatus === 'online' ? 'bg-success' : '',
+            connectionStatus === 'offline' ? 'bg-error' : '',
+            connectionStatus === 'connecting' ? 'bg-warning animate-pulse' : '',
+          ]"></span>
           {{ connectionLabel }}
         </span>
       </div>
-      <div class="sftp-header-actions">
-        <button @click.stop="toggleSize" class="btn-header-icon" :title="isMaximized ? '还原' : '最大化'">
+      <div class="flex items-center gap-2">
+        <button @click.stop="toggleSize" class="btn btn-ghost btn-xs btn-square" :title="isMaximized ? '还原' : '最大化'">
           <svg v-if="!isMaximized" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
@@ -17,7 +27,7 @@
             <rect x="5" y="5" width="14" height="14" rx="1"/>
           </svg>
         </button>
-        <button @click.stop="$emit('close')" class="btn-close" title="关闭">
+        <button @click.stop="$emit('close')" class="btn btn-circle btn-error btn-sm text-white hover:scale-110" title="关闭">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -26,70 +36,70 @@
       </div>
     </div>
 
-    <div class="sftp-toolbar">
-      <svg class="path-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="flex items-center gap-2 bg-base-content/10 p-2.5">
+      <svg class="shrink-0 opacity-50" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
-      <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user" class="path-input" />
-      <button @click="loadDir" class="btn-toolbar">刷新</button>
-      <button @click="goUp" class="btn-toolbar" :disabled="currentPath === '/'">↑ 上级</button>
-      <button @click="uploadFile" class="btn-toolbar">↑ 上传文件</button>
-      <button @click="uploadFolder" class="btn-toolbar">📁 上传文件夹</button>
+      <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user" class="input input-bordered input-sm flex-1 text-xs" />
+      <button @click="loadDir" class="btn btn-ghost btn-sm">刷新</button>
+      <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/'">↑ 上级</button>
+      <button @click="uploadFile" class="btn btn-ghost btn-sm">↑ 上传文件</button>
+      <button @click="uploadFolder" class="btn btn-ghost btn-sm">📁 上传文件夹</button>
     </div>
 
     <!-- 文件列表头部 -->
-    <div class="file-list-header">
-      <span class="col-icon"></span>
-      <span class="col-name">名称</span>
-      <span class="col-size">大小</span>
-      <span class="col-time">修改时间</span>
-      <span class="col-actions">操作</span>
+    <div class="flex items-center gap-2.5 border-b border-base-content/10 bg-base-200 px-3 py-2 text-xs font-medium text-base-content/60">
+      <span class="shrink-0 w-5"></span>
+      <span class="flex-1">名称</span>
+      <span class="w-[70px] shrink-0 text-right">大小</span>
+      <span class="w-[130px] shrink-0">修改时间</span>
+      <span class="shrink-0">操作</span>
     </div>
 
-    <div class="sftp-content">
+    <div class="flex-1 overflow-y-auto p-2">
       <div
         ref="fileListRef"
-        class="file-list"
-        :class="{ 'drag-over': isDragOver }"
+        class="flex flex-col gap-1 relative min-h-[100px] transition-colors duration-200"
+        :class="[isDragOver ? 'bg-[rgba(137,180,250,0.08)] rounded-lg' : '']"
       >
         <!-- 拖拽提示层 -->
-        <div v-if="isDragOver" class="drop-overlay">
+        <div v-if="isDragOver" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#89b4fa] rounded-lg bg-[rgba(30,30,46,0.9)] text-[#89b4fa] pointer-events-none">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <p>释放以上传文件</p>
+          <p class="text-sm font-semibold">释放以上传文件</p>
         </div>
 
         <div
           v-for="file in files"
           :key="file.name"
-          class="file-item"
-          :class="{ selected: selectedFile?.name === file.name }"
+          class="group flex items-center gap-2.5 rounded-md px-2.5 py-2 cursor-pointer transition-colors duration-100 hover:bg-base-200"
+          :class="[selectedFile?.name === file.name ? 'bg-base-content/10' : '']"
           @click="selectFile(file)"
           @dblclick="handleDoubleClick(file)"
         >
-          <span class="file-icon">
-            <svg v-if="file.type === 'directory'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="icon-folder">
+          <span class="flex items-center shrink-0">
+            <svg v-if="file.type === 'directory'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="text-[#f9a825]">
               <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             </svg>
-            <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="icon-file">
+            <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="text-base-content/60">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
           </span>
-          <span class="file-name">{{ file.name }}</span>
-          <span class="file-size">{{ formatSize(file.size) }}</span>
-          <span class="file-time">{{ formatDate(file.modifyTime) }}</span>
-          <div class="file-actions">
-            <button v-if="file.type === 'file'" @click.stop="downloadFile(file)" class="btn-action" title="下载">
+          <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs">{{ file.name }}</span>
+          <span class="w-[70px] shrink-0 text-right text-xs text-base-content/60">{{ formatSize(file.size) }}</span>
+          <span class="w-[130px] shrink-0 text-xs text-base-content/60">{{ formatDate(file.modifyTime) }}</span>
+          <div class="flex shrink-0 gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <button v-if="file.type === 'file'" @click.stop="downloadFile(file)" class="btn btn-ghost btn-xs btn-square" title="下载">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
                 <polyline points="7 10 12 15 17 10"/>
                 <line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
             </button>
-            <button @click.stop="deleteFile(file)" class="btn-action btn-danger" title="删除">
+            <button @click.stop="deleteFile(file)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <polyline points="3 6 5 6 21 6"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -98,7 +108,7 @@
           </div>
         </div>
 
-        <div v-if="files.length === 0" class="empty-state">
+        <div v-if="files.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
           <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
           </svg>
@@ -107,34 +117,30 @@
       </div>
     </div>
 
-    <div class="sftp-footer">
+    <div class="flex gap-4 rounded-b-xl border-t border-base-content/10 bg-base-200 px-4 py-2.5 text-xs text-base-content/60">
       <span>{{ files.length }} 项</span>
       <span v-if="selectedFile">已选: {{ selectedFile.name }}</span>
     </div>
 
     <!-- 上传进度 -->
-    <div v-if="uploadProgress" class="upload-progress">
-      <span class="upload-file">{{ uploadProgress.file }}</span>
-      <span class="upload-speed">{{ uploadProgress.speedFormatted || '' }}</span>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: uploadProgress.percent + '%' }"></div>
-      </div>
-      <span class="upload-percent">{{ uploadProgress.percent }}%</span>
+    <div v-if="uploadProgress" class="flex items-center gap-2.5 border-t border-base-content/10 bg-base-200 px-4 py-2.5 text-xs">
+      <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-base-content">{{ uploadProgress.file }}</span>
+      <span class="shrink-0 min-w-[70px] text-right text-[11px] text-primary">{{ uploadProgress.speedFormatted || '' }}</span>
+      <progress class="progress progress-primary flex-1 h-1" :value="uploadProgress.percent" max="100"></progress>
+      <span class="min-w-[40px] text-right font-semibold text-primary">{{ uploadProgress.percent }}%</span>
       <!-- 操作按钮 -->
-      <div class="upload-actions">
-        <button v-if="isUploading" @click="cancelUpload" class="btn-upload-cancel" title="取消上传">✕ 取消</button>
-        <button v-if="uploadFailed" @click="retryUpload" class="btn-upload-retry" title="重试上传">↻ 重试</button>
+      <div class="flex shrink-0 gap-1">
+        <button v-if="isUploading" @click="cancelUpload" class="btn btn-outline btn-error btn-xs" title="取消上传">✕ 取消</button>
+        <button v-if="uploadFailed" @click="retryUpload" class="btn btn-outline btn-primary btn-xs" title="重试上传">↻ 重试</button>
       </div>
     </div>
 
     <!-- 下载进度 -->
-    <div v-if="downloadProgress" class="upload-progress">
-      <span class="upload-file">{{ downloadProgress.file }}</span>
-      <span class="upload-speed">{{ downloadSpeed }}</span>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: downloadProgress.percent + '%' }"></div>
-      </div>
-      <span class="upload-percent">{{ downloadProgress.percent }}%</span>
+    <div v-if="downloadProgress" class="flex items-center gap-2.5 border-t border-base-content/10 bg-base-200 px-4 py-2.5 text-xs">
+      <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-base-content">{{ downloadProgress.file }}</span>
+      <span class="shrink-0 min-w-[70px] text-right text-[11px] text-primary">{{ downloadSpeed }}</span>
+      <progress class="progress progress-primary flex-1 h-1" :value="downloadProgress.percent" max="100"></progress>
+      <span class="min-w-[40px] text-right font-semibold text-primary">{{ downloadProgress.percent }}%</span>
     </div>
   </div>
 </template>
@@ -766,420 +772,3 @@ function formatDate(dateStr) {
 }
 </script>
 
-<style scoped>
-.sftp-panel {
-  position: fixed;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-}
-
-.sftp-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px 12px 0 0;
-}
-
-.sftp-header-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.sftp-title {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.sftp-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.btn-header-icon {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  transition: all 0.15s ease;
-}
-
-.btn-header-icon:hover {
-  background: rgba(205, 214, 244, 0.1);
-  color: var(--text);
-}
-
-/* 连接状态 */
-.connection-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.connection-badge.online {
-  background: rgba(166, 227, 161, 0.15);
-  color: var(--color-success);
-}
-
-.connection-badge.offline {
-  background: rgba(243, 139, 168, 0.15);
-  color: var(--color-error);
-}
-
-.connection-badge.connecting {
-  background: rgba(249, 168, 37, 0.15);
-  color: var(--color-warning);
-}
-
-.badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.badge-dot.online {
-  background: var(--color-success);
-}
-
-.badge-dot.offline {
-  background: var(--color-error);
-}
-
-.badge-dot.connecting {
-  background: var(--color-warning);
-  animation: blink 0.8s ease-in-out infinite;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.btn-close {
-  background: var(--color-error);
-  border: none;
-  color: white;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-close:hover {
-  background: #e04560;
-  transform: scale(1.1);
-}
-
-.sftp-toolbar {
-  display: flex;
-  gap: 8px;
-  padding: 10px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  align-items: center;
-}
-
-.path-icon {
-  opacity: 0.5;
-  flex-shrink: 0;
-}
-
-.path-input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-}
-
-.btn-toolbar {
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-}
-
-.btn-toolbar:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 列表头部 */
-.file-list-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-weight: 500;
-}
-
-.sftp-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.file-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-  min-height: 100px;
-  transition: background 0.2s ease;
-}
-
-.file-list.drag-over {
-  background: rgba(137, 180, 250, 0.08);
-  border-radius: 8px;
-}
-
-/* 拖拽覆盖层 */
-.drop-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(30, 30, 46, 0.9);
-  border: 2px dashed #89b4fa;
-  border-radius: 8px;
-  z-index: 10;
-  color: #89b4fa;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.drop-overlay p {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-
-.file-item:hover {
-  background: var(--color-base-200);
-}
-
-.file-item.selected {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.file-icon {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.icon-folder {
-  color: #f9a825;
-}
-
-.icon-file {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.file-name {
-  flex: 1;
-  font-size: 13px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.file-size,
-.file-time {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.col-size,
-.file-size {
-  width: 70px;
-  text-align: right;
-}
-
-.col-time,
-.file-time {
-  width: 130px;
-}
-
-.file-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  flex-shrink: 0;
-}
-
-.file-item:hover .file-actions {
-  opacity: 1;
-}
-
-.btn-action {
-  padding: 4px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: var(--color-base-content);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.btn-action:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.btn-action.btn-danger {
-  color: var(--color-error);
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  gap: 12px;
-}
-
-.sftp-footer {
-  padding: 10px 16px;
-  background: var(--color-base-200);
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  display: flex;
-  gap: 15px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  border-radius: 0 0 12px 12px;
-}
-
-.upload-progress {
-  padding: 10px 16px;
-  background: var(--color-base-200);
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-}
-
-.upload-file {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-base-content);
-}
-
-.upload-speed {
-  font-size: 11px;
-  color: var(--color-primary);
-  min-width: 70px;
-  text-align: right;
-  flex-shrink: 0;
-}
-
-.upload-percent {
-  font-weight: 600;
-  color: var(--color-primary);
-  min-width: 40px;
-  text-align: right;
-}
-
-.upload-actions {
-  display: flex;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.btn-upload-cancel {
-  padding: 2px 8px;
-  border: 1px solid var(--color-error);
-  background: transparent;
-  color: var(--color-error);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s ease;
-}
-
-.btn-upload-cancel:hover {
-  background: var(--color-error);
-  color: white;
-}
-
-.btn-upload-retry {
-  padding: 2px 8px;
-  border: 1px solid var(--color-primary);
-  background: transparent;
-  color: var(--color-primary);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s ease;
-}
-
-.btn-upload-retry:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.progress-bar {
-  flex: 1;
-  height: 4px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  transition: width 0.2s ease;
-}
-</style>

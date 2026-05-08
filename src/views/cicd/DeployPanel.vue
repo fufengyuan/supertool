@@ -1,46 +1,46 @@
 <template>
-  <div class="deploy-panel">
+  <div class="px-5 py-4 w-full min-h-full">
     <!-- Header -->
-    <div class="panel-header">
-      <h2>🚀 一键部署</h2>
-      <p class="panel-subtitle">选择部署配置，快速将项目部署到目标服务器</p>
+    <div class="mb-4">
+      <h2 class="text-xl font-bold m-0 mb-1 text-base-content">🚀 一键部署</h2>
+      <p class="text-sm text-base-content/60 m-0">选择部署配置，快速将项目部署到目标服务器</p>
     </div>
 
     <!-- Main Layout: Left Config + Right Log/History -->
-    <div class="deploy-layout" v-if="configs.length > 0">
+    <div class="grid grid-cols-[340px_1fr] gap-4 items-start w-full" v-if="configs.length > 0">
       <!-- Left: Config Selector + Info + Actions -->
-      <div class="deploy-sidebar">
+      <div class="flex flex-col gap-3 sticky top-0">
         <!-- Config Selector -->
-        <div class="card config-selector">
-          <label>选择部署配置</label>
-          <div class="config-tree">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <label class="block mb-2 font-semibold text-base-content text-sm">选择部署配置</label>
+          <div class="max-h-72 overflow-y-auto border border-base-content/10 rounded-lg bg-base-200">
             <template v-for="[groupName, groupItems] in groupedDeployConfigs" :key="groupName">
-              <div class="config-tree-group">
-                <div class="config-tree-group-header" @click="toggleDeployGroup(groupName)">
-                  <svg class="tree-chevron" :class="{ expanded: expandedDeployGroups.has(groupName) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <div class="border-b border-base-content/10 last:border-b-0">
+                <div class="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer select-none text-xs font-semibold text-base-content bg-black/5 hover:bg-black/10" @click="toggleDeployGroup(groupName)">
+                  <svg class="shrink-0 text-base-content/60 transition-transform duration-200" :class="expandedDeployGroups.has(groupName) ? 'rotate-90' : ''" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                     <polyline points="6 9 12 15 18 9" />
                   </svg>
-                  <span class="tree-group-name">{{ groupName }}</span>
-                  <span class="tree-group-count">{{ groupItems.length }}</span>
+                  <span class="flex-1">{{ groupName }}</span>
+                  <span class="text-xs font-normal text-base-content/60 bg-black/5 px-1.5 py-0.5 rounded-full">{{ groupItems.length }}</span>
                 </div>
-                <div class="config-tree-group-body" v-show="expandedDeployGroups.has(groupName)">
+                <div v-show="expandedDeployGroups.has(groupName)">
                   <div
                     v-for="cfg in groupItems"
                     :key="cfg.id"
-                    class="config-tree-item"
-                    :class="{ active: selectedConfigId === cfg.id, 'recently-deployed': cfg.lastDeployedAt }"
+                    class="flex items-center gap-2 px-2.5 py-1.5 pl-7 cursor-pointer transition-colors duration-100 text-xs hover:bg-primary/5"
+                    :class="{ 'bg-primary/10 text-primary': selectedConfigId === cfg.id }"
                     @click="selectDeployConfig(cfg)"
                   >
-                    <span class="config-tree-item-name">
+                    <span class="flex-1 font-medium truncate min-w-0">
                       {{ cfg.name || getProjectName(cfg.projectId) }}
                     </span>
-                    <span class="config-tree-item-meta">
-                      <span class="meta-branch">{{ cfg.deployBranch || 'main' }}</span>
-                      <span class="meta-dot">·</span>
-                      <span class="meta-servers">{{ getServerCount(cfg) }}台</span>
+                    <span class="flex items-center gap-1 text-[11px] text-base-content/60 shrink-0">
+                      <span class="font-mono text-[10px] bg-black/5 px-1.5 py-0.5 rounded-sm">{{ cfg.deployBranch || 'main' }}</span>
+                      <span class="opacity-40">·</span>
+                      <span>{{ getServerCount(cfg) }}台</span>
                     </span>
-                    <span v-if="cfg.lastDeployedAt" class="config-tree-item-check" title="最近部署过">✓</span>
-                    <span v-if="cfg.requiresApproval" class="config-tree-item-badge" title="需要审核确认">🔒</span>
+                    <span v-if="cfg.lastDeployedAt" class="text-xs text-success font-bold shrink-0" title="最近部署过">✓</span>
+                    <span v-if="cfg.requiresApproval" class="text-xs ml-0.5 shrink-0" title="需要审核确认">🔒</span>
                   </div>
                 </div>
               </div>
@@ -50,107 +50,124 @@
 
         <!-- Config Details Card -->
         <template v-if="config && project">
-          <div class="card config-info">
-            <div class="card-title">配置详情</div>
-            <div class="info-grid">
-              <div class="info-item" v-if="config.name">
-                <span class="info-label">名称</span>
-                <span class="info-value">{{ config.name }}</span>
+          <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+            <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
+            <div class="flex flex-col gap-2.5">
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.name">
+                <span class="text-xs font-medium text-base-content/60">名称</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ config.name }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">项目</span>
-                <span class="info-value">{{ project.name }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
+                <span class="text-xs font-medium text-base-content/60">项目</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ project.name }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">分支</span>
-                <span class="info-value branch-badge">{{ config.deployBranch || 'main' }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
+                <span class="text-xs font-medium text-base-content/60">分支</span>
+                <span class="inline-flex px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-semibold">{{ config.deployBranch || 'main' }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">服务器</span>
-                <span class="info-value">{{ getServersInfo(config) }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
+                <span class="text-xs font-medium text-base-content/60">服务器</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ getServersInfo(config) }}</span>
               </div>
-              <div class="info-item">
-                <span class="info-label">构建工具</span>
-                <span class="info-value">{{ getBuildToolName(config.buildTool) }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
+                <span class="text-xs font-medium text-base-content/60">构建工具</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ getBuildToolName(config.buildTool) }}</span>
               </div>
-              <div class="info-item" v-if="config.deployPath">
-                <span class="info-label">部署路径</span>
-                <span class="info-value code">{{ config.deployPath }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.deployPath">
+                <span class="text-xs font-medium text-base-content/60">部署路径</span>
+                <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.deployPath }}</span>
               </div>
-              <div class="info-item" v-if="config.restartScript">
-                <span class="info-label">重启脚本</span>
-                <span class="info-value code">{{ config.restartScript }}</span>
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.restartScript">
+                <span class="text-xs font-medium text-base-content/60">重启脚本</span>
+                <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.restartScript }}</span>
               </div>
             </div>
           </div>
 
           <!-- Deploy Actions -->
-          <div class="card deploy-actions">
-            <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost">
+          <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5">
+            <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
               🔍 部署预检
             </button>
-            <button @click="startDeploy" :disabled="deploying || !selectedConfigId" class="btn btn-primary btn-deploy" :class="{ 'btn-requires-approval': config?.requiresApproval }">
+            <button @click="startDeploy" :disabled="deploying || !selectedConfigId" class="btn flex-1 justify-center"
+              :class="config?.requiresApproval ? 'bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90' : 'btn-primary'">
               {{ deploying ? '部署中...' : (config?.requiresApproval ? '🔒 审核部署' : '🚀 开始部署') }}
             </button>
           </div>
 
           <!-- Pre-flight Results -->
-          <div v-if="preflightResults.length > 0" class="card preflight-results">
-            <div class="card-title">预检结果</div>
-            <div v-for="(r, i) in preflightResults" :key="i" class="preflight-item" :class="r.passed ? 'passed' : 'failed'">
-              <span class="preflight-icon">{{ r.passed ? '✅' : '❌' }}</span>
-              <span class="preflight-name">{{ r.name }}</span>
-              <span class="preflight-message">{{ r.message }}</span>
+          <div v-if="preflightResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+            <div class="text-sm font-semibold text-base-content mb-2">预检结果</div>
+            <div v-for="(r, i) in preflightResults" :key="i" class="flex items-center gap-2 py-1.5 border-b border-base-content/10 last:border-b-0 text-sm">
+              <span>{{ r.passed ? '✅' : '❌' }}</span>
+              <span :class="r.passed ? 'text-success' : 'text-error'" class="font-medium">{{ r.name }}</span>
+              <span class="ml-auto text-base-content/60 text-xs">{{ r.message }}</span>
             </div>
           </div>
 
           <!-- Progress -->
-          <div class="card deploy-progress" v-if="deploying || progress > 0">
-            <div class="progress-header">
-              <span class="progress-label">{{ currentStep || '准备部署...' }}</span>
-              <button v-if="deploying" @click="cancelDeploy" class="btn-cancel-deploy">⏹ 取消</button>
+          <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5" v-if="deploying || progress > 0">
+            <div class="flex justify-between items-center mb-2">
+              <span class="text-sm text-base-content font-medium">{{ currentStep || '准备部署...' }}</span>
+              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85">
+                ⏹ 取消
+              </button>
             </div>
-            <div class="progress-bar">
-              <div class="progress-fill" :style="{ width: progress + '%' }" :class="{ 'progress-cancelled': deployCancelled }"></div>
+            <div class="h-1.5 bg-base-content/10 rounded-full overflow-hidden">
+              <div class="h-full bg-primary transition-all duration-300" :style="{ width: progress + '%' }" :class="{ 'bg-base-content/60': deployCancelled }"></div>
             </div>
-            <span class="progress-pct">{{ Math.round(progress) }}%</span>
+            <span class="text-sm font-semibold text-primary">{{ Math.round(progress) }}%</span>
           </div>
         </template>
       </div>
 
       <!-- Right: Log + History -->
-      <div class="deploy-main">
+      <div class="flex flex-col gap-3 min-w-0">
         <!-- Real-time Log -->
-        <div class="card realtime-log" v-if="deploying || realtimeLogs.length > 0">
-          <div class="card-title-row">
-            <span class="card-title">📋 实时日志</span>
-            <button @click="clearRealtimeLogs" class="btn-clear-logs">清空</button>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden" v-if="deploying || realtimeLogs.length > 0">
+          <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
+            <span class="text-sm font-semibold text-base-content">📋 实时日志</span>
+            <button @click="clearRealtimeLogs" class="px-2 py-0.5 bg-transparent text-base-content/60 border border-base-content/10 rounded cursor-pointer text-xs hover:bg-base-100 hover:text-base-content transition-colors">清空</button>
           </div>
-          <div ref="logContainer" class="log-output">
-            <div v-for="(line, i) in realtimeLogs" :key="i" class="log-line" :class="'log-' + (line.stage || 'info')">
-              <span class="log-time">{{ line.time }}</span>
-              <span class="log-stage">[{{ line.stage || 'info' }}]</span>
-              <span class="log-msg">{{ line.message }}</span>
+          <div ref="logContainer" class="max-h-[500px] overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
+            <div v-for="(line, i) in realtimeLogs" :key="i" class="flex gap-2 py-0.5">
+              <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ line.time }}</span>
+              <span class="shrink-0 min-w-[55px]" :class="{
+                'text-success': line.stage === 'git',
+                'text-warning': line.stage === 'maven' || line.stage === 'rollback',
+                'text-primary': line.stage === 'ssh' || line.stage === 'deploy' || line.stage === 'info' || !line.stage,
+                'text-purple-500': line.stage === 'restart',
+                'text-error': line.stage === 'error',
+                'text-orange-500': line.stage === 'collect'
+              }">[{{ line.stage || 'info' }}]</span>
+              <span class="text-base-content break-all" :class="{ 'text-error': line.stage === 'error' }">{{ line.message }}</span>
             </div>
-            <div v-if="deploying" class="log-line log-info">
-              <span class="log-time">{{ currentTime }}</span>
-              <span class="log-stage">[deploy]</span>
-              <span class="log-msg log-spinner">⠋ 部署进行中...</span>
+            <div v-if="deploying" class="flex gap-2 py-0.5">
+              <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ currentTime }}</span>
+              <span class="shrink-0 min-w-[55px] text-primary">[deploy]</span>
+              <span class="text-base-content break-all opacity-70">⠋ 部署进行中...</span>
             </div>
           </div>
         </div>
 
         <!-- Deploy History -->
-        <div class="card deploy-history">
-          <div class="card-title-row">
-            <span class="card-title">部署历史</span>
-            <span class="history-count">{{ logs.length }} 条记录</span>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <div class="flex justify-between items-center">
+            <span class="text-sm font-semibold text-base-content">部署历史</span>
+            <span class="text-xs text-base-content/60">{{ logs.length }} 条记录</span>
           </div>
 
-          <div class="logs-list">
-            <div v-for="log in logs" :key="log.id" class="log-item" :class="log.status">
-              <div class="log-header">
-                <span class="log-status">
+          <div class="flex flex-col gap-2 mt-3">
+            <div v-for="log in logs" :key="log.id" class="px-3.5 py-3 bg-base-200 rounded-lg border-l-4 border-transparent"
+              :class="{
+                'border-l-success': log.status === 'success',
+                'border-l-error': log.status === 'failed',
+                'border-l-primary': log.status === 'running',
+                'border-l-base-content/60': log.status === 'cancelled',
+                'border-l-amber-500': log.status === 'rolled_back'
+              }">
+              <div class="flex gap-3 items-center">
+                <span class="text-base">
                   {{
                     log.status === 'success' ? '✅'
                     : log.status === 'failed' ? '❌'
@@ -160,111 +177,122 @@
                     : '⏳'
                   }}
                 </span>
-                <span class="log-config-name" v-if="log.configName">{{ log.configName }}</span>
-                <span class="log-config-group" v-if="log.configGroupName">{{ log.configGroupName }}</span>
-                <span class="log-project-name" v-if="log.projectName">({{ log.projectName }})</span>
-                <span class="log-time">{{ formatDate(log.createdAt) }}</span>
-                <span class="log-trigger">触发: {{ log.triggeredBy }}</span>
-                <span class="log-branch" v-if="log.deployBranch">🔀 {{ log.deployBranch }}</span>
+                <span class="text-primary text-sm font-bold" v-if="log.configName">{{ log.configName }}</span>
+                <span class="text-[10px] font-semibold text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded whitespace-nowrap" v-if="log.configGroupName">{{ log.configGroupName }}</span>
+                <span class="text-xs text-base-content/60 opacity-70" v-if="log.projectName">({{ log.projectName }})</span>
+                <span class="text-xs text-base-content/60">{{ formatDate(log.createdAt) }}</span>
+                <span class="text-xs text-base-content/60">触发: {{ log.triggeredBy }}</span>
+                <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded" v-if="log.deployBranch">🔀 {{ log.deployBranch }}</span>
                 <button
                   v-if="log.status === 'success'"
                   @click="rollbackDeploy(log)"
                   :disabled="rollingBackId === log.id"
-                  class="btn-rollback"
+                  class="ml-auto px-2.5 py-0.5 bg-primary text-white border-0 rounded cursor-pointer text-xs font-medium transition-colors hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="回滚到此版本"
                 >
                   {{ rollingBackId === log.id ? '⏳ 回滚中' : '🔄 回滚' }}
                 </button>
               </div>
 
-              <div class="log-details" v-if="log.status === 'failed'">
-                <p class="error-message">{{ log.errorMessage || '未知错误' }}</p>
+              <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="log.status === 'failed'">
+                <p class="text-error font-medium text-sm m-0">{{ log.errorMessage || '未知错误' }}</p>
               </div>
 
-              <div class="log-details" v-if="log.status === 'cancelled'">
-                <p class="cancelled-message">部署已取消</p>
+              <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="log.status === 'cancelled'">
+                <p class="text-base-content/60 italic text-sm m-0">部署已取消</p>
               </div>
 
-              <div class="log-details" v-if="expandedLog === log.id">
+              <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="expandedLog === log.id">
                 <!-- Full log file viewer -->
-                <div v-if="fullLogContent !== null" class="full-log-viewer">
-                  <div class="full-log-header">
+                <div v-if="fullLogContent !== null" class="mb-2.5">
+                  <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
                     <span>📋 完整日志</span>
-                    <button @click="closeFullLog" class="btn-close-log">✕ 关闭</button>
+                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors">✕ 关闭</button>
                   </div>
-                  <pre class="full-log-content">{{ fullLogContent }}</pre>
+                  <pre class="m-0 p-2.5 max-h-[500px] overflow-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
                 </div>
 
                 <!-- Step logs -->
-                <div v-if="!fullLogContent && stepLogs[log.id] && stepLogs[log.id].length > 0" class="step-logs">
+                <div v-if="!fullLogContent && stepLogs[log.id] && stepLogs[log.id].length > 0" class="flex flex-col gap-2">
                   <div
                     v-for="step in stepLogs[log.id]"
                     :key="step.id"
-                    class="step-item"
-                    :class="step.status"
+                    class="flex flex-col px-2.5 py-2 bg-base-200 rounded-lg border-l-4 text-xs"
+                    :class="{
+                      'border-l-success': step.status === 'success',
+                      'border-l-error': step.status === 'failed',
+                      'border-l-primary': step.status === 'running',
+                      'border-l-base-content/60': step.status === 'pending'
+                    }"
                   >
-                    <div class="step-header">
-                      <span class="step-name">{{ step.stepName }}</span>
-                      <span class="step-status-badge" :class="step.status">
+                    <div class="flex justify-between items-center mb-1">
+                      <span class="min-w-[120px] font-semibold text-base-content">{{ step.stepName }}</span>
+                      <span class="text-xs px-2 py-0.5 rounded-full font-medium capitalize"
+                        :class="{
+                          'bg-green-500/15 text-success': step.status === 'success',
+                          'bg-red-500/15 text-error': step.status === 'failed',
+                          'bg-blue-500/15 text-primary': step.status === 'running',
+                          'bg-gray-500/15 text-base-content/60': step.status === 'pending'
+                        }">
                         {{ step.status === 'success' ? '✅' : step.status === 'failed' ? '❌' : step.status === 'running' ? '⏳' : '⏸️' }}
                         {{ step.status }}
                       </span>
                     </div>
-                    <div class="step-meta" v-if="step.startTime || step.endTime">
-                      <span class="step-time">{{ step.startTime ? formatDate(step.startTime) : '-' }} → {{ step.endTime ? formatDate(step.endTime) : '进行中' }}</span>
+                    <div class="text-xs text-base-content/60 mb-1" v-if="step.startTime || step.endTime">
+                      <span>{{ step.startTime ? formatDate(step.startTime) : '-' }} → {{ step.endTime ? formatDate(step.endTime) : '进行中' }}</span>
                     </div>
-                    <pre v-if="step.output" class="step-output">{{ step.output }}</pre>
-                    <p v-if="step.errorMessage" class="step-error">{{ step.errorMessage }}</p>
+                    <pre v-if="step.output" class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ step.output }}</pre>
+                    <p v-if="step.errorMessage" class="mt-1 text-error text-xs font-medium">{{ step.errorMessage }}</p>
                   </div>
                 </div>
 
                 <!-- Raw log output (fallback when no step logs but logOutput exists) -->
-                <div v-else-if="!fullLogContent && log.logOutput" class="raw-log-output">
-                  <div class="raw-log-header">📋 部署日志</div>
-                  <pre class="step-output">{{ log.logOutput }}</pre>
+                <div v-else-if="!fullLogContent && log.logOutput" class="mt-1">
+                  <div class="text-sm font-semibold text-base-content mb-1.5">📋 部署日志</div>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ log.logOutput }}</pre>
                 </div>
 
                 <!-- Auto-load log file when step logs are empty -->
-                <div v-else-if="!fullLogContent && log.logFilePath" class="raw-log-output">
-                  <div class="raw-log-header">📋 部署日志</div>
-                  <pre class="step-output" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
-                  <pre class="step-output" v-else-if="loadingLogContent[log.id]">⏳ 读取日志中...</pre>
+                <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
+                  <div class="text-sm font-semibold text-base-content mb-1.5">📋 部署日志</div>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]">⏳ 读取日志中...</pre>
                   <button
                     v-else
                     @click="loadLogContent(log)"
-                    class="btn-view-full-log"
+                    class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
                   >📄 点击加载日志</button>
                 </div>
 
                 <!-- No details available -->
-                <div v-else-if="!fullLogContent" class="no-details">
-                  <p>📭 暂无日志数据</p>
+                <div v-else-if="!fullLogContent" class="text-center p-5 text-base-content/60">
+                  <p class="m-1 text-sm">📭 暂无日志数据</p>
                 </div>
 
                 <!-- View full log button -->
-                <div v-if="log.logFilePath && fullLogContent === null" class="view-full-log-row">
-                  <button @click="viewFullLog(log)" :disabled="loadingLogFile" class="btn-view-full-log">
+                <div v-if="log.logFilePath && fullLogContent === null" class="mt-2 flex justify-end">
+                  <button @click="viewFullLog(log)" :disabled="loadingLogFile" class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
                     {{ loadingLogFile ? '⏳ 加载中...' : '📄 查看完整日志' }}
                   </button>
                 </div>
               </div>
 
-              <button @click="toggleLogDetails(log.id)" class="btn-toggle">
+              <button @click="toggleLogDetails(log.id)" class="mt-2 px-2.5 py-1 bg-transparent text-base-content/60 border border-base-content/10 rounded cursor-pointer text-xs hover:border-primary hover:text-primary transition-colors">
                 {{ expandedLog === log.id ? '收起' : '展开详情' }}
               </button>
             </div>
 
-            <div v-if="logs.length === 0" class="empty-logs">暂无部署记录</div>
+            <div v-if="logs.length === 0" class="text-center p-5 text-base-content/60 text-sm">暂无部署记录</div>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div v-else class="empty-state">
-      <div class="empty-icon">📦</div>
-      <h3>暂无 CI/CD 配置</h3>
-      <p>请先在 CI/CD 配置页面创建部署配置</p>
+    <div v-else class="p-16 text-center bg-base-100 rounded-xl border border-base-content/10">
+      <div class="text-5xl mb-4">📦</div>
+      <h3 class="m-0 mb-2 text-lg text-base-content">暂无 CI/CD 配置</h3>
+      <p class="m-0 mb-5 text-sm text-base-content/60">请先在 CI/CD 配置页面创建部署配置</p>
       <button @click="goToConfig" class="btn btn-primary">前往配置页面</button>
     </div>
   </div>
@@ -677,7 +705,7 @@ async function cancelDeploy() {
 
 function confirmRollback(log: DeployLog) {
   const confirmed = confirm(
-    `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\n\n此操作将把服务器恢复到该版本，当前部署将被备份。`
+    `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\\n\\n此操作将把服务器恢复到该版本，当前部署将被备份。`
   );
   if (!confirmed) return;
   doRollback(log);
@@ -719,12 +747,12 @@ async function rollbackDeploy(log: DeployLog) {
   // Check if config requires approval
   if (config.value?.requiresApproval) {
     const proceed = confirm(
-      `⚠️ 审核确认\n\n配置「${config.value.name || getProjectName(config.value.projectId)}」已开启部署审核。\n\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
+      `⚠️ 审核确认\\n\\n配置「${config.value.name || getProjectName(config.value.projectId)}」已开启部署审核。\\n\\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
     );
     if (!proceed) return;
   } else {
     const confirmed = confirm(
-      `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\n\n此操作将把服务器恢复到该版本。`
+      `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\\n\\n此操作将把服务器恢复到该版本。`
     );
     if (!confirmed) return;
   }
@@ -840,897 +868,3 @@ function scrollToBottom() {
   });
 }
 </script>
-
-<style scoped>
-.deploy-panel {
-  padding: 16px 20px;
-  width: 100%;
-  min-height: 100%;
-}
-
-.panel-header {
-  margin-bottom: 16px;
-}
-
-.panel-header h2 {
-  margin: 0 0 4px 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-base-content);
-}
-
-.panel-subtitle {
-  margin: 0;
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* ============ Two-Column Layout ============ */
-.deploy-layout {
-  display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 16px;
-  align-items: start;
-  width: 100%;
-}
-
-.deploy-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  position: sticky;
-  top: 0;
-}
-
-.deploy-main {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-}
-
-/* ============ Card ============ */
-.card {
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 10px;
-  padding: 16px;
-}
-
-.card-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin-bottom: 12px;
-}
-
-.card-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-/* ============ Config Selector ============ */
-.config-selector label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  font-size: 13px;
-}
-
-.config-selector .form-input {
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 13px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-/* ============ Config Tree Selector ============ */
-.config-tree {
-  max-height: 280px;
-  overflow-y: auto;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-}
-
-.config-tree-group {
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.config-tree-group:last-child {
-  border-bottom: none;
-}
-
-.config-tree-group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  cursor: pointer;
-  user-select: none;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  background: rgba(0, 0, 0, 0.04);
-  transition: background 0.15s;
-}
-
-.config-tree-group-header:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.tree-chevron {
-  flex-shrink: 0;
-  transition: transform 0.2s;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.config-tree-group-body {
-  /* v-show controls display:none, no animation needed */
-}
-
-.tree-chevron {
-  transition: transform 0.15s ease;
-}
-
-.tree-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.tree-group-name {
-  flex: 1;
-}
-
-.tree-group-count {
-  font-size: 11px;
-  font-weight: 400;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: rgba(0, 0, 0, 0.06);
-  padding: 1px 6px;
-  border-radius: 8px;
-}
-
-.config-tree-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px 7px 28px;
-  cursor: pointer;
-  transition: background 0.12s;
-  font-size: 12px;
-}
-
-.config-tree-item:hover {
-  background: rgba(59, 130, 246, 0.06);
-}
-
-.config-tree-item.active {
-  background: rgba(59, 130, 246, 0.12);
-  color: var(--color-primary);
-}
-
-.config-tree-item-name {
-  flex: 1;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-
-.config-tree-item-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-}
-
-.meta-branch {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 10px;
-  background: rgba(0, 0, 0, 0.06);
-  padding: 1px 5px;
-  border-radius: 3px;
-}
-
-.meta-dot {
-  opacity: 0.4;
-}
-
-.config-tree-item-check {
-  font-size: 12px;
-  color: var(--color-success);
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.config-tree-item-badge {
-  font-size: 11px;
-  margin-left: 2px;
-  flex-shrink: 0;
-}
-
-/* ============ Config Info ============ */
-.config-info .info-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.info-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.info-value {
-  font-size: 13px;
-  color: var(--color-base-content);
-  font-weight: 500;
-  text-align: right;
-}
-
-.info-value.code {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  background: var(--color-base-200);
-  padding: 2px 8px;
-  border-radius: 4px;
-  word-break: break-all;
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.branch-badge {
-  display: inline-flex;
-  padding: 2px 8px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* ============ Deploy Actions ============ */
-.deploy-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.deploy-actions .btn {
-  flex: 1;
-  justify-content: center;
-}
-
-.btn {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: white;
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.btn-ghost {
-  background: transparent;
-  color: var(--color-base-content);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  background: var(--color-base-200);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.btn-deploy {
-  padding: 10px 16px;
-  font-size: 14px;
-}
-
-.btn-requires-approval {
-  background: linear-gradient(135deg, var(--color-warning), #d97706) !important;
-  border-color: var(--color-warning) !important;
-}
-
-/* ============ Pre-flight ============ */
-.preflight-results .card-title {
-  margin-bottom: 8px;
-}
-
-.preflight-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 13px;
-}
-
-.preflight-item:last-child {
-  border-bottom: none;
-}
-
-.preflight-item.passed .preflight-name {
-  color: var(--color-success);
-}
-
-.preflight-item.failed .preflight-name {
-  color: var(--color-error);
-}
-
-.preflight-message {
-  margin-left: auto;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-/* ============ Progress ============ */
-.deploy-progress {
-  padding: 14px 16px !important;
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.progress-label {
-  font-size: 13px;
-  color: var(--color-base-content);
-  font-weight: 500;
-}
-
-.progress-pct {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.progress-bar {
-  height: 6px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  transition: width 0.3s ease;
-}
-
-.progress-fill.progress-cancelled {
-  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.btn-cancel-deploy {
-  padding: 4px 10px;
-  background: var(--color-error);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.btn-cancel-deploy:hover {
-  opacity: 0.85;
-}
-
-/* ============ Real-time Log ============ */
-.realtime-log {
-  padding: 0 !important;
-  overflow: hidden;
-}
-
-.realtime-log .card-title-row {
-  padding: 12px 16px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin-bottom: 0;
-}
-
-.realtime-log .card-title {
-  margin-bottom: 0;
-  font-size: 13px;
-}
-
-.btn-clear-logs {
-  padding: 3px 8px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  transition: all 0.15s ease;
-}
-
-.btn-clear-logs:hover {
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-}
-
-.log-output {
-  max-height: 500px;
-  overflow-y: auto;
-  padding: 12px 16px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.7;
-}
-
-.log-line {
-  display: flex;
-  gap: 8px;
-  padding: 1px 0;
-}
-
-.log-time {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-  min-width: 75px;
-}
-
-.log-stage {
-  flex-shrink: 0;
-  min-width: 55px;
-  color: var(--color-primary);
-}
-
-.log-git .log-stage { color: var(--color-success); }
-.log-maven .log-stage { color: var(--color-warning); }
-.log-ssh .log-stage { color: var(--color-primary); }
-.log-restart .log-stage { color: #8b5cf6; }
-.log-rollback .log-stage { color: var(--color-warning); }
-.log-error .log-stage, .log-error .log-msg { color: var(--color-error); }
-.log-collect .log-stage { color: #f97316; }
-
-.log-msg {
-  color: var(--color-base-content);
-  word-break: break-all;
-}
-
-.log-spinner {
-  opacity: 0.7;
-}
-
-/* ============ Deploy History ============ */
-.deploy-history .card-title-row {
-  margin-bottom: 0;
-}
-
-.history-count {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.logs-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.log-item {
-  padding: 12px 14px;
-  background: var(--color-base-200);
-  border-radius: 8px;
-  border-left: 3px solid transparent;
-}
-
-.log-item.success {
-  border-left-color: var(--color-success);
-}
-
-.log-item.failed {
-  border-left-color: var(--color-error);
-}
-
-.log-item.running {
-  border-left-color: var(--color-primary);
-}
-
-.log-item.cancelled {
-  border-left-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.log-item.rolled_back {
-  border-left-color: #f59e0b;
-}
-
-.log-header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.log-status {
-  font-size: 16px;
-}
-
-.log-time {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-.log-trigger {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-.btn-rollback {
-  margin-left: auto;
-  padding: 3px 10px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 11px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.btn-rollback:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
-}
-
-.btn-rollback:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Full log file viewer */
-.view-full-log-row {
-  margin-top: 8px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.btn-view-full-log {
-  padding: 5px 14px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  color: var(--color-base-content);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-view-full-log:hover:not(:disabled) {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.btn-view-full-log:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.full-log-viewer {
-  margin-bottom: 10px;
-}
-
-.full-log-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 10px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.btn-close-log {
-  padding: 2px 8px;
-  background: transparent;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.btn-close-log:hover {
-  background: var(--color-error);
-  color: #fff;
-  border-color: var(--color-error);
-}
-
-.full-log-content {
-  margin: 0;
-  padding: 10px;
-  max-height: 500px;
-  overflow: auto;
-  background: #1e1e1e;
-  color: #d4d4d4;
-  font-size: 12px;
-  line-height: 1.5;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 0 0 4px 4px;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.log-config-name {
-  color: var(--color-primary);
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.log-config-group {
-  font-size: 10px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 1px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.log-project-name {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 11px;
-  opacity: 0.7;
-}
-
-.log-branch {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 11px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 1px 6px;
-  border-radius: 3px;
-}
-
-.log-details {
-  margin-top: 8px;
-  padding: 8px 10px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-}
-
-.error-message {
-  color: var(--color-error);
-  font-weight: 500;
-  font-size: 13px;
-  margin: 0;
-}
-
-.cancelled-message {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-style: italic;
-  font-size: 13px;
-  margin: 0;
-}
-
-/* Step logs */
-.step-logs {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.step-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 10px;
-  background: var(--color-base-200);
-  border-radius: 6px;
-  border-left: 3px solid transparent;
-  font-size: 12px;
-}
-
-.step-item.success { border-left-color: var(--color-success); }
-.step-item.failed { border-left-color: var(--color-error); }
-.step-item.running { border-left-color: var(--color-primary); }
-.step-item.pending { border-left-color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.step-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.step-name {
-  min-width: 120px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.step-status-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-  text-transform: capitalize;
-}
-
-.step-status-badge.success { background: rgba(34, 197, 94, 0.15); color: var(--color-success); }
-.step-status-badge.failed { background: rgba(239, 68, 68, 0.15); color: var(--color-error); }
-.step-status-badge.running { background: rgba(59, 130, 246, 0.15); color: var(--color-primary); }
-.step-status-badge.pending { background: rgba(107, 114, 128, 0.15); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.step-meta {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 4px;
-}
-
-.step-output,
-.step-item pre {
-  margin-top: 4px;
-  padding: 8px;
-  background: var(--color-base-100);
-  border-radius: 4px;
-  overflow-x: auto;
-  font-size: 11px;
-  max-height: 300px;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--color-base-content);
-}
-
-.step-error {
-  margin-top: 4px;
-  color: var(--color-error);
-  font-size: 12px;
-  font-weight: 500;
-}
-
-/* Raw log output fallback */
-.raw-log-output {
-  margin-top: 4px;
-}
-
-.raw-log-header {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin-bottom: 6px;
-}
-
-/* No details available */
-.no-details {
-  text-align: center;
-  padding: 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.no-details p {
-  margin: 4px 0;
-  font-size: 13px;
-}
-
-.no-details .hint {
-  font-size: 11px;
-  opacity: 0.7;
-  font-style: italic;
-}
-
-.step-status {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.btn-toggle {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.btn-toggle {
-  margin-top: 8px;
-  padding: 4px 10px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.btn-toggle:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.empty-logs {
-  text-align: center;
-  padding: 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 13px;
-}
-
-/* ============ Empty State ============ */
-.empty-state {
-  padding: 60px 32px;
-  text-align: center;
-  background: var(--color-base-100);
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.empty-state h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
-  color: var(--color-base-content);
-}
-
-.empty-state p {
-  margin: 0 0 20px 0;
-  font-size: 14px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* ============ Scrollbar ============ */
-.log-output::-webkit-scrollbar {
-  width: 6px;
-}
-
-.log-output::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.log-output::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-}
-
-.log-output::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-</style>

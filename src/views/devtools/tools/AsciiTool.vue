@@ -1,59 +1,59 @@
 <template>
   <div class="tool-panel">
-    <h3>🅰️ ASCII 编码转换</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5">🅰️ ASCII 编码转换</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">输入文本</label>
+    <div class="mb-5">
+      <label class="label-text text-xs text-base-content/60 mb-1 block">输入文本</label>
       <input
         v-model="input"
-        class="tool-input"
+        class="input input-bordered w-full text-xs bg-base-200"
         placeholder="输入任意文本..."
         @input="convert"
       />
 
-      <div v-if="results.length > 0" class="ascii-table-wrapper">
-        <table class="ascii-table">
+      <div v-if="results.length > 0" class="mt-4 overflow-x-auto max-h-72 overflow-y-auto">
+        <table class="w-full border-collapse text-xs">
           <thead>
             <tr>
-              <th>字符</th>
-              <th>十进制 (DEC)</th>
-              <th>十六进制 (HEX)</th>
-              <th>八进制 (OCT)</th>
-              <th>二进制 (BIN)</th>
+              <th class="sticky top-0 bg-base-200 text-xs font-semibold text-primary text-left px-3 py-2 border-b-2 border-base-content/10 z-10">字符</th>
+              <th class="sticky top-0 bg-base-200 text-xs font-semibold text-primary text-left px-3 py-2 border-b-2 border-base-content/10 z-10">十进制 (DEC)</th>
+              <th class="sticky top-0 bg-base-200 text-xs font-semibold text-primary text-left px-3 py-2 border-b-2 border-base-content/10 z-10">十六进制 (HEX)</th>
+              <th class="sticky top-0 bg-base-200 text-xs font-semibold text-primary text-left px-3 py-2 border-b-2 border-base-content/10 z-10">八进制 (OCT)</th>
+              <th class="sticky top-0 bg-base-200 text-xs font-semibold text-primary text-left px-3 py-2 border-b-2 border-base-content/10 z-10">二进制 (BIN)</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(r, idx) in results" :key="idx" :class="{ space: r.char === ' ' }">
-              <td class="char-cell">{{ r.char === ' ' ? '⎵' : r.char }}</td>
-              <td>{{ r.dec }}</td>
-              <td>{{ r.hex }}</td>
-              <td>{{ r.oct }}</td>
-              <td>{{ r.bin }}</td>
+            <tr v-for="(r, idx) in results" :key="idx" :class="{ 'text-base-content/60': r.char === ' ' }">
+              <td class="text-base font-semibold text-primary px-3 py-1.5 border-b border-base-content/10 font-mono text-base-content">{{ r.char === ' ' ? '⎵' : r.char }}</td>
+              <td class="px-3 py-1.5 border-b border-base-content/10 font-mono text-base-content">{{ r.dec }}</td>
+              <td class="px-3 py-1.5 border-b border-base-content/10 font-mono text-base-content">{{ r.hex }}</td>
+              <td class="px-3 py-1.5 border-b border-base-content/10 font-mono text-base-content">{{ r.oct }}</td>
+              <td class="px-3 py-1.5 border-b border-base-content/10 font-mono text-base-content">{{ r.bin }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <div v-if="input" class="combined-results" style="margin-top: 16px">
-        <div class="combined-item">
-          <span class="combined-label">十进制</span>
-          <span class="combined-value">{{ decStr }}</span>
-          <button class="tool-btn copy-btn" @click="doCopy(decStr)">📋</button>
+      <div v-if="input" class="flex flex-col gap-2" style="margin-top: 16px">
+        <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
+          <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">十进制</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ decStr }}</span>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(decStr)">📋</button>
         </div>
-        <div class="combined-item">
-          <span class="combined-label">十六进制</span>
-          <span class="combined-value">{{ hexStr }}</span>
-          <button class="tool-btn copy-btn" @click="doCopy(hexStr)">📋</button>
+        <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
+          <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">十六进制</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ hexStr }}</span>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(hexStr)">📋</button>
         </div>
-        <div class="combined-item">
-          <span class="combined-label">八进制</span>
-          <span class="combined-value">{{ octStr }}</span>
-          <button class="tool-btn copy-btn" @click="doCopy(octStr)">📋</button>
+        <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
+          <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">八进制</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ octStr }}</span>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(octStr)">📋</button>
         </div>
-        <div class="combined-item">
-          <span class="combined-label">二进制</span>
-          <span class="combined-value">{{ binStr }}</span>
-          <button class="tool-btn copy-btn" @click="doCopy(binStr)">📋</button>
+        <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
+          <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">二进制</span>
+          <span class="flex-1 font-mono text-xs text-base-content break-all">{{ binStr }}</span>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(binStr)">📋</button>
         </div>
       </div>
     </div>
@@ -107,116 +107,3 @@ function doCopy(text: string) {
   copyText(text, toast)
 }
 </script>
-
-<style scoped>
-.tool-panel h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.ascii-table-wrapper {
-  margin-top: 16px;
-  overflow-x: auto;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.ascii-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.ascii-table th {
-  position: sticky;
-  top: 0;
-  background: var(--color-base-200);
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  text-align: left;
-  padding: 8px 12px;
-  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  z-index: 1;
-}
-
-.ascii-table td {
-  padding: 6px 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  color: var(--color-base-content);
-}
-
-.ascii-table tr.space td {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.char-cell {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-
-.combined-results {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.combined-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-}
-
-.combined-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-  min-width: 90px;
-  flex-shrink: 0;
-}
-
-.combined-value {
-  flex: 1;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  color: var(--color-base-content);
-  word-break: break-all;
-}
-
-.copy-btn {
-  padding: 4px 8px !important;
-  font-size: 12px !important;
-  flex-shrink: 0;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

@@ -1,71 +1,71 @@
 <template>
-  <div class="qrcode-tool">
-    <h3>📱 二维码工具</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">📱 二维码工具</h3>
 
     <!-- Generate QR -->
-    <div class="tool-section">
-      <h4>生成二维码</h4>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">生成二维码</h4>
       <textarea
         v-model="qrInput"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
         placeholder="输入文本、URL 等内容..."
         rows="3"
       ></textarea>
-      <div class="tool-row" style="margin-top: 12px">
+      <div class="flex flex-wrap gap-2.5 mb-3 mt-3 items-end">
         <div>
-          <label class="tool-label">尺寸</label>
-          <input v-model.number="qrSize" type="number" class="tool-input mono" style="width: 80px" min="100" max="1000" step="50" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">尺寸</span>
+          <input v-model.number="qrSize" type="number" class="input input-bordered font-mono w-20" min="100" max="1000" step="50" />
         </div>
         <div>
-          <label class="tool-label">容错级别</label>
-          <select v-model="qrErrorLevel" class="tool-select">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">容错级别</span>
+          <select v-model="qrErrorLevel" class="select select-bordered">
             <option value="L">L (7%)</option>
             <option value="M" selected>M (15%)</option>
             <option value="Q">Q (25%)</option>
             <option value="H">H (30%)</option>
           </select>
         </div>
-        <button class="tool-btn primary" @click="generateQR" :disabled="qrGenerating" style="align-self: flex-end">
+        <button class="btn btn-primary self-end" @click="generateQR" :disabled="qrGenerating">
           {{ qrGenerating ? '生成中...' : '生成' }}
         </button>
       </div>
 
-      <div v-if="qrGenerating" class="loading-box">
-        <div class="spinner"></div>
+      <div v-if="qrGenerating" class="flex items-center gap-3 mt-4 p-3 opacity-60 text-sm">
+        <div class="w-5 h-5 border-2 border-base-content/10 border-t-primary rounded-full animate-spin"></div>
         <span>正在生成二维码...</span>
       </div>
 
-      <div v-if="qrDataUrl" class="qr-output">
-        <img :src="qrDataUrl" alt="QR Code" class="qr-image" />
-        <button class="tool-btn" @click="downloadQR">⬇️ 下载 PNG</button>
+      <div v-if="qrDataUrl" class="mt-4 flex flex-col items-center gap-3">
+        <img :src="qrDataUrl" alt="QR Code" class="border border-base-content/10 rounded-box max-w-[300px] bg-white p-2" />
+        <button class="btn btn-ghost" @click="downloadQR">⬇️ 下载 PNG</button>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Parse QR -->
-    <div class="tool-section">
-      <h4>解析二维码</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">解析二维码</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <input
           type="file"
           accept="image/*"
-          class="tool-input"
+          class="input input-bordered"
           @change="handleFileUpload"
           :disabled="parseLoading"
         />
       </div>
-      <div v-if="parseLoading" class="loading-box">
-        <div class="spinner"></div>
+      <div v-if="parseLoading" class="flex items-center gap-3 mt-4 p-3 opacity-60 text-sm">
+        <div class="w-5 h-5 border-2 border-base-content/10 border-t-primary rounded-full animate-spin"></div>
         <span>正在解析二维码...</span>
       </div>
-      <div v-if="parseResult" class="tool-result">
+      <div v-if="parseResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2">
         {{ parseResult }}
-        <div class="tool-row" style="margin-top: 8px">
-          <button class="tool-btn" @click="doCopy(parseResult)">📋 复制</button>
+        <div class="flex flex-wrap gap-2.5 mb-3 mt-2">
+          <button class="btn btn-ghost" @click="doCopy(parseResult)">📋 复制</button>
         </div>
       </div>
-      <div v-if="parseError" class="tool-result error">{{ parseError }}</div>
+      <div v-if="parseError" class="bg-base-200 border border-error/30 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2 text-error">{{ parseError }}</div>
     </div>
   </div>
 </template>
@@ -198,35 +198,3 @@ async function handleFileUpload(event: Event) {
   }
 }
 </script>
-
-<style scoped>
-.qrcode-tool { max-width: 700px; }
-.qrcode-tool h3 { font-size: 18px; font-weight: 700; color: var(--color-base-content); margin: 0 0 20px 0; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; align-items: flex-end; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-result.error { border-color: #e74c3c; color: #e74c3c; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-.mono { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
-.qr-output { margin-top: 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.qr-image { border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; max-width: 300px; background: white; padding: 8px; }
-.loading-box { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 13px; }
-.spinner { width: 20px; height: 20px; border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-</style>

@@ -1,31 +1,38 @@
 <template>
-  <div class="devtools-container">
+  <div class="flex h-full overflow-hidden bg-base-200">
     <!-- Left Sidebar: Tool Navigation -->
-    <aside class="devtools-sidebar">
-      <div class="sidebar-header">
-        <h3>🛠️ 开发工具</h3>
-        <div class="sidebar-search">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+    <aside class="w-[260px] min-w-[220px] max-w-[300px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
+      <div class="px-4 pt-4 pb-3">
+        <h3 class="m-0 mb-3 text-base font-bold text-base-content">🛠️ 开发工具</h3>
+        <div class="relative">
+          <svg
+            viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+            class="absolute left-[10px] top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none"
+          >
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input v-model="searchQuery" placeholder="搜索工具..." class="search-input" />
+          <input
+            v-model="searchQuery"
+            placeholder="搜索工具..."
+            class="w-full py-[7px] pl-[30px] pr-[10px] border border-base-content/10 rounded-md text-xs bg-base-200 text-base-content outline-none focus:border-primary"
+          />
         </div>
       </div>
 
-      <div class="tool-categories">
-        <div v-for="cat in filteredCategories" :key="cat.key" class="category-group">
-          <div class="category-header">{{ cat.label }}</div>
-          <div class="category-tools">
+      <div class="flex-1 overflow-y-auto px-2 pb-3">
+        <div v-for="cat in filteredCategories" :key="cat.key" class="mb-2">
+          <div class="text-[10px] font-semibold text-base-content/60 uppercase tracking-[0.5px] px-2 py-1">{{ cat.label }}</div>
+          <div class="flex flex-col">
             <div
               v-for="tool in cat.tools"
               :key="tool.id"
-              class="tool-item"
-              :class="{ active: activeTool === tool.id }"
+              class="flex items-center gap-2 px-[10px] py-[7px] rounded-md cursor-pointer transition-all duration-100 text-sm text-base-content hover:bg-base-200"
+              :class="{ 'bg-primary/10 text-primary': activeTool === tool.id }"
               @click="activeTool = tool.id"
             >
-              <span class="tool-icon">{{ tool.icon }}</span>
-              <span class="tool-name">{{ tool.name }}</span>
-              <span v-if="!tool.offline" class="tool-online-badge" title="需要联网">🌐</span>
+              <span class="text-[15px] shrink-0 w-5 text-center">{{ tool.icon }}</span>
+              <span class="flex-1 truncate">{{ tool.name }}</span>
+              <span v-if="!tool.offline" class="text-[10px] shrink-0" title="需要联网">🌐</span>
             </div>
           </div>
         </div>
@@ -33,16 +40,16 @@
     </aside>
 
     <!-- Right Content Area -->
-    <main class="devtools-content">
+    <main class="flex-1 overflow-y-auto p-6">
       <component
         :is="currentToolComponent"
         v-if="currentToolComponent"
         :key="activeTool"
       />
-      <div v-else class="content-empty">
-        <div class="content-empty-icon">🛠️</div>
-        <h3>选择左侧工具开始使用</h3>
-        <p>{{ tools.length }} 个开发工具，全部支持离线使用</p>
+      <div v-else class="flex flex-col items-center justify-center h-full text-base-content/60 text-center gap-3">
+        <div class="text-[64px] opacity-30">🛠️</div>
+        <h3 class="text-lg font-semibold text-base-content m-0">选择左侧工具开始使用</h3>
+        <p class="text-sm m-0">{{ tools.length }} 个开发工具，全部支持离线使用</p>
       </div>
     </main>
   </div>
@@ -128,163 +135,3 @@ const currentToolComponent = computed(() => {
   return toolComponents[activeTool.value] || null
 })
 </script>
-
-<style scoped>
-.devtools-container {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-  background: var(--color-base-200);
-}
-
-/* Sidebar */
-.devtools-sidebar {
-  width: 260px;
-  min-width: 220px;
-  max-width: 300px;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  padding: 16px 16px 12px;
-}
-
-.sidebar-header h3 {
-  margin: 0 0 12px 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--color-base-content);
-}
-
-.sidebar-search {
-  position: relative;
-}
-
-.sidebar-search svg {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  pointer-events: none;
-}
-
-.search-input {
-  width: 100%;
-  padding: 7px 10px 7px 30px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: var(--color-primary);
-}
-
-/* Categories */
-.tool-categories {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 8px 12px;
-}
-
-.category-group {
-  margin-bottom: 8px;
-}
-
-.category-header {
-  font-size: 10px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 4px 8px;
-}
-
-.category-tools {
-  display: flex;
-  flex-direction: column;
-}
-
-.tool-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.1s;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.tool-item:hover {
-  background: var(--color-base-200);
-}
-
-.tool-item.active {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.tool-icon {
-  font-size: 15px;
-  flex-shrink: 0;
-  width: 20px;
-  text-align: center;
-}
-
-.tool-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-online-badge {
-  font-size: 10px;
-  flex-shrink: 0;
-}
-
-/* Content */
-.devtools-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
-
-.content-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  gap: 12px;
-}
-
-.content-empty-icon {
-  font-size: 64px;
-  opacity: 0.3;
-}
-
-.content-empty h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0;
-}
-
-.content-empty p {
-  font-size: 13px;
-  margin: 0;
-}
-</style>

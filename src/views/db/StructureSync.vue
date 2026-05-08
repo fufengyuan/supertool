@@ -1,48 +1,48 @@
 <template>
-  <div class="structure-sync">
-    <div class="sync-header">
-      <h3 class="sync-title">🔧 结构同步</h3>
-      <p class="sync-desc">对比并同步两个数据库之间的表结构（Navicat 风格多表对比）</p>
+  <div class="flex flex-col h-full p-4 overflow-auto">
+    <div class="mb-4">
+      <h3 class="text-base font-semibold m-0 mb-1">🔧 结构同步</h3>
+      <p class="text-sm text-base-content/60 m-0">对比并同步两个数据库之间的表结构（Navicat 风格多表对比）</p>
     </div>
 
     <!-- Step 1: Connection & Database Selection -->
-    <div class="sync-config" v-if="step === 1">
-      <div class="config-grid">
-        <div class="config-item">
-          <label>🟢 源连接</label>
-          <select v-model="sourceId" @change="onSourceChange" class="select-input">
+    <div v-if="step === 1" class="bg-base-100 rounded-lg p-4">
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 mb-4">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-base-content/60">🟢 源连接</label>
+          <select v-model="sourceId" @change="onSourceChange" class="select select-bordered select-sm w-full">
             <option value="">选择源连接</option>
             <option v-for="conn in connections" :key="conn.id" :value="conn.id">
               {{ conn.name }} ({{ conn.type }})
             </option>
           </select>
         </div>
-        <div class="config-item">
-          <label>🔴 目标连接</label>
-          <select v-model="targetId" @change="onTargetChange" class="select-input">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-base-content/60">🔴 目标连接</label>
+          <select v-model="targetId" @change="onTargetChange" class="select select-bordered select-sm w-full">
             <option value="">选择目标连接</option>
             <option v-for="conn in connections" :key="conn.id" :value="conn.id">
               {{ conn.name }} ({{ conn.type }})
             </option>
           </select>
         </div>
-        <div class="config-item">
-          <label>📂 源数据库</label>
-          <select v-model="sourceDb" @change="loadSourceTables" :disabled="!sourceId || loadingSourceDb" class="select-input">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-base-content/60">📂 源数据库</label>
+          <select v-model="sourceDb" @change="loadSourceTables" :disabled="!sourceId || loadingSourceDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingSourceDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in sourceDatabases" :key="db" :value="db">{{ db }}</option>
           </select>
         </div>
-        <div class="config-item">
-          <label>📂 目标数据库</label>
-          <select v-model="targetDb" @change="loadTargetTables" :disabled="!targetId || loadingTargetDb" class="select-input">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs font-medium text-base-content/60">📂 目标数据库</label>
+          <select v-model="targetDb" @change="loadTargetTables" :disabled="!targetId || loadingTargetDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingTargetDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in targetDatabases" :key="db" :value="db">{{ db }}</option>
           </select>
         </div>
       </div>
 
-      <div class="sync-actions">
+      <div class="flex justify-end">
         <button @click="goToStep2" :disabled="!sourceId || !targetId || !sourceDb || !targetDb" class="btn btn-primary">
           下一步：选择表 →
         </button>
@@ -50,61 +50,61 @@
     </div>
 
     <!-- Step 2: Multi-Table Selection -->
-    <div class="sync-config" v-if="step === 2">
-      <div class="table-select-header">
-        <h4 class="table-select-title">📋 选择要对比的表</h4>
-        <div class="table-select-controls">
+    <div v-if="step === 2" class="bg-base-100 rounded-lg p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-sm font-semibold m-0">📋 选择要对比的表</h4>
+        <div class="flex gap-1.5">
           <button @click="selectAllTables" class="btn btn-ghost btn-xs">全选</button>
           <button @click="selectCommonTables" class="btn btn-ghost btn-xs">仅共有表</button>
           <button @click="selectNone" class="btn btn-ghost btn-xs">清空</button>
         </div>
       </div>
 
-      <div class="table-grid">
+      <div class="max-h-[400px] overflow-y-auto border border-base-content/10 rounded-lg p-2 bg-base-200 mb-3">
         <!-- Source-only tables -->
         <template v-if="sourceOnlyTables.length > 0">
-          <div class="table-section-label">仅源端有</div>
-          <div v-for="table in sourceOnlyTables" :key="'src-' + table" class="table-checkbox" :class="{ 'source-only': true }">
-            <label>
+          <div class="text-xs font-semibold text-base-content/60 uppercase tracking-wider px-2 py-1.5 pb-1 border-b border-base-content/10 mb-1 mt-2 first:mt-0">仅源端有</div>
+          <div v-for="table in sourceOnlyTables" :key="'src-' + table">
+            <label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm hover:bg-primary/10">
               <input type="checkbox" v-model="selectedTables" :value="table" />
-              <span class="table-name">{{ table }}</span>
-              <span class="table-badge badge-source">仅源</span>
+              <span class="flex-1 font-mono text-xs">{{ table }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-blue-100 text-blue-700">仅源</span>
             </label>
           </div>
         </template>
 
         <!-- Target-only tables -->
         <template v-if="targetOnlyTables.length > 0">
-          <div class="table-section-label">仅目标端有</div>
-          <div v-for="table in targetOnlyTables" :key="'tgt-' + table" class="table-checkbox" :class="{ 'target-only': true }">
-            <label>
+          <div class="text-xs font-semibold text-base-content/60 uppercase tracking-wider px-2 py-1.5 pb-1 border-b border-base-content/10 mb-1 mt-2 first:mt-0">仅目标端有</div>
+          <div v-for="table in targetOnlyTables" :key="'tgt-' + table">
+            <label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm hover:bg-primary/10">
               <input type="checkbox" v-model="selectedTables" :value="table" />
-              <span class="table-name">{{ table }}</span>
-              <span class="table-badge badge-target">仅目标</span>
+              <span class="flex-1 font-mono text-xs">{{ table }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-purple-100 text-purple-700">仅目标</span>
             </label>
           </div>
         </template>
 
         <!-- Common tables -->
         <template v-if="commonTablesList.length > 0">
-          <div class="table-section-label">共有表（{{ commonTablesList.length }}）</div>
-          <div v-for="table in commonTablesList" :key="'common-' + table" class="table-checkbox" :class="{ 'common': true }">
-            <label>
+          <div class="text-xs font-semibold text-base-content/60 uppercase tracking-wider px-2 py-1.5 pb-1 border-b border-base-content/10 mb-1 mt-2 first:mt-0">共有表（{{ commonTablesList.length }}）</div>
+          <div v-for="table in commonTablesList" :key="'common-' + table">
+            <label class="flex items-center gap-2 px-2 py-1.5 rounded cursor-pointer text-sm hover:bg-primary/10">
               <input type="checkbox" v-model="selectedTables" :value="table" />
-              <span class="table-name">{{ table }}</span>
-              <span class="table-badge badge-common">共有</span>
+              <span class="flex-1 font-mono text-xs">{{ table }}</span>
+              <span class="text-[10px] px-1.5 py-0.5 rounded font-medium bg-green-100 text-green-700">共有</span>
             </label>
           </div>
         </template>
 
-        <div v-if="sourceTables.length === 0 && targetTables.length === 0" class="table-empty">
+        <div v-if="sourceTables.length === 0 && targetTables.length === 0" class="text-center p-6 text-base-content/60 italic">
           两个数据库都没有表
         </div>
       </div>
 
-      <div class="table-select-footer">
-        <span class="selected-count-text">已选 {{ selectedTables.length }} 张表</span>
-        <div class="footer-btns">
+      <div class="flex items-center justify-between">
+        <span class="text-sm font-medium text-primary">已选 {{ selectedTables.length }} 张表</span>
+        <div class="flex gap-2">
           <button @click="step = 1" class="btn btn-ghost">← 返回</button>
           <button @click="startCompare" :disabled="selectedTables.length === 0 || comparing" class="btn btn-primary">
             {{ comparing ? '对比中...' : `🔍 对比 ${selectedTables.length} 张表` }}
@@ -114,92 +114,91 @@
     </div>
 
     <!-- Comparing State -->
-    <div v-if="comparing" class="sync-loading">
-      <div class="loading-spinner"></div>
+    <div v-if="comparing" class="flex flex-col items-center justify-center p-12 gap-3">
+      <span class="loading loading-spinner loading-md"></span>
       <p>正在对比表结构... ({{ compareProgress }}/{{ selectedTables.length }})</p>
     </div>
 
     <!-- Results -->
-    <div v-if="result && !comparing" class="sync-results">
-      <div class="results-summary">
-        <h4>对比结果</h4>
-        <div class="summary-stats">
-          <span class="stat stat-diffs">差异项: {{ result.diffs.length }}</span>
-          <span class="stat stat-source">涉及表: {{ affectedTablesList.length }}</span>
+    <div v-if="result && !comparing" class="flex flex-col gap-4">
+      <div class="bg-base-100 rounded-lg p-3 px-4">
+        <h4 class="m-0 mb-2 text-sm">对比结果</h4>
+        <div class="flex gap-3 flex-wrap">
+          <span class="px-2.5 py-1 rounded text-xs font-medium bg-orange-100 text-orange-700">差异项: {{ result.diffs.length }}</span>
+          <span class="px-2.5 py-1 rounded text-xs font-medium bg-blue-100 text-blue-700">涉及表: {{ affectedTablesList.length }}</span>
         </div>
-        <!-- Diff type breakdown -->
-        <div class="diff-type-summary">
-          <span v-for="(count, type) in diffTypeCounts" :key="type" class="diff-type-stat" :class="getDiffTypeClass(type)">
+        <div class="flex gap-2.5 flex-wrap mt-2">
+          <span v-for="(count, type) in diffTypeCounts" :key="type" class="text-xs px-2 py-0.5 rounded" :class="getDiffTypeClass(type)">
             {{ getDiffTypeLabel(type) }}: {{ count }}
           </span>
         </div>
       </div>
 
       <!-- Filter by table -->
-      <div class="results-filter" v-if="affectedTablesList.length > 1">
-        <span class="filter-label-text">按表筛选:</span>
-        <label v-for="table in affectedTablesList" :key="table" class="filter-chip">
+      <div v-if="affectedTablesList.length > 1" class="flex items-center gap-1.5 flex-wrap py-2">
+        <span class="text-xs text-base-content/60 font-medium">按表筛选:</span>
+        <label v-for="table in affectedTablesList" :key="table" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-base-content/10 text-xs cursor-pointer font-mono hover:bg-primary/10">
           <input type="checkbox" v-model="filterTables" :value="table" />
           {{ table }}
         </label>
       </div>
 
       <!-- Navicat-style Grouped Diff Table -->
-      <div class="diff-grouped-view">
-        <div v-for="(group, tIdx) in groupedDiffs" :key="tIdx" class="diff-table-group">
+      <div class="flex flex-col gap-1">
+        <div v-for="(group, tIdx) in groupedDiffs" :key="tIdx" class="border border-base-content/10 rounded-lg overflow-hidden">
           <!-- Table group header -->
-          <div class="diff-group-header" @click="toggleTableExpand(group.tableName)">
-            <span class="expand-icon">{{ isTableExpanded(group.tableName) ? '▼' : '▶' }}</span>
-            <span class="group-table-name">{{ group.tableName }}</span>
-            <span class="group-diff-count">{{ group.diffs.length }} 项差异</span>
-            <span class="group-type-badges">
-              <span v-for="(count, type) in group.typeCounts" :key="type" class="mini-badge" :class="getDiffTypeClass(type)">
+          <div class="flex items-center gap-2.5 px-3.5 py-2.5 bg-base-100 cursor-pointer select-none hover:bg-primary/10" @click="toggleTableExpand(group.tableName)">
+            <span class="text-[10px] text-base-content/60 w-3 text-center">{{ isTableExpanded(group.tableName) ? '▼' : '▶' }}</span>
+            <span class="font-mono text-sm font-semibold">{{ group.tableName }}</span>
+            <span class="text-xs text-base-content/60">{{ group.diffs.length }} 项差异</span>
+            <span class="flex gap-1.5 flex-wrap ml-auto">
+              <span v-for="(count, type) in group.typeCounts" :key="type" class="text-[10px] px-1.5 py-0.5 rounded font-medium" :class="getDiffTypeClass(type)">
                 {{ getDiffTypeLabel(type) }} ×{{ count }}
               </span>
             </span>
           </div>
 
           <!-- Expanded diff rows -->
-          <div v-if="isTableExpanded(group.tableName)" class="diff-group-body">
-            <table class="diff-compare-table">
+          <div v-if="isTableExpanded(group.tableName)" class="border-t border-base-content/10">
+            <table class="w-full border-collapse text-xs">
               <thead>
                 <tr>
-                  <th class="col-select"></th>
-                  <th class="col-type">差异类型</th>
-                  <th class="col-source">源</th>
-                  <th class="col-target">目标</th>
-                  <th class="col-sql">SQL</th>
+                  <th class="text-left px-2.5 py-1.5 text-xs font-semibold text-base-content/60 bg-base-200 border-b border-base-content/10 sticky top-0 w-8"></th>
+                  <th class="text-left px-2.5 py-1.5 text-xs font-semibold text-base-content/60 bg-base-200 border-b border-base-content/10 sticky top-0 w-[120px]">差异类型</th>
+                  <th class="text-left px-2.5 py-1.5 text-xs font-semibold text-base-content/60 bg-base-200 border-b border-base-content/10 sticky top-0 w-[30%]">源</th>
+                  <th class="text-left px-2.5 py-1.5 text-xs font-semibold text-base-content/60 bg-base-200 border-b border-base-content/10 sticky top-0 w-[30%]">目标</th>
+                  <th class="text-left px-2.5 py-1.5 text-xs font-semibold text-base-content/60 bg-base-200 border-b border-base-content/10 sticky top-0 w-20 text-center">SQL</th>
                 </tr>
               </thead>
               <tbody>
                 <template v-for="(diff, dIdx) in group.diffs" :key="dIdx">
-                  <tr class="diff-row" :class="diff.diffType">
-                    <td class="col-select">
-                      <label class="row-checkbox">
+                  <tr class="hover:bg-primary/10" :class="getDiffRowClass(diff.diffType)">
+                    <td class="px-2.5 py-1.5 border-b border-base-content/10 align-middle">
+                      <label class="flex items-center justify-center">
                         <input type="checkbox" :checked="selectedSqls.has(diff.sql)" @change="toggleSql(diff.sql)" />
                       </label>
                     </td>
-                    <td class="col-type">
-                      <span class="type-tag" :class="getDiffTypeClass(diff.diffType)">
+                    <td class="px-2.5 py-1.5 border-b border-base-content/10 align-middle">
+                      <span class="inline-block text-xs px-1.5 py-0.5 rounded whitespace-nowrap" :class="getDiffTypeClass(diff.diffType)">
                         {{ getDiffTypeLabel(diff.diffType) }}
                       </span>
                     </td>
-                    <td class="col-source">
-                      <span class="compact-value">{{ getCompactValue(diff.sourceValue) }}</span>
+                    <td class="px-2.5 py-1.5 border-b border-base-content/10 align-middle">
+                      <span class="font-mono text-xs text-base-content break-all">{{ getCompactValue(diff.sourceValue) }}</span>
                     </td>
-                    <td class="col-target">
-                      <span class="compact-value">{{ getCompactValue(diff.targetValue) }}</span>
+                    <td class="px-2.5 py-1.5 border-b border-base-content/10 align-middle">
+                      <span class="font-mono text-xs text-base-content break-all">{{ getCompactValue(diff.targetValue) }}</span>
                     </td>
-                    <td class="col-sql">
-                      <button class="sql-toggle-btn" @click="toggleSqlRow(tIdx + '-' + dIdx)">
+                    <td class="px-2.5 py-1.5 border-b border-base-content/10 align-middle text-center">
+                      <button class="text-xs px-2 py-0.5 border border-base-content/10 rounded bg-base-200 text-primary cursor-pointer whitespace-nowrap hover:bg-primary/10" @click="toggleSqlRow(tIdx + '-' + dIdx)">
                         {{ isSqlRowExpanded(tIdx + '-' + dIdx) ? '隐藏' : '查看' }} SQL
                       </button>
                     </td>
                   </tr>
                   <!-- Expandable SQL row -->
-                  <tr v-if="isSqlRowExpanded(tIdx + '-' + dIdx)" class="sql-detail-row">
-                    <td colspan="5">
-                      <pre class="sql-code">{{ diff.sql }}</pre>
+                  <tr v-if="isSqlRowExpanded(tIdx + '-' + dIdx)">
+                    <td colspan="5" class="!p-0 bg-black/[0.03]">
+                      <pre class="m-0 p-2.5 px-3.5 font-mono text-xs leading-relaxed overflow-x-auto whitespace-pre-wrap break-all text-base-content">{{ diff.sql }}</pre>
                     </td>
                   </tr>
                 </template>
@@ -208,15 +207,15 @@
           </div>
         </div>
 
-        <div v-if="filteredDiffs.length === 0" class="diff-empty">
+        <div v-if="filteredDiffs.length === 0" class="text-center p-8 text-base-content/60 text-sm">
           所选表结构完全一致 ✅
         </div>
       </div>
 
       <!-- Execute Actions -->
-      <div class="execute-actions">
-        <span class="selected-count">已选择 {{ selectedSqls.size }} 项更改</span>
-        <div class="execute-btns">
+      <div class="flex items-center justify-between px-3 py-3 border-t border-base-content/10">
+        <span class="text-sm font-medium text-primary">已选择 {{ selectedSqls.size }} 项更改</span>
+        <div class="flex gap-2">
           <button @click="selectAll" class="btn btn-ghost">全选</button>
           <button @click="reset" class="btn btn-ghost">重新对比</button>
           <button @click="showSqlDialog = true" :disabled="selectedSqls.size === 0" class="btn btn-ghost">📄 查看SQL</button>
@@ -229,20 +228,20 @@
 
     <!-- SQL Preview Dialog -->
     <Teleport to="body">
-      <div v-if="showSqlDialog" class="sql-dialog-overlay" @click="showSqlDialog = false">
-        <div class="sql-dialog" @click.stop>
-          <div class="sql-dialog-header">
-            <h3>📄 待执行 SQL ({{ selectedSqls.size }} 条)</h3>
-            <div class="sql-dialog-actions">
+      <div v-if="showSqlDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000]" @click="showSqlDialog = false">
+        <div class="bg-base-100 rounded-xl w-[720px] max-w-[90vw] max-h-[80vh] flex flex-col shadow-2xl" @click.stop>
+          <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
+            <h3 class="m-0 text-base font-semibold">📄 待执行 SQL ({{ selectedSqls.size }} 条)</h3>
+            <div class="flex items-center gap-2">
               <button @click="copyAllSql" class="btn btn-ghost btn-sm">📋 复制全部</button>
-              <button @click="showSqlDialog = false" class="sql-dialog-close">×</button>
+              <button @click="showSqlDialog = false" class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:text-base-content">×</button>
             </div>
           </div>
-          <div class="sql-dialog-body">
-            <div v-for="(sql, idx) in selectedSqlArray" :key="idx" class="sql-item">
-              <span class="sql-number">{{ idx + 1 }}</span>
-              <pre class="sql-text">{{ sql }}</pre>
-              <button @click="copySingleSql(idx)" class="sql-copy-btn" title="复制">📋</button>
+          <div class="px-5 py-4 overflow-y-auto flex-1">
+            <div v-for="(sql, idx) in selectedSqlArray" :key="idx" class="flex items-start gap-2.5 px-3 py-2.5 bg-base-200 rounded-lg mb-2 text-xs">
+              <span class="shrink-0 w-[22px] h-[22px] rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold mt-0.5">{{ idx + 1 }}</span>
+              <pre class="flex-1 m-0 p-0 whitespace-pre-wrap break-all font-mono text-xs text-base-content bg-transparent">{{ sql }}</pre>
+              <button @click="copySingleSql(idx)" class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10" title="复制">📋</button>
             </div>
           </div>
         </div>
@@ -250,13 +249,13 @@
     </Teleport>
 
     <!-- Execution Result -->
-    <div v-if="execResult" class="exec-result" :class="{ success: execResult.success, error: !execResult.success }">
-      <h4>{{ execResult.success ? '✅ 同步成功' : '❌ 同步失败' }}</h4>
+    <div v-if="execResult" class="bg-base-100 rounded-lg p-4 text-center" :class="{ 'border border-green-500': execResult.success, 'border border-red-500': !execResult.success }">
+      <h4 class="m-0 mb-2">{{ execResult.success ? '✅ 同步成功' : '❌ 同步失败' }}</h4>
       <p>已执行 {{ execResult.executed }} 项更改</p>
-      <div v-if="execResult.errors.length > 0" class="exec-errors">
+      <div v-if="execResult.errors.length > 0" class="text-left m-3 p-3 bg-red-100 rounded">
         <p>错误信息:</p>
-        <ul>
-          <li v-for="(err, idx) in execResult.errors" :key="idx">{{ err }}</li>
+        <ul class="m-2 mt-0 pl-5">
+          <li v-for="(err, idx) in execResult.errors" :key="idx" class="text-xs text-red-700 mb-1">{{ err }}</li>
         </ul>
       </div>
       <button @click="reset" class="btn btn-primary">完成</button>
@@ -615,15 +614,30 @@ function getDiffTypeLabel(type: string): string {
 
 function getDiffTypeClass(type: string): string {
   const classes: Record<string, string> = {
-    table_only_in_source: 'diff-green',
-    column_added: 'diff-blue',
-    column_modified: 'diff-orange',
-    index_added: 'diff-blue',
-    index_modified: 'diff-orange',
-    table_only_in_target: 'diff-red',
-    column_removed: 'diff-red',
-    index_removed: 'diff-red',
-    primary_key_changed: 'diff-red',
+    table_only_in_source: 'bg-green-100 text-green-700',
+    column_added: 'bg-blue-100 text-blue-700',
+    column_modified: 'bg-orange-100 text-orange-700',
+    index_added: 'bg-blue-100 text-blue-700',
+    index_modified: 'bg-orange-100 text-orange-700',
+    table_only_in_target: 'bg-red-100 text-red-700',
+    column_removed: 'bg-red-100 text-red-700',
+    index_removed: 'bg-red-100 text-red-700',
+    primary_key_changed: 'bg-red-100 text-red-700',
+  }
+  return classes[type] || ''
+}
+
+function getDiffRowClass(type: string): string {
+  const classes: Record<string, string> = {
+    table_only_in_source: 'border-l-[3px] border-green-500',
+    column_added: 'border-l-[3px] border-blue-500',
+    column_modified: 'border-l-[3px] border-orange-500',
+    index_added: 'border-l-[3px] border-blue-500',
+    index_modified: 'border-l-[3px] border-orange-500',
+    table_only_in_target: 'border-l-[3px] border-red-500',
+    column_removed: 'border-l-[3px] border-red-500',
+    index_removed: 'border-l-[3px] border-red-500',
+    primary_key_changed: 'border-l-[3px] border-purple-500',
   }
   return classes[type] || ''
 }
@@ -684,701 +698,3 @@ function toggleSqlRow(key: string) {
   expandedSqlRows.value = next
 }
 </script>
-
-<style scoped>
-.structure-sync {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  overflow: auto;
-}
-
-.sync-header {
-  margin-bottom: 16px;
-}
-
-.sync-title {
-  font-size: 16px;
-  font-weight: 600;
-  margin: 0 0 4px 0;
-}
-
-.sync-desc {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin: 0;
-}
-
-.sync-config {
-  background: var(--color-base-100);
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.config-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.config-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.config-item label {
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.select-input,
-.text-input {
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-}
-
-.sync-actions {
-  display: flex;
-  justify-content: flex-end;
-}
-
-/* Step 2: Table Selection */
-.table-select-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.table-select-title {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.table-select-controls {
-  display: flex;
-  gap: 6px;
-}
-
-.table-grid {
-  max-height: 400px;
-  overflow-y: auto;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  padding: 8px;
-  background: var(--color-base-200);
-  margin-bottom: 12px;
-}
-
-.table-section-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 6px 8px 4px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin-bottom: 4px;
-  margin-top: 8px;
-}
-
-.table-section-label:first-child {
-  margin-top: 0;
-}
-
-.table-checkbox label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 13px;
-  transition: background 0.1s;
-}
-
-.table-checkbox label:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.table-name {
-  flex: 1;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-}
-
-.table-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.badge-source {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.badge-target {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.badge-common {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.table-empty {
-  text-align: center;
-  padding: 24px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-style: italic;
-}
-
-.table-select-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.selected-count-text {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-primary);
-}
-
-.footer-btns {
-  display: flex;
-  gap: 8px;
-}
-
-/* Loading */
-.sync-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 48px;
-  gap: 12px;
-}
-
-.loading-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Results */
-.sync-results {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.results-summary {
-  background: var(--color-base-100);
-  border-radius: 8px;
-  padding: 12px 16px;
-}
-
-.results-summary h4 {
-  margin: 0 0 8px 0;
-  font-size: 14px;
-}
-
-.summary-stats {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.stat {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.stat-source {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.stat-target {
-  background: #f3e5f5;
-  color: #7b1fa2;
-}
-
-.stat-common {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.stat-diffs {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.diff-type-summary {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-}
-
-.diff-type-stat {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-}
-
-.diff-green { background: #e8f5e9; color: #2e7d32; }
-.diff-blue { background: #e3f2fd; color: #1565c0; }
-.diff-orange { background: #fff3e0; color: #e65100; }
-.diff-red { background: #ffebee; color: #c62828; }
-
-/* Filter */
-.results-filter {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding: 8px 0;
-}
-
-.filter-label-text {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-weight: 500;
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 11px;
-  cursor: pointer;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.filter-chip:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-/* ===== Navicat-style Grouped Diff View ===== */
-.diff-grouped-view {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.diff-table-group {
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.diff-group-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  background: var(--color-base-100);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.1s;
-}
-
-.diff-group-header:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.expand-icon {
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  width: 12px;
-  text-align: center;
-}
-
-.group-table-name {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.group-diff-count {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.group-type-badges {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-left: auto;
-}
-
-.mini-badge {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  font-weight: 500;
-}
-
-.diff-group-body {
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* Compact comparison table */
-.diff-compare-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 12px;
-}
-
-.diff-compare-table th {
-  text-align: left;
-  padding: 6px 10px;
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  position: sticky;
-  top: 0;
-}
-
-.diff-compare-table td {
-  padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  vertical-align: middle;
-}
-
-.diff-compare-table tr:last-child td {
-  border-bottom: none;
-}
-
-/* Color-coded rows by diff type */
-.diff-row {
-  transition: background 0.1s;
-}
-
-.diff-row:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.diff-row.table_only_in_source { border-left: 3px solid #4caf50; }
-.diff-row.column_added,
-.diff-row.index_added { border-left: 3px solid #2196f3; }
-.diff-row.column_modified,
-.diff-row.index_modified { border-left: 3px solid #ff9800; }
-.diff-row.table_only_in_target,
-.diff-row.column_removed,
-.diff-row.index_removed { border-left: 3px solid #f44336; }
-.diff-row.primary_key_changed { border-left: 3px solid #9c27b0; }
-
-/* Column widths */
-.col-select { width: 32px; }
-.col-type { width: 120px; }
-.col-source { width: 30%; }
-.col-target { width: 30%; }
-.col-sql { width: 80px; text-align: center; }
-
-.row-checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.type-tag {
-  display: inline-block;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-}
-
-.compact-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--color-base-content);
-  word-break: break-all;
-}
-
-.sql-toggle-btn {
-  font-size: 11px;
-  padding: 2px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-  background: var(--color-base-200);
-  color: var(--color-primary);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.sql-toggle-btn:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.sql-detail-row td {
-  padding: 0 !important;
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.sql-code {
-  margin: 0;
-  padding: 10px 14px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 11px;
-  line-height: 1.5;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--color-base-content);
-}
-
-.diff-empty {
-  text-align: center;
-  padding: 32px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 14px;
-}
-
-.execute-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.selected-count {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-primary);
-}
-
-.execute-btns {
-  display: flex;
-  gap: 8px;
-}
-
-.exec-result {
-  background: var(--color-base-100);
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-}
-
-.exec-result.success {
-  border: 1px solid #4caf50;
-}
-
-.exec-result.error {
-  border: 1px solid #f44336;
-}
-
-.exec-result h4 {
-  margin: 0 0 8px 0;
-}
-
-.exec-errors {
-  text-align: left;
-  margin: 12px 0;
-  padding: 12px;
-  background: #ffebee;
-  border-radius: 4px;
-}
-
-.exec-errors ul {
-  margin: 8px 0 0 0;
-  padding-left: 20px;
-}
-
-.exec-errors li {
-  font-size: 12px;
-  color: #c62828;
-  margin-bottom: 4px;
-}
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-primary {
-  background: var(--color-primary);
-  color: white;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-ghost {
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-.btn-xs {
-  padding: 3px 8px;
-  font-size: 11px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-}
-
-/* ==================== SQL Dialog ==================== */
-.sql-dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.sql-dialog {
-  background: var(--color-base-100);
-  border-radius: 12px;
-  width: 720px;
-  max-width: 90vw;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-}
-
-.sql-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.sql-dialog-header h3 {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.sql-dialog-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sql-dialog-close {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.sql-dialog-close:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.sql-dialog-body {
-  padding: 16px 20px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.sql-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--color-base-200);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  font-size: 12px;
-}
-
-.sql-number {
-  flex-shrink: 0;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--color-primary);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  margin-top: 2px;
-}
-
-.sql-text {
-  flex: 1;
-  margin: 0;
-  padding: 0;
-  white-space: pre-wrap;
-  word-break: break-all;
-  font-family: monospace;
-  font-size: 12px;
-  color: var(--color-base-content);
-  background: transparent;
-}
-
-.sql-copy-btn {
-  flex-shrink: 0;
-  padding: 4px 8px;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.sql-copy-btn:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-</style>

@@ -1,74 +1,74 @@
 <template>
-  <div class="json-tool">
-    <h3>JSON 工具</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">JSON 工具</h3>
 
-    <div class="tool-section">
-      <h4>输入 JSON</h4>
-      <textarea v-model="input" class="tool-textarea" placeholder="在此输入 JSON..." rows="6"></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输入 JSON</h4>
+      <textarea v-model="input" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" placeholder="在此输入 JSON..." rows="6"></textarea>
     </div>
 
-    <div class="tool-row">
-      <button class="tool-btn primary" @click="formatJson" :disabled="!input">格式化</button>
-      <button class="tool-btn" @click="validateJson" :disabled="!input">校验</button>
-      <button class="tool-btn" @click="compressJson" :disabled="!input">压缩</button>
-      <button class="tool-btn" @click="escapeJson">转义</button>
-      <button class="tool-btn" @click="unescapeJson">去转义</button>
-      <button class="tool-btn" @click="copyOutput" :disabled="!output">复制结果</button>
+    <div class="flex flex-wrap gap-2.5 mb-3">
+      <button class="btn btn-primary" @click="formatJson" :disabled="!input">格式化</button>
+      <button class="btn btn-ghost" @click="validateJson" :disabled="!input">校验</button>
+      <button class="btn btn-ghost" @click="compressJson" :disabled="!input">压缩</button>
+      <button class="btn btn-ghost" @click="escapeJson">转义</button>
+      <button class="btn btn-ghost" @click="unescapeJson">去转义</button>
+      <button class="btn btn-ghost" @click="copyOutput" :disabled="!output">复制结果</button>
     </div>
 
-    <div class="tool-section" v-if="validateResult">
-      <h4>校验结果</h4>
-      <div :class="['tool-result', validateResult.ok ? 'result-ok' : 'result-error']">
+    <div class="mb-5" v-if="validateResult">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">校验结果</h4>
+      <div :class="['bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto', validateResult.ok ? 'text-success' : 'text-error']">
         {{ validateResult.msg }}
       </div>
     </div>
 
-    <div class="tool-section">
-      <h4>输出</h4>
-      <textarea v-model="output" class="tool-textarea" readonly rows="6" placeholder="结果将显示在这里..."></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输出</h4>
+      <textarea v-model="output" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" readonly rows="6" placeholder="结果将显示在这里..."></textarea>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Unicode 转换 -->
-    <div class="tool-section">
-      <h4>Unicode 转换</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="unicodeToChinese" :disabled="!input">\uXXXX → 中文</button>
-        <button class="tool-btn" @click="chineseToUnicode" :disabled="!input">中文 → \uXXXX</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Unicode 转换</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="unicodeToChinese" :disabled="!input">\uXXXX → 中文</button>
+        <button class="btn btn-ghost" @click="chineseToUnicode" :disabled="!input">中文 → \uXXXX</button>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- JSON 转换 -->
-    <div class="tool-section">
-      <h4>JSON 转换</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="toJsonGetParams" :disabled="!input">转 GET 参数</button>
-        <button class="tool-btn" @click="toJsonCsv" :disabled="!input">转 CSV</button>
-        <button class="tool-btn" @click="toJsonTable" :disabled="!input">转 HTML 表格</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">JSON 转换</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="toJsonGetParams" :disabled="!input">转 GET 参数</button>
+        <button class="btn btn-ghost" @click="toJsonCsv" :disabled="!input">转 CSV</button>
+        <button class="btn btn-ghost" @click="toJsonTable" :disabled="!input">转 HTML 表格</button>
       </div>
     </div>
 
-    <div class="tool-section">
-      <h4>转语言类定义</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="toJsonJava" :disabled="!input">Java</button>
-        <button class="tool-btn" @click="toJsonCSharp" :disabled="!input">C#</button>
-        <button class="tool-btn" @click="toJsonGo" :disabled="!input">Go</button>
-        <button class="tool-btn" @click="toJsonDart" :disabled="!input">Dart</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">转语言类定义</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="toJsonJava" :disabled="!input">Java</button>
+        <button class="btn btn-ghost" @click="toJsonCSharp" :disabled="!input">C#</button>
+        <button class="btn btn-ghost" @click="toJsonGo" :disabled="!input">Go</button>
+        <button class="btn btn-ghost" @click="toJsonDart" :disabled="!input">Dart</button>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- JsonPath -->
-    <div class="tool-section">
-      <h4>JsonPath 查询</h4>
-      <div class="tool-row">
-        <input v-model="jsonPath" class="tool-input" style="flex:1;" placeholder="输入 JsonPath 表达式，如 $.store.book[*].author" />
-        <button class="tool-btn primary" @click="queryJsonPath" :disabled="!input || !jsonPath">查询</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">JsonPath 查询</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <input v-model="jsonPath" class="input input-bordered flex-1" placeholder="输入 JsonPath 表达式，如 $.store.book[*].author" />
+        <button class="btn btn-primary" @click="queryJsonPath" :disabled="!input || !jsonPath">查询</button>
       </div>
     </div>
   </div>
@@ -435,37 +435,3 @@ async function copyOutput() {
   await copyText(output.value, toast)
 }
 </script>
-
-<style scoped>
-
-.result-ok {
-  color: #22c55e;
-}
-
-.result-error {
-  color: #ef4444;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

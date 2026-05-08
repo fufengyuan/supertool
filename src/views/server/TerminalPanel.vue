@@ -1,30 +1,49 @@
 <template>
-  <div class="terminal-panel" @mousedown="focusActiveTerminal">
+  <div
+    class="terminal-panel fixed inset-0 w-screen h-screen bg-[#1e1e2e] flex flex-col z-[1000] shadow-2xl overflow-hidden min-w-[400px] min-h-[300px] transition-[left,top,width,height,border-radius] duration-200 ease-in-out"
+    @mousedown="focusActiveTerminal"
+  >
     <!-- 窗口标题栏 -->
-    <div class="terminal-header" @mousedown="startDrag">
-      <div class="terminal-header-left">
+    <div
+      class="flex justify-between items-center px-4 py-[10px] bg-[#181825] border-b border-[#313244] cursor-move select-none shrink-0"
+      @mousedown="startDrag"
+    >
+      <div class="flex items-center gap-2 text-[#cdd6f4] min-w-0">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="4 17 10 11 4 5"/>
           <line x1="12" y1="19" x2="20" y2="19"/>
         </svg>
-        <span class="terminal-title">终端</span>
+        <span class="font-semibold text-sm">终端</span>
       </div>
-      <div class="terminal-header-actions">
-        <button @click.stop="showMonitor = !showMonitor" class="btn-header" :title="showMonitor ? '隐藏监控' : '显示监控'" :class="{ active: showMonitor }">
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button
+          @click.stop="showMonitor = !showMonitor"
+          class="btn btn-ghost btn-xs h-7 w-7 min-h-0 rounded-md p-0"
+          :class="{ 'text-[#89b4fa] bg-[rgba(137,180,250,0.15)]': showMonitor }"
+          :title="showMonitor ? '隐藏监控' : '显示监控'"
+        >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2"/>
             <line x1="8" y1="21" x2="16" y2="21"/>
             <line x1="12" y1="17" x2="12" y2="21"/>
           </svg>
         </button>
-        <button @click.stop="quickOpenSftp" class="btn-header btn-sftp" title="在当前路径打开 SFTP">
+        <button
+          @click.stop="quickOpenSftp"
+          class="btn btn-ghost btn-xs h-7 w-7 min-h-0 rounded-md p-0 text-[#a6e3a1]"
+          title="在当前路径打开 SFTP"
+        >
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
             <line x1="12" y1="11" x2="12" y2="19"/>
             <polyline points="9 14 12 11 15 14"/>
           </svg>
         </button>
-        <button @click.stop="maximizeToggle" class="btn-header" :title="isMaximized ? '还原' : '最大化'">
+        <button
+          @click.stop="maximizeToggle"
+          class="btn btn-ghost btn-xs h-7 w-7 min-h-0 rounded-md p-0"
+          :title="isMaximized ? '还原' : '最大化'"
+        >
           <svg v-if="!isMaximized" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/>
           </svg>
@@ -32,7 +51,11 @@
             <rect x="5" y="5" width="14" height="14" rx="1"/>
           </svg>
         </button>
-        <button @click.stop="$emit('close')" class="btn-close" title="关闭终端">
+        <button
+          @click.stop="$emit('close')"
+          class="btn btn-xs h-7 w-7 min-h-0 rounded-full bg-[#f38ba8] text-white hover:bg-[#e04560] hover:scale-110 border-none p-0"
+          title="关闭终端"
+        >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -42,38 +65,59 @@
     </div>
 
     <!-- 标签栏 -->
-    <div class="terminal-tabs">
+    <div class="flex items-stretch bg-[#11111b] border-b border-[#313244] overflow-x-auto overflow-y-hidden shrink-0">
       <div
         v-for="tab in tabs"
         :key="tab.id"
-        class="terminal-tab"
-        :class="{ active: activeTabId === tab.id }"
+        class="group flex items-center gap-1.5 px-3 py-2 min-w-0 max-w-[220px] bg-transparent text-[#6c7086] text-xs font-medium cursor-pointer border-r border-[#313244] transition-all duration-150 whitespace-nowrap relative hover:bg-[#1e1e2e] hover:text-[#cdd6f4]"
+        :class="[activeTabId === tab.id ? 'bg-[#1e1e2e] text-[#cdd6f4]' : '']"
         @click="switchTab(tab.id)"
       >
-        <span class="tab-status-dot" :class="tab.status"></span>
-        <span class="tab-name">{{ tab.server.name }}</span>
-        <button @click.stop="duplicateTab(tab)" class="tab-duplicate" title="复制标签">
+        <span
+          class="w-1.5 h-1.5 rounded-full shrink-0"
+          :class="{
+            'bg-[#f9e2af] animate-pulse': tab.status === 'connecting',
+            'bg-[#a6e3a1] shadow-[0_0_4px_#a6e3a1]': tab.status === 'connected',
+            'bg-[#f38ba8]': tab.status === 'disconnected' || tab.status === 'error'
+          }"
+        ></span>
+        <span class="truncate flex-1 min-w-0">{{ tab.server.name }}</span>
+        <button
+          @click.stop="duplicateTab(tab)"
+          class="bg-transparent border-none text-[#6c7086] w-4 h-4 rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:text-[#a6e3a1] hover:bg-[rgba(166,227,161,0.15)] transition-all duration-150 shrink-0 p-0"
+          title="复制标签"
+        >
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="9" y="9" width="13" height="13" rx="2"/>
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
           </svg>
         </button>
-        <button @click.stop="reconnectTab(tab)" class="tab-reconnect" title="重连">
-          <svg :class="{ spinning: tab.status === 'connecting' }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+        <button
+          @click.stop="reconnectTab(tab)"
+          class="bg-transparent border-none text-[#6c7086] w-[18px] h-[18px] rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[#89b4fa] hover:bg-[rgba(137,180,250,0.15)] transition-all duration-150 shrink-0 p-0"
+          title="重连"
+        >
+          <svg :class="{ 'animate-spin': tab.status === 'connecting' }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
             <polyline points="23 4 23 10 17 10"/>
             <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
           </svg>
         </button>
-        <button @click.stop="closeTab(tab.id)" class="tab-close" title="关闭">
+        <button
+          @click.stop="closeTab(tab.id)"
+          class="bg-transparent border-none text-[#6c7086] w-4 h-4 rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:text-[#f38ba8] hover:bg-[rgba(243,139,168,0.15)] transition-all duration-150 shrink-0 p-0"
+          title="关闭"
+        >
           <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
+        <!-- Active tab bottom indicator -->
+        <span v-if="activeTabId === tab.id" class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#89b4fa]"></span>
       </div>
       <!-- 添加标签：服务器选择器 -->
-      <div class="terminal-tab tab-add-wrapper">
-        <button @click="onAddTab" class="tab-add" title="添加标签 / 选择服务器">
+      <div class="flex items-center w-9 min-w-9 bg-transparent text-[#6c7086] text-xs font-medium cursor-pointer border-r-0 transition-all duration-150 relative hover:bg-[#1e1e2e] hover:text-[#89b4fa]">
+        <button @click="onAddTab" class="flex items-center justify-center w-9 h-full border-none bg-transparent text-[#6c7086] cursor-pointer transition-all duration-150 hover:text-[#89b4fa] p-0" title="添加标签 / 选择服务器">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="12" y1="5" x2="12" y2="19"/>
             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -83,7 +127,7 @@
     </div>
 
     <!-- 服务器选择下拉框（放在标签栏外，避免被 overflow-y:hidden 裁剪） -->
-    <div v-if="showServerSelect" class="server-select-dropdown" @click.stop>
+    <div v-if="showServerSelect" class="fixed top-0 right-0 z-[1000] min-w-[280px] max-w-[340px] max-h-[400px] overflow-y-auto bg-base-100 border border-base-content/10 rounded-box shadow-2xl p-2 mt-[38px] mr-4" @click.stop>
       <GroupedServerSelector
         v-model="selectedServerId"
         mode="single"
@@ -93,14 +137,14 @@
     </div>
 
     <!-- 终端内容区：每个标签一个容器，CSS 控制显隐 -->
-    <div class="terminal-main">
-      <div class="terminal-body">
+    <div class="flex-1 min-h-0 flex overflow-hidden">
+      <div class="terminal-body flex-1 min-h-0 overflow-hidden bg-[#1e1e2e] relative min-w-0">
         <div
           v-for="tab in tabs"
           :key="tab.id"
           :ref="el => setTabContainer(tab.id, el)"
-          class="terminal-wrapper"
-          :class="{ active: activeTabId === tab.id }"
+          class="absolute inset-0 hidden"
+          :class="{ '!block': activeTabId === tab.id }"
         ></div>
       </div>
 
@@ -484,7 +528,7 @@ async function connectTab(tab: TerminalTab) {
         }
         try {
           const result = await getTauriAPI().readTerminal(tab.sessionId)
-          // tauriCall 解包后 result = { success: true, data: "..." }
+          // tauriCall 解包后 result = { success: true, data: \"...\" }
           const data = result?.data
           if (data && typeof data === 'string' && data.length > 0) {
             tab.term.write(data)
@@ -793,392 +837,8 @@ function stopDrag() {
 defineExpose({ addTab })
 </script>
 
+<!-- xterm deep styles — retained as-is per migration requirement -->
 <style scoped>
-.terminal-panel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: #1e1e2e;
-  border: none;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
-  min-width: 400px;
-  min-height: 300px;
-  transition: left 0.2s ease, top 0.2s ease, width 0.2s ease, height 0.2s ease, border-radius 0.2s ease;
-}
-
-.terminal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 16px;
-  background: #181825;
-  border-bottom: 1px solid #313244;
-  cursor: move;
-  user-select: none;
-  -webkit-app-region: no-drag;
-  flex-shrink: 0;
-}
-
-.terminal-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #cdd6f4;
-  min-width: 0;
-}
-
-.terminal-title {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.terminal-header-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.btn-header {
-  background: transparent;
-  border: 1px solid rgba(205, 214, 244, 0.2);
-  color: #cdd6f4;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-header:hover {
-  background: rgba(205, 214, 244, 0.1);
-}
-
-.btn-header.active {
-  color: #89b4fa;
-  background: rgba(137, 180, 250, 0.15);
-}
-
-.btn-sftp {
-  color: #a6e3a1;
-}
-
-.btn-sftp:hover {
-  color: #a6e3a1;
-  background: rgba(166, 227, 161, 0.15);
-}
-
-/* ===== 终端主布局 ===== */
-.terminal-main {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-.btn-close {
-  background: #f38ba8;
-  border: none;
-  color: white;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-close:hover {
-  background: #e04560;
-  transform: scale(1.1);
-}
-
-/* ===== 标签栏 ===== */
-.terminal-tabs {
-  display: flex;
-  align-items: stretch;
-  background: #11111b;
-  border-bottom: 1px solid #313244;
-  overflow-x: auto;
-  overflow-y: hidden;
-  flex-shrink: 0;
-}
-
-.terminal-tabs::-webkit-scrollbar {
-  height: 2px;
-}
-
-.terminal-tabs::-webkit-scrollbar-thumb {
-  background: #45475a;
-  border-radius: 1px;
-}
-
-.terminal-tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  min-width: 0;
-  max-width: 220px;
-  background: transparent;
-  color: #6c7086;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border-right: 1px solid #313244;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  position: relative;
-}
-
-.terminal-tab:hover {
-  background: #1e1e2e;
-  color: #cdd6f4;
-}
-
-.terminal-tab.active {
-  background: #1e1e2e;
-  color: #cdd6f4;
-}
-
-.terminal-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #89b4fa;
-}
-
-.tab-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.tab-status-dot.connecting {
-  background: #f9e2af;
-  animation: blink 0.8s ease-in-out infinite;
-}
-
-.tab-status-dot.connected {
-  background: #a6e3a1;
-  box-shadow: 0 0 4px #a6e3a1;
-}
-
-.tab-status-dot.disconnected,
-.tab-status-dot.error {
-  background: #f38ba8;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.tab-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
-
-.tab-reconnect {
-  background: transparent;
-  border: none;
-  color: #6c7086;
-  width: 18px;
-  height: 18px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.terminal-tab:hover .tab-reconnect {
-  opacity: 1;
-}
-
-.tab-reconnect:hover {
-  color: #89b4fa;
-  background: rgba(137, 180, 250, 0.15);
-}
-
-.tab-duplicate {
-  background: transparent;
-  border: none;
-  color: #6c7086;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.terminal-tab:hover .tab-duplicate {
-  opacity: 0.7;
-}
-
-.tab-duplicate:hover {
-  color: #a6e3a1;
-  background: rgba(166, 227, 161, 0.15);
-  opacity: 1 !important;
-}
-
-.tab-close {
-  background: transparent;
-  border: none;
-  color: #6c7086;
-  width: 16px;
-  height: 16px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-
-.terminal-tab:hover .tab-close {
-  opacity: 0.7;
-}
-
-.tab-close:hover {
-  color: #f38ba8;
-  background: rgba(243, 139, 168, 0.15);
-}
-
-.tab-add-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  width: 36px;
-  min-width: 36px;
-  border-right: none;
-}
-
-.server-select-dropdown {
-  position: absolute;
-  top: 0;
-  right: 0;
-  z-index: 1000;
-  min-width: 280px;
-  max-width: 340px;
-  max-height: 400px;
-  overflow-y: auto;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  padding: 8px 0;
-  margin-top: 38px;
-}
-
-.tab-add {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 100%;
-  border: none;
-  background: transparent;
-  color: #6c7086;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.tab-add:hover {
-  background: #1e1e2e;
-  color: #89b4fa;
-}
-
-.tab-add-select {
-  position: absolute;
-  left: 0;
-  bottom: -4px;
-  transform: translateY(100%);
-  min-width: 160px;
-  max-width: 220px;
-  padding: 6px 8px;
-  background: #1e1e2e;
-  color: #cdd6f4;
-  border: 1px solid #45475a;
-  border-radius: 6px;
-  font-size: 12px;
-  z-index: 10;
-  outline: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.tab-add-select:focus {
-  border-color: #89b4fa;
-}
-
-.tab-add-select option {
-  background: #1e1e2e;
-  color: #cdd6f4;
-  padding: 4px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.spinning {
-  animation: spin 0.8s linear infinite;
-}
-
-/* ===== 终端内容区 ===== */
-.terminal-body {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  overflow: hidden;
-  background: #1e1e2e;
-  position: relative;
-  min-width: 0;
-}
-
-/* 每个标签的终端容器：绝对定位铺满，默认隐藏 */
-.terminal-wrapper {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  display: none;
-}
-
-.terminal-wrapper.active {
-  display: block;
-}
-
 :deep(.xterm) {
   padding: 8px;
   height: 100% !important;
@@ -1207,5 +867,17 @@ defineExpose({ addTab })
 
 :deep(.xterm-viewport::-webkit-scrollbar-thumb:hover) {
   background: #585b70;
+}
+</style>
+
+<!-- Minimal supplementary styles that cannot be expressed with Tailwind utilities -->
+<style>
+/* Tab bar slim scrollbar */
+.terminal-tabs::-webkit-scrollbar {
+  height: 2px;
+}
+.terminal-tabs::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 1px;
 }
 </style>

@@ -1,56 +1,56 @@
 <template>
-  <div class="tool-panel">
-    <h3>📐 单位换算</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">📐 单位换算</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">类别</label>
-      <select v-model="category" class="tool-select" @change="onCategoryChange">
+    <div class="mb-5">
+      <span class="label-text text-xs font-medium opacity-60 mb-1 block">类别</span>
+      <select v-model="category" class="select select-bordered" @change="onCategoryChange">
         <option v-for="cat in categories" :key="cat.key" :value="cat.key">{{ cat.label }}</option>
       </select>
 
-      <div class="converter-row">
-        <div class="converter-side">
-          <label class="tool-label">从</label>
-          <select v-model="fromUnit" class="tool-select" @change="convert">
+      <div class="flex items-end gap-4 mt-3">
+        <div class="flex-1 flex flex-col gap-2">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">从</span>
+          <select v-model="fromUnit" class="select select-bordered" @change="convert">
             <option v-for="u in currentUnits" :key="u.key" :value="u.key">{{ u.label }}</option>
           </select>
           <input
             v-model.number="inputValue"
-            class="tool-input"
+            class="input input-bordered"
             type="number"
             placeholder="输入值..."
             @input="convert"
           />
         </div>
 
-        <div class="converter-arrow">→</div>
+        <div class="text-2xl text-primary font-bold pb-2">→</div>
 
-        <div class="converter-side">
-          <label class="tool-label">到</label>
-          <select v-model="toUnit" class="tool-select" @change="convert">
+        <div class="flex-1 flex flex-col gap-2">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">到</span>
+          <select v-model="toUnit" class="select select-bordered" @change="convert">
             <option v-for="u in currentUnits" :key="u.key" :value="u.key">{{ u.label }}</option>
           </select>
-          <div class="tool-input result-value">{{ outputValue }}</div>
+          <div class="p-2 bg-base-100 border border-primary rounded-box font-mono text-sm text-primary font-semibold">{{ outputValue }}</div>
         </div>
       </div>
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn" @click="swapUnits">🔄 交换</button>
-        <button class="tool-btn" @click="copyResult">📋 复制结果</button>
+      <div class="flex flex-wrap gap-2.5 mb-3 mt-3">
+        <button class="btn btn-ghost" @click="swapUnits">🔄 交换</button>
+        <button class="btn btn-ghost" @click="copyResult">📋 复制结果</button>
       </div>
 
       <!-- All conversions table -->
-      <div v-if="allResults.length > 0" class="all-results">
-        <h4>全部换算结果</h4>
-        <div class="all-results-grid">
+      <div v-if="allResults.length > 0" class="mt-5">
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">全部换算结果</h4>
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
           <div
             v-for="r in allResults"
             :key="r.key"
-            class="all-result-item"
+            class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box cursor-pointer transition-all duration-150 hover:border-primary"
             @click="copyValue(r.value)"
           >
-            <span class="all-result-label">{{ r.label }}</span>
-            <span class="all-result-value">{{ r.value }}</span>
+            <span class="text-xs font-medium opacity-60 mb-0.5">{{ r.label }}</span>
+            <span class="font-mono text-sm text-base-content break-all">{{ r.value }}</span>
           </div>
         </div>
       </div>
@@ -365,113 +365,3 @@ function copyValue(value: string) {
   copyText(value, toast)
 }
 </script>
-
-<style scoped>
-.tool-panel h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.tool-panel h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0 0 10px 0;
-}
-
-.converter-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  margin-top: 12px;
-}
-
-.converter-side {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.converter-arrow {
-  font-size: 24px;
-  color: var(--color-primary);
-  font-weight: 700;
-  padding-bottom: 8px;
-}
-
-.result-value {
-  padding: 8px 12px;
-  background: var(--color-base-100);
-  border: 1px solid var(--color-primary);
-  border-radius: 6px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-.all-results {
-  margin-top: 20px;
-}
-
-.all-results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.all-result-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.all-result-item:hover {
-  border-color: var(--color-primary);
-}
-
-.all-result-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 2px;
-}
-
-.all-result-value {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  color: var(--color-base-content);
-  word-break: break-all;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

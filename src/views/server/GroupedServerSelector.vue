@@ -1,27 +1,34 @@
 <template>
-  <div class="grouped-server-selector" :class="{ 'selector-mode': mode === 'single' }">
+  <div class="flex flex-col gap-0.5" :class="{ 'selector-mode': mode === 'single' }">
     <!-- 未分组服务器 -->
-    <div v-if="ungroupedServers.length > 0" class="server-group-section">
-      <div class="server-group-header" @click="toggleGroup(null)">
-        <svg class="group-chevron" :class="{ expanded: expandedGroups.has(null) }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+    <div v-if="ungroupedServers.length > 0" class="rounded-lg overflow-hidden">
+      <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer select-none bg-base-200 border border-base-content/10 transition-all hover:border-primary" @click="toggleGroup(null)">
+        <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-90': expandedGroups.has(null) }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
-        <span class="group-label">🖥️ 未分组</span>
-        <span class="group-count">{{ ungroupedServers.length }}</span>
+        <span class="text-xs font-semibold text-base-content flex-1">🖥️ 未分组</span>
+        <span class="text-[10px] font-semibold px-1.5 py-px rounded-full bg-primary/15 text-primary">{{ ungroupedServers.length }}</span>
       </div>
-      <Transition name="server-group-expand">
-        <div v-show="expandedGroups.has(null)" class="server-group-body">
+      <Transition
+        enter-active-class="transition-all duration-200 ease-out"
+        leave-active-class="transition-all duration-200 ease-in"
+        enter-from-class="opacity-0"
+        leave-to-class="opacity-0"
+      >
+        <div v-show="expandedGroups.has(null)" class="py-0.5 pl-2">
           <template v-if="mode === 'multi'">
-            <label v-for="server in ungroupedServers" :key="server.id" class="server-check-item">
-              <input type="checkbox" :value="server.id" :checked="modelValue.includes(server.id)" @change="onMultiToggle(server.id, $event)" />
-              <span class="server-check-name">{{ server.name }}</span>
-              <span class="server-check-addr">{{ server.host }}:{{ server.port || 22 }}</span>
+            <label v-for="server in ungroupedServers" :key="server.id" class="flex items-center gap-1.5 px-2 py-1 rounded cursor-pointer text-xs hover:bg-base-content/5">
+              <input type="checkbox" :value="server.id" :checked="modelValue.includes(server.id)" @change="onMultiToggle(server.id, $event)" class="checkbox checkbox-primary checkbox-xs" />
+              <span class="text-base-content font-medium min-w-[60px] truncate">{{ server.name }}</span>
+              <span class="text-base-content/40 text-[11px] font-mono ml-auto">{{ server.host }}:{{ server.port || 22 }}</span>
             </label>
           </template>
           <template v-else>
-            <div v-for="server in ungroupedServers" :key="server.id" class="server-option-item" :class="{ active: modelValue === server.id }" @click="onSingleSelect(server.id)">
-              <span class="server-option-name">{{ server.name }}</span>
-              <span class="server-option-addr">{{ server.host }}:{{ server.port || 22 }}</span>
+            <div v-for="server in ungroupedServers" :key="server.id" class="flex items-center gap-1.5 px-2 py-1.5 rounded cursor-pointer text-xs hover:bg-base-content/5"
+              :class="{ 'bg-primary text-white': modelValue === server.id }"
+              @click="onSingleSelect(server.id)">
+              <span class="font-medium text-base-content min-w-[60px] truncate" :class="{ '!text-white': modelValue === server.id }">{{ server.name }}</span>
+              <span class="text-base-content/40 text-[11px] font-mono ml-auto" :class="{ '!text-white/70': modelValue === server.id }">{{ server.host }}:{{ server.port || 22 }}</span>
             </div>
           </template>
         </div>
@@ -42,7 +49,7 @@
       @toggle-group="toggleGroup"
     />
 
-    <div v-if="allServers.length === 0" class="empty-servers">暂无服务器</div>
+    <div v-if="allServers.length === 0" class="text-center p-4 text-base-content/60 text-xs">暂无服务器</div>
   </div>
 </template>
 
@@ -115,167 +122,3 @@ function onSingleSelect(serverId: string) {
   emit('update:modelValue', serverId)
 }
 </script>
-
-<style scoped>
-.grouped-server-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.server-group-section {
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.server-group-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s ease;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.server-group-header:hover {
-  border-color: var(--color-primary);
-}
-
-.group-chevron {
-  color: var(--text-secondary);
-  transition: transform 0.2s ease;
-  flex-shrink: 0;
-}
-
-.group-chevron.expanded {
-  transform: rotate(90deg);
-}
-
-.group-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.group-count {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: #6c63ff22;
-  color: #6c63ff;
-}
-
-.server-group-body {
-  padding: 2px 0 2px 8px;
-}
-
-/* 多选模式 — 复选框 */
-.server-check-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background 0.1s;
-  font-size: 12px;
-}
-
-.server-check-item:hover {
-  background: var(--hover-bg);
-}
-
-.server-check-item input[type="checkbox"] {
-  accent-color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.server-check-name {
-  color: var(--text-primary);
-  font-weight: 500;
-  min-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.server-check-addr {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  margin-left: auto;
-}
-
-/* 单选模式 — 选项 */
-.server-option-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.1s;
-  font-size: 12px;
-}
-
-.server-option-item:hover {
-  background: var(--hover-bg);
-}
-
-.server-option-item.active {
-  background: var(--color-primary);
-  color: white;
-}
-
-.server-option-item.active .server-option-addr {
-  color: rgba(255, 255, 255, 0.7);
-}
-
-.server-option-name {
-  font-weight: 500;
-  color: var(--text-primary);
-  min-width: 60px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.server-option-addr {
-  color: var(--text-tertiary);
-  font-size: 11px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  margin-left: auto;
-}
-
-.empty-servers {
-  text-align: center;
-  padding: 16px;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-
-/* 动画 */
-.server-group-expand-enter-active,
-.server-group-expand-leave-active {
-  transition: all 0.2s ease;
-  overflow: hidden;
-}
-
-.server-group-expand-enter-from,
-.server-group-expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-}
-
-.server-group-expand-enter-to,
-.server-group-expand-leave-from {
-  opacity: 1;
-  max-height: 500px;
-}
-</style>

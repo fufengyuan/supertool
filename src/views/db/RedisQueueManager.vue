@@ -1,30 +1,36 @@
 <template>
-  <div class="redis-stream-manager">
+  <div class="flex flex-col h-full bg-base-200 font-sans">
     <!-- Top Bar -->
-    <div class="stream-topbar">
-      <div class="topbar-title">
-        <span class="topbar-icon">🌊</span>
+    <div class="flex items-center justify-between px-4 h-12 bg-base-100 border-b border-base-content/10 shrink-0">
+      <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+        <span class="text-lg">🌊</span>
         <span>Stream 管理</span>
-        <span v-if="streams.length > 0" class="topbar-badge">{{ streams.length }}</span>
+        <span v-if="streams.length > 0" class="badge badge-primary badge-sm">{{ streams.length }}</span>
       </div>
-      <div class="topbar-actions">
-        <span class="connection-status" :class="connectionStatus">
-          <span class="status-dot">{{ connectionStatus === 'connected' ? '🟢' : connectionStatus === 'connecting' ? '🟡' : '🔴' }}</span>
-          <span class="status-text">{{ connectionStatus === 'connected' ? '已连接' : connectionStatus === 'connecting' ? '连接中' : '未连接' }}</span>
+      <div class="flex items-center gap-2">
+        <span :class="[
+          'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mr-1',
+          connectionStatus === 'connected' ? 'bg-success/10' : connectionStatus === 'connecting' ? 'bg-warning/10' : 'bg-error/10'
+        ]">
+          <span class="text-[10px] leading-none">{{ connectionStatus === 'connected' ? '🟢' : connectionStatus === 'connecting' ? '🟡' : '🔴' }}</span>
+          <span :class="[
+            'whitespace-nowrap',
+            connectionStatus === 'connected' ? 'text-success' : connectionStatus === 'connecting' ? 'text-warning' : 'text-error'
+          ]">{{ connectionStatus === 'connected' ? '已连接' : connectionStatus === 'connecting' ? '连接中' : '未连接' }}</span>
         </span>
         <!-- Auto Refresh -->
-        <div class="auto-refresh-control">
-          <button @click="toggleAutoRefresh" class="btn-icon" :class="{ active: autoRefreshEnabled }" :title="autoRefreshEnabled ? '停止自动刷新' : '开启自动刷新'">
+        <div class="flex items-center gap-1">
+          <button @click="toggleAutoRefresh" class="btn btn-ghost btn-square btn-sm" :class="{ 'bg-primary/10 text-primary': autoRefreshEnabled }" :title="autoRefreshEnabled ? '停止自动刷新' : '开启自动刷新'">
             🔄
           </button>
-          <select v-if="autoRefreshEnabled" v-model="autoRefreshInterval" class="refresh-interval-select" @change="restartAutoRefresh">
+          <select v-if="autoRefreshEnabled" v-model="autoRefreshInterval" class="select select-xs" @change="restartAutoRefresh">
             <option value="3000">3s</option>
             <option value="5000">5s</option>
             <option value="10000">10s</option>
           </select>
         </div>
-        <button @click="refreshAll" class="btn-icon" :disabled="loading" title="刷新">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" :class="{ spinning: loading }">
+        <button @click="refreshAll" class="btn btn-ghost btn-square btn-sm" :disabled="loading" title="刷新">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" :class="{ 'animate-spin': loading }">
             <polyline points="23 4 23 10 17 10" />
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
@@ -32,70 +38,79 @@
       </div>
     </div>
 
-    <div class="stream-split">
+    <div class="flex flex-1 overflow-hidden">
       <!-- Left: Stream List -->
-      <div class="stream-list-panel">
-        <div class="panel-header">
-          <span class="panel-title">Streams</span>
+      <div class="w-72 border-r border-base-content/10 flex flex-col bg-base-100 shrink-0">
+        <div class="px-4 py-3 border-b border-base-content/10">
+          <span class="font-semibold text-xs text-base-content">Streams</span>
         </div>
-        <div class="panel-search">
+        <div class="px-4 py-3 border-b border-base-content/10">
           <input
             v-model="streamPattern"
             @keydown.enter="refreshStreams"
-            class="search-input"
+            class="input input-sm w-full bg-base-200"
             placeholder="搜索 stream，如 * 或 my-stream-*"
           />
         </div>
-        <div class="stream-list">
-          <div v-if="loading && !selectedStream" class="loading-state">加载中...</div>
-          <div v-else-if="streams.length === 0" class="empty-state">
-            <div class="empty-icon">🌊</div>
-            <div class="empty-text">未找到 Stream</div>
-            <div class="empty-hint">使用上方搜索框查找 stream 类型的 key</div>
+        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+          <div v-if="loading && !selectedStream" class="py-5 text-center text-base-content/60">加载中...</div>
+          <div v-else-if="streams.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
+            <div class="text-5xl mb-3 opacity-50">🌊</div>
+            <div class="text-sm font-medium mb-1">未找到 Stream</div>
+            <div class="text-xs opacity-70">使用上方搜索框查找 stream 类型的 key</div>
           </div>
           <div
             v-for="s in filteredStreams"
             :key="s.name"
-            class="stream-item"
-            :class="{ active: selectedStream === s.name }"
+            :class="[
+              'flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all hover:bg-base-200',
+              selectedStream === s.name ? 'bg-primary/10 ring-1 ring-primary' : ''
+            ]"
             @click="selectStream(s.name)"
           >
-            <div class="stream-item-main">
-              <span class="stream-icon">🌊</span>
-              <span class="stream-name" :title="s.name">{{ s.name }}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-base shrink-0">🌊</span>
+              <span class="text-xs text-base-content truncate" :title="s.name">{{ s.name }}</span>
             </div>
-            <div class="stream-badges">
-              <span class="stream-badge" :class="{ danger: s.pendingCount > 10, warn: s.pendingCount > 0 && s.pendingCount <= 10 }" :title="`${s.pendingCount} 条 pending`">{{ s.pendingCount }}</span>
-              <span class="stream-badge" :title="`${s.length} 条消息`">{{ s.length }}</span>
-              <span v-if="s.groups > 0" class="stream-badge group-badge" :title="`${s.groups} 个消费组`">{{ s.groups }}g</span>
+            <div class="flex gap-1 shrink-0">
+              <span :class="[
+                'badge badge-xs',
+                s.pendingCount > 10 ? 'badge-error font-semibold' :
+                s.pendingCount > 0 ? 'badge-warning' :
+                'badge-ghost'
+              ]" :title="`${s.pendingCount} 条 pending`">{{ s.pendingCount }}</span>
+              <span class="badge badge-ghost badge-xs" :title="`${s.length} 条消息`">{{ s.length }}</span>
+              <span v-if="s.groups > 0" class="badge badge-warning badge-xs" :title="`${s.groups} 个消费组`">{{ s.groups }}g</span>
             </div>
           </div>
 
           <!-- Load More Button -->
-          <div v-if="hasMoreStreams" class="load-more-container">
-            <button @click="loadMoreStreams" :disabled="loadingMore" class="btn-load-more">
+          <div v-if="hasMoreStreams" class="text-center py-2">
+            <button @click="loadMoreStreams" :disabled="loadingMore" class="btn btn-outline btn-primary btn-xs">
               {{ loadingMore ? '加载中...' : '加载更多 Streams' }}
             </button>
           </div>
 
           <!-- Delay Queues Section -->
-          <div v-if="delayQueues.length > 0" class="delay-section">
-            <div class="delay-section-header" @click="delaySectionCollapsed = !delaySectionCollapsed">
-              <span class="delay-arrow">{{ delaySectionCollapsed ? '▶' : '▼' }}</span>
-              <span class="delay-title">⏰ 延迟队列</span>
-              <span class="delay-badge">{{ delayQueues.length }}</span>
+          <div v-if="delayQueues.length > 0" class="mt-2 border-t border-base-content/10 pt-2">
+            <div class="flex items-center gap-1.5 px-3 py-2 cursor-pointer rounded-md hover:bg-base-200 transition-colors" @click="delaySectionCollapsed = !delaySectionCollapsed">
+              <span class="text-[10px] text-base-content/60">{{ delaySectionCollapsed ? '▶' : '▼' }}</span>
+              <span class="text-xs font-semibold text-base-content">⏰ 延迟队列</span>
+              <span class="badge badge-primary badge-xs">{{ delayQueues.length }}</span>
             </div>
-            <div v-show="!delaySectionCollapsed" class="delay-list">
+            <div v-show="!delaySectionCollapsed" class="p-1 space-y-0.5">
               <div
                 v-for="dq in delayQueues"
                 :key="dq.name"
-                class="delay-item"
-                :class="{ active: selectedDelayQueue === dq.name }"
+                :class="[
+                  'flex items-center gap-1.5 px-3 py-2 rounded-md cursor-pointer transition-colors hover:bg-base-200 mb-0.5',
+                  selectedDelayQueue === dq.name ? 'bg-primary/10 ring-1 ring-primary' : ''
+                ]"
                 @click="selectDelayQueue(dq.name)"
               >
-                <span class="delay-icon">⏰</span>
-                <span class="delay-name" :title="dq.name">{{ dq.name.replace('delay:', '') }}</span>
-                <span class="delay-count">{{ dq.count }}</span>
+                <span class="text-sm">⏰</span>
+                <span class="text-xs text-base-content flex-1 truncate" :title="dq.name">{{ dq.name.replace('delay:', '') }}</span>
+                <span class="badge badge-success badge-xs">{{ dq.count }}</span>
               </div>
             </div>
           </div>
@@ -103,47 +118,47 @@
       </div>
 
       <!-- Right: Stream Detail -->
-      <div class="stream-detail-panel">
+      <div class="flex-1 flex flex-col overflow-hidden">
         <template v-if="!selectedStream && !selectedDelayQueue">
-          <div class="placeholder-state">
-            <div class="placeholder-icon">👈</div>
-            <div class="placeholder-text">从左侧选择一个 Stream 或延迟队列</div>
+          <div class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
+            <div class="text-5xl mb-3 opacity-50">👈</div>
+            <div class="text-sm font-medium mb-1">从左侧选择一个 Stream 或延迟队列</div>
           </div>
         </template>
 
         <!-- ===== Delay Queue View ===== -->
         <template v-if="selectedDelayQueue">
-          <div class="stream-header">
-            <div class="stream-info">
-              <h3 class="stream-name-large" :title="selectedDelayQueue">⏰ {{ selectedDelayQueue }}</h3>
-              <div class="stream-meta">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10 bg-base-100 gap-3 shrink-0">
+            <div class="min-w-0">
+              <h3 class="m-0 text-sm font-semibold text-base-content truncate" :title="selectedDelayQueue">⏰ {{ selectedDelayQueue }}</h3>
+              <div class="text-xs text-base-content/60">
                 <span>{{ delayMessages.length }} 条待到期消息</span>
               </div>
             </div>
-            <div class="stream-actions">
+            <div class="flex gap-1.5 shrink-0">
               <button @click="refreshDelayQueue" class="btn btn-ghost btn-sm">🔄 刷新</button>
               <button @click="selectedDelayQueue = ''" class="btn btn-ghost btn-sm">✕ 关闭</button>
             </div>
           </div>
-          <div class="messages-list delay-messages-list">
-            <div v-if="delayLoading" class="loading-state">加载中...</div>
-            <div v-else-if="delayMessages.length === 0" class="empty-messages">
-              <div class="empty-icon">⏰</div>
-              <div class="empty-text">暂无延迟消息</div>
+          <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-base-200">
+            <div v-if="delayLoading" class="py-5 text-center text-base-content/60">加载中...</div>
+            <div v-else-if="delayMessages.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
+              <div class="text-5xl mb-3 opacity-50">⏰</div>
+              <div class="text-sm font-medium mb-1">暂无延迟消息</div>
             </div>
-            <div v-for="dm in delayMessages" :key="dm.value + dm.score" class="message-item delay-message-item">
-              <div class="message-header">
-                <span class="message-id">Score: {{ formatTimestamp(dm.score) }}</span>
-                <span class="delay-countdown" :class="{ expired: dm.remainingMs <= 0 }">
+            <div v-for="dm in delayMessages" :key="dm.value + dm.score" class="bg-base-100 rounded-xl p-3 mb-2.5 shadow-sm border border-base-content/10 transition-all hover:shadow-md border-l-4 border-l-warning">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] text-base-content/60 font-medium font-mono">Score: {{ formatTimestamp(dm.score) }}</span>
+                <span :class="['text-xs font-semibold', dm.remainingMs <= 0 ? 'text-error' : 'text-success']">
                   {{ dm.remainingMs <= 0 ? '已到期' : `剩余 ${formatDuration(dm.remainingMs)}` }}
                 </span>
               </div>
-              <div class="message-fields">
-                <pre class="field-value" :class="{ 'is-json': true }">{{ formatJsonPreview(dm.messageJson) }}</pre>
+              <div class="flex flex-col gap-1">
+                <pre class="m-0 text-xs font-mono text-success whitespace-pre-wrap break-all max-h-[120px] overflow-y-auto leading-relaxed">{{ formatJsonPreview(dm.messageJson) }}</pre>
               </div>
-              <div class="delay-actions">
+              <div class="flex gap-1.5 mt-2 pt-2 border-t border-base-content/10">
                 <button v-if="dm.remainingMs <= 0" @click="fireDelayMessage(dm)" class="btn btn-ghost btn-xs">🔥 立即投递</button>
-                <button @click="deleteDelayMessage(dm)" class="btn btn-ghost btn-xs btn-danger-text">🗑️ 删除</button>
+                <button @click="deleteDelayMessage(dm)" class="btn btn-ghost btn-xs text-error">🗑️ 删除</button>
               </div>
             </div>
           </div>
@@ -152,122 +167,149 @@
         <!-- ===== Stream Detail View ===== -->
         <template v-if="selectedStream && !selectedDelayQueue">
           <!-- Stream Info Header -->
-          <div class="stream-header">
-            <div class="stream-info">
-              <h3 class="stream-name-large" :title="selectedStream">{{ selectedStream }}</h3>
-              <div class="stream-meta">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10 bg-base-100 gap-3 shrink-0">
+            <div class="min-w-0">
+              <h3 class="m-0 text-sm font-semibold text-base-content truncate" :title="selectedStream">{{ selectedStream }}</h3>
+              <div class="text-xs text-base-content/60">
                 <span v-if="streamInfo">{{ streamInfo.length }} 条消息</span>
-                <span v-if="streamInfo" class="meta-sep">·</span>
+                <span v-if="streamInfo" class="mx-1">·</span>
                 <span v-if="streamInfo">{{ streamInfo.groups }} 个消费组</span>
-                <span v-if="totalPending > 0" class="meta-sep">·</span>
-                <span v-if="totalPending > 0" class="pending-warn">{{ totalPending }} pending</span>
+                <span v-if="totalPending > 0" class="mx-1">·</span>
+                <span v-if="totalPending > 0" class="text-error font-semibold">{{ totalPending }} pending</span>
               </div>
             </div>
-            <div class="stream-actions">
+            <div class="flex gap-1.5 shrink-0">
               <button @click="openAddMessage" class="btn btn-primary btn-sm">📤 投递消息</button>
               <button @click="showGroupModal = true" class="btn btn-ghost btn-sm">👥 创建消费组</button>
               <button @click="showTrimModal = true" class="btn btn-ghost btn-sm">✂️ 清理</button>
-              <button @click="deleteStream" class="btn btn-danger btn-sm">🗑️ 删除</button>
+              <button @click="deleteStream" class="btn btn-error btn-sm">🗑️ 删除</button>
             </div>
           </div>
 
           <!-- Tabs -->
-          <div class="detail-tabs">
-            <button :class="['detail-tab', { active: detailTab === 'messages' }]" @click="detailTab = 'messages'">
-              消息列表 <span v-if="messages.length" class="tab-badge">{{ messages.length }}</span>
+          <div class="flex border-b border-base-content/10 bg-base-100 shrink-0">
+            <button :class="[
+              'px-4 py-2.5 border-none bg-transparent cursor-pointer text-xs text-base-content/60 transition-colors relative hover:text-base-content',
+              detailTab === 'messages' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary after:rounded-t-sm' : ''
+            ]" @click="detailTab = 'messages'">
+              消息列表 <span v-if="messages.length" class="badge badge-ghost badge-xs ml-1">{{ messages.length }}</span>
             </button>
-            <button :class="['detail-tab', { active: detailTab === 'stats' }]" @click="detailTab = 'stats'; loadStats()">
+            <button :class="[
+              'px-4 py-2.5 border-none bg-transparent cursor-pointer text-xs text-base-content/60 transition-colors relative hover:text-base-content',
+              detailTab === 'stats' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary after:rounded-t-sm' : ''
+            ]" @click="detailTab = 'stats'; loadStats()">
               📊 统计
             </button>
-            <button :class="['detail-tab', { active: detailTab === 'groups' }]" @click="detailTab = 'groups'">
-              消费组 <span v-if="groups.length" class="tab-badge">{{ groups.length }}</span>
+            <button :class="[
+              'px-4 py-2.5 border-none bg-transparent cursor-pointer text-xs text-base-content/60 transition-colors relative hover:text-base-content',
+              detailTab === 'groups' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary after:rounded-t-sm' : ''
+            ]" @click="detailTab = 'groups'">
+              消费组 <span v-if="groups.length" class="badge badge-ghost badge-xs ml-1">{{ groups.length }}</span>
             </button>
           </div>
 
           <!-- Messages Tab -->
           <template v-if="detailTab === 'messages'">
-            <div class="messages-toolbar">
-              <div class="range-inputs">
-                <input v-model="msgStart" class="range-input" placeholder="起始 ID (默认 -)" />
-                <span class="range-sep">→</span>
-                <input v-model="msgEnd" class="range-input" placeholder="结束 ID (默认 +)" />
+            <div class="flex items-center gap-2 px-4 py-2 border-b border-base-content/10 bg-base-200 flex-wrap">
+              <div class="flex items-center gap-1.5 flex-1 min-w-[200px]">
+                <input v-model="msgStart" class="input input-sm flex-1 font-mono bg-base-100" placeholder="起始 ID (默认 -)" />
+                <span class="text-base-content/60">→</span>
+                <input v-model="msgEnd" class="input input-sm flex-1 font-mono bg-base-100" placeholder="结束 ID (默认 +)" />
               </div>
               <!-- Search -->
-              <div class="message-search">
-                <input v-model="messageSearchQuery" class="search-input-sm" placeholder="🔍 搜索消息内容..." />
+              <div class="min-w-[150px]">
+                <input v-model="messageSearchQuery" class="input input-sm bg-base-100 w-full" placeholder="🔍 搜索消息内容..." />
               </div>
               <button @click="loadMessages" class="btn btn-ghost btn-xs">加载</button>
             </div>
-            <div class="messages-list">
-              <div v-if="msgLoading" class="loading-state">加载中...</div>
-              <div v-else-if="filteredMessages.length === 0" class="empty-messages">
-                <div class="empty-icon">📭</div>
-                <div class="empty-text">{{ messageSearchQuery ? '未找到匹配的消息' : '暂无消息' }}</div>
-                <div v-if="messageSearchQuery" class="empty-hint">尝试修改搜索关键词</div>
+            <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-base-200">
+              <div v-if="msgLoading" class="py-5 text-center text-base-content/60">加载中...</div>
+              <div v-else-if="filteredMessages.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
+                <div class="text-5xl mb-3 opacity-50">📭</div>
+                <div class="text-sm font-medium mb-1">{{ messageSearchQuery ? '未找到匹配的消息' : '暂无消息' }}</div>
+                <div v-if="messageSearchQuery" class="text-xs opacity-70">尝试修改搜索关键词</div>
               </div>
-              <div v-for="msg in filteredMessages" :key="msg.id" class="message-item" :class="[
-                { 'is-envelope': msg.envelope },
-                'consumption-' + (msgConsumptionStatus.get(msg.id)?.status || 'new')
+              <div v-for="msg in filteredMessages" :key="msg.id" :class="[
+                'bg-base-100 rounded-xl shadow-sm border border-base-content/10 transition-all hover:shadow-md',
+                msg.envelope ? 'p-0 overflow-hidden' : 'p-3 mb-2.5 border-l-4',
+                !msg.envelope ? ((msgConsumptionStatus.get(msg.id)?.status || 'new') === 'consumed' ? 'border-l-success' :
+                (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'pending' ? 'border-l-warning' :
+                'border-l-base-content/30') : ''
               ]">
                 <!-- Envelope-style message card -->
                 <template v-if="msg.envelope">
-                  <div class="envelope-card" :class="'consumption-' + (msgConsumptionStatus.get(msg.id)?.status || 'new')">
-                    <div class="envelope-header">
-                      <div class="envelope-type">
-                        <span class="envelope-icon">{{ getConsumptionIcon(msgConsumptionStatus.get(msg.id)?.status || 'new') }}</span>
-                        <span class="type-label">{{ msg.envelope.messageType || 'UNKNOWN' }}</span>
-                        <span v-if="msgConsumptionStatus.size > 0" class="consumption-badge" :class="getConsumptionBadgeClass(msgConsumptionStatus.get(msg.id)?.status || 'new')">
+                  <div :class="[
+                    'p-3 transition-colors border-l-4',
+                    (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'consumed' ? 'border-l-success' :
+                    (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'pending' ? 'border-l-warning' :
+                    'border-l-base-content/30'
+                  ]">
+                    <div class="flex items-center justify-between mb-1.5">
+                      <div class="flex items-center gap-1.5">
+                        <span class="text-base">{{ getConsumptionIcon(msgConsumptionStatus.get(msg.id)?.status || 'new') }}</span>
+                        <span class="text-xs font-semibold text-primary font-mono">{{ msg.envelope.messageType || 'UNKNOWN' }}</span>
+                        <span v-if="msgConsumptionStatus.size > 0" :class="[
+                          'badge badge-xs font-medium',
+                          (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'consumed' ? 'badge-success' :
+                          (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'pending' ? 'badge-warning' :
+                          'badge-ghost'
+                        ]">
                           {{ getConsumptionLabel(msgConsumptionStatus.get(msg.id)?.status || 'new') }}
                         </span>
                       </div>
-                      <div class="envelope-actions">
-                        <button @click="copyText(msg.envelope.messageId || '')" class="btn-icon-sm" title="复制 Message ID">📋</button>
-                        <button @click="deleteMessage(msg.id)" class="btn-icon-sm" title="删除消息">🗑️</button>
+                      <div class="flex gap-1">
+                        <button @click="copyText(msg.envelope.messageId || '')" class="btn btn-ghost btn-xs px-1" title="复制 Message ID">📋</button>
+                        <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息">🗑️</button>
                       </div>
                     </div>
-                    <div class="envelope-meta">
-                      <span class="meta-item" v-if="msg.envelope.messageId">ID: <code>{{ shortId(msg.envelope.messageId) }}</code></span>
-                      <span class="meta-sep">|</span>
-                      <span class="meta-item" v-if="msg.envelope.createdAt">🕐 {{ formatTime(msg.envelope.createdAt) }}</span>
-                      <span class="meta-sep" v-if="msg.envelope.traceId">|</span>
-                      <span class="meta-item" v-if="msg.envelope.traceId">Trace: <code>{{ shortId(msg.envelope.traceId) }}</code></span>
-                      <span class="meta-sep" v-if="msg.envelope.tenantId">|</span>
-                      <span class="meta-item" v-if="msg.envelope.tenantId">Tenant: {{ msg.envelope.tenantId }}</span>
+                    <div class="flex items-center gap-1 text-xs text-base-content/60 mb-2 flex-wrap">
+                      <span v-if="msg.envelope.messageId">ID: <code class="font-mono bg-base-200 px-1 rounded text-[10px]">{{ shortId(msg.envelope.messageId) }}</code></span>
+                      <span class="mx-1">|</span>
+                      <span v-if="msg.envelope.createdAt">🕐 {{ formatTime(msg.envelope.createdAt) }}</span>
+                      <span class="mx-1" v-if="msg.envelope.traceId">|</span>
+                      <span v-if="msg.envelope.traceId">Trace: <code class="font-mono bg-base-200 px-1 rounded text-[10px]">{{ shortId(msg.envelope.traceId) }}</code></span>
+                      <span class="mx-1" v-if="msg.envelope.tenantId">|</span>
+                      <span v-if="msg.envelope.tenantId">Tenant: {{ msg.envelope.tenantId }}</span>
                     </div>
-                    <div class="envelope-payload">
-                      <div class="payload-label">Payload:</div>
-                      <pre class="payload-json">{{ formatJsonDisplay(msg.envelope.payload) }}</pre>
+                    <div class="bg-base-200 rounded-lg p-2.5 mb-2">
+                      <div class="text-xs font-semibold text-base-content/60 mb-1">Payload:</div>
+                      <pre class="m-0 text-xs font-mono text-success whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto leading-relaxed">{{ formatJsonDisplay(msg.envelope.payload) }}</pre>
                     </div>
                     <!-- Raw data toggle -->
-                    <div class="envelope-raw-toggle">
+                    <div class="text-center">
                       <button @click="msg.showRaw = !msg.showRaw" class="btn btn-ghost btn-xs">
                         {{ msg.showRaw ? '收起原始数据' : '查看原始数据' }}
                       </button>
                     </div>
-                    <div v-if="msg.showRaw" class="envelope-raw">
-                      <pre class="raw-json">{{ formatJsonDisplay(msg.rawJson) }}</pre>
+                    <div v-if="msg.showRaw" class="bg-base-200 rounded-lg p-2.5 mt-2">
+                      <pre class="m-0 text-[11px] font-mono text-base-content/60 whitespace-pre-wrap break-all max-h-[150px] overflow-y-auto leading-snug">{{ formatJsonDisplay(msg.rawJson) }}</pre>
                     </div>
                   </div>
                 </template>
                 <!-- Legacy flat fields display -->
                 <template v-else>
-                  <div class="message-header">
-                    <div class="message-id-group">
-                      <span class="message-id" :title="msg.id">{{ formatStreamId(msg.id) }}</span>
-                      <span v-if="msgConsumptionStatus.size > 0" class="consumption-badge" :class="getConsumptionBadgeClass(msgConsumptionStatus.get(msg.id)?.status || 'new')">
+                  <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                      <span class="text-[11px] text-base-content/60 font-medium font-mono" :title="msg.id">{{ formatStreamId(msg.id) }}</span>
+                      <span v-if="msgConsumptionStatus.size > 0" :class="[
+                        'badge badge-xs font-medium',
+                        (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'consumed' ? 'badge-success' :
+                        (msgConsumptionStatus.get(msg.id)?.status || 'new') === 'pending' ? 'badge-warning' :
+                        'badge-ghost'
+                      ]">
                         {{ getConsumptionIcon(msgConsumptionStatus.get(msg.id)?.status || 'new') }} {{ getConsumptionLabel(msgConsumptionStatus.get(msg.id)?.status || 'new') }}
                       </span>
                     </div>
-                    <div class="message-actions">
-                      <button @click="copyText(msg.id)" class="btn-icon-sm" title="复制 ID">📋</button>
-                      <button @click="deleteMessage(msg.id)" class="btn-icon-sm" title="删除消息">🗑️</button>
+                    <div class="flex gap-1">
+                      <button @click="copyText(msg.id)" class="btn btn-ghost btn-xs px-1" title="复制 ID">📋</button>
+                      <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息">🗑️</button>
                     </div>
                   </div>
-                  <div class="message-fields">
-                    <div v-for="(value, fieldKey) in msg.fields" :key="fieldKey" class="field-row">
-                      <span class="field-key">{{ fieldKey }}</span>
-                      <span class="field-sep">=</span>
-                      <pre class="field-value" :class="{ 'is-json': isJSON(value) }">{{ formatValue(value) }}</pre>
+                  <div class="flex flex-col gap-1">
+                    <div v-for="(value, fieldKey) in msg.fields" :key="fieldKey" class="flex items-baseline gap-1 text-xs leading-relaxed">
+                      <span class="font-semibold text-purple-600 dark:text-purple-400 font-mono shrink-0">{{ fieldKey }}</span>
+                      <span class="text-base-content/60">=</span>
+                      <pre class="m-0 text-xs font-mono text-base-content whitespace-pre-wrap break-all max-h-[120px] overflow-y-auto leading-relaxed" :class="{ 'text-success dark:text-emerald-400': isJSON(value) }">{{ formatValue(value) }}</pre>
                     </div>
                   </div>
                 </template>
@@ -277,76 +319,94 @@
 
           <!-- Stats Tab -->
           <template v-if="detailTab === 'stats'">
-            <div class="stats-panel">
-              <div v-if="statsLoading" class="loading-state">加载中...</div>
+            <div class="flex-1 overflow-y-auto p-4 bg-base-200">
+              <div v-if="statsLoading" class="py-5 text-center text-base-content/60">加载中...</div>
               <template v-else>
                 <!-- Section Title -->
-                <div class="stats-section-title">📊 Stream 概览</div>
-                <div class="stats-overview">
-                  <div class="stat-card">
-                    <div class="stat-label">消息总数</div>
-                    <div class="stat-value">{{ streamInfo?.length || 0 }}</div>
+                <div class="text-xs font-semibold text-base-content mt-0 mb-2.5 pb-1.5 border-b border-base-content/10 first:mt-0">📊 Stream 概览</div>
+                <div class="grid grid-cols-4 gap-3 mb-5">
+                  <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 text-center">
+                    <div class="text-xs text-base-content/60 mb-1">消息总数</div>
+                    <div class="text-2xl font-bold text-base-content">{{ streamInfo?.length || 0 }}</div>
                   </div>
-                  <div class="stat-card">
-                    <div class="stat-label">消费组数</div>
-                    <div class="stat-value">{{ groups.length }}</div>
+                  <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 text-center">
+                    <div class="text-xs text-base-content/60 mb-1">消费组数</div>
+                    <div class="text-2xl font-bold text-base-content">{{ groups.length }}</div>
                   </div>
-                  <div class="stat-card">
-                    <div class="stat-label">总 Pending</div>
-                    <div class="stat-value" :class="{ 'stat-warn': totalPending > 0, 'stat-danger': totalPending > 10 }">{{ totalPending }}</div>
+                  <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 text-center">
+                    <div class="text-xs text-base-content/60 mb-1">总 Pending</div>
+                    <div :class="[
+                      'text-2xl font-bold',
+                      totalPending > 10 ? 'text-error' : totalPending > 0 ? 'text-warning' : 'text-base-content'
+                    ]">{{ totalPending }}</div>
                   </div>
-                  <div class="stat-card">
-                    <div class="stat-label">消费者总数</div>
-                    <div class="stat-value">{{ totalConsumers }}</div>
+                  <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 text-center">
+                    <div class="text-xs text-base-content/60 mb-1">消费者总数</div>
+                    <div class="text-2xl font-bold text-base-content">{{ totalConsumers }}</div>
                   </div>
                 </div>
 
                 <!-- Health Distribution -->
-                <div class="stats-section-title">💚 消费者健康分布</div>
-                <div class="health-distribution-bar">
-                  <div class="health-bar-segment healthy" :style="{ width: healthPercentages.healthy + '%' }">
+                <div class="text-xs font-semibold text-base-content mt-4 mb-2.5 pb-1.5 border-b border-base-content/10">💚 消费者健康分布</div>
+                <div class="flex h-9 rounded-xl overflow-hidden mb-2 border border-base-content/10">
+                  <div class="flex items-center justify-center text-xs font-semibold text-white transition-all duration-300 min-w-0 overflow-hidden bg-success" :style="{ width: healthPercentages.healthy + '%' }">
                     <span v-if="healthPercentages.healthy > 15">{{ consumerStats.healthy }} 活跃</span>
                   </div>
-                  <div class="health-bar-segment idle" :style="{ width: healthPercentages.idle + '%' }">
+                  <div class="flex items-center justify-center text-xs font-semibold text-white transition-all duration-300 min-w-0 overflow-hidden bg-warning" :style="{ width: healthPercentages.idle + '%' }">
                     <span v-if="healthPercentages.idle > 15">{{ consumerStats.idle }} 空闲</span>
                   </div>
-                  <div class="health-bar-segment stale" :style="{ width: healthPercentages.stale + '%' }">
+                  <div class="flex items-center justify-center text-xs font-semibold text-white transition-all duration-300 min-w-0 overflow-hidden bg-base-content/30" :style="{ width: healthPercentages.stale + '%' }">
                     <span v-if="healthPercentages.stale > 15">{{ consumerStats.stale }} 失联</span>
                   </div>
                 </div>
-                <div class="health-legend">
-                  <span class="legend-item"><span class="legend-dot dot-healthy"></span> 活跃 (idle &lt; 1h)</span>
-                  <span class="legend-item"><span class="legend-dot dot-idle"></span> 空闲 (1h ~ 24h)</span>
-                  <span class="legend-item"><span class="legend-dot dot-stale"></span> 失联 (idle &gt; 24h)</span>
+                <div class="flex gap-4 mb-4 px-3 py-2 bg-base-100 rounded-lg border border-base-content/10">
+                  <span class="flex items-center gap-1.5 text-xs text-base-content/60"><span class="w-2.5 h-2.5 rounded-full bg-success"></span> 活跃 (idle &lt; 1h)</span>
+                  <span class="flex items-center gap-1.5 text-xs text-base-content/60"><span class="w-2.5 h-2.5 rounded-full bg-warning"></span> 空闲 (1h ~ 24h)</span>
+                  <span class="flex items-center gap-1.5 text-xs text-base-content/60"><span class="w-2.5 h-2.5 rounded-full bg-base-content/30"></span> 失联 (idle &gt; 24h)</span>
                 </div>
 
                 <!-- Per-group breakdown -->
-                <div v-for="g in groupStats" :key="g.name" class="stat-group-card">
-                  <div class="stat-group-header">
-                    <div class="stat-group-title">
-                      <span class="stat-group-name">👥 {{ g.name }}</span>
-                      <div class="stat-group-consumer-summary">
-                        <span class="consumer-summary-badge healthy">{{ g.healthyConsumers }} 活跃</span>
-                        <span class="consumer-summary-badge idle">{{ g.idleConsumers }} 空闲</span>
-                        <span class="consumer-summary-badge stale">{{ g.staleConsumers }} 失联</span>
+                <div v-for="g in groupStats" :key="g.name" class="bg-base-100 border border-base-content/10 rounded-xl mb-3 overflow-hidden">
+                  <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10 bg-base-200">
+                    <div class="flex flex-col gap-1">
+                      <span class="text-xs font-semibold text-base-content">👥 {{ g.name }}</span>
+                      <div class="flex gap-1.5">
+                        <span class="badge badge-xs font-medium badge-success">{{ g.healthyConsumers }} 活跃</span>
+                        <span class="badge badge-xs font-medium badge-warning">{{ g.idleConsumers }} 空闲</span>
+                        <span class="badge badge-xs font-medium badge-ghost">{{ g.staleConsumers }} 失联</span>
                       </div>
                     </div>
-                    <span class="stat-group-pending" :class="{ 'stat-warn': g.pendingCount > 0, 'stat-danger': g.pendingCount > 10 }">
+                    <span :class="[
+                      'text-xs font-semibold',
+                      g.pendingCount > 10 ? 'text-error' : g.pendingCount > 0 ? 'text-warning' : ''
+                    ]">
                       pending: {{ g.pendingCount }}
                     </span>
                   </div>
                   <!-- Consumer grid -->
-                  <div class="consumer-grid">
-                    <div v-for="c in g.consumers" :key="c.name" class="consumer-card" :class="getConsumerHealthClass(c.pending || 0, c.idle || 0)">
-                      <div class="consumer-card-top">
-                        <span class="consumer-short-name" :title="c.name">{{ extractPodId(c.name) }}</span>
-                        <span class="consumer-type-badge" v-if="isRetrier(c.name)">retrier</span>
+                  <div class="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-2 p-3">
+                    <div v-for="c in g.consumers" :key="c.name" :class="[
+                      'bg-base-200 border border-base-content/10 rounded-lg p-2.5 relative transition-all hover:shadow-md hover:-translate-y-0.5 border-t-3',
+                      getConsumerHealthClass(c.pending || 0, c.idle || 0) === 'card-healthy' ? 'border-t-success' :
+                      getConsumerHealthClass(c.pending || 0, c.idle || 0) === 'card-idle' ? 'border-t-warning' :
+                      'border-t-base-content/30'
+                    ]">
+                      <div class="flex items-center justify-between gap-1.5 mb-1.5">
+                        <span class="text-xs font-mono text-base-content font-semibold truncate" :title="c.name">{{ extractPodId(c.name) }}</span>
+                        <span v-if="isRetrier(c.name)" class="text-[9px] px-1 py-0.5 rounded bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 font-semibold uppercase shrink-0">retrier</span>
                       </div>
-                      <div class="consumer-card-meta">
-                        <span class="consumer-meta-item">⏱ {{ formatDuration(c.idle || 0) }}</span>
-                        <span class="consumer-meta-item" v-if="c.pending !== undefined">📬 {{ c.pending }}</span>
+                      <div class="flex items-center gap-2 text-[11px] text-base-content/60">
+                        <span class="whitespace-nowrap">⏱ {{ formatDuration(c.idle || 0) }}</span>
+                        <span class="whitespace-nowrap" v-if="c.pending !== undefined">📬 {{ c.pending }}</span>
                       </div>
-                      <div class="consumer-health-indicator" :class="getConsumerHealthDot(c.pending || 0, c.idle || 0)"></div>
+                      <!-- Health indicator dot -->
+                      <div :class="[
+                        'absolute top-1.5 right-1.5 w-2 h-2 rounded-full',
+                        getConsumerHealthDot(c.pending || 0, c.idle || 0) === 'dot-healthy' ? 'bg-success' :
+                        getConsumerHealthDot(c.pending || 0, c.idle || 0) === 'dot-idle' ? 'bg-warning' :
+                        getConsumerHealthDot(c.pending || 0, c.idle || 0) === 'dot-stale' ? 'bg-base-content/30' :
+                        'bg-error'
+                      ]"></div>
                     </div>
                   </div>
                 </div>
@@ -356,26 +416,26 @@
 
           <!-- Groups Tab -->
           <template v-if="detailTab === 'groups'">
-            <div class="groups-list">
-              <div v-if="groupLoading" class="loading-state">加载中...</div>
-              <div v-else-if="groups.length === 0" class="empty-messages">
-                <div class="empty-icon">👥</div>
-                <div class="empty-text">暂无消费组</div>
-                <div class="empty-hint">点击 "创建消费组" 添加</div>
+            <div class="flex-1 overflow-y-auto px-4 py-3 bg-base-200 space-y-2.5">
+              <div v-if="groupLoading" class="py-5 text-center text-base-content/60">加载中...</div>
+              <div v-else-if="groups.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
+                <div class="text-5xl mb-3 opacity-50">👥</div>
+                <div class="text-sm font-medium mb-1">暂无消费组</div>
+                <div class="text-xs opacity-70">点击 "创建消费组" 添加</div>
               </div>
-              <div v-for="g in groups" :key="g.name" class="group-card">
-                <div class="group-header">
-                  <div class="group-info">
-                    <span class="group-name">👥 {{ g.name }}</span>
-                    <span class="group-meta">
+              <div v-for="g in groups" :key="g.name" class="bg-base-100 rounded-xl p-3 border border-base-content/10">
+                <div class="flex items-center justify-between">
+                  <div class="min-w-0">
+                    <span class="font-semibold text-xs text-base-content">👥 {{ g.name }}</span>
+                    <div class="text-[11px] text-base-content/60 flex gap-2 mt-1">
                       <span v-if="g.pending !== undefined">pending: {{ g.pending }}</span>
                       <span v-if="g.consumers !== undefined">consumers: {{ g.consumers }}</span>
                       <span v-if="g['lastDeliveredId']">last-id: {{ g['lastDeliveredId'] }}</span>
-                    </span>
+                    </div>
                   </div>
-                  <div class="group-actions">
+                  <div class="flex gap-1">
                     <button @click="selectGroup(g.name)" class="btn btn-ghost btn-xs">详情</button>
-                    <button @click="destroyGroup(g.name)" class="btn-icon-sm" title="删除消费组">🗑️</button>
+                    <button @click="destroyGroup(g.name)" class="btn btn-ghost btn-xs px-1" title="删除消费组">🗑️</button>
                   </div>
                 </div>
               </div>
@@ -386,50 +446,59 @@
     </div>
 
     <!-- Group Detail Drawer -->
-    <div v-if="selectedGroup" class="group-detail-panel">
-      <div class="group-detail-header">
-        <div class="group-detail-title">
+    <div v-if="selectedGroup" class="border-t-2 border-primary bg-base-100 max-h-72 flex flex-col shrink-0">
+      <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
+        <div class="font-semibold text-xs text-base-content flex items-center gap-2">
           <span>👥</span>
           <span>{{ selectedGroup }}</span>
-          <span class="group-detail-key">@ {{ selectedStream }}</span>
+          <span class="font-normal text-base-content/60 text-xs">@ {{ selectedStream }}</span>
         </div>
-        <div class="group-detail-header-actions">
-          <div class="claim-consumer-input">
-            <label>Claim 消费者:</label>
-            <input v-model="claimConsumerName" class="claim-input" placeholder="admin" title="Claim 目标消费者名称" />
+        <div class="flex items-center gap-2">
+          <div class="flex items-center gap-1">
+            <label class="text-[11px] text-base-content/60 whitespace-nowrap">Claim 消费者:</label>
+            <input v-model="claimConsumerName" class="input input-xs w-20 font-mono bg-base-200" placeholder="admin" title="Claim 目标消费者名称" />
           </div>
-          <button @click="selectedGroup = ''" class="modal-close">✕</button>
+          <button @click="selectedGroup = ''" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
         </div>
       </div>
-      <div class="group-detail-tabs">
-        <button :class="['group-tab', { active: groupDetailTab === 'consumers' }]" @click="groupDetailTab = 'consumers'">消费者</button>
-        <button :class="['group-tab', { active: groupDetailTab === 'pending' }]" @click="groupDetailTab = 'pending'">Pending 消息</button>
+      <div class="flex border-b border-base-content/10 px-4">
+        <button :class="[
+          'px-4 py-2 border-none bg-transparent cursor-pointer text-xs text-base-content/60 relative transition-colors hover:text-base-content',
+          groupDetailTab === 'consumers' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary' : ''
+        ]" @click="groupDetailTab = 'consumers'">消费者</button>
+        <button :class="[
+          'px-4 py-2 border-none bg-transparent cursor-pointer text-xs text-base-content/60 relative transition-colors hover:text-base-content',
+          groupDetailTab === 'pending' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary' : ''
+        ]" @click="groupDetailTab = 'pending'">Pending 消息</button>
       </div>
       <!-- Consumers -->
       <template v-if="groupDetailTab === 'consumers'">
-        <div class="group-detail-content">
-          <div v-if="consumersLoading" class="loading-state">加载中...</div>
-          <div v-else-if="consumers.length === 0" class="empty-messages"><div class="empty-text">暂无消费者</div></div>
-          <div v-for="c in consumers" :key="c.name" class="consumer-row">
-            <span class="consumer-name">🟢 {{ c.name }}</span>
-            <span class="consumer-meta">pending: {{ c.pending }} | idle: {{ c.idle }}</span>
+        <div class="flex-1 overflow-y-auto px-4 py-2">
+          <div v-if="consumersLoading" class="py-5 text-center text-base-content/60">加载中...</div>
+          <div v-else-if="consumers.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10"><div class="text-sm font-medium mb-1">暂无消费者</div></div>
+          <div v-for="c in consumers" :key="c.name" class="flex items-center justify-between px-3 py-2 rounded-md mb-1 bg-base-200 text-xs">
+            <span class="font-medium text-base-content">🟢 {{ c.name }}</span>
+            <span class="text-base-content/60">pending: {{ c.pending }} | idle: {{ c.idle }}</span>
           </div>
         </div>
       </template>
       <!-- Pending -->
       <template v-if="groupDetailTab === 'pending'">
-        <div class="group-detail-content">
-          <div v-if="pendingLoading" class="loading-state">加载中...</div>
-          <div v-else-if="pendingMessages.length === 0" class="empty-messages"><div class="empty-text">暂无 pending 消息</div></div>
-          <div v-for="p in pendingMessages" :key="p.id" class="pending-row" :class="{ 'pending-stale': p.idleTime > 300000 }">
-            <div class="pending-info">
-              <span class="pending-id" :title="p.id">{{ formatStreamId(p.id) }}</span>
-              <span class="pending-meta">
+        <div class="flex-1 overflow-y-auto px-4 py-2">
+          <div v-if="pendingLoading" class="py-5 text-center text-base-content/60">加载中...</div>
+          <div v-else-if="pendingMessages.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10"><div class="text-sm font-medium mb-1">暂无 pending 消息</div></div>
+          <div v-for="p in pendingMessages" :key="p.id" :class="[
+            'flex items-center justify-between px-3 py-2 rounded-md mb-1 text-xs',
+            p.idleTime > 300000 ? 'bg-error/10 border-l-3 border-l-error' : 'bg-base-200'
+          ]">
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="font-mono text-base-content font-medium" :title="p.id">{{ formatStreamId(p.id) }}</span>
+              <span class="text-base-content/60 ml-3">
                 consumer: {{ p.consumer }} | delivery: {{ p.timesDelivered }} | idle: {{ formatDuration(p.idleTime) }}
               </span>
             </div>
-            <div class="pending-actions">
-              <button @click="retryPending(p.id)" class="btn btn-ghost btn-xs btn-retry" title="重试（重新投递）">🔁 重试</button>
+            <div class="flex gap-1 shrink-0">
+              <button @click="retryPending(p.id)" class="btn btn-ghost btn-xs text-warning" title="重试（重新投递）">🔁 重试</button>
               <button @click="claimPending(p.id)" class="btn btn-ghost btn-xs" title="Claim">📌 Claim</button>
               <button @click="ackPending(p.id)" class="btn btn-ghost btn-xs" title="Ack">✅ Ack</button>
             </div>
@@ -439,34 +508,34 @@
     </div>
 
     <!-- Add Message Modal -->
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>📤 投递消息 (XADD)</h3>
-          <button @click="showAddModal = false" class="modal-close">✕</button>
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showAddModal = false">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
+          <h3 class="m-0 text-sm font-semibold text-base-content">📤 投递消息 (XADD)</h3>
+          <button @click="showAddModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
         </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Stream Key</label>
-              <input v-model="addKey" class="form-input" placeholder="stream key" />
+        <div class="p-5">
+          <div class="flex gap-4">
+            <div class="flex-1 mb-4">
+              <label class="block text-xs font-semibold text-base-content/60 mb-1.5">Stream Key</label>
+              <input v-model="addKey" class="input input-sm w-full bg-base-200" placeholder="stream key" />
             </div>
-            <div class="form-group">
-              <label>MAXLEN (可选, 0 表示不限制)</label>
-              <input v-model.number="addMaxlen" type="number" class="form-input" placeholder="0" min="0" />
+            <div class="flex-1 mb-4">
+              <label class="block text-xs font-semibold text-base-content/60 mb-1.5">MAXLEN (可选, 0 表示不限制)</label>
+              <input v-model.number="addMaxlen" type="number" class="input input-sm w-full bg-base-200" placeholder="0" min="0" />
             </div>
           </div>
-          <div class="form-group">
-            <label>字段值 (JSON 格式)</label>
-            <textarea v-model="addFieldsText" class="form-textarea" rows="6" placeholder='{"field1": "value1", "field2": "value2"}'></textarea>
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-base-content/60 mb-1.5">字段值 (JSON 格式)</label>
+            <textarea v-model="addFieldsText" class="textarea textarea-sm w-full font-mono bg-base-200 resize-y" rows="6" placeholder='{"field1": "value1", "field2": "value2"}'></textarea>
           </div>
-          <div class="form-group">
-            <label>
-              <input type="checkbox" v-model="addAsMqMessage" /> 包装为 MqMessage 信封格式
+          <div class="mb-4">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" v-model="addAsMqMessage" class="checkbox checkbox-sm" /> 包装为 MqMessage 信封格式
             </label>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-content/10">
           <button @click="showAddModal = false" class="btn btn-ghost">取消</button>
           <button @click="addMessage" class="btn btn-primary" :disabled="!addKey || !addFieldsText">添加</button>
         </div>
@@ -474,25 +543,25 @@
     </div>
 
     <!-- Create Group Modal -->
-    <div v-if="showGroupModal" class="modal-overlay" @click.self="showGroupModal = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>创建消费组 (XGROUP CREATE)</h3>
-          <button @click="showGroupModal = false" class="modal-close">✕</button>
+    <div v-if="showGroupModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showGroupModal = false">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
+          <h3 class="m-0 text-sm font-semibold text-base-content">创建消费组 (XGROUP CREATE)</h3>
+          <button @click="showGroupModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
         </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>消费组名称</label>
-              <input v-model="newGroupName" class="form-input" placeholder="group name" />
+        <div class="p-5">
+          <div class="flex gap-4">
+            <div class="flex-1 mb-4">
+              <label class="block text-xs font-semibold text-base-content/60 mb-1.5">消费组名称</label>
+              <input v-model="newGroupName" class="input input-sm w-full bg-base-200" placeholder="group name" />
             </div>
-            <div class="form-group">
-              <label>起始 ID (默认 0 从头开始)</label>
-              <input v-model="newGroupStartId" class="form-input" placeholder="0" />
+            <div class="flex-1 mb-4">
+              <label class="block text-xs font-semibold text-base-content/60 mb-1.5">起始 ID (默认 0 从头开始)</label>
+              <input v-model="newGroupStartId" class="input input-sm w-full bg-base-200" placeholder="0" />
             </div>
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-content/10">
           <button @click="showGroupModal = false" class="btn btn-ghost">取消</button>
           <button @click="createGroup" class="btn btn-primary" :disabled="!newGroupName">创建</button>
         </div>
@@ -500,23 +569,23 @@
     </div>
 
     <!-- Trim Modal -->
-    <div v-if="showTrimModal" class="modal-overlay" @click.self="showTrimModal = false">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>✂️ 清理队列 (XTRIM)</h3>
-          <button @click="showTrimModal = false" class="modal-close">✕</button>
+    <div v-if="showTrimModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showTrimModal = false">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
+          <h3 class="m-0 text-sm font-semibold text-base-content">✂️ 清理队列 (XTRIM)</h3>
+          <button @click="showTrimModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
         </div>
-        <div class="modal-body">
-          <p class="trim-warning">⚠️ 此操作将保留最近 N 条消息，其余全部删除。此操作不可恢复！</p>
-          <div class="form-group">
-            <label>当前消息数: {{ streamInfo?.length || 0 }}</label>
+        <div class="p-5">
+          <div class="p-3 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning mb-4">⚠️ 此操作将保留最近 N 条消息，其余全部删除。此操作不可恢复！</div>
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-base-content/60 mb-1.5">当前消息数: {{ streamInfo?.length || 0 }}</label>
           </div>
-          <div class="form-group">
-            <label>保留最近 N 条</label>
-            <input v-model.number="trimKeepN" type="number" class="form-input" placeholder="100" min="10" />
+          <div class="mb-4">
+            <label class="block text-xs font-semibold text-base-content/60 mb-1.5">保留最近 N 条</label>
+            <input v-model.number="trimKeepN" type="number" class="input input-sm w-full bg-base-200" placeholder="100" min="10" />
           </div>
         </div>
-        <div class="modal-footer">
+        <div class="flex justify-end gap-2 px-5 py-4 border-t border-base-content/10">
           <button @click="showTrimModal = false" class="btn btn-ghost">取消</button>
           <button @click="trimQueue" class="btn btn-primary" :disabled="!trimKeepN || trimKeepN < 10">确认清理</button>
         </div>
@@ -565,1085 +634,3 @@ const {
   copyText, refreshAll,
 } = rq
 </script>
-
-<style scoped>
-.redis-stream-manager {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background: var(--color-base-200);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-/* ==================== Top Bar ==================== */
-.stream-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
-  height: 48px;
-  background: var(--color-base-100);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.topbar-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--color-base-content);
-}
-
-.topbar-icon { font-size: 18px; }
-
-.topbar-badge {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background: var(--color-primary);
-  color: white;
-  font-weight: 500;
-}
-
-.topbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.auto-refresh-control {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.btn-icon.active {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.refresh-interval-select {
-  font-size: 11px;
-  padding: 2px 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 12px;
-  background: var(--color-base-200);
-  margin-right: 4px;
-}
-
-.status-dot { font-size: 10px; line-height: 1; }
-.status-text { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); white-space: nowrap; }
-
-.connection-status.connected { background: rgba(16, 185, 129, 0.1); }
-.connection-status.connected .status-text { color: #059669; }
-.connection-status.disconnected { background: rgba(239, 68, 68, 0.1); }
-.connection-status.disconnected .status-text { color: #dc2626; }
-.connection-status.connecting { background: rgba(245, 158, 11, 0.1); }
-.connection-status.connecting .status-text { color: #d97706; }
-
-.btn-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: all 0.15s;
-}
-
-.btn-icon:hover:not(:disabled) { background: var(--color-base-200); color: var(--color-base-content); }
-.btn-icon:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.spinning { animation: spin 1s linear infinite; }
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ==================== Split Layout ==================== */
-.stream-split {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* ==================== Left Panel ==================== */
-.stream-list-panel {
-  width: 280px;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  display: flex;
-  flex-direction: column;
-  background: var(--color-base-100);
-}
-
-.panel-header {
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.panel-title { font-weight: 600; font-size: 13px; color: var(--color-base-content); }
-
-.panel-search {
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  transition: border-color 0.15s;
-  box-sizing: border-box;
-}
-
-.search-input:focus { outline: none; border-color: var(--color-primary); background: var(--color-base-100); }
-
-.stream-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.stream-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 4px;
-  transition: all 0.15s;
-}
-
-.stream-item:hover { background: var(--color-base-200); }
-
-.stream-item.active {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  box-shadow: 0 0 0 1px var(--color-primary);
-}
-
-.stream-item-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.stream-icon { font-size: 16px; flex-shrink: 0; }
-.stream-name { font-size: 13px; color: var(--color-base-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-.stream-badges { display: flex; gap: 4px; flex-shrink: 0; }
-
-.stream-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.stream-badge.danger { background: #fef2f2; color: #dc2626; font-weight: 600; }
-.stream-badge.warn { background: #fefce8; color: #ca8a04; }
-.group-badge { background: #fef3c7; color: #d97706; font-weight: 500; }
-
-/* Delay Section */
-.delay-section { margin-top: 8px; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-top: 8px; }
-
-.delay-section-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.delay-section-header:hover { background: var(--color-base-200); }
-
-.delay-arrow { font-size: 10px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.delay-title { font-size: 12px; font-weight: 600; color: var(--color-base-content); }
-.delay-badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: var(--color-primary); color: white; }
-
-.delay-list { padding: 4px 8px; }
-
-.delay-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.15s;
-  margin-bottom: 2px;
-}
-
-.delay-item:hover { background: var(--color-base-200); }
-.delay-item.active { background: color-mix(in oklab, var(--color-primary) 10%, transparent); box-shadow: 0 0 0 1px var(--color-primary); }
-.delay-icon { font-size: 14px; }
-.delay-name { font-size: 12px; color: var(--color-base-content); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.delay-count { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #f0fdf4; color: #059669; }
-
-/* ==================== Right Panel ==================== */
-.stream-detail-panel {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.stream-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  gap: 12px;
-}
-
-.stream-info { min-width: 0; }
-.stream-name-large { margin: 0; font-size: 15px; font-weight: 600; color: var(--color-base-content); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.stream-meta { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.meta-sep { margin: 0 4px; }
-.pending-warn { color: #dc2626; font-weight: 600; }
-
-.stream-actions { display: flex; gap: 6px; flex-shrink: 0; }
-
-/* ==================== Detail Tabs ==================== */
-.detail-tabs {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  padding: 0 16px;
-}
-
-.detail-tab {
-  padding: 10px 16px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: all 0.15s;
-  position: relative;
-}
-
-.detail-tab:hover { color: var(--color-base-content); }
-.detail-tab.active { color: var(--color-primary); font-weight: 500; }
-.detail-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--color-primary);
-  border-radius: 2px 2px 0 0;
-}
-
-.tab-badge {
-  font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-left: 4px;
-}
-
-/* ==================== Messages Toolbar ==================== */
-.messages-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  flex-wrap: wrap;
-}
-
-.range-inputs { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 200px; }
-.range-input {
-  flex: 1;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 12px;
-  font-family: monospace;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-}
-.range-input:focus { outline: none; border-color: var(--color-primary); }
-.range-sep { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.message-search { min-width: 150px; }
-.search-input-sm {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 12px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  box-sizing: border-box;
-}
-.search-input-sm:focus { outline: none; border-color: var(--color-primary); }
-
-/* ==================== Messages List ==================== */
-.messages-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 16px;
-  background: var(--color-base-200);
-}
-
-.delay-messages-list { background: #f8fafc; }
-
-.message-item {
-  background: var(--color-base-100);
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  transition: all 0.2s;
-}
-
-.message-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-
-.message-item.is-envelope { padding: 0; overflow: hidden; }
-
-/* ==================== Envelope Card ==================== */
-.envelope-card { padding: 12px 16px; border-left: 4px solid transparent; transition: border-color 0.2s; }
-
-/* Consumption status borders */
-.envelope-card.consumption-consumed { border-left-color: #10b981; }
-.envelope-card.consumption-pending { border-left-color: #f59e0b; }
-.envelope-card.consumption-new { border-left-color: #94a3b8; }
-
-/* Legacy message item consumption borders */
-.message-item:not(.is-envelope) { border-left: 4px solid transparent; transition: border-color 0.2s; }
-.message-item.consumption-consumed { border-left-color: #10b981; }
-.message-item.consumption-pending { border-left-color: #f59e0b; }
-.message-item.consumption-new { border-left-color: #94a3b8; }
-
-.envelope-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.envelope-type { display: flex; align-items: center; gap: 6px; }
-.envelope-icon { font-size: 16px; }
-.type-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-primary);
-  font-family: monospace;
-}
-
-/* Consumption status badge */
-.consumption-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-.consumption-badge.badge-consumed { background: #d1fae5; color: #059669; }
-.consumption-badge.badge-pending { background: #fef3c7; color: #d97706; }
-.consumption-badge.badge-new { background: #f1f5f9; color: #64748b; }
-
-/* Message ID group (id + badge in legacy view) */
-.message-id-group { display: flex; align-items: center; gap: 8px; }
-
-.envelope-actions { display: flex; gap: 4px; }
-
-.envelope-meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 8px;
-  flex-wrap: wrap;
-}
-
-.meta-item code {
-  font-family: monospace;
-  background: var(--color-base-200);
-  padding: 1px 4px;
-  border-radius: 3px;
-  font-size: 10px;
-}
-
-.envelope-payload {
-  background: var(--color-base-200);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-}
-
-.payload-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 4px;
-}
-
-.payload-json {
-  margin: 0;
-  font-size: 12px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  color: #059669;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 200px;
-  overflow-y: auto;
-  line-height: 1.5;
-}
-
-.envelope-raw-toggle { text-align: center; }
-
-.envelope-raw {
-  background: var(--color-base-200);
-  border-radius: 8px;
-  padding: 10px 12px;
-  margin-top: 8px;
-}
-
-.raw-json {
-  margin: 0;
-  font-size: 11px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 150px;
-  overflow-y: auto;
-  line-height: 1.4;
-}
-
-/* ==================== Message Header (legacy) ==================== */
-.message-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.message-id { font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-weight: 500; font-family: monospace; }
-.message-actions { display: flex; gap: 4px; }
-
-.btn-icon-sm {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 2px 4px;
-  border-radius: 4px;
-  opacity: 0.6;
-  transition: all 0.15s;
-}
-
-.btn-icon-sm:hover { opacity: 1; background: var(--color-base-200); }
-
-.message-fields { display: flex; flex-direction: column; gap: 4px; }
-.field-row { display: flex; align-items: baseline; gap: 4px; font-size: 12px; line-height: 1.4; }
-.field-key { font-weight: 600; color: #7c3aed; font-family: monospace; flex-shrink: 0; }
-.field-sep { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.field-value {
-  margin: 0;
-  font-size: 12px;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  color: var(--color-base-content);
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 120px;
-  overflow-y: auto;
-  line-height: 1.5;
-}
-
-.field-value.is-json { color: #059669; }
-
-/* Delay message item */
-.delay-message-item { border-left: 3px solid #f59e0b; }
-.delay-message-item .delay-countdown {
-  font-size: 11px;
-  font-weight: 600;
-  color: #059669;
-}
-.delay-message-item .delay-countdown.expired { color: #dc2626; }
-
-.delay-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* ==================== Stats Panel ==================== */
-.stats-panel {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-  background: var(--color-base-200);
-}
-
-.stats-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 16px 0 10px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.stats-section-title:first-child { margin-top: 0; }
-
-.stats-overview {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 10px;
-  padding: 16px;
-  text-align: center;
-}
-
-.stat-label { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; }
-.stat-value { font-size: 24px; font-weight: 700; color: var(--color-base-content); }
-.stat-value.stat-warn { color: #f59e0b; }
-.stat-value.stat-danger { color: #dc2626; }
-
-/* Health Distribution Bar */
-.health-distribution-bar {
-  display: flex;
-  height: 36px;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.health-bar-segment {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 600;
-  color: white;
-  transition: width 0.3s;
-  min-width: 0;
-  overflow: hidden;
-}
-.health-bar-segment.healthy { background: #10b981; }
-.health-bar-segment.idle { background: #f59e0b; }
-.health-bar-segment.stale { background: #94a3b8; }
-
-.health-legend {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.legend-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-}
-.legend-dot.dot-healthy { background: #10b981; }
-.legend-dot.dot-idle { background: #f59e0b; }
-.legend-dot.dot-stale { background: #94a3b8; }
-
-/* Per-group card */
-.stat-group-card {
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 10px;
-  margin-bottom: 12px;
-  overflow: hidden;
-}
-
-.stat-group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-}
-
-.stat-group-title { display: flex; flex-direction: column; gap: 4px; }
-.stat-group-name { font-size: 13px; font-weight: 600; color: var(--color-base-content); }
-
-.stat-group-consumer-summary { display: flex; gap: 6px; }
-.consumer-summary-badge {
-  font-size: 11px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-.consumer-summary-badge.healthy { background: #d1fae5; color: #059669; }
-.consumer-summary-badge.idle { background: #fef3c7; color: #d97706; }
-.consumer-summary-badge.stale { background: #f1f5f9; color: #64748b; }
-
-.stat-group-pending { font-size: 12px; font-weight: 600; }
-.stat-group-pending.stat-warn { color: #f59e0b; }
-.stat-group-pending.stat-danger { color: #dc2626; }
-
-/* Consumer Grid */
-.consumer-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 8px;
-  padding: 12px;
-}
-
-.consumer-card {
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  padding: 10px 12px;
-  position: relative;
-  transition: all 0.15s;
-  border-top: 3px solid transparent;
-}
-.consumer-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); transform: translateY(-1px); }
-
-.consumer-card.card-healthy { border-top-color: #10b981; }
-.consumer-card.card-idle { border-top-color: #f59e0b; }
-.consumer-card.card-stale { border-top-color: #94a3b8; }
-
-.consumer-card-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 6px;
-}
-
-.consumer-short-name {
-  font-size: 12px;
-  font-family: monospace;
-  color: var(--color-base-content);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.consumer-type-badge {
-  font-size: 9px;
-  padding: 1px 5px;
-  border-radius: 4px;
-  background: #ede9fe;
-  color: #7c3aed;
-  font-weight: 600;
-  text-transform: uppercase;
-  flex-shrink: 0;
-}
-
-.consumer-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.consumer-meta-item { white-space: nowrap; }
-
-/* Health indicator dot (top-right corner of card) */
-.consumer-health-indicator {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-.consumer-health-indicator.dot-healthy { background: #10b981; }
-.consumer-health-indicator.dot-idle { background: #f59e0b; }
-.consumer-health-indicator.dot-stale { background: #94a3b8; }
-.consumer-health-indicator.dot-danger { background: #dc2626; }
-
-.stat-consumer-list { padding: 8px 16px; }
-
-.stat-consumer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: var(--color-base-200);
-  font-size: 12px;
-}
-
-.stat-consumer-name { font-weight: 500; color: var(--color-base-content); }
-.stat-consumer-meta { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.health-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-left: 8px;
-}
-
-.dot-healthy { background: #22c55e; }
-.dot-idle { background: #f59e0b; }
-.dot-stale { background: #94a3b8; }
-.dot-warn { background: #f59e0b; }
-.dot-danger { background: #dc2626; }
-
-/* ==================== Groups ==================== */
-.groups-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 16px;
-  background: var(--color-base-200);
-}
-
-.group-card {
-  background: var(--color-base-100);
-  border-radius: 10px;
-  padding: 12px 16px;
-  margin-bottom: 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.group-name { font-weight: 600; font-size: 13px; color: var(--color-base-content); }
-.group-meta { font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); display: flex; gap: 8px; margin-top: 4px; }
-.group-actions { display: flex; gap: 4px; }
-.group-info { min-width: 0; }
-
-/* ==================== Group Detail Panel ==================== */
-.group-detail-panel {
-  border-top: 2px solid var(--color-primary);
-  background: var(--color-base-100);
-  max-height: 300px;
-  display: flex;
-  flex-direction: column;
-}
-
-.group-detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 16px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.group-detail-title {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-base-content);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.group-detail-key { font-weight: 400; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 12px; }
-.group-detail-header-actions { display: flex; align-items: center; gap: 8px; }
-
-.claim-consumer-input { display: flex; align-items: center; gap: 4px; }
-.claim-consumer-input label { font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); white-space: nowrap; }
-.claim-input {
-  width: 80px;
-  padding: 3px 6px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  font-size: 11px;
-  font-family: monospace;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-.claim-input:focus { outline: none; border-color: var(--color-primary); }
-
-.group-detail-tabs { display: flex; gap: 0; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding: 0 16px; }
-.group-tab {
-  padding: 8px 16px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  position: relative;
-  transition: all 0.15s;
-}
-.group-tab:hover { color: var(--color-base-content); }
-.group-tab.active { color: var(--color-primary); font-weight: 500; }
-.group-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  height: 2px;
-  background: var(--color-primary);
-}
-
-.group-detail-content { flex: 1; overflow-y: auto; padding: 8px 16px; }
-
-.consumer-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: var(--color-base-200);
-  font-size: 12px;
-}
-
-.consumer-name { font-weight: 500; color: var(--color-base-content); }
-.consumer-meta { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.pending-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 4px;
-  background: var(--color-base-200);
-  font-size: 12px;
-}
-
-.pending-row.pending-stale { background: #fef2f2; border-left: 3px solid #dc2626; }
-
-.pending-id { font-family: monospace; color: var(--color-base-content); font-weight: 500; }
-.pending-meta { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-left: 12px; }
-.pending-info { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.pending-actions { display: flex; gap: 4px; flex-shrink: 0; }
-
-.btn-retry { color: #f59e0b; }
-
-/* ==================== Modal ==================== */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal {
-  background: var(--color-base-100);
-  border-radius: 12px;
-  width: 560px;
-  max-width: 90vw;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.modal-header h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--color-base-content); }
-
-.modal-close {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 18px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding: 4px;
-  border-radius: 4px;
-}
-.modal-close:hover { background: var(--color-base-200); }
-
-.modal-body { padding: 20px; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
-
-.form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 12px; font-weight: 600; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 6px; }
-.form-group label:has(input[type="checkbox"]) { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-
-.form-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  box-sizing: border-box;
-}
-.form-input:focus { outline: none; border-color: var(--color-primary); }
-
-.form-textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: monospace;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  box-sizing: border-box;
-  resize: vertical;
-}
-.form-textarea:focus { outline: none; border-color: var(--color-primary); }
-
-.trim-warning {
-  padding: 12px;
-  background: #fefce8;
-  border: 1px solid #fde047;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #a16207;
-  margin-bottom: 16px;
-}
-
-/* ==================== Buttons ==================== */
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-  font-weight: 500;
-}
-
-.btn-primary { background: var(--color-primary); color: white; }
-.btn-primary:hover:not(:disabled) { background: color-mix(in oklab, var(--color-primary) 80%, transparent); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-ghost { background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.btn-ghost:hover:not(:disabled) { background: var(--color-base-200); }
-.btn-danger { background: #ef4444; color: white; }
-.btn-danger:hover:not(:disabled) { background: #dc2626; }
-.btn-sm { padding: 6px 12px; font-size: 12px; }
-.btn-xs { padding: 4px 8px; font-size: 11px; }
-.btn-danger-text { color: #ef4444; }
-
-/* ==================== States ==================== */
-.placeholder-state, .empty-state, .empty-messages {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.placeholder-icon, .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.5; }
-.placeholder-text, .empty-text { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
-.empty-hint { font-size: 12px; opacity: 0.7; }
-.loading-state { padding: 20px; text-align: center; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.btn-load-more {
-  padding: 6px 16px;
-  background: transparent;
-  border: 1px solid var(--color-primary);
-  color: var(--color-primary);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s;
-}
-
-.btn-load-more:hover:not(:disabled) {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.btn-load-more:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ==================== Dark Theme ==================== */
-.dark .stream-topbar,
-.dark .stream-list-panel { background: #1f2937; border-color: #374151; }
-.dark .search-input { background: var(--color-base-200); border-color: #374151; color: var(--color-base-content); }
-.dark .search-input:focus { background: #1f2937; border-color: #818cf8; }
-.dark .stream-item:hover { background: #374151; }
-.dark .stream-item.active { background: rgba(129, 140, 248, 0.2); box-shadow: 0 0 0 1px #818cf8; }
-.dark .stream-header { background: #1f2937; border-color: #374151; }
-.dark .detail-tabs,
-.dark .group-detail-tabs { background: #1f2937; border-color: #374151; }
-.dark .messages-toolbar { background: var(--color-base-200); border-color: #374151; }
-.dark .messages-list,
-.dark .groups-list { background: var(--color-base-200); }
-.dark .message-item { background: #1f2937; border-color: #374151; }
-.dark .field-value.is-json { color: #34d399; }
-.dark .group-card { background: #1f2937; border-color: #374151; }
-.dark .group-detail-panel { background: #1f2937; border-color: #818cf8; }
-.dark .consumer-row,
-.dark .pending-row { background: #374151; }
-.dark .pending-row.pending-stale { background: #451a1a; }
-.dark .modal { background: #1f2937; border-color: #374151; }
-.dark .modal-header { border-color: #374151; }
-.dark .modal-footer { border-color: #374151; }
-.dark .form-input,
-.dark .form-textarea { background: var(--color-base-200); border-color: #374151; color: var(--color-base-content); }
-.dark .form-input:focus,
-.dark .form-textarea:focus { background: #1f2937; border-color: #818cf8; }
-.dark .group-badge { background: #422006; color: #fbbf24; }
-.dark .field-key { color: #a78bfa; }
-.dark .claim-input { background: #374151; border-color: #4b5563; color: var(--color-base-content); }
-.dark .claim-input:focus { border-color: #818cf8; }
-.dark .connection-status { background: #374151; }
-.dark .stream-badge.danger { background: #451a1a; color: #fca5a5; }
-.dark .stream-badge.warn { background: #422006; color: #fbbf24; }
-.dark .delay-count { background: #14532d; color: #4ade80; }
-.dark .delay-message-item { border-left-color: #d97706; }
-.dark .delay-messages-list { background: #1a1a2e; }
-.dark .payload-json { color: #34d399; }
-.dark .envelope-card { }
-.dark .envelope-payload,
-.dark .envelope-raw { background: #374151; }
-.dark .stat-card { background: #1f2937; border-color: #374151; }
-.dark .stat-group-card { background: #1f2937; border-color: #374151; }
-.dark .stat-consumer-row { background: #374151; }
-.dark .trim-warning { background: #422006; border-color: #854d0e; color: #fbbf24; }
-.dark .btn-icon.active { background: rgba(129, 140, 248, 0.2); color: #818cf8; }
-</style>

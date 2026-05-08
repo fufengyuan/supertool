@@ -1,8 +1,8 @@
 <template>
-  <div class="db-manager">
-    <div class="db-header">
-      <h2 class="db-title">🗄️ 数据库管理</h2>
-      <div class="header-actions" v-if="db.activeConnection.value">
+  <div class="flex flex-col h-[calc(100vh-68px)] min-h-0 max-w-full overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 border-b border-base-content/10 min-h-0 gap-3">
+      <h2 class="text-base font-semibold text-base-content m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">🗄️ 数据库管理</h2>
+      <div class="flex gap-2 shrink-0" v-if="db.activeConnection.value">
         <template v-if="db.activeConnection.value.type === 'redis'">
           <button
             @click="openRedisManager"
@@ -54,10 +54,10 @@
       </div>
     </div>
 
-    <div class="db-layout">
+    <div class="flex flex-1 overflow-hidden min-w-0">
       <!-- Left sidebar: Connection tree -->
-      <aside class="db-sidebar">
-        <div class="db-sidebar-header">
+      <aside class="w-64 min-w-[200px] max-w-[400px] border-r border-base-content/10 bg-base-100 flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between px-3 py-[10px] text-xs font-semibold text-base-content/60 border-b border-base-content/10">
           <span>连接</span>
           <button @click="db.openAddForm()" class="btn btn-primary btn-sm" title="添加连接">+</button>
         </div>
@@ -95,27 +95,27 @@
       </aside>
 
       <!-- Main area -->
-      <main class="db-main">
+      <main class="flex-1 flex flex-col overflow-hidden min-w-0">
         <!-- No connection selected -->
-        <div v-if="!db.activeConnection.value" class="db-empty">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+        <div v-if="!db.activeConnection.value" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
             <ellipse cx="12" cy="5" rx="9" ry="3" />
             <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
             <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
           </svg>
-          <p class="db-empty-title">选择或添加数据库连接</p>
-          <p class="db-empty-sub">从左侧选择已有连接，或添加新的数据库连接</p>
+          <p class="text-base font-semibold text-base-content m-0">选择或添加数据库连接</p>
+          <p class="text-xs m-0">从左侧选择已有连接，或添加新的数据库连接</p>
           <button @click="db.openAddForm()" class="btn btn-primary">添加连接</button>
         </div>
 
         <!-- No tabs open -->
-        <div v-else-if="db.tabs.value.length === 0" class="db-empty">
+        <div v-else-if="db.tabs.value.length === 0" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
           <template v-if="db.activeConnection.value?.type === 'redis'">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
               <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
             </svg>
-            <p class="db-empty-title">Redis 连接已就绪</p>
-            <p class="db-empty-sub">浏览和管理 Redis 键值数据</p>
+            <p class="text-base font-semibold text-base-content m-0">Redis 连接已就绪</p>
+            <p class="text-xs m-0">浏览和管理 Redis 键值数据</p>
             <button
               @click="openRedisManager"
               class="btn btn-primary"
@@ -124,14 +124,14 @@
             </button>
           </template>
           <template v-else>
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
               <line x1="16" y1="13" x2="8" y2="13" />
               <line x1="16" y1="17" x2="8" y2="17" />
             </svg>
-            <p class="db-empty-title">打开一个工作区</p>
-            <p class="db-empty-sub">从左侧树中选择一个表，或点击"新建查询"开始</p>
+            <p class="text-base font-semibold text-base-content m-0">打开一个工作区</p>
+            <p class="text-xs m-0">从左侧树中选择一个表，或点击&quot;新建查询&quot;开始</p>
             <button
               @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
               class="btn btn-primary"
@@ -144,17 +144,17 @@
         <!-- Tabbed workspace -->
         <template v-else>
           <!-- Tab bar -->
-          <div class="tab-bar">
+          <div class="flex items-end gap-px px-2 bg-base-200 border-b border-base-content/10 overflow-x-auto min-h-[34px]">
             <div
               v-for="(tab, idx) in db.tabs.value"
               :key="tab.id"
-              class="tab-item"
-              :class="{ active: db.activeTabIndex.value === idx }"
+              class="flex items-center gap-1.5 px-3 py-[6px] min-w-[100px] max-w-[200px] rounded-t-lg cursor-pointer text-xs text-base-content/60 bg-transparent border border-transparent border-b-0 transition-all duration-100 select-none group"
+              :class="[db.activeTabIndex.value === idx ? 'bg-base-200 text-base-content border-base-content/10 font-medium' : '']"
               @click="db.setActiveTab(idx)"
             >
-              <span class="tab-icon">{{ getTabIcon(tab) }}</span>
-              <span class="tab-title" :title="tab.title">{{ tab.title }}</span>
-              <button class="tab-close" @click.stop="db.closeTab(tab.id)" title="关闭">
+              <span class="text-xs shrink-0">{{ getTabIcon(tab) }}</span>
+              <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="tab.title">{{ tab.title }}</span>
+              <button class="flex items-center justify-center w-4 h-4 border-0 bg-transparent rounded-sm cursor-pointer text-base-content/60 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-primary/10 hover:text-primary transition-all duration-100" @click.stop="db.closeTab(tab.id)" title="关闭">
                 <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5">
                   <line x1="18" y1="6" x2="6" y2="18" />
                   <line x1="6" y1="6" x2="18" y2="18" />
@@ -164,10 +164,10 @@
           </div>
 
           <!-- Active tab content -->
-          <div class="tab-content">
+          <div class="flex-1 overflow-hidden flex flex-col bg-base-200 min-w-0">
             <!-- SQL Query tab -->
             <template v-if="activeTab?.type === 'sql'">
-              <div class="sql-workspace">
+              <div class="flex flex-col h-full p-4 gap-3 overflow-hidden">
                 <SqlEditor
                   ref="sqlEditorRef"
                   :connection="getTabConnection(activeTab)"
@@ -205,13 +205,13 @@
 
             <!-- Table Data tab -->
             <template v-else-if="activeTab?.type === 'tableData'">
-              <div class="table-workspace">
-                <div class="workspace-header">
-                  <span class="workspace-title">
+              <div class="flex flex-col h-full p-4 gap-3 overflow-hidden max-w-full box-border">
+                <div class="flex items-center justify-between pb-2 border-b border-base-content/10">
+                  <span class="text-sm font-semibold text-base-content">
                     📊 {{ activeTab.tableName }}
-                    <span class="workspace-subtitle">- {{ activeTab.connectionName }}</span>
+                    <span class="text-xs font-normal text-base-content/60 ml-2">- {{ activeTab.connectionName }}</span>
                   </span>
-                  <div class="workspace-actions">
+                  <div class="flex gap-2 shrink-0">
                     <button
                       @click="loadTableData"
                       class="btn btn-ghost btn-sm"
@@ -221,7 +221,7 @@
                     </button>
                   </div>
                 </div>
-                <div v-if="tableLoading" class="workspace-loading">加载中...</div>
+                <div v-if="tableLoading" class="flex items-center justify-center p-6 text-base-content/60">加载中...</div>
                 <DataGrid
                   v-else
                   :rows="resultRows"
@@ -258,29 +258,29 @@
 
             <!-- Redis Console tab -->
             <template v-else-if="activeTab?.type === 'redisConsole'">
-              <div class="redis-workspace">
-                <div class="workspace-header">
-                  <span class="workspace-title">
+              <div class="flex flex-col h-full overflow-hidden">
+                <div class="flex items-center justify-between pb-2 border-b border-base-content/10">
+                  <span class="text-sm font-semibold text-base-content">
                     🔴 Redis 控制台
-                    <span class="workspace-subtitle">- {{ activeTab.connectionName }}</span>
+                    <span class="text-xs font-normal text-base-content/60 ml-2">- {{ activeTab.connectionName }}</span>
                   </span>
                 </div>
-                <div class="redis-console-body">
-                  <div class="redis-output" ref="redisOutputRef">
-                    <div v-for="(msg, idx) in redisMessages" :key="idx" class="redis-msg" :class="msg.type">
-                      <span class="redis-msg-prefix">{{ msg.prefix }}</span>
-                      <span class="redis-msg-content">{{ msg.content }}</span>
+                <div class="flex-1 flex flex-col p-4 gap-2 overflow-hidden">
+                  <div class="flex-1 overflow-y-auto p-3 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs leading-relaxed" ref="redisOutputRef">
+                    <div v-for="(msg, idx) in redisMessages" :key="idx" class="py-0.5" :class="{'text-primary': msg.type === 'input', 'text-base-content': msg.type === 'output', 'text-error': msg.type === 'error'}">
+                      <span class="font-semibold">{{ msg.prefix }}</span>
+                      <span class="break-all">{{ msg.content }}</span>
                     </div>
-                    <div v-if="redisMessages.length === 0" class="redis-empty">
+                    <div v-if="redisMessages.length === 0" class="text-base-content/60 text-center p-6 italic">
                       输入 Redis 命令，例如: GET key, KEYS *, INFO
                     </div>
                   </div>
-                  <div class="redis-input-row">
-                    <span class="redis-prompt">&gt;</span>
+                  <div class="flex items-center gap-2">
+                    <span class="font-mono text-sm font-bold text-primary">&gt;</span>
                     <input
                       v-model="redisCommand"
                       @keydown.enter="executeRedis"
-                      class="redis-input"
+                      class="input input-bordered flex-1 font-mono text-xs"
                       placeholder="输入 Redis 命令..."
                       spellcheck="false"
                     />
@@ -973,352 +973,4 @@ watch(() => db.activeConnection.value, (conn) => {
 })
 </script>
 
-<style scoped>
-.db-manager {
-  display: flex;
-  flex-direction: column;
-  height: calc(100vh - 68px);
-  min-height: 0;
-  max-width: 100vw;
-  overflow: hidden;
-}
 
-.db-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  min-height: 0;
-  gap: 12px;
-}
-
-.db-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.header-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.db-layout {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.db-sidebar {
-  width: 260px;
-  min-width: 200px;
-  max-width: 400px;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.db-sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.db-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-width: 0;
-}
-
-.db-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 48px 24px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-}
-
-.db-empty svg {
-  opacity: 0.3;
-}
-
-.db-empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0;
-}
-
-.db-empty-sub {
-  font-size: 13px;
-  margin: 0;
-}
-
-/* Tab bar */
-.tab-bar {
-  display: flex;
-  align-items: flex-end;
-  gap: 1px;
-  padding: 0 8px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  overflow-x: auto;
-  min-height: 34px;
-}
-
-.tab-bar::-webkit-scrollbar {
-  height: 2px;
-}
-
-.tab-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  min-width: 100px;
-  max-width: 200px;
-  border-radius: 6px 6px 0 0;
-  cursor: pointer;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: transparent;
-  border: 1px solid transparent;
-  border-bottom: none;
-  transition: all 0.1s ease;
-  user-select: none;
-}
-
-.tab-item:hover {
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-}
-
-.tab-item.active {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-weight: 500;
-}
-
-.tab-icon {
-  font-size: 13px;
-  flex-shrink: 0;
-}
-
-.tab-title {
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-close {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: none;
-  background: transparent;
-  border-radius: 3px;
-  cursor: pointer;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-  opacity: 0;
-  transition: all 0.1s ease;
-}
-
-.tab-item:hover .tab-close {
-  opacity: 0.6;
-}
-
-.tab-close:hover {
-  opacity: 1 !important;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-/* Tab content */
-.tab-content {
-  flex: 1;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  background: var(--color-base-200);
-  min-width: 0;
-}
-
-/* SQL workspace */
-.sql-workspace {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  gap: 12px;
-  overflow: hidden;
-}
-
-/* Table workspace */
-.table-workspace {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 16px;
-  gap: 12px;
-  overflow: hidden;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.workspace-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.workspace-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.workspace-subtitle {
-  font-size: 12px;
-  font-weight: 400;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-left: 8px;
-}
-
-.workspace-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* Redis workspace */
-.redis-workspace {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-.redis-console-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  gap: 8px;
-  overflow: hidden;
-}
-
-.redis-output {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.redis-msg {
-  padding: 2px 0;
-}
-
-.redis-msg.input {
-  color: var(--color-primary);
-}
-
-.redis-msg.output {
-  color: var(--color-base-content);
-}
-
-.redis-msg.error {
-  color: var(--color-error);
-}
-
-.redis-msg-prefix {
-  font-weight: 600;
-}
-
-.redis-msg-content {
-  word-break: break-all;
-}
-
-.redis-empty {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  padding: 24px;
-  font-style: italic;
-}
-
-.redis-input-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.redis-prompt {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.redis-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.redis-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.redis-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.5;
-}
-
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 12px;
-  line-height: 1;
-  border-radius: 4px;
-}
-</style>
