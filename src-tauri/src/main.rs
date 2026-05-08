@@ -570,6 +570,17 @@ fn main() {
             commands::git_sync::git_sync_init,
             commands::git_sync::git_sync_pull,
             commands::git_sync::git_sync_push,
+            // Nginx commands
+            commands::nginx::get_all_nginx_presets,
+            commands::nginx::add_nginx_preset,
+            commands::nginx::update_nginx_preset,
+            commands::nginx::delete_nginx_preset,
+            commands::nginx::fetch_nginx_config,
+            commands::nginx::test_nginx_config,
+            commands::nginx::deploy_nginx_config,
+            commands::nginx::get_nginx_config_versions,
+            commands::nginx::save_nginx_config_version,
+            commands::nginx::set_active_nginx_version,
             update_frequent_menu,
         ])
         .run(tauri::generate_context!())

@@ -58,6 +58,11 @@ const routes = [
         component: () => import('../views/logs/LogAggregator.vue'),
       },
       {
+        path: 'nginx',
+        name: 'Nginx',
+        component: () => import('../views/nginx/NginxManager.vue'),
+      },
+      {
         path: 'vpn',
         name: 'VPN',
         component: () => import('../views/vpn/VPNManager.vue'),

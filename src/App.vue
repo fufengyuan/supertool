@@ -36,6 +36,7 @@ async function onQuickSwitchSelect(viewId: string) {
     'servers': '/servers',
     'cicd': '/cicd',
     'log-aggregator': '/logs',
+    'nginx': '/nginx',
     'database': '/database',
     'devtools': '/devtools',
     'notes': '/notes',

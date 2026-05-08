@@ -9,6 +9,7 @@ pub mod cicd_deploy;
 pub mod openvpn;
 pub mod wireguard;
 pub mod lan;
+pub mod nginx;
 pub mod system_logger;
 pub mod tray_notification;
 pub mod log_sanitizer;

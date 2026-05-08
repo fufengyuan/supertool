@@ -10,6 +10,7 @@ pub mod cicd_tables;
 pub mod openvpn;
 pub mod wireguard;
 pub mod lan;
+pub mod nginx;
 pub use cicd::*;
 
 /// Initialize SQLite database with all required tables
@@ -300,6 +301,28 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             lastCommit TEXT,
             createdAt TEXT NOT NULL,
             updatedAt TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_presets (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL DEFAULT '',
+            serverId TEXT NOT NULL,
+            configPath TEXT NOT NULL DEFAULT '/etc/nginx/nginx.conf',
+            description TEXT NOT NULL DEFAULT '',
+            groupName TEXT NOT NULL DEFAULT '未分组',
+            isActive INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_config_versions (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            content TEXT NOT NULL DEFAULT '',
+            checksum TEXT NOT NULL DEFAULT '',
+            comment TEXT NOT NULL DEFAULT '',
+            isCurrent INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL
         );
 
         "#,

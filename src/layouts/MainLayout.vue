@@ -150,6 +150,7 @@ const navGroups = {
     { path: '/servers', icon: '🖥️', label: '服务器', viewId: 'servers' },
     { path: '/cicd', icon: '🚀', label: 'CI/CD', viewId: 'cicd' },
     { path: '/logs', icon: '📋', label: '日志聚合', viewId: 'log-aggregator' },
+    { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
@@ -217,7 +218,7 @@ onMounted(async () => {
     const routeMap: Record<string, string> = {
       'todo': '/', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
-      'log-aggregator': '/logs', 'database': '/database', 'devtools': '/devtools',
+      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'report': '/report', 'settings': '/settings',
     }
