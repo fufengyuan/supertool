@@ -803,7 +803,27 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
             extra_paths.push(format!("{}/bin", nh));
         }
     }
+    // Homebrew (Apple Silicon)
+    extra_paths.push("/opt/homebrew/bin".to_string());
+    // Homebrew (Intel)
     extra_paths.push("/usr/local/bin".to_string());
+    // NVM default
+    if let Ok(home) = std::env::var("HOME") {
+        let nvm_versions = PathBuf::from(&home).join(".nvm/versions/node");
+        if nvm_versions.is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                let mut versions: Vec<_> = entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_dir())
+                    .filter_map(|e| e.file_name().into_string().ok())
+                    .collect();
+                versions.sort();
+                if let Some(latest) = versions.last() {
+                    extra_paths.push(format!("{}/{}/bin", nvm_versions.display(), latest));
+                }
+            }
+        }
+    }
     extra_paths.push("/usr/bin".to_string());
     extra_paths.push("/bin".to_string());
 
