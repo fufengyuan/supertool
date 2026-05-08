@@ -229,21 +229,14 @@ const testNotification = async () => {
   try {
     console.log("[testNotification] called");
     const api = getTauriAPI();
-    const success = await (api as any).testNotification?.() ?? true;
-
-    // macOS 开发模式下，原生通知可能因应用未签名被系统静默拦截
-    // 补充 Web Notification 作为降级方案，确保开发时能看到弹窗
-    if (navigator.platform.includes('Mac') && window.Notification) {
-      const webNotif = new window.Notification('测试通知', {
-        body: '这是一条测试通知（Web 降级方案），说明通知功能正常工作。'
-      });
-      webNotif.onclick = () => window.focus();
-    }
+    // 调用后端 notification_test 命令（带系统通知 + 提示音）
+    const result = await api.notificationTest();
+    const success = result?.success ?? false;
 
     if (success) {
-      testResult.value = { success: true, message: '测试通知已发送！' };
+      testResult.value = { success: true, message: result?.data || '测试通知已发送！' };
     } else {
-      testResult.value = { success: false, message: '通知不支持或发送失败' };
+      testResult.value = { success: false, message: result?.data || '通知不支持或发送失败' };
     }
 
     setTimeout(() => {

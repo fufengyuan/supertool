@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 /// Tray + Notification 管理
 ///
-/// Tauri 2.0 原生支持系统托盘和通知，无需额外依赖。
-/// Tray: 右键菜单（显示窗口/退出）
 /// Notification: 任务到期提醒 + 部署通知
+/// 使用 notify-rust 显示系统原生通知，使用 afplay/paplay 播放提示音
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Mutex;
@@ -92,10 +91,18 @@ impl NotificationManager {
         notifications
     }
 
+    /// 显示系统原生通知 + 播放提示音
     pub fn show_notification(&self, req: &NotificationRequest) {
-        // Tauri notification via tauri-plugin-notification
-        // In a real implementation, this would use tauri::Notification
-        log::info!("[Notification] {}: {}", req.title, req.body);
+        play_notification_sound();
+        if let Err(e) = notify_rust::Notification::new()
+            .summary(&req.title)
+            .body(&req.body)
+            .show()
+        {
+            log::warn!("[Notification] Failed to show system notification: {}", e);
+            // 降级：尝试 Web Notification (前端已实现)
+            log::info!("[Notification] {}: {}", req.title, req.body);
+        }
     }
 
     pub fn dismiss_notification(&self, todo_id: Option<&str>) {
@@ -113,17 +120,136 @@ impl NotificationManager {
     }
 
     pub fn test_notification(&self) -> NotificationTestResult {
-        let result = NotificationTestResult {
-            success: true,
-            message: "测试通知 — 通知功能正常工作".to_string(),
-        };
-        self.show_notification(&NotificationRequest {
-            title: "测试通知".to_string(),
-            body: result.message.clone(),
-            todo_id: None,
-        });
-        result
+        play_notification_sound();
+        match notify_rust::Notification::new()
+            .summary("SuperTool 测试通知")
+            .body("如果你看到这条消息，说明通知功能正常工作！")
+            .show()
+        {
+            Ok(_) => NotificationTestResult {
+                success: true,
+                message: "测试通知已发送！".to_string(),
+            },
+            Err(e) => {
+                log::warn!("[Notification] Test notification failed: {}", e);
+                NotificationTestResult {
+                    success: false,
+                    message: format!("通知发送失败: {}", e),
+                }
+            }
+        }
     }
+}
+
+/// 播放系统提示音
+pub fn play_notification_sound() {
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("afplay")
+            .arg("/System/Library/Sounds/Glass.aiff")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .ok();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // Try paplay first, fallback to canberra-gtk-play
+        if std::process::Command::new("paplay")
+            .arg("/usr/share/sounds/freedesktop/stereo/bell.oga")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .is_err()
+        {
+            std::process::Command::new("canberra-gtk-play")
+                .arg("-i")
+                .arg("message")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .ok();
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("powershell")
+            .args(["-c", "[console]::beep(800,300)"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .ok();
+    }
+}
+
+/// 显示部署结果的系统通知
+pub fn show_deploy_notification(success: bool, project_name: &str, error: Option<&str>) {
+    play_notification_sound();
+    let (title, body) = if success {
+        (
+            "🚀 部署成功",
+            format!("{} 已成功部署", project_name),
+        )
+    } else {
+        (
+            "❌ 部署失败",
+            format!("{} 部署失败: {}", project_name, error.unwrap_or("未知错误")),
+        )
+    };
+    if let Err(e) = notify_rust::Notification::new()
+        .summary(title)
+        .body(&body)
+        .show()
+    {
+        log::warn!("[Notification] Failed to show deploy notification: {}", e);
+    }
+}
+
+/// 启动后台通知检查定时器（每 5 分钟检查一次到期任务）
+pub fn start_notification_timer(app_handle: tauri::AppHandle) {
+    use std::sync::Arc;
+    let manager = Arc::new(NotificationManager::new());
+
+    // 启动时立即检查一次
+    {
+        let manager = manager.clone();
+        let handle = app_handle.clone();
+        tauri::async_runtime::spawn(async move {
+            if let Some(core) = handle.try_state::<crate::core::CoreService>() {
+                let notifications = manager.check_task_notifications(&core).await;
+                for req in notifications {
+                    manager.show_notification(&req);
+                    // 同时通知前端
+                    let _ = handle.emit("todo-notification", serde_json::json!({
+                        "todoId": req.todo_id,
+                        "title": req.title,
+                        "body": req.body,
+                    }));
+                }
+            }
+        });
+    }
+
+    // 每 5 分钟检查一次
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
+        loop {
+            interval.tick().await;
+            if let Some(core) = app_handle.try_state::<crate::core::CoreService>() {
+                let notifications = manager.check_task_notifications(&core).await;
+                for req in notifications {
+                    manager.show_notification(&req);
+                    let _ = app_handle.emit("todo-notification", serde_json::json!({
+                        "todoId": req.todo_id,
+                        "title": req.title,
+                        "body": req.body,
+                    }));
+                }
+            }
+        }
+    });
+
+    log::info!("[Notification] Background notification timer started (every 5 minutes)");
 }
 
 /// Tray manager — Tauri 2.0 原生托盘 (TrayIconEvent)

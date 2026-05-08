@@ -785,9 +785,14 @@ pub async fn deploy(
             let _ = core_clone.db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
         }
 
-        // Emit final notification
+        // Emit final notification (native system notification + event to frontend)
         match &deploy_result {
             Ok(result) => {
+                crate::core::tray_notification::show_deploy_notification(
+                    result.success,
+                    &proj_name,
+                    result.error.as_deref(),
+                );
                 let _ = app_arc.emit("deploy-notification", serde_json::json!({
                     "success": result.success,
                     "configId": *config_id_arc,
@@ -796,6 +801,7 @@ pub async fn deploy(
                 }));
             }
             Err(e) => {
+                crate::core::tray_notification::show_deploy_notification(false, &proj_name, Some(e));
                 let _ = app_arc.emit("deploy-notification", serde_json::json!({
                     "success": false,
                     "configId": *config_id_arc,

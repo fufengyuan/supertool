@@ -85,17 +85,13 @@ pub fn get_menu_icon(_icon_name: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "success": true, "data": null }))
 }
 
-/// Send a test desktop notification
+/// Send a test desktop notification (with sound)
 #[tauri::command(rename_all = "camelCase")]
 pub fn notification_test() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] notification_test() called");
-    use notify_rust::Notification;
-    Notification::new()
-        .summary("SuperTool 测试通知")
-        .body("如果你看到这条消息，说明通知功能正常工作！")
-        .show()
-        .map_err(|e| format!("发送通知失败: {}", e))?;
-    Ok(serde_json::json!({ "success": true, "data": "通知已发送" }))
+    let manager = crate::core::tray_notification::NotificationManager::new();
+    let result = manager.test_notification();
+    Ok(serde_json::json!({ "success": result.success, "data": result.message }))
 }
 
 /// Get the current data directory path
