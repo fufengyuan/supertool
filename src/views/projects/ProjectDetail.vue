@@ -129,6 +129,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ProjectGitPanel from '@/views/projects/ProjectGitPanel.vue'
 import ProjectTodoList from '@/views/projects/ProjectTodoList.vue'
 import UiButton from '@/components/ui/Button.vue'
@@ -139,10 +140,11 @@ import { useErrorHandler } from '../../composables/useErrorHandler'
 import type { Project } from '../../types'
 
 const props = defineProps({
-  projectId: { type: String, required: true }
+  id: { type: String, required: true }
 })
 
-const emit = defineEmits(['goBackToList', 'editProject', 'projectUpdated'])
+const router = useRouter()
+const emit = defineEmits(['editProject', 'projectUpdated'])
 
 const todoStore = useTodoStore()
 const projectStore = useProjectStore()
@@ -215,8 +217,8 @@ const handleDeleteTask = async (task: any) => {
   } catch (error) { handleError(error, { context: 'handleDeleteTask' }) }
 }
 
-const goBack = () => { emit('goBackToList') }
-const editProject = () => { emit('editProject', project.value) }
+const goBack = () => { router.push('/projects') }
+const editProject = () => { router.push({ path: '/projects', query: { edit: project.value?.id } }) }
 
 const toggleArchive = async () => {
   if (!project.value) return
@@ -229,7 +231,7 @@ const toggleArchive = async () => {
 }
 
 const resolveProject = () => {
-  const found = projectStore.projects.find(p => p.id === props.projectId)
+  const found = projectStore.projects.find(p => p.id === props.id)
   if (found) {
     project.value = found as unknown as Project
   }
@@ -241,7 +243,7 @@ watch(() => projectStore.projects, () => {
 }, { immediate: true })
 
 onMounted(async () => {
-    console.log("[components/ProjectDetail.vue] mounted");
+    console.log("[views/projects/ProjectDetail.vue] mounted");
     // 确保项目列表已加载
     if (projectStore.projects.length === 0) {
       await projectStore.loadProjects()
