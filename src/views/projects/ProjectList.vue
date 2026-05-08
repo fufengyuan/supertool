@@ -78,6 +78,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import ProjectItem from '@/views/projects/ProjectItem.vue';
 import ProjectForm from '@/views/projects/ProjectForm.vue';
 import UiButton from '@/components/ui/Button.vue';
@@ -87,6 +88,8 @@ import { useProjects } from '../../composables/useProjects';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { getTauriAPI } from '../../utils/tauri-api';
 import type { Project } from '../../types';
+
+const router = useRouter();
 
 const projectsApi = useProjects();
 const { handleError } = useErrorHandler();
@@ -150,7 +153,7 @@ const loadProjects = async () => {
 };
 
 const selectProject = (project: Project) => {
-  emit('selectProject', project);
+  router.push(`/project/${project.id}`);
 };
 
 const openAddModal = () => {
@@ -214,8 +217,6 @@ const toggleArchive = async (project: Project) => {
     handleError(error, { context: 'toggleArchive' });
   }
 };
-
-const emit = defineEmits(['selectProject']);
 
 onMounted(async () => {
     console.log("[components/ProjectList.vue] mounted")
