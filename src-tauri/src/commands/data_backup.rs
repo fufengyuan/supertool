@@ -148,13 +148,20 @@ pub async fn import_json(
         }
     }
 
-    let (imported, skipped) = import_all_tables(core.inner(), data, &mode).await?;
+    let (imported, skipped, import_errors) = import_all_tables(core.inner(), data, &mode).await?;
 
     log::info!("[Backup] Import complete: imported={}, skipped={}", imported, skipped);
+    if !import_errors.is_empty() {
+        log::warn!("[Backup] Import completed with {} errors:", import_errors.len());
+        for e in &import_errors {
+            log::warn!("  - {}", e);
+        }
+    }
     Ok(json!({
-        "success": true,
+        "success": import_errors.is_empty(),
         "importedCount": imported,
         "skippedCount": skipped,
+        "errors": import_errors,
     }))
 }
 
@@ -165,11 +172,12 @@ pub async fn import_all_data(
     mode: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] import_all_data() called");
-    let (imported, skipped) = import_all_tables(core.inner(), data, &mode).await?;
+    let (imported, skipped, import_errors) = import_all_tables(core.inner(), data, &mode).await?;
     Ok(json!({
-        "success": true,
+        "success": import_errors.is_empty(),
         "importedCount": imported,
         "skippedCount": skipped,
+        "errors": import_errors,
     }))
 }
 
@@ -282,7 +290,7 @@ async fn import_all_tables(
     core: &CoreService,
     data: serde_json::Value,
     mode: &str,
-) -> Result<(usize, usize), String> {
+) -> Result<(usize, usize, Vec<String>), String> {
     let mut imported = 0usize;
     let mut skipped = 0usize;
     let mut errors: Vec<String> = Vec::new();
@@ -849,5 +857,5 @@ async fn import_all_tables(
     imported += cicd_imported;
     skipped += cicd_skipped;
 
-    Ok((imported, skipped))
+    Ok((imported, skipped, errors))
 }
