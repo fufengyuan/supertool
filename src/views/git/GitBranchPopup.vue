@@ -180,3 +180,223 @@ defineEmits<{
 
 const branchRenameInputRef = ref<HTMLInputElement | null>(null)
 </script>
+
+<style>
+/* ===================== 分支管理弹窗 — 从 GitManager.vue 提取 ===================== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.branches-popup {
+  width: 420px;
+  max-height: 70vh;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.popup-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.popup-actions {
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.branches-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.branch-section {
+  padding: 4px 0;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  padding: 4px 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.branch-list {
+  padding: 0 8px;
+}
+
+.branch-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.branch-item:hover {
+  background: var(--hover-bg);
+}
+
+.branch-item.current {
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+}
+
+.branch-item.remote {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.branch-label {
+  font-size: 13px;
+  flex: 1;
+}
+
+.current-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: var(--color-primary);
+  color: white;
+  font-weight: 600;
+}
+
+.branch-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.branch-item:hover .branch-actions {
+  opacity: 1;
+}
+
+.branch-empty {
+  padding: 8px 16px;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  font-size: 12px;
+}
+
+/* ===================== 对话框 ===================== */
+.create-branch-dialog,
+.merge-dialog {
+  width: 480px;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+}
+
+.dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.form-input {
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
+  border-radius: 4px;
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  font-size: 13px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+}
+
+.dialog-text {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.code-highlight {
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ===================== 分支重命名对话框 ===================== */
+.branch-rename-dialog {
+  width: 380px;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+}
+
+/* ===================== 错误按钮 ===================== */
+.btn-error {
+  color: #ef4444;
+}
+
+.btn-error:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+/* ===================== 滚动条 ===================== */
+.branches-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.branches-content::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 3px;
+}
+
+.branches-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+</style>
