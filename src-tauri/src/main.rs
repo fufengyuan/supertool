@@ -129,16 +129,18 @@ fn main() {
                 &PredefinedMenuItem::quit(handle, Some("退出"))?,
             ])?;
 
-            let search_item = nav_item("search", "全局搜索", Some("CmdOrCtrl+K"))?;
+            let search_menu = Submenu::with_items(handle, "搜索", true, &[
+                &action_item("search", "全局搜索", Some("CmdOrCtrl+K"))?,
+            ])?;
 
             let menu = Menu::with_items(handle, &[
                 &edit_menu,
-                &search_item,
                 &business_menu,
                 &ops_menu,
                 &dev_menu,
                 &security_menu,
                 &system_menu,
+                &search_menu,
             ])?;
             app.set_menu(menu)?;
 
