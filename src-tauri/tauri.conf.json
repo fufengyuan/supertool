@@ -4,9 +4,9 @@
   "version": "3.1.9",
   "identifier": "com.fufengyuan.supertool.tauri",
   "build": {
-    "beforeDevCommand": "npm run dev",
+    "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "/path/to/.nvm/versions/node/v22.22.2/bin/pnpm run build",
     "frontendDist": "../dist"
   },
   "app": {
