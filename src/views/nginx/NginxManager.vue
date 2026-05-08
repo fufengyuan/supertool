@@ -302,6 +302,9 @@ async function onDeletePreset(id: string) {
 
 function onSelectPreset(preset: any) {
   currentPreset.value = preset
+  configContent.value = ''
+  versions.value = []
+  testResult.value = null
 }
 
 async function onFetchConfig() {

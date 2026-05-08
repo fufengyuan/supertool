@@ -31,9 +31,15 @@ impl CoreService {
         let safe_path = shell_escape_path(config_path);
         let result = self
             .run_ssh_blocking(move |ssh| {
-                ssh.exec_command(&sid, &format!("cat '{}'", safe_path))
+                ssh.exec_command(&sid, &format!("cat '{}' 2>&1", safe_path))
             })
             .await?;
+        if !result.success {
+            return Ok(ApiResponse::err(format!(
+                "Failed to read config: {}",
+                result.output.trim()
+            )));
+        }
         Ok(ApiResponse::ok(result.output))
     }
 
@@ -78,13 +84,13 @@ impl CoreService {
         let sb2 = safe_backup.clone();
         let backup_result = self
             .run_ssh_blocking(move |ssh| {
-                ssh.exec_command(&sid2, &format!("cp '{}' '{}'", sp2, sb2))
+                ssh.exec_command(&sid2, &format!("cp '{}' '{}' 2>&1", sp2, sb2))
             })
             .await?;
         if !backup_result.success {
             return Ok(ApiResponse::err(format!(
                 "Backup failed: {}",
-                backup_result.output
+                backup_result.output.trim()
             )));
         }
 
@@ -93,12 +99,11 @@ impl CoreService {
             base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
         let sid3 = sid.clone();
         let sp3 = safe_path.clone();
-        // Use printf instead of echo to avoid portability issues
         let write_result = self
             .run_ssh_blocking(move |ssh| {
                 ssh.exec_command(
                     &sid3,
-                    &format!("printf '%s' '{}' | base64 -d > '{}'", encoded, sp3),
+                    &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, sp3),
                 )
             })
             .await?;
@@ -107,13 +112,15 @@ impl CoreService {
             let sid_rb = sid.clone();
             let sb_rb = safe_backup.clone();
             let sp_rb = safe_path.clone();
-            self.run_ssh_blocking(move |ssh| {
-                ssh.exec_command(&sid_rb, &format!("cp '{}' '{}'", sb_rb, sp_rb))
-            })
-            .await?;
+            let rb_result = self
+                .run_ssh_blocking(move |ssh| {
+                    ssh.exec_command(&sid_rb, &format!("cp '{}' '{}' 2>&1", sb_rb, sp_rb))
+                })
+                .await?;
             return Ok(ApiResponse::err(format!(
-                "Write failed, rolled back: {}",
-                write_result.output
+                "Write failed{}. Rollback: {}",
+                write_result.output.trim(),
+                if rb_result.success { "ok" } else { "ALSO FAILED" }
             )));
         }
 
@@ -132,13 +139,15 @@ impl CoreService {
             let sid5 = sid.clone();
             let sb5 = safe_backup.clone();
             let sp5 = safe_path.clone();
-            self.run_ssh_blocking(move |ssh| {
-                ssh.exec_command(&sid5, &format!("cp '{}' '{}'", sb5, sp5))
-            })
-            .await?;
+            let rb_result = self
+                .run_ssh_blocking(move |ssh| {
+                    ssh.exec_command(&sid5, &format!("cp '{}' '{}' 2>&1", sb5, sp5))
+                })
+                .await?;
             return Ok(ApiResponse::err(format!(
-                "nginx -t failed, rolled back: {}",
-                test_result.output
+                "nginx -t failed: {}. Rollback: {}",
+                test_result.output.trim(),
+                if rb_result.success { "ok" } else { "ALSO FAILED" }
             )));
         }
 
@@ -148,7 +157,7 @@ impl CoreService {
             .run_ssh_blocking(move |ssh| {
                 ssh.exec_command(
                     &sid6,
-                    "systemctl reload nginx 2>/dev/null || nginx -s reload 2>&1",
+                    "systemctl reload nginx 2>&1 || nginx -s reload 2>&1",
                 )
             })
             .await?;
@@ -156,7 +165,10 @@ impl CoreService {
         Ok(ApiResponse::ok(NginxDeployResult {
             success: true,
             backup_path,
-            message: format!("Config deployed. Reload: {}", reload_result.output.trim()),
+            message: format!(
+                "Config deployed. Reload: {}",
+                reload_result.output.trim()
+            ),
         }))
     }
 
@@ -171,7 +183,7 @@ impl CoreService {
         let safe_path = shell_escape_path(config_path);
         let safe_backup = shell_escape_path(backup_path);
         let cmd = format!(
-            "cp '{}' '{}' && nginx -t -c '{}' 2>&1 && (systemctl reload nginx 2>/dev/null || nginx -s reload 2>&1)",
+            "cp '{}' '{}' 2>&1 && nginx -t -c '{}' 2>&1 && (systemctl reload nginx 2>&1 || nginx -s reload 2>&1)",
             safe_backup, safe_path, safe_path
         );
         let result = self
@@ -180,7 +192,7 @@ impl CoreService {
         if result.output.contains("syntax is ok") || result.output.contains("test is successful") {
             Ok(ApiResponse::ok(result.output))
         } else {
-            Ok(ApiResponse::err(format!("Rollback test failed: {}", result.output)))
+            Ok(ApiResponse::err(format!("Rollback failed: {}", result.output.trim())))
         }
     }
 
