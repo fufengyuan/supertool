@@ -86,7 +86,6 @@ import UiModal from '@/components/ui/Modal.vue';
 import UiEmptyState from '@/components/ui/EmptyState.vue';
 import { useProjects } from '../../composables/useProjects';
 import { useErrorHandler } from '../../composables/useErrorHandler';
-import { getTauriAPI } from '../../utils/tauri-api';
 import type { Project } from '../../types';
 
 const router = useRouter();
@@ -167,11 +166,6 @@ const openEditModal = (project: Project) => {
   showModal.value = true;
 };
 
-const closeModal = () => {
-  showModal.value = false;
-  editingProject.value = null;
-};
-
 const resetModal = () => {
   editingProject.value = null;
   showModal.value = false;
@@ -212,7 +206,7 @@ const toggleArchive = async (project: Project) => {
       archived: !project.archived,
       updatedAt: new Date().toISOString(),
     };
-    await getTauriAPI().updateProject(updated);
+    await projectsApi.updateProject(updated as unknown as Project);
     await loadProjects();
   } catch (error) {
     handleError(error, { context: 'toggleArchive' });
@@ -220,7 +214,7 @@ const toggleArchive = async (project: Project) => {
 };
 
 onMounted(async () => {
-    console.log("[components/ProjectList.vue] mounted")
+    console.log("[views/projects/ProjectList.vue] mounted")
   await loadProjects();
   // 从详情页点编辑跳回来时自动打开编辑弹窗
   const editId = route.query.edit as string;

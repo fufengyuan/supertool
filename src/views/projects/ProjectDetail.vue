@@ -144,7 +144,6 @@ const props = defineProps({
 })
 
 const router = useRouter()
-const emit = defineEmits(['editProject', 'projectUpdated'])
 
 const todoStore = useTodoStore()
 const projectStore = useProjectStore()
@@ -226,7 +225,7 @@ const toggleArchive = async () => {
     console.log("[toggleArchive] called");
     const updated = { ...project.value, archived: !project.value.archived, updatedAt: new Date().toISOString() }
     await projectsApi.updateProject(updated as unknown as Project)
-    emit('projectUpdated', updated)
+    project.value = updated as unknown as Project
   } catch (error) { handleError(error, { context: 'toggleArchive' }) }
 }
 

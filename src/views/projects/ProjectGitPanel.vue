@@ -67,7 +67,7 @@
 </template>
 
 <script setup lang="ts">
-console.log("[components/project/ProjectGitPanel.vue] component loaded")
+console.log("[views/projects/ProjectGitPanel.vue] component loaded")
 import { ref, computed, onMounted } from 'vue'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
