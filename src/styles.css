@@ -18,6 +18,16 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* 桌面应用风格：取消手型光标，使用默认箭头 */
+*,
+*::before,
+*::after {
+  cursor: default !important;
+}
+input, textarea, select, [contenteditable] {
+  cursor: text !important;
+}
+
 /* 滚动条 */
 ::-webkit-scrollbar {
   width: 6px;
