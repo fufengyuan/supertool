@@ -318,10 +318,10 @@ pub fn get_cache_paths() -> Vec<CachePath> {
             ];
 
             for (rel_path, name, desc, safe) in cache_paths {
-                let size = calculate_dir_size(cache_path).unwrap_or(0);
+                let size = calculate_dir_size(rel_path).unwrap_or(0);
                 if size > 0 {
                     caches.push(CachePath {
-                        path: path_str,
+                        path: rel_path.to_string_lossy().to_string(),
                         name: name.to_string(),
                         description: desc.to_string(),
                         size,
