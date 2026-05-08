@@ -1128,10 +1128,10 @@ export function useDataBackupAPI() {
       if (!res.success) throw new Error(res.error)
     },
     getDataDir: async (): Promise<any> => {
-      return await tauriInvoke<any>('get_data_dir')
+      return await tauriCall<any>('get_data_dir')
     },
     setDataDir: async (path: string): Promise<any> => {
-      return await tauriInvoke<any>('set_data_dir', { path })
+      return await tauriCall<any>('set_data_dir', { path })
     },
   }
 }
