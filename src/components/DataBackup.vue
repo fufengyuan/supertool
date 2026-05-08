@@ -384,7 +384,7 @@ onMounted(async () => {
     const result = await getTauriAPI().getDataDir();
     if (result?.success) {
       dataDir.value.path = result.path;
-      dataDir.value.editPath = result.isCustom ? result.path : '';
+      dataDir.value.editPath = result.path;
       dataDir.value.defaultPath = result.defaultPath;
       dataDir.value.isCustom = result.isCustom;
     }
@@ -473,7 +473,7 @@ async function resetDataDir() {
     if (result?.success) {
       dataDir.value.needRestart = true
       dataDir.value.isCustom = false
-      dataDir.value.editPath = ''
+      dataDir.value.editPath = dataDir.value.defaultPath
       dataDir.value.path = dataDir.value.defaultPath
       message.value = result.message || '已恢复默认数据目录'
       messageType.value = 'success'
