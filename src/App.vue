@@ -1,5 +1,5 @@
 <template>
-  <div class="app-root" :data-theme="isDark ? 'dark' : 'light'">
+  <div class="app-root">
     <router-view />
     <!-- 全局组件 -->
     <ToastContainer />
