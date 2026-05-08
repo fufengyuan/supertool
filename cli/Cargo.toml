@@ -1,0 +1,22 @@
+[package]
+name = "stool"
+version = "3.1.1"
+edition = "2021"
+description = "SuperTool CLI - Unix Domain Socket client for the running SuperTool Electron app"
+
+[[bin]]
+name = "stool"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+dirs = "5"
+
+[profile.release]
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"

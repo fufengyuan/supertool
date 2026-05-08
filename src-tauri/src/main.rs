@@ -589,6 +589,9 @@ fn main() {
             commands::disk_cleaner::get_cache_paths,
             commands::disk_cleaner::delete_items,
             commands::disk_cleaner::find_duplicates,
+            // CLI installer commands
+            commands::cli_installer::install_cli_and_skills,
+            commands::cli_installer::check_cli_installed,
             update_frequent_menu,
         ])
         .run(tauri::generate_context!())
