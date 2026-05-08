@@ -1,18 +1,18 @@
 <template>
-  <div class="project-analysis comparison">
-    <h3 class="section-title">{{ title || $t('comparison.lastWeekTitle') }}</h3>
-    <div class="comparison-grid">
-      <div class="comparison-item">
-        <div class="comparison-label">{{ currentLabel || $t('comparison.thisWeek') }}</div>
-        <div class="comparison-value">{{ currentStats.total }}</div>
+  <div class="mb-8 p-5 bg-gradient-to-br from-success/10 to-base-200 rounded-xl border-2 border-base-content/10">
+    <h3 class="text-lg font-semibold text-primary mb-4">{{ title || $t('comparison.lastWeekTitle') }}</h3>
+    <div class="grid grid-cols-3 gap-4 mb-5">
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10">
+        <div class="text-[13px] text-base-content/40 mb-2">{{ currentLabel || $t('comparison.thisWeek') }}</div>
+        <div class="text-2xl font-bold text-base-content">{{ currentStats.total }}</div>
       </div>
-      <div class="comparison-item">
-        <div class="comparison-label">{{ previousLabel || $t('comparison.lastWeek') }}</div>
-        <div class="comparison-value">{{ previousStats.total }}</div>
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10">
+        <div class="text-[13px] text-base-content/40 mb-2">{{ previousLabel || $t('comparison.lastWeek') }}</div>
+        <div class="text-2xl font-bold text-base-content">{{ previousStats.total }}</div>
       </div>
-      <div class="comparison-item highlight">
-        <div class="comparison-label">{{ $t('comparison.change') }}</div>
-        <div class="comparison-value" :class="changeClass">
+      <div class="bg-primary p-4 rounded-xl text-center border-2 border-primary text-white">
+        <div class="text-[13px] text-white/80 mb-2">{{ $t('comparison.change') }}</div>
+        <div class="text-2xl font-bold" :class="{ 'text-success': changeValue > 0, 'text-error': changeValue < 0, 'text-base-content/40': changeValue === 0 }">
           {{ changeText }}
         </div>
       </div>
@@ -39,81 +39,4 @@ const changeText = computed(() => {
   if (change < 0) return `${change}`;
   return '0';
 });
-
-const changeClass = computed(() => {
-  const change = changeValue.value;
-  if (change > 0) return 'positive';
-  if (change < 0) return 'negative';
-  return 'neutral';
-});
 </script>
-
-<style scoped>
-.project-analysis {
-  margin-bottom: 32px;
-  padding: 20px;
-  background: linear-gradient(135deg, color-mix(in oklab, var(--color-success) 10%, transparent), var(--color-base-200));
-  border-radius: 12px;
-  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 16px;
-}
-
-.comparison-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.comparison-item {
-  background: var(--color-base-100);
-  padding: 16px;
-  border-radius: 12px;
-  text-align: center;
-  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.comparison-item.highlight {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.comparison-label {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  margin-bottom: 8px;
-}
-
-.comparison-item.highlight .comparison-label {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.comparison-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--color-base-content);
-}
-
-.comparison-item.highlight .comparison-value {
-  color: white;
-}
-
-.comparison-value.positive {
-  color: var(--color-success);
-}
-
-.comparison-value.negative {
-  color: var(--color-error);
-}
-
-.comparison-value.neutral {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-</style>

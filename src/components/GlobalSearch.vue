@@ -1,218 +1,229 @@
 <template>
   <Teleport to="body">
-    <Transition name="global-search">
-      <div v-if="isOpen" class="global-search-overlay" @mousedown.self="close">
-        <div class="global-search-container">
+    <Transition
+      enter-active-class="transition-opacity duration-150 ease"
+      leave-active-class="transition-opacity duration-150 ease"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="isOpen" class="fixed inset-0 z-[9999] flex items-start justify-center pt-[15vh] bg-black/40" @mousedown.self="close">
+        <div class="w-[560px] max-w-[90vw] bg-base-100 border border-base-content/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
           <!-- 搜索输入区 -->
-          <div class="search-input-wrapper">
-            <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <div class="relative flex items-center px-5 py-4 border-b border-base-content/10">
+            <svg class="absolute left-6 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
             <input
               ref="inputRef"
               v-model="query"
               type="text"
-              class="search-input"
+              class="flex-1 border-none outline-none text-base bg-transparent text-base-content pl-8 placeholder:text-base-content/60"
               placeholder="搜索任务、项目、服务器、笔记、CI/CD…"
               @keydown.down.prevent="navigateResults(1)"
               @keydown.up.prevent="navigateResults(-1)"
               @keydown.enter.prevent="selectResult"
               @keydown.esc.prevent="close"
             />
-            <kbd class="shortcut-hint">ESC</kbd>
+            <kbd class="text-[11px] px-2 py-0.5 rounded bg-base-200 text-base-content/60 border border-base-content/10">ESC</kbd>
           </div>
 
           <!-- 搜索结果 -->
-          <div v-if="query.trim()" class="search-results">
+          <div v-if="query.trim()" class="max-h-[360px] overflow-y-auto py-2">
             <template v-if="results.length > 0">
               <!-- 任务结果 -->
               <template v-if="todoResults.length > 0">
-                <div class="result-group-label">任务</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">任务</div>
                 <div
                   v-for="(item, idx) in todoResults"
                   :key="'todo-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('todo', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('todo', idx) }"
                   @click="selectItem(item, 'todo')"
                   @mouseenter="activeIndex = getGlobalIndex('todo', idx)"
                 >
-                  <span class="result-icon todo-icon">✓</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.text, query)"></span>
-                    <span class="result-subtitle">{{ item.tag || '未分类' }} · {{ formatDate(item.createdAt) }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(34,197,94,0.1)] text-[#22c55e]">✓</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.text, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.tag || '未分类' }} · {{ formatDate(item.createdAt) }}</span>
                   </div>
-                  <span class="result-badge" :class="'priority-' + (item.priority || '')" v-if="item.priority">{{ priorityLabel(item.priority) }}</span>
+                  <span v-if="item.priority" class="text-[11px] px-2 py-0.5 rounded font-medium shrink-0"
+                    :class="{
+                      'bg-[rgba(239,68,68,0.1)] text-[#ef4444]': item.priority === 'high',
+                      'bg-[rgba(245,158,11,0.1)] text-[#f59e0b]': item.priority === 'medium',
+                      'bg-[rgba(34,197,94,0.1)] text-[#22c55e]': item.priority === 'low'
+                    }"
+                  >{{ priorityLabel(item.priority) }}</span>
                 </div>
               </template>
 
               <!-- 项目结果 -->
               <template v-if="projectResults.length > 0">
-                <div class="result-group-label">项目</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">项目</div>
                 <div
                   v-for="(item, idx) in projectResults"
                   :key="'project-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('project', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('project', idx) }"
                   @click="selectItem(item, 'project')"
                   @mouseenter="activeIndex = getGlobalIndex('project', idx)"
                 >
-                  <span class="result-icon project-icon" :style="{ color: item.color || '#6c63ff' }">📁</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
-                    <span class="result-subtitle">{{ item.description || '暂无描述' }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(99,102,241,0.1)]" :style="{ color: item.color || '#6c63ff' }">📁</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.description || '暂无描述' }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- 服务器结果 -->
               <template v-if="serverResults.length > 0">
-                <div class="result-group-label">服务器</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">服务器</div>
                 <div
                   v-for="(item, idx) in serverResults"
                   :key="'server-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('server', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('server', idx) }"
                   @click="selectItem(item, 'server')"
                   @mouseenter="activeIndex = getGlobalIndex('server', idx)"
                 >
-                  <span class="result-icon server-icon">🖥️</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
-                    <span class="result-subtitle">{{ item.host }}:{{ item.port }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(251,146,60,0.1)]">🖥️</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.host }}:{{ item.port }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- 笔记结果 -->
               <template v-if="noteResults.length > 0">
-                <div class="result-group-label">笔记</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">笔记</div>
                 <div
                   v-for="(item, idx) in noteResults"
                   :key="'note-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('note', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('note', idx) }"
                   @click="selectItem(item, 'note')"
                   @mouseenter="activeIndex = getGlobalIndex('note', idx)"
                 >
-                  <span class="result-icon note-icon">📓</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.title, query)"></span>
-                    <span class="result-subtitle">{{ item.group || '未分组' }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(168,85,247,0.1)]">📓</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.title, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.group || '未分组' }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- CI/CD 结果 -->
               <template v-if="cicdResults.length > 0">
-                <div class="result-group-label">CI/CD</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">CI/CD</div>
                 <div
                   v-for="(item, idx) in cicdResults"
                   :key="'cicd-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('cicd', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('cicd', idx) }"
                   @click="selectItem(item, 'cicd')"
                   @mouseenter="activeIndex = getGlobalIndex('cicd', idx)"
                 >
-                  <span class="result-icon cicd-icon">🚀</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
-                    <span class="result-subtitle">{{ item.groupName || '未分组' }} · {{ item.deployBranch }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(245,158,11,0.1)]">🚀</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.groupName || '未分组' }} · {{ item.deployBranch }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- MFA 结果 -->
               <template v-if="mfaResults.length > 0">
-                <div class="result-group-label">MFA</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">MFA</div>
                 <div
                   v-for="(item, idx) in mfaResults"
                   :key="'mfa-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('mfa', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('mfa', idx) }"
                   @click="selectItem(item, 'mfa')"
                   @mouseenter="activeIndex = getGlobalIndex('mfa', idx)"
                 >
-                  <span class="result-icon mfa-icon">🔐</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
-                    <span class="result-subtitle">{{ item.account || item.issuer || '' }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(239,68,68,0.1)]">🔐</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.account || item.issuer || '' }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- Git 结果 -->
               <template v-if="gitResults.length > 0">
-                <div class="result-group-label">Git 仓库</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">Git 仓库</div>
                 <div
                   v-for="(item, idx) in gitResults"
                   :key="'git-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('git', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('git', idx) }"
                   @click="selectItem(item, 'git')"
                   @mouseenter="activeIndex = getGlobalIndex('git', idx)"
                 >
-                  <span class="result-icon git-icon">🔀</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
-                    <span class="result-subtitle">{{ item.path || item.url || '' }}</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(59,130,246,0.1)]">🔀</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="block text-xs text-base-content/60 mt-0.5">{{ item.path || item.url || '' }}</span>
                   </div>
                 </div>
               </template>
 
               <!-- VPN 结果 -->
               <template v-if="vpnResults.length > 0">
-                <div class="result-group-label">VPN</div>
+                <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">VPN</div>
                 <div
                   v-for="(item, idx) in vpnResults"
                   :key="'vpn-' + item.id"
-                  class="search-result-item"
-                  :class="{ active: activeIndex === getGlobalIndex('vpn', idx) }"
+                  class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+                  :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === getGlobalIndex('vpn', idx) }"
                   @click="selectItem(item, 'vpn')"
                   @mouseenter="activeIndex = getGlobalIndex('vpn', idx)"
                 >
-                  <span class="result-icon vpn-icon">🌐</span>
-                  <div class="result-info">
-                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(20,184,166,0.1)]">🌐</span>
+                  <div class="flex-1 min-w-0">
+                    <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                   </div>
                 </div>
               </template>
             </template>
 
             <!-- 无结果 -->
-            <div v-else class="no-results">
-              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5">
+            <div v-else class="flex flex-col items-center py-10 px-5 text-base-content/60">
+              <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30 mb-3">
                 <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
               </svg>
-              <p>未找到匹配的结果</p>
-              <p class="hint">尝试其他关键词</p>
+              <p class="m-0 text-sm">未找到匹配的结果</p>
+              <p class="text-xs opacity-70 mt-1">尝试其他关键词</p>
             </div>
           </div>
 
           <!-- 默认快捷操作 (无搜索词时) -->
-          <div v-else class="quick-actions">
-            <div class="result-group-label">常用功能</div>
+          <div v-else class="max-h-[360px] overflow-y-auto py-2">
+            <div class="px-5 py-1.5 text-[11px] font-semibold uppercase text-base-content/60 tracking-wider">常用功能</div>
             <div
               v-for="(item, idx) in frequentNavs"
               :key="item.viewId"
-              class="search-result-item"
-              :class="{ active: activeIndex === idx }"
+              class="flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-[background] duration-100 ease hover:bg-[var(--bg-hover,#f0f0f0)]"
+              :class="{ 'bg-[var(--bg-hover,#f0f0f0)]': activeIndex === idx }"
               @click="quickNavigateFreq(item)"
               @mouseenter="activeIndex = idx"
             >
-              <span class="result-icon">{{ item.icon }}</span>
-              <div class="result-info">
-                <span class="result-title">{{ item.label }}</span>
-                <span class="result-subtitle">点击 {{ item.count }} 次</span>
+              <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0">{{ item.icon }}</span>
+              <div class="flex-1 min-w-0">
+                <span class="block text-sm font-medium text-base-content truncate">{{ item.label }}</span>
+                <span class="block text-xs text-base-content/60 mt-0.5">点击 {{ item.count }} 次</span>
               </div>
-              <kbd class="result-kbd">{{ idx + 1 }}</kbd>
+              <kbd class="text-[11px] px-2 py-0.5 rounded bg-base-200 text-base-content/60 border border-base-content/10 shrink-0">{{ idx + 1 }}</kbd>
             </div>
           </div>
 
           <!-- 底部提示 -->
-          <div class="search-footer">
-            <span class="footer-item"><kbd>↑↓</kbd> 导航</span>
-            <span class="footer-item"><kbd>↵</kbd> 打开</span>
-            <span class="footer-item"><kbd>esc</kbd> 关闭</span>
+          <div class="flex gap-4 px-5 py-2.5 border-t border-base-content/10 bg-base-200">
+            <span class="flex items-center gap-1.5 text-xs text-base-content/60"><kbd class="text-[10px] px-1.5 py-[1px] rounded bg-base-100 border border-base-content/10">↑↓</kbd> 导航</span>
+            <span class="flex items-center gap-1.5 text-xs text-base-content/60"><kbd class="text-[10px] px-1.5 py-[1px] rounded bg-base-100 border border-base-content/10">↵</kbd> 打开</span>
+            <span class="flex items-center gap-1.5 text-xs text-base-content/60"><kbd class="text-[10px] px-1.5 py-[1px] rounded bg-base-100 border border-base-content/10">esc</kbd> 关闭</span>
           </div>
         </div>
       </div>
@@ -499,7 +510,7 @@ const highlightMatch = (text: string, pattern: string): string => {
   if (!text || !pattern) return text || ''
   const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const regex = new RegExp(`(${escaped})`, 'gi')
-  return (text || '').replace(regex, '<mark>$1</mark>')
+  return (text || '').replace(regex, '<mark class="bg-[rgba(99,102,241,0.2)] text-inherit rounded-sm px-[1px]">$1</mark>')
 }
 
 // 格式化日期
@@ -547,276 +558,3 @@ onUnmounted(() => {
   cleanup?.()
 })
 </script>
-
-<style scoped>
-.global-search-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding-top: 15vh;
-  background: rgba(0, 0, 0, 0.4);
-}
-
-.global-search-container {
-  width: 560px;
-  max-width: 90vw;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.search-input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 16px 20px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.search-icon {
-  position: absolute;
-  left: 24px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  pointer-events: none;
-}
-
-.search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 16px;
-  background: transparent;
-  color: var(--color-base-content);
-  padding-left: 32px;
-}
-
-.search-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.shortcut-hint {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.search-results,
-.quick-actions {
-  max-height: 360px;
-  overflow-y: auto;
-  padding: 8px 0;
-}
-
-.result-group-label {
-  padding: 6px 20px;
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  letter-spacing: 0.5px;
-}
-
-.search-result-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
-  cursor: pointer;
-  transition: background 0.1s ease;
-}
-
-.search-result-item:hover,
-.search-result-item.active {
-  background: var(--bg-hover, #f0f0f0);
-}
-
-.result-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.todo-icon {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.project-icon {
-  background: rgba(99, 102, 241, 0.1);
-}
-
-.server-icon {
-  background: rgba(251, 146, 60, 0.1);
-}
-
-.note-icon {
-  background: rgba(168, 85, 247, 0.1);
-}
-
-.cicd-icon {
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.mfa-icon {
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.git-icon {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.vpn-icon {
-  background: rgba(20, 184, 166, 0.1);
-}
-
-.result-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.result-title {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--color-base-content);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.result-title :deep(mark) {
-  background: rgba(99, 102, 241, 0.2);
-  color: inherit;
-  border-radius: 2px;
-  padding: 0 1px;
-}
-
-.result-subtitle {
-  display: block;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-top: 2px;
-}
-
-.result-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-
-.priority-high {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
-}
-
-.priority-medium {
-  background: rgba(245, 158, 11, 0.1);
-  color: #f59e0b;
-}
-
-.priority-low {
-  background: rgba(34, 197, 94, 0.1);
-  color: #22c55e;
-}
-
-.result-kbd {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  flex-shrink: 0;
-}
-
-.no-results {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.no-results svg {
-  opacity: 0.3;
-  margin-bottom: 12px;
-}
-
-.no-results p {
-  margin: 0;
-  font-size: 14px;
-}
-
-.no-results .hint {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 4px;
-}
-
-.search-footer {
-  display: flex;
-  gap: 16px;
-  padding: 10px 20px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-}
-
-.footer-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.footer-item kbd {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 3px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* 过渡动画 */
-.global-search-enter-active,
-.global-search-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.global-search-enter-from,
-.global-search-leave-to {
-  opacity: 0;
-}
-
-.global-search-enter-active .global-search-container,
-.global-search-leave-active .global-search-container {
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.global-search-enter-from .global-search-container {
-  transform: scale(0.95) translateY(-10px);
-  opacity: 0;
-}
-
-.global-search-leave-to .global-search-container {
-  transform: scale(0.98);
-  opacity: 0;
-}
-</style>

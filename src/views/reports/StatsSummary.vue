@@ -1,34 +1,34 @@
 <template>
-  <div class="stats-summary">
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-value">{{ stats.total }}</div>
-        <div class="stat-label">{{ label || $t('stats.completedCount') }}</div>
+  <div class="mb-5">
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] gap-4 mb-5">
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+        <div class="text-[28px] font-bold text-primary mb-2">{{ stats.total }}</div>
+        <div class="text-sm text-base-content/40">{{ label || $t('stats.completedCount') }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ stats.byPriority.high }}</div>
-        <div class="stat-label">{{ $t('stats.highPriority') }}</div>
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+        <div class="text-[28px] font-bold text-primary mb-2">{{ stats.byPriority.high }}</div>
+        <div class="text-sm text-base-content/40">{{ $t('stats.highPriority') }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ stats.byPriority.medium }}</div>
-        <div class="stat-label">{{ $t('stats.mediumPriority') }}</div>
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+        <div class="text-[28px] font-bold text-primary mb-2">{{ stats.byPriority.medium }}</div>
+        <div class="text-sm text-base-content/40">{{ $t('stats.mediumPriority') }}</div>
       </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ stats.byPriority.low }}</div>
-        <div class="stat-label">{{ $t('stats.lowPriority') }}</div>
+      <div class="bg-base-100 p-4 rounded-xl text-center border-2 border-base-content/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+        <div class="text-[28px] font-bold text-primary mb-2">{{ stats.byPriority.low }}</div>
+        <div class="text-sm text-base-content/40">{{ $t('stats.lowPriority') }}</div>
       </div>
     </div>
 
     <!-- 任务列表 -->
-    <div class="task-list-section">
-      <h4>{{ listTitle || $t('stats.taskList') }}</h4>
-      <ul class="report-task-list">
-        <li v-for="task in tasks" :key="task.id" class="report-task-item">
-          <span class="task-text">{{ task.text }}</span>
-          <span class="task-date">{{ formatDate(task.completedAt || task.updatedAt) }}</span>
+    <div class="mt-5">
+      <h4 class="text-[15px] font-semibold text-base-content mb-3">{{ listTitle || $t('stats.taskList') }}</h4>
+      <ul class="list-none p-0 max-h-[200px] overflow-y-auto">
+        <li v-for="task in tasks" :key="task.id" class="flex justify-between items-center px-3 py-2.5 bg-base-100 rounded-lg mb-2 border border-base-content/10">
+          <span class="text-sm text-base-content">{{ task.text }}</span>
+          <span class="text-xs text-base-content/40 bg-success/10 px-2 py-1 rounded-md">{{ formatDate(task.completedAt || task.updatedAt) }}</span>
         </li>
       </ul>
-      <p v-if="tasks.length === 0" class="empty-text">{{ emptyText || $t('stats.empty') }}</p>
+      <p v-if="tasks.length === 0" class="text-center text-base-content/40 text-sm p-5">{{ emptyText || $t('stats.empty') }}</p>
     </div>
   </div>
 </template>
@@ -43,91 +43,3 @@ const props = defineProps({
   emptyText: { type: String, default: '暂无完成任务' },
 });
 </script>
-
-<style scoped>
-.stats-summary {
-  margin-bottom: 20px;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.stat-card {
-  background: var(--color-base-100);
-  padding: 16px;
-  border-radius: 12px;
-  text-align: center;
-  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  transition: all 0.3s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: var(--color-primary);
-  margin-bottom: 8px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-
-.task-list-section {
-  margin-top: 20px;
-}
-
-.task-list-section h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin-bottom: 12px;
-}
-
-.report-task-list {
-  list-style: none;
-  padding: 0;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.report-task-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.task-text {
-  font-size: 14px;
-  color: var(--color-base-content);
-}
-
-.task-date {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  background: color-mix(in oklab, var(--color-success) 10%, transparent);
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.empty-text {
-  text-align: center;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  font-size: 14px;
-  padding: 20px;
-}
-</style>

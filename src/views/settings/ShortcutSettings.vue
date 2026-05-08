@@ -1,30 +1,30 @@
 <template>
-  <div class="shortcut-settings">
-    <h2>⌨️ 快捷键设置</h2>
-    <p class="desc">自定义功能快捷键，点击输入框后按下新快捷键即可修改。</p>
-    <div class="shortcut-list">
-      <div v-for="item in shortcutItems" :key="item.key" class="shortcut-row" :class="{ editing: editingKey === item.key }">
-        <div class="shortcut-info">
-          <span class="shortcut-label">{{ item.label }}</span>
-          <span class="shortcut-desc">{{ item.description }}</span>
+  <div class="p-6 max-w-2xl mx-auto text-base-content">
+    <h2 class="m-0 mb-2 text-xl font-bold">⌨️ 快捷键设置</h2>
+    <p class="text-sm text-base-content/60 mb-5">自定义功能快捷键，点击输入框后按下新快捷键即可修改。</p>
+    <div class="flex flex-col gap-0.5">
+      <div v-for="item in shortcutItems" :key="item.key" class="flex items-center justify-between p-3 px-4 bg-base-100 rounded-lg transition-colors duration-200 hover:bg-base-200" :class="{ 'bg-primary/10 border border-primary': editingKey === item.key }">
+        <div class="flex flex-col gap-0.5">
+          <span class="font-semibold text-sm">{{ item.label }}</span>
+          <span class="text-xs text-base-content/60">{{ item.description }}</span>
         </div>
-        <div class="shortcut-actions">
-          <div class="shortcut-key-display" :class="{ 'is-editing': editingKey === item.key }" @click="startEdit(item.key)">
+        <div class="flex items-center gap-2">
+          <div class="min-w-[160px] px-3 py-2 bg-base-200 border border-base-content/10 rounded-md font-mono text-sm cursor-pointer text-center transition-all duration-200 flex items-center justify-center gap-2 hover:border-primary" :class="{ 'border-primary bg-base-100': editingKey === item.key }" @click="startEdit(item.key)">
             <template v-if="editingKey === item.key">
-              <span class="recording">按下新快捷键...</span>
-              <span v-if="tempKeys" class="temp-keys">{{ tempKeys }}</span>
+              <span class="text-base-content/60 text-xs">按下新快捷键...</span>
+              <span v-if="tempKeys" class="text-primary font-semibold">{{ tempKeys }}</span>
             </template>
             <template v-else>
-              <span v-if="item.shortcut" class="keys">{{ item.shortcut }}</span>
-              <span v-else class="none">未设置</span>
+              <span v-if="item.shortcut" class="text-primary font-semibold">{{ item.shortcut }}</span>
+              <span v-else class="text-base-content/60 italic">未设置</span>
             </template>
           </div>
-          <button v-if="item.shortcut && item.defaultShortcut && item.shortcut !== item.defaultShortcut" @click="resetShortcut(item.key)" class="btn-reset" title="恢复默认">↩️</button>
+          <button v-if="item.shortcut && item.defaultShortcut && item.shortcut !== item.defaultShortcut" @click="resetShortcut(item.key)" class="bg-transparent border-none text-lg cursor-pointer opacity-50 p-1 transition-opacity duration-200 hover:opacity-100" title="恢复默认">↩️</button>
         </div>
       </div>
     </div>
-    <div class="footer-actions">
-      <button @click="resetAll" class="btn-reset-all">恢复所有默认</button>
+    <div class="mt-6 flex justify-end">
+      <button @click="resetAll" class="px-4 py-2 bg-base-200 border border-base-content/10 rounded-md cursor-pointer text-sm text-base-content transition-all duration-200 hover:bg-base-100 hover:border-primary">恢复所有默认</button>
     </div>
   </div>
 </template>
@@ -169,30 +169,3 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
 </script>
-
-<style scoped>
-.shortcut-settings { padding: 20px; max-width: 800px; margin: 0 auto; color: var(--text-primary); }
-.shortcut-settings h2 { margin: 0 0 8px 0; font-size: 20px; }
-.desc { color: var(--text-secondary); font-size: 13px; margin: 0 0 20px 0; }
-.shortcut-list { display: flex; flex-direction: column; gap: 2px; }
-.shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--color-base-100); border-radius: 8px; transition: background 0.2s; }
-.shortcut-row:hover { background: var(--color-base-200); }
-.shortcut-row.editing { background: color-mix(in oklab, var(--color-primary) 10%, transparent); border: 1px solid var(--color-primary); }
-.shortcut-info { display: flex; flex-direction: column; gap: 2px; }
-.shortcut-label { font-weight: 600; font-size: 14px; }
-.shortcut-desc { font-size: 12px; color: var(--text-secondary); }
-.shortcut-actions { display: flex; align-items: center; gap: 8px; }
-.shortcut-key-display { min-width: 160px; padding: 8px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; cursor: pointer; text-align: center; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.shortcut-key-display:hover { border-color: var(--color-primary); }
-.shortcut-key-display.is-editing { border-color: var(--color-primary); background: var(--color-base-100); animation: pulse-border 1s infinite; }
-@keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 74, 222, 128), 0.4); } 50% { box-shadow: 0 0 0 4px rgba(var(--primary-rgb, 74, 222, 128), 0); } }
-.keys { color: var(--color-primary); font-weight: 600; }
-.none { color: var(--text-secondary); font-style: italic; }
-.recording { color: var(--text-secondary); font-size: 12px; }
-.temp-keys { color: var(--color-primary); font-weight: 600; }
-.btn-reset { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.5; padding: 4px; transition: opacity 0.2s; }
-.btn-reset:hover { opacity: 1; }
-.footer-actions { margin-top: 24px; display: flex; justify-content: flex-end; }
-.btn-reset-all { padding: 8px 16px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; cursor: pointer; color: var(--text-primary); font-size: 13px; transition: all 0.2s; }
-.btn-reset-all:hover { background: var(--color-base-100); border-color: var(--color-primary); }
-</style>

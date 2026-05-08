@@ -1,21 +1,28 @@
 <template>
-  <div class="redis-folder-group">
+  <div class="flex flex-col">
     <!-- Folder node with children -->
     <template v-if="!node.isLeaf">
       <div
-        class="tree-item tree-folder"
-        :class="{ expanded: isExpanded }"
+        class="relative flex items-center gap-1 px-1.5 py-[3px] mx-0.5 rounded cursor-pointer text-xs leading-5 text-base-content font-medium select-none whitespace-nowrap min-h-[22px] transition-[background,color] duration-100 ease-in-out hover:bg-primary/10"
+        :class="{ 'font-medium': isExpanded }"
         @click.stop="onToggleFolder"
         @contextmenu.prevent="onFolderCtx"
       >
-        <span class="tree-toggle">{{ isExpanded ? '▼' : '▶' }}</span>
-        <span class="tree-icon">📁</span>
-        <span class="tree-label">{{ node.segment }}</span>
-        <span class="tree-count">{{ node.totalCount }}</span>
+        <span class="w-[14px] h-[14px] inline-flex items-center justify-center text-[8px] shrink-0 text-base-content/60 transition-[transform,color] duration-150 ease-in-out hover:text-base-content">{{ isExpanded ? '▼' : '▶' }}</span>
+        <span class="text-[13px] w-4 h-4 inline-flex items-center justify-center shrink-0 leading-none">📁</span>
+        <span class="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{ node.segment }}</span>
+        <span class="text-[10px] px-1.5 py-[1px] rounded-full bg-base-200 text-base-content/60 shrink-0 leading-[1.4] transition-[background,color] duration-100 ease-in-out max-w-[50px] overflow-hidden text-ellipsis whitespace-nowrap text-center hover:bg-base-content/10">{{ node.totalCount }}</span>
       </div>
 
-      <Transition name="accordion">
-        <div v-show="isExpanded" class="tree-children">
+      <Transition
+        enter-active-class="transition-all duration-[180ms] ease overflow-hidden"
+        leave-active-class="transition-all duration-[120ms] ease overflow-hidden"
+        enter-from-class="opacity-0 max-h-0"
+        enter-to-class="opacity-100 max-h-[1000px]"
+        leave-from-class="opacity-100 max-h-[1000px]"
+        leave-to-class="opacity-0 max-h-0"
+      >
+        <div v-show="isExpanded" class="relative ps-4 before:content-[''] before:absolute before:left-2 before:top-0 before:bottom-0 before:w-px before:bg-base-content/10 before:opacity-60 before:pointer-events-none">
           <RedisFolderNode
             v-for="child in node.children.values()"
             :key="child.segment"
@@ -35,13 +42,23 @@
     <!-- Leaf key node -->
     <div
       v-else
-      class="tree-item tree-redis-key"
+      class="relative flex items-center gap-[3px] px-1.5 py-[3px] mx-0.5 rounded cursor-pointer font-mono text-[11.5px] leading-5 text-base-content select-none whitespace-nowrap min-h-[22px] transition-[background,color] duration-100 ease-in-out hover:bg-primary/10"
       @click.stop="$emit('open-key', node.key!)"
       @contextmenu.prevent="$emit('key-context', $event, conn, dbIndex, node.key!, node.type!)"
     >
-      <span class="tree-key-type-dot" :class="'type-' + (node.type || 'default')"></span>
-      <span class="tree-icon">{{ typeIcon(node.type || '') }}</span>
-      <span class="tree-label">{{ node.segment }}</span>
+      <span
+        class="inline-block w-[7px] h-[7px] rounded-full shrink-0 transition-transform duration-100 ease-in-out group-hover:scale-110"
+        :class="{
+          'bg-[#52c41a]': node.type === 'string',
+          'bg-[#1677ff]': node.type === 'hash',
+          'bg-[#fa8c16]': node.type === 'list',
+          'bg-[#722ed1]': node.type === 'set',
+          'bg-[#eb2f96]': node.type === 'zset',
+          'bg-[#8c8c8c]': !node.type || node.type === 'default'
+        }"
+      ></span>
+      <span class="w-4 h-4 inline-flex items-center justify-center shrink-0 text-xs leading-none">{{ typeIcon(node.type || '') }}</span>
+      <span class="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{ node.segment }}</span>
     </div>
   </div>
 </template>
@@ -109,199 +126,3 @@ function typeIcon(type: string): string {
   return icons[type] || '🔑'
 }
 </script>
-
-<style scoped>
-/* ============================================================
-   Redis Folder Node — IDE Navicat-style
-   ============================================================ */
-
-.redis-folder-group {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ── Folder node ─────────────────────────────────────────── */
-.tree-item.tree-folder {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 6px;
-  margin: 0 2px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--color-base-content);
-  font-weight: 500;
-  transition: background 0.12s ease, color 0.12s ease;
-  user-select: none;
-  white-space: nowrap;
-  min-height: 22px;
-}
-
-.tree-item.tree-folder:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.tree-item.tree-folder.expanded {
-  font-weight: 500;
-}
-
-/* Folder icon — slightly different tint when expanded */
-.tree-item.tree-folder .tree-icon {
-  font-size: 13px;
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  line-height: 1;
-}
-
-/* Folder count badge */
-.tree-item.tree-folder .tree-count {
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-  line-height: 1.4;
-  transition: background 0.12s ease, color 0.12s ease;
-  max-width: 50px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: center;
-}
-
-.tree-item.tree-folder:hover .tree-count {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* Folder label */
-.tree-item.tree-folder .tree-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Folder chevron */
-.tree-item.tree-folder .tree-toggle {
-  width: 14px;
-  height: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 8px;
-  flex-shrink: 0;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: transform 0.15s ease, color 0.12s ease;
-}
-
-.tree-item.tree-folder .tree-toggle:hover {
-  color: var(--color-base-content);
-}
-
-/* ── Leaf key node ───────────────────────────────────────── */
-.tree-item.tree-redis-key {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 3px 6px;
-  margin: 0 2px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--color-base-content);
-  transition: background 0.12s ease, color 0.12s ease;
-  user-select: none;
-  white-space: nowrap;
-  min-height: 22px;
-}
-
-.tree-item.tree-redis-key:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-/* Key type dot */
-.tree-key-type-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition: transform 0.1s ease;
-}
-
-.tree-item.tree-redis-key:hover .tree-key-type-dot {
-  transform: scale(1.2);
-}
-
-.tree-key-type-dot.type-string  { background: #52c41a; }
-.tree-key-type-dot.type-hash    { background: #1677ff; }
-.tree-key-type-dot.type-list    { background: #fa8c16; }
-.tree-key-type-dot.type-set     { background: #722ed1; }
-.tree-key-type-dot.type-zset    { background: #eb2f96; }
-.tree-key-type-dot.type-default { background: #8c8c8c; }
-
-/* Key icon */
-.tree-item.tree-redis-key .tree-icon {
-  width: 16px;
-  height: 16px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 12px;
-  line-height: 1;
-}
-
-/* Key label */
-.tree-item.tree-redis-key .tree-label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ── Children container with guide line ─────────────────── */
-.tree-children {
-  position: relative;
-  padding-left: 16px;
-}
-
-.tree-children::before {
-  content: '';
-  position: absolute;
-  left: 8px;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  opacity: 0.6;
-  pointer-events: none;
-}
-
-/* ── Accordion animation ────────────────────────────────── */
-.accordion-enter-active {
-  transition: opacity 0.18s ease, max-height 0.25s ease;
-}
-
-.accordion-leave-active {
-  transition: opacity 0.12s ease, max-height 0.2s ease;
-}
-
-.accordion-enter-from,
-.accordion-leave-to {
-  opacity: 0;
-}
-</style>

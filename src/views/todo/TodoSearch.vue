@@ -1,23 +1,24 @@
 <template>
-  <div class="todo-search">
+  <div class="mb-3 space-y-4">
     <!-- 搜索栏 -->
-    <div class="search-bar">
-      <div class="search-input-container">
+    <div class="flex gap-2 items-center">
+      <div class="relative flex-1">
         <input
           :value="searchQuery"
           @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
           :placeholder="$t('todo.search')"
-          class="search-input"
+          class="input input-bordered w-full text-sm ps-8"
         />
-        <button v-if="searchQuery" @click="$emit('clear-search')" class="clear-search-btn">
+        <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40 pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <button v-if="searchQuery" @click="$emit('clear-search')" class="absolute right-2 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center border-none bg-transparent text-base-content/60 text-base cursor-pointer rounded hover:bg-base-content/10">
           ×
         </button>
       </div>
-      <div class="search-filters">
+      <div class="flex gap-1.5">
         <select
           :value="priorityFilter"
           @change="$emit('update:priorityFilter', ($event.target as HTMLSelectElement).value)"
-          class="filter-select"
+          class="select select-bordered select-sm text-sm"
         >
           <option value="all">{{ $t('todo.priority.all') }}</option>
           <option value="high">{{ $t('todo.priority.highLabel') }}</option>
@@ -27,7 +28,7 @@
         <select
           :value="statusFilter"
           @change="$emit('update:statusFilter', ($event.target as HTMLSelectElement).value)"
-          class="filter-select"
+          class="select select-bordered select-sm text-sm"
         >
           <option value="all">{{ $t('todo.status.all') }}</option>
           <option value="active">{{ $t('todo.filter.active') }}</option>
@@ -37,9 +38,9 @@
     </div>
 
     <!-- 过滤选项 -->
-    <div class="todo-filters">
+    <div class="flex gap-1 flex-wrap">
       <button
-        :class="{ active: filter === 'all' && tagFilter === 'all' }"
+        :class="['btn btn-sm', filter === 'all' && tagFilter === 'all' ? 'btn-primary' : 'btn-ghost']"
         @click="
           $emit('update:filter', 'all');
           $emit('update:tagFilter', 'all');
@@ -49,7 +50,7 @@
         {{ $t('todo.filter.all') }} ({{ totalCount }})
       </button>
       <button
-        :class="{ active: filter === 'active' && tagFilter === 'all' }"
+        :class="['btn btn-sm', filter === 'active' && tagFilter === 'all' ? 'btn-primary' : 'btn-ghost']"
         @click="
           $emit('update:filter', 'active');
           $emit('update:tagFilter', 'all');
@@ -59,7 +60,7 @@
         {{ $t('todo.filter.active') }} ({{ activeCount }})
       </button>
       <button
-        :class="{ active: filter === 'completed' && tagFilter === 'all' }"
+        :class="['btn btn-sm', filter === 'completed' && tagFilter === 'all' ? 'btn-primary' : 'btn-ghost']"
         @click="
           $emit('update:filter', 'completed');
           $emit('update:tagFilter', 'all');
@@ -71,11 +72,11 @@
     </div>
 
     <!-- 标签过滤 -->
-    <div class="todo-filters">
+    <div class="flex gap-1 flex-wrap">
       <button
         v-for="tag in ['all', ...tags]"
         :key="tag"
-        :class="{ active: tagFilter === tag }"
+        :class="['btn btn-sm', tagFilter === tag ? 'btn-primary' : 'btn-ghost']"
         @click="
           $emit('update:tagFilter', tag);
           if (tag !== 'all') $emit('update:filter', 'all');
@@ -111,91 +112,3 @@ defineEmits([
   'reset-filters',
 ]);
 </script>
-
-<style scoped>
-.todo-search {
-  margin-bottom: 12px;
-}
-.search-bar {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  align-items: center;
-}
-.search-input-container {
-  flex: 1;
-  position: relative;
-}
-.search-input {
-  width: 100%;
-  padding: 8px 32px 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  outline: none;
-}
-.search-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-.clear-search-btn {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 20px;
-  height: 20px;
-  border: none;
-  background: none;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.clear-search-btn:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.search-filters {
-  display: flex;
-  gap: 6px;
-}
-.filter-select {
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-  cursor: pointer;
-}
-.todo-filters {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-.todo-filters button {
-  padding: 6px 14px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-}
-.todo-filters button:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-.todo-filters button.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-</style>

@@ -1,65 +1,70 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="visible" class="modal-overlay" @click="close">
-        <div class="modal-content" @click.stop>
-          <div class="modal-header">
-            <h3>⌨️ 快捷键</h3>
-            <button class="modal-close-btn" @click="close" title="关闭">×</button>
+    <Transition
+      enter-active-class="transition-opacity duration-200 ease-out"
+      leave-active-class="transition-opacity duration-200 ease-in"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="visible" class="fixed inset-0 z-[1000] flex items-center justify-center" @click="close">
+        <div class="w-[90%] max-w-[680px] overflow-hidden rounded-2xl bg-base-100 shadow-2xl" @click.stop>
+          <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
+            <h3 class="m-0 text-base font-semibold text-base-content">⌨️ 快捷键</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60 hover:text-base-content" @click="close" title="关闭">×</button>
           </div>
-          <div class="modal-body">
-            <div class="shortcuts-list">
-              <div class="shortcut-group">
-                <h4>通用</h4>
-                <div class="shortcut-item">
-                  <span>新建任务</span>
-                  <kbd>Ctrl+N</kbd>
+          <div class="p-6">
+            <div class="flex flex-col gap-5">
+              <div>
+                <h4 class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">通用</h4>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">新建任务</span>
+                  <kbd class="kbd kbd-sm">Ctrl+N</kbd>
                 </div>
-                <div class="shortcut-item">
-                  <span>搜索任务</span>
-                  <kbd>Ctrl+F</kbd>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">搜索任务</span>
+                  <kbd class="kbd kbd-sm">Ctrl+F</kbd>
                 </div>
-                <div class="shortcut-item">
-                  <span>折叠侧边栏</span>
-                  <kbd>Ctrl+B</kbd>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">折叠侧边栏</span>
+                  <kbd class="kbd kbd-sm">Ctrl+B</kbd>
                 </div>
-                <div class="shortcut-item">
-                  <span>切换主题</span>
-                  <kbd>Ctrl+D</kbd>
-                </div>
-              </div>
-              <div class="shortcut-group">
-                <h4>视图切换</h4>
-                <div class="shortcut-item">
-                  <span>任务视图</span>
-                  <kbd>Ctrl+1</kbd>
-                </div>
-                <div class="shortcut-item">
-                  <span>周报视图</span>
-                  <kbd>Ctrl+2</kbd>
-                </div>
-                <div class="shortcut-item">
-                  <span>项目视图</span>
-                  <kbd>Ctrl+3</kbd>
-                </div>
-                <div class="shortcut-item">
-                  <span>服务器视图</span>
-                  <kbd>Ctrl+4</kbd>
-                </div>
-                <div class="shortcut-item">
-                  <span>数据备份</span>
-                  <kbd>Ctrl+5</kbd>
-                </div>
-                <div class="shortcut-item">
-                  <span>通知设置</span>
-                  <kbd>Ctrl+6</kbd>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">切换主题</span>
+                  <kbd class="kbd kbd-sm">Ctrl+D</kbd>
                 </div>
               </div>
-              <div class="shortcut-group">
-                <h4>其他</h4>
-                <div class="shortcut-item">
-                  <span>关闭弹窗</span>
-                  <kbd>Esc</kbd>
+              <div>
+                <h4 class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">视图切换</h4>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">任务视图</span>
+                  <kbd class="kbd kbd-sm">Ctrl+1</kbd>
+                </div>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">周报视图</span>
+                  <kbd class="kbd kbd-sm">Ctrl+2</kbd>
+                </div>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">项目视图</span>
+                  <kbd class="kbd kbd-sm">Ctrl+3</kbd>
+                </div>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">服务器视图</span>
+                  <kbd class="kbd kbd-sm">Ctrl+4</kbd>
+                </div>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">数据备份</span>
+                  <kbd class="kbd kbd-sm">Ctrl+5</kbd>
+                </div>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">通知设置</span>
+                  <kbd class="kbd kbd-sm">Ctrl+6</kbd>
+                </div>
+              </div>
+              <div>
+                <h4 class="m-0 mb-2 text-xs font-semibold uppercase tracking-wide text-base-content/60">其他</h4>
+                <div class="flex items-center justify-between border-b border-base-content/10 py-2 last:border-b-0">
+                  <span class="text-sm text-base-content">关闭弹窗</span>
+                  <kbd class="kbd kbd-sm">Esc</kbd>
                 </div>
               </div>
             </div>
@@ -86,45 +91,3 @@ const visible = computed({
 
 const close = () => { visible.value = false }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  display: flex; align-items: center; justify-content: center; z-index: 1000;
-}
-.modal-content {
-  background: var(--color-base-100); border-radius: 16px; width: 90%; max-width: 680px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden;
-}
-.modal-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--color-base-content); }
-.modal-close-btn {
-  width: 32px; height: 32px; border: none; border-radius: 8px;
-  background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 20px;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  transition: all 0.15s ease;
-}
-.modal-close-btn:hover { background: var(--color-base-200); color: var(--color-base-content); }
-.modal-body { padding: 24px; }
-.shortcuts-list { display: flex; flex-direction: column; gap: 20px; }
-.shortcut-group h4 {
-  margin: 0 0 8px; font-size: 13px; font-weight: 600; color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-transform: uppercase; letter-spacing: 0.5px;
-}
-.shortcut-item {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.shortcut-item:last-child { border-bottom: none; }
-.shortcut-item span { font-size: 14px; color: var(--color-base-content); }
-.shortcut-item kbd {
-  padding: 4px 10px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px; font-size: 12px; font-family: monospace; color: var(--color-base-content);
-  box-shadow: 0 1px 0 color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
-.modal-enter-from, .modal-leave-to { opacity: 0; }
-</style>

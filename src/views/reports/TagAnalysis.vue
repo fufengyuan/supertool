@@ -1,12 +1,12 @@
 <template>
-  <div class="tag-analysis">
-    <h4>{{ title || $t('tag.distribution') }}</h4>
-    <div class="tag-bar-chart">
-      <div v-for="tag in Object.keys(stats.byTag)" :key="tag" class="tag-bar">
-        <div class="tag-label">{{ tag }}</div>
-        <div class="tag-count-bar">
-          <div class="tag-fill" :style="{ width: getTagPercentage(tag) + '%' }"></div>
-          <span class="tag-count">{{ stats.byTag[tag] }}</span>
+  <div class="mt-5">
+    <h4 class="text-[15px] font-semibold text-base-content mb-3">{{ title || $t('tag.distribution') }}</h4>
+    <div class="flex flex-col gap-3">
+      <div v-for="tag in Object.keys(stats.byTag)" :key="tag" class="flex items-center gap-3">
+        <div class="min-w-[80px] text-[13px] text-base-content">{{ tag }}</div>
+        <div class="flex-1 h-6 bg-base-content/10 rounded-full flex items-center p-1 relative">
+          <div class="h-full bg-gradient-to-r from-primary to-[#4cc9f0] rounded-full transition-[width] duration-300" :style="{ width: getTagPercentage(tag) + '%' }"></div>
+          <span class="absolute right-2 text-xs font-semibold text-base-content">{{ stats.byTag[tag] }}</span>
         </div>
       </div>
     </div>
@@ -24,60 +24,3 @@ const getTagPercentage = (tag) => {
   return (props.stats.byTag[tag] / props.stats.total) * 100;
 };
 </script>
-
-<style scoped>
-.tag-analysis {
-  margin-top: 20px;
-}
-
-.tag-analysis h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin-bottom: 12px;
-}
-
-.tag-bar-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.tag-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.tag-label {
-  min-width: 80px;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.tag-count-bar {
-  flex: 1;
-  height: 24px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  padding: 4px;
-  position: relative;
-}
-
-.tag-fill {
-  height: 100%;
-  background: linear-gradient(135deg, var(--color-primary), #4cc9f0);
-  border-radius: 12px;
-  transition: width 0.3s ease;
-}
-
-.tag-count {
-  position: absolute;
-  right: 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-</style>

@@ -1,16 +1,16 @@
 <template>
-  <div class="subtask-add-form">
+  <div class="flex gap-2 mb-3">
     <input
       ref="inputRef"
       v-model="text"
       type="text"
       placeholder="输入子任务..."
-      class="subtask-input"
+      class="input input-bordered flex-1 text-sm"
       @keyup.enter="confirm"
       @blur="cancel"
     />
-    <button @click="confirm" class="btn-confirm">✓</button>
-    <button @click="cancel" class="btn-cancel">✕</button>
+    <button @click="confirm" class="btn btn-success">✓</button>
+    <button @click="cancel" class="btn btn-error">✕</button>
   </div>
 </template>
 
@@ -35,21 +35,3 @@ const cancel = () => {
   emit('cancel');
 };
 </script>
-
-<style scoped>
-.subtask-add-form { display: flex; gap: 8px; margin-bottom: 12px; }
-.subtask-input {
-  flex: 1; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px; background-color: var(--color-base-200); color: var(--color-base-content);
-  font-size: 14px;
-}
-.subtask-input:focus { outline: none; border-color: var(--color-primary); }
-.btn-confirm {
-  padding: 8px 12px; background-color: #22c55e; color: white;
-  border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
-}
-.btn-cancel {
-  padding: 8px 12px; background-color: #ef4444; color: white;
-  border: none; border-radius: 6px; cursor: pointer; font-weight: bold;
-}
-</style>

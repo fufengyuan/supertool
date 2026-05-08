@@ -1,15 +1,15 @@
 <template>
-  <div class="filter-bar">
+  <div class="border-b border-base-content/10">
     <!-- Filter toggle & controls -->
-    <div class="filter-header">
-      <button @click="toggleFilter" class="filter-toggle-btn" :class="{ active: enabled }">
+    <div class="flex items-center justify-between py-1.5">
+      <button @click="toggleFilter" :class="[enabled ? 'bg-primary text-white border-primary' : 'bg-transparent text-base-content/60 border-base-content/10']" class="flex items-center gap-1.5 px-3 py-1.25 border rounded-md text-xs cursor-pointer transition-all duration-150 hover:bg-primary/10 hover:text-primary">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
         </svg>
         <span>筛选</span>
-        <span v-if="activeCount > 0" class="filter-badge">{{ activeCount }}</span>
+        <span v-if="activeCount > 0" :class="enabled ? 'bg-white/30 text-white' : 'bg-primary text-white'" class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold">{{ activeCount }}</span>
       </button>
-      <div v-if="enabled" class="filter-actions">
+      <div v-if="enabled" class="flex gap-1.5 items-center">
         <button @click="addCondition" class="btn btn-ghost btn-xs">+ 添加条件</button>
         <button @click="clearAll" class="btn btn-ghost btn-xs" :disabled="conditions.length === 0">清除全部</button>
         <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0">🔍 应用筛选</button>
@@ -17,28 +17,28 @@
     </div>
 
     <!-- Filter conditions -->
-    <div v-if="enabled && conditions.length > 0" class="filter-conditions">
-      <div v-for="(cond, idx) in conditions" :key="cond.id" class="filter-row">
+    <div v-if="enabled && conditions.length > 0" class="flex flex-col gap-1 py-1.5">
+      <div v-for="(cond, idx) in conditions" :key="cond.id" class="flex items-center gap-1.5 py-1">
         <!-- Logic connector -->
-        <div class="filter-logic">
-          <select v-model="cond.logic" class="filter-select" v-if="idx > 0">
+        <div class="w-[60px] shrink-0">
+          <select v-model="cond.logic" class="select select-bordered select-xs w-full" v-if="idx > 0">
             <option value="AND">AND</option>
             <option value="OR">OR</option>
           </select>
-          <span v-else class="where-label">WHERE</span>
+          <span v-else class="text-xs font-bold text-primary px-1">WHERE</span>
         </div>
 
         <!-- Column selector -->
-        <div class="filter-column">
-          <select v-model="cond.column" class="filter-select" @change="onColumnChange(cond)">
+        <div class="min-w-[120px] shrink-0">
+          <select v-model="cond.column" class="select select-bordered select-xs w-full" @change="onColumnChange(cond)">
             <option value="">选择列</option>
             <option v-for="col in columns" :key="col" :value="col">{{ col }}</option>
           </select>
         </div>
 
         <!-- Operator selector -->
-        <div class="filter-operator">
-          <select v-model="cond.operator" class="filter-select">
+        <div class="min-w-[130px] shrink-0">
+          <select v-model="cond.operator" class="select select-bordered select-xs w-full">
             <option value="">操作符</option>
             <optgroup label="比较">
               <option value="=">= 等于</option>
@@ -65,23 +65,23 @@
         </div>
 
         <!-- Value input -->
-        <div class="filter-value" v-if="needsValue(cond.operator)">
+        <div class="flex-1 flex items-center gap-1.5" v-if="needsValue(cond.operator)">
           <input
             v-if="cond.operator !== 'BETWEEN'"
             v-model="cond.value"
-            class="filter-input"
+            class="input input-bordered input-xs w-full"
             :placeholder="getValuePlaceholder(cond.operator)"
             @keydown.enter="apply"
           />
           <template v-else>
-            <input v-model="cond.value" class="filter-input filter-input-between" placeholder="最小值" />
-            <span class="between-sep">至</span>
-            <input v-model="cond.value2" class="filter-input filter-input-between" placeholder="最大值" />
+            <input v-model="cond.value" class="input input-bordered input-xs w-[100px]" placeholder="最小值" />
+            <span class="text-xs text-base-content/60 whitespace-nowrap">至</span>
+            <input v-model="cond.value2" class="input input-bordered input-xs w-[100px]" placeholder="最大值" />
           </template>
         </div>
 
         <!-- Remove button -->
-        <button @click="removeCondition(idx)" class="filter-remove" title="删除条件">
+        <button @click="removeCondition(idx)" class="flex items-center justify-center w-6 h-6 border-none bg-transparent rounded cursor-pointer text-base-content/60 shrink-0 transition-all duration-100 hover:bg-red-100 hover:text-red-500" title="删除条件">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
@@ -180,193 +180,3 @@ function onColumnChange(_cond: FilterCondition) {
 // Expose for parent component
 defineExpose({ enabled, conditions, activeCount })
 </script>
-
-<style scoped>
-.filter-bar {
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.filter-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 0;
-}
-
-.filter-toggle-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.filter-toggle-btn:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.filter-toggle-btn.active {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.filter-badge {
-  background: rgba(255, 255, 255, 0.3);
-  color: white;
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-size: 11px;
-  font-weight: 600;
-}
-
-.filter-toggle-btn:not(.active) .filter-badge {
-  background: var(--color-primary);
-  color: white;
-}
-
-.filter-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.filter-conditions {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 6px 0;
-}
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-}
-
-.filter-logic {
-  width: 60px;
-  flex-shrink: 0;
-}
-
-.where-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--color-primary);
-  padding: 0 4px;
-}
-
-.filter-column {
-  min-width: 120px;
-  flex-shrink: 0;
-}
-
-.filter-operator {
-  min-width: 130px;
-  flex-shrink: 0;
-}
-
-.filter-value {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.filter-select,
-.filter-input {
-  padding: 5px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 12px;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.filter-select:focus,
-.filter-input:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.filter-input {
-  width: 100%;
-}
-
-.filter-input-between {
-  width: 100px;
-}
-
-.between-sep {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  white-space: nowrap;
-}
-
-.filter-remove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  border: none;
-  background: transparent;
-  border-radius: 4px;
-  cursor: pointer;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-  transition: all 0.1s ease;
-}
-
-.filter-remove:hover {
-  background: #ffebee;
-  color: #f44336;
-}
-
-.btn-xs {
-  padding: 4px 8px;
-  font-size: 11px;
-  border-radius: 4px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.btn-xs:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.btn-xs:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn-primary.btn-xs {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.btn-primary.btn-xs:hover {
-  background: var(--primary-dark, #4338ca);
-  color: white;
-}
-
-.btn-primary.btn-xs:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-</style>

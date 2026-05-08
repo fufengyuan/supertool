@@ -1,52 +1,52 @@
 <template>
-  <div class="api-debugger">
+  <div class="flex h-full overflow-hidden bg-base-200">
     <!-- Left Sidebar: Saved Requests -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h3>📁 已保存接口</h3>
-        <button class="btn-new" @click="createNewRequest">+ 新建</button>
+    <aside class="w-[260px] min-w-[220px] max-w-[320px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
+      <div class="flex items-center justify-between p-[14px_16px_10px]">
+        <h3 class="m-0 text-sm font-bold text-base-content">📁 已保存接口</h3>
+        <button class="btn btn-outline btn-primary btn-xs" @click="createNewRequest">+ 新建</button>
       </div>
-      <div class="sidebar-search">
-        <input v-model="searchQuery" placeholder="搜索接口..." class="search-input" />
+      <div class="px-3 pb-2.5">
+        <input v-model="searchQuery" placeholder="搜索接口..." class="w-full px-2.5 py-1.5 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none box-border focus:border-primary" />
       </div>
-      <div class="sidebar-list">
+      <div class="flex-1 overflow-y-auto px-2 pb-3">
         <div
           v-for="req in filteredRequests"
           :key="req.id"
-          class="request-item"
-          :class="{ active: currentRequestId === req.id }"
+          class="flex items-center gap-1.5 px-2.5 py-2 rounded cursor-pointer transition-all duration-100 text-xs group"
+          :class="{ 'bg-primary/10': currentRequestId === req.id, 'hover:bg-base-200': true }"
           @click="loadRequest(req)"
         >
-          <span class="method-badge" :class="req.method.toLowerCase()">{{ req.method }}</span>
-          <span class="request-name">{{ req.name || '未命名' }}</span>
-          <button class="btn-del" @click.stop="deleteRequest(req.id)" title="删除">×</button>
+          <span class="px-[5px] py-[1px] rounded text-[10px] font-bold shrink-0 min-w-[40px] text-center" :class="req.method === 'GET' ? 'bg-green-100 text-green-800' : req.method === 'POST' ? 'bg-blue-100 text-blue-800' : req.method === 'PUT' ? 'bg-yellow-100 text-yellow-800' : req.method === 'DELETE' ? 'bg-red-100 text-red-700' : req.method === 'PATCH' ? 'bg-indigo-100 text-indigo-800' : req.method === 'HEAD' ? 'bg-gray-100 text-gray-700' : 'bg-gray-50 text-gray-600'">{{ req.method }}</span>
+          <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis text-base-content">{{ req.name || '未命名' }}</span>
+          <button class="w-[18px] h-[18px] border-none bg-none text-base-content/60 cursor-pointer text-sm rounded flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-100 hover:bg-red-100 hover:text-red-700" @click.stop="deleteRequest(req.id)" title="删除">×</button>
         </div>
-        <div v-if="filteredRequests.length === 0" class="empty-hint">
+        <div v-if="filteredRequests.length === 0" class="p-4 text-center text-base-content/60 text-xs">
           {{ searchQuery ? '无匹配结果' : '点击 + 新建接口' }}
         </div>
       </div>
     </aside>
 
     <!-- Main Area -->
-    <main class="main-area">
+    <main class="flex-1 flex flex-col overflow-y-auto p-[16px_20px] gap-3.5">
       <!-- Smart Paste Area -->
-      <div class="smart-paste" :class="{ collapsed: !pasteCollapsed }">
-        <div class="paste-header" @click="pasteCollapsed = !pasteCollapsed">
-          <span class="paste-title">📋 智能粘贴报文</span>
-          <span class="paste-arrow">{{ pasteCollapsed ? '▼' : '▲' }}</span>
+      <div class="border border-dashed border-base-content/10 rounded-lg bg-base-100 transition-colors duration-200" :class="{ 'border-primary': !pasteCollapsed }">
+        <div class="flex items-center justify-between px-3.5 py-2 cursor-pointer select-none" @click="pasteCollapsed = !pasteCollapsed">
+          <span class="text-xs font-semibold text-base-content">📋 智能粘贴报文</span>
+          <span class="text-[10px] text-base-content/60">{{ pasteCollapsed ? '▼' : '▲' }}</span>
         </div>
-        <div v-show="!pasteCollapsed" class="paste-content">
+        <div v-show="!pasteCollapsed" class="px-3.5 pb-3">
           <textarea
             v-model="pasteText"
             placeholder="粘贴 curl 命令、HTTP 请求报文或纯 URL，自动解析..."
-            class="paste-textarea"
+            class="w-full p-2.5 border border-base-content/10 rounded font-mono text-xs bg-base-200 text-base-content resize-y outline-none box-border focus:border-primary"
             rows="6"
           />
-          <div class="paste-actions">
-            <button class="btn-parse" @click="parseSmartPaste">🔍 智能解析</button>
-            <button class="btn-clear-paste" @click="pasteText = ''">清空</button>
+          <div class="flex gap-2 mt-2">
+            <button class="btn btn-outline btn-primary btn-xs" @click="parseSmartPaste">🔍 智能解析</button>
+            <button class="btn btn-ghost btn-xs" @click="pasteText = ''">清空</button>
           </div>
-          <div v-if="parseResult" class="parse-result">
+          <div v-if="parseResult" class="mt-2 px-2.5 py-1.5 text-xs bg-green-100 text-green-800 rounded">
             ✅ 已解析: <strong>{{ parseResult.method }}</strong> {{ parseResult.url }}
             <span v-if="parseResult.headersCount"> ({{ parseResult.headersCount }} 个请求头)</span>
             <span v-if="parseResult.bodyType"> 报文: {{ parseResult.bodyType }}</span>
@@ -55,8 +55,8 @@
       </div>
 
       <!-- Request Bar: method + URL + send + save -->
-      <div class="request-bar">
-        <select v-model="request.method" class="method-select">
+      <div class="flex gap-2 items-center">
+        <select v-model="request.method" class="px-2.5 py-2 border border-base-content/10 rounded text-xs font-semibold bg-base-200 text-primary cursor-pointer outline-none">
           <option>GET</option>
           <option>POST</option>
           <option>PUT</option>
@@ -67,94 +67,92 @@
         </select>
         <input
           v-model="request.url"
-          class="url-input"
+          class="flex-1 px-3 py-2 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none font-mono focus:border-primary"
           placeholder="输入请求 URL，如 https://api.example.com/users"
           @keydown.enter="sendRequest"
         />
         <button
-          class="btn-save"
-          :class="{ saved: isSaved }"
+          class="btn btn-ghost btn-sm text-xs font-semibold"
+          :class="{ 'btn-success': isSaved }"
           :title="isSaved ? '已保存 (Ctrl+S)' : '保存当前请求 (Ctrl+S)'"
           @click="saveCurrentRequest"
         >
           {{ isSaved ? '✓ 已保存' : '💾 保存' }}
         </button>
         <button
-          class="btn-send"
+          class="btn btn-primary btn-sm min-h-0 h-auto px-[18px] py-2 text-xs font-semibold"
           :class="{ loading: isSending }"
           :disabled="isSending || !request.url"
           @click="sendRequest"
         >
-          {{ isSending ? '⏳' : '▶ 发送' }}
+          {{ isSending ? '' : '▶ 发送' }}
         </button>
       </div>
 
       <!-- Request Name -->
-      <div class="request-name-row">
+      <div class="flex items-center gap-2 text-xs text-base-content/60">
         <label>名称：</label>
         <input
           v-model="request.name"
-          class="name-input"
+          class="px-2 py-1 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none w-[200px]"
           placeholder="给接口取个名字"
           @keydown.enter="saveCurrentRequest"
         />
-        <span class="save-status" :class="{ visible: saveFeedbackVisible }">{{ saveFeedbackText }}</span>
+        <span class="text-[11px] opacity-0 transition-opacity duration-300 text-green-600 font-medium" :class="{ 'opacity-100': saveFeedbackVisible }">{{ saveFeedbackText }}</span>
       </div>
 
       <!-- Request Tabs -->
-      <div class="request-tabs">
-        <div class="tabs-header">
-          <button
-            v-for="tab in requestTabs"
-            :key="tab.key"
-            class="tab-btn"
-            :class="{ active: activeRequestTab === tab.key }"
-            @click="activeRequestTab = tab.key"
-          >
-            {{ tab.label }}
-            <span v-if="tab.key === 'headers'" class="tab-count">{{ parsedHeaders.length }}</span>
-          </button>
-        </div>
+      <div class="tabs tabs-bordered">
+        <button
+          v-for="tab in requestTabs"
+          :key="tab.key"
+          class="tab"
+          :class="{ 'tab-active': activeRequestTab === tab.key }"
+          @click="activeRequestTab = tab.key"
+        >
+          {{ tab.label }}
+          <span v-if="tab.key === 'headers'" class="badge badge-sm ml-1">{{ parsedHeaders.length }}</span>
+        </button>
 
         <!-- Headers Tab -->
-        <div v-show="activeRequestTab === 'headers'" class="tab-content">
-          <div class="headers-table">
-            <div class="header-row header-labels">
-              <input class="header-input" placeholder="Key" disabled />
-              <input class="header-input" placeholder="Value" disabled />
-              <div class="header-del"></div>
+        <div v-show="activeRequestTab === 'headers'" class="border border-base-content/10 rounded-lg bg-base-100 p-3">
+          <div class="flex flex-col gap-1.5">
+            <div class="flex items-center gap-2">
+              <input class="flex-1 px-2 py-1.5 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none" placeholder="Key" disabled />
+              <input class="flex-1 px-2 py-1.5 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none" placeholder="Value" disabled />
+              <div class="w-8 shrink-0"></div>
             </div>
             <div
               v-for="(h, idx) in parsedHeaders"
               :key="idx"
-              class="header-row"
+              class="flex items-center gap-2"
             >
               <input
                 :value="h.key"
-                class="header-input"
+                class="flex-1 px-2 py-1.5 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none focus:border-primary"
                 placeholder="Header 名称"
                 @input="updateHeader(idx, 'key', ($event.target as HTMLInputElement).value)"
                 @change="onHeadersChange"
               />
               <input
                 :value="h.value"
-                class="header-input"
+                class="flex-1 px-2 py-1.5 border border-base-content/10 rounded text-xs bg-base-200 text-base-content outline-none focus:border-primary"
                 placeholder="Header 值"
                 @input="updateHeader(idx, 'value', ($event.target as HTMLInputElement).value)"
                 @change="onHeadersChange"
               />
-              <button class="btn-del-row" @click="removeHeader(idx)" title="删除">×</button>
+              <button class="btn btn-ghost btn-xs text-base-content/60 hover:text-red-500 shrink-0" @click="removeHeader(idx)" title="删除">×</button>
             </div>
-            <button class="btn-add-header" @click="addHeader">+ 添加请求头</button>
+            <button class="btn btn-ghost btn-xs text-primary justify-start pl-1" @click="addHeader">+ 添加请求头</button>
           </div>
           <!-- Quick Headers -->
-          <div class="quick-headers">
-            <span class="quick-label">快速添加：</span>
+          <div class="flex items-center gap-2 mt-3 flex-wrap">
+            <span class="text-xs text-base-content/60">快速添加：</span>
             <button
               v-for="qh in quickHeaders"
               :key="qh.key"
-              class="btn-quick"
-              :class="{ added: hasHeader(qh.key) }"
+              class="btn btn-ghost btn-xs"
+              :class="{ 'btn-primary': hasHeader(qh.key) }"
               @click="toggleQuickHeader(qh)"
             >
               {{ qh.label }}
@@ -163,14 +161,15 @@
         </div>
 
         <!-- Body Tab -->
-        <div v-show="activeRequestTab === 'body'" class="tab-content">
-          <div class="body-type-selector">
-            <label v-for="bt in bodyTypes" :key="bt.key" class="body-type-radio">
+        <div v-show="activeRequestTab === 'body'" class="border border-base-content/10 rounded-lg bg-base-100 p-3">
+          <div class="flex items-center gap-3 mb-2">
+            <label v-for="bt in bodyTypes" :key="bt.key" class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer">
               <input
                 type="radio"
                 name="bodyType"
                 :value="bt.key"
                 v-model="request.contentType"
+                class="radio radio-sm"
               />
               <span>{{ bt.label }}</span>
             </label>
@@ -178,53 +177,53 @@
           <textarea
             v-show="request.contentType !== 'none'"
             v-model="request.body"
-            class="body-textarea"
+            class="w-full p-3 border border-base-content/10 rounded-lg font-mono text-xs bg-base-200 text-base-content resize-y outline-none box-border focus:border-primary"
             :placeholder="bodyPlaceholder"
             rows="12"
             spellcheck="false"
           />
-          <div v-if="request.contentType === 'json'" class="body-actions">
-            <button class="btn-sm" @click="formatJsonBody">📐 格式化</button>
-            <button class="btn-sm" @click="compressJsonBody">📦 压缩</button>
+          <div v-if="request.contentType === 'json'" class="flex gap-2 mt-2">
+            <button class="btn btn-ghost btn-xs" @click="formatJsonBody">📐 格式化</button>
+            <button class="btn btn-ghost btn-xs" @click="compressJsonBody">📦 压缩</button>
           </div>
         </div>
       </div>
 
       <!-- Response Panel -->
-      <div class="response-panel" v-if="response">
-        <div class="response-header">
-          <h4>📨 响应结果</h4>
-          <div class="response-stats">
-            <span class="status-badge" :class="responseStatusClass">
+      <div class="border border-base-content/10 rounded-lg bg-base-100 overflow-hidden" v-if="response">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
+          <h4 class="text-sm font-semibold text-base-content">📨 响应结果</h4>
+          <div class="flex items-center gap-3">
+            <span class="badge" :class="responseStatusClass">
               {{ response.status }} {{ response.statusText }}
             </span>
-            <span class="stat-item">⏱️ {{ response.time }}ms</span>
-            <span class="stat-item">📦 {{ formatSize(response.size) }}</span>
+            <span class="text-xs text-base-content/60">⏱️ {{ response.time }}ms</span>
+            <span class="text-xs text-base-content/60">📦 {{ formatSize(response.size) }}</span>
           </div>
         </div>
-        <div class="response-tabs">
+        <div class="tabs tabs-bordered border-b-0 px-3 pt-1">
           <button
             v-for="rt in responseTabs"
             :key="rt.key"
-            class="tab-btn-sm"
-            :class="{ active: activeResponseTab === rt.key }"
+            class="tab tab-sm"
+            :class="{ 'tab-active': activeResponseTab === rt.key }"
             @click="activeResponseTab = rt.key"
           >
             {{ rt.label }}
           </button>
         </div>
-        <div class="response-content">
-          <pre v-show="activeResponseTab === 'body'" class="response-body" :class="{ 'is-json': isJsonResponse }">{{ formatResponseBody }}</pre>
-          <pre v-show="activeResponseTab === 'headers'" class="response-headers">{{ formatResponseHeaders }}</pre>
-          <pre v-show="activeResponseTab === 'raw'" class="response-body">{{ response.rawBody }}</pre>
+        <div>
+          <pre v-show="activeResponseTab === 'body'" class="p-4 text-xs font-mono overflow-x-auto bg-base-200 max-h-[500px] overflow-y-auto" :class="{ 'text-green-600': isJsonResponse }">{{ formatResponseBody }}</pre>
+          <pre v-show="activeResponseTab === 'headers'" class="p-4 text-xs font-mono overflow-x-auto bg-base-200 max-h-[500px] overflow-y-auto">{{ formatResponseHeaders }}</pre>
+          <pre v-show="activeResponseTab === 'raw'" class="p-4 text-xs font-mono overflow-x-auto bg-base-200 max-h-[500px] overflow-y-auto">{{ response.rawBody }}</pre>
         </div>
       </div>
 
       <!-- Empty State -->
-      <div v-else class="response-empty">
-        <div class="response-empty-icon">🚀</div>
-        <h3>准备发送请求</h3>
-        <p>输入 URL 或粘贴报文后点击"发送"</p>
+      <div v-else class="flex flex-col items-center justify-center py-16 text-base-content/60">
+        <div class="text-5xl mb-4">🚀</div>
+        <h3 class="text-lg font-semibold text-base-content mb-2">准备发送请求</h3>
+        <p class="text-sm">输入 URL 或粘贴报文后点击"发送"</p>
       </div>
     </main>
   </div>
@@ -348,10 +347,10 @@ const responseTabs = [
 const responseStatusClass = computed(() => {
   if (!response.value) return ''
   const s = response.value.status
-  if (s >= 200 && s < 300) return 'success'
-  if (s >= 300 && s < 400) return 'redirect'
-  if (s >= 400 && s < 500) return 'client-error'
-  if (s >= 500) return 'server-error'
+  if (s >= 200 && s < 300) return 'badge-success'
+  if (s >= 300 && s < 400) return 'badge-warning'
+  if (s >= 400 && s < 500) return 'badge-error'
+  if (s >= 500) return 'badge-error'
   return ''
 })
 
@@ -770,711 +769,3 @@ onMounted(async () => {
   })
 })
 </script>
-
-<style scoped>
-.api-debugger {
-  display: flex;
-  height: 100%;
-  overflow: hidden;
-  background: var(--color-base-200);
-}
-
-/* ─── Sidebar ─── */
-.sidebar {
-  width: 260px;
-  min-width: 220px;
-  max-width: 320px;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-}
-
-.sidebar-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px 10px;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--color-base-content);
-}
-
-.btn-new {
-  padding: 4px 10px;
-  font-size: 12px;
-  border: 1px solid var(--color-primary);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-new:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.sidebar-search {
-  padding: 0 12px 10px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  border-color: var(--color-primary);
-}
-
-.sidebar-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 8px 12px;
-}
-
-.request-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.1s;
-  font-size: 12px;
-}
-
-.request-item:hover {
-  background: var(--color-base-200);
-}
-
-.request-item.active {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.method-badge {
-  padding: 1px 5px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  flex-shrink: 0;
-  min-width: 40px;
-  text-align: center;
-}
-
-.method-badge.get { background: #d4edda; color: #155724; }
-.method-badge.post { background: #cce5ff; color: #004085; }
-.method-badge.put { background: #fff3cd; color: #856404; }
-.method-badge.delete { background: #f8d7da; color: #721c24; }
-.method-badge.patch { background: #e2e3f1; color: #383d5e; }
-.method-badge.head { background: #e9ecef; color: #495057; }
-.method-badge.options { background: #f0f0f0; color: #666; }
-
-.request-name {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--color-base-content);
-}
-
-.btn-del {
-  width: 18px;
-  height: 18px;
-  border: none;
-  background: none;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  font-size: 14px;
-  border-radius: 3px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.1s;
-}
-
-.request-item:hover .btn-del {
-  opacity: 1;
-}
-
-.btn-del:hover {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.empty-hint {
-  padding: 16px;
-  text-align: center;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-/* ─── Main Area ─── */
-.main-area {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 16px 20px;
-  gap: 14px;
-}
-
-/* ─── Smart Paste ─── */
-.smart-paste {
-  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-100);
-  transition: border-color 0.2s;
-}
-
-.smart-paste:not(.collapsed) {
-  border-color: var(--color-primary);
-}
-
-.paste-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.paste-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.paste-arrow {
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.paste-content {
-  padding: 0 14px 12px;
-}
-
-.paste-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  resize: vertical;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.paste-textarea:focus {
-  border-color: var(--color-primary);
-}
-
-.paste-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.btn-parse {
-  padding: 6px 14px;
-  font-size: 12px;
-  border: 1px solid var(--color-primary);
-  border-radius: 4px;
-  background: transparent;
-  color: var(--color-primary);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.btn-parse:hover {
-  background: var(--color-primary);
-  color: white;
-}
-
-.btn-clear-paste {
-  padding: 6px 12px;
-  font-size: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-}
-
-.parse-result {
-  margin-top: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  background: #d4edda;
-  color: #155724;
-  border-radius: 4px;
-}
-
-/* ─── Request Bar ─── */
-.request-bar {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.method-select {
-  padding: 8px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--color-base-200);
-  color: var(--color-primary);
-  cursor: pointer;
-  outline: none;
-}
-
-.url-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-}
-
-.url-input:focus {
-  border-color: var(--color-primary);
-}
-
-.btn-send {
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  background: var(--color-primary);
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.btn-send:hover:not(:disabled) {
-  filter: brightness(1.1);
-}
-
-.btn-send:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* ─── Save Button ─── */
-.btn-save {
-  padding: 8px 14px;
-  font-size: 12px;
-  font-weight: 600;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-100);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-
-.btn-save:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.btn-save.saved {
-  border-color: #28a745;
-  color: #28a745;
-  background: #d4edda;
-}
-
-/* ─── Save Status ─── */
-.save-status {
-  font-size: 11px;
-  opacity: 0;
-  transition: opacity 0.3s;
-  color: #28a745;
-  font-weight: 500;
-}
-
-.save-status.visible {
-  opacity: 1;
-}
-
-/* ─── Request Name ─── */
-.request-name-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.name-input {
-  padding: 4px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-  width: 200px;
-}
-
-/* ─── Request Tabs ─── */
-.request-tabs {
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--color-base-100);
-}
-
-.tabs-header {
-  display: flex;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.tab-btn {
-  padding: 8px 16px;
-  border: none;
-  background: none;
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-  transition: all 0.15s;
-}
-
-.tab-btn:hover {
-  color: var(--color-base-content);
-}
-
-.tab-btn.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.tab-count {
-  font-size: 10px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 0 5px;
-  border-radius: 8px;
-  margin-left: 4px;
-}
-
-.tab-content {
-  padding: 12px;
-}
-
-/* ─── Headers ─── */
-.headers-table {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.header-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.header-labels input {
-  font-weight: 600;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: transparent;
-}
-
-.header-input {
-  flex: 1;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-}
-
-.header-input:focus {
-  border-color: var(--color-primary);
-}
-
-.header-del {
-  width: 24px;
-}
-
-.btn-del-row {
-  width: 24px;
-  height: 28px;
-  border: none;
-  background: none;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  font-size: 16px;
-  border-radius: 4px;
-}
-
-.btn-del-row:hover {
-  background: #f8d7da;
-  color: #721c24;
-}
-
-.btn-add-header {
-  margin-top: 6px;
-  padding: 5px 10px;
-  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: none;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  cursor: pointer;
-  align-self: flex-start;
-}
-
-.btn-add-header:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.quick-headers {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.quick-label {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-right: 4px;
-}
-
-.btn-quick {
-  padding: 3px 8px;
-  font-size: 11px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-}
-
-.btn-quick:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.btn-quick.added {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-/* ─── Body ─── */
-.body-type-selector {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.body-type-radio {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  cursor: pointer;
-  color: var(--color-base-content);
-}
-
-.body-type-radio input {
-  accent-color: var(--color-primary);
-}
-
-.body-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  resize: vertical;
-  outline: none;
-  box-sizing: border-box;
-}
-
-.body-textarea:focus {
-  border-color: var(--color-primary);
-}
-
-.body-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.btn-sm {
-  padding: 4px 10px;
-  font-size: 11px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-}
-
-.btn-sm:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-/* ─── Response Panel ─── */
-.response-panel {
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
-  background: var(--color-base-100);
-}
-
-.response-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.response-header h4 {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.response-stats {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.status-badge {
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.status-badge.success { background: #d4edda; color: #155724; }
-.status-badge.redirect { background: #cce5ff; color: #004085; }
-.status-badge.client-error { background: #fff3cd; color: #856404; }
-.status-badge.server-error { background: #f8d7da; color: #721c24; }
-
-.stat-item {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.response-tabs {
-  display: flex;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.tab-btn-sm {
-  padding: 6px 14px;
-  border: none;
-  background: none;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-
-.tab-btn-sm:hover { color: var(--color-base-content); }
-
-.tab-btn-sm.active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
-}
-
-.response-content {
-  max-height: 400px;
-  overflow: auto;
-}
-
-.response-body, .response-headers {
-  margin: 0;
-  padding: 12px 14px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-all;
-  color: var(--color-base-content);
-}
-
-.response-body.is-json {
-  color: #e06c75;
-}
-
-/* ─── Empty State ─── */
-.response-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.response-empty-icon {
-  font-size: 48px;
-  opacity: 0.3;
-}
-
-.response-empty h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0;
-}
-
-.response-empty p {
-  font-size: 12px;
-  margin: 0;
-}
-</style>

@@ -1,11 +1,11 @@
 <template>
-  <div class="report-config">
+  <div class="flex gap-4 items-end flex-wrap">
     <div class="form-field">
       <label>{{ $t('weekly.timeRange') }}</label>
       <select
         v-model="selectedRange"
         @change="$emit('range-change', selectedRange)"
-        class="form-select"
+        class="select select-bordered w-full max-w-xs"
       >
         <option value="thisWeek">{{ $t('weekly.thisWeek') }}</option>
         <option value="lastWeek">{{ $t('weekly.lastWeek') }}</option>
@@ -13,10 +13,10 @@
       </select>
     </div>
 
-    <div v-if="selectedRange === 'custom'" class="custom-date-range">
-      <input v-model="startDate" type="date" class="form-input" @change="onDateChange" />
-      <span class="date-separator">{{ $t('report.to') }}</span>
-      <input v-model="endDate" type="date" class="form-input" @change="onDateChange" />
+    <div v-if="selectedRange === 'custom'" class="flex items-end gap-2">
+      <input v-model="startDate" type="date" class="input input-bordered" @change="onDateChange" />
+      <span class="text-base-content/60 pb-[10px] text-sm">{{ $t('report.to') }}</span>
+      <input v-model="endDate" type="date" class="input input-bordered" @change="onDateChange" />
     </div>
   </div>
 </template>
@@ -61,24 +61,3 @@ const onDateChange = () => {
 
 defineExpose({ selectedRange, startDate, endDate });
 </script>
-
-<style scoped>
-.report-config {
-  display: flex;
-  gap: 16px;
-  align-items: flex-end;
-  flex-wrap: wrap;
-}
-
-.custom-date-range {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.date-separator {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding-bottom: 10px;
-  font-size: 13px;
-}
-</style>

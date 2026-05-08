@@ -1,9 +1,9 @@
 <template>
-  <div class="chat-input">
-    <div class="input-actions">
+  <div class="flex p-[10px_12px] gap-2 border-t border-base-content/10 bg-base-200 items-end">
+    <div class="flex items-end gap-1 shrink-0">
       <!-- 表情按钮 -->
-      <div class="emoji-wrapper" ref="emojiWrapperRef">
-        <button class="icon-btn" @click="toggleEmojiPicker" title="表情">
+      <div class="relative" ref="emojiWrapperRef">
+        <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="toggleEmojiPicker" title="表情">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"/>
             <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
@@ -13,12 +13,12 @@
         </button>
         <!-- 表情面板 -->
         <Transition name="emoji-fade">
-          <div v-if="showEmojiPicker" class="emoji-picker">
-            <div class="emoji-grid">
+          <div v-if="showEmojiPicker" class="absolute bottom-11 left-0 w-[280px] max-h-[200px] bg-base-100 border border-base-content/10 rounded-xl shadow-lg z-50 p-2 overflow-y-auto">
+            <div class="grid grid-cols-8 gap-0.5">
               <button
                 v-for="emoji in emojiList"
                 :key="emoji"
-                class="emoji-btn"
+                class="w-[30px] h-[30px] flex items-center justify-center border-none bg-transparent rounded-md cursor-pointer text-base transition-all duration-100 hover:bg-white/10 hover:scale-110"
                 @click="selectEmoji(emoji)"
               >
                 {{ emoji }}
@@ -28,21 +28,21 @@
         </Transition>
       </div>
       <!-- 截图按钮 -->
-      <button class="icon-btn" @click="$emit('screenshot')" title="截图">
+      <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('screenshot')" title="截图">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2"/>
           <circle cx="12" cy="13" r="4"/>
         </svg>
       </button>
       <!-- 任务分配按钮 -->
-      <button class="icon-btn" @click="$emit('assign-task')" title="分配任务">
+      <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('assign-task')" title="分配任务">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
           <polyline points="22 4 12 14.01 9 11.01"/>
         </svg>
       </button>
       <!-- 文件按钮 -->
-      <button class="icon-btn" @click="$emit('file-select-click')" title="发送文件（最大 500MB）">
+      <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('file-select-click')" title="发送文件（最大 500MB）">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
         </svg>
@@ -53,11 +53,11 @@
       @keydown="handleKeydown"
       @input="autoResize"
       :placeholder="placeholder"
-      class="message-input"
+      class="flex-1 p-[8px_12px] border border-base-content/10 rounded-xl text-sm bg-white/4 text-base-content resize-none max-h-[120px] min-h-[34px] leading-5 outline-none font-inherit transition-border-color duration-200 focus:border-primary placeholder:text-base-content/60 placeholder:opacity-50"
       rows="1"
       ref="inputRef"
     />
-    <button @click="$emit('send')" class="send-btn" :class="{ disabled: !inputText.trim() }">
+    <button @click="$emit('send')" :class="[inputText.trim() ? '' : 'opacity-30 cursor-default']" class="flex items-center justify-center w-[34px] h-[34px] rounded-lg border-none bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white cursor-pointer transition-all duration-150 shrink-0 hover:scale-105 hover:shadow-[0_4px_12px_rgba(102,126,234,0.4)]">
       <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
       </svg>
@@ -145,86 +145,7 @@ onUnmounted(() => {
 });
 </script>
 
-<style scoped>
-.chat-input {
-  display: flex;
-  padding: 10px 12px;
-  gap: 8px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-  align-items: flex-end;
-}
-
-.input-actions {
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.icon-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  transition: all 0.15s;
-  padding: 0;
-}
-.icon-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-base-content);
-}
-
-.emoji-wrapper {
-  position: relative;
-}
-
-/* 表情面板 */
-.emoji-picker {
-  position: absolute;
-  bottom: 44px;
-  left: 0;
-  width: 280px;
-  max-height: 200px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  padding: 8px;
-  z-index: 100;
-  overflow-y: auto;
-}
-
-.emoji-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  gap: 2px;
-}
-
-.emoji-btn {
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: all 0.1s;
-}
-.emoji-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  transform: scale(1.2);
-}
-
+<style>
 .emoji-fade-enter-active,
 .emoji-fade-leave-active {
   transition: opacity 0.15s, transform 0.15s;
@@ -233,52 +154,5 @@ onUnmounted(() => {
 .emoji-fade-leave-to {
   opacity: 0;
   transform: translateY(8px);
-}
-
-.message-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  font-size: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--color-base-content);
-  resize: none;
-  max-height: 120px;
-  min-height: 34px;
-  line-height: 1.5;
-  outline: none;
-  font-family: inherit;
-  transition: border-color 0.2s;
-}
-.message-input:focus {
-  border-color: var(--color-primary);
-}
-.message-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.5;
-}
-
-.send-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
-  border: none;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-.send-btn:hover:not(.disabled) {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-.send-btn.disabled {
-  opacity: 0.3;
-  cursor: default;
 }
 </style>

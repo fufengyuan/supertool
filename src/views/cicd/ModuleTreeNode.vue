@@ -1,29 +1,37 @@
 <template>
-  <div class="tree-item" :class="{ [`tree-depth-${depth}`]: depth > 0 }">
-    <div class="tree-item-header" @click="toggleTreeNode">
+  <div class="border-b border-base-content/10 last:border-b-0">
+    <div
+      class="flex items-center gap-2 px-3.5 py-2 cursor-pointer transition-colors duration-150 hover:bg-base-200"
+      :style="depth > 0 ? { paddingLeft: `${14 + depth * 20}px` } : {}"
+      @click="toggleTreeNode"
+    >
       <!-- Expand arrow -->
-      <svg v-if="node.children && node.children.length > 0" class="tree-expand" :class="{ expanded: isExpanded }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+      <svg v-if="node.children && node.children.length > 0" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-90': isExpanded }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="6 9 12 15 18 9" />
       </svg>
-      <span v-else class="tree-indent"></span>
+      <span v-else class="w-[14px] flex-shrink-0"></span>
 
       <!-- Type badge -->
-      <span class="tree-type-badge" :class="node.type">
+      <span class="text-xs flex-shrink-0">
         {{ node.type === 'maven' ? '🔶' : node.type === 'npm' ? '🔴' : '📦' }}
       </span>
 
       <!-- Name & path -->
-      <span class="tree-name">{{ node.name }}</span>
-      <span class="tree-path" v-if="node.path && node.path !== '.'">{{ node.path }}</span>
+      <span class="font-semibold text-xs text-base-content min-w-[100px] flex-shrink-0">{{ node.name }}</span>
+      <span v-if="node.path && node.path !== '.'" class="font-mono text-[11px] text-base-content/60 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ node.path }}</span>
 
       <!-- Add button -->
-      <button class="tree-add-btn" @click.stop="$emit('add', node)" :class="{ added: isAlreadyAdded }">
+      <button
+        class="btn btn-ghost btn-xs text-primary flex-shrink-0"
+        :class="{ 'text-success border-success cursor-default': isAlreadyAdded }"
+        @click.stop="$emit('add', node)"
+      >
         {{ isAlreadyAdded ? '✓ 已添加' : '+ 添加' }}
       </button>
     </div>
 
     <!-- Children (recursive) -->
-    <div v-if="node.children && node.children.length > 0 && isExpanded" class="tree-children">
+    <div v-if="node.children && node.children.length > 0 && isExpanded">
       <ModuleTreeNode
         v-for="child in node.children"
         :key="child.path"
@@ -62,98 +70,3 @@ function toggleTreeNode() {
   }
 }
 </script>
-
-<style scoped>
-.tree-item {
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.tree-item:last-child {
-  border-bottom: none;
-}
-
-.tree-item-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  cursor: pointer;
-  transition: background 0.15s;
-}
-
-.tree-item-header:hover {
-  background: var(--color-base-200);
-}
-
-.tree-expand {
-  transition: transform 0.2s ease;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-}
-
-.tree-expand.expanded {
-  transform: rotate(90deg);
-}
-
-.tree-indent {
-  width: 14px;
-  flex-shrink: 0;
-}
-
-.tree-type-badge {
-  font-size: 12px;
-  flex-shrink: 0;
-}
-
-.tree-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-base-content);
-  min-width: 100px;
-  flex-shrink: 0;
-}
-
-.tree-path {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tree-add-btn {
-  padding: 4px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--color-primary);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-  flex-shrink: 0;
-}
-
-.tree-add-btn:hover {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.tree-add-btn.added {
-  color: #10b981;
-  border-color: #10b981;
-  cursor: default;
-}
-
-.tree-children {
-  /* no background — keep flat look */
-}
-
-/* Depth-based indentation */
-.tree-depth-1 > .tree-item-header { padding-left: 28px; }
-.tree-depth-2 > .tree-item-header { padding-left: 48px; }
-.tree-depth-3 > .tree-item-header { padding-left: 68px; }
-.tree-depth-4 > .tree-item-header { padding-left: 88px; }
-</style>

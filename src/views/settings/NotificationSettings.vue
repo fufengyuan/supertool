@@ -1,15 +1,15 @@
 <template>
-  <div class="notification-settings">
+  <div class="p-6 flex flex-col gap-4 text-base-content">
     <h3>🔔 {{ $t('notification.title') }}</h3>
 
     <!-- 提醒时间设置 -->
-    <div class="settings-card">
-      <div class="card-header">
-        <span class="card-icon">⏰</span>
-        <span class="card-title">{{ $t('notification.reminderTime') }}</span>
+    <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
+      <div class="flex items-center gap-2.5 mb-3.5">
+        <span class="text-xl">⏰</span>
+        <span class="text-sm font-semibold text-base-content flex-1">{{ $t('notification.reminderTime') }}</span>
       </div>
-      <div class="form-field">
-        <select v-model="settings.reminderTime" @change="saveSettings" class="form-select">
+      <div class="mb-2">
+        <select v-model="settings.reminderTime" @change="saveSettings" class="select select-bordered w-full">
           <option value="5">{{ $t('notification.minutes5') }}</option>
           <option value="15">{{ $t('notification.minutes15') }}</option>
           <option value="30">{{ $t('notification.minutes30') }}</option>
@@ -19,97 +19,87 @@
         </select>
       </div>
 
-      <div v-if="settings.reminderTime === 'custom'" class="form-field">
-        <label>{{ $t('notification.customTime') }}</label>
-        <div style="display: flex; align-items: center; gap: 8px">
+      <div v-if="settings.reminderTime === 'custom'" class="mb-2">
+        <label class="block text-xs text-base-content/60 mb-1.5">{{ $t('notification.customTime') }}</label>
+        <div class="flex items-center gap-2">
           <input
             v-model.number="customTime"
             type="number"
             min="1"
-            @change="saveCustomTime"
-            class="form-input"
+            class="input input-bordered max-w-[120px]"
             placeholder="15"
-            style="max-width: 120px"
+            @change="saveCustomTime"
           />
-          <span class="hint-text">{{ $t('notification.reminderHint') }}</span>
+          <span class="text-xs text-base-content/60">{{ $t('notification.reminderHint') }}</span>
         </div>
       </div>
 
-      <p class="settings-hint" v-html="$t('notification.hint', { time: displayTime })"></p>
+      <p class="mt-2.5 px-3.5 py-2.5 bg-primary/10 rounded-lg text-sm text-base-content leading-relaxed" v-html="$t('notification.hint', { time: displayTime })"></p>
     </div>
 
     <!-- 免打扰时段 -->
-    <div class="settings-card">
-      <div class="card-header">
-        <span class="card-icon">🌙</span>
-        <span class="card-title">免打扰时段</span>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="settings.quietHoursEnabled" @change="saveExtendedSettings" />
-          <span class="toggle-slider"></span>
-        </label>
+    <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
+      <div class="flex items-center gap-2.5 mb-3.5">
+        <span class="text-xl">🌙</span>
+        <span class="text-sm font-semibold text-base-content flex-1">免打扰时段</span>
+        <input type="checkbox" v-model="settings.quietHoursEnabled" @change="saveExtendedSettings" class="toggle toggle-sm" />
       </div>
-      <div v-if="settings.quietHoursEnabled" class="quiet-hours-row">
-        <div class="time-field">
-          <label>开始时间</label>
-          <input type="time" v-model="settings.quietHoursStart" @change="saveExtendedSettings" class="form-input time-input" />
+      <div v-if="settings.quietHoursEnabled" class="flex items-end gap-3 mt-3">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-base-content/60">开始时间</label>
+          <input type="time" v-model="settings.quietHoursStart" @change="saveExtendedSettings" class="input input-bordered w-[130px]" />
         </div>
-        <span class="time-separator">至</span>
-        <div class="time-field">
-          <label>结束时间</label>
-          <input type="time" v-model="settings.quietHoursEnd" @change="saveExtendedSettings" class="form-input time-input" />
+        <span class="text-xs text-base-content/60 pb-2">至</span>
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-base-content/60">结束时间</label>
+          <input type="time" v-model="settings.quietHoursEnd" @change="saveExtendedSettings" class="input input-bordered w-[130px]" />
         </div>
       </div>
-      <p v-if="settings.quietHoursEnabled" class="settings-hint">
-        在 <strong>{{ settings.quietHoursStart || '22:00' }}</strong> 到 <strong>{{ settings.quietHoursEnd || '08:00' }}</strong> 期间将不会发送通知
+      <p v-if="settings.quietHoursEnabled" class="mt-2.5 px-3.5 py-2.5 bg-primary/10 rounded-lg text-sm text-base-content leading-relaxed">
+        在 <strong class="text-primary">{{ settings.quietHoursStart || '22:00' }}</strong> 到 <strong class="text-primary">{{ settings.quietHoursEnd || '08:00' }}</strong> 期间将不会发送通知
       </p>
     </div>
 
     <!-- 每日总结 -->
-    <div class="settings-card">
-      <div class="card-header">
-        <span class="card-icon">📊</span>
-        <span class="card-title">每日总结</span>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="settings.dailySummaryEnabled" @change="saveExtendedSettings" />
-          <span class="toggle-slider"></span>
-        </label>
+    <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
+      <div class="flex items-center gap-2.5 mb-3.5">
+        <span class="text-xl">📊</span>
+        <span class="text-sm font-semibold text-base-content flex-1">每日总结</span>
+        <input type="checkbox" v-model="settings.dailySummaryEnabled" @change="saveExtendedSettings" class="toggle toggle-sm" />
       </div>
-      <div v-if="settings.dailySummaryEnabled" class="daily-summary-row">
-        <div class="time-field">
-          <label>总结时间</label>
-          <input type="time" v-model="settings.dailySummaryTime" @change="saveExtendedSettings" class="form-input time-input" />
+      <div v-if="settings.dailySummaryEnabled" class="flex items-end gap-3 mt-3">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-base-content/60">总结时间</label>
+          <input type="time" v-model="settings.dailySummaryTime" @change="saveExtendedSettings" class="input input-bordered w-[130px]" />
         </div>
       </div>
-      <p v-if="settings.dailySummaryEnabled" class="settings-hint">
-        每天 <strong>{{ settings.dailySummaryTime || '21:00' }}</strong> 发送今日完成与待办任务总结
+      <p v-if="settings.dailySummaryEnabled" class="mt-2.5 px-3.5 py-2.5 bg-primary/10 rounded-lg text-sm text-base-content leading-relaxed">
+        每天 <strong class="text-primary">{{ settings.dailySummaryTime || '21:00' }}</strong> 发送今日完成与待办任务总结
       </p>
     </div>
 
     <!-- 已完成任务静音 -->
-    <div class="settings-card">
-      <div class="card-header">
-        <span class="card-icon">🔇</span>
-        <span class="card-title">已完成任务静音</span>
-        <label class="toggle-switch">
-          <input type="checkbox" v-model="settings.muteCompleted" @change="saveExtendedSettings" />
-          <span class="toggle-slider"></span>
-        </label>
+    <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
+      <div class="flex items-center gap-2.5 mb-3.5">
+        <span class="text-xl">🔇</span>
+        <span class="text-sm font-semibold text-base-content flex-1">已完成任务静音</span>
+        <input type="checkbox" v-model="settings.muteCompleted" @change="saveExtendedSettings" class="toggle toggle-sm" />
       </div>
-      <p v-if="settings.muteCompleted" class="settings-hint">
+      <p v-if="settings.muteCompleted" class="mt-2.5 px-3.5 py-2.5 bg-primary/10 rounded-lg text-sm text-base-content leading-relaxed">
         已完成的任务将不再发送提醒通知
       </p>
-      <p v-else class="settings-hint">
+      <p v-else class="mt-2.5 px-3.5 py-2.5 bg-primary/10 rounded-lg text-sm text-base-content leading-relaxed">
         所有任务（包括已完成）都会发送提醒通知
       </p>
     </div>
 
     <!-- 测试通知 -->
-    <div class="test-section">
+    <div class="flex items-center gap-3 py-3">
       <button @click="testNotification" class="btn btn-ghost">🔔 {{ $t('notification.test') }}</button>
       <span
         v-if="testResult"
-        class="test-result"
-        :class="testResult.success ? 'success' : 'error'"
+        class="text-sm font-medium"
+        :class="testResult.success ? 'text-success' : 'text-error'"
       >
         {{ testResult.message }}
       </span>
@@ -281,220 +271,3 @@ const formatReminderTime = (minutes: number | string): string => {
   }
 };
 </script>
-
-<style scoped>
-.notification-settings {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.settings-card {
-  padding: 20px;
-  background: var(--color-base-100);
-  border-radius: 12px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  transition: all 0.2s ease;
-}
-
-.settings-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.card-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-}
-
-.card-icon {
-  font-size: 20px;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  flex: 1;
-}
-
-.form-field {
-  margin-bottom: 8px;
-}
-
-.form-field label {
-  display: block;
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 6px;
-}
-
-.form-select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.form-input {
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-}
-
-.hint-text {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.settings-hint {
-  margin-top: 10px;
-  padding: 10px 14px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  border-radius: 8px;
-  font-size: 13px;
-  color: var(--color-base-content);
-  line-height: 1.5;
-}
-
-.settings-hint strong {
-  color: var(--color-primary);
-}
-
-/* 开关切换 */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-  cursor: pointer;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 24px;
-  transition: 0.3s;
-}
-
-.toggle-slider::before {
-  content: '';
-  position: absolute;
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: 0.3s;
-}
-
-.toggle-switch input:checked + .toggle-slider {
-  background: var(--color-primary);
-}
-
-.toggle-switch input:checked + .toggle-slider::before {
-  transform: translateX(20px);
-}
-
-/* 免打扰时间行 */
-.quiet-hours-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.daily-summary-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.time-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.time-field label {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.time-input {
-  padding: 6px 10px;
-  width: 130px;
-}
-
-.time-separator {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding-bottom: 8px;
-}
-
-/* 测试区域 */
-.test-section {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-}
-
-.test-result {
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.test-result.success {
-  color: var(--color-success);
-}
-
-.test-result.error {
-  color: var(--color-error);
-}
-
-.btn-ghost {
-  padding: 8px 16px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: transparent;
-  color: var(--color-base-content);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-}
-
-.btn-ghost:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-@media (max-width: 768px) {
-  .quiet-hours-row {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .time-separator {
-    padding-bottom: 0;
-  }
-}
-</style>
