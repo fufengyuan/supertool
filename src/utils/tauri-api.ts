@@ -1064,6 +1064,23 @@ export function useLogsAPI() {
   }
 }
 
+// ============ Nginx ============
+
+export function useNginxAPI() {
+  return {
+    getNginxPresets: async (): Promise<any> => tauriCall('get_all_nginx_presets'),
+    addNginxPreset: async (preset: any): Promise<any> => tauriCall('add_nginx_preset', { preset }),
+    updateNginxPreset: async (preset: any): Promise<any> => tauriCall('update_nginx_preset', { preset }),
+    deleteNginxPreset: async (id: string): Promise<any> => tauriCall('delete_nginx_preset', { id }),
+    fetchNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('fetch_nginx_config', { serverId, configPath }),
+    testNginxConfig: async (serverId: string): Promise<any> => tauriCall('test_nginx_config', { serverId }),
+    deployNginxConfig: async (serverId: string, configPath: string, content: string, comment: string): Promise<any> => tauriCall('deploy_nginx_config', { serverId, configPath, content, comment }),
+    getNginxConfigVersions: async (presetId: string): Promise<any> => tauriCall('get_nginx_config_versions', { presetId }),
+    saveNginxConfigVersion: async (version: any): Promise<any> => tauriCall('save_nginx_config_version', { version }),
+    setActiveNginxVersion: async (presetId: string, versionId: string): Promise<any> => tauriCall('set_active_nginx_version', { presetId, versionId }),
+  };
+}
+
 // ============ 设置 ============
 
 export function useSettingsAPI() {
@@ -1583,6 +1600,17 @@ export interface TauriAPI {
   checkNodeAvailable: () => Promise<any>
   screenshot: () => Promise<any>
   exportWordReport: (params: Record<string, unknown>) => Promise<any>
+  // Nginx
+  getNginxPresets: () => Promise<any>
+  addNginxPreset: (preset: any) => Promise<any>
+  updateNginxPreset: (preset: any) => Promise<any>
+  deleteNginxPreset: (id: string) => Promise<any>
+  fetchNginxConfig: (serverId: string, configPath: string) => Promise<any>
+  testNginxConfig: (serverId: string) => Promise<any>
+  deployNginxConfig: (serverId: string, configPath: string, content: string, comment: string) => Promise<any>
+  getNginxConfigVersions: (presetId: string) => Promise<any>
+  saveNginxConfigVersion: (version: any) => Promise<any>
+  setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
 
 }
 
@@ -1604,6 +1632,7 @@ export function getTauriAPI(): TauriAPI {
   const dataBackup = useDataBackupAPI()
   const openvpn = useOpenVPNAPI()
   const wireguard = useWireGuardAPI()
+  const nginx = useNginxAPI()
 
   cachedAPI = {
     // Projects
@@ -1810,6 +1839,17 @@ export function getTauriAPI(): TauriAPI {
     wireguardGetStatus: wireguard.wireguardGetStatus,
     wireguardGenerateKeypair: wireguard.wireguardGenerateKeypair,
     wireguardDerivePublicKey: wireguard.wireguardDerivePublicKey,
+    // Nginx
+    getNginxPresets: nginx.getNginxPresets,
+    addNginxPreset: nginx.addNginxPreset,
+    updateNginxPreset: nginx.updateNginxPreset,
+    deleteNginxPreset: nginx.deleteNginxPreset,
+    fetchNginxConfig: nginx.fetchNginxConfig,
+    testNginxConfig: nginx.testNginxConfig,
+    deployNginxConfig: nginx.deployNginxConfig,
+    getNginxConfigVersions: nginx.getNginxConfigVersions,
+    saveNginxConfigVersion: nginx.saveNginxConfigVersion,
+    setActiveNginxVersion: nginx.setActiveNginxVersion,
     // Events
     onTaskUpdated: (callback: (data: any) => void) => { return () => {} },
     onTaskStatusChanged: (_callback: (data: any) => void) => { return () => {} },

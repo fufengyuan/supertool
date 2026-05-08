@@ -17,3 +17,4 @@ pub mod lan;
 pub mod git;
 pub mod git_sync;
 pub mod ssh;
+pub mod nginx;
