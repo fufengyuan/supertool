@@ -8,12 +8,10 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "build:cli": "cd cli && cargo build --release && cd ..",
-    "build:cli:arm64": "cd cli && cargo build --release --target aarch64-apple-darwin && cp target/aarch64-apple-darwin/release/stool target/release/stool && cd ..",
-    "build:cli:x64": "cd cli && cargo build --release --target x86_64-apple-darwin && cp target/x86_64-apple-darwin/release/stool target/release/stool && cd ..",
-    "build:app": "bash build.sh",
-    "build:x64": "bash build.sh x64",
-    "build:all": "bash build.sh all"
+    "build:app": "./build.sh full native",
+    "build:arm64": "./build.sh full arm64",
+    "build:x64": "./build.sh full x64",
+    "build:universal": "./build.sh full all"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
