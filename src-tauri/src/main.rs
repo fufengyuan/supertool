@@ -34,11 +34,6 @@ fn main() {
 
             log::info!("[Main] === SuperTool Tauri starting ===");
 
-            // 打开 DevTools 方便调试
-            if let Some(window) = app.get_webview_window("main") {
-                window.open_devtools();
-            }
-
             // Initialize SQLite database in unified directory
             let db_path = supertool_dir.join("supertool.db");
 
