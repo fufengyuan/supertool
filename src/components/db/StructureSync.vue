@@ -706,12 +706,12 @@ function toggleSqlRow(key: string) {
 
 .sync-desc {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin: 0;
 }
 
 .sync-config {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   padding: 16px;
 }
@@ -732,16 +732,16 @@ function toggleSqlRow(key: string) {
 .config-item label {
   font-size: 12px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .select-input,
 .text-input {
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
 }
 
@@ -772,21 +772,21 @@ function toggleSqlRow(key: string) {
 .table-grid {
   max-height: 400px;
   overflow-y: auto;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   padding: 8px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   margin-bottom: 12px;
 }
 
 .table-section-label {
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 6px 8px 4px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin-bottom: 4px;
   margin-top: 8px;
 }
@@ -807,7 +807,7 @@ function toggleSqlRow(key: string) {
 }
 
 .table-checkbox label:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .table-name {
@@ -841,7 +841,7 @@ function toggleSqlRow(key: string) {
 .table-empty {
   text-align: center;
   padding: 24px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-style: italic;
 }
 
@@ -854,7 +854,7 @@ function toggleSqlRow(key: string) {
 .selected-count-text {
   font-size: 13px;
   font-weight: 500;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .footer-btns {
@@ -875,8 +875,8 @@ function toggleSqlRow(key: string) {
 .loading-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid oklch(var(--bc) / 0.1);
-  border-top-color: oklch(var(--p));
+  border: 3px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -893,7 +893,7 @@ function toggleSqlRow(key: string) {
 }
 
 .results-summary {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   padding: 12px 16px;
 }
@@ -965,7 +965,7 @@ function toggleSqlRow(key: string) {
 
 .filter-label-text {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-weight: 500;
 }
 
@@ -975,14 +975,14 @@ function toggleSqlRow(key: string) {
   gap: 4px;
   padding: 2px 8px;
   border-radius: 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 11px;
   cursor: pointer;
   font-family: 'JetBrains Mono', monospace;
 }
 
 .filter-chip:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* ===== Navicat-style Grouped Diff View ===== */
@@ -993,7 +993,7 @@ function toggleSqlRow(key: string) {
 }
 
 .diff-table-group {
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1003,19 +1003,19 @@ function toggleSqlRow(key: string) {
   align-items: center;
   gap: 10px;
   padding: 10px 14px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   cursor: pointer;
   user-select: none;
   transition: background 0.1s;
 }
 
 .diff-group-header:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .expand-icon {
   font-size: 10px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   width: 12px;
   text-align: center;
 }
@@ -1028,7 +1028,7 @@ function toggleSqlRow(key: string) {
 
 .group-diff-count {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .group-type-badges {
@@ -1046,7 +1046,7 @@ function toggleSqlRow(key: string) {
 }
 
 .diff-group-body {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 /* Compact comparison table */
@@ -1061,16 +1061,16 @@ function toggleSqlRow(key: string) {
   padding: 6px 10px;
   font-size: 11px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b2));
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-200);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: sticky;
   top: 0;
 }
 
 .diff-compare-table td {
   padding: 6px 10px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   vertical-align: middle;
 }
 
@@ -1084,7 +1084,7 @@ function toggleSqlRow(key: string) {
 }
 
 .diff-row:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .diff-row.table_only_in_source { border-left: 3px solid #4caf50; }
@@ -1121,23 +1121,23 @@ function toggleSqlRow(key: string) {
 .compact-value {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   word-break: break-all;
 }
 
 .sql-toggle-btn {
   font-size: 11px;
   padding: 2px 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
-  background: oklch(var(--b2));
-  color: oklch(var(--p));
+  background: var(--color-base-200);
+  color: var(--color-primary);
   cursor: pointer;
   white-space: nowrap;
 }
 
 .sql-toggle-btn:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .sql-detail-row td {
@@ -1154,13 +1154,13 @@ function toggleSqlRow(key: string) {
   overflow-x: auto;
   white-space: pre-wrap;
   word-break: break-all;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .diff-empty {
   text-align: center;
   padding: 32px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 14px;
 }
 
@@ -1169,13 +1169,13 @@ function toggleSqlRow(key: string) {
   align-items: center;
   justify-content: space-between;
   padding: 12px 0;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .selected-count {
   font-size: 13px;
   font-weight: 500;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .execute-btns {
@@ -1184,7 +1184,7 @@ function toggleSqlRow(key: string) {
 }
 
 .exec-result {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   padding: 16px;
   text-align: center;
@@ -1232,7 +1232,7 @@ function toggleSqlRow(key: string) {
 }
 
 .btn-primary {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1243,8 +1243,8 @@ function toggleSqlRow(key: string) {
 
 .btn-ghost {
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .btn-sm {
@@ -1256,9 +1256,9 @@ function toggleSqlRow(key: string) {
   padding: 3px 8px;
   font-size: 11px;
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
 }
 
@@ -1274,7 +1274,7 @@ function toggleSqlRow(key: string) {
 }
 
 .sql-dialog {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   width: 720px;
   max-width: 90vw;
@@ -1289,7 +1289,7 @@ function toggleSqlRow(key: string) {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .sql-dialog-header h3 {
@@ -1310,7 +1310,7 @@ function toggleSqlRow(key: string) {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 18px;
   cursor: pointer;
   display: flex;
@@ -1319,8 +1319,8 @@ function toggleSqlRow(key: string) {
 }
 
 .sql-dialog-close:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
 }
 
 .sql-dialog-body {
@@ -1334,7 +1334,7 @@ function toggleSqlRow(key: string) {
   align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 8px;
   margin-bottom: 8px;
   font-size: 12px;
@@ -1345,7 +1345,7 @@ function toggleSqlRow(key: string) {
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   display: flex;
   align-items: center;
@@ -1363,7 +1363,7 @@ function toggleSqlRow(key: string) {
   word-break: break-all;
   font-family: monospace;
   font-size: 12px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   background: transparent;
 }
 
@@ -1378,7 +1378,7 @@ function toggleSqlRow(key: string) {
 }
 
 .sql-copy-btn:hover {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 </style>

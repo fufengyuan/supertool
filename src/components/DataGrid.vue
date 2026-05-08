@@ -706,8 +706,8 @@ function onFilterClear() {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   flex-shrink: 0;
   gap: 8px;
   min-height: 40px;
@@ -726,19 +726,19 @@ function onFilterClear() {
   font-size: 12px;
   border: none;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s ease;
 }
 
 .grid-tab:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
 }
 
 .grid-tab.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
@@ -750,11 +750,11 @@ function onFilterClear() {
 
 .grid-info {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding: 2px 8px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .grid-empty {
@@ -763,7 +763,7 @@ function onFilterClear() {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   gap: 12px;
 }
 
@@ -772,7 +772,7 @@ function onFilterClear() {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 14px;
 }
 
@@ -789,14 +789,14 @@ function onFilterClear() {
   height: 8px;
 }
 .grid-table-wrapper::-webkit-scrollbar-track {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 .grid-table-wrapper::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 4px;
 }
 .grid-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: oklch(var(--bc) / 0.6);
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .grid-table {
@@ -807,8 +807,8 @@ function onFilterClear() {
 
 .grid-table th,
 .grid-table td {
-  border-right: 1px solid oklch(var(--bc) / 0.1);
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 8px 14px;
   text-align: left;
   vertical-align: middle;
@@ -828,20 +828,20 @@ function onFilterClear() {
   width: 56px;
   min-width: 56px;
   text-align: center;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 11px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   position: sticky;
   left: 0;
   z-index: 3;
-  border-right: 2px solid oklch(var(--bc) / 0.1);
+  border-right: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .grid-col-th {
-  background: oklch(var(--b2));
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  border-bottom: 2px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -863,7 +863,7 @@ function onFilterClear() {
 }
 
 .grid-col-th.sortable:hover {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .grid-col {
@@ -885,7 +885,7 @@ function onFilterClear() {
 .col-name {
   font-weight: 600;
   font-size: 11px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex: 1;
@@ -897,7 +897,7 @@ function onFilterClear() {
 
 .col-comment {
   font-size: 9px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
   max-width: 120px;
   overflow: hidden;
@@ -916,25 +916,25 @@ function onFilterClear() {
 }
 
 .sort-icon-hint {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.3;
   font-size: 12px;
 }
 
 .grid-col-th.sortable:hover .sort-icon-hint {
   opacity: 0.7;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .sort-icon-active {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-weight: 700;
   font-size: 10px;
 }
 
 .grid-col-th.sort-asc .col-name,
 .grid-col-th.sort-desc .col-name {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .grid-cell {
@@ -945,20 +945,20 @@ function onFilterClear() {
 }
 
 .grid-cell:hover {
-  background: oklch(var(--p) / 0.1);
-  outline: 1px solid oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  outline: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   outline-offset: -1px;
 }
 
 .grid-cell.is-pk {
   font-weight: 600;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   background: rgba(var(--primary-rgb, 100, 100, 255), 0.05);
 }
 
 .dirty-row {
   background: rgba(245, 158, 11, 0.06);
-  border-left: 3px solid oklch(var(--wa));
+  border-left: 3px solid var(--color-warning);
 }
 
 .dirty-row:hover {
@@ -967,7 +967,7 @@ function onFilterClear() {
 
 .new-row {
   background: rgba(34, 197, 94, 0.06);
-  border-left: 3px solid oklch(var(--su));
+  border-left: 3px solid var(--color-success);
 }
 
 .new-row:hover {
@@ -975,7 +975,7 @@ function onFilterClear() {
 }
 
 .grid-table tbody tr:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row) {
@@ -983,11 +983,11 @@ function onFilterClear() {
 }
 
 .grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row):hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .dirty-indicator {
-  color: oklch(var(--wa));
+  color: var(--color-warning);
   font-weight: 700;
   font-size: 14px;
 }
@@ -997,7 +997,7 @@ function onFilterClear() {
 }
 
 .new-indicator {
-  color: oklch(var(--su));
+  color: var(--color-success);
   font-weight: 700;
   font-size: 14px;
 }
@@ -1006,11 +1006,11 @@ function onFilterClear() {
   display: inline;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12.5px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .null-value {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.45;
   font-style: italic;
   font-size: 11px;
@@ -1021,10 +1021,10 @@ function onFilterClear() {
 .cell-editor {
   width: 100%;
   padding: 4px 6px;
-  border: 2px solid oklch(var(--p));
+  border: 2px solid var(--color-primary);
   border-radius: 4px;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
   font-size: 13px;
   font-family: inherit;
   outline: none;
@@ -1056,7 +1056,7 @@ function onFilterClear() {
 .row-actions {
   width: 60px;
   text-align: center;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .row-action-btn {
@@ -1070,7 +1070,7 @@ function onFilterClear() {
 }
 
 .row-action-btn:hover {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .grid-pagination {
@@ -1079,15 +1079,15 @@ function onFilterClear() {
   justify-content: center;
   gap: 12px;
   padding: 8px 12px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   flex-shrink: 0;
   min-height: 38px;
 }
 
 .page-info {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .grid-json {
@@ -1098,16 +1098,16 @@ function onFilterClear() {
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
 }
 
 /* Context Menu */
 .context-menu {
   position: fixed;
   z-index: 9999;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   padding: 4px;
@@ -1120,14 +1120,14 @@ function onFilterClear() {
   gap: 8px;
   padding: 8px 12px;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.1s;
 }
 
 .context-menu-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .context-menu-item.disabled {

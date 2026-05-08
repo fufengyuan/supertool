@@ -254,59 +254,59 @@ onMounted(async () => {
 <style scoped>
 .project-detail-container { padding: 20px; }
 .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px; }
-.breadcrumb-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: oklch(var(--p)); cursor: pointer; font-size: 14px; font-weight: 500; padding: 4px 8px; border-radius: 6px; transition: all 0.15s ease; }
-.breadcrumb-link:hover { background: oklch(var(--p) / 0.1); }
-.breadcrumb-separator { color: oklch(var(--bc) / 0.6); font-size: 18px; }
-.breadcrumb-current { color: oklch(var(--bc) / 0.6); font-weight: 500; }
+.breadcrumb-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: 14px; font-weight: 500; padding: 4px 8px; border-radius: 6px; transition: all 0.15s ease; }
+.breadcrumb-link:hover { background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.breadcrumb-separator { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 18px; }
+.breadcrumb-current { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-weight: 500; }
 
-.project-header { background: oklch(var(--b1)); padding: 20px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.project-header { background: var(--color-base-100); padding: 20px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .project-info { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
 .project-color-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.project-title-section h2 { margin: 0 0 8px 0; color: oklch(var(--bc)); font-size: 24px; }
-.project-description { margin: 0 0 8px 0; color: oklch(var(--bc) / 0.6); font-size: 14px; line-height: 1.4; }
+.project-title-section h2 { margin: 0 0 8px 0; color: var(--color-base-content); font-size: 24px; }
+.project-description { margin: 0 0 8px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; line-height: 1.4; }
 .project-meta { display: flex; align-items: center; gap: 12px; }
-.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
-.meta-tag { font-size: 12px; color: oklch(var(--bc) / 0.6); }
+.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
+.meta-tag { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 
 .stats-row { display: flex; gap: 24px; margin-bottom: 12px; }
 .stat-item { display: flex; flex-direction: column; align-items: center; }
-.stat-value { font-size: 22px; font-weight: 700; color: oklch(var(--bc)); }
-.stat-label { font-size: 12px; color: oklch(var(--bc) / 0.6); }
+.stat-value { font-size: 22px; font-weight: 700; color: var(--color-base-content); }
+.stat-label { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .stat-item.completed .stat-value { color: #10b981; }
 .stat-item.active .stat-value { color: #f59e0b; }
 
 .progress-container { display: flex; align-items: center; gap: 12px; }
-.progress-bar { flex: 1; height: 12px; background: oklch(var(--b2)); border-radius: 6px; overflow: hidden; }
+.progress-bar { flex: 1; height: 12px; background: var(--color-base-200); border-radius: 6px; overflow: hidden; }
 .progress-fill { height: 100%; transition: width 0.3s ease; }
-.progress-pct { font-size: 14px; font-weight: 600; color: oklch(var(--bc)); white-space: nowrap; min-width: 40px; text-align: right; }
+.progress-pct { font-size: 14px; font-weight: 600; color: var(--color-base-content); white-space: nowrap; min-width: 40px; text-align: right; }
 
 /* 标签页 */
-.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: oklch(var(--b2)); border-radius: 10px; padding: 4px; }
-.tab-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 8px; background: transparent; color: oklch(var(--bc) / 0.6); cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.tab-btn:hover { color: oklch(var(--bc)); }
-.tab-btn.active { background: oklch(var(--b1)); color: oklch(var(--bc)); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--color-base-200); border-radius: 10px; padding: 4px; }
+.tab-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 8px; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.tab-btn:hover { color: var(--color-base-content); }
+.tab-btn.active { background: var(--color-base-100); color: var(--color-base-content); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 
 /* 已完成任务 */
 .completed-tasks-list { display: flex; flex-direction: column; gap: 8px; }
-.completed-task-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: oklch(var(--b2)); border-radius: 8px; gap: 12px; }
+.completed-task-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--color-base-200); border-radius: 8px; gap: 12px; }
 .task-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.task-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: oklch(var(--p)); }
-.task-text { font-size: 14px; color: oklch(var(--bc)); }
-.completed-text { text-decoration: line-through; color: oklch(var(--bc) / 0.6); }
+.task-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-primary); }
+.task-text { font-size: 14px; color: var(--color-base-content); }
+.completed-text { text-decoration: line-through; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .task-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .completed-date { font-size: 12px; color: #10b981; white-space: nowrap; }
 .priority-badge { padding: 1px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
 .priority-badge.high { background: #fee2e2; color: #dc2626; }
 .priority-badge.medium { background: #fef3c7; color: #d97706; }
 .priority-badge.low { background: #dbeafe; color: #3b82f6; }
-.undo-btn { padding: 4px 10px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; background: oklch(var(--b1)); color: oklch(var(--bc) / 0.6); cursor: pointer; font-size: 12px; transition: all 0.15s; }
-.undo-btn:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
+.undo-btn { padding: 4px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; font-size: 12px; transition: all 0.15s; }
+.undo-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
 
-.empty-tasks, .empty-git { text-align: center; padding: 40px 20px; color: oklch(var(--bc) / 0.6); }
+.empty-tasks, .empty-git { text-align: center; padding: 40px 20px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
 .empty-icon { font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.5; }
 .empty-tasks p, .empty-git p { font-size: 14px; margin: 0 0 16px; }
-.edit-git-btn { padding: 8px 16px; border: 1px solid oklch(var(--p)); border-radius: 8px; background: transparent; color: oklch(var(--p)); cursor: pointer; font-size: 13px; transition: all 0.15s; }
-.edit-git-btn:hover { background: oklch(var(--p)); color: white; }
+.edit-git-btn { padding: 8px 16px; border: 1px solid var(--color-primary); border-radius: 8px; background: transparent; color: var(--color-primary); cursor: pointer; font-size: 13px; transition: all 0.15s; }
+.edit-git-btn:hover { background: var(--color-primary); color: white; }
 
 .project-actions { display: flex; gap: 12px; justify-content: flex-start; margin-top: 16px; }
 </style>

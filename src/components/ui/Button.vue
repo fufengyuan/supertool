@@ -69,18 +69,18 @@ defineEmits(['click']);
 
 /* Variants */
 .btn-primary {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.8);
+  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(136, 57, 239, 0.3);
 }
 
 .btn-danger {
-  background: oklch(var(--er));
+  background: var(--color-error);
   color: white;
 }
 
@@ -89,18 +89,18 @@ defineEmits(['click']);
 }
 
 .btn-ghost {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: oklch(var(--b1));
-  border-color: oklch(var(--bc) / 0.6);
+  background: var(--color-base-100);
+  border-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .btn-success {
-  background: oklch(var(--su));
+  background: var(--color-success);
   color: white;
 }
 
@@ -110,7 +110,7 @@ defineEmits(['click']);
 }
 
 .btn-warning {
-  background: oklch(var(--wa));
+  background: var(--color-warning);
   color: white;
 }
 
@@ -136,8 +136,8 @@ defineEmits(['click']);
 }
 
 .btn-ghost .btn-spinner {
-  border-color: oklch(var(--bc) / 0.1);
-  border-top-color: oklch(var(--bc) / 0.6);
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-top-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 @keyframes spin {

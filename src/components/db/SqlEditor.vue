@@ -327,15 +327,15 @@ defineExpose({
   justify-content: space-between;
   gap: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .editor-conn-badge {
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 4px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -350,15 +350,15 @@ defineExpose({
   flex: 1;
   min-height: 120px;
   max-height: 300px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.15s ease;
 }
 
 .editor-container:focus-within {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .sql-highlight {
@@ -377,7 +377,7 @@ defineExpose({
   overflow: auto;
   pointer-events: none;
   color: transparent;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .sql-highlight code {
@@ -404,7 +404,7 @@ defineExpose({
   padding: 12px;
   border: none;
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -414,11 +414,11 @@ defineExpose({
   word-wrap: break-word;
   overflow: auto;
   /* Text must be somewhat transparent to see highlights behind */
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .sql-textarea::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
 }
 
@@ -429,10 +429,10 @@ defineExpose({
   justify-content: space-between;
   padding: 4px 8px;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b2));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-200);
   border-radius: 6px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .status-left, .status-right {
@@ -448,12 +448,12 @@ defineExpose({
 }
 
 .status-time {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .status-rows {
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .status-sql {
@@ -464,7 +464,7 @@ defineExpose({
 }
 
 .status-selection {
-  color: oklch(var(--wa));
+  color: var(--color-warning);
 }
 
 /* Error display */
@@ -475,7 +475,7 @@ defineExpose({
   padding: 10px 12px;
   border-radius: 8px;
   background: rgba(210, 15, 57, 0.1);
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -487,7 +487,7 @@ defineExpose({
 
 /* Query history */
 .query-history {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding-top: 8px;
 }
 
@@ -498,7 +498,7 @@ defineExpose({
   margin-bottom: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .history-item {
@@ -511,15 +511,15 @@ defineExpose({
 }
 
 .history-item:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .history-item.success {
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .history-item.failed {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .history-sql {
@@ -533,7 +533,7 @@ defineExpose({
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-family: inherit;
   margin-top: 2px;
 }

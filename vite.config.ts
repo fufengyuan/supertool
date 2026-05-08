@@ -17,9 +17,7 @@ const removeCrossorigin = () => ({
 export default defineConfig({
   plugins: [
     vue(),
-    tailwindcss({
-      sources: ['./src/**/*.vue', './src/**/*.ts', './src/**/*.js', './index.html'],
-    }),
+    tailwindcss(),
     removeCrossorigin(),
   ],
   base: './',

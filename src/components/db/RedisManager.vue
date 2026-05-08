@@ -695,8 +695,8 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   flex-direction: column;
   gap: 6px;
   padding: 10px 16px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 .search-row {
@@ -715,39 +715,39 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 6px 10px 6px 32px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .search-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .search-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
 }
 
 .stats-row {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .selected-info {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   margin-left: 4px;
 }
 
@@ -757,7 +757,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .editor-empty,
@@ -767,7 +767,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   gap: 12px;
 }
 
@@ -776,8 +776,8 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   gap: 10px;
   padding: 8px 16px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   flex-wrap: wrap;
 }
 
@@ -785,7 +785,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   max-width: 480px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -796,15 +796,15 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 3px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .key-info-ttl,
 .key-info-length {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .key-info-actions {
@@ -825,10 +825,10 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   height: 100%;
   min-height: 200px;
   padding: 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -837,8 +837,8 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .value-textarea:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* Hash Table */
@@ -858,29 +858,29 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   padding: 8px 12px;
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  border-bottom: 2px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .hash-table td {
   padding: 4px 8px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .hash-input {
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   outline: none;
 }
 
 .hash-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 /* List Items */
@@ -910,7 +910,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding: 6px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
 }
@@ -935,10 +935,10 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 .zset-input {
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   outline: none;
@@ -947,7 +947,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 .list-input:focus,
 .set-input:focus,
 .zset-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .zset-score {
@@ -965,18 +965,18 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   padding: 6px 8px;
   font-size: 12px;
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-weight: 600;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.2);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
 }
 
 .stream-entry-fields {
   padding: 6px 8px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.2);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 4px;
 }
 
@@ -984,7 +984,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   display: flex;
   gap: 6px;
   padding: 3px 0;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .stream-field-row:last-child {
@@ -993,7 +993,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 
 .stream-field-name {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-weight: 500;
   flex-shrink: 0;
@@ -1002,7 +1002,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 
 .stream-field-value {
   font-size: 12px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   word-break: break-all;
 }
@@ -1015,10 +1015,10 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 .redis-console {
   height: 180px;
   min-height: 100px;
-  border-top: 2px solid oklch(var(--bc) / 0.1);
+  border-top: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   display: flex;
   flex-direction: column;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
 }
 
 .console-header {
@@ -1026,13 +1026,13 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .console-title {
   font-size: 12px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .console-output {
@@ -1049,15 +1049,15 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .console-msg.input {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .console-msg.output {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .console-msg.error {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .console-msg-prefix {
@@ -1069,7 +1069,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .console-empty {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
   padding: 24px;
   font-style: italic;
@@ -1080,23 +1080,23 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .console-prompt {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
   font-weight: 700;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .console-input {
   flex: 1;
   padding: 6px 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
   outline: none;
@@ -1104,12 +1104,12 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .console-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .console-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
 }
 
@@ -1128,7 +1128,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .modal-dialog {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   padding: 20px;
   width: 600px;
@@ -1139,7 +1139,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 .modal-title {
   font-size: 16px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0 0 16px 0;
 }
 
@@ -1164,31 +1164,31 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 .form-group label {
   font-size: 12px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .form-input,
 .form-select {
   padding: 8px 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   outline: none;
 }
 
 .form-input:focus,
 .form-select:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .form-textarea {
   padding: 8px 10px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   min-height: 80px;
   resize: vertical;
@@ -1196,7 +1196,7 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
 }
 
 .form-textarea:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .modal-footer {
@@ -1231,17 +1231,17 @@ watch(() => props.redisDbIndex, async (newIdx, oldIdx) => {
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: all 0.1s;
 }
 
 .btn-icon:hover {
   background: var(--danger-light);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .btn-danger {
-  background: oklch(var(--er));
+  background: var(--color-error);
   color: white;
 }
 

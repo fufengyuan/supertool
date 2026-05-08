@@ -226,23 +226,23 @@ onMounted(async () => {
 <style scoped>
 .project-list-container { padding: 20px; }
 .project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.project-header h2 { margin: 0; color: oklch(var(--bc)); font-size: 24px; }
+.project-header h2 { margin: 0; color: var(--color-base-content); font-size: 24px; }
 
 /* 筛选栏 */
 .filters-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
 .search-wrapper { position: relative; flex: 1; min-width: 200px; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: oklch(var(--bc) / 0.6); pointer-events: none; }
-.search-input { width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid oklch(var(--bc) / 0.2); border-radius: 10px; background: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 14px; outline: none; transition: all 0.15s ease; }
-.search-input:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1); }
-.search-input::placeholder { color: oklch(var(--bc) / 0.6); opacity: 0.7; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); pointer-events: none; }
+.search-input { width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent); border-radius: 10px; background: var(--color-base-200); color: var(--color-base-content); font-size: 14px; outline: none; transition: all 0.15s ease; }
+.search-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.search-input::placeholder { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.7; }
 .filter-group { display: flex; gap: 8px; }
-.filter-select { padding: 10px 14px; border: 1.5px solid oklch(var(--bc) / 0.2); border-radius: 10px; background: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 13px; cursor: pointer; outline: none; transition: all 0.15s ease; }
-.filter-select:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1); }
+.filter-select { padding: 10px 14px; border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent); border-radius: 10px; background: var(--color-base-200); color: var(--color-base-content); font-size: 13px; cursor: pointer; outline: none; transition: all 0.15s ease; }
+.filter-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); }
 
 /* 项目列表 - 一行一个，全宽 */
 .project-list { display: flex; flex-direction: column; gap: 16px; }
 
 .empty-state-shortcuts { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-.shortcut-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: oklch(var(--bc) / 0.6); }
-.shortcut-tag kbd { padding: 2px 6px; border-radius: 4px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); font-size: 11px; font-family: inherit; }
+.shortcut-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
+.shortcut-tag kbd { padding: 2px 6px; border-radius: 4px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); font-size: 11px; font-family: inherit; }
 </style>

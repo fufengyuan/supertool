@@ -200,7 +200,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .calc-btn {

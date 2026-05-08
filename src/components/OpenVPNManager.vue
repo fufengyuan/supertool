@@ -456,7 +456,7 @@ function getLogClass(line: string): string {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   overflow: hidden;
 }
 
@@ -466,8 +466,8 @@ function getLogClass(line: string): string {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  background: oklch(var(--b1));
-  border-bottom: 1px solid oklch(var(--b2));
+  background: var(--color-base-100);
+  border-bottom: 1px solid var(--color-base-200);
 }
 
 .vpn-header-left {
@@ -484,7 +484,7 @@ function getLogClass(line: string): string {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .vpn-header-actions {
@@ -648,7 +648,7 @@ function getLogClass(line: string): string {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 10px;
   overflow: hidden;
 }
@@ -657,8 +657,8 @@ function getLogClass(line: string): string {
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  border-bottom: 1px solid oklch(var(--b2));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border-bottom: 1px solid var(--color-base-200);
 }
 
 .vpn-config-list {
@@ -680,12 +680,12 @@ function getLogClass(line: string): string {
 }
 
 .vpn-config-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .vpn-config-item.active {
-  background: oklch(var(--p) / 0.1);
-  border-left-color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  border-left-color: var(--color-primary);
 }
 
 .vpn-config-item.is-connecting {
@@ -702,7 +702,7 @@ function getLogClass(line: string): string {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -711,7 +711,7 @@ function getLogClass(line: string): string {
 .config-path {
   display: block;
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -745,7 +745,7 @@ function getLogClass(line: string): string {
   justify-content: center;
   padding: 40px 20px;
   text-align: center;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .vpn-empty p {
@@ -757,7 +757,7 @@ function getLogClass(line: string): string {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 10px;
   overflow: hidden;
   min-width: 0;
@@ -770,8 +770,8 @@ function getLogClass(line: string): string {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  border-bottom: 1px solid oklch(var(--b2));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border-bottom: 1px solid var(--color-base-200);
 }
 
 .vpn-log {
@@ -835,26 +835,26 @@ function getLogClass(line: string): string {
 }
 
 .btn-primary {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .btn-ghost {
   background: transparent;
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--b2));
+  color: var(--color-base-content);
+  border: 1px solid var(--color-base-200);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .btn-danger {
-  background: oklch(var(--er));
+  background: var(--color-error);
   color: white;
 }
 
@@ -879,25 +879,25 @@ function getLogClass(line: string): string {
 }
 
 .password-dialog {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   padding: 24px;
   width: 600px;
   max-width: 90vw;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border: 1px solid oklch(var(--b2));
+  border: 1px solid var(--color-base-200);
 }
 
 .password-dialog-header {
   font-size: 18px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 12px;
 }
 
 .password-dialog-body {
   font-size: 14px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 16px;
   line-height: 1.5;
 }
@@ -909,18 +909,18 @@ function getLogClass(line: string): string {
 .password-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid oklch(var(--b2));
+  border: 1px solid var(--color-base-200);
   border-radius: 8px;
   font-size: 14px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   outline: none;
   transition: border-color 0.15s;
   box-sizing: border-box;
 }
 
 .password-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -933,7 +933,7 @@ function getLogClass(line: string): string {
 
 .password-dialog-hint {
   font-size: 11px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   opacity: 0.7;
   line-height: 1.5;
   padding: 8px 10px;

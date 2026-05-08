@@ -569,32 +569,32 @@ function closeModal() {
   padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   font-size: 14px;
 }
 
 .btn-groups {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .btn-refresh {
   padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 14px;
 }
 
 .toolbar-separator {
   width: 1px;
   height: 28px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   margin: 0 4px;
 }
 
@@ -606,16 +606,16 @@ function closeModal() {
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 12px;
   transition: all 0.15s ease;
 }
 
 .btn-toggle-groups:hover {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border-color: oklch(var(--p));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border-color: var(--color-primary);
 }
 
 /* 抽屉式分组 */
@@ -637,8 +637,8 @@ function closeModal() {
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   position: relative;
   overflow: hidden;
 }
@@ -655,7 +655,7 @@ function closeModal() {
 }
 
 .drawer-handle:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
   transform: translateY(-1px);
 }
@@ -669,14 +669,14 @@ function closeModal() {
 }
 
 .drawer-chevron {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
 .drawer-chevron.expanded {
   transform: rotate(180deg);
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .drawer-icon {
@@ -687,7 +687,7 @@ function closeModal() {
 .drawer-name {
   font-weight: 600;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .drawer-count {
@@ -713,7 +713,7 @@ function closeModal() {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: oklch(var(--su));
+  color: var(--color-success);
   font-weight: 500;
 }
 
@@ -721,8 +721,8 @@ function closeModal() {
   margin-top: 4px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, oklch(var(--b1)) 80%, oklch(var(--bc) / 0.1) 20%);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: color-mix(in srgb, var(--color-base-100) 80%, color-mix(in oklab, var(--color-base-content) 10%, transparent) 20%);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-top: none;
 }
 
@@ -771,32 +771,32 @@ function closeModal() {
 .search-icon {
   position: absolute;
   left: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 12px 10px 36px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   transition: border-color 0.15s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .group-filter {
   padding: 10px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   min-width: 150px;
 }
@@ -811,18 +811,18 @@ function closeModal() {
 .empty-state {
   text-align: center;
   padding: 40px;
-  color: oklch(var(--bc) / 0.6);
-  background: oklch(var(--b1));
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  background: var(--color-base-100);
   border-radius: 12px;
 }
 .empty-state-icon { opacity: 0.2; margin-bottom: 16px; }
-.empty-state-title { font-size: 16px; font-weight: 600; color: oklch(var(--bc)); margin: 0 0 8px 0; }
+.empty-state-title { font-size: 16px; font-weight: 600; color: var(--color-base-content); margin: 0 0 8px 0; }
 .empty-state-subtitle { font-size: 13px; margin: 0 0 16px 0; }
 .empty-state-action-btn {
   padding: 10px 24px;
   border-radius: 8px;
   cursor: pointer;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   font-size: 14px;
@@ -846,7 +846,7 @@ function closeModal() {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   margin-bottom: 8px;
 }
 
@@ -864,7 +864,7 @@ function closeModal() {
 
 .group-manager-count {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .btn-add-subgroup,
@@ -872,9 +872,9 @@ function closeModal() {
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 12px;
 }
 
@@ -882,7 +882,7 @@ function closeModal() {
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
-  background: oklch(var(--er));
+  background: var(--color-error);
   color: white;
   border: none;
   font-size: 12px;
@@ -891,18 +891,18 @@ function closeModal() {
 .empty-group-msg {
   text-align: center;
   padding: 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .group-manager-form {
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding-top: 16px;
 }
 
 .group-manager-form h4 {
   margin: 0 0 12px;
   font-size: 14px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .group-form-row {
@@ -915,21 +915,21 @@ function closeModal() {
 .group-form-row .form-select {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
 }
 
 .color-picker {
   width: 40px;
   height: 36px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   cursor: pointer;
   padding: 2px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .group-form-actions {
@@ -941,7 +941,7 @@ function closeModal() {
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   font-size: 13px;
@@ -956,9 +956,9 @@ function closeModal() {
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 13px;
 }
 </style>

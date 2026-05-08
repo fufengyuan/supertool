@@ -246,7 +246,7 @@ function selectGroup(groupId: string | null) {
 }
 
 .form-modal {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 16px;
   width: 90%;
   max-width: 640px;
@@ -260,14 +260,14 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .form-modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .form-modal-close {
@@ -276,7 +276,7 @@ function selectGroup(groupId: string | null) {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -303,28 +303,28 @@ function selectGroup(groupId: string | null) {
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .form-field .required {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .form-field small {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.4);
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   transition: border-color 0.15s ease;
 }
@@ -332,7 +332,7 @@ function selectGroup(groupId: string | null) {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .form-select {
@@ -349,16 +349,16 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   cursor: pointer;
   transition: border-color 0.15s ease;
   min-height: 42px;
 }
 
 .tree-select-trigger:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .selected-group {
@@ -366,7 +366,7 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .group-dot {
@@ -377,13 +377,13 @@ function selectGroup(groupId: string | null) {
 }
 
 .placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 14px;
   opacity: 0.6;
 }
 
 .select-chevron {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   transition: transform 0.2s ease;
   flex-shrink: 0;
 }
@@ -397,8 +397,8 @@ function selectGroup(groupId: string | null) {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   z-index: 100;
@@ -415,23 +415,23 @@ function selectGroup(groupId: string | null) {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   transition: background 0.12s ease;
   user-select: none;
 }
 
 .tree-option:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .tree-option.active {
   background: rgba(108, 99, 255, 0.1);
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .tree-indent-line {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.4;
   font-size: 12px;
   flex-shrink: 0;
@@ -471,8 +471,8 @@ function selectGroup(groupId: string | null) {
 }
 
 .form-section-card {
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -484,7 +484,7 @@ function selectGroup(groupId: string | null) {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin-bottom: 16px;
 }
 
@@ -497,7 +497,7 @@ function selectGroup(groupId: string | null) {
   gap: 12px;
   justify-content: flex-end;
   padding: 16px 24px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .test-result {
@@ -509,12 +509,12 @@ function selectGroup(groupId: string | null) {
 
 .test-result.success {
   background: rgba(var(--success-rgb, 166, 227, 161), 0.15);
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .test-result.error {
   background: rgba(var(--danger-rgb, 243, 139, 168), 0.15);
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 /* 安全管控区域 */
@@ -543,7 +543,7 @@ function selectGroup(groupId: string | null) {
 
 .approval-desc {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   line-height: 1.4;
 }
 
@@ -569,7 +569,7 @@ function selectGroup(groupId: string | null) {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: oklch(var(--bc) / 0.2);
+  background-color: color-mix(in oklab, var(--color-base-content) 20%, transparent);
   transition: 0.3s;
   border-radius: 24px;
 }

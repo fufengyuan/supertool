@@ -91,22 +91,22 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 13px;
   font-weight: 500;
 }
 
 .required {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .input-field {
   width: 100%;
   padding: 10px 14px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -114,12 +114,12 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
 }
 
 .input-field:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .input-field::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.7;
 }
 
@@ -139,7 +139,7 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
 
 .input-hint {
   margin-top: 4px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 12px;
 }
 </style>

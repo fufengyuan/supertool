@@ -292,14 +292,14 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .settings-card {
   padding: 20px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   transition: all 0.2s ease;
 }
 
 .settings-card:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
@@ -317,7 +317,7 @@ const formatReminderTime = (minutes: number | string): string => {
 .card-title {
   font-size: 15px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   flex: 1;
 }
 
@@ -328,47 +328,47 @@ const formatReminderTime = (minutes: number | string): string => {
 .form-field label {
   display: block;
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-bottom: 6px;
 }
 
 .form-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   cursor: pointer;
 }
 
 .form-input {
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
 }
 
 .hint-text {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .settings-hint {
   margin-top: 10px;
   padding: 10px 14px;
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   border-radius: 8px;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   line-height: 1.5;
 }
 
 .settings-hint strong {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 /* 开关切换 */
@@ -389,7 +389,7 @@ const formatReminderTime = (minutes: number | string): string => {
 .toggle-slider {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 24px;
   transition: 0.3s;
 }
@@ -407,7 +407,7 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: oklch(var(--p));
+  background: var(--color-primary);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
@@ -437,7 +437,7 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .time-field label {
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .time-input {
@@ -447,7 +447,7 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .time-separator {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   padding-bottom: 8px;
 }
 
@@ -465,18 +465,18 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .test-result.success {
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .test-result.error {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .btn-ghost {
   padding: 8px 16px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   background: transparent;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -484,8 +484,8 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .btn-ghost:hover {
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 @media (max-width: 768px) {

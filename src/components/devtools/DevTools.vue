@@ -134,7 +134,7 @@ const currentToolComponent = computed(() => {
   display: flex;
   height: 100%;
   overflow: hidden;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 /* Sidebar */
@@ -142,8 +142,8 @@ const currentToolComponent = computed(() => {
   width: 260px;
   min-width: 220px;
   max-width: 300px;
-  border-right: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -157,7 +157,7 @@ const currentToolComponent = computed(() => {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .sidebar-search {
@@ -169,23 +169,23 @@ const currentToolComponent = computed(() => {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 7px 10px 7px 30px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   font-size: 12px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   outline: none;
 }
 
 .search-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 /* Categories */
@@ -202,7 +202,7 @@ const currentToolComponent = computed(() => {
 .category-header {
   font-size: 10px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 8px;
@@ -222,16 +222,16 @@ const currentToolComponent = computed(() => {
   cursor: pointer;
   transition: all 0.1s;
   font-size: 13px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .tool-item:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .tool-item.active {
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 .tool-icon {
@@ -266,7 +266,7 @@ const currentToolComponent = computed(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
   gap: 12px;
 }
@@ -279,7 +279,7 @@ const currentToolComponent = computed(() => {
 .content-empty h3 {
   font-size: 18px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0;
 }
 

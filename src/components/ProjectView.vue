@@ -307,7 +307,7 @@ onMounted(async () => {
 
 .project-header h2 {
   margin: 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   font-size: 24px;
 }
 
@@ -331,28 +331,28 @@ onMounted(async () => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 14px 10px 36px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   outline: none;
   transition: all 0.15s ease;
 }
 
 .search-input:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .search-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.7;
 }
 
@@ -363,10 +363,10 @@ onMounted(async () => {
 
 .filter-select {
   padding: 10px 14px;
-  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 10px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   cursor: pointer;
   outline: none;
@@ -374,7 +374,7 @@ onMounted(async () => {
 }
 
 .filter-select:focus {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 /* 项目卡片网格 */
@@ -385,8 +385,8 @@ onMounted(async () => {
 }
 
 .project-card {
-  background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 12px;
   padding: 20px;
   transition: transform 0.15s, box-shadow 0.15s;
@@ -419,7 +419,7 @@ onMounted(async () => {
 .card-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0;
   flex: 1;
 }
@@ -429,7 +429,7 @@ onMounted(async () => {
   padding: 2px 8px;
   border-radius: 10px;
   background: var(--danger-bg, #fef2f2);
-  color: oklch(var(--er));
+  color: var(--color-error);
   font-weight: 500;
 }
 
@@ -437,14 +437,14 @@ onMounted(async () => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
   font-weight: 500;
 }
 
 .project-desc {
   font-size: 13px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-bottom: 12px;
   min-height: 20px;
   line-height: 1.5;
@@ -461,9 +461,9 @@ onMounted(async () => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -483,22 +483,22 @@ onMounted(async () => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   display: block;
 }
 
 .stat-value.done {
-  color: oklch(var(--su));
+  color: var(--color-success);
 }
 
 .stat-label {
   font-size: 11px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .progress-bar {
   height: 6px;
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -523,21 +523,21 @@ onMounted(async () => {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 12px;
   transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 
 .action-btn.danger:hover {
-  border-color: oklch(var(--er));
-  color: oklch(var(--er));
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .empty-state-shortcuts {
@@ -549,7 +549,7 @@ onMounted(async () => {
 
 .btn-primary {
   padding: 8px 16px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: 6px;

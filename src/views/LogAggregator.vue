@@ -844,7 +844,7 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   color: var(--text-primary);
 }
 
@@ -861,7 +861,7 @@ onUnmounted(async () => {
 }
 
 .btn-add-preset {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -886,7 +886,7 @@ onUnmounted(async () => {
 }
 
 .preset-section {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   padding: 12px;
 }
@@ -914,7 +914,7 @@ onUnmounted(async () => {
 }
 
 .preset-group-header:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .group-toggle {
@@ -954,7 +954,7 @@ onUnmounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -962,11 +962,11 @@ onUnmounted(async () => {
 }
 
 .preset-item:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .preset-item.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
@@ -1054,8 +1054,8 @@ onUnmounted(async () => {
   width: 100%;
   padding: 6px 10px;
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -1083,7 +1083,7 @@ onUnmounted(async () => {
 }
 
 .modal-content {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   padding: 20px;
   border-radius: 12px;
   width: 680px;
@@ -1109,7 +1109,7 @@ onUnmounted(async () => {
 
 .btn-cancel {
   background: none;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -1117,7 +1117,7 @@ onUnmounted(async () => {
 }
 
 .btn-save {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   padding: 8px 16px;
@@ -1130,7 +1130,7 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1141,14 +1141,14 @@ onUnmounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
 }
 
 .mode-tabs {
   display: flex;
   gap: 2px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 6px;
   padding: 3px;
 }
@@ -1166,7 +1166,7 @@ onUnmounted(async () => {
 }
 
 .mode-tab.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   font-weight: 500;
 }
@@ -1182,8 +1182,8 @@ onUnmounted(async () => {
   flex: 1;
   padding: 6px 10px;
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -1205,9 +1205,9 @@ onUnmounted(async () => {
 
 .context-btn {
   padding: 3px 8px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 4px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -1215,23 +1215,23 @@ onUnmounted(async () => {
 }
 
 .context-btn:hover {
-  background: oklch(var(--p) / 0.1);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
   color: var(--text-primary);
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .context-btn.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .context-input {
   width: 60px;
   padding: 3px 6px;
   border-radius: 4px;
-  border: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b2));
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
   color: var(--text-primary);
   font-size: 12px;
   text-align: center;
@@ -1243,7 +1243,7 @@ onUnmounted(async () => {
 
 .btn-search {
   padding: 6px 16px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 6px;
@@ -1262,7 +1262,7 @@ onUnmounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-size: 13px;
   flex-wrap: wrap;
   gap: 8px;
@@ -1276,7 +1276,7 @@ onUnmounted(async () => {
 }
 
 .current-preset {
-  color: oklch(var(--p));
+  color: var(--color-primary);
   font-weight: 500;
 }
 
@@ -1292,7 +1292,7 @@ onUnmounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 6px;
   background: none;
   color: var(--text-secondary);
@@ -1303,14 +1303,14 @@ onUnmounted(async () => {
 }
 
 .btn-follow:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   color: var(--text-primary);
 }
 
 .btn-follow.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
   animation: follow-pulse 2s infinite;
 }
 
@@ -1342,7 +1342,7 @@ onUnmounted(async () => {
 
 .btn-clear, .btn-export {
   background: none;
-  border: 1px solid oklch(var(--bc) / 0.1);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -1351,7 +1351,7 @@ onUnmounted(async () => {
 }
 
 .btn-clear:hover, .btn-export:hover {
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
 }
 
 .log-content {
@@ -1432,7 +1432,7 @@ onUnmounted(async () => {
   right: 16px;
   z-index: 10;
   padding: 8px 14px;
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   border: none;
   border-radius: 20px;

@@ -41,9 +41,9 @@ import Skeleton from './Skeleton.vue';
   flex-shrink: 0;
   background: linear-gradient(
     90deg,
-    oklch(var(--bc) / 0.1) 25%,
-    oklch(var(--b1)) 50%,
-    oklch(var(--bc) / 0.1) 75%
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 25%,
+    var(--color-base-100) 50%,
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -57,9 +57,9 @@ import Skeleton from './Skeleton.vue';
   border-radius: 6px;
   background: linear-gradient(
     90deg,
-    oklch(var(--bc) / 0.1) 25%,
-    oklch(var(--b1)) 50%,
-    oklch(var(--bc) / 0.1) 75%
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 25%,
+    var(--color-base-100) 50%,
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -77,7 +77,7 @@ import Skeleton from './Skeleton.vue';
   display: flex;
   gap: 8px;
   padding-top: 8px;
-  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .skeleton-badge {
@@ -86,9 +86,9 @@ import Skeleton from './Skeleton.vue';
   border-radius: 10px;
   background: linear-gradient(
     90deg,
-    oklch(var(--bc) / 0.1) 25%,
-    oklch(var(--b1)) 50%,
-    oklch(var(--bc) / 0.1) 75%
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 25%,
+    var(--color-base-100) 50%,
+    color-mix(in oklab, var(--color-base-content) 10%, transparent) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;

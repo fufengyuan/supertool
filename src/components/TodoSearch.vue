@@ -129,16 +129,16 @@ defineEmits([
 .search-input {
   width: 100%;
   padding: 8px 32px 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 14px;
   outline: none;
 }
 .search-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 .clear-search-btn {
   position: absolute;
@@ -149,7 +149,7 @@ defineEmits([
   height: 20px;
   border: none;
   background: none;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 16px;
   cursor: pointer;
   border-radius: 4px;
@@ -158,7 +158,7 @@ defineEmits([
   justify-content: center;
 }
 .clear-search-btn:hover {
-  background: oklch(var(--bc) / 0.1);
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 .search-filters {
   display: flex;
@@ -166,10 +166,10 @@ defineEmits([
 }
 .filter-select {
   padding: 6px 10px;
-  border: 1px solid oklch(var(--bc) / 0.2);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-size: 13px;
   cursor: pointer;
 }
@@ -181,21 +181,21 @@ defineEmits([
 }
 .todo-filters button {
   padding: 6px 14px;
-  border: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
-  color: oklch(var(--bc) / 0.6);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
 }
 .todo-filters button:hover {
-  border-color: oklch(var(--p));
-  color: oklch(var(--p));
+  border-color: var(--color-primary);
+  color: var(--color-primary);
 }
 .todo-filters button.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 </style>

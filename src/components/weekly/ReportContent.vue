@@ -113,7 +113,7 @@ const props = defineProps({
 
 <style scoped>
 .report-content {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
@@ -122,18 +122,18 @@ const props = defineProps({
 .report-summary {
   margin-bottom: 30px;
   padding: 16px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 8px;
 }
 
 .report-summary h3 {
   margin: 0 0 10px 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .report-summary p {
   margin: 5px 0;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .report-section {
@@ -142,16 +142,16 @@ const props = defineProps({
 
 .report-section h3 {
   margin: 0 0 15px 0;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   padding-bottom: 8px;
-  border-bottom: 2px solid oklch(var(--bc) / 0.1);
+  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .report-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 20px;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -160,11 +160,11 @@ const props = defineProps({
 .report-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .report-table th {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
   font-weight: 600;
 }
@@ -174,7 +174,7 @@ const props = defineProps({
 }
 
 .report-table tbody tr:hover {
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
 }
 
 .task-list {
@@ -184,15 +184,15 @@ const props = defineProps({
 
 .task-list li {
   margin-bottom: 5px;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .no-report {
   text-align: center;
   padding: 60px 20px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   font-size: 16px;
-  background: oklch(var(--b1));
+  background: var(--color-base-100);
   border-radius: 16px;
   margin-top: 20px;
 }

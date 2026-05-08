@@ -979,7 +979,7 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   min-height: 0;
   gap: 12px;
 }
@@ -987,7 +987,7 @@ watch(() => db.activeConnection.value, (conn) => {
 .db-title {
   font-size: 16px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0;
   min-width: 0;
   overflow: hidden;
@@ -1012,8 +1012,8 @@ watch(() => db.activeConnection.value, (conn) => {
   width: 260px;
   min-width: 200px;
   max-width: 400px;
-  border-right: 1px solid oklch(var(--bc) / 0.1);
-  background: oklch(var(--b1));
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1026,8 +1026,8 @@ watch(() => db.activeConnection.value, (conn) => {
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: oklch(var(--bc) / 0.6);
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .db-main {
@@ -1045,7 +1045,7 @@ watch(() => db.activeConnection.value, (conn) => {
   justify-content: center;
   gap: 12px;
   padding: 48px 24px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
 }
 
@@ -1056,7 +1056,7 @@ watch(() => db.activeConnection.value, (conn) => {
 .db-empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
   margin: 0;
 }
 
@@ -1071,8 +1071,8 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: flex-end;
   gap: 1px;
   padding: 0 8px;
-  background: oklch(var(--b2));
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   overflow-x: auto;
   min-height: 34px;
 }
@@ -1091,7 +1091,7 @@ watch(() => db.activeConnection.value, (conn) => {
   border-radius: 6px 6px 0 0;
   cursor: pointer;
   font-size: 12px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
@@ -1100,14 +1100,14 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .tab-item:hover {
-  background: oklch(var(--b1));
-  color: oklch(var(--bc));
+  background: var(--color-base-100);
+  color: var(--color-base-content);
 }
 
 .tab-item.active {
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
-  border-color: oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  border-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
   font-weight: 500;
 }
 
@@ -1133,7 +1133,7 @@ watch(() => db.activeConnection.value, (conn) => {
   background: transparent;
   border-radius: 3px;
   cursor: pointer;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   flex-shrink: 0;
   opacity: 0;
   transition: all 0.1s ease;
@@ -1145,8 +1145,8 @@ watch(() => db.activeConnection.value, (conn) => {
 
 .tab-close:hover {
   opacity: 1 !important;
-  background: oklch(var(--p) / 0.1);
-  color: oklch(var(--p));
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  color: var(--color-primary);
 }
 
 /* Tab content */
@@ -1155,7 +1155,7 @@ watch(() => db.activeConnection.value, (conn) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: oklch(var(--b2));
+  background: var(--color-base-200);
   min-width: 0;
 }
 
@@ -1186,19 +1186,19 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 8px;
-  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .workspace-title {
   font-size: 14px;
   font-weight: 600;
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .workspace-subtitle {
   font-size: 12px;
   font-weight: 400;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   margin-left: 8px;
 }
 
@@ -1207,7 +1207,7 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 /* Redis workspace */
@@ -1231,8 +1231,8 @@ watch(() => db.activeConnection.value, (conn) => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
@@ -1244,15 +1244,15 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-msg.input {
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .redis-msg.output {
-  color: oklch(var(--bc));
+  color: var(--color-base-content);
 }
 
 .redis-msg.error {
-  color: oklch(var(--er));
+  color: var(--color-error);
 }
 
 .redis-msg-prefix {
@@ -1264,7 +1264,7 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-empty {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   text-align: center;
   padding: 24px;
   font-style: italic;
@@ -1280,16 +1280,16 @@ watch(() => db.activeConnection.value, (conn) => {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
   font-weight: 700;
-  color: oklch(var(--p));
+  color: var(--color-primary);
 }
 
 .redis-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1.5px solid oklch(var(--bc) / 0.2);
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
   border-radius: 6px;
-  background: oklch(var(--b2));
-  color: oklch(var(--bc));
+  background: var(--color-base-200);
+  color: var(--color-base-content);
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   outline: none;
@@ -1297,12 +1297,12 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-input:focus {
-  border-color: oklch(var(--p));
-  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 .redis-input::placeholder {
-  color: oklch(var(--bc) / 0.6);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
 }
 

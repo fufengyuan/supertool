@@ -137,12 +137,12 @@ function onSingleSelect(serverId: string) {
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
-  background: oklch(var(--b2));
-  border: 1px solid oklch(var(--bc) / 0.1);
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
 }
 
 .server-group-header:hover {
-  border-color: oklch(var(--p));
+  border-color: var(--color-primary);
 }
 
 .group-chevron {
@@ -192,7 +192,7 @@ function onSingleSelect(serverId: string) {
 }
 
 .server-check-item input[type="checkbox"] {
-  accent-color: oklch(var(--p));
+  accent-color: var(--color-primary);
   flex-shrink: 0;
 }
 
@@ -229,7 +229,7 @@ function onSingleSelect(serverId: string) {
 }
 
 .server-option-item.active {
-  background: oklch(var(--p));
+  background: var(--color-primary);
   color: white;
 }
 
