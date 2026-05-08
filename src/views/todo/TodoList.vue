@@ -855,11 +855,9 @@ const setupMenuListeners = () => {
     }
   })
   e.onMenuSetTag(() => { })
-  e.onMenuAbout(() => { toast.info('SuperTool 应用 v1.0.0') })
   e.onMenuShortcutsHelp(() => {
     toast.info('Cmd/Ctrl+N 新建 | Cmd/Ctrl+F 搜索 | Cmd/Ctrl+D 完成 | Cmd/Ctrl+A 全选')
   })
-  e.onMenuCheckUpdate(() => { toast.info('当前已是最新版本') })
 }
 setupMenuListeners()
 </script>
