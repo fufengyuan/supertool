@@ -10,18 +10,27 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-/// 获取用户登录 shell 的完整环境变量
+/// 获取用户登录 shell 的完整环境变量，确保版本管理器工具（NVM/Homebrew/nvm-windows）可用
 fn get_user_shell_env() -> HashMap<String, String> {
-    let output = std::process::Command::new("zsh")
+    // 第一步：尝试从登录 shell 获取环境变量
+    #[cfg(target_os = "windows")]
+    let shell_output = std::process::Command::new("cmd")
+        .args(["/c", "set"])
+        .output().ok();
+    #[cfg(not(target_os = "windows"))]
+    let shell_output = std::process::Command::new("zsh")
         .args(["-l", "-c", "env"])
-        .output()
-        .ok();
+        .output().ok();
     
     let mut env = HashMap::new();
-    if let Some(out) = output {
+    if let Some(out) = shell_output {
         let text = String::from_utf8_lossy(&out.stdout);
         for line in text.lines() {
-            if let Some(pos) = line.find('=') {
+            #[cfg(target_os = "windows")]
+            let separator = '=';
+            #[cfg(not(target_os = "windows"))]
+            let separator = '=';
+            if let Some(pos) = line.find(separator) {
                 let key = &line[..pos];
                 let value = &line[pos + 1..];
                 env.insert(key.to_string(), value.to_string());
@@ -29,39 +38,88 @@ fn get_user_shell_env() -> HashMap<String, String> {
         }
     }
     
-    // 确保 PATH 包含 NVM 和 Homebrew（zsh -l 可能不加载 NVM）
-    if let Ok(home) = std::env::var("HOME") {
-        let current_path = env.get("PATH").cloned().unwrap_or_default();
+    // 第二步：确保 PATH 包含常见版本管理器路径（跨平台 fallback）
+    if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
+        let current_path = env.get("PATH").cloned()
+            .or_else(|| std::env::var("PATH").ok())
+            .unwrap_or_default();
         let mut extra_paths: Vec<String> = Vec::new();
         
-        // 1. NVM 最新 node 版本
-        let nvm_dir = format!("{}/.nvm/versions/node", home);
-        if std::path::Path::new(&nvm_dir).is_dir() {
-            if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
-                let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
-                    .filter(|e| e.path().is_dir())
-                    .filter_map(|e| e.file_name().into_string().ok())
-                    .collect();
-                versions.sort();
-                if let Some(latest) = versions.last() {
-                    extra_paths.push(format!("{}/{}/bin", nvm_dir, latest));
+        #[cfg(target_os = "macos")]
+        {
+            // NVM (Node Version Manager)
+            let nvm_dir = format!("{}/.nvm/versions/node", home);
+            if std::path::Path::new(&nvm_dir).is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_dir())
+                        .filter_map(|e| e.file_name().into_string().ok())
+                        .collect();
+                    versions.sort();
+                    if let Some(latest) = versions.last() {
+                        extra_paths.push(format!("{}/{}/bin", nvm_dir, latest));
+                    }
+                }
+            }
+            // Homebrew Apple Silicon
+            extra_paths.push("/opt/homebrew/bin".to_string());
+            extra_paths.push("/opt/homebrew/sbin".to_string());
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            // NVM Linux
+            let nvm_dir = format!("{}/.nvm/versions/node", home);
+            if std::path::Path::new(&nvm_dir).is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_dir())
+                        .filter_map(|e| e.file_name().into_string().ok())
+                        .collect();
+                    versions.sort();
+                    if let Some(latest) = versions.last() {
+                        extra_paths.push(format!("{}/{}/bin", nvm_dir, latest));
+                    }
+                }
+            }
+            // Linux 常见路径
+            extra_paths.push("/usr/local/bin".to_string());
+            extra_paths.push("/snap/bin".to_string());
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // NVM Windows
+            let nvm_dir = format!("{}\\nvm4w\\nodejs", home);
+            if std::path::Path::new(&nvm_dir).is_dir() {
+                extra_paths.push(nvm_dir);
+            }
+            // 也扫描 NVM 安装目录下的所有 node 版本
+            let nvm_root = format!("{}\\AppData\\Roaming\\nvm", home);
+            if std::path::Path::new(&nvm_root).is_dir() {
+                if let Ok(entries) = std::fs::read_dir(&nvm_root) {
+                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                        .filter(|e| e.path().is_dir())
+                        .filter_map(|e| e.file_name().into_string().ok())
+                        .filter(|n| n.starts_with("v"))
+                        .collect();
+                    versions.sort();
+                    if let Some(latest) = versions.last() {
+                        extra_paths.push(format!("{}\\{}", nvm_root, latest));
+                    }
                 }
             }
         }
         
-        // 2. Homebrew (Apple Silicon)
-        extra_paths.push("/opt/homebrew/bin".to_string());
-        extra_paths.push("/opt/homebrew/sbin".to_string());
-        
-        // 3. 合并原有 PATH
+        // 合并原有 PATH（去重）
+        let sep = if cfg!(windows) { ";" } else { ":" };
         let mut all_paths = extra_paths;
-        for p in current_path.split(':') {
+        for p in current_path.split(sep) {
             if !p.is_empty() && !all_paths.iter().any(|x| x == p) {
                 all_paths.push(p.to_string());
             }
         }
-        
-        env.insert("PATH".to_string(), all_paths.join(":"));
+        env.insert("PATH".to_string(), all_paths.join(sep));
     }
     env
 }
