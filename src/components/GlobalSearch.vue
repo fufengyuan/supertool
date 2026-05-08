@@ -13,7 +13,7 @@
               v-model="query"
               type="text"
               class="search-input"
-              placeholder="搜索任务、项目、服务器…"
+              placeholder="搜索任务、项目、服务器、笔记、CI/CD…"
               @keydown.down.prevent="navigateResults(1)"
               @keydown.up.prevent="navigateResults(-1)"
               @keydown.enter.prevent="selectResult"
@@ -82,6 +82,100 @@
                   </div>
                 </div>
               </template>
+
+              <!-- 笔记结果 -->
+              <template v-if="noteResults.length > 0">
+                <div class="result-group-label">笔记</div>
+                <div
+                  v-for="(item, idx) in noteResults"
+                  :key="'note-' + item.id"
+                  class="search-result-item"
+                  :class="{ active: activeIndex === getGlobalIndex('note', idx) }"
+                  @click="selectItem(item, 'note')"
+                  @mouseenter="activeIndex = getGlobalIndex('note', idx)"
+                >
+                  <span class="result-icon note-icon">📓</span>
+                  <div class="result-info">
+                    <span class="result-title" v-html="highlightMatch(item.title, query)"></span>
+                    <span class="result-subtitle">{{ item.group || '未分组' }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- CI/CD 结果 -->
+              <template v-if="cicdResults.length > 0">
+                <div class="result-group-label">CI/CD</div>
+                <div
+                  v-for="(item, idx) in cicdResults"
+                  :key="'cicd-' + item.id"
+                  class="search-result-item"
+                  :class="{ active: activeIndex === getGlobalIndex('cicd', idx) }"
+                  @click="selectItem(item, 'cicd')"
+                  @mouseenter="activeIndex = getGlobalIndex('cicd', idx)"
+                >
+                  <span class="result-icon cicd-icon">🚀</span>
+                  <div class="result-info">
+                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="result-subtitle">{{ item.groupName || '未分组' }} · {{ item.deployBranch }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- MFA 结果 -->
+              <template v-if="mfaResults.length > 0">
+                <div class="result-group-label">MFA</div>
+                <div
+                  v-for="(item, idx) in mfaResults"
+                  :key="'mfa-' + item.id"
+                  class="search-result-item"
+                  :class="{ active: activeIndex === getGlobalIndex('mfa', idx) }"
+                  @click="selectItem(item, 'mfa')"
+                  @mouseenter="activeIndex = getGlobalIndex('mfa', idx)"
+                >
+                  <span class="result-icon mfa-icon">🔐</span>
+                  <div class="result-info">
+                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="result-subtitle">{{ item.account || item.issuer || '' }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Git 结果 -->
+              <template v-if="gitResults.length > 0">
+                <div class="result-group-label">Git 仓库</div>
+                <div
+                  v-for="(item, idx) in gitResults"
+                  :key="'git-' + item.id"
+                  class="search-result-item"
+                  :class="{ active: activeIndex === getGlobalIndex('git', idx) }"
+                  @click="selectItem(item, 'git')"
+                  @mouseenter="activeIndex = getGlobalIndex('git', idx)"
+                >
+                  <span class="result-icon git-icon">🔀</span>
+                  <div class="result-info">
+                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
+                    <span class="result-subtitle">{{ item.path || item.url || '' }}</span>
+                  </div>
+                </div>
+              </template>
+
+              <!-- VPN 结果 -->
+              <template v-if="vpnResults.length > 0">
+                <div class="result-group-label">VPN</div>
+                <div
+                  v-for="(item, idx) in vpnResults"
+                  :key="'vpn-' + item.id"
+                  class="search-result-item"
+                  :class="{ active: activeIndex === getGlobalIndex('vpn', idx) }"
+                  @click="selectItem(item, 'vpn')"
+                  @mouseenter="activeIndex = getGlobalIndex('vpn', idx)"
+                >
+                  <span class="result-icon vpn-icon">🌐</span>
+                  <div class="result-info">
+                    <span class="result-title" v-html="highlightMatch(item.name, query)"></span>
+                  </div>
+                </div>
+              </template>
             </template>
 
             <!-- 无结果 -->
@@ -135,7 +229,7 @@ import { useRouter } from 'vue-router'
 
 interface SearchResult {
   id: string
-  type: 'todo' | 'project' | 'server'
+  type: 'todo' | 'project' | 'server' | 'note' | 'cicd' | 'mfa' | 'git' | 'vpn' | 'accounting'
   [key: string]: any
 }
 
@@ -175,16 +269,30 @@ const inputRef = ref<HTMLInputElement | null>(null)
 const todos = computed(() => todoStore.todos)
 const projects = ref<any[]>([])
 const servers = ref<any[]>([])
+const notes = ref<any[]>([])
+const cicdConfigs = ref<any[]>([])
+const mfaSecrets = ref<any[]>([])
+const gitRepos = ref<any[]>([])
+const vpnConfigs = ref<any[]>([])
+const accountingCategories = ref<any[]>([])
 
-// 加载项目和服务器数据
+// 加载所有搜索数据
 const loadData = async () => {
-  try {
-    console.log("[loadData] called")
-    projects.value = await getTauriAPI().getProjects(true) || []
-  } catch {}
-  try {
-    servers.value = await getTauriAPI().getAllServers() || []
-  } catch {}
+  const api = getTauriAPI()
+  // 项目
+  try { projects.value = await api.getProjects(true) || [] } catch {}
+  // 服务器
+  try { servers.value = await api.getAllServers() || [] } catch {}
+  // 笔记
+  try { notes.value = await api.getAllNotes() || [] } catch {}
+  // CI/CD
+  try { cicdConfigs.value = await api.getCicdConfigs() || [] } catch {}
+  // MFA
+  try { mfaSecrets.value = await api.getAllMfaSecrets() || [] } catch {}
+  // Git
+  try { const res = await api.getGitRepos(); gitRepos.value = res?.data || [] } catch {}
+  // VPN (OpenVPN)
+  try { vpnConfigs.value = await api.openvpnGetAll() || [] } catch {}
 }
 
 // 模糊匹配
@@ -221,17 +329,79 @@ const serverResults = computed(() => {
   ).slice(0, 5)
 })
 
+const noteResults = computed(() => {
+  if (!query.value.trim()) return []
+  return notes.value.filter(n =>
+    fuzzyMatch(n.title, query.value) ||
+    fuzzyMatch(n.content, query.value) ||
+    fuzzyMatch(n.group, query.value)
+  ).slice(0, 5)
+})
+
+const cicdResults = computed(() => {
+  if (!query.value.trim()) return []
+  return cicdConfigs.value.filter(c =>
+    fuzzyMatch(c.name, query.value) ||
+    fuzzyMatch(c.groupName, query.value) ||
+    fuzzyMatch(c.deployBranch, query.value)
+  ).slice(0, 5)
+})
+
+const mfaResults = computed(() => {
+  if (!query.value.trim()) return []
+  return mfaSecrets.value.filter(m =>
+    fuzzyMatch(m.name, query.value) ||
+    fuzzyMatch(m.account, query.value) ||
+    fuzzyMatch(m.issuer, query.value)
+  ).slice(0, 5)
+})
+
+const gitResults = computed(() => {
+  if (!query.value.trim()) return []
+  return gitRepos.value.filter(g =>
+    fuzzyMatch(g.name, query.value) ||
+    fuzzyMatch(g.url, query.value) ||
+    fuzzyMatch(g.path, query.value)
+  ).slice(0, 5)
+})
+
+const vpnResults = computed(() => {
+  if (!query.value.trim()) return []
+  return vpnConfigs.value.filter(v =>
+    fuzzyMatch(v.name, query.value)
+  ).slice(0, 5)
+})
+
 const results = computed(() => [
   ...todoResults.value,
   ...projectResults.value,
-  ...serverResults.value
+  ...serverResults.value,
+  ...noteResults.value,
+  ...cicdResults.value,
+  ...mfaResults.value,
+  ...gitResults.value,
+  ...vpnResults.value
 ])
 
-// 全局索引计算
-const getGlobalIndex = (type: 'todo' | 'project' | 'server', localIdx: number): number => {
+// 全局索引计算（按顺序：todo → project → server → note → cicd → mfa → git → vpn）
+const resultTypes = ['todo', 'project', 'server', 'note', 'cicd', 'mfa', 'git', 'vpn'] as const
+const resultCountMap = computed(() => ({
+  todo: todoResults.value.length,
+  project: projectResults.value.length,
+  server: serverResults.value.length,
+  note: noteResults.value.length,
+  cicd: cicdResults.value.length,
+  mfa: mfaResults.value.length,
+  git: gitResults.value.length,
+  vpn: vpnResults.value.length,
+}))
+
+const getGlobalIndex = (type: string, localIdx: number): number => {
   let offset = 0
-  if (type === 'project') offset = todoResults.value.length
-  if (type === 'server') offset = todoResults.value.length + projectResults.value.length
+  for (const t of resultTypes) {
+    if (t === type) break
+    offset += resultCountMap.value[t as keyof typeof resultCountMap.value] || 0
+  }
   return offset + localIdx
 }
 
@@ -246,36 +416,54 @@ const navigateResults = (direction: number) => {
 
 // 选择结果
 const selectResult = () => {
-  if (query.value.trim()) {
-    if (activeIndex.value < todoResults.value.length) {
-      const item = todoResults.value[activeIndex.value]
-      selectItem(item, 'todo')
-    } else if (activeIndex.value < todoResults.value.length + projectResults.value.length) {
-      const item = projectResults.value[activeIndex.value - todoResults.value.length]
-      selectItem(item, 'project')
-    } else {
-      const item = serverResults.value[activeIndex.value - todoResults.value.length - projectResults.value.length]
-      selectItem(item, 'server')
-    }
-  } else {
+  if (!query.value.trim()) {
     quickNavigateByIndex(activeIndex.value)
+    return
+  }
+  let offset = 0
+  for (const t of resultTypes) {
+    const count = resultCountMap.value[t as keyof typeof resultCountMap.value] || 0
+    if (activeIndex.value < offset + count) {
+      const localIdx = activeIndex.value - offset
+      const items: Record<string, any[]> = {
+        todo: todoResults.value, project: projectResults.value, server: serverResults.value,
+        note: noteResults.value, cicd: cicdResults.value, mfa: mfaResults.value,
+        git: gitResults.value, vpn: vpnResults.value,
+      }
+      selectItem(items[t][localIdx], t)
+      return
+    }
+    offset += count
   }
 }
 
 const selectItem = (item: any, type: string) => {
   close()
+  const navMap: Record<string, string> = {
+    todo: 'todo', project: 'projects', server: 'servers', note: 'notes',
+    cicd: 'cicd', mfa: 'mfa', git: 'git', vpn: 'vpn',
+  }
+  appStore.recordNavClick(navMap[type] || type)
+  
   if (type === 'todo') {
-    appStore.recordNavClick('todo')
     router.push('/')
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('navigate-to-todo', { detail: { todoId: item.id } }))
     }, 200)
   } else if (type === 'project') {
-    appStore.recordNavClick('projects')
     router.push('/projects')
   } else if (type === 'server') {
-    appStore.recordNavClick('servers')
     router.push('/servers')
+  } else if (type === 'note') {
+    router.push('/notes')
+  } else if (type === 'cicd') {
+    router.push('/cicd')
+  } else if (type === 'mfa') {
+    router.push('/mfa')
+  } else if (type === 'git') {
+    router.push('/git')
+  } else if (type === 'vpn') {
+    router.push('/vpn')
   }
 }
 
@@ -474,6 +662,26 @@ onUnmounted(() => {
 
 .server-icon {
   background: rgba(251, 146, 60, 0.1);
+}
+
+.note-icon {
+  background: rgba(168, 85, 247, 0.1);
+}
+
+.cicd-icon {
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.mfa-icon {
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.git-icon {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.vpn-icon {
+  background: rgba(20, 184, 166, 0.1);
 }
 
 .result-info {
