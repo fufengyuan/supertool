@@ -6,7 +6,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Mutex;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct NotificationRequest {
