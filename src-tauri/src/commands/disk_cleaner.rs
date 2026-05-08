@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::fs;
 use std::io;
@@ -218,6 +218,10 @@ fn walk_for_categories(
                 }
                 if let Ok(entry) = entry {
                     let path = entry.path();
+                    // Skip symlinks
+                    if path.is_symlink() {
+                        continue;
+                    }
                     if let Ok(metadata) = entry.metadata() {
                         if metadata.is_dir() {
                             stack.push(path);
@@ -290,30 +294,28 @@ pub fn get_cache_paths() -> Vec<CachePath> {
     #[cfg(target_os = "macos")]
     {
         if let Some(home) = dirs::home_dir() {
-            let home_str = home.to_string_lossy();
-            let cache_paths: &[(&str, &str, &str, bool)] = &[
-                ("~/Library/Caches", "系统缓存", "macOS 应用程序缓存", true),
-                ("~/Library/Caches/com.apple.Safari", "Safari 缓存", "浏览器缓存数据", true),
-                ("~/Library/Caches/com.google.Chrome", "Chrome 缓存", "浏览器缓存数据", true),
-                ("~/Library/Caches/CloudKit", "iCloud 缓存", "iCloud 同步缓存", true),
-                ("~/Library/Developer/Xcode/DerivedData", "Xcode 构建缓存", "Xcode 编译产物", true),
-                ("~/Library/Developer/Xcode/iOS DeviceSupport", "Xcode 设备支持", "iOS 设备符号表", true),
-                ("~/Library/Caches/Homebrew", "Homebrew 缓存", "包管理器下载缓存", true),
-                ("~/Library/Caches/pip", "pip 缓存", "Python 包缓存", true),
-                ("~/Library/Caches/CocoaPods", "CocoaPods 缓存", "iOS 依赖缓存", true),
-                ("~/Library/Logs", "系统日志", "应用日志文件", true),
-                ("~/Library/Caches/com.microsoft.VSCode", "VS Code 缓存", "编辑器缓存", true),
-                ("~/Library/Caches/WebKit", "WebKit 缓存", "Web 渲染引擎缓存", true),
-                ("~/.npm", "npm 缓存", "Node.js 包缓存", true),
-                ("~/.cache", "通用缓存", "跨平台缓存目录", true),
+            let cache_paths: &[(PathBuf, &str, &str, bool)] = &[
+                (home.join("Library/Caches"), "系统缓存", "macOS 应用程序缓存", true),
+                (home.join("Library/Caches/com.apple.Safari"), "Safari 缓存", "浏览器缓存数据", true),
+                (home.join("Library/Caches/com.google.Chrome"), "Chrome 缓存", "浏览器缓存数据", true),
+                (home.join("Library/Caches/CloudKit"), "iCloud 缓存", "iCloud 同步缓存", true),
+                (home.join("Library/Developer/Xcode/DerivedData"), "Xcode 构建缓存", "Xcode 编译产物", true),
+                (home.join("Library/Developer/Xcode/iOS DeviceSupport"), "Xcode 设备支持", "iOS 设备符号表", true),
+                (home.join("Library/Caches/Homebrew"), "Homebrew 缓存", "包管理器下载缓存", true),
+                (home.join("Library/Caches/pip"), "pip 缓存", "Python 包缓存", true),
+                (home.join("Library/Caches/CocoaPods"), "CocoaPods 缓存", "iOS 依赖缓存", true),
+                (home.join("Library/Logs"), "系统日志", "应用日志文件", true),
+                (home.join("Library/Caches/com.microsoft.VSCode"), "VS Code 缓存", "编辑器缓存", true),
+                (home.join("Library/Caches/WebKit"), "WebKit 缓存", "Web 渲染引擎缓存", true),
+                (home.join(".npm"), "npm 缓存", "Node.js 包缓存", true),
+                (home.join(".cache"), "通用缓存", "跨平台缓存目录", true),
             ];
 
             for (rel_path, name, desc, safe) in cache_paths {
-                let full_path = rel_path.replace("~/", &format!("{}/", home_str));
-                let size = calculate_dir_size(PathBuf::from(&full_path).as_path()).unwrap_or(0);
+                let size = calculate_dir_size(cache_path).unwrap_or(0);
                 if size > 0 {
                     caches.push(CachePath {
-                        path: full_path,
+                        path: path_str,
                         name: name.to_string(),
                         description: desc.to_string(),
                         size,
@@ -343,23 +345,22 @@ pub fn get_cache_paths() -> Vec<CachePath> {
     #[cfg(target_os = "linux")]
     {
         if let Some(home) = dirs::home_dir() {
-            let home_str = home.to_string_lossy();
-            let cache_paths: &[(&str, &str, &str, bool)] = &[
-                ("~/.cache", "用户缓存", "XDG 缓存目录", true),
-                ("~/.cache/thumbnails", "缩略图缓存", "文件管理器缩略图", true),
-                ("~/.npm", "npm 缓存", "Node.js 包缓存", true),
-                ("~/.cache/pip", "pip 缓存", "Python 包缓存", true),
-                ("~/.local/share/Trash", "回收站", "已删除文件", true),
-                ("~/.mozilla/firefox", "Firefox 缓存", "浏览器缓存", true),
-                ("~/.config/google-chrome", "Chrome 缓存", "浏览器缓存", true),
+            let cache_paths: &[(PathBuf, &str, &str, bool)] = &[
+                (home.join(".cache"), "用户缓存", "XDG 缓存目录", true),
+                (home.join(".cache/thumbnails"), "缩略图缓存", "文件管理器缩略图", true),
+                (home.join(".npm"), "npm 缓存", "Node.js 包缓存", true),
+                (home.join(".cache/pip"), "pip 缓存", "Python 包缓存", true),
+                (home.join(".local/share/Trash"), "回收站", "已删除文件", true),
+                (home.join(".mozilla/firefox"), "Firefox 缓存", "浏览器缓存", true),
+                (home.join(".config/google-chrome"), "Chrome 缓存", "浏览器缓存", true),
             ];
 
-            for (rel_path, name, desc, safe) in cache_paths {
-                let full_path = rel_path.replace("~/", &format!("{}/", home_str));
-                let size = calculate_dir_size(PathBuf::from(&full_path).as_path()).unwrap_or(0);
+            for (cache_path, name, desc, safe) in cache_paths {
+                let path_str = cache_path.to_string_lossy().to_string();
+                let size = calculate_dir_size(cache_path).unwrap_or(0);
                 if size > 0 {
                     caches.push(CachePath {
-                        path: full_path,
+                        path: path_str,
                         name: name.to_string(),
                         description: desc.to_string(),
                         size,
@@ -391,25 +392,24 @@ pub fn get_cache_paths() -> Vec<CachePath> {
     #[cfg(target_os = "windows")]
     {
         if let Some(home) = dirs::home_dir() {
-            let home_str = home.to_string_lossy();
-            let cache_paths: &[(&str, &str, &str, bool)] = &[
-                ("~\\AppData\\Local\\Temp", "临时文件", "Windows 临时文件", true),
-                ("~\\AppData\\Local\\Microsoft\\Windows\\INetCache", "IE 缓存", "Internet Explorer 缓存", true),
-                ("~\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache", "Chrome 缓存", "浏览器缓存", true),
-                ("~\\AppData\\Roaming\\Code\\Cache", "VS Code 缓存", "编辑器缓存", true),
-                ("~\\.nuget\\packages", "NuGet 缓存", ".NET 包缓存", true),
-                ("~\\.cargo\\registry", "Cargo 缓存", "Rust 包缓存", true),
-                ("~\\AppData\\Local\\npm-cache", "npm 缓存", "Node.js 包缓存", true),
-                ("C:\\Windows\\Temp", "系统临时文件", "Windows 系统临时目录", false),
-                ("C:\\Windows\\Prefetch", "预取缓存", "程序启动加速缓存", true),
+            let cache_paths: &[(PathBuf, &str, &str, bool)] = &[
+                (home.join("AppData\\Local\\Temp"), "临时文件", "Windows 临时文件", true),
+                (home.join("AppData\\Local\\Microsoft\\Windows\\INetCache"), "IE 缓存", "Internet Explorer 缓存", true),
+                (home.join("AppData\\Local\\Google\\Chrome\\User Data\\Default\\Cache"), "Chrome 缓存", "浏览器缓存", true),
+                (home.join("AppData\\Roaming\\Code\\Cache"), "VS Code 缓存", "编辑器缓存", true),
+                (home.join(".nuget\\packages"), "NuGet 缓存", ".NET 包缓存", true),
+                (home.join(".cargo\\registry"), "Cargo 缓存", "Rust 包缓存", true),
+                (home.join("AppData\\Local\\npm-cache"), "npm 缓存", "Node.js 包缓存", true),
+                (PathBuf::from("C:\\Windows\\Temp"), "系统临时文件", "Windows 系统临时目录", false),
+                (PathBuf::from("C:\\Windows\\Prefetch"), "预取缓存", "程序启动加速缓存", true),
             ];
 
-            for (rel_path, name, desc, safe) in cache_paths {
-                let full_path = rel_path.replace("~\\", &format!("{}\\", home_str));
-                let size = calculate_dir_size(PathBuf::from(&full_path).as_path()).unwrap_or(0);
+            for (cache_path, name, desc, safe) in cache_paths {
+                let path_str = cache_path.to_string_lossy().to_string();
+                let size = calculate_dir_size(cache_path).unwrap_or(0);
                 if size > 0 {
                     caches.push(CachePath {
-                        path: full_path,
+                        path: path_str,
                         name: name.to_string(),
                         description: desc.to_string(),
                         size,
@@ -426,13 +426,47 @@ pub fn get_cache_paths() -> Vec<CachePath> {
 
 // ─── Delete Items ───
 
-/// Protected paths that cannot be deleted
+/// Protected system paths that cannot be deleted
 fn is_protected_path(path: &Path) -> bool {
-    let protected = ["/", "/usr", "/etc", "/var", "/bin", "/sbin", "/lib", "/System", "/Applications"];
-    let path_str = path.to_string_lossy();
-    protected.iter().any(|p| {
-        path_str == *p || path_str.starts_with(&format!("{}/", p))
-    })
+    // Canonicalize to resolve relative paths like ../../etc
+    let resolved = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let path_str = resolved.to_string_lossy();
+
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        // Protect root-level system directories, but NOT user-writable subdirs
+        let protected = [
+            "/usr/bin", "/usr/sbin", "/usr/lib", "/usr/libexec",
+            "/etc", "/bin", "/sbin", "/lib",
+            "/System", "/Library", "/Applications",
+            "/var/log", "/var/db",
+        ];
+        for p in &protected {
+            if path_str == *p || path_str.starts_with(&format!("{}/", p)) {
+                return true;
+            }
+        }
+        // Protect root / only if it's exactly /
+        if path_str == "/" {
+            return true;
+        }
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        let protected = [
+            "C:\\Windows", "C:\\Program Files", "C:\\Program Files (x86)",
+            "C:\\ProgramData", "C:\\Users\\Default",
+        ];
+        for p in &protected {
+            let lower = path_str.to_lowercase();
+            if lower == p.to_lowercase() || lower.starts_with(&format!("{}\\", p.to_lowercase())) {
+                return true;
+            }
+        }
+    }
+
+    false
 }
 
 #[tauri::command(rename_all = "camelCase")]

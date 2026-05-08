@@ -46,6 +46,11 @@
 
     <!-- 内容区 -->
     <div class="flex-1 overflow-y-auto p-4">
+      <!-- Shared error display -->
+      <div v-if="errorMessage" class="alert alert-error mb-3">
+        <span>{{ errorMessage }}</span>
+        <button class="btn btn-sm btn-ghost" @click="errorMessage = ''">✕</button>
+      </div>
       <!-- 目录浏览 -->
       <div v-if="activeTab === 'directory'">
         <div class="flex items-center gap-2 mb-4">
@@ -59,18 +64,13 @@
               </li>
             </ul>
           </div>
-          <button class="btn btn-sm btn-primary gap-1" @click="scanCurrentDir" :disabled="scanning">
-            <span v-if="scanning" class="loading loading-spinner loading-xs"></span>
-            {{ scanning ? '扫描中...' : '🔍 扫描' }}
+          <button class="btn btn-sm btn-primary gap-1" @click="scanCurrentDir" :disabled="dirScanning">
+            <span v-if="dirScanning" class="loading loading-spinner loading-xs"></span>
+            {{ dirScanning ? '扫描中...' : '🔍 扫描' }}
           </button>
         </div>
 
-        <div v-if="errorMessage" class="alert alert-error my-3">
-          <span>{{ errorMessage }}</span>
-          <button class="btn btn-sm btn-ghost" @click="errorMessage = ''">✕</button>
-        </div>
-
-        <div v-if="dirEntries.length === 0 && !scanning" class="text-center py-20 text-base-content/40">
+        <div v-if="dirEntries.length === 0 && !dirScanning" class="text-center py-20 text-base-content/40">
           <div class="text-6xl mb-4">📂</div>
           <p class="text-lg">点击"扫描"开始分析目录</p>
           <p class="text-sm mt-2">默认从根目录 / 开始</p>
@@ -94,13 +94,13 @@
       <div v-if="activeTab === 'category'">
         <div class="flex items-center gap-2 mb-4">
           <input type="text" v-model="categoryScanPath" placeholder="扫描路径（如 /Users）" class="input input-bordered input-sm flex-1" />
-          <button class="btn btn-sm btn-primary gap-1" @click="scanCategories" :disabled="scanning">
-            <span v-if="scanning" class="loading loading-spinner loading-xs"></span>
-            {{ scanning ? '扫描中...' : '🔍 扫描分类' }}
+          <button class="btn btn-sm btn-primary gap-1" @click="scanCategories" :disabled="catScanning">
+            <span v-if="catScanning" class="loading loading-spinner loading-xs"></span>
+            {{ catScanning ? '扫描中...' : '🔍 扫描分类' }}
           </button>
         </div>
 
-        <div v-if="categories.length === 0 && !scanning" class="text-center py-20 text-base-content/40">
+        <div v-if="categories.length === 0 && !catScanning" class="text-center py-20 text-base-content/40">
           <div class="text-6xl mb-4">📊</div>
           <p class="text-lg">按文件类型分类查看大文件</p>
         </div>
@@ -141,12 +141,12 @@
           </div>
         </div>
 
-        <div v-if="cachePaths.length === 0 && !scanning" class="text-center py-20 text-base-content/40">
+        <div v-if="cachePaths.length === 0 && !cacheScanning" class="text-center py-20 text-base-content/40">
           <div class="text-6xl mb-4">🗑️</div>
           <p class="text-lg">正在检测缓存路径...</p>
         </div>
 
-        <div v-else-if="scanning" class="text-center py-10">
+        <div v-else-if="cacheScanning" class="text-center py-10">
           <span class="loading loading-spinner loading-lg"></span>
           <p class="mt-3 text-sm text-base-content/50">扫描缓存路径...</p>
         </div>
@@ -171,27 +171,28 @@
         <div class="flex items-center gap-2 mb-4">
           <input type="text" v-model="dupScanPath" placeholder="扫描路径" class="input input-bordered input-sm flex-1" />
           <input type="number" v-model.number="dupMinSize" placeholder="最小大小(KB)" class="input input-bordered input-sm w-32" />
-          <button class="btn btn-sm btn-primary gap-1" @click="scanDuplicates" :disabled="scanning">
-            <span v-if="scanning" class="loading loading-spinner loading-xs"></span>
-            {{ scanning ? '扫描中...' : '🔍 查找重复' }}
+          <button class="btn btn-sm btn-primary gap-1" @click="scanDuplicates" :disabled="dupScanning">
+            <span v-if="dupScanning" class="loading loading-spinner loading-xs"></span>
+            {{ dupScanning ? '扫描中...' : '🔍 查找重复' }}
           </button>
         </div>
 
-        <div v-if="duplicateGroups.length === 0 && !scanning" class="text-center py-20 text-base-content/40">
+        <div v-if="duplicateGroups.length === 0 && !dupScanning" class="text-center py-20 text-base-content/40">
           <div class="text-6xl mb-4">🔍</div>
-          <p class="text-lg">查找同名同大小的重复文件</p>
+          <p class="text-lg">点击"查找重复"开始扫描</p>
         </div>
 
-        <div v-else-if="scanning" class="text-center py-10">
+        <div v-else-if="dupScanning" class="text-center py-10">
           <span class="loading loading-spinner loading-lg"></span>
           <p class="mt-3 text-sm text-base-content/50">查找重复文件中...</p>
         </div>
 
+        <div v-else-if="duplicateGroups.length === 0" class="text-center py-10 text-success">
+          <div class="text-4xl mb-2">✅</div>
+          <p>未找到重复文件</p>
+        </div>
+
         <div v-else class="space-y-4">
-          <div v-if="duplicateGroups.length === 0" class="text-center py-10 text-success">
-            <div class="text-4xl mb-2">✅</div>
-            <p>未找到重复文件</p>
-          </div>
           <div v-for="(group, idx) in duplicateGroups" :key="idx" class="bg-base-100 rounded-lg border border-base-300 p-4">
             <div class="flex items-center justify-between mb-2">
               <span class="font-semibold text-sm">{{ group.files[0]?.name }}</span>
@@ -236,7 +237,10 @@ interface DuplicateGroup { key: string; files: DirEntry[]; totalSize: number; wa
 interface DiskInfo { mountPoint: string; total: number; used: number; free: number; usagePercent: number }
 
 const activeTab = ref('directory')
-const scanning = ref(false)
+const dirScanning = ref(false)
+const catScanning = ref(false)
+const cacheScanning = ref(false)
+const dupScanning = ref(false)
 const errorMessage = ref('')
 const currentPath = ref('/')
 const defaultScanPath = ref('/')
@@ -302,14 +306,14 @@ function clearSelection() {
 }
 
 async function scanCurrentDir() {
-  scanning.value = true
+  dirScanning.value = true
   errorMessage.value = ''
   try {
     dirEntries.value = await invoke('scan_directory', { path: currentPath.value })
   } catch (e: any) {
     errorMessage.value = e.message || '扫描失败'
   } finally {
-    scanning.value = false
+    dirScanning.value = false
   }
 }
 
@@ -338,36 +342,38 @@ function navigateToBreadcrumb(idx: number) {
 }
 
 async function scanCategories() {
-  scanning.value = true
+  catScanning.value = true
+  errorMessage.value = ''
   try {
     categories.value = await invoke('scan_by_category', { path: categoryScanPath.value, limit: 50 })
   } catch (e: any) {
-    console.error('分类扫描失败:', e)
+    errorMessage.value = e.message || '分类扫描失败'
   } finally {
-    scanning.value = false
+    catScanning.value = false
   }
 }
 
 async function loadCachePaths() {
-  scanning.value = true
+  cacheScanning.value = true
   try {
     cachePaths.value = await invoke('get_cache_paths')
   } catch (e: any) {
-    console.error('缓存路径加载失败:', e)
+    errorMessage.value = '缓存路径加载失败: ' + (e.message || '')
   } finally {
-    scanning.value = false
+    cacheScanning.value = false
   }
 }
 
 async function scanDuplicates() {
-  scanning.value = true
+  dupScanning.value = true
+  errorMessage.value = ''
   try {
     const minSizeBytes = (dupMinSize.value || 100) * 1024
     duplicateGroups.value = await invoke('find_duplicates', { path: dupScanPath.value, minSize: minSizeBytes })
   } catch (e: any) {
-    console.error('重复文件扫描失败:', e)
+    errorMessage.value = e.message || '重复文件扫描失败'
   } finally {
-    scanning.value = false
+    dupScanning.value = false
   }
 }
 
@@ -402,6 +408,7 @@ async function confirmDelete() {
 }
 
 async function deleteSingle(entry: DirEntry) {
+  if (!confirm(`确认删除 "${entry.name}"？`)) return
   try {
     await invoke('delete_items', { paths: [entry.path] })
     refreshCurrentView()
@@ -416,6 +423,8 @@ async function cleanAllSafe() {
     alert('没有可安全清理的缓存')
     return
   }
+  const totalSize = cachePaths.value.filter(c => c.safeToClean).reduce((s, c) => s + c.size, 0)
+  if (!confirm(`确认清理 ${safePaths.length} 项安全缓存，释放 ${formatSize(totalSize)}？\n清理后无法恢复！`)) return
   try {
     const result: any = await invoke('delete_items', { paths: safePaths })
     alert(`已清理 ${result.success?.length || 0} 项，释放 ${formatSize(result.totalFreed || 0)}`)
