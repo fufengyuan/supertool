@@ -18,3 +18,4 @@ pub mod git;
 pub mod git_sync;
 pub mod ssh;
 pub mod nginx;
+pub mod disk_cleaner;

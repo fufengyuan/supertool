@@ -162,6 +162,7 @@ const navGroups = {
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },
     { path: '/vpn', icon: '🌐', label: 'VPN', viewId: 'vpn' },
     { path: '/backup', icon: '💾', label: '备份', viewId: 'data-backup' },
+    { path: '/disk-cleaner', icon: '🧹', label: '磁盘清理', viewId: 'disk-cleaner' },
   ],
 }
 
@@ -220,7 +221,7 @@ onMounted(async () => {
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
       'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
-      'data-backup': '/backup', 'report': '/report', 'settings': '/settings',
+      'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
     }
     const path = routeMap[view]
     if (path) router.push(path)
