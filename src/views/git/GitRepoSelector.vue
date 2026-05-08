@@ -39,6 +39,7 @@
           class="scan-dirs-input"
           placeholder="每行一个目录，留空则自动扫描常用目录&#10;~/projects&#10;~/IdeaProjects&#10;~/WebstormProjects"
           rows="3"
+          @blur="saveScanDirs(scanDirsText)"
         ></textarea>
         <button type="button" class="scan-dirs-confirm" @click="scanWithCustomDirs">🔍 扫描</button>
       </div>
