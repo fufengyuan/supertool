@@ -10,7 +10,7 @@ use std::process::Stdio;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-/// 获取用户登录 shell 的完整环境变量（加载 .zshrc/.zprofile/.bash_profile）
+/// 获取用户登录 shell 的完整环境变量
 fn get_user_shell_env() -> HashMap<String, String> {
     let output = std::process::Command::new("zsh")
         .args(["-l", "-c", "env"])
@@ -27,6 +27,41 @@ fn get_user_shell_env() -> HashMap<String, String> {
                 env.insert(key.to_string(), value.to_string());
             }
         }
+    }
+    
+    // 确保 PATH 包含 NVM 和 Homebrew（zsh -l 可能不加载 NVM）
+    if let Ok(home) = std::env::var("HOME") {
+        let current_path = env.get("PATH").cloned().unwrap_or_default();
+        let mut extra_paths: Vec<String> = Vec::new();
+        
+        // 1. NVM 最新 node 版本
+        let nvm_dir = format!("{}/.nvm/versions/node", home);
+        if std::path::Path::new(&nvm_dir).is_dir() {
+            if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+                let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                    .filter(|e| e.path().is_dir())
+                    .filter_map(|e| e.file_name().into_string().ok())
+                    .collect();
+                versions.sort();
+                if let Some(latest) = versions.last() {
+                    extra_paths.push(format!("{}/{}/bin", nvm_dir, latest));
+                }
+            }
+        }
+        
+        // 2. Homebrew (Apple Silicon)
+        extra_paths.push("/opt/homebrew/bin".to_string());
+        extra_paths.push("/opt/homebrew/sbin".to_string());
+        
+        // 3. 合并原有 PATH
+        let mut all_paths = extra_paths;
+        for p in current_path.split(':') {
+            if !p.is_empty() && !all_paths.iter().any(|x| x == p) {
+                all_paths.push(p.to_string());
+            }
+        }
+        
+        env.insert("PATH".to_string(), all_paths.join(":"));
     }
     env
 }
