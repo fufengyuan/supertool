@@ -82,7 +82,7 @@ pub async fn export_data(
     export_all_data(app, core).await
 }
 
-#[tauri::command(rename_all = "camelCase")]
+#[tauri::command]
 pub async fn import_json(
     app: tauri::AppHandle,
     core: tauri::State<'_, crate::core::CoreService>,
@@ -90,6 +90,7 @@ pub async fn import_json(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] import_json() called");
     let mode = import_mode.unwrap_or_else(|| "merge".to_string());
+    log::info!("[Tauri CMD] import_mode = {}", mode);
 
     let (tx, rx) = std::sync::mpsc::channel();
     app.dialog().file()
