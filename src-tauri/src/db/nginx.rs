@@ -184,18 +184,34 @@ pub fn add_config_version(db: &mut Database, version: NginxConfigVersion) -> Api
 }
 
 pub fn set_current_version(db: &mut Database, preset_id: &str, version_id: &str) -> ApiResponse<()> {
-    // First, unset all current versions for this preset
-    let _ = db.conn_mut().execute(
+    let conn = db.conn_mut();
+    let tx = match conn.transaction() {
+        Ok(tx) => tx,
+        Err(e) => return ApiResponse::err(format!("Transaction failed: {}", e)),
+    };
+    // Unset all current versions for this preset
+    if let Err(e) = tx.execute(
         "UPDATE nginx_config_versions SET isCurrent = 0 WHERE presetId = ?1",
         params![preset_id],
-    );
-    // Then set the specified version as current
-    match db.conn_mut().execute(
+    ) {
+        let _ = tx.rollback();
+        return ApiResponse::err(format!("Unset current failed: {}", e));
+    }
+    // Set the specified version as current
+    match tx.execute(
         "UPDATE nginx_config_versions SET isCurrent = 1 WHERE id = ?1 AND presetId = ?2",
         params![version_id, preset_id],
     ) {
-        Ok(_) => ApiResponse::ok(()),
-        Err(e) => ApiResponse::err(format!("Set current version failed: {}", e)),
+        Ok(_) => {
+            if let Err(e) = tx.commit() {
+                return ApiResponse::err(format!("Commit failed: {}", e));
+            }
+            ApiResponse::ok(())
+        }
+        Err(e) => {
+            let _ = tx.rollback();
+            ApiResponse::err(format!("Set current version failed: {}", e))
+        }
     }
 }
 

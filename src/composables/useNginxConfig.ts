@@ -42,6 +42,7 @@ export function useNginxConfig() {
   // Save preset (create or update)
   const savePreset = async (preset: any) => {
     try {
+      preset.updatedAt = new Date().toISOString()
       if (preset.id) {
         await getTauriAPI().updateNginxPreset(preset)
         toast.success('预设已更新')
@@ -51,7 +52,6 @@ export function useNginxConfig() {
         await getTauriAPI().addNginxPreset(preset)
         toast.success('预设已创建')
       }
-      preset.updatedAt = new Date().toISOString()
       await loadPresets()
       return preset
     } catch (err) {
@@ -155,6 +155,16 @@ export function useNginxConfig() {
       const result = await getTauriAPI().deployNginxConfig(p.serverId, p.configPath, version.content, `回滚到版本: ${version.comment || versionId}`)
       if (result?.success) {
         configContent.value = version.content
+        // Save rollback as new version entry
+        await getTauriAPI().saveNginxConfigVersion({
+          id: crypto.randomUUID(),
+          presetId: p.id,
+          content: version.content,
+          checksum: await computeChecksum(version.content),
+          comment: `回滚到: ${version.comment || versionId.substring(0, 8)}`,
+          isCurrent: true,
+          createdAt: new Date().toISOString(),
+        })
         await getTauriAPI().setActiveNginxVersion(p.id, versionId)
         const verResult = await getTauriAPI().getNginxConfigVersions(p.id)
         versions.value = verResult?.data || verResult || []
