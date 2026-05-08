@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source "./**/*.{vue,ts,js,html}";
+@config "../tailwind.config.js";
 
 /* ============================================================
    SuperTool — 全局样式覆盖
