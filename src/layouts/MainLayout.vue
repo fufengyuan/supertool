@@ -1,22 +1,22 @@
 <template>
   <div class="h-screen flex flex-col bg-base-200">
     <!-- 顶部标题栏 -->
-    <div class="navbar bg-base-100 shadow-sm px-4 flex-none">
+    <div class="navbar bg-base-100 shadow-sm px-4 flex-none min-h-[2.5rem] h-10">
       <div class="flex-none">
-        <label class="btn btn-square btn-ghost lg:hidden" @click="sidebarOpen = !sidebarOpen">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <label class="btn btn-square btn-ghost btn-sm lg:hidden" @click="sidebarOpen = !sidebarOpen">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
         </label>
-        <button class="btn btn-square btn-ghost hidden lg:flex" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开' : '折叠'">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'rotate-180': sidebarCollapsed }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <button class="btn btn-square btn-ghost btn-sm hidden lg:flex" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开' : '折叠'">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="{ 'rotate-180': sidebarCollapsed }" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
           </svg>
         </button>
       </div>
       <div class="flex-1">
-        <span class="btn btn-ghost text-xl gap-2 normal-case">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <span class="btn btn-ghost text-base gap-2 normal-case min-h-0 h-8">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           SuperTool
@@ -47,10 +47,10 @@
       <!-- 左侧导航栏 -->
       <aside class="flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden"
              :class="[
-               sidebarOpen ? 'w-64' : 'w-0 lg:w-auto',
-               sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'
+               sidebarOpen ? 'w-48' : 'w-0 lg:w-auto',
+               sidebarCollapsed ? 'lg:w-16' : 'lg:w-48'
              ]"
-             :style="{ minWidth: sidebarCollapsed ? '4rem' : '16rem' }">
+             :style="{ minWidth: sidebarCollapsed ? '4rem' : '12rem' }">
         <nav class="menu menu-sm p-2 gap-1 w-full">
           <!-- 业务 -->
           <div class="menu-title px-3" v-show="!sidebarCollapsed">
