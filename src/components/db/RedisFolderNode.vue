@@ -141,7 +141,7 @@ function typeIcon(type: string): string {
 }
 
 .tree-item.tree-folder:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 .tree-item.tree-folder.expanded {
@@ -228,7 +228,7 @@ function typeIcon(type: string): string {
 }
 
 .tree-item.tree-redis-key:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 /* Key type dot */

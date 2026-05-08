@@ -415,7 +415,7 @@ defineExpose({ refreshTables })
 
 .tree-search:focus-within {
   border-color: oklch(var(--p));
-  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
 }
 
 .tree-search-icon {
@@ -454,7 +454,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-search-clear:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
   color: oklch(var(--p));
 }
 
@@ -533,7 +533,7 @@ defineExpose({ refreshTables })
 
 /* ── Hover ──────────────────────────────────────────────── */
 .tree-item:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 /* ── Active / Selected ──────────────────────────────────── */
@@ -588,7 +588,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-database:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 /* Folder nodes (Tables, Views, Redis folders) */
@@ -604,7 +604,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-table:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 /* View nodes */
@@ -615,7 +615,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-view:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
   opacity: 1;
 }
 
@@ -628,7 +628,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-redis-key:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 /* Redis key type dot indicator (small colored dot before label) */
@@ -849,7 +849,7 @@ defineExpose({ refreshTables })
 }
 
 .context-menu-item:hover {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
   color: oklch(var(--p));
 }
 

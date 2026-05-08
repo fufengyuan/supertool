@@ -467,7 +467,7 @@ async function chooseReceivePath() {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.25s ease;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 .profile-card:hover {
   transform: translateY(-1px);
@@ -595,7 +595,7 @@ async function chooseReceivePath() {
 .editor-panel {
   background: oklch(var(--b1));
   border-radius: 14px;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   overflow: hidden;
 }
 
@@ -604,7 +604,7 @@ async function chooseReceivePath() {
   font-size: 14px;
   font-weight: 600;
   color: oklch(var(--bc));
-  border-bottom: 1px solid oklch(var(--bc) / 0.1));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .editor-body {
@@ -657,7 +657,7 @@ async function chooseReceivePath() {
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: oklch(var(--bc));
   font-size: 13px;
@@ -674,7 +674,7 @@ async function chooseReceivePath() {
   justify-content: flex-end;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid oklch(var(--bc) / 0.1));
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 /* ========== 网络权限提示 ========== */
@@ -1118,7 +1118,7 @@ async function chooseReceivePath() {
 .btn-ghost {
   background: transparent;
   color: oklch(var(--bc) / 0.6);
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -1140,7 +1140,7 @@ async function chooseReceivePath() {
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .path-label {
@@ -1170,7 +1170,7 @@ async function chooseReceivePath() {
 .path-btn {
   padding: 5px 12px;
   border-radius: 8px;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   background: rgba(255, 255, 255, 0.06);
   color: oklch(var(--bc));
   font-size: 12px;
