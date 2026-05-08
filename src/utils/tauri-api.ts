@@ -1412,7 +1412,7 @@ export interface TauriAPI {
   showOpenDialogForDirs: () => Promise<any>
   showOpenDialog: (options?: Record<string, unknown>) => Promise<any>
   getGitCommits: (path: string, since?: string) => Promise<any>
-  scanLocalGitRepos: () => Promise<any>
+  scanLocalGitRepos: (directories: string[]) => Promise<any>
   getGitBranches: (path: string) => Promise<any>
   // Calculator
   getCalculatorHistory: (limit?: number) => Promise<any>
