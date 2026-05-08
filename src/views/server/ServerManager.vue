@@ -210,7 +210,7 @@ import ServerForm from './ServerForm.vue';
 import TerminalPanel from './TerminalPanel.vue';
 import SftpPanel from './SftpPanel.vue';
 import GroupTree from './GroupTree.vue';
-import Modal from '../ui/Modal.vue';
+import Modal from '../../components/ui/Modal.vue';
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import type { Server } from '../../types';

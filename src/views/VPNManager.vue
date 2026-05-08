@@ -1,57 +1,56 @@
 <template>
-  <div class="flex flex-col h-full bg-base-100 overflow-hidden">
+  <div class="vpn-manager">
     <!-- Header -->
-    <div class="flex items-center justify-between p-4 bg-base-200 border-b border-base-300">
-      <div class="flex items-center gap-2.5">
-        <span class="text-2xl">🔒</span>
-        <h2 class="text-lg font-semibold m-0 text-base-content">VPN 管理</h2>
+    <div class="vpn-header">
+      <div class="vpn-header-left">
+        <span class="vpn-icon">🔒</span>
+        <h2 class="vpn-title">VPN 管理</h2>
       </div>
-      <div class="flex gap-1">
-        <button class="btn btn-sm" :class="activeProtocol === 'openvpn' ? 'btn-primary' : 'btn-ghost'" @click="activeProtocol = 'openvpn'">
+      <div class="vpn-header-tabs">
+        <button class="tab-btn" :class="{ active: activeProtocol === 'openvpn' }" @click="activeProtocol = 'openvpn'">
           🔐 OpenVPN
         </button>
-        <button class="btn btn-sm" :class="activeProtocol === 'wireguard' ? 'btn-primary' : 'btn-ghost'" @click="activeProtocol = 'wireguard'">
+        <button class="tab-btn" :class="{ active: activeProtocol === 'wireguard' }" @click="activeProtocol = 'wireguard'">
           ⚡ WireGuard
         </button>
       </div>
     </div>
 
     <!-- OpenVPN Tab -->
-    <div v-if="activeProtocol === 'openvpn'" class="flex-1 overflow-hidden flex flex-col min-h-0">
+    <div v-if="activeProtocol === 'openvpn'" class="protocol-content">
       <!-- OpenVPN not available banner -->
-      <div v-if="!openvpnAvailable && !checking" class="alert alert-warning mx-5 my-3">
+      <div v-if="!openvpnAvailable && !checking" class="vpn-banner">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <div>
+        <div class="banner-text">
           <strong>OpenVPN 不可用</strong>
-          <p class="m-0 text-sm">内置 OpenVPN 二进制加载失败，请检查应用完整性或尝试重新安装</p>
+          <p>内置 OpenVPN 二进制加载失败，请检查应用完整性或尝试重新安装</p>
         </div>
       </div>
 
       <!-- Connection Status Bar -->
-      <div v-if="ovpnStatus.state !== 'disconnected' || ovpnStatus.connected" class="flex items-center justify-between p-3 mx-5 mt-3 rounded-lg text-sm"
-        :class="ovpnStatus.state === 'connecting' ? 'bg-info/20 border border-info/30 text-info' : ovpnStatus.state === 'connected' ? 'bg-success/20 border border-success/30 text-success' : ovpnStatus.state === 'disconnecting' ? 'bg-warning/20 border border-warning/30 text-warning' : 'bg-error/20 border border-error/30 text-error'">
-        <div class="flex items-center gap-2">
-          <span class="status-dot w-2.5 h-2.5 rounded-full bg-gray-400" :class="ovpnStatus.state === 'connecting' ? 'bg-info animate-pulse' : ovpnStatus.state === 'connected' ? 'bg-success' : ovpnStatus.state === 'disconnecting' ? 'bg-warning' : 'bg-error'"></span>
-          <span class="font-medium">
+      <div v-if="ovpnStatus.state !== 'disconnected' || ovpnStatus.connected" class="status-bar" :class="ovpnStatus.state">
+        <div class="status-left">
+          <span class="status-dot" :class="ovpnStatus.state"></span>
+          <span class="status-text">
             <template v-if="ovpnStatus.state === 'connecting'">🔌 正在连接 {{ ovpnStatus.configName }}...</template>
             <template v-else-if="ovpnStatus.state === 'connected'">
               ✅ 已连接 — {{ ovpnStatus.configName }}
-              <span v-if="ovpnStatus.remote" class="font-normal opacity-70 ml-1">({{ ovpnStatus.remote }})</span>
-              <span class="text-sm font-medium opacity-70 ml-2 font-mono">{{ ovpnDuration }}</span>
+              <span v-if="ovpnStatus.remote" class="status-remote">({{ ovpnStatus.remote }})</span>
+              <span class="status-duration">{{ ovpnDuration }}</span>
             </template>
             <template v-else-if="ovpnStatus.state === 'disconnecting'">⏳ 正在断开连接...</template>
             <template v-else-if="ovpnStatus.state === 'error'">❌ 连接错误 — {{ ovpnStatus.configName }}</template>
           </span>
         </div>
-        <div class="flex items-center gap-4">
-          <span v-if="ovpnStatus.connected && ovpnTraffic" class="text-sm font-medium opacity-80 whitespace-nowrap">
+        <div class="status-right">
+          <span v-if="ovpnStatus.connected && ovpnTraffic" class="traffic-stats">
             ↑ {{ ovpnTraffic.bytesSentHuman }} ↓ {{ ovpnTraffic.bytesReceivedHuman }}
           </span>
-          <div class="flex gap-2">
+          <div class="status-actions">
             <button v-if="ovpnStatus.connected" class="btn btn-sm btn-danger" @click="ovpnDisconnect">⏏️ 断开连接</button>
             <button v-if="ovpnStatus.state === 'error'" class="btn btn-sm btn-primary" @click="ovpnReconnect">🔄 重新连接</button>
           </div>
@@ -59,100 +58,96 @@
       </div>
 
       <!-- Config List -->
-      <div class="flex flex-1 overflow-hidden mx-5 mb-5 gap-4 min-h-0">
-        <div class="w-[420px] flex-shrink-0 flex flex-col bg-base-200 rounded-lg overflow-hidden">
-          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300">
+      <div class="vpn-layout">
+        <div class="vpn-sidebar">
+          <div class="vpn-sidebar-header">
             <span>OpenVPN 配置文件 ({{ ovpnConfigs.length }})</span>
-            <div class="flex gap-1">
+            <div class="vpn-sidebar-actions">
               <button class="btn btn-xs btn-ghost" @click="checkOpenVPN" :disabled="checking">{{ checking ? '检测中...' : '🔍 检测' }}</button>
               <button class="btn btn-xs btn-primary" @click="importOvpn" :disabled="!openvpnAvailable">📥 导入</button>
             </div>
           </div>
-          <div class="flex-1 overflow-y-auto p-2">
-            <div v-for="cfg in ovpnConfigs" :key="cfg.id" class="flex items-center justify-between p-2.5 mb-1 rounded-lg cursor-pointer transition-all border-l-3 border-l-transparent"
-              :class="ovpnStatus.configId === cfg.id ? 'bg-primary/10 border-l-primary' : ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id ? 'bg-info/10 border-l-info' : 'hover:bg-base-300'"
-              @click="selectOvpnConfig(cfg)">
-              <div class="flex-1 min-w-0">
-                <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
-                <span class="block text-[11px] text-base-content/70 truncate mt-0.5" :title="cfg.filePath">{{ cfg.filePath }}</span>
+          <div class="vpn-config-list">
+            <div v-for="cfg in ovpnConfigs" :key="cfg.id" class="vpn-config-item" :class="{ active: ovpnStatus.configId === cfg.id, 'is-connecting': ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id }" @click="selectOvpnConfig(cfg)">
+              <div class="config-info">
+                <span class="config-name">{{ cfg.name }}</span>
+                <span class="config-path" :title="cfg.filePath">{{ cfg.filePath }}</span>
               </div>
-              <div class="flex gap-1 flex-shrink-0">
+              <div class="config-actions">
                 <button v-if="ovpnStatus.configId === cfg.id && ovpnStatus.connected" class="config-btn btn-connected" title="已连接">✅</button>
                 <button v-else-if="ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id" class="config-btn btn-connecting" title="连接中">⏳</button>
                 <button v-else class="config-btn btn-connect" @click.stop="ovpnConnect(cfg)" title="连接">▶️</button>
                 <button class="config-btn btn-delete" @click.stop="ovpnDelete(cfg)" title="删除">🗑️</button>
               </div>
             </div>
-            <div v-if="ovpnConfigs.length === 0" class="flex flex-col items-center justify-center p-10 text-center text-base-content/70">
+            <div v-if="ovpnConfigs.length === 0" class="vpn-empty">
               <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <p class="my-3">暂无 OpenVPN 配置文件</p>
+              <p>暂无 OpenVPN 配置文件</p>
               <button class="btn btn-sm btn-primary" @click="importOvpn" :disabled="!openvpnAvailable">导入 .ovpn 文件</button>
             </div>
           </div>
         </div>
-        <div class="flex-1 flex flex-col bg-base-200 rounded-lg overflow-hidden min-w-0">
-          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="ovpnLogs = []">清空</button></div>
-          <div class="flex-1 overflow-y-auto p-3 font-mono text-sm leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="ovpnLogRef">
-            <div v-for="(line, i) in ovpnLogs" :key="i" class="whitespace-pre-wrap break-all" :class="line.includes('✅') || line.includes('成功') || line.includes('Completed') ? 'text-[#a6e3a1]' : line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED') ? 'text-[#f38ba8]' : line.includes('⏳') || line.includes('连接中') ? 'text-[#f9e2af]' : ''">{{ line }}</div>
-            <div v-if="ovpnLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-sm">等待连接...</div>
+        <div class="vpn-main">
+          <div class="vpn-log-header"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="ovpnLogs = []">清空</button></div>
+          <div class="vpn-log" ref="ovpnLogRef">
+            <div v-for="(line, i) in ovpnLogs" :key="i" class="log-line" :class="getLogClass(line)">{{ line }}</div>
+            <div v-if="ovpnLogs.length === 0" class="log-empty">等待连接...</div>
           </div>
         </div>
       </div>
 
       <!-- Sudo Password Dialog -->
-      <div v-if="showPasswordDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" @click.self="cancelPasswordDialog">
-        <div class="bg-base-200 rounded-xl p-6 w-[600px] max-w-[90vw] shadow-2xl border border-base-300">
-          <div class="text-lg font-semibold text-base-content mb-3">🔐 需要 sudo 密码</div>
-          <div class="text-sm text-base-content mb-4 leading-relaxed">OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：</div>
-          <div class="mb-4"><input ref="passwordInputRef" v-model="sudoPassword" type="password" placeholder="输入密码" @keydown.enter="submitPassword" @keydown.escape="showPasswordDialog = false" class="input input-bordered w-full" autofocus /></div>
-          <div class="flex justify-end gap-2 mb-3">
+      <div v-if="showPasswordDialog" class="password-overlay" @click.self="cancelPasswordDialog">
+        <div class="password-dialog">
+          <div class="password-dialog-header">🔐 需要 sudo 密码</div>
+          <div class="password-dialog-body">OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：</div>
+          <div class="password-dialog-input"><input ref="passwordInputRef" v-model="sudoPassword" type="password" placeholder="输入密码" @keydown.enter="submitPassword" @keydown.escape="showPasswordDialog = false" class="password-input" autofocus /></div>
+          <div class="password-dialog-actions">
             <button class="btn btn-sm btn-ghost" @click="showPasswordDialog = false">取消</button>
             <button class="btn btn-sm btn-primary" @click="submitPassword" :disabled="!sudoPassword">确认连接</button>
           </div>
-          <div class="text-[11px] text-base-content opacity-70 leading-relaxed p-2 bg-black/5 rounded-md">提示：可以配置免密 sudo：<code class="text-[10px] bg-black/10 px-1 py-0.5 rounded break-all">echo "$USER ALL=(root) NOPASSWD: $(which openvpn)" | sudo tee /etc/sudoers.d/openvpn</code></div>
+          <div class="password-dialog-hint">提示：可以配置免密 sudo：<code>echo "$USER ALL=(root) NOPASSWD: $(which openvpn)" | sudo tee /etc/sudoers.d/openvpn</code></div>
         </div>
       </div>
     </div>
 
     <!-- WireGuard Tab -->
-    <div v-if="activeProtocol === 'wireguard'" class="flex-1 overflow-hidden flex flex-col min-h-0">
+    <div v-if="activeProtocol === 'wireguard'" class="protocol-content">
       <!-- WireGuard Status Bar -->
-      <div v-if="wgStatus.connected" class="flex items-center justify-between p-3 mx-5 mt-3 rounded-lg bg-success/20 border border-success/30 text-success text-sm">
-        <div class="flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
-          <span class="font-medium">✅ 已连接 — {{ wgStatus.configName }}</span>
-          <span class="text-sm font-medium opacity-70 ml-2 font-mono">{{ wgDuration }}</span>
+      <div v-if="wgStatus.connected" class="status-bar connected">
+        <div class="status-left">
+          <span class="status-dot connected"></span>
+          <span class="status-text">✅ 已连接 — {{ wgStatus.configName }}</span>
+          <span class="status-duration">{{ wgDuration }}</span>
         </div>
-        <div class="flex items-center gap-4">
-          <span class="text-sm font-medium opacity-80 whitespace-nowrap">↑ {{ formatBytes(wgStatus.bytesSent) }} ↓ {{ formatBytes(wgStatus.bytesReceived) }}</span>
-          <button class="btn btn-sm btn-danger">⏏️ 断开</button>
+        <div class="status-right">
+          <span class="traffic-stats">↑ {{ formatBytes(wgStatus.bytesSent) }} ↓ {{ formatBytes(wgStatus.bytesReceived) }}</span>
+          <button class="btn btn-sm btn-danger" @click="wgDisconnect">⏏️ 断开</button>
         </div>
       </div>
-      <div v-if="wgStatus.state === 'connecting'" class="flex items-center p-3 mx-5 mt-3 rounded-lg bg-info/20 border border-info/30 text-info text-sm">
-        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-info animate-pulse"></span><span class="font-medium">🔌 正在连接 {{ wgStatus.configName }}...</span></div>
+      <div v-if="wgStatus.state === 'connecting'" class="status-bar connecting">
+        <div class="status-left"><span class="status-dot connecting"></span><span class="status-text">🔌 正在连接 {{ wgStatus.configName }}...</span></div>
       </div>
-      <div v-if="wgStatus.state === 'error'" class="flex items-center p-3 mx-5 mt-3 rounded-lg bg-error/20 border border-error/30 text-error text-sm">
-        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-error"></span><span class="font-medium">❌ 连接错误 — {{ wgStatus.configName }}</span></div>
+      <div v-if="wgStatus.state === 'error'" class="status-bar error">
+        <div class="status-left"><span class="status-dot error"></span><span class="status-text">❌ 连接错误 — {{ wgStatus.configName }}</span></div>
       </div>
 
       <!-- Config List + Log -->
-      <div class="flex flex-1 overflow-hidden mx-5 mb-5 gap-4 min-h-0">
-        <div class="w-[420px] flex-shrink-0 flex flex-col bg-base-200 rounded-lg overflow-hidden">
-          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300">
+      <div class="vpn-layout">
+        <div class="vpn-sidebar">
+          <div class="vpn-sidebar-header">
             <span>WireGuard 配置 ({{ wgConfigs.length }})</span>
-            <div class="flex gap-1">
+            <div class="vpn-sidebar-actions">
               <button class="btn btn-xs btn-primary" @click="showWgForm = true; editingWg = null">📥 添加</button>
             </div>
           </div>
-          <div class="flex-1 overflow-y-auto p-2">
-            <div v-for="cfg in wgConfigs" :key="cfg.id" class="flex items-center justify-between p-2.5 mb-1 rounded-lg cursor-pointer transition-all border-l-3 border-l-transparent"
-              :class="wgStatus.configId === cfg.id ? 'bg-primary/10 border-l-primary' : wgStatus.state === 'connecting' && wgStatus.configId === cfg.id ? 'bg-info/10 border-l-info' : 'hover:bg-base-300'"
-              @click="selectWgConfig(cfg)">
-              <div class="flex-1 min-w-0">
-                <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
-                <span class="block text-[11px] text-base-content/70 truncate mt-0.5">{{ cfg.peerEndpoint }}</span>
+          <div class="vpn-config-list">
+            <div v-for="cfg in wgConfigs" :key="cfg.id" class="vpn-config-item" :class="{ active: wgStatus.configId === cfg.id, 'is-connecting': wgStatus.state === 'connecting' && wgStatus.configId === cfg.id }" @click="selectWgConfig(cfg)">
+              <div class="config-info">
+                <span class="config-name">{{ cfg.name }}</span>
+                <span class="config-path">{{ cfg.peerEndpoint }}</span>
               </div>
-              <div class="flex gap-1 flex-shrink-0">
+              <div class="config-actions">
                 <button v-if="wgStatus.configId === cfg.id && wgStatus.connected" class="config-btn btn-connected" title="已连接">✅</button>
                 <button v-else-if="wgStatus.state === 'connecting' && wgStatus.configId === cfg.id" class="config-btn btn-connecting" title="连接中">⏳</button>
                 <button v-else class="config-btn btn-connect" @click.stop="wgConnect(cfg)" title="连接">▶️</button>
@@ -160,18 +155,18 @@
                 <button class="config-btn btn-delete" @click.stop="wgDelete(cfg)" title="删除">🗑️</button>
               </div>
             </div>
-            <div v-if="wgConfigs.length === 0" class="flex flex-col items-center justify-center p-10 text-center text-base-content/70">
+            <div v-if="wgConfigs.length === 0" class="vpn-empty">
               <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <p class="my-3">暂无 WireGuard 配置</p>
+              <p>暂无 WireGuard 配置</p>
               <button class="btn btn-sm btn-primary" @click="showWgForm = true; editingWg = null">添加 WireGuard 配置</button>
             </div>
           </div>
         </div>
-        <div class="flex-1 flex flex-col bg-base-200 rounded-lg overflow-hidden min-w-0">
-          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="wgLogs = []">清空</button></div>
-          <div class="flex-1 overflow-y-auto p-3 font-mono text-sm leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="wgLogRef">
-            <div v-for="(line, i) in wgLogs" :key="i" class="whitespace-pre-wrap break-all" :class="line.includes('✅') || line.includes('成功') || line.includes('Completed') ? 'text-[#a6e3a1]' : line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED') ? 'text-[#f38ba8]' : line.includes('⏳') || line.includes('连接中') ? 'text-[#f9e2af]' : ''">{{ line }}</div>
-            <div v-if="wgLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-sm">等待连接...</div>
+        <div class="vpn-main">
+          <div class="vpn-log-header"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="wgLogs = []">清空</button></div>
+          <div class="vpn-log" ref="wgLogRef">
+            <div v-for="(line, i) in wgLogs" :key="i" class="log-line" :class="getLogClass(line)">{{ line }}</div>
+            <div v-if="wgLogs.length === 0" class="log-empty">等待连接...</div>
           </div>
         </div>
       </div>
