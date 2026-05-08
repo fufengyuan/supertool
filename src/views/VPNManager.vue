@@ -1,56 +1,57 @@
 <template>
-  <div class="vpn-manager">
+  <div class="flex flex-col h-full bg-base-100 overflow-hidden">
     <!-- Header -->
-    <div class="vpn-header">
-      <div class="vpn-header-left">
-        <span class="vpn-icon">🔒</span>
-        <h2 class="vpn-title">VPN 管理</h2>
+    <div class="flex items-center justify-between p-4 bg-base-200 border-b border-base-300">
+      <div class="flex items-center gap-2.5">
+        <span class="text-2xl">🔒</span>
+        <h2 class="text-lg font-semibold m-0 text-base-content">VPN 管理</h2>
       </div>
-      <div class="vpn-header-tabs">
-        <button class="tab-btn" :class="{ active: activeProtocol === 'openvpn' }" @click="activeProtocol = 'openvpn'">
+      <div class="flex gap-1">
+        <button class="btn btn-sm" :class="activeProtocol === 'openvpn' ? 'btn-primary' : 'btn-ghost'" @click="activeProtocol = 'openvpn'">
           🔐 OpenVPN
         </button>
-        <button class="tab-btn" :class="{ active: activeProtocol === 'wireguard' }" @click="activeProtocol = 'wireguard'">
+        <button class="btn btn-sm" :class="activeProtocol === 'wireguard' ? 'btn-primary' : 'btn-ghost'" @click="activeProtocol = 'wireguard'">
           ⚡ WireGuard
         </button>
       </div>
     </div>
 
     <!-- OpenVPN Tab -->
-    <div v-if="activeProtocol === 'openvpn'" class="protocol-content">
+    <div v-if="activeProtocol === 'openvpn'" class="flex-1 overflow-hidden flex flex-col min-h-0">
       <!-- OpenVPN not available banner -->
-      <div v-if="!openvpnAvailable && !checking" class="vpn-banner">
+      <div v-if="!openvpnAvailable && !checking" class="alert alert-warning mx-5 my-3">
         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
         </svg>
-        <div class="banner-text">
+        <div>
           <strong>OpenVPN 不可用</strong>
-          <p>内置 OpenVPN 二进制加载失败，请检查应用完整性或尝试重新安装</p>
+          <p class="m-0 text-sm">内置 OpenVPN 二进制加载失败，请检查应用完整性或尝试重新安装</p>
         </div>
       </div>
 
       <!-- Connection Status Bar -->
-      <div v-if="ovpnStatus.state !== 'disconnected' || ovpnStatus.connected" class="status-bar" :class="ovpnStatus.state">
-        <div class="status-left">
-          <span class="status-dot" :class="ovpnStatus.state"></span>
-          <span class="status-text">
+      <div v-if="ovpnStatus.state !== 'disconnected' || ovpnStatus.connected" class="flex items-center justify-between p-3 mx-5 mt-3 rounded-lg text-sm"
+        :class="ovpnStatus.state === 'connecting' ? 'bg-info/20 border border-info/30 text-info' : ovpnStatus.state === 'connected' ? 'bg-success/20 border border-success/30 text-success' : ovpnStatus.state === 'disconnecting' ? 'bg-warning/20 border border-warning/30 text-warning' : 'bg-error/20 border border-error/30 text-error'">
+        <div class="flex items-center gap-2">
+          <span class="status-dot w-2.5 h-2.5 rounded-full bg-gray-400" :class="ovpnStatus.state === 'connecting' ? 'bg-info animate-pulse' : ovpnStatus.state === 'connected' ? 'bg-success' : ovpnStatus.state === 'disconnecting' ? 'bg-warning' : 'bg-error'"></span>
+          <span class="font-medium">
             <template v-if="ovpnStatus.state === 'connecting'">🔌 正在连接 {{ ovpnStatus.configName }}...</template>
             <template v-else-if="ovpnStatus.state === 'connected'">
               ✅ 已连接 — {{ ovpnStatus.configName }}
-              <span v-if="ovpnStatus.remote" class="status-remote">({{ ovpnStatus.remote }})</span>
-              <span class="status-duration">{{ ovpnDuration }}</span>
+              <span v-if="ovpnStatus.remote" class="font-normal opacity-70 ml-1">({{ ovpnStatus.remote }})</span>
+              <span class="text-sm font-medium opacity-70 ml-2 font-mono">{{ ovpnDuration }}</span>
             </template>
             <template v-else-if="ovpnStatus.state === 'disconnecting'">⏳ 正在断开连接...</template>
             <template v-else-if="ovpnStatus.state === 'error'">❌ 连接错误 — {{ ovpnStatus.configName }}</template>
           </span>
         </div>
-        <div class="status-right">
-          <span v-if="ovpnStatus.connected && ovpnTraffic" class="traffic-stats">
+        <div class="flex items-center gap-4">
+          <span v-if="ovpnStatus.connected && ovpnTraffic" class="text-sm font-medium opacity-80 whitespace-nowrap">
             ↑ {{ ovpnTraffic.bytesSentHuman }} ↓ {{ ovpnTraffic.bytesReceivedHuman }}
           </span>
-          <div class="status-actions">
+          <div class="flex gap-2">
             <button v-if="ovpnStatus.connected" class="btn btn-sm btn-danger" @click="ovpnDisconnect">⏏️ 断开连接</button>
             <button v-if="ovpnStatus.state === 'error'" class="btn btn-sm btn-primary" @click="ovpnReconnect">🔄 重新连接</button>
           </div>
@@ -58,96 +59,100 @@
       </div>
 
       <!-- Config List -->
-      <div class="vpn-layout">
-        <div class="vpn-sidebar">
-          <div class="vpn-sidebar-header">
+      <div class="flex flex-1 overflow-hidden mx-5 mb-5 gap-4 min-h-0">
+        <div class="w-[420px] flex-shrink-0 flex flex-col bg-base-200 rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300">
             <span>OpenVPN 配置文件 ({{ ovpnConfigs.length }})</span>
-            <div class="vpn-sidebar-actions">
+            <div class="flex gap-1">
               <button class="btn btn-xs btn-ghost" @click="checkOpenVPN" :disabled="checking">{{ checking ? '检测中...' : '🔍 检测' }}</button>
               <button class="btn btn-xs btn-primary" @click="importOvpn" :disabled="!openvpnAvailable">📥 导入</button>
             </div>
           </div>
-          <div class="vpn-config-list">
-            <div v-for="cfg in ovpnConfigs" :key="cfg.id" class="vpn-config-item" :class="{ active: ovpnStatus.configId === cfg.id, 'is-connecting': ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id }" @click="selectOvpnConfig(cfg)">
-              <div class="config-info">
-                <span class="config-name">{{ cfg.name }}</span>
-                <span class="config-path" :title="cfg.filePath">{{ cfg.filePath }}</span>
+          <div class="flex-1 overflow-y-auto p-2">
+            <div v-for="cfg in ovpnConfigs" :key="cfg.id" class="flex items-center justify-between p-2.5 mb-1 rounded-lg cursor-pointer transition-all border-l-3 border-l-transparent"
+              :class="ovpnStatus.configId === cfg.id ? 'bg-primary/10 border-l-primary' : ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id ? 'bg-info/10 border-l-info' : 'hover:bg-base-300'"
+              @click="selectOvpnConfig(cfg)">
+              <div class="flex-1 min-w-0">
+                <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
+                <span class="block text-[11px] text-base-content/70 truncate mt-0.5" :title="cfg.filePath">{{ cfg.filePath }}</span>
               </div>
-              <div class="config-actions">
+              <div class="flex gap-1 flex-shrink-0">
                 <button v-if="ovpnStatus.configId === cfg.id && ovpnStatus.connected" class="config-btn btn-connected" title="已连接">✅</button>
                 <button v-else-if="ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id" class="config-btn btn-connecting" title="连接中">⏳</button>
                 <button v-else class="config-btn btn-connect" @click.stop="ovpnConnect(cfg)" title="连接">▶️</button>
                 <button class="config-btn btn-delete" @click.stop="ovpnDelete(cfg)" title="删除">🗑️</button>
               </div>
             </div>
-            <div v-if="ovpnConfigs.length === 0" class="vpn-empty">
+            <div v-if="ovpnConfigs.length === 0" class="flex flex-col items-center justify-center p-10 text-center text-base-content/70">
               <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <p>暂无 OpenVPN 配置文件</p>
+              <p class="my-3">暂无 OpenVPN 配置文件</p>
               <button class="btn btn-sm btn-primary" @click="importOvpn" :disabled="!openvpnAvailable">导入 .ovpn 文件</button>
             </div>
           </div>
         </div>
-        <div class="vpn-main">
-          <div class="vpn-log-header"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="ovpnLogs = []">清空</button></div>
-          <div class="vpn-log" ref="ovpnLogRef">
-            <div v-for="(line, i) in ovpnLogs" :key="i" class="log-line" :class="getLogClass(line)">{{ line }}</div>
-            <div v-if="ovpnLogs.length === 0" class="log-empty">等待连接...</div>
+        <div class="flex-1 flex flex-col bg-base-200 rounded-lg overflow-hidden min-w-0">
+          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="ovpnLogs = []">清空</button></div>
+          <div class="flex-1 overflow-y-auto p-3 font-mono text-sm leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="ovpnLogRef">
+            <div v-for="(line, i) in ovpnLogs" :key="i" class="whitespace-pre-wrap break-all" :class="line.includes('✅') || line.includes('成功') || line.includes('Completed') ? 'text-[#a6e3a1]' : line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED') ? 'text-[#f38ba8]' : line.includes('⏳') || line.includes('连接中') ? 'text-[#f9e2af]' : ''">{{ line }}</div>
+            <div v-if="ovpnLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-sm">等待连接...</div>
           </div>
         </div>
       </div>
 
       <!-- Sudo Password Dialog -->
-      <div v-if="showPasswordDialog" class="password-overlay" @click.self="cancelPasswordDialog">
-        <div class="password-dialog">
-          <div class="password-dialog-header">🔐 需要 sudo 密码</div>
-          <div class="password-dialog-body">OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：</div>
-          <div class="password-dialog-input"><input ref="passwordInputRef" v-model="sudoPassword" type="password" placeholder="输入密码" @keydown.enter="submitPassword" @keydown.escape="showPasswordDialog = false" class="password-input" autofocus /></div>
-          <div class="password-dialog-actions">
+      <div v-if="showPasswordDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]" @click.self="cancelPasswordDialog">
+        <div class="bg-base-200 rounded-xl p-6 w-[600px] max-w-[90vw] shadow-2xl border border-base-300">
+          <div class="text-lg font-semibold text-base-content mb-3">🔐 需要 sudo 密码</div>
+          <div class="text-sm text-base-content mb-4 leading-relaxed">OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：</div>
+          <div class="mb-4"><input ref="passwordInputRef" v-model="sudoPassword" type="password" placeholder="输入密码" @keydown.enter="submitPassword" @keydown.escape="showPasswordDialog = false" class="input input-bordered w-full" autofocus /></div>
+          <div class="flex justify-end gap-2 mb-3">
             <button class="btn btn-sm btn-ghost" @click="showPasswordDialog = false">取消</button>
             <button class="btn btn-sm btn-primary" @click="submitPassword" :disabled="!sudoPassword">确认连接</button>
           </div>
-          <div class="password-dialog-hint">提示：可以配置免密 sudo：<code>echo "$USER ALL=(root) NOPASSWD: $(which openvpn)" | sudo tee /etc/sudoers.d/openvpn</code></div>
+          <div class="text-[11px] text-base-content opacity-70 leading-relaxed p-2 bg-black/5 rounded-md">提示：可以配置免密 sudo：<code class="text-[10px] bg-black/10 px-1 py-0.5 rounded break-all">echo "$USER ALL=(root) NOPASSWD: $(which openvpn)" | sudo tee /etc/sudoers.d/openvpn</code></div>
         </div>
       </div>
     </div>
 
     <!-- WireGuard Tab -->
-    <div v-if="activeProtocol === 'wireguard'" class="protocol-content">
+    <div v-if="activeProtocol === 'wireguard'" class="flex-1 overflow-hidden flex flex-col min-h-0">
       <!-- WireGuard Status Bar -->
-      <div v-if="wgStatus.connected" class="status-bar connected">
-        <div class="status-left">
-          <span class="status-dot connected"></span>
-          <span class="status-text">✅ 已连接 — {{ wgStatus.configName }}</span>
-          <span class="status-duration">{{ wgDuration }}</span>
+      <div v-if="wgStatus.connected" class="flex items-center justify-between p-3 mx-5 mt-3 rounded-lg bg-success/20 border border-success/30 text-success text-sm">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
+          <span class="font-medium">✅ 已连接 — {{ wgStatus.configName }}</span>
+          <span class="text-sm font-medium opacity-70 ml-2 font-mono">{{ wgDuration }}</span>
         </div>
-        <div class="status-right">
-          <span class="traffic-stats">↑ {{ formatBytes(wgStatus.bytesSent) }} ↓ {{ formatBytes(wgStatus.bytesReceived) }}</span>
-          <button class="btn btn-sm btn-danger" @click="wgDisconnect">⏏️ 断开</button>
+        <div class="flex items-center gap-4">
+          <span class="text-sm font-medium opacity-80 whitespace-nowrap">↑ {{ formatBytes(wgStatus.bytesSent) }} ↓ {{ formatBytes(wgStatus.bytesReceived) }}</span>
+          <button class="btn btn-sm btn-danger">⏏️ 断开</button>
         </div>
       </div>
-      <div v-if="wgStatus.state === 'connecting'" class="status-bar connecting">
-        <div class="status-left"><span class="status-dot connecting"></span><span class="status-text">🔌 正在连接 {{ wgStatus.configName }}...</span></div>
+      <div v-if="wgStatus.state === 'connecting'" class="flex items-center p-3 mx-5 mt-3 rounded-lg bg-info/20 border border-info/30 text-info text-sm">
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-info animate-pulse"></span><span class="font-medium">🔌 正在连接 {{ wgStatus.configName }}...</span></div>
       </div>
-      <div v-if="wgStatus.state === 'error'" class="status-bar error">
-        <div class="status-left"><span class="status-dot error"></span><span class="status-text">❌ 连接错误 — {{ wgStatus.configName }}</span></div>
+      <div v-if="wgStatus.state === 'error'" class="flex items-center p-3 mx-5 mt-3 rounded-lg bg-error/20 border border-error/30 text-error text-sm">
+        <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-error"></span><span class="font-medium">❌ 连接错误 — {{ wgStatus.configName }}</span></div>
       </div>
 
       <!-- Config List + Log -->
-      <div class="vpn-layout">
-        <div class="vpn-sidebar">
-          <div class="vpn-sidebar-header">
+      <div class="flex flex-1 overflow-hidden mx-5 mb-5 gap-4 min-h-0">
+        <div class="w-[420px] flex-shrink-0 flex flex-col bg-base-200 rounded-lg overflow-hidden">
+          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300">
             <span>WireGuard 配置 ({{ wgConfigs.length }})</span>
-            <div class="vpn-sidebar-actions">
+            <div class="flex gap-1">
               <button class="btn btn-xs btn-primary" @click="showWgForm = true; editingWg = null">📥 添加</button>
             </div>
           </div>
-          <div class="vpn-config-list">
-            <div v-for="cfg in wgConfigs" :key="cfg.id" class="vpn-config-item" :class="{ active: wgStatus.configId === cfg.id, 'is-connecting': wgStatus.state === 'connecting' && wgStatus.configId === cfg.id }" @click="selectWgConfig(cfg)">
-              <div class="config-info">
-                <span class="config-name">{{ cfg.name }}</span>
-                <span class="config-path">{{ cfg.peerEndpoint }}</span>
+          <div class="flex-1 overflow-y-auto p-2">
+            <div v-for="cfg in wgConfigs" :key="cfg.id" class="flex items-center justify-between p-2.5 mb-1 rounded-lg cursor-pointer transition-all border-l-3 border-l-transparent"
+              :class="wgStatus.configId === cfg.id ? 'bg-primary/10 border-l-primary' : wgStatus.state === 'connecting' && wgStatus.configId === cfg.id ? 'bg-info/10 border-l-info' : 'hover:bg-base-300'"
+              @click="selectWgConfig(cfg)">
+              <div class="flex-1 min-w-0">
+                <span class="block text-sm font-medium text-base-content truncate">{{ cfg.name }}</span>
+                <span class="block text-[11px] text-base-content/70 truncate mt-0.5">{{ cfg.peerEndpoint }}</span>
               </div>
-              <div class="config-actions">
+              <div class="flex gap-1 flex-shrink-0">
                 <button v-if="wgStatus.configId === cfg.id && wgStatus.connected" class="config-btn btn-connected" title="已连接">✅</button>
                 <button v-else-if="wgStatus.state === 'connecting' && wgStatus.configId === cfg.id" class="config-btn btn-connecting" title="连接中">⏳</button>
                 <button v-else class="config-btn btn-connect" @click.stop="wgConnect(cfg)" title="连接">▶️</button>
@@ -155,18 +160,18 @@
                 <button class="config-btn btn-delete" @click.stop="wgDelete(cfg)" title="删除">🗑️</button>
               </div>
             </div>
-            <div v-if="wgConfigs.length === 0" class="vpn-empty">
+            <div v-if="wgConfigs.length === 0" class="flex flex-col items-center justify-center p-10 text-center text-base-content/70">
               <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <p>暂无 WireGuard 配置</p>
+              <p class="my-3">暂无 WireGuard 配置</p>
               <button class="btn btn-sm btn-primary" @click="showWgForm = true; editingWg = null">添加 WireGuard 配置</button>
             </div>
           </div>
         </div>
-        <div class="vpn-main">
-          <div class="vpn-log-header"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="wgLogs = []">清空</button></div>
-          <div class="vpn-log" ref="wgLogRef">
-            <div v-for="(line, i) in wgLogs" :key="i" class="log-line" :class="getLogClass(line)">{{ line }}</div>
-            <div v-if="wgLogs.length === 0" class="log-empty">等待连接...</div>
+        <div class="flex-1 flex flex-col bg-base-200 rounded-lg overflow-hidden min-w-0">
+          <div class="flex items-center justify-between p-3 text-sm font-semibold text-base-content/70 border-b border-base-300"><span>连接日志</span><button class="btn btn-xs btn-ghost" @click="wgLogs = []">清空</button></div>
+          <div class="flex-1 overflow-y-auto p-3 font-mono text-sm leading-relaxed bg-[#1e1e2e] text-[#cdd6f4]" ref="wgLogRef">
+            <div v-for="(line, i) in wgLogs" :key="i" class="whitespace-pre-wrap break-all" :class="line.includes('✅') || line.includes('成功') || line.includes('Completed') ? 'text-[#a6e3a1]' : line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED') ? 'text-[#f38ba8]' : line.includes('⏳') || line.includes('连接中') ? 'text-[#f9e2af]' : ''">{{ line }}</div>
+            <div v-if="wgLogs.length === 0" class="flex items-center justify-center h-full text-[#6c7086] text-sm">等待连接...</div>
           </div>
         </div>
       </div>
@@ -185,7 +190,7 @@
           <div class="form-row"><label>接口地址</label><input v-model="wgForm.address" class="password-input" placeholder="10.0.0.2/32" /></div>
           <div class="form-row"><label>DNS (可选)</label><input v-model="wgForm.dns" class="password-input" placeholder="1.1.1.1" /></div>
           <div class="form-row"><label>MTU (可选)</label><input v-model="wgForm.mtu" type="number" class="password-input" placeholder="1420" /></div>
-          <hr style="border-color:var(--input-bg);margin:4px 0" />
+          <hr style="border-color:bg-base-200;margin:4px 0" />
           <div class="form-row"><label>对端公钥 *</label><input v-model="wgForm.peerPublicKey" class="password-input" placeholder="Base64 公钥" /></div>
           <div class="form-row"><label>对端地址 *</label><input v-model="wgForm.peerEndpoint" class="password-input" placeholder="server.com:51820" /></div>
           <div class="form-row"><label>允许 IP</label><input v-model="wgForm.peerAllowedIPs" class="password-input" placeholder="0.0.0.0/0" /></div>
@@ -320,15 +325,15 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 </script>
 
 <style scoped>
-.vpn-manager { display: flex; flex-direction: column; height: 100%; background: var(--main-bg); overflow: hidden; }
-.vpn-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--input-bg); }
+.vpn-manager { display: flex; flex-direction: column; height: 100%; background: oklch(var(--b2)); overflow: hidden; }
+.vpn-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: oklch(var(--b1)); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-header-left { display: flex; align-items: center; gap: 10px; }
 .vpn-icon { font-size: 24px; }
-.vpn-title { font-size: 18px; font-weight: 600; margin: 0; color: var(--main-text); }
+.vpn-title { font-size: 18px; font-weight: 600; margin: 0; color: oklch(var(--bc)); }
 .vpn-header-tabs { display: flex; gap: 4px; }
-.tab-btn { padding: 6px 16px; border: 1px solid var(--input-bg); border-radius: 8px; background: transparent; color: var(--main-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-.tab-btn.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
-.tab-btn:hover:not(.active) { background: var(--input-bg); }
+.tab-btn { padding: 6px 16px; border: 1px solid oklch(var(--b2)); border-radius: 8px; background: transparent; color: oklch(var(--bc) / 0.6); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.tab-btn.active { background: oklch(var(--p)); color: #fff; border-color: oklch(var(--p)); }
+.tab-btn:hover:not(.active) { background: oklch(var(--b2)); }
 .protocol-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .vpn-banner { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; margin: 12px 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; color: #856404; }
 .banner-text strong { display: block; margin-bottom: 4px; }
@@ -352,24 +357,24 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 .traffic-stats { font-size: 13px; font-weight: 500; opacity: 0.8; white-space: nowrap; }
 .status-actions { display: flex; gap: 8px; }
 .vpn-layout { display: flex; flex: 1; overflow: hidden; margin: 12px 20px 20px; gap: 16px; min-height: 0; }
-.vpn-sidebar { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 10px; overflow: hidden; }
-.vpn-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--main-text-secondary); border-bottom: 1px solid var(--input-bg); }
+.vpn-sidebar { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; background: oklch(var(--b1)); border-radius: 10px; overflow: hidden; }
+.vpn-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: oklch(var(--bc) / 0.6); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-sidebar-actions { display: flex; gap: 4px; }
 .vpn-config-list { flex: 1; overflow-y: auto; padding: 8px; }
 .vpn-config-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
-.vpn-config-item:hover { background: var(--input-bg); }
-.vpn-config-item.active { background: var(--primary-light); border-left-color: var(--primary-color); }
+.vpn-config-item:hover { background: oklch(var(--b2)); }
+.vpn-config-item.active { background: oklch(var(--p) / 0.1); border-left-color: oklch(var(--p)); }
 .vpn-config-item.is-connecting { background: #e3f2fd; border-left-color: #2196f3; }
 .config-info { flex: 1; min-width: 0; }
-.config-name { display: block; font-size: 14px; font-weight: 500; color: var(--main-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.config-path { display: block; font-size: 11px; color: var(--main-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.config-name { display: block; font-size: 14px; font-weight: 500; color: oklch(var(--bc)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.config-path { display: block; font-size: 11px; color: oklch(var(--bc) / 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .config-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .config-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; font-size: 14px; transition: background 0.15s; }
 .config-btn:hover { background: rgba(0,0,0,0.1); }
-.vpn-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: var(--main-text-secondary); }
+.vpn-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: oklch(var(--bc) / 0.6); }
 .vpn-empty p { margin: 12px 0 16px; }
-.vpn-main { flex: 1; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 10px; overflow: hidden; min-width: 0; }
-.vpn-log-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--main-text-secondary); border-bottom: 1px solid var(--input-bg); }
+.vpn-main { flex: 1; display: flex; flex-direction: column; background: oklch(var(--b1)); border-radius: 10px; overflow: hidden; min-width: 0; }
+.vpn-log-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: oklch(var(--bc) / 0.6); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-log { flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; line-height: 1.5; background: #1e1e2e; color: #cdd6f4; }
 .log-line { white-space: pre-wrap; word-break: break-all; }
 .log-line.log-success { color: #a6e3a1; }
@@ -380,25 +385,25 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 .btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-xs { padding: 2px 8px; font-size: 11px; }
-.btn-primary { background: var(--primary-color); color: white; }
-.btn-primary:hover:not(:disabled) { background: var(--primary-light); }
-.btn-ghost { background: transparent; color: var(--main-text); border: 1px solid var(--input-bg); }
-.btn-ghost:hover:not(:disabled) { background: var(--input-bg); }
-.btn-danger { background: var(--danger-color); color: white; }
+.btn-primary { background: oklch(var(--p)); color: white; }
+.btn-primary:hover:not(:disabled) { background: oklch(var(--p) / 0.1); }
+.btn-ghost { background: transparent; color: oklch(var(--bc)); border: 1px solid oklch(var(--b2)); }
+.btn-ghost:hover:not(:disabled) { background: oklch(var(--b2)); }
+.btn-danger { background: oklch(var(--er)); color: white; }
 .btn-danger:hover:not(:disabled) { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .form-row { display: flex; flex-direction: column; gap: 4px; }
-.form-row label { font-size: 12px; font-weight: 600; color: var(--main-text-secondary); }
+.form-row label { font-size: 12px; font-weight: 600; color: oklch(var(--bc) / 0.6); }
 
 .password-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.password-dialog { background: var(--card-bg); border-radius: 12px; padding: 24px; width: 600px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid var(--input-bg); }
-.password-dialog-header { font-size: 18px; font-weight: 600; color: var(--main-text); margin-bottom: 12px; }
-.password-dialog-body { font-size: 14px; color: var(--main-text); margin-bottom: 16px; line-height: 1.5; }
+.password-dialog { background: oklch(var(--b1)); border-radius: 12px; padding: 24px; width: 600px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid oklch(var(--b2)); }
+.password-dialog-header { font-size: 18px; font-weight: 600; color: oklch(var(--bc)); margin-bottom: 12px; }
+.password-dialog-body { font-size: 14px; color: oklch(var(--bc)); margin-bottom: 16px; line-height: 1.5; }
 .password-dialog-input { margin-bottom: 16px; }
-.password-input { width: 100%; padding: 10px 12px; border: 1px solid var(--input-bg); border-radius: 8px; font-size: 14px; background: var(--input-bg); color: var(--main-text); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
-.password-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.password-input { width: 100%; padding: 10px 12px; border: 1px solid oklch(var(--b2)); border-radius: 8px; font-size: 14px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+.password-input:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .password-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
-.password-dialog-hint { font-size: 11px; color: var(--main-text); opacity: 0.7; line-height: 1.5; padding: 8px 10px; background: rgba(0,0,0,0.03); border-radius: 6px; }
+.password-dialog-hint { font-size: 11px; color: oklch(var(--bc)); opacity: 0.7; line-height: 1.5; padding: 8px 10px; background: rgba(0,0,0,0.03); border-radius: 6px; }
 .password-dialog-hint code { font-size: 10px; background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; word-break: break-all; }
 </style>

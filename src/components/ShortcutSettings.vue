@@ -175,24 +175,24 @@ onUnmounted(() => {
 .shortcut-settings h2 { margin: 0 0 8px 0; font-size: 20px; }
 .desc { color: var(--text-secondary); font-size: 13px; margin: 0 0 20px 0; }
 .shortcut-list { display: flex; flex-direction: column; gap: 2px; }
-.shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--card-bg); border-radius: 8px; transition: background 0.2s; }
-.shortcut-row:hover { background: var(--input-bg); }
-.shortcut-row.editing { background: var(--primary-light); border: 1px solid var(--primary-color); }
+.shortcut-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: oklch(var(--b1)); border-radius: 8px; transition: background 0.2s; }
+.shortcut-row:hover { background: oklch(var(--b2)); }
+.shortcut-row.editing { background: oklch(var(--p) / 0.1); border: 1px solid oklch(var(--p)); }
 .shortcut-info { display: flex; flex-direction: column; gap: 2px; }
 .shortcut-label { font-weight: 600; font-size: 14px; }
 .shortcut-desc { font-size: 12px; color: var(--text-secondary); }
 .shortcut-actions { display: flex; align-items: center; gap: 8px; }
-.shortcut-key-display { min-width: 160px; padding: 8px 12px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; cursor: pointer; text-align: center; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
-.shortcut-key-display:hover { border-color: var(--primary-color); }
-.shortcut-key-display.is-editing { border-color: var(--primary-color); background: var(--card-bg); animation: pulse-border 1s infinite; }
+.shortcut-key-display { min-width: 160px; padding: 8px 12px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; cursor: pointer; text-align: center; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.shortcut-key-display:hover { border-color: oklch(var(--p)); }
+.shortcut-key-display.is-editing { border-color: oklch(var(--p)); background: oklch(var(--b1)); animation: pulse-border 1s infinite; }
 @keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(var(--primary-rgb, 74, 222, 128), 0.4); } 50% { box-shadow: 0 0 0 4px rgba(var(--primary-rgb, 74, 222, 128), 0); } }
-.keys { color: var(--primary-color); font-weight: 600; }
+.keys { color: oklch(var(--p)); font-weight: 600; }
 .none { color: var(--text-secondary); font-style: italic; }
 .recording { color: var(--text-secondary); font-size: 12px; }
-.temp-keys { color: var(--primary-color); font-weight: 600; }
+.temp-keys { color: oklch(var(--p)); font-weight: 600; }
 .btn-reset { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.5; padding: 4px; transition: opacity 0.2s; }
 .btn-reset:hover { opacity: 1; }
 .footer-actions { margin-top: 24px; display: flex; justify-content: flex-end; }
-.btn-reset-all { padding: 8px 16px; background: var(--input-bg); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary); font-size: 13px; transition: all 0.2s; }
-.btn-reset-all:hover { background: var(--card-bg); border-color: var(--primary-color); }
+.btn-reset-all { padding: 8px 16px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; cursor: pointer; color: var(--text-primary); font-size: 13px; transition: all 0.2s; }
+.btn-reset-all:hover { background: oklch(var(--b1)); border-color: oklch(var(--p)); }
 </style>

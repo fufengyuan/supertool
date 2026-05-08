@@ -706,8 +706,8 @@ function onFilterClear() {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   flex-shrink: 0;
   gap: 8px;
   min-height: 40px;
@@ -726,19 +726,19 @@ function onFilterClear() {
   font-size: 12px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   border-radius: 4px;
   transition: all 0.15s ease;
 }
 
 .grid-tab:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 .grid-tab.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
@@ -750,11 +750,11 @@ function onFilterClear() {
 
 .grid-info {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding: 2px 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 4px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .grid-empty {
@@ -763,7 +763,7 @@ function onFilterClear() {
   align-items: center;
   justify-content: center;
   padding: 48px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   gap: 12px;
 }
 
@@ -772,7 +772,7 @@ function onFilterClear() {
   align-items: center;
   justify-content: center;
   padding: 32px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 14px;
 }
 
@@ -789,14 +789,14 @@ function onFilterClear() {
   height: 8px;
 }
 .grid-table-wrapper::-webkit-scrollbar-track {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 .grid-table-wrapper::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 4px;
 }
 .grid-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: var(--main-text-secondary);
+  background: oklch(var(--bc) / 0.6);
 }
 
 .grid-table {
@@ -807,8 +807,8 @@ function onFilterClear() {
 
 .grid-table th,
 .grid-table td {
-  border-right: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   padding: 8px 14px;
   text-align: left;
   vertical-align: middle;
@@ -828,20 +828,20 @@ function onFilterClear() {
   width: 56px;
   min-width: 56px;
   text-align: center;
-  background: var(--input-bg);
-  color: var(--main-text-secondary);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
   font-size: 11px;
   font-family: 'SF Mono', 'Fira Code', monospace;
   position: sticky;
   left: 0;
   z-index: 3;
-  border-right: 2px solid var(--border-color);
+  border-right: 2px solid oklch(var(--bc) / 0.1);
 }
 
 .grid-col-th {
-  background: var(--input-bg);
-  border-top: 1px solid var(--border-color);
-  border-bottom: 2px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  border-bottom: 2px solid oklch(var(--bc) / 0.1);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -863,7 +863,7 @@ function onFilterClear() {
 }
 
 .grid-col-th.sortable:hover {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .grid-col {
@@ -885,7 +885,7 @@ function onFilterClear() {
 .col-name {
   font-weight: 600;
   font-size: 11px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   text-transform: uppercase;
   letter-spacing: 0.5px;
   flex: 1;
@@ -897,7 +897,7 @@ function onFilterClear() {
 
 .col-comment {
   font-size: 9px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.5;
   max-width: 120px;
   overflow: hidden;
@@ -916,25 +916,25 @@ function onFilterClear() {
 }
 
 .sort-icon-hint {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.3;
   font-size: 12px;
 }
 
 .grid-col-th.sortable:hover .sort-icon-hint {
   opacity: 0.7;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .sort-icon-active {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 700;
   font-size: 10px;
 }
 
 .grid-col-th.sort-asc .col-name,
 .grid-col-th.sort-desc .col-name {
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .grid-cell {
@@ -945,20 +945,20 @@ function onFilterClear() {
 }
 
 .grid-cell:hover {
-  background: var(--primary-light);
-  outline: 1px solid var(--border-color);
+  background: oklch(var(--p) / 0.1);
+  outline: 1px solid oklch(var(--bc) / 0.1);
   outline-offset: -1px;
 }
 
 .grid-cell.is-pk {
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   background: rgba(var(--primary-rgb, 100, 100, 255), 0.05);
 }
 
 .dirty-row {
   background: rgba(245, 158, 11, 0.06);
-  border-left: 3px solid var(--warning-color);
+  border-left: 3px solid oklch(var(--wa));
 }
 
 .dirty-row:hover {
@@ -967,7 +967,7 @@ function onFilterClear() {
 
 .new-row {
   background: rgba(34, 197, 94, 0.06);
-  border-left: 3px solid var(--success-color);
+  border-left: 3px solid oklch(var(--su));
 }
 
 .new-row:hover {
@@ -975,7 +975,7 @@ function onFilterClear() {
 }
 
 .grid-table tbody tr:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row) {
@@ -983,11 +983,11 @@ function onFilterClear() {
 }
 
 .grid-table tbody tr:nth-child(even):not(.dirty-row):not(.new-row):hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .dirty-indicator {
-  color: var(--warning-color);
+  color: oklch(var(--wa));
   font-weight: 700;
   font-size: 14px;
 }
@@ -997,7 +997,7 @@ function onFilterClear() {
 }
 
 .new-indicator {
-  color: var(--success-color);
+  color: oklch(var(--su));
   font-weight: 700;
   font-size: 14px;
 }
@@ -1006,11 +1006,11 @@ function onFilterClear() {
   display: inline;
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12.5px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .null-value {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.45;
   font-style: italic;
   font-size: 11px;
@@ -1021,10 +1021,10 @@ function onFilterClear() {
 .cell-editor {
   width: 100%;
   padding: 4px 6px;
-  border: 2px solid var(--primary-color);
+  border: 2px solid oklch(var(--p));
   border-radius: 4px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   font-size: 13px;
   font-family: inherit;
   outline: none;
@@ -1056,7 +1056,7 @@ function onFilterClear() {
 .row-actions {
   width: 60px;
   text-align: center;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .row-action-btn {
@@ -1070,7 +1070,7 @@ function onFilterClear() {
 }
 
 .row-action-btn:hover {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .grid-pagination {
@@ -1079,15 +1079,15 @@ function onFilterClear() {
   justify-content: center;
   gap: 12px;
   padding: 8px 12px;
-  border-top: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   flex-shrink: 0;
   min-height: 38px;
 }
 
 .page-info {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .grid-json {
@@ -1098,16 +1098,16 @@ function onFilterClear() {
   font-family: 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 /* Context Menu */
 .context-menu {
   position: fixed;
   z-index: 9999;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   padding: 4px;
@@ -1120,14 +1120,14 @@ function onFilterClear() {
   gap: 8px;
   padding: 8px 12px;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   border-radius: 6px;
   cursor: pointer;
   transition: background 0.1s;
 }
 
 .context-menu-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .context-menu-item.disabled {

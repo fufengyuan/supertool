@@ -148,9 +148,9 @@ const locale = ref(getLocale());
   const setDark = (dark: boolean): void => {
     isDark.value = dark;
     if (dark) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.setAttribute('data-theme', 'dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.setAttribute('data-theme', 'light');
     }
   };
 

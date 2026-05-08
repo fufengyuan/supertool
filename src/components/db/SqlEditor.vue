@@ -327,15 +327,15 @@ defineExpose({
   justify-content: space-between;
   gap: 8px;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .editor-conn-badge {
   font-size: 12px;
   padding: 3px 8px;
   border-radius: 4px;
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
@@ -350,15 +350,15 @@ defineExpose({
   flex: 1;
   min-height: 120px;
   max-height: 300px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 8px;
   overflow: hidden;
   transition: border-color 0.15s ease;
 }
 
 .editor-container:focus-within {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 
 .sql-highlight {
@@ -377,7 +377,7 @@ defineExpose({
   overflow: auto;
   pointer-events: none;
   color: transparent;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .sql-highlight code {
@@ -404,7 +404,7 @@ defineExpose({
   padding: 12px;
   border: none;
   background: transparent;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.6;
@@ -414,11 +414,11 @@ defineExpose({
   word-wrap: break-word;
   overflow: auto;
   /* Text must be somewhat transparent to see highlights behind */
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .sql-textarea::placeholder {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.5;
 }
 
@@ -429,10 +429,10 @@ defineExpose({
   justify-content: space-between;
   padding: 4px 8px;
   font-size: 11px;
-  color: var(--main-text-secondary);
-  background: var(--input-bg);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b2));
   border-radius: 6px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .status-left, .status-right {
@@ -448,12 +448,12 @@ defineExpose({
 }
 
 .status-time {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
 .status-rows {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .status-sql {
@@ -464,7 +464,7 @@ defineExpose({
 }
 
 .status-selection {
-  color: var(--warning-color);
+  color: oklch(var(--wa));
 }
 
 /* Error display */
@@ -475,7 +475,7 @@ defineExpose({
   padding: 10px 12px;
   border-radius: 8px;
   background: rgba(210, 15, 57, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-size: 13px;
   line-height: 1.5;
 }
@@ -487,7 +487,7 @@ defineExpose({
 
 /* Query history */
 .query-history {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   padding-top: 8px;
 }
 
@@ -498,7 +498,7 @@ defineExpose({
   margin-bottom: 6px;
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .history-item {
@@ -511,15 +511,15 @@ defineExpose({
 }
 
 .history-item:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .history-item.success {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .history-item.failed {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .history-sql {
@@ -533,7 +533,7 @@ defineExpose({
   display: flex;
   gap: 12px;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-family: inherit;
   margin-top: 2px;
 }

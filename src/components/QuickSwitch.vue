@@ -183,8 +183,8 @@ defineExpose({ open, close })
 .quick-switch-container {
   width: 520px;
   max-height: 420px;
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border-color, #e5e5e5);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -210,11 +210,11 @@ defineExpose({ open, close })
 }
 
 .quick-switch-item:hover {
-  background: var(--sidebar-hover, rgba(0, 0, 0, 0.05));
+  background: oklch(var(--b2)));
 }
 
 .quick-switch-item.active {
-  background: var(--primary-light, rgba(136, 57, 239, 0.1));
+  background: oklch(var(--p) / 0.1));
 }
 
 .item-icon {
@@ -224,8 +224,8 @@ defineExpose({ open, close })
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: var(--sidebar-active, rgba(0, 0, 0, 0.05));
-  color: var(--sidebar-text, #333);
+  background: oklch(var(--p) / 0.2));
+  color: oklch(var(--bc));
   flex-shrink: 0;
 }
 
@@ -245,21 +245,21 @@ defineExpose({ open, close })
 .item-label {
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text, #1a1a1a);
+  color: oklch(var(--bc));
 }
 
 .item-group {
   font-size: 11px;
-  color: var(--main-text-secondary, #666);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .item-shortcut {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 5px;
-  background: var(--input-bg, #f5f5f5);
-  border: 1px solid var(--border-color, #e0e0e0);
-  color: var(--main-text-secondary, #666);
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.1);
+  color: oklch(var(--bc) / 0.6);
   font-family: inherit;
   flex-shrink: 0;
 }
@@ -269,10 +269,10 @@ defineExpose({ open, close })
   display: flex;
   gap: 16px;
   padding: 12px 16px;
-  border-top: 1px solid var(--border-color, #e5e5e5);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   font-size: 12px;
-  color: var(--main-text-secondary, #888);
-  background: var(--input-bg, #fafafa);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b2));
 }
 
 .quick-switch-hints span {
@@ -289,7 +289,7 @@ defineExpose({ open, close })
   background: transparent;
 }
 .quick-switch-list::-webkit-scrollbar-thumb {
-  background: var(--border-color, #ddd);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
 }
 </style>

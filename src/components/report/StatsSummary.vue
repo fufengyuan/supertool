@@ -57,29 +57,29 @@ const props = defineProps({
 }
 
 .stat-card {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   padding: 16px;
   border-radius: 12px;
   text-align: center;
-  border: 2px solid var(--border-color);
+  border: 2px solid oklch(var(--bc) / 0.1);
   transition: all 0.3s ease;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   margin-bottom: 8px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
 }
 
 .task-list-section {
@@ -89,7 +89,7 @@ const props = defineProps({
 .task-list-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin-bottom: 12px;
 }
 
@@ -105,28 +105,28 @@ const props = defineProps({
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
   margin-bottom: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .task-text {
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .task-date {
   font-size: 12px;
-  color: var(--empty-color);
-  background: var(--completed-bg);
+  color: oklch(var(--bc) / 0.4);
+  background: oklch(var(--su) / 0.1);
   padding: 4px 8px;
   border-radius: 6px;
 }
 
 .empty-text {
   text-align: center;
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
   font-size: 14px;
   padding: 20px;
 }

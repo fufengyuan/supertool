@@ -405,21 +405,21 @@ defineExpose({ refreshTables })
   align-items: center;
   padding: 5px 8px;
   margin: 2px 2px 4px 2px;
-  border: 1px solid var(--border-color, #ddd);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 5px;
-  background: var(--input-bg, #f8f8f8);
+  background: oklch(var(--b2));
   gap: 6px;
   flex-shrink: 0;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tree-search:focus-within {
-  border-color: var(--primary-color, #1677ff);
-  box-shadow: 0 0 0 2px var(--primary-light, rgba(22, 119, 255, 0.12));
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1));
 }
 
 .tree-search-icon {
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
 }
 
@@ -429,12 +429,12 @@ defineExpose({ refreshTables })
   background: transparent;
   outline: none;
   font-size: 12px;
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
   min-width: 0;
 }
 
 .tree-search-input::placeholder {
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .tree-search-clear {
@@ -445,7 +445,7 @@ defineExpose({ refreshTables })
   cursor: pointer;
   border-radius: 50%;
   font-size: 10px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -454,8 +454,8 @@ defineExpose({ refreshTables })
 }
 
 .tree-search-clear:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.1));
-  color: var(--primary-color, #1677ff);
+  background: oklch(var(--p) / 0.1));
+  color: oklch(var(--p));
 }
 
 /* ── Empty State ────────────────────────────────────────── */
@@ -465,7 +465,7 @@ defineExpose({ refreshTables })
   align-items: center;
   gap: 12px;
   padding: 32px 16px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
 }
 
@@ -499,7 +499,7 @@ defineExpose({ refreshTables })
   cursor: pointer;
   font-size: 12.5px;
   line-height: 1.5;
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
   transition: background 0.12s ease, color 0.12s ease;
   user-select: none;
   white-space: nowrap;
@@ -521,7 +521,7 @@ defineExpose({ refreshTables })
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--border-color, #e8e8e8);
+  background: oklch(var(--bc) / 0.1);
   opacity: 0.6;
   pointer-events: none;
 }
@@ -533,13 +533,13 @@ defineExpose({ refreshTables })
 
 /* ── Hover ──────────────────────────────────────────────── */
 .tree-item:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.07));
+  background: oklch(var(--p) / 0.1));
 }
 
 /* ── Active / Selected ──────────────────────────────────── */
 .tree-item.active,
 .tree-item.selected {
-  background: var(--primary-color, #1677ff) !important;
+  background: oklch(var(--p)) !important;
   color: #fff !important;
   font-weight: 500;
 }
@@ -588,12 +588,12 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-database:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.07));
+  background: oklch(var(--p) / 0.1));
 }
 
 /* Folder nodes (Tables, Views, Redis folders) */
 .tree-item.tree-folder {
-  color: var(--main-text, #444);
+  color: oklch(var(--bc));
   font-weight: 500;
   font-size: 12px;
 }
@@ -604,7 +604,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-table:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.07));
+  background: oklch(var(--p) / 0.1));
 }
 
 /* View nodes */
@@ -615,7 +615,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item.tree-view:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.07));
+  background: oklch(var(--p) / 0.1));
   opacity: 1;
 }
 
@@ -623,12 +623,12 @@ defineExpose({ refreshTables })
 .tree-item.tree-redis-key {
   font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
   font-size: 11.5px;
-  color: var(--main-text, #444);
+  color: oklch(var(--bc));
   padding-left: 20px;  /* no chevron, compensate */
 }
 
 .tree-item.tree-redis-key:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.07));
+  background: oklch(var(--p) / 0.1));
 }
 
 /* Redis key type dot indicator (small colored dot before label) */
@@ -661,12 +661,12 @@ defineExpose({ refreshTables })
   justify-content: center;
   font-size: 8px;
   flex-shrink: 0;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   transition: transform 0.15s ease, color 0.12s ease;
 }
 
 .tree-toggle:hover {
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
 }
 
 .tree-item.active .tree-toggle,
@@ -700,8 +700,8 @@ defineExpose({ refreshTables })
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 10px;
-  background: var(--input-bg, #f0f0f0);
-  color: var(--main-text-secondary, #999);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
   line-height: 1.4;
   transition: background 0.12s ease, color 0.12s ease;
@@ -713,7 +713,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-item:hover .tree-count {
-  background: var(--border-color, #e8e8e8);
+  background: oklch(var(--bc) / 0.1);
 }
 
 /* Type badge (connection level) */
@@ -721,8 +721,8 @@ defineExpose({ refreshTables })
   font-size: 9.5px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: var(--input-bg, #f0f0f0);
-  color: var(--main-text-secondary, #888);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 600;
@@ -758,7 +758,7 @@ defineExpose({ refreshTables })
 }
 
 .tree-action:hover {
-  background: var(--border-color, #e8e8e8);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .tree-action-danger:hover {
@@ -768,7 +768,7 @@ defineExpose({ refreshTables })
 /* Table comment */
 .tree-table-comment {
   font-size: 11px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.65;
   max-width: 100px;
   overflow: hidden;
@@ -785,13 +785,13 @@ defineExpose({ refreshTables })
 .tree-loading {
   padding: 4px 8px 4px 24px;
   font-size: 11.5px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   font-style: italic;
 }
 
 .tree-empty-sub {
   text-align: center;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding: 8px;
   font-size: 12px;
 }
@@ -799,7 +799,7 @@ defineExpose({ refreshTables })
 .tree-load-more {
   text-align: center;
   padding: 8px 0;
-  border-top: 1px dashed var(--border-color);
+  border-top: 1px dashed oklch(var(--bc) / 0.1);
   margin-top: 4px;
 }
 
@@ -829,8 +829,8 @@ defineExpose({ refreshTables })
   z-index: 10000;
   min-width: 180px;
   padding: 4px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #ddd);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
   animation: fadeIn 0.1s ease;
@@ -844,13 +844,13 @@ defineExpose({ refreshTables })
   border-radius: 5px;
   cursor: pointer;
   font-size: 12px;
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
   transition: background 0.1s ease;
 }
 
 .context-menu-item:hover {
-  background: var(--primary-light, rgba(22, 119, 255, 0.1));
-  color: var(--primary-color, #1677ff);
+  background: oklch(var(--p) / 0.1));
+  color: oklch(var(--p));
 }
 
 .context-menu-icon {
@@ -866,7 +866,7 @@ defineExpose({ refreshTables })
 .context-menu-separator {
   height: 1px;
   margin: 4px 8px;
-  background: var(--border-color, #e8e8e8);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .context-menu-overlay {

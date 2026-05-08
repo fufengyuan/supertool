@@ -292,15 +292,15 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .settings-card {
   padding: 20px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   transition: all 0.2s ease;
 }
 
 .settings-card:hover {
-  border-color: var(--primary-color);
-  box-shadow: var(--card-shadow-hover);
+  border-color: oklch(var(--p));
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .card-header {
@@ -317,7 +317,7 @@ const formatReminderTime = (minutes: number | string): string => {
 .card-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   flex: 1;
 }
 
@@ -328,47 +328,47 @@ const formatReminderTime = (minutes: number | string): string => {
 .form-field label {
   display: block;
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 6px;
 }
 
 .form-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   cursor: pointer;
 }
 
 .form-input {
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
 }
 
 .hint-text {
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .settings-hint {
   margin-top: 10px;
   padding: 10px 14px;
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   border-radius: 8px;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   line-height: 1.5;
 }
 
 .settings-hint strong {
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 /* 开关切换 */
@@ -389,7 +389,7 @@ const formatReminderTime = (minutes: number | string): string => {
 .toggle-slider {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 24px;
   transition: 0.3s;
 }
@@ -407,7 +407,7 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background: var(--primary-color);
+  background: oklch(var(--p));
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
@@ -437,7 +437,7 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .time-field label {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .time-input {
@@ -447,7 +447,7 @@ const formatReminderTime = (minutes: number | string): string => {
 
 .time-separator {
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding-bottom: 8px;
 }
 
@@ -465,18 +465,18 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .test-result.success {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .test-result.error {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .btn-ghost {
   padding: 8px 16px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   background: transparent;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   border-radius: 8px;
   cursor: pointer;
   font-size: 14px;
@@ -484,8 +484,8 @@ const formatReminderTime = (minutes: number | string): string => {
 }
 
 .btn-ghost:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 @media (max-width: 768px) {

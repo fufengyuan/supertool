@@ -64,24 +64,24 @@ const renderedHtml = computed(() => {
 .markdown-section { margin-top: 8px; }
 .markdown-editor { display: flex; flex-direction: column; gap: 8px; }
 .markdown-textarea {
-  width: 100%; padding: 8px; border: 1px solid var(--input-border);
-  border-radius: 6px; background: var(--input-bg); color: var(--main-text);
+  width: 100%; padding: 8px; border: 1px solid oklch(var(--bc) / 0.2);
+  border-radius: 6px; background: oklch(var(--b2)); color: oklch(var(--bc));
   font-size: 13px; font-family: monospace; resize: vertical; outline: none;
 }
-.markdown-textarea:focus { border-color: var(--primary-color); }
+.markdown-textarea:focus { border-color: oklch(var(--p)); }
 .markdown-actions { display: flex; gap: 8px; }
 .save-markdown-btn, .cancel-markdown-btn {
   padding: 4px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px;
 }
-.save-markdown-btn { background: var(--primary-color); color: white; }
-.cancel-markdown-btn { background: var(--border-color); color: var(--main-text); }
+.save-markdown-btn { background: oklch(var(--p)); color: white; }
+.cancel-markdown-btn { background: oklch(var(--bc) / 0.1); color: oklch(var(--bc)); }
 .markdown-display {
-  padding: 8px; background: var(--input-bg); border-radius: 6px; cursor: pointer;
+  padding: 8px; background: oklch(var(--b2)); border-radius: 6px; cursor: pointer;
 }
-.markdown-display:hover { background: var(--border-color); }
+.markdown-display:hover { background: oklch(var(--bc) / 0.1); }
 .markdown-placeholder {
-  padding: 8px; border: 1px dashed var(--border-color); border-radius: 6px;
-  color: var(--main-text-secondary); cursor: pointer; text-align: center;
+  padding: 8px; border: 1px dashed oklch(var(--bc) / 0.1); border-radius: 6px;
+  color: oklch(var(--bc) / 0.6); cursor: pointer; text-align: center;
 }
-.markdown-placeholder:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.markdown-placeholder:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
 </style>

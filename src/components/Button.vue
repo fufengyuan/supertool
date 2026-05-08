@@ -69,18 +69,18 @@ defineEmits(['click']);
 
 /* Variants */
 .btn-primary {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(136, 57, 239, 0.3);
 }
 
 .btn-danger {
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: white;
 }
 
@@ -89,18 +89,18 @@ defineEmits(['click']);
 }
 
 .btn-ghost {
-  background: var(--input-bg);
-  color: var(--main-text);
-  border: 1.5px solid var(--input-border);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border: 1.5px solid oklch(var(--bc) / 0.2);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--card-bg);
-  border-color: var(--main-text-secondary);
+  background: oklch(var(--b1));
+  border-color: oklch(var(--bc) / 0.6);
 }
 
 .btn-success {
-  background: var(--success-color);
+  background: oklch(var(--su));
   color: white;
 }
 
@@ -110,7 +110,7 @@ defineEmits(['click']);
 }
 
 .btn-warning {
-  background: var(--warning-color);
+  background: oklch(var(--wa));
   color: white;
 }
 
@@ -136,8 +136,8 @@ defineEmits(['click']);
 }
 
 .btn-ghost .btn-spinner {
-  border-color: var(--border-color);
-  border-top-color: var(--main-text-secondary);
+  border-color: oklch(var(--bc) / 0.1);
+  border-top-color: oklch(var(--bc) / 0.6);
 }
 
 @keyframes spin {

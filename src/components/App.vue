@@ -1,116 +1,119 @@
 <template>
-  <div class="app-container" :class="{ dark: appStore.isDark }">
+  <div class="flex h-screen overflow-hidden bg-base-200 text-base-content transition-[background,color] duration-300" :data-theme="appStore.isDark ? 'dark' : 'light'">
     <!-- 左侧导航栏 -->
-    <aside class="sidebar" :class="{ collapsed: sidebarCollapsed }">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">
+    <aside
+      class="w-[220px] min-w-[220px] bg-base-100 flex flex-col select-none transition-[width,min-width] duration-250 border-r border-base-300"
+      :class="{ '!w-[48px] !min-w-[48px]': sidebarCollapsed }"
+    >
+      <div class="flex items-center gap-2.5 px-[18px] py-4 border-b border-base-300 overflow-hidden" :class="sidebarCollapsed ? '!px-0 !justify-center !gap-0' : ''">
+        <div class="flex items-center text-primary">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
         </div>
-        <span class="sidebar-title">SuperTool</span>
+        <span class="text-base font-bold text-base-content tracking-[-0.3px] whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">SuperTool</span>
       </div>
 
       <!-- 搜索过滤 -->
-      <div class="sidebar-search" v-show="!sidebarCollapsed">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input v-model="sidebarFilter" placeholder="搜索功能..." class="sidebar-search-input" @keydown.escape="sidebarFilter = ''" />
-        <button v-if="sidebarFilter" class="search-clear" @click="sidebarFilter = ''">×</button>
+      <div class="px-2.5 pt-2 pb-1 relative" v-show="!sidebarCollapsed">
+        <svg class="absolute left-[19px] top-1/2 -translate-y-1/2 text-base-content/50 pointer-events-none" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input v-model="sidebarFilter" placeholder="搜索功能..." class="w-full py-[7px] pl-[28px] pr-[26px] border border-base-300 rounded-md bg-base-200 text-base-content text-[12px] outline-none placeholder:text-base-content/50 focus:border-primary" @keydown.escape="sidebarFilter = ''" />
+        <button v-if="sidebarFilter" class="absolute right-[14px] top-1/2 -translate-y-1/2 bg-transparent border-none text-base-content/50 text-base cursor-pointer" @click="sidebarFilter = ''">×</button>
       </div>
 
-      <nav class="sidebar-nav">
+      <nav class="flex-1 px-2.5 pt-2 flex flex-col gap-1 overflow-y-auto">
         <!-- 业务工作区 -->
-        <div class="nav-group" v-show="navGroupVisible('business')">
-          <div class="nav-group-label">业务</div>
-          <button class="nav-item" v-show="matchesFilter('任务 todo')" :class="{ active: activeView === 'todo' }" @click="activeView = 'todo'" title="任务">
-            <span class="nav-icon">📝</span>
-            <span class="nav-label">任务</span>
+        <div class="flex flex-col gap-px" v-show="navGroupVisible('business')">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.8px] text-base-content/30 px-3 pt-1.5 pb-0.5" :class="sidebarCollapsed ? '!px-1 !text-[0px]' : ''">业务</div>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'todo' }]" @click="activeView = 'todo'" v-show="matchesFilter('任务 todo')" title="任务">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">📝</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">任务</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('周报 weekly')" :class="{ active: activeView === 'weekly-report' }" @click="activeView = 'weekly-report'" title="周报">
-            <span class="nav-icon">📊</span>
-            <span class="nav-label">周报</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'weekly-report' }]" @click="activeView = 'weekly-report'" v-show="matchesFilter('周报 weekly')" title="周报">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">📊</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">周报</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('项目 project')" :class="{ active: activeView === 'projects' }" @click="activeView = 'projects'" title="项目">
-            <span class="nav-icon">📁</span>
-            <span class="nav-label">项目</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'projects' }]" @click="activeView = 'projects'" v-show="matchesFilter('项目 project')" title="项目">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">📁</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">项目</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('记账 accounting')" :class="{ active: activeView === 'accounting' }" @click="activeView = 'accounting'" title="记账本">
-            <span class="nav-icon">💰</span>
-            <span class="nav-label">记账本</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'accounting' }]" @click="activeView = 'accounting'" v-show="matchesFilter('记账 accounting')" title="记账本">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">💰</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">记账本</span>
           </button>
         </div>
 
         <!-- 运维管理 -->
-        <div class="nav-group" v-show="navGroupVisible('ops')">
-          <div class="nav-group-label">运维</div>
-          <button class="nav-item" v-show="matchesFilter('服务器 server ssh')" :class="{ active: activeView === 'servers' }" @click="activeView = 'servers'" title="服务器">
-            <span class="nav-icon">🖥️</span>
-            <span class="nav-label">服务器</span>
+        <div class="flex flex-col gap-px" v-show="navGroupVisible('ops')">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.8px] text-base-content/30 px-3 pt-1.5 pb-0.5" :class="sidebarCollapsed ? '!px-1 !text-[0px]' : ''">运维</div>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'servers' }]" @click="activeView = 'servers'" v-show="matchesFilter('服务器 server ssh')" title="服务器">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🖥️</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">服务器</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('ci cd 部署 deploy')" :class="{ active: activeView === 'cicd' }" @click="activeView = 'cicd'" title="CI/CD">
-            <span class="nav-icon">🚀</span>
-            <span class="nav-label">CI/CD</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'cicd' }]" @click="activeView = 'cicd'" v-show="matchesFilter('ci cd 部署 deploy')" title="CI/CD">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🚀</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">CI/CD</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('日志 log')" :class="{ active: activeView === 'log-aggregator' }" @click="activeView = 'log-aggregator'" title="日志聚合">
-            <span class="nav-icon">📋</span>
-            <span class="nav-label">日志聚合</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'log-aggregator' }]" @click="activeView = 'log-aggregator'" v-show="matchesFilter('日志 log')" title="日志聚合">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">📋</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">日志聚合</span>
           </button>
         </div>
 
         <!-- 开发工具 -->
-        <div class="nav-group" v-show="navGroupVisible('devtools')">
-          <div class="nav-group-label">开发</div>
-          <button class="nav-item" v-show="matchesFilter('数据库 database sql')" :class="{ active: activeView === 'database' }" @click="activeView = 'database'" title="数据库">
-            <span class="nav-icon">🗄️</span>
-            <span class="nav-label">数据库</span>
+        <div class="flex flex-col gap-px" v-show="navGroupVisible('devtools')">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.8px] text-base-content/30 px-3 pt-1.5 pb-0.5" :class="sidebarCollapsed ? '!px-1 !text-[0px]' : ''">开发</div>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'database' }]" @click="activeView = 'database'" v-show="matchesFilter('数据库 database sql')" title="数据库">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🗄️</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">数据库</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('开发工具 devtools')" :class="{ active: activeView === 'devtools' }" @click="activeView = 'devtools'" title="开发工具">
-            <span class="nav-icon">🛠️</span>
-            <span class="nav-label">开发工具</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'devtools' }]" @click="activeView = 'devtools'" v-show="matchesFilter('开发工具 devtools')" title="开发工具">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🛠️</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">开发工具</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('笔记 note')" :class="{ active: activeView === 'notes' }" @click="activeView = 'notes'" title="笔记">
-            <span class="nav-icon">📓</span>
-            <span class="nav-label">笔记</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'notes' }]" @click="activeView = 'notes'" v-show="matchesFilter('笔记 note')" title="笔记">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">📓</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">笔记</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('git 仓库')" :class="{ active: activeView === 'git' }" @click="activeView = 'git'" title="Git 仓库">
-            <span class="nav-icon">🔀</span>
-            <span class="nav-label">Git 仓库</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'git' }]" @click="activeView = 'git'" v-show="matchesFilter('git 仓库')" title="Git 仓库">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🔀</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">Git 仓库</span>
           </button>
         </div>
 
         <!-- 安全与网络 -->
-        <div class="nav-group" v-show="navGroupVisible('security')">
-          <div class="nav-group-label">安全</div>
-          <button class="nav-item" v-show="matchesFilter('mfa 验证码 otp')" :class="{ active: activeView === 'mfa' }" @click="activeView = 'mfa'" title="MFA">
-            <span class="nav-icon">🔐</span>
-            <span class="nav-label">MFA</span>
+        <div class="flex flex-col gap-px" v-show="navGroupVisible('security')">
+          <div class="text-[10px] font-semibold uppercase tracking-[0.8px] text-base-content/30 px-3 pt-1.5 pb-0.5" :class="sidebarCollapsed ? '!px-1 !text-[0px]' : ''">安全</div>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'mfa' }]" @click="activeView = 'mfa'" v-show="matchesFilter('mfa 验证码 otp')" title="MFA">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🔐</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">MFA</span>
           </button>
-          <button class="nav-item" v-show="matchesFilter('vpn')" :class="{ active: activeView === 'vpn' }" @click="activeView = 'vpn'" title="VPN">
-            <span class="nav-icon">🌐</span>
-            <span class="nav-label">VPN</span>
+          <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'vpn' }]" @click="activeView = 'vpn'" v-show="matchesFilter('vpn')" title="VPN">
+            <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🌐</span>
+            <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">VPN</span>
           </button>
         </div>
       </nav>
 
-      <div class="sidebar-footer">
-        <div class="nav-group-label">设置</div>
-        <button class="nav-item" v-show="matchesFilter('备份 backup')" :class="{ active: activeView === 'data-backup' }" @click="activeView = 'data-backup'" title="备份">
-          <span class="nav-icon">💾</span>
-          <span class="nav-label">备份</span>
+      <div class="px-2.5 py-2 border-t border-base-300 flex flex-col gap-0.5">
+        <div class="text-[10px] font-semibold uppercase tracking-[0.8px] text-base-content/30 px-3 pt-1.5 pb-0.5" :class="sidebarCollapsed ? '!px-1 !text-[0px]' : ''">设置</div>
+        <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': activeView === 'data-backup' }]" @click="activeView = 'data-backup'" v-show="matchesFilter('备份 backup')" title="备份">
+          <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">💾</span>
+          <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">备份</span>
         </button>
-        <button class="nav-item" v-show="matchesFilter('局域网 lan')" :class="{ active: showLan }" @click="toggleLan" title="局域网协作">
-          <span class="nav-icon">🔗</span>
-          <span class="nav-label">局域网</span>
+        <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden" :class="[sidebarCollapsed ? '!px-0 !justify-center !gap-0' : '', { 'bg-primary text-white': showLan }]" @click="toggleLan" v-show="matchesFilter('局域网 lan')" title="局域网协作">
+          <span class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center text-base">🔗</span>
+          <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">局域网</span>
         </button>
-        <button class="nav-item sidebar-collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开' : '收起'">
-          <svg v-if="sidebarCollapsed" class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
-          <svg v-else class="nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-          <span class="nav-label">{{ sidebarCollapsed ? '展开' : '收起' }}</span>
+        <button class="flex items-center gap-2.5 px-3 py-2.5 border-none rounded-lg bg-transparent text-base-content/50 text-sm font-medium cursor-pointer transition-all duration-150 text-left w-full overflow-hidden sidebar-collapse-btn" :class="sidebarCollapsed ? '!px-0 !justify-center !gap-0' : ''" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开' : '收起'">
+          <svg v-if="sidebarCollapsed" class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+          <svg v-else class="w-[18px] h-[18px] flex-shrink-0 flex items-center justify-center" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+          <span class="whitespace-nowrap" :class="sidebarCollapsed ? 'hidden' : ''">{{ sidebarCollapsed ? '展开' : '收起' }}</span>
         </button>
       </div>
     </aside>
 
     <!-- 主内容区 -->
-    <div class="content-wrapper">
-      <main class="main-content">
+    <div class="flex-1 min-w-0 flex flex-col">
+      <main class="flex-1 min-h-0 h-screen overflow-y-auto">
         <div v-show="activeView === 'todo'"><TodoList /></div>
         <div v-show="activeView === 'weekly-report'"><TodoReport /></div>
         <div v-show="activeView === 'projects'">
@@ -119,10 +122,10 @@
         </div>
         <div v-show="activeView === 'accounting'"><AccountingBook /></div>
         <div v-show="activeView === 'servers'"><ServerManager /></div>
-        <div v-show="activeView === 'cicd'" class="cicd-wrapper">
-          <div class="cicd-tabs">
-            <button :class="{ active: cicdTab === 'deploy' }" @click="cicdTab = 'deploy'">部署</button>
-            <button :class="{ active: cicdTab === 'config' }" @click="cicdTab = 'config'">配置</button>
+        <div v-show="activeView === 'cicd'" class="w-full h-full flex flex-col">
+          <div class="flex gap-1 px-6 pt-3">
+            <button class="px-4 py-2 border-none rounded-t-lg text-[13px] font-medium cursor-pointer" :class="cicdTab === 'deploy' ? 'bg-base-100 text-base-content' : 'bg-base-100 text-base-content/60'" @click="cicdTab = 'deploy'">部署</button>
+            <button class="px-4 py-2 border-none rounded-t-lg text-[13px] font-medium cursor-pointer" :class="cicdTab === 'config' ? 'bg-base-100 text-base-content' : 'bg-base-100 text-base-content/60'" @click="cicdTab = 'config'">配置</button>
           </div>
           <div v-show="cicdTab === 'deploy'"><DeployPanel /></div>
           <div v-show="cicdTab === 'config'"><CiCdConfig /></div>
@@ -139,12 +142,16 @@
     </div>
 
     <!-- 右侧面板（局域网） -->
-    <aside class="right-panel" v-if="showLan">
-      <div class="panel-header">
-        <h3>局域网协作</h3>
-        <button class="panel-close" @click="showLan = false; chatPeer = null">×</button>
+    <aside
+      class="w-[400px] min-w-[400px] bg-base-100 border-l border-base-300 flex flex-col transition-[width,min-width] duration-300"
+      :class="{ '!w-[1100px] !min-w-[1100px]': showLan && chatPeer }"
+      v-if="showLan"
+    >
+      <div class="flex items-center justify-between px-[18px] py-4 border-b border-base-300">
+        <h3 class="text-[15px] font-semibold text-base-content">局域网协作</h3>
+        <button class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/50 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200" @click="showLan = false; chatPeer = null">×</button>
       </div>
-      <div class="lan-panel-content">
+      <div class="flex-1 min-h-0 flex gap-0 overflow-hidden">
         <LanUsers @open-chat="onOpenChat" />
         <ChatPanel
           v-if="chatPeer"
@@ -344,93 +351,3 @@ function navGroupVisible(group: string): boolean {
   return matchesFilter(keywords[group] || '')
 }
 </script>
-
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif; background: var(--main-bg); color: var(--main-text); -webkit-font-smoothing: antialiased; }
-
-.app-container { display: flex; height: 100vh; overflow: hidden; background: var(--main-bg); color: var(--main-text); transition: background 0.3s ease, color 0.3s ease; }
-
-.sidebar {
-  width: 220px; min-width: 220px; background: var(--sidebar-bg); display: flex; flex-direction: column;
-  user-select: none; transition: width 0.25s ease, min-width 0.25s ease;
-  border-right: 1px solid var(--border-color);
-}
-.sidebar.collapsed { width: 48px; min-width: 48px; }
-
-.sidebar-header { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border-color); overflow: hidden; }
-.sidebar.collapsed .sidebar-header { padding: 16px 0; justify-content: center; gap: 0; }
-.sidebar-logo { display: flex; align-items: center; color: var(--primary-color); }
-.sidebar-title { font-size: 16px; font-weight: 700; color: var(--sidebar-text); letter-spacing: -0.3px; white-space: nowrap; }
-.sidebar.collapsed .sidebar-title { display: none; }
-
-.sidebar-search { padding: 8px 10px 4px; position: relative; }
-.sidebar-search svg { position: absolute; left: 19px; top: 50%; transform: translateY(-50%); color: var(--sidebar-text-dim); pointer-events: none; }
-.sidebar-search-input {
-  width: 100%; padding: 7px 26px 7px 28px; border: 1px solid var(--border-color); border-radius: 6px;
-  background: var(--input-bg); color: var(--main-text); font-size: 12px; outline: none;
-}
-.sidebar-search-input::placeholder { color: var(--sidebar-text-dim); }
-.sidebar-search-input:focus { border-color: var(--primary-color); }
-.search-clear { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--sidebar-text-dim); font-size: 16px; cursor: pointer; }
-
-.sidebar-nav { flex: 1; padding: 8px 10px 0; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; }
-.nav-group { display: flex; flex-direction: column; gap: 1px; }
-.nav-group-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--sidebar-group-label); padding: 6px 12px 2px; }
-.sidebar.collapsed .nav-group-label { padding: 6px 4px 2px; font-size: 0; }
-
-.nav-item {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: none; border-radius: 8px;
-  background: transparent; color: var(--sidebar-text-dim); font-size: 14px; font-weight: 500; cursor: pointer;
-  transition: all 0.15s ease; text-align: left; width: 100%; overflow: hidden;
-}
-.sidebar.collapsed .nav-item { padding: 10px 0; justify-content: center; gap: 0; }
-.nav-item:hover { background: var(--sidebar-hover); color: var(--sidebar-text); }
-.nav-item.active { background: var(--primary-color); color: #fff; }
-.nav-icon { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.nav-label { white-space: nowrap; }
-.sidebar.collapsed .nav-label { display: none; }
-
-.sidebar-footer { padding: 8px 10px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 2px; }
-
-.content-wrapper { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.main-content { flex: 1; min-height: 0; height: 100vh; overflow-y: auto; }
-
-.right-panel {
-  width: 400px; min-width: 400px; background: var(--sidebar-bg); border-left: 1px solid var(--border-color);
-  display: flex; flex-direction: column;
-  transition: width 0.3s ease, min-width 0.3s ease;
-}
-.right-panel:has(.chat-panel) {
-  width: 1100px; min-width: 1100px;
-}
-.lan-panel-content {
-  flex: 1; min-height: 0;
-  display: flex;
-  gap: 0;
-  overflow: hidden;
-}
-.lan-panel-content .lan-panel {
-  flex: 0 0 380px;
-  overflow-y: auto;
-  border-right: 1px solid var(--border-color, rgba(255,255,255,0.06));
-}
-.panel-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--border-color); }
-.panel-header h3 { font-size: 15px; font-weight: 600; color: var(--main-text); }
-.panel-close { width: 28px; height: 28px; border: none; border-radius: 6px; background: transparent; color: var(--sidebar-text-dim); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.panel-close:hover { background: var(--sidebar-hover); }
-
-/* CI/CD Tabs */
-.cicd-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; }
-.cicd-tabs { display: flex; gap: 4px; padding: 12px 24px 0; }
-.cicd-tabs button {
-  padding: 8px 16px; border: none; border-radius: 8px 8px 0 0; background: var(--sidebar-bg);
-  color: var(--main-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
-}
-.cicd-tabs button.active { background: var(--card-bg); color: var(--main-text); }
-
-/* Scrollbar */
-.main-content::-webkit-scrollbar, .sidebar-nav::-webkit-scrollbar { width: 6px; }
-.main-content::-webkit-scrollbar-track, .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
-.main-content::-webkit-scrollbar-thumb, .sidebar-nav::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
-</style>

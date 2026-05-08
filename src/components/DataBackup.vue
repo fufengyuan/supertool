@@ -481,9 +481,9 @@ function formatGitSyncTime(iso: string): string {
 
 .backup-card {
   padding: 20px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 12px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -495,7 +495,7 @@ function formatGitSyncTime(iso: string): string {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .section-title .icon {
@@ -528,7 +528,7 @@ function formatGitSyncTime(iso: string): string {
 
 .setting-row label {
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   min-width: 80px;
 }
 
@@ -541,7 +541,7 @@ function formatGitSyncTime(iso: string): string {
 }
 
 .toggle-label span:first-child {
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-weight: 500;
 }
 
@@ -566,7 +566,7 @@ function formatGitSyncTime(iso: string): string {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--border-color);
+  background-color: oklch(var(--bc) / 0.1);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -584,7 +584,7 @@ function formatGitSyncTime(iso: string): string {
 }
 
 .toggle-switch input:checked + .toggle-slider {
-  background-color: var(--primary-color);
+  background-color: oklch(var(--p));
 }
 
 .toggle-switch input:checked + .toggle-slider:before {
@@ -593,19 +593,19 @@ function formatGitSyncTime(iso: string): string {
 
 .form-select {
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   font-size: 13px;
 }
 
 .form-input {
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   font-size: 13px;
   flex: 1;
   min-width: 150px;
@@ -637,13 +637,13 @@ function formatGitSyncTime(iso: string): string {
 
 .backup-status.success {
   background: rgba(34, 197, 94, 0.1);
-  color: var(--success-color);
+  color: oklch(var(--su));
   border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .backup-status.error {
   background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 

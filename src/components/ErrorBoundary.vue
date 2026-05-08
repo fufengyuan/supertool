@@ -106,13 +106,13 @@ function retry() {
 .error-title {
   font-size: 20px;
   font-weight: 600;
-  color: var(--main-text, #1f2937);
+  color: oklch(var(--bc));
   margin: 0 0 8px;
 }
 
 .error-message {
   font-size: 14px;
-  color: var(--main-text-secondary, #6b7280);
+  color: oklch(var(--bc) / 0.6);
   margin: 0 0 24px;
   max-width: 400px;
 }
@@ -124,7 +124,7 @@ function retry() {
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: var(--primary-color, #3b82f6);
+  background: oklch(var(--p));
   color: #fff;
   font-size: 14px;
   font-weight: 500;
@@ -133,7 +133,7 @@ function retry() {
 }
 
 .retry-btn:hover {
-  background: var(--primary-color-hover, #2563eb);
+  background: oklch(var(--p) / 0.8);
 }
 
 .error-details {
@@ -148,7 +148,7 @@ function retry() {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: var(--main-text-secondary, #6b7280);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   padding: 8px 12px;
   border-radius: 6px;
@@ -177,11 +177,11 @@ function retry() {
 
 /* 暗色模式适配 */
 :deep(.dark) .error-title {
-  color: var(--main-text, #f9fafb);
+  color: oklch(var(--bc));
 }
 
 :deep(.dark) .error-message {
-  color: var(--main-text-secondary, #9ca3af);
+  color: oklch(var(--bc) / 0.6);
 }
 
 :deep(.dark) .error-details-summary {

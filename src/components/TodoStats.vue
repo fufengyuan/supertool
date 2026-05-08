@@ -204,7 +204,7 @@ interface TagCloudItem {
 }
 
 const tagColors = [
-  'var(--primary-light)',
+  'oklch(var(--p) / 0.1)',
   'rgba(34, 197, 94, 0.15)',
   'rgba(245, 158, 11, 0.15)',
   'rgba(239, 68, 68, 0.15)',
@@ -271,8 +271,8 @@ const dailyMotivation = computed(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   flex-wrap: wrap;
 }
@@ -291,28 +291,28 @@ const dailyMotivation = computed(() => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .stat-value.success {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .stat-value.streak {
-  color: var(--warning-color);
+  color: oklch(var(--wa));
   font-size: 15px;
 }
 
 .stat-value.mini {
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   min-width: 32px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .trend {
@@ -323,33 +323,33 @@ const dailyMotivation = computed(() => {
 }
 
 .trend.up {
-  color: var(--success-color);
+  color: oklch(var(--su));
   background: rgba(34, 197, 94, 0.1);
 }
 
 .trend.down {
-  color: var(--danger-color);
+  color: oklch(var(--er));
   background: rgba(239, 68, 68, 0.1);
 }
 
 .stat-divider {
   width: 1px;
   height: 20px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   flex-shrink: 0;
 }
 
 .mini-progress {
   width: 48px;
   height: 6px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 3px;
   overflow: hidden;
 }
 
 .mini-progress-fill {
   height: 100%;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   border-radius: 3px;
   transition: width 0.4s ease;
 }

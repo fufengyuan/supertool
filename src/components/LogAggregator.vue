@@ -844,7 +844,7 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   padding: 16px;
-  background: var(--main-bg);
+  background: oklch(var(--b2));
   color: var(--text-primary);
 }
 
@@ -861,7 +861,7 @@ onUnmounted(async () => {
 }
 
 .btn-add-preset {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   padding: 8px 16px;
@@ -886,7 +886,7 @@ onUnmounted(async () => {
 }
 
 .preset-section {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
   padding: 12px;
 }
@@ -914,7 +914,7 @@ onUnmounted(async () => {
 }
 
 .preset-group-header:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .group-toggle {
@@ -954,7 +954,7 @@ onUnmounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 10px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
@@ -962,11 +962,11 @@ onUnmounted(async () => {
 }
 
 .preset-item:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .preset-item.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
@@ -1054,8 +1054,8 @@ onUnmounted(async () => {
   width: 100%;
   padding: 6px 10px;
   border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -1083,7 +1083,7 @@ onUnmounted(async () => {
 }
 
 .modal-content {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   padding: 20px;
   border-radius: 12px;
   width: 680px;
@@ -1109,7 +1109,7 @@ onUnmounted(async () => {
 
 .btn-cancel {
   background: none;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
@@ -1117,7 +1117,7 @@ onUnmounted(async () => {
 }
 
 .btn-save {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   padding: 8px 16px;
@@ -1130,7 +1130,7 @@ onUnmounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -1141,14 +1141,14 @@ onUnmounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
 }
 
 .mode-tabs {
   display: flex;
   gap: 2px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 6px;
   padding: 3px;
 }
@@ -1166,7 +1166,7 @@ onUnmounted(async () => {
 }
 
 .mode-tab.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   font-weight: 500;
 }
@@ -1182,8 +1182,8 @@ onUnmounted(async () => {
   flex: 1;
   padding: 6px 10px;
   border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
   color: var(--text-primary);
   font-size: 13px;
 }
@@ -1205,9 +1205,9 @@ onUnmounted(async () => {
 
 .context-btn {
   padding: 3px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -1215,23 +1215,23 @@ onUnmounted(async () => {
 }
 
 .context-btn:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   color: var(--text-primary);
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .context-btn.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .context-input {
   width: 60px;
   padding: 3px 6px;
   border-radius: 4px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
   color: var(--text-primary);
   font-size: 12px;
   text-align: center;
@@ -1243,7 +1243,7 @@ onUnmounted(async () => {
 
 .btn-search {
   padding: 6px 16px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 6px;
@@ -1262,7 +1262,7 @@ onUnmounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   font-size: 13px;
   flex-wrap: wrap;
   gap: 8px;
@@ -1276,7 +1276,7 @@ onUnmounted(async () => {
 }
 
 .current-preset {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
@@ -1292,7 +1292,7 @@ onUnmounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   background: none;
   color: var(--text-secondary);
@@ -1303,14 +1303,14 @@ onUnmounted(async () => {
 }
 
 .btn-follow:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   color: var(--text-primary);
 }
 
 .btn-follow.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
   animation: follow-pulse 2s infinite;
 }
 
@@ -1342,7 +1342,7 @@ onUnmounted(async () => {
 
 .btn-clear, .btn-export {
   background: none;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
@@ -1351,7 +1351,7 @@ onUnmounted(async () => {
 }
 
 .btn-clear:hover, .btn-export:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .log-content {
@@ -1432,7 +1432,7 @@ onUnmounted(async () => {
   right: 16px;
   z-index: 10;
   padding: 8px 14px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 20px;

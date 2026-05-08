@@ -988,7 +988,7 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 20px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   min-height: 0;
   gap: 12px;
 }
@@ -996,7 +996,7 @@ watch(() => db.activeConnection.value, (conn) => {
 .db-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
   min-width: 0;
   overflow: hidden;
@@ -1021,8 +1021,8 @@ watch(() => db.activeConnection.value, (conn) => {
   width: 260px;
   min-width: 200px;
   max-width: 400px;
-  border-right: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-right: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1035,8 +1035,8 @@ watch(() => db.activeConnection.value, (conn) => {
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text-secondary);
-  border-bottom: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .db-main {
@@ -1054,7 +1054,7 @@ watch(() => db.activeConnection.value, (conn) => {
   justify-content: center;
   gap: 12px;
   padding: 48px 24px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
 }
 
@@ -1065,7 +1065,7 @@ watch(() => db.activeConnection.value, (conn) => {
 .db-empty-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 
@@ -1080,8 +1080,8 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: flex-end;
   gap: 1px;
   padding: 0 8px;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   overflow-x: auto;
   min-height: 34px;
 }
@@ -1100,7 +1100,7 @@ watch(() => db.activeConnection.value, (conn) => {
   border-radius: 6px 6px 0 0;
   cursor: pointer;
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   background: transparent;
   border: 1px solid transparent;
   border-bottom: none;
@@ -1109,14 +1109,14 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .tab-item:hover {
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
 
 .tab-item.active {
-  background: var(--main-bg);
-  color: var(--main-text);
-  border-color: var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border-color: oklch(var(--bc) / 0.1);
   font-weight: 500;
 }
 
@@ -1142,7 +1142,7 @@ watch(() => db.activeConnection.value, (conn) => {
   background: transparent;
   border-radius: 3px;
   cursor: pointer;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
   opacity: 0;
   transition: all 0.1s ease;
@@ -1154,8 +1154,8 @@ watch(() => db.activeConnection.value, (conn) => {
 
 .tab-close:hover {
   opacity: 1 !important;
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 /* Tab content */
@@ -1164,7 +1164,7 @@ watch(() => db.activeConnection.value, (conn) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background: var(--main-bg);
+  background: oklch(var(--b2));
   min-width: 0;
 }
 
@@ -1195,19 +1195,19 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: space-between;
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .workspace-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .workspace-subtitle {
   font-size: 12px;
   font-weight: 400;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-left: 8px;
 }
 
@@ -1216,7 +1216,7 @@ watch(() => db.activeConnection.value, (conn) => {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Redis workspace */
@@ -1240,8 +1240,8 @@ watch(() => db.activeConnection.value, (conn) => {
   flex: 1;
   overflow-y: auto;
   padding: 12px;
-  background: var(--input-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
@@ -1253,15 +1253,15 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-msg.input {
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .redis-msg.output {
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .redis-msg.error {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .redis-msg-prefix {
@@ -1273,7 +1273,7 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-empty {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
   padding: 24px;
   font-style: italic;
@@ -1289,16 +1289,16 @@ watch(() => db.activeConnection.value, (conn) => {
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 14px;
   font-weight: 700;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .redis-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 13px;
   outline: none;
@@ -1306,12 +1306,12 @@ watch(() => db.activeConnection.value, (conn) => {
 }
 
 .redis-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 
 .redis-input::placeholder {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.5;
 }
 

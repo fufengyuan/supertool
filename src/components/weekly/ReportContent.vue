@@ -113,27 +113,27 @@ const props = defineProps({
 
 <style scoped>
 .report-content {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
   padding: 24px;
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .report-summary {
   margin-bottom: 30px;
   padding: 16px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 8px;
 }
 
 .report-summary h3 {
   margin: 0 0 10px 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .report-summary p {
   margin: 5px 0;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .report-section {
@@ -142,16 +142,16 @@ const props = defineProps({
 
 .report-section h3 {
   margin: 0 0 15px 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   padding-bottom: 8px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 2px solid oklch(var(--bc) / 0.1);
 }
 
 .report-table {
   width: 100%;
   border-collapse: collapse;
   margin-bottom: 20px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 8px;
   overflow: hidden;
 }
@@ -160,11 +160,11 @@ const props = defineProps({
 .report-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .report-table th {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   font-weight: 600;
 }
@@ -174,7 +174,7 @@ const props = defineProps({
 }
 
 .report-table tbody tr:hover {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
 }
 
 .task-list {
@@ -184,15 +184,15 @@ const props = defineProps({
 
 .task-list li {
   margin-bottom: 5px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .no-report {
   text-align: center;
   padding: 60px 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 16px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
   margin-top: 20px;
 }

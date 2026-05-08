@@ -65,7 +65,7 @@ function toggleTreeNode() {
 
 <style scoped>
 .tree-item {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .tree-item:last-child {
@@ -82,12 +82,12 @@ function toggleTreeNode() {
 }
 
 .tree-item-header:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .tree-expand {
   transition: transform 0.2s ease;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
 }
 
@@ -108,7 +108,7 @@ function toggleTreeNode() {
 .tree-name {
   font-weight: 600;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   min-width: 100px;
   flex-shrink: 0;
 }
@@ -116,7 +116,7 @@ function toggleTreeNode() {
 .tree-path {
   font-family: 'SF Mono', 'Fira Code', monospace;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -125,10 +125,10 @@ function toggleTreeNode() {
 
 .tree-add-btn {
   padding: 4px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   background: transparent;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
@@ -136,9 +136,9 @@ function toggleTreeNode() {
 }
 
 .tree-add-btn:hover {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .tree-add-btn.added {

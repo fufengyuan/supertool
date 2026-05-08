@@ -1,0 +1,119 @@
+@import "tailwindcss";
+@source "../";
+
+/* ============================================================
+   SuperTool — 全局样式覆盖
+   基于 Tailwind CSS v4 + daisyUI v5
+   ============================================================ */
+
+/* 全局重置与基础 */
+html, body, #app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--bc) / 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(var(--bc) / 0.4);
+}
+
+/* 动画 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.fade-in { animation: fadeIn 0.2s ease; }
+
+/* 骨架屏 */
+.skeleton-line {
+  height: 40px;
+  background: linear-gradient(90deg, var(--fallback-b1, oklch(var(--b1))) 25%, var(--fallback-b2, oklch(var(--b2))) 50%, var(--fallback-b1, oklch(var(--b1))) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+/* Spinner */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid oklch(var(--bc) / 0.2);
+  border-top-color: oklch(var(--p));
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+/* 测试结果显示 */
+.test-result {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.test-result.success {
+  background: oklch(var(--su) / 0.1);
+  color: oklch(var(--su));
+  border: 1px solid oklch(var(--su));
+}
+.test-result.error {
+  background: oklch(var(--er) / 0.1);
+  color: oklch(var(--er));
+  border: 1px solid oklch(var(--er));
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  gap: 12px;
+  color: oklch(var(--bc) / 0.5);
+  text-align: center;
+}
+.empty-state svg { opacity: 0.3; }
+.empty-state p { font-size: 14px; margin: 0; }
+
+/* 进度条 */
+.progress-bar {
+  height: 6px;
+  background: oklch(var(--bc) / 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}

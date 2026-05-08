@@ -202,12 +202,12 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
-import ServerItem from './server/ServerItem.vue';
-import ServerForm from './server/ServerForm.vue';
-import TerminalPanel from './server/TerminalPanel.vue';
+import ServerItem from '@/components/server/ServerItem.vue';
+import ServerForm from '@/components/server/ServerForm.vue';
+import TerminalPanel from '@/components/server/TerminalPanel.vue';
 import SftpPanel from './server/SftpPanel.vue';
 import GroupTree from './server/GroupTree.vue';
-import Modal from './ui/Modal.vue';
+import Modal from '@/components/ui/Modal.vue';
 import { getTauriAPI } from '../utils/tauri-api';
 import { useToast } from '../composables/useToast';
 import { useErrorHandler } from '../composables/useErrorHandler';
@@ -569,32 +569,32 @@ function closeModal() {
   padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   font-size: 14px;
 }
 
 .btn-groups {
-  background: var(--input-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .btn-refresh {
   padding: 10px 20px;
   border-radius: 6px;
   cursor: pointer;
-  background: var(--card-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 14px;
 }
 
 .toolbar-separator {
   width: 1px;
   height: 28px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   margin: 0 4px;
 }
 
@@ -606,16 +606,16 @@ function closeModal() {
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 12px;
   transition: all 0.15s ease;
 }
 
 .btn-toggle-groups:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
-  border-color: var(--primary-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border-color: oklch(var(--p));
 }
 
 /* 抽屉式分组 */
@@ -637,8 +637,8 @@ function closeModal() {
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   position: relative;
   overflow: hidden;
 }
@@ -655,7 +655,7 @@ function closeModal() {
 }
 
 .drawer-handle:hover {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
   box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
   transform: translateY(-1px);
 }
@@ -669,14 +669,14 @@ function closeModal() {
 }
 
 .drawer-chevron {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
 .drawer-chevron.expanded {
   transform: rotate(180deg);
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .drawer-icon {
@@ -687,7 +687,7 @@ function closeModal() {
 .drawer-name {
   font-weight: 600;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .drawer-count {
@@ -713,7 +713,7 @@ function closeModal() {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--success-color);
+  color: oklch(var(--su));
   font-weight: 500;
 }
 
@@ -721,8 +721,8 @@ function closeModal() {
   margin-top: 4px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--card-bg) 80%, var(--border-color) 20%);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, oklch(var(--b1)) 80%, oklch(var(--bc) / 0.1) 20%);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-top: none;
 }
 
@@ -771,32 +771,32 @@ function closeModal() {
 .search-icon {
   position: absolute;
   left: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 12px 10px 36px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   transition: border-color 0.15s ease;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .group-filter {
   padding: 10px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   min-width: 150px;
 }
@@ -811,18 +811,18 @@ function closeModal() {
 .empty-state {
   text-align: center;
   padding: 40px;
-  color: var(--main-text-secondary);
-  background: var(--card-bg);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b1));
   border-radius: 12px;
 }
 .empty-state-icon { opacity: 0.2; margin-bottom: 16px; }
-.empty-state-title { font-size: 16px; font-weight: 600; color: var(--main-text); margin: 0 0 8px 0; }
+.empty-state-title { font-size: 16px; font-weight: 600; color: oklch(var(--bc)); margin: 0 0 8px 0; }
 .empty-state-subtitle { font-size: 13px; margin: 0 0 16px 0; }
 .empty-state-action-btn {
   padding: 10px 24px;
   border-radius: 8px;
   cursor: pointer;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   font-size: 14px;
@@ -846,7 +846,7 @@ function closeModal() {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   margin-bottom: 8px;
 }
 
@@ -864,7 +864,7 @@ function closeModal() {
 
 .group-manager-count {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .btn-add-subgroup,
@@ -872,9 +872,9 @@ function closeModal() {
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
-  background: var(--input-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 12px;
 }
 
@@ -882,7 +882,7 @@ function closeModal() {
   padding: 4px 12px;
   border-radius: 4px;
   cursor: pointer;
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: white;
   border: none;
   font-size: 12px;
@@ -891,18 +891,18 @@ function closeModal() {
 .empty-group-msg {
   text-align: center;
   padding: 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .group-manager-form {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   padding-top: 16px;
 }
 
 .group-manager-form h4 {
   margin: 0 0 12px;
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .group-form-row {
@@ -915,21 +915,21 @@ function closeModal() {
 .group-form-row .form-select {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
 }
 
 .color-picker {
   width: 40px;
   height: 36px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   cursor: pointer;
   padding: 2px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .group-form-actions {
@@ -941,7 +941,7 @@ function closeModal() {
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   font-size: 13px;
@@ -956,9 +956,9 @@ function closeModal() {
   padding: 8px 16px;
   border-radius: 6px;
   cursor: pointer;
-  background: var(--input-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 13px;
 }
 </style>

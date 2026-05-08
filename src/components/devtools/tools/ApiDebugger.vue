@@ -776,7 +776,7 @@ onMounted(async () => {
   display: flex;
   height: 100%;
   overflow: hidden;
-  background: var(--main-bg);
+  background: oklch(var(--b2));
 }
 
 /* ─── Sidebar ─── */
@@ -784,8 +784,8 @@ onMounted(async () => {
   width: 260px;
   min-width: 220px;
   max-width: 320px;
-  border-right: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-right: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -802,22 +802,22 @@ onMounted(async () => {
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .btn-new {
   padding: 4px 10px;
   font-size: 12px;
-  border: 1px solid var(--primary-color);
+  border: 1px solid oklch(var(--p));
   border-radius: 4px;
   background: transparent;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-new:hover {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
@@ -828,17 +828,17 @@ onMounted(async () => {
 .search-input {
   width: 100%;
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   outline: none;
   box-sizing: border-box;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .sidebar-list {
@@ -859,11 +859,11 @@ onMounted(async () => {
 }
 
 .request-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .request-item.active {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .method-badge {
@@ -889,7 +889,7 @@ onMounted(async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .btn-del {
@@ -897,7 +897,7 @@ onMounted(async () => {
   height: 18px;
   border: none;
   background: none;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   font-size: 14px;
   border-radius: 3px;
@@ -920,7 +920,7 @@ onMounted(async () => {
 .empty-hint {
   padding: 16px;
   text-align: center;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
@@ -936,14 +936,14 @@ onMounted(async () => {
 
 /* ─── Smart Paste ─── */
 .smart-paste {
-  border: 1px dashed var(--border-color);
+  border: 1px dashed oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   transition: border-color 0.2s;
 }
 
 .smart-paste:not(.collapsed) {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .paste-header {
@@ -958,12 +958,12 @@ onMounted(async () => {
 .paste-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .paste-arrow {
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .paste-content {
@@ -973,19 +973,19 @@ onMounted(async () => {
 .paste-textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   resize: vertical;
   outline: none;
   box-sizing: border-box;
 }
 
 .paste-textarea:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .paste-actions {
@@ -997,26 +997,26 @@ onMounted(async () => {
 .btn-parse {
   padding: 6px 14px;
   font-size: 12px;
-  border: 1px solid var(--primary-color);
+  border: 1px solid oklch(var(--p));
   border-radius: 4px;
   background: transparent;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .btn-parse:hover {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
 .btn-clear-paste {
   padding: 6px 12px;
   font-size: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
 }
 
@@ -1038,12 +1038,12 @@ onMounted(async () => {
 
 .method-select {
   padding: 8px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
-  background: var(--input-bg);
-  color: var(--primary-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--p));
   cursor: pointer;
   outline: none;
 }
@@ -1051,17 +1051,17 @@ onMounted(async () => {
 .url-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   font-size: 13px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   outline: none;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .url-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .btn-send {
@@ -1070,7 +1070,7 @@ onMounted(async () => {
   font-weight: 600;
   border: none;
   border-radius: 6px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   cursor: pointer;
   transition: all 0.15s;
@@ -1091,19 +1091,19 @@ onMounted(async () => {
   padding: 8px 14px;
   font-size: 12px;
   font-weight: 600;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--main-text-secondary);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
 }
 
 .btn-save:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
-  background: var(--primary-light);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
+  background: oklch(var(--p) / 0.1);
 }
 
 .btn-save.saved {
@@ -1131,31 +1131,31 @@ onMounted(async () => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .name-input {
   padding: 4px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   outline: none;
   width: 200px;
 }
 
 /* ─── Request Tabs ─── */
 .request-tabs {
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
 }
 
 .tabs-header {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .tab-btn {
@@ -1164,24 +1164,24 @@ onMounted(async () => {
   background: none;
   font-size: 12px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
 }
 
 .tab-btn:hover {
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .tab-btn.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
+  color: oklch(var(--p));
+  border-bottom-color: oklch(var(--p));
 }
 
 .tab-count {
   font-size: 10px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   padding: 0 5px;
   border-radius: 8px;
   margin-left: 4px;
@@ -1207,24 +1207,24 @@ onMounted(async () => {
 .header-labels input {
   font-weight: 600;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   background: transparent;
 }
 
 .header-input {
   flex: 1;
   padding: 6px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   outline: none;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
 .header-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .header-del {
@@ -1236,7 +1236,7 @@ onMounted(async () => {
   height: 28px;
   border: none;
   background: none;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   font-size: 16px;
   border-radius: 4px;
@@ -1250,24 +1250,24 @@ onMounted(async () => {
 .btn-add-header {
   margin-top: 6px;
   padding: 5px 10px;
-  border: 1px dashed var(--border-color);
+  border: 1px dashed oklch(var(--bc) / 0.1);
   border-radius: 4px;
   background: none;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   cursor: pointer;
   align-self: flex-start;
 }
 
 .btn-add-header:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .quick-headers {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1276,29 +1276,29 @@ onMounted(async () => {
 
 .quick-label {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-right: 4px;
 }
 
 .btn-quick {
   padding: 3px 8px;
   font-size: 11px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 3px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
 }
 
 .btn-quick:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .btn-quick.added {
-  background: var(--primary-light);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 /* ─── Body ─── */
@@ -1315,29 +1315,29 @@ onMounted(async () => {
   gap: 4px;
   font-size: 12px;
   cursor: pointer;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .body-type-radio input {
-  accent-color: var(--primary-color);
+  accent-color: oklch(var(--p));
 }
 
 .body-textarea {
   width: 100%;
   padding: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   resize: vertical;
   outline: none;
   box-sizing: border-box;
 }
 
 .body-textarea:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .body-actions {
@@ -1349,24 +1349,24 @@ onMounted(async () => {
 .btn-sm {
   padding: 4px 10px;
   font-size: 11px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 3px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
 }
 
 .btn-sm:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 /* ─── Response Panel ─── */
 .response-panel {
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   overflow: hidden;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
 }
 
 .response-header {
@@ -1374,7 +1374,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .response-header h4 {
@@ -1403,12 +1403,12 @@ onMounted(async () => {
 
 .stat-item {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .response-tabs {
   display: flex;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .tab-btn-sm {
@@ -1416,16 +1416,16 @@ onMounted(async () => {
   border: none;
   background: none;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   border-bottom: 2px solid transparent;
 }
 
-.tab-btn-sm:hover { color: var(--main-text); }
+.tab-btn-sm:hover { color: oklch(var(--bc)); }
 
 .tab-btn-sm.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
+  color: oklch(var(--p));
+  border-bottom-color: oklch(var(--p));
 }
 
 .response-content {
@@ -1441,7 +1441,7 @@ onMounted(async () => {
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-all;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .response-body.is-json {
@@ -1455,7 +1455,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
   gap: 8px;
   flex: 1;
@@ -1469,7 +1469,7 @@ onMounted(async () => {
 .response-empty h3 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 

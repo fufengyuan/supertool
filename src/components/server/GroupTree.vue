@@ -129,8 +129,8 @@ function toggle() {
   cursor: pointer;
   user-select: none;
   transition: all 0.2s ease;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   position: relative;
   overflow: hidden;
 }
@@ -147,7 +147,7 @@ function toggle() {
 }
 
 .drawer-handle:hover {
-  border-color: var(--group-color, var(--primary-color));
+  border-color: var(--group-color, oklch(var(--p)));
   box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
   transform: translateY(-1px);
 }
@@ -161,14 +161,14 @@ function toggle() {
 }
 
 .drawer-chevron {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0;
 }
 
 .drawer-chevron.expanded {
   transform: rotate(180deg);
-  color: var(--group-color, var(--primary-color));
+  color: var(--group-color, oklch(var(--p)));
 }
 
 .drawer-icon {
@@ -179,7 +179,7 @@ function toggle() {
 .drawer-name {
   font-weight: 600;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .drawer-count {
@@ -203,7 +203,7 @@ function toggle() {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--success-color);
+  color: oklch(var(--su));
   font-weight: 500;
 }
 
@@ -211,8 +211,8 @@ function toggle() {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--success-color);
-  box-shadow: 0 0 4px var(--success-color);
+  background: oklch(var(--su));
+  box-shadow: 0 0 4px oklch(var(--su));
 }
 
 /* ── 抽屉面板（内容区）── */
@@ -220,8 +220,8 @@ function toggle() {
   margin-top: 4px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: color-mix(in srgb, var(--card-bg) 80%, var(--border-color) 20%);
-  border: 1px solid var(--border-color);
+  background: color-mix(in srgb, oklch(var(--b1)) 80%, oklch(var(--bc) / 0.1) 20%);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-top: none;
 }
 
@@ -241,11 +241,11 @@ function toggle() {
 .drawer-empty {
   text-align: center;
   padding: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 6px;
-  border: 1px dashed var(--border-color);
+  border: 1px dashed oklch(var(--bc) / 0.1);
 }
 
 /* 多级缩进 */

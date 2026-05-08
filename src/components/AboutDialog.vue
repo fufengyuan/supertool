@@ -155,7 +155,7 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
   width: 90%;
   max-width: 520px;
@@ -168,14 +168,14 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .modal-close-btn {
@@ -184,7 +184,7 @@ onMounted(() => {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -194,8 +194,8 @@ onMounted(() => {
 }
 
 .modal-close-btn:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 .modal-body {
@@ -212,21 +212,21 @@ onMounted(() => {
 
 .app-logo {
   margin-bottom: 12px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .app-name {
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   letter-spacing: -0.5px;
 }
 
 .app-version {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .app-info {
@@ -236,7 +236,7 @@ onMounted(() => {
 .app-description {
   margin: 0;
   font-size: 14px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   line-height: 1.6;
   max-width: 420px;
 }
@@ -252,19 +252,19 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 20px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .btn-check-update:hover:not(:disabled) {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .btn-check-update:disabled {
@@ -275,8 +275,8 @@ onMounted(() => {
 .mini-spinner {
   width: 14px;
   height: 14px;
-  border: 2px solid var(--border-color);
-  border-top-color: var(--primary-color);
+  border: 2px solid oklch(var(--bc) / 0.1);
+  border-top-color: oklch(var(--p));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
@@ -289,11 +289,11 @@ onMounted(() => {
 .update-message {
   margin: 12px 0 0;
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .update-message.update-available {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
@@ -301,7 +301,7 @@ onMounted(() => {
 .divider {
   width: 100%;
   height: 1px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   margin: 24px 0;
 }
 
@@ -317,21 +317,21 @@ onMounted(() => {
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   letter-spacing: 0.5px;
 }
 
 .license-text {
   margin: 0;
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-weight: 500;
 }
 
 .copyright {
   margin: 0;
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Links */
@@ -344,7 +344,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   text-decoration: none;
   transition: opacity 0.15s ease;
 }

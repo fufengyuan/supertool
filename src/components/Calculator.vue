@@ -200,7 +200,7 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 1px;
-  background: var(--border-color, #eee);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .calc-btn {

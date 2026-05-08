@@ -104,16 +104,16 @@ const formatDate = (dateStr: string) => {
   align-items: stretch;
   gap: 16px;
   padding: 16px 20px;
-  border: 1.5px solid var(--border-color);
-  border-left: 4px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
+  border-left: 4px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: var(--card-shadow);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 .project-card:hover {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
   box-shadow: 0 2px 12px rgba(0,0,0,0.1);
   transform: translateY(-1px);
 }
@@ -123,21 +123,21 @@ const formatDate = (dateStr: string) => {
 .card-main { flex: 1; min-width: 0; }
 
 .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-.project-name { margin: 0; color: var(--main-text); font-size: 18px; font-weight: 700; }
-.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: var(--primary-light); color: var(--primary-color); }
-.archived-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: var(--warning-light, #fef3c7); color: var(--warning-color, #d97706); }
+.project-name { margin: 0; color: oklch(var(--bc)); font-size: 18px; font-weight: 700; }
+.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
+.archived-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: oklch(var(--wa) / 0.1); color: oklch(var(--wa)); }
 
-.project-description { margin: 0 0 8px 0; color: var(--main-text-secondary); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.project-description { margin: 0 0 8px 0; color: oklch(var(--bc) / 0.6); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .meta-row { display: flex; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
-.meta-item { font-size: 12px; color: var(--main-text-secondary); display: flex; align-items: center; gap: 4px; }
+.meta-item { font-size: 12px; color: oklch(var(--bc) / 0.6); display: flex; align-items: center; gap: 4px; }
 .meta-icon { font-size: 13px; }
 
 .git-repos { display: flex; flex-direction: column; gap: 4px; }
-.git-repo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--main-text-secondary); }
+.git-repo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: oklch(var(--bc) / 0.6); }
 .git-icon { flex-shrink: 0; font-size: 14px; }
 .git-url { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono', monospace; font-size: 11px; }
-.branch-badge { padding: 1px 8px; background: var(--primary-light); color: var(--primary-color); border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+.branch-badge { padding: 1px 8px; background: oklch(var(--p) / 0.1); color: oklch(var(--p)); border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
 
 /* 右侧统计+操作 */
 .card-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; flex-shrink: 0; gap: 12px; min-width: 200px; }
@@ -145,18 +145,18 @@ const formatDate = (dateStr: string) => {
 .stats-section { display: flex; flex-direction: column; gap: 8px; width: 100%; }
 .stats-numbers { display: flex; gap: 16px; }
 .stat { display: flex; flex-direction: column; align-items: center; }
-.stat-val { font-size: 18px; font-weight: 700; color: var(--main-text); }
-.stat-lbl { font-size: 11px; color: var(--main-text-secondary); }
+.stat-val { font-size: 18px; font-weight: 700; color: oklch(var(--bc)); }
+.stat-lbl { font-size: 11px; color: oklch(var(--bc) / 0.6); }
 .stat.completed .stat-val { color: #10b981; }
 .stat.active .stat-val { color: #f59e0b; }
 
 .progress-section { display: flex; align-items: center; gap: 8px; }
-.progress-bar { flex: 1; height: 8px; background: var(--input-bg); border-radius: 4px; overflow: hidden; min-width: 100px; }
+.progress-bar { flex: 1; height: 8px; background: oklch(var(--b2)); border-radius: 4px; overflow: hidden; min-width: 100px; }
 .progress-fill { height: 100%; transition: width 0.3s ease; border-radius: 4px; }
-.progress-pct { font-size: 13px; font-weight: 600; color: var(--main-text); white-space: nowrap; min-width: 36px; text-align: right; }
+.progress-pct { font-size: 13px; font-weight: 600; color: oklch(var(--bc)); white-space: nowrap; min-width: 36px; text-align: right; }
 
 .card-actions { display: flex; gap: 6px; }
-.action-btn { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-bg); color: var(--main-text); cursor: pointer; font-size: 14px; transition: all 0.15s; }
-.action-btn:hover { border-color: var(--primary-color); color: var(--primary-color); }
-.action-btn.primary:hover { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+.action-btn { padding: 6px 10px; border: 1px solid oklch(var(--bc) / 0.1); border-radius: 6px; background: oklch(var(--b1)); color: oklch(var(--bc)); cursor: pointer; font-size: 14px; transition: all 0.15s; }
+.action-btn:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
+.action-btn.primary:hover { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
 </style>

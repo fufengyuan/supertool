@@ -150,8 +150,8 @@ onUnmounted(() => {
   display: flex;
   padding: 10px 12px;
   gap: 8px;
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
-  background: var(--input-bg, rgba(255,255,255,0.02));
+  border-top: 1px solid oklch(var(--bc) / 0.1));
+  background: oklch(var(--b2)));
   align-items: flex-end;
 }
 
@@ -171,14 +171,14 @@ onUnmounted(() => {
   border-radius: 8px;
   background: transparent;
   border: none;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   transition: all 0.15s;
   padding: 0;
 }
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
 }
 
 .emoji-wrapper {
@@ -192,8 +192,8 @@ onUnmounted(() => {
   left: 0;
   width: 280px;
   max-height: 200px;
-  background: var(--card-bg, #1e1e2e);
-  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1));
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   padding: 8px;
@@ -238,11 +238,11 @@ onUnmounted(() => {
 .message-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border: 1px solid oklch(var(--bc) / 0.1));
   border-radius: 12px;
   font-size: 14px;
   background: rgba(255, 255, 255, 0.04);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   resize: none;
   max-height: 120px;
   min-height: 34px;
@@ -252,10 +252,10 @@ onUnmounted(() => {
   transition: border-color 0.2s;
 }
 .message-input:focus {
-  border-color: var(--accent-color, #667eea);
+  border-color: oklch(var(--p));
 }
 .message-input::placeholder {
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.5;
 }
 

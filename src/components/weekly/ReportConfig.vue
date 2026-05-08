@@ -77,7 +77,7 @@ defineExpose({ selectedRange, startDate, endDate });
 }
 
 .date-separator {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding-bottom: 10px;
   font-size: 13px;
 }

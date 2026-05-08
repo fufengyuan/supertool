@@ -91,22 +91,22 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
   align-items: center;
   gap: 6px;
   margin-bottom: 8px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 13px;
   font-weight: 500;
 }
 
 .required {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .input-field {
   width: 100%;
   padding: 10px 14px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   font-family: inherit;
   transition: all 0.15s ease;
@@ -114,12 +114,12 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
 }
 
 .input-field:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 
 .input-field::placeholder {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
 }
 
@@ -139,7 +139,7 @@ defineEmits(['update:modelValue', 'focus', 'blur']);
 
 .input-hint {
   margin-top: 4px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 </style>

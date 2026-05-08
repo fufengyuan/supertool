@@ -1,8 +1,8 @@
 <template>
-  <div class="weekly-report-container">
-    <div class="report-header">
-      <h2>📊 {{ $t('report.title') }}</h2>
-      <div class="report-controls">
+  <div class="p-5 w-full max-w-full">
+    <div class="flex justify-between items-center mb-7 flex-wrap gap-5">
+      <h2 class="m-0 text-2xl text-base-content">📊 {{ $t('report.title') }}</h2>
+      <div class="flex gap-4 items-end flex-wrap">
         <ReportConfig
           ref="reportConfigRef"
           :initial-range="selectedRange"
@@ -21,9 +21,9 @@
       </div>
     </div>
 
-    <div class="report-tabs">
-      <button class="tab-btn" :class="{ active: activeTab === 'current' }" @click="activeTab = 'current'">当前周报</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'; loadHistory()">历史周报</button>
+    <div class="tabs tabs-bordered mb-5">
+      <a class="tab" :class="activeTab === 'current' ? 'tab-active' : ''" @click="activeTab = 'current'">当前周报</a>
+      <a class="tab" :class="activeTab === 'history' ? 'tab-active' : ''" @click="activeTab = 'history'; loadHistory()">历史周报</a>
     </div>
 
     <template v-if="activeTab === 'current'">
@@ -31,22 +31,22 @@
     </template>
 
     <template v-if="activeTab === 'history'">
-      <div class="history-list">
-        <div v-if="historyLoading" class="loading-state">加载中...</div>
-        <div v-else-if="historyReports.length === 0" class="empty-state">暂无历史周报</div>
-        <div v-else class="history-items">
-          <div v-for="report in historyReports" :key="report.id" class="history-item" :class="{ selected: selectedHistoryId === report.id }" @click="loadHistoryReport(report.id)">
-            <div class="history-item-info">
-              <span class="history-date">{{ formatDate(report.startDate) }} ~ {{ formatDate(report.endDate) }}</span>
-              <span class="history-created">创建于 {{ formatDateTime(report.createdAt) }}</span>
+      <div class="history-list mb-5">
+        <div v-if="historyLoading" class="text-center py-10 text-base-content/70">加载中...</div>
+        <div v-else-if="historyReports.length === 0" class="text-center py-10 text-base-content/70">暂无历史周报</div>
+        <div v-else class="flex flex-col gap-2">
+          <div v-for="report in historyReports" :key="report.id" class="flex justify-between items-center p-3 bg-base-200 border border-base-300 rounded-lg cursor-pointer transition-all hover:border-primary hover:bg-primary/10" :class="selectedHistoryId === report.id ? 'border-primary bg-primary/10' : ''" @click="loadHistoryReport(report.id)">
+            <div class="flex flex-col gap-1">
+              <span class="font-medium text-base-content">{{ formatDate(report.startDate) }} ~ {{ formatDate(report.endDate) }}</span>
+              <span class="text-xs text-base-content/70">创建于 {{ formatDateTime(report.createdAt) }}</span>
             </div>
-            <button class="history-load-btn" @click.stop="loadHistoryReport(report.id)">查看</button>
+            <button class="btn btn-sm btn-outline btn-primary">查看</button>
           </div>
         </div>
       </div>
-      <div v-if="historyReportData" class="history-report-view">
-        <div class="history-report-header">
-          <h3>周报详情: {{ formatDate(historyReportData.startDate) }} ~ {{ formatDate(historyReportData.endDate) }}</h3>
+      <div v-if="historyReportData" class="mt-5">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="m-0 text-base-content">周报详情: {{ formatDate(historyReportData.startDate) }} ~ {{ formatDate(historyReportData.endDate) }}</h3>
           <button class="btn btn-ghost" @click="restoreFromHistory">恢复到当前视图</button>
         </div>
         <ReportContent :report-data="historyReportData" :get-project-name="getProjectName" :format-date="formatDate" />
@@ -62,9 +62,9 @@ import { useI18n } from 'vue-i18n'
 import { useToast } from '../composables/useToast'
 import { useErrorHandler } from '../composables/useErrorHandler'
 import { getTauriAPI } from '../utils/tauri-api'
-import ReportConfig from './weekly/ReportConfig.vue'
-import ReportContent from './weekly/ReportContent.vue'
-import ReportActions from './weekly/ReportActions.vue'
+import ReportConfig from '@/components/weekly/ReportConfig.vue'
+import ReportContent from '@/components/weekly/ReportContent.vue'
+import ReportActions from '@/components/weekly/ReportActions.vue'
 import type { Project } from '../types'
 
 const { t } = useI18n()
@@ -324,30 +324,3 @@ onBeforeUnmount(() => {
   unlistenDataChanged?.()
 })
 </script>
-
-<style scoped>
-.weekly-report-container { padding: 20px; width: 100%; max-width: 100%; }
-.report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
-.report-header h2 { margin: 0; color: var(--main-text); font-size: 24px; }
-.report-controls { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
-.tab-btn { padding: 8px 20px; border: none; background: transparent; color: var(--main-text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
-.tab-btn:hover { color: var(--main-text); }
-.tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
-.history-list { margin-bottom: 20px; }
-.loading-state, .empty-state { text-align: center; padding: 40px; color: var(--main-text-secondary); }
-.history-items { display: flex; flex-direction: column; gap: 8px; }
-.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
-.history-item:hover { border-color: var(--primary-color); background: var(--primary-light); }
-.history-item.selected { border-color: var(--primary-color); background: var(--primary-light); }
-.history-item-info { display: flex; flex-direction: column; gap: 4px; }
-.history-date { font-weight: 500; color: var(--main-text); }
-.history-created { font-size: 12px; color: var(--main-text-secondary); }
-.history-load-btn { padding: 6px 16px; border: 1px solid var(--primary-color); background: transparent; color: var(--primary-color); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
-.history-load-btn:hover { background: var(--primary-color); color: white; }
-.history-report-view { margin-top: 20px; }
-.history-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.history-report-header h3 { margin: 0; color: var(--main-text); }
-.btn-ghost { padding: 6px 14px; border: 1px solid var(--border-color); background: transparent; color: var(--main-text-secondary); border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-ghost:hover { border-color: var(--primary-color); color: var(--primary-color); }
-</style>

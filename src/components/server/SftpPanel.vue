@@ -769,8 +769,8 @@ function formatDate(dateStr) {
 <style scoped>
 .sftp-panel {
   position: fixed;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
@@ -784,8 +784,8 @@ function formatDate(dateStr) {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px 12px 0 0;
 }
 
@@ -835,17 +835,17 @@ function formatDate(dateStr) {
 
 .connection-badge.online {
   background: rgba(166, 227, 161, 0.15);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .connection-badge.offline {
   background: rgba(243, 139, 168, 0.15);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .connection-badge.connecting {
   background: rgba(249, 168, 37, 0.15);
-  color: var(--warning-color, #f9a825);
+  color: oklch(var(--wa));
 }
 
 .badge-dot {
@@ -855,15 +855,15 @@ function formatDate(dateStr) {
 }
 
 .badge-dot.online {
-  background: var(--success-color);
+  background: oklch(var(--su));
 }
 
 .badge-dot.offline {
-  background: var(--danger-color);
+  background: oklch(var(--er));
 }
 
 .badge-dot.connecting {
-  background: var(--warning-color, #f9a825);
+  background: oklch(var(--wa));
   animation: blink 0.8s ease-in-out infinite;
 }
 
@@ -873,7 +873,7 @@ function formatDate(dateStr) {
 }
 
 .btn-close {
-  background: var(--danger-color);
+  background: oklch(var(--er));
   border: none;
   color: white;
   width: 30px;
@@ -895,7 +895,7 @@ function formatDate(dateStr) {
   display: flex;
   gap: 8px;
   padding: 10px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   align-items: center;
 }
 
@@ -907,10 +907,10 @@ function formatDate(dateStr) {
 .path-input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
 }
 
@@ -919,9 +919,9 @@ function formatDate(dateStr) {
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--main-text);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
 
 .btn-toolbar:disabled {
@@ -935,10 +935,10 @@ function formatDate(dateStr) {
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-weight: 500;
 }
 
@@ -998,11 +998,11 @@ function formatDate(dateStr) {
 }
 
 .file-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .file-item.selected {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .file-icon {
@@ -1016,7 +1016,7 @@ function formatDate(dateStr) {
 }
 
 .icon-file {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .file-name {
@@ -1029,7 +1029,7 @@ function formatDate(dateStr) {
 
 .file-size,
 .file-time {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   flex-shrink: 0;
 }
@@ -1063,18 +1063,18 @@ function formatDate(dateStr) {
   background: transparent;
   border-radius: 4px;
   cursor: pointer;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .btn-action:hover {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
 }
 
 .btn-action.btn-danger {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .empty-state {
@@ -1083,25 +1083,25 @@ function formatDate(dateStr) {
   align-items: center;
   justify-content: center;
   padding: 40px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   gap: 12px;
 }
 
 .sftp-footer {
   padding: 10px 16px;
-  background: var(--input-bg);
-  border-top: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   display: flex;
   gap: 15px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   border-radius: 0 0 12px 12px;
 }
 
 .upload-progress {
   padding: 10px 16px;
-  background: var(--input-bg);
-  border-top: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -1113,12 +1113,12 @@ function formatDate(dateStr) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .upload-speed {
   font-size: 11px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   min-width: 70px;
   text-align: right;
   flex-shrink: 0;
@@ -1126,7 +1126,7 @@ function formatDate(dateStr) {
 
 .upload-percent {
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   min-width: 40px;
   text-align: right;
 }
@@ -1139,9 +1139,9 @@ function formatDate(dateStr) {
 
 .btn-upload-cancel {
   padding: 2px 8px;
-  border: 1px solid var(--danger-color);
+  border: 1px solid oklch(var(--er));
   background: transparent;
-  color: var(--danger-color);
+  color: oklch(var(--er));
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
@@ -1149,15 +1149,15 @@ function formatDate(dateStr) {
 }
 
 .btn-upload-cancel:hover {
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: white;
 }
 
 .btn-upload-retry {
   padding: 2px 8px;
-  border: 1px solid var(--primary-color);
+  border: 1px solid oklch(var(--p));
   background: transparent;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
@@ -1165,21 +1165,21 @@ function formatDate(dateStr) {
 }
 
 .btn-upload-retry:hover {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
 .progress-bar {
   flex: 1;
   height: 4px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 2px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   transition: width 0.2s ease;
 }
 </style>

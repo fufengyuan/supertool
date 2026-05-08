@@ -207,51 +207,51 @@ const clearManualPath = () => {
 
 .repo-search-bar {
   display: flex; align-items: center; gap: 8px; padding: 0 12px;
-  background: var(--card-bg); border: 1.5px solid var(--input-border);
+  background: oklch(var(--b1)); border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 10px; transition: all 0.15s ease;
 }
 .repo-search-bar:focus-within {
-  border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
-.search-icon { color: var(--main-text-secondary); flex-shrink: 0; }
+.search-icon { color: oklch(var(--bc) / 0.6); flex-shrink: 0; }
 .repo-search-input {
   flex: 1; padding: 10px 0; border: none; background: transparent;
-  color: var(--main-text); font-size: 14px; outline: none;
+  color: oklch(var(--bc)); font-size: 14px; outline: none;
 }
-.repo-search-input::placeholder { color: var(--main-text-secondary); opacity: 0.7; }
+.repo-search-input::placeholder { color: oklch(var(--bc) / 0.6); opacity: 0.7; }
 .refresh-btn {
   width: 32px; height: 32px; border: none; border-radius: 8px;
-  background: transparent; color: var(--main-text-secondary); cursor: pointer;
+  background: transparent; color: oklch(var(--bc) / 0.6); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s ease; flex-shrink: 0;
 }
-.refresh-btn:hover { background: var(--primary-light); color: var(--primary-color); }
+.refresh-btn:hover { background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
 .refresh-btn.spinning svg { animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 
 /* 手动输入路径 */
 .manual-path-row {
   display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 0 12px;
-  background: var(--input-bg); border: 1.5px solid var(--border-color);
+  background: oklch(var(--b2)); border: 1.5px solid oklch(var(--bc) / 0.1);
   border-radius: 10px; transition: all 0.15s ease;
 }
 .manual-path-row:focus-within {
-  border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
-.path-icon { color: var(--main-text-secondary); flex-shrink: 0; }
+.path-icon { color: oklch(var(--bc) / 0.6); flex-shrink: 0; }
 .manual-path-input {
   flex: 1; padding: 10px 0; border: none; background: transparent;
-  color: var(--main-text); font-size: 13px; outline: none;
+  color: oklch(var(--bc)); font-size: 13px; outline: none;
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
-.manual-path-input::placeholder { color: var(--main-text-secondary); opacity: 0.5; }
+.manual-path-input::placeholder { color: oklch(var(--bc) / 0.6); opacity: 0.5; }
 .clear-path-btn {
   width: 22px; height: 22px; border: none; border-radius: 50%;
-  background: transparent; color: var(--main-text-secondary); cursor: pointer;
+  background: transparent; color: oklch(var(--bc) / 0.6); cursor: pointer;
   display: flex; align-items: center; justify-content: center; font-size: 11px;
   transition: all 0.15s ease; flex-shrink: 0;
 }
-.clear-path-btn:hover { background: var(--danger-color); color: white; }
+.clear-path-btn:hover { background: oklch(var(--er)); color: white; }
 .manual-path-valid {
   display: flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 10px;
   font-size: 12px; color: #22c55e;
@@ -259,14 +259,14 @@ const clearManualPath = () => {
 .manual-path-valid svg { flex-shrink: 0; }
 .manual-path-invalid {
   display: flex; align-items: center; gap: 4px; margin-top: 6px; padding: 4px 10px;
-  font-size: 12px; color: var(--danger-color);
+  font-size: 12px; color: oklch(var(--er));
 }
 .manual-path-invalid svg { flex-shrink: 0; }
 
 .repo-skeleton { margin-top: 8px; }
 .skeleton-line {
   height: 40px;
-  background: linear-gradient(90deg, var(--card-bg) 25%, var(--input-bg) 50%, var(--card-bg) 75%);
+  background: linear-gradient(90deg, oklch(var(--b1)) 25%, oklch(var(--b2)) 50%, oklch(var(--b1)) 75%);
   background-size: 200% 100%; animation: shimmer 1.5s infinite;
   border-radius: 8px; margin-bottom: 6px;
 }
@@ -274,31 +274,31 @@ const clearManualPath = () => {
 
 .repo-list {
   margin-top: 8px; max-height: 200px; overflow-y: auto; border-radius: 10px;
-  background: var(--card-bg); border: 1px solid var(--border-color);
+  background: oklch(var(--b1)); border: 1px solid oklch(var(--bc) / 0.1);
 }
 .repo-item {
   display: flex; align-items: center; gap: 12px; padding: 12px 14px;
-  cursor: pointer; transition: background 0.15s ease; border-bottom: 1px solid var(--border-color);
+  cursor: pointer; transition: background 0.15s ease; border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 .repo-item:last-child { border-bottom: none; }
-.repo-item:hover { background: var(--input-bg); }
-.repo-item.selected { background: var(--primary-light); }
+.repo-item:hover { background: oklch(var(--b2)); }
+.repo-item.selected { background: oklch(var(--p) / 0.1); }
 .repo-check {
-  width: 20px; height: 20px; border-radius: 6px; border: 2px solid var(--border-color);
+  width: 20px; height: 20px; border-radius: 6px; border: 2px solid oklch(var(--bc) / 0.1);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
   transition: all 0.15s ease;
 }
-.repo-item.selected .repo-check { background: var(--primary-color); border-color: var(--primary-color); color: white; }
+.repo-item.selected .repo-check { background: oklch(var(--p)); border-color: oklch(var(--p)); color: white; }
 .repo-info { flex: 1; min-width: 0; }
-.repo-name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: var(--main-text); }
-.git-icon-small { color: var(--main-text-secondary); flex-shrink: 0; }
+.repo-name { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: oklch(var(--bc)); }
+.git-icon-small { color: oklch(var(--bc) / 0.6); flex-shrink: 0; }
 .repo-path {
-  font-size: 12px; color: var(--main-text-secondary); margin-top: 2px;
+  font-size: 12px; color: oklch(var(--bc) / 0.6); margin-top: 2px;
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .repo-empty {
   display: flex; flex-direction: column; align-items: center; padding: 28px 20px;
-  gap: 8px; color: var(--main-text-secondary);
+  gap: 8px; color: oklch(var(--bc) / 0.6);
 }
 .repo-empty svg { opacity: 0.3; }
 .repo-empty p { font-size: 13px; margin: 0; }

@@ -328,26 +328,26 @@ onBeforeUnmount(() => {
 <style scoped>
 .weekly-report-container { padding: 20px; width: 100%; max-width: 100%; }
 .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
-.report-header h2 { margin: 0; color: var(--main-text); font-size: 24px; }
+.report-header h2 { margin: 0; color: oklch(var(--bc)); font-size: 24px; }
 .report-controls { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
-.tab-btn { padding: 8px 20px; border: none; background: transparent; color: var(--main-text-secondary); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
-.tab-btn:hover { color: var(--main-text); }
-.tab-btn.active { color: var(--primary-color); border-bottom-color: var(--primary-color); }
+.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid oklch(var(--bc) / 0.1); }
+.tab-btn { padding: 8px 20px; border: none; background: transparent; color: oklch(var(--bc) / 0.6); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
+.tab-btn:hover { color: oklch(var(--bc)); }
+.tab-btn.active { color: oklch(var(--p)); border-bottom-color: oklch(var(--p)); }
 .history-list { margin-bottom: 20px; }
-.loading-state, .empty-state { text-align: center; padding: 40px; color: var(--main-text-secondary); }
+.loading-state, .empty-state { text-align: center; padding: 40px; color: oklch(var(--bc) / 0.6); }
 .history-items { display: flex; flex-direction: column; gap: 8px; }
-.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
-.history-item:hover { border-color: var(--primary-color); background: var(--primary-light); }
-.history-item.selected { border-color: var(--primary-color); background: var(--primary-light); }
+.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: oklch(var(--b1)); border: 1px solid oklch(var(--bc) / 0.1); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+.history-item:hover { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
+.history-item.selected { border-color: oklch(var(--p)); background: oklch(var(--p) / 0.1); }
 .history-item-info { display: flex; flex-direction: column; gap: 4px; }
-.history-date { font-weight: 500; color: var(--main-text); }
-.history-created { font-size: 12px; color: var(--main-text-secondary); }
-.history-load-btn { padding: 6px 16px; border: 1px solid var(--primary-color); background: transparent; color: var(--primary-color); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
-.history-load-btn:hover { background: var(--primary-color); color: white; }
+.history-date { font-weight: 500; color: oklch(var(--bc)); }
+.history-created { font-size: 12px; color: oklch(var(--bc) / 0.6); }
+.history-load-btn { padding: 6px 16px; border: 1px solid oklch(var(--p)); background: transparent; color: oklch(var(--p)); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
+.history-load-btn:hover { background: oklch(var(--p)); color: white; }
 .history-report-view { margin-top: 20px; }
 .history-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.history-report-header h3 { margin: 0; color: var(--main-text); }
-.btn-ghost { padding: 6px 14px; border: 1px solid var(--border-color); background: transparent; color: var(--main-text-secondary); border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-ghost:hover { border-color: var(--primary-color); color: var(--primary-color); }
+.history-report-header h3 { margin: 0; color: oklch(var(--bc)); }
+.btn-ghost { padding: 6px 14px; border: 1px solid oklch(var(--bc) / 0.1); background: transparent; color: oklch(var(--bc) / 0.6); border-radius: 6px; cursor: pointer; font-size: 13px; }
+.btn-ghost:hover { border-color: oklch(var(--p)); color: oklch(var(--p)); }
 </style>

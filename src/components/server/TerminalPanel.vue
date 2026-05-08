@@ -1091,8 +1091,8 @@ defineExpose({ addTab })
   max-width: 340px;
   max-height: 400px;
   overflow-y: auto;
-  background: var(--card-bg, #1e1e2e);
-  border: 1px solid var(--border-color, #45475a);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
   padding: 8px 0;

@@ -52,15 +52,15 @@ const changeClass = computed(() => {
 .project-analysis {
   margin-bottom: 32px;
   padding: 20px;
-  background: linear-gradient(135deg, var(--completed-bg), var(--input-bg));
+  background: linear-gradient(135deg, oklch(var(--su) / 0.1), oklch(var(--b2)));
   border-radius: 12px;
-  border: 2px solid var(--border-color);
+  border: 2px solid oklch(var(--bc) / 0.1);
 }
 
 .section-title {
   font-size: 18px;
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   margin-bottom: 16px;
 }
 
@@ -72,22 +72,22 @@ const changeClass = computed(() => {
 }
 
 .comparison-item {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   padding: 16px;
   border-radius: 12px;
   text-align: center;
-  border: 2px solid var(--border-color);
+  border: 2px solid oklch(var(--bc) / 0.1);
 }
 
 .comparison-item.highlight {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .comparison-label {
   font-size: 13px;
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
   margin-bottom: 8px;
 }
 
@@ -98,7 +98,7 @@ const changeClass = computed(() => {
 .comparison-value {
   font-size: 24px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .comparison-item.highlight .comparison-value {
@@ -106,14 +106,14 @@ const changeClass = computed(() => {
 }
 
 .comparison-value.positive {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .comparison-value.negative {
-  color: var(--high-priority);
+  color: oklch(var(--er));
 }
 
 .comparison-value.neutral {
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
 }
 </style>
