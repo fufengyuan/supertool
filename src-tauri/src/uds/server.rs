@@ -238,8 +238,7 @@ impl UdsServer {
 
 /// 创建 UDS socket 路径
 pub fn default_socket_path() -> PathBuf {
-    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
-    home.join(".supertool").join("supertool.sock")
+    crate::core::data_dir::uds_socket_path()
 }
 
 /// 从环境变量或默认路径获取 socket 路径

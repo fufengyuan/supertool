@@ -392,9 +392,7 @@ async fn do_git_sync(
     // Clone from remote
     let repo_url = &config.repo_url;
     let repo_name = get_repo_name(repo_url);
-    let workspace = dirs::home_dir()
-        .map(|h| h.join(".supertool").join("cicd-workspace"))
-        .ok_or("无法获取 home 目录".to_string())?;
+    let workspace = crate::core::data_dir::cicd_workspace_dir();
     fs::create_dir_all(&workspace).map_err(|e| format!("创建工作目录失败: {}", e))?;
 
     let target = workspace.join(&repo_name);

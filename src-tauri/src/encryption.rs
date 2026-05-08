@@ -9,14 +9,12 @@ const ENCRYPTION_KEY: [u8; 32] = *b"supertool-encryption-key-32byt!!";
 
 /// 全局缓存：Electron 版的持久化密钥（只读取一次磁盘）
 static ELECTRON_SECRET: LazyLock<Option<String>> = LazyLock::new(|| {
-    dirs::home_dir().and_then(|h| {
-        std::fs::read_to_string(h.join(".supertool").join(".encryption_key"))
-            .ok()
-            .map(|s| s.trim().to_string())
-    })
+    std::fs::read_to_string(crate::core::data_dir::encryption_key_path())
+        .ok()
+        .map(|s| s.trim().to_string())
 });
 
-/// 读取 Electron 版的持久化密钥（~/.supertool/.encryption_key）
+/// 读取 Electron 版的持久化密钥（数据目录下的 .encryption_key）
 fn get_electron_encryption_secret() -> Option<String> {
     ELECTRON_SECRET.clone()
 }
@@ -89,7 +87,7 @@ pub fn decrypt_password_electron(stored: &str) -> Result<String, String> {
     }
 
     let secret = get_electron_encryption_secret()
-        .ok_or_else(|| "无法读取加密密钥文件 ~/.supertool/.encryption_key".to_string())?;
+        .ok_or_else(|| "无法读取加密密钥文件".to_string())?;
 
     let salt = BASE64.decode(parts[0]).map_err(|e| format!("解码 salt 失败: {}", e))?;
     let iv = BASE64.decode(parts[1]).map_err(|e| format!("解码 IV 失败: {}", e))?;
