@@ -39,7 +39,7 @@ export function useProjects() {
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'addProject', rethrow: true });
-      throw err;
+      throw err; // safety fallback for TS
     }
   };
 
@@ -51,7 +51,7 @@ export function useProjects() {
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'updateProject', rethrow: true });
-      throw err;
+      throw err; // safety fallback for TS
     }
   };
 
@@ -63,7 +63,6 @@ export function useProjects() {
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'deleteProject', rethrow: true });
-      throw err;
     }
   };
 

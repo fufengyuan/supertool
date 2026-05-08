@@ -1873,7 +1873,7 @@ export function getTauriAPI(): TauriAPI {
       return { success: true, filePaths: filePaths ? (Array.isArray(filePaths) ? filePaths : [filePaths]) : [] };
     },
     // Git
-    getGitCommits: async (path: string): Promise<any> => tauriCall('get_git_commits', { repoPath: path }),
+    getGitCommits: async (path: string, since?: string): Promise<any> => tauriCall('get_git_commits', { repoPath: path, since }),
     scanLocalGitRepos: async (directories: string[]): Promise<any> => tauriCall('scan_local_repos', { directories }),
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     // Subtask

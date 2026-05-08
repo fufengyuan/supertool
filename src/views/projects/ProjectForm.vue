@@ -159,7 +159,7 @@ const onRepoSelect = async (repo) => {
   formData.branch = '';
   branchesLoading.value = true;
   try {
-    console.log("[components/ProjectForm.vue] onRepoSelect() called")
+    console.log("[views/projects/ProjectForm.vue] onRepoSelect() called")
     availableBranches.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
   } catch (error) {
     handleError(error, { context: 'onRepoSelect', showToast: false });
@@ -178,7 +178,7 @@ const onRepoSelect2 = async (repo) => {
   formData.branch2 = '';
   branchesLoading2.value = true;
   try {
-    console.log("[components/ProjectForm.vue] onRepoSelect2() called")
+    console.log("[views/projects/ProjectForm.vue] onRepoSelect2() called")
     availableBranches2.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
   } catch (error) {
     handleError(error, { context: 'onRepoSelect2', showToast: false });
@@ -198,7 +198,7 @@ const getRepoNameByPath = (path) => path.split('/').pop() || path;
 const loadBranchesForRepo = async (repoPath, currentBranch) => {
   branchesLoading.value = true;
   try {
-    console.log("[components/ProjectForm.vue] loadBranchesForRepo() called")
+    console.log("[views/projects/ProjectForm.vue] loadBranchesForRepo() called")
     availableBranches.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
     formData.branch = currentBranch || '';
   } catch (error) {
@@ -211,7 +211,7 @@ const loadBranchesForRepo = async (repoPath, currentBranch) => {
 const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
   branchesLoading2.value = true;
   try {
-    console.log("[components/ProjectForm.vue] loadBranchesForRepo2() called")
+    console.log("[views/projects/ProjectForm.vue] loadBranchesForRepo2() called")
     availableBranches2.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
     formData.branch2 = currentBranch || '';
   } catch (error) {
