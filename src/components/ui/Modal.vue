@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <dialog ref="dialogRef" class="modal" :class="{ 'modal-open': modelValue }" @close="handleClose">
-      <div class="modal-box w-full max-w-[560px]" :style="{ maxHeight: maxHeight }">
+      <div class="modal-box w-full" :style="{ maxWidth: width, maxHeight: maxHeight }">
         <form method="dialog">
           <button v-if="showClose" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-base-content/60 hover:text-base-content" @click="close">✕</button>
         </form>
