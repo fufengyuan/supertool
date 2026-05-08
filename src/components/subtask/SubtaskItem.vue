@@ -48,14 +48,14 @@ watch(() => props.isEditing, async (val) => {
 <style scoped>
 .subtask-item {
   display: flex; align-items: center; gap: 8px; padding: 6px 8px;
-  border-radius: 6px; background-color: var(--input-bg); transition: all 0.2s ease;
+  border-radius: 6px; background-color: oklch(var(--b2)); transition: all 0.2s ease;
 }
-.subtask-item:hover { background-color: var(--completed-bg); }
+.subtask-item:hover { background-color: oklch(var(--su) / 0.1); }
 .subtask-item.completed { opacity: 0.7; }
-.subtask-item.completed .subtask-text { text-decoration: line-through; color: var(--main-text-secondary); }
+.subtask-item.completed .subtask-text { text-decoration: line-through; color: oklch(var(--bc) / 0.6); }
 .subtask-checkbox { cursor: pointer; }
 .checkbox {
-  width: 18px; height: 18px; border: 2px solid var(--border-color);
+  width: 18px; height: 18px; border: 2px solid oklch(var(--bc) / 0.1);
   border-radius: 4px; display: flex; align-items: center; justify-content: center;
   transition: all 0.2s ease;
 }
@@ -69,8 +69,8 @@ watch(() => props.isEditing, async (val) => {
 }
 .delete-btn:hover { opacity: 0.8; }
 .subtask-edit-input {
-  flex: 1; font-size: 14px; padding: 2px 6px; border: 1px solid var(--primary-color);
-  border-radius: 4px; background: var(--card-bg); color: var(--main-text); outline: none;
+  flex: 1; font-size: 14px; padding: 2px 6px; border: 1px solid oklch(var(--p));
+  border-radius: 4px; background: oklch(var(--b1)); color: oklch(var(--bc)); outline: none;
   font-family: inherit;
 }
 </style>

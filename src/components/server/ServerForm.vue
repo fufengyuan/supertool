@@ -246,7 +246,7 @@ function selectGroup(groupId: string | null) {
 }
 
 .form-modal {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
   width: 90%;
   max-width: 640px;
@@ -260,14 +260,14 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .form-modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .form-modal-close {
@@ -276,7 +276,7 @@ function selectGroup(groupId: string | null) {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -303,28 +303,28 @@ function selectGroup(groupId: string | null) {
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .form-field .required {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .form-field small {
   display: block;
   margin-top: 4px;
   font-size: 12px;
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
 }
 
 .form-input,
 .form-textarea {
   width: 100%;
   padding: 10px 12px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   transition: border-color 0.15s ease;
 }
@@ -332,7 +332,7 @@ function selectGroup(groupId: string | null) {
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .form-select {
@@ -349,16 +349,16 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   cursor: pointer;
   transition: border-color 0.15s ease;
   min-height: 42px;
 }
 
 .tree-select-trigger:hover {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .selected-group {
@@ -366,7 +366,7 @@ function selectGroup(groupId: string | null) {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .group-dot {
@@ -377,13 +377,13 @@ function selectGroup(groupId: string | null) {
 }
 
 .placeholder {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 14px;
   opacity: 0.6;
 }
 
 .select-chevron {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   transition: transform 0.2s ease;
   flex-shrink: 0;
 }
@@ -397,8 +397,8 @@ function selectGroup(groupId: string | null) {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
   z-index: 100;
@@ -415,23 +415,23 @@ function selectGroup(groupId: string | null) {
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   transition: background 0.12s ease;
   user-select: none;
 }
 
 .tree-option:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .tree-option.active {
   background: rgba(108, 99, 255, 0.1);
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
 .tree-indent-line {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.4;
   font-size: 12px;
   flex-shrink: 0;
@@ -471,8 +471,8 @@ function selectGroup(groupId: string | null) {
 }
 
 .form-section-card {
-  background: var(--input-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 16px;
@@ -484,7 +484,7 @@ function selectGroup(groupId: string | null) {
   gap: 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin-bottom: 16px;
 }
 
@@ -497,7 +497,7 @@ function selectGroup(groupId: string | null) {
   gap: 12px;
   justify-content: flex-end;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .test-result {
@@ -509,12 +509,12 @@ function selectGroup(groupId: string | null) {
 
 .test-result.success {
   background: rgba(var(--success-rgb, 166, 227, 161), 0.15);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .test-result.error {
   background: rgba(var(--danger-rgb, 243, 139, 168), 0.15);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 /* 安全管控区域 */
@@ -543,7 +543,7 @@ function selectGroup(groupId: string | null) {
 
 .approval-desc {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   line-height: 1.4;
 }
 
@@ -569,7 +569,7 @@ function selectGroup(groupId: string | null) {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--input-border);
+  background-color: oklch(var(--bc) / 0.2);
   transition: 0.3s;
   border-radius: 24px;
 }

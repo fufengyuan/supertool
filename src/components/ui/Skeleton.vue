@@ -71,9 +71,9 @@ defineProps({
   border-radius: 6px;
   background: linear-gradient(
     90deg,
-    var(--border-color) 25%,
-    var(--card-bg) 50%,
-    var(--border-color) 75%
+    oklch(var(--bc) / 0.1) 25%,
+    oklch(var(--b1)) 50%,
+    oklch(var(--bc) / 0.1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -92,9 +92,9 @@ defineProps({
   border-radius: 10px;
   background: linear-gradient(
     90deg,
-    var(--border-color) 25%,
-    var(--card-bg) 50%,
-    var(--border-color) 75%
+    oklch(var(--bc) / 0.1) 25%,
+    oklch(var(--b1)) 50%,
+    oklch(var(--bc) / 0.1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
@@ -107,9 +107,9 @@ defineProps({
   flex-shrink: 0;
   background: linear-gradient(
     90deg,
-    var(--border-color) 25%,
-    var(--card-bg) 50%,
-    var(--border-color) 75%
+    oklch(var(--bc) / 0.1) 25%,
+    oklch(var(--b1)) 50%,
+    oklch(var(--bc) / 0.1) 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;

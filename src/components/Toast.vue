@@ -47,9 +47,9 @@ defineEmits(['close']);
   gap: 10px;
   padding: 12px 16px;
   border-radius: 10px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow-lg);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
   min-width: 280px;
   max-width: 400px;
   position: relative;
@@ -66,7 +66,7 @@ defineEmits(['close']);
 .toast-message {
   flex: 1;
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   line-height: 1.4;
   word-break: break-word;
 }
@@ -78,7 +78,7 @@ defineEmits(['close']);
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -87,8 +87,8 @@ defineEmits(['close']);
 }
 
 .toast-close:hover {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .toast-progress {
@@ -107,17 +107,17 @@ defineEmits(['close']);
 }
 
 /* Type variants */
-.toast-success .toast-icon { color: var(--success-color); }
-.toast-success .toast-progress-bar { background: var(--success-color); }
+.toast-success .toast-icon { color: oklch(var(--su)); }
+.toast-success .toast-progress-bar { background: oklch(var(--su)); }
 
-.toast-error .toast-icon { color: var(--danger-color); }
-.toast-error .toast-progress-bar { background: var(--danger-color); }
+.toast-error .toast-icon { color: oklch(var(--er)); }
+.toast-error .toast-progress-bar { background: oklch(var(--er)); }
 
-.toast-warning .toast-icon { color: var(--warning-color); }
-.toast-warning .toast-progress-bar { background: var(--warning-color); }
+.toast-warning .toast-icon { color: oklch(var(--wa)); }
+.toast-warning .toast-progress-bar { background: oklch(var(--wa)); }
 
-.toast-info .toast-icon { color: var(--primary-color); }
-.toast-info .toast-progress-bar { background: var(--primary-color); }
+.toast-info .toast-icon { color: oklch(var(--p)); }
+.toast-info .toast-progress-bar { background: oklch(var(--p)); }
 
 @keyframes toastSlideIn {
   from {

@@ -268,54 +268,54 @@ defineExpose({ reset: initForm, submit: handleSave });
 .form-group { margin-bottom: 16px; }
 
 .git-section, .git-urls-section {
-  padding: 20px; background: var(--input-bg); border-radius: 12px;
-  border: 1.5px solid var(--border-color);
+  padding: 20px; background: oklch(var(--b2)); border-radius: 12px;
+  border: 1.5px solid oklch(var(--bc) / 0.1);
 }
 .git-section-secondary {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-style: solid;
-  border-color: var(--primary-light);
+  border-color: oklch(var(--p) / 0.1);
 }
 .section-title {
   display: flex; align-items: center; gap: 8px; margin-bottom: 14px;
-  font-size: 14px; font-weight: 600; color: var(--main-text);
+  font-size: 14px; font-weight: 600; color: oklch(var(--bc));
 }
 .section-subtitle {
-  font-size: 12px; font-weight: 400; color: var(--main-text-secondary);
+  font-size: 12px; font-weight: 400; color: oklch(var(--bc) / 0.6);
 }
 .secondary-label {
-  font-size: 12px; color: var(--main-text-secondary); margin-bottom: 12px;
+  font-size: 12px; color: oklch(var(--bc) / 0.6); margin-bottom: 12px;
   font-style: italic;
 }
 .section-icon { font-size: 18px; }
 
 .selected-repo-badge {
   display: flex; align-items: center; gap: 8px; padding: 8px 14px;
-  margin-top: 12px; background: var(--primary-light); border: 1px solid var(--primary-color);
+  margin-top: 12px; background: oklch(var(--p) / 0.1); border: 1px solid oklch(var(--p));
   border-radius: 10px; font-size: 13px;
 }
-.repo-badge-icon { color: var(--primary-color); flex-shrink: 0; }
+.repo-badge-icon { color: oklch(var(--p)); flex-shrink: 0; }
 .repo-badge-name {
-  flex: 1; font-weight: 500; color: var(--primary-color);
+  flex: 1; font-weight: 500; color: oklch(var(--p));
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .clear-btn {
   width: 24px; height: 24px; border: none; border-radius: 6px;
-  background: transparent; color: var(--main-text-secondary); cursor: pointer;
+  background: transparent; color: oklch(var(--bc) / 0.6); cursor: pointer;
   display: flex; align-items: center; justify-content: center; transition: all 0.15s ease; flex-shrink: 0;
 }
-.clear-btn:hover { background: var(--danger-color); color: white; }
+.clear-btn:hover { background: oklch(var(--er)); color: white; }
 
 .branch-section label {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 8px; font-size: 13px; font-weight: 500; color: var(--main-text);
+  margin-bottom: 8px; font-size: 13px; font-weight: 500; color: oklch(var(--bc));
 }
-.branch-section label svg { color: var(--main-text-secondary); }
+.branch-section label svg { color: oklch(var(--bc) / 0.6); }
 .branch-selector { display: flex; align-items: center; gap: 10px; }
-.branch-loading { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--main-text-secondary); }
+.branch-loading { display: flex; align-items: center; gap: 6px; font-size: 12px; color: oklch(var(--bc) / 0.6); }
 .spinner {
-  width: 14px; height: 14px; border: 2px solid var(--border-color);
-  border-top-color: var(--primary-color); border-radius: 50%; animation: spin 0.6s linear infinite;
+  width: 14px; height: 14px; border: 2px solid oklch(var(--bc) / 0.1);
+  border-top-color: oklch(var(--p)); border-radius: 50%; animation: spin 0.6s linear infinite;
 }
 @keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
 </style>

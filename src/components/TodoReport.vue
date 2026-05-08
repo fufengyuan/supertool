@@ -56,9 +56,9 @@
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed } from 'vue';
 import { useTodoStore } from '@/stores/todoStore';
-import StatsSummary from './report/StatsSummary.vue';
-import TagAnalysis from './report/TagAnalysis.vue';
-import ProjectAnalysis from './report/ProjectAnalysis.vue';
+import StatsSummary from '@/components/report/StatsSummary.vue';
+import TagAnalysis from '@/components/report/TagAnalysis.vue';
+import ProjectAnalysis from '@/components/report/ProjectAnalysis.vue';
 
 const todoStore = useTodoStore();
 
@@ -169,7 +169,7 @@ const nextWeek = () => {
 .report-title {
   font-size: 18px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 
@@ -183,7 +183,7 @@ const nextWeek = () => {
 .week-btn {
   padding: 5px 12px;
   font-size: 12px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 4px;
@@ -192,13 +192,13 @@ const nextWeek = () => {
 }
 
 .week-btn:hover {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
 }
 
 .week-label {
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .report-grid {
@@ -211,20 +211,20 @@ const nextWeek = () => {
 .report-section {
   margin-bottom: 12px;
   padding: 14px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .section-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   margin-bottom: 10px;
 }
 
 .comparison-section {
-  background: linear-gradient(135deg, var(--completed-bg), var(--input-bg));
+  background: linear-gradient(135deg, oklch(var(--su) / 0.1), oklch(var(--b2)));
 }
 
 .task-list-section {
@@ -234,7 +234,7 @@ const nextWeek = () => {
 .task-list-section h4 {
   font-size: 15px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin-bottom: 12px;
 }
 
@@ -250,28 +250,28 @@ const nextWeek = () => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
   margin-bottom: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .task-text {
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .task-date {
   font-size: 12px;
-  color: var(--empty-color);
-  background: var(--completed-bg);
+  color: oklch(var(--bc) / 0.4);
+  background: oklch(var(--su) / 0.1);
   padding: 4px 8px;
   border-radius: 6px;
 }
 
 .empty-text {
   text-align: center;
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
   font-size: 14px;
   padding: 20px;
 }

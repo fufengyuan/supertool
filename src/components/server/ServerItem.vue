@@ -96,7 +96,7 @@ const statusGradient = computed(() => {
     case 'online': return 'linear-gradient(180deg, #a6e3a1, #40c057)';
     case 'connecting': return 'linear-gradient(180deg, #f9a825, #f59e0b)';
     case 'heartbeat_failed': return 'linear-gradient(180deg, #f38ba8, #e04560)';
-    default: return 'linear-gradient(180deg, var(--border-color), transparent)';
+    default: return 'linear-gradient(180deg, oklch(var(--bc) / 0.1), transparent)';
   }
 });
 </script>
@@ -104,9 +104,9 @@ const statusGradient = computed(() => {
 <style scoped>
 .server-card {
   position: relative;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 8px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
 }
@@ -114,7 +114,7 @@ const statusGradient = computed(() => {
 .server-card:hover {
   box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .server-card.connected {
@@ -160,7 +160,7 @@ const statusGradient = computed(() => {
 .server-name {
   font-weight: 600;
   font-size: 12px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   line-height: 1.3;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -187,22 +187,22 @@ const statusGradient = computed(() => {
 
 .status-badge.online {
   background: rgba(166, 227, 161, 0.12);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .status-badge.connecting {
   background: rgba(249, 168, 37, 0.12);
-  color: var(--warning-color, #f9a825);
+  color: oklch(var(--wa));
 }
 
 .status-badge.offline {
-  background: var(--input-bg);
-  color: var(--main-text-secondary);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
 }
 
 .status-badge.heartbeat_failed {
   background: rgba(243, 139, 168, 0.12);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .status-pulse {
@@ -213,22 +213,22 @@ const statusGradient = computed(() => {
 }
 
 .status-pulse.online {
-  background: var(--success-color);
-  box-shadow: 0 0 6px var(--success-color);
+  background: oklch(var(--su));
+  box-shadow: 0 0 6px oklch(var(--su));
 }
 
 .status-pulse.connecting {
-  background: var(--warning-color, #f9a825);
+  background: oklch(var(--wa));
   animation: dot-blink 0.8s ease-in-out infinite;
 }
 
 .status-pulse.offline {
-  background: var(--main-text-secondary);
+  background: oklch(var(--bc) / 0.6);
 }
 
 .status-pulse.heartbeat_failed {
-  background: var(--danger-color);
-  box-shadow: 0 0 6px var(--danger-color);
+  background: oklch(var(--er));
+  box-shadow: 0 0 6px oklch(var(--er));
   animation: dot-blink-danger 1s ease-in-out infinite;
 }
 
@@ -253,7 +253,7 @@ const statusGradient = computed(() => {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 11px;
 }
 
@@ -271,7 +271,7 @@ const statusGradient = computed(() => {
 }
 
 .info-port {
-  color: var(--main-text-tertiary, #666);
+  color: oklch(var(--bc) / 0.4);
 }
 
 .server-tags {
@@ -283,11 +283,11 @@ const statusGradient = computed(() => {
 
 .server-tags .tag {
   padding: 1px 5px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 3px;
   font-size: 9px;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .server-actions {
@@ -306,34 +306,34 @@ const statusGradient = computed(() => {
   border-radius: 6px;
   cursor: pointer;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 .action-btn.terminal:hover {
   background: rgba(108, 99, 255, 0.12);
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .action-btn.sftp:hover {
   background: rgba(108, 99, 255, 0.12);
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .action-btn.delete:hover {
   background: rgba(243, 139, 168, 0.12);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .action-separator {
   width: 1px;
   height: 14px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   margin: 0 3px;
 }
 </style>

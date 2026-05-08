@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'node:path'
 import pkg from './package.json'
 
@@ -16,6 +17,9 @@ const removeCrossorigin = () => ({
 export default defineConfig({
   plugins: [
     vue(),
+    tailwindcss({
+      sources: ['./src/**/*.vue', './src/**/*.ts', './src/**/*.js', './index.html'],
+    }),
     removeCrossorigin(),
   ],
   base: './',

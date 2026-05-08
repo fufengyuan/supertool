@@ -129,16 +129,16 @@ defineEmits([
 .search-input {
   width: 100%;
   padding: 8px 32px 8px 12px;
-  border: 1px solid var(--input-border);
+  border: 1px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   outline: none;
 }
 .search-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
 }
 .clear-search-btn {
   position: absolute;
@@ -149,7 +149,7 @@ defineEmits([
   height: 20px;
   border: none;
   background: none;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 16px;
   cursor: pointer;
   border-radius: 4px;
@@ -158,7 +158,7 @@ defineEmits([
   justify-content: center;
 }
 .clear-search-btn:hover {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
 }
 .search-filters {
   display: flex;
@@ -166,10 +166,10 @@ defineEmits([
 }
 .filter-select {
   padding: 6px 10px;
-  border: 1px solid var(--input-border);
+  border: 1px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   cursor: pointer;
 }
@@ -181,21 +181,21 @@ defineEmits([
 }
 .todo-filters button {
   padding: 6px 14px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--main-text-secondary);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc) / 0.6);
   border-radius: 6px;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
 }
 .todo-filters button:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 .todo-filters button.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 </style>

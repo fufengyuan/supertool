@@ -490,12 +490,12 @@ async function chooseReceivePath() {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.25s ease;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border: 1px solid oklch(var(--bc) / 0.1));
 }
 .profile-card:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: var(--accent-color, #8839ef);
+  border-color: oklch(var(--p));
 }
 
 .profile-bg {
@@ -534,7 +534,7 @@ async function chooseReceivePath() {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 3px solid var(--card-bg, #1a1a2e);
+  border: 3px solid oklch(var(--b1));
   transition: all 0.3s ease;
 }
 .my-status-dot.online { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
@@ -549,7 +549,7 @@ async function chooseReceivePath() {
 .profile-name {
   font-size: 15px;
   font-weight: 600;
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   display: flex;
   align-items: center;
   gap: 4px;
@@ -565,7 +565,7 @@ async function chooseReceivePath() {
 
 .profile-id {
   font-size: 12px;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -588,7 +588,7 @@ async function chooseReceivePath() {
   border-radius: 20px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -599,7 +599,7 @@ async function chooseReceivePath() {
 }
 .pill.active {
   background: rgba(255, 255, 255, 0.12);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
 }
 
 .pill-dot {
@@ -616,9 +616,9 @@ async function chooseReceivePath() {
 
 /* ========== 资料编辑面板 ========== */
 .editor-panel {
-  background: var(--card-bg, #1e1e2e);
+  background: oklch(var(--b1));
   border-radius: 14px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border: 1px solid oklch(var(--bc) / 0.1));
   overflow: hidden;
 }
 
@@ -626,8 +626,8 @@ async function chooseReceivePath() {
   padding: 14px 16px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text, #e2e8f0);
-  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  color: oklch(var(--bc));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1));
 }
 
 .editor-body {
@@ -645,7 +645,7 @@ async function chooseReceivePath() {
   display: block;
   font-size: 12px;
   font-weight: 500;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 8px;
 }
 
@@ -680,15 +680,15 @@ async function chooseReceivePath() {
   width: 100%;
   padding: 10px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border: 1px solid oklch(var(--bc) / 0.1));
   background: rgba(255, 255, 255, 0.04);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
 }
 .editor-input:focus {
-  border-color: var(--accent-color, #667eea);
+  border-color: oklch(var(--p));
 }
 
 .editor-footer {
@@ -697,7 +697,7 @@ async function chooseReceivePath() {
   justify-content: flex-end;
   margin-top: 16px;
   padding-top: 14px;
-  border-top: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border-top: 1px solid oklch(var(--bc) / 0.1));
 }
 
 /* ========== 网络权限提示 ========== */
@@ -788,7 +788,7 @@ async function chooseReceivePath() {
 .header-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
 }
 
 .online-badge {
@@ -800,7 +800,7 @@ async function chooseReceivePath() {
   background: rgba(255, 255, 255, 0.05);
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   transition: all 0.3s ease;
 }
 .online-badge.hasPeers {
@@ -826,7 +826,7 @@ async function chooseReceivePath() {
   border-radius: 8px;
   border: none;
   background: rgba(255, 255, 255, 0.04);
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -835,11 +835,11 @@ async function chooseReceivePath() {
 }
 .scan-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
 }
 .scan-btn.scanning {
   animation: spin 1s linear infinite;
-  color: var(--accent-color, #667eea);
+  color: oklch(var(--p));
 }
 @keyframes spin {
   from { transform: rotate(0deg); }
@@ -910,7 +910,7 @@ async function chooseReceivePath() {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 2.5px solid var(--card-bg, #1a1a2e);
+  border: 2.5px solid oklch(var(--b1));
   transition: all 0.3s ease;
 }
 .user-status-dot.online { background: #22c55e; box-shadow: 0 0 5px rgba(34, 197, 94, 0.5); }
@@ -932,7 +932,7 @@ async function chooseReceivePath() {
 .user-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -959,7 +959,7 @@ async function chooseReceivePath() {
   gap: 4px;
   margin-top: 3px;
   font-size: 12px;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .user-status-text {
@@ -995,7 +995,7 @@ async function chooseReceivePath() {
 
 .user-action {
   flex-shrink: 0;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.3;
   transition: all 0.2s ease;
 }
@@ -1069,13 +1069,13 @@ async function chooseReceivePath() {
   margin: 0 0 6px 0;
   font-size: 14px;
   font-weight: 500;
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
 }
 
 .empty-hint {
   margin: 0 0 16px 0;
   font-size: 12px;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
 }
 
@@ -1085,7 +1085,7 @@ async function chooseReceivePath() {
 }
 .network-details summary {
   font-size: 12px;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -1113,12 +1113,12 @@ async function chooseReceivePath() {
 }
 
 .info-label {
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
 }
 
 .info-value {
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 11px;
 }
@@ -1140,8 +1140,8 @@ async function chooseReceivePath() {
 .btn-primary:hover { opacity: 0.9; }
 .btn-ghost {
   background: transparent;
-  color: var(--main-text-secondary, #94a3b8);
-  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1));
 }
 .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.04);
@@ -1163,13 +1163,13 @@ async function chooseReceivePath() {
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: 12px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.06));
+  border: 1px solid oklch(var(--bc) / 0.1));
 }
 
 .path-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 8px;
 }
 
@@ -1182,7 +1182,7 @@ async function chooseReceivePath() {
 .path-value {
   flex: 1;
   font-size: 12px;
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   font-family: var(--font-mono, ui-monospace, monospace);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1193,9 +1193,9 @@ async function chooseReceivePath() {
 .path-btn {
   padding: 5px 12px;
   border-radius: 8px;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  border: 1px solid oklch(var(--bc) / 0.1));
   background: rgba(255, 255, 255, 0.06);
-  color: var(--main-text, #e2e8f0);
+  color: oklch(var(--bc));
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -1204,6 +1204,6 @@ async function chooseReceivePath() {
 }
 .path-btn:hover {
   background: rgba(255, 255, 255, 0.1);
-  border-color: var(--accent-color, #667eea);
+  border-color: oklch(var(--p));
 }
 </style>

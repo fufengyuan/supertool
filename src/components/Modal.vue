@@ -78,7 +78,7 @@ const contentStyle = {
 }
 
 .modal-content {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
   width: 90%;
   max-height: v-bind(maxHeight);
@@ -91,14 +91,14 @@ const contentStyle = {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .modal-close-btn {
@@ -107,7 +107,7 @@ const contentStyle = {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -117,8 +117,8 @@ const contentStyle = {
 }
 
 .modal-close-btn:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 .modal-body {
@@ -130,7 +130,7 @@ const contentStyle = {
   gap: 12px;
   justify-content: flex-end;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 /* Transitions */

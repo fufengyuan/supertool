@@ -38,7 +38,7 @@ defineProps({
   align-items: center;
   padding: 40px 20px;
   gap: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
 }
 

@@ -326,8 +326,9 @@ async function refreshWithOriginals() {
       return col
     })
 
-    const rawIdxs = (struct.indexes as any[]) ?? []
-    indexes.value = rawIdxs.map((idx: any) => {
+    // rawIdxs already declared above, reuse it or reassign
+    const idxData = (struct.indexes as any[]) ?? []
+    indexes.value = idxData.map((idx: any) => {
       // Backend new format: { name, columns: ['col1', 'col2'], isUnique, isPrimary }
       // Backend legacy format: [{ Key_name, Column_name, Non_unique }, ...]
       const isPrimary = idx.isPrimary === true || idx.name === 'PRIMARY'

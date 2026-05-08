@@ -122,7 +122,7 @@
         <svg :width="trendChartWidth" :height="200" class="trend-svg">
           <!-- Grid lines -->
           <g class="trend-grid" v-for="(line, i) in trendGridLines" :key="'g' + i">
-            <line :x1="50" :y1="line.y" :x2="trendChartWidth - 10" :y2="line.y" stroke="var(--border-color)" stroke-width="0.5" stroke-dasharray="2,4" />
+            <line :x1="50" :y1="line.y" :x2="trendChartWidth - 10" :y2="line.y" stroke="oklch(var(--bc) / 0.1)" stroke-width="0.5" stroke-dasharray="2,4" />
             <text :x="45" :y="line.y + 4" text-anchor="end" class="trend-axis-label">{{ line.label }}</text>
           </g>
           <!-- X axis labels -->
@@ -131,19 +131,19 @@
           </g>
           <!-- Expense bars -->
           <g v-for="(d, i) in trendData" :key="'b' + i">
-            <rect :x="trendX(i) - 8" :y="trendBarY(d.expense)" :width="16" :height="trendBarH(d.expense)" fill="var(--danger-color)" opacity="0.3" rx="2" />
+            <rect :x="trendX(i) - 8" :y="trendBarY(d.expense)" :width="16" :height="trendBarH(d.expense)" fill="oklch(var(--er))" opacity="0.3" rx="2" />
           </g>
           <!-- Income line -->
-          <polyline :points="trendLinePoints('income')" fill="none" stroke="var(--success-color)" stroke-width="2" stroke-linejoin="round" />
+          <polyline :points="trendLinePoints('income')" fill="none" stroke="oklch(var(--su))" stroke-width="2" stroke-linejoin="round" />
           <!-- Expense line -->
-          <polyline :points="trendLinePoints('expense')" fill="none" stroke="var(--danger-color)" stroke-width="2" stroke-linejoin="round" />
+          <polyline :points="trendLinePoints('expense')" fill="none" stroke="oklch(var(--er))" stroke-width="2" stroke-linejoin="round" />
           <!-- Income dots -->
           <g v-for="(d, i) in trendData" :key="'di' + i">
-            <circle :cx="trendX(i)" :cy="trendDotY(d.income)" r="3" fill="var(--success-color)" />
+            <circle :cx="trendX(i)" :cy="trendDotY(d.income)" r="3" fill="oklch(var(--su))" />
           </g>
           <!-- Expense dots -->
           <g v-for="(d, i) in trendData" :key="'de' + i">
-            <circle :cx="trendX(i)" :cy="trendDotY(d.expense)" r="3" fill="var(--danger-color)" />
+            <circle :cx="trendX(i)" :cy="trendDotY(d.expense)" r="3" fill="oklch(var(--er))" />
           </g>
         </svg>
         <!-- Legend -->
@@ -684,7 +684,7 @@ const {
 .accounting-title {
   font-size: 20px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 
@@ -702,8 +702,8 @@ const {
 }
 
 .stat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   padding: 12px 16px;
   display: flex;
@@ -713,7 +713,7 @@ const {
 
 .stat-label {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-weight: 500;
 }
 
@@ -723,12 +723,12 @@ const {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
-.stat-income .stat-value { color: var(--success-color); }
-.stat-expense .stat-value { color: var(--danger-color); }
-.stat-balance-pos .stat-value { color: var(--primary-color); }
-.stat-balance-neg .stat-value { color: var(--danger-color); }
-.stat-pending .stat-value { color: var(--warning-color); }
-.stat-reimbursed .stat-value { color: var(--success-color); }
+.stat-income .stat-value { color: oklch(var(--su)); }
+.stat-expense .stat-value { color: oklch(var(--er)); }
+.stat-balance-pos .stat-value { color: oklch(var(--p)); }
+.stat-balance-neg .stat-value { color: oklch(var(--er)); }
+.stat-pending .stat-value { color: oklch(var(--wa)); }
+.stat-reimbursed .stat-value { color: oklch(var(--su)); }
 
 .stat-period-selector {
   display: flex;
@@ -738,32 +738,32 @@ const {
 
 .period-select {
   padding: 4px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 12px;
   cursor: pointer;
 }
 
 .period-date {
   padding: 3px 6px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 11px;
 }
 
 .period-sep {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Category summary */
 .category-summary {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   padding: 12px 16px;
   flex-shrink: 0;
@@ -772,7 +772,7 @@ const {
 .category-summary-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 8px;
 }
 
@@ -792,7 +792,7 @@ const {
 .category-bar-name {
   width: 70px;
   flex-shrink: 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -801,14 +801,14 @@ const {
 .category-bar-track {
   flex: 1;
   height: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 4px;
   overflow: hidden;
 }
 
 .category-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--danger-color), #f97316);
+  background: linear-gradient(90deg, oklch(var(--er)), #f97316);
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -816,7 +816,7 @@ const {
 .category-bar-amount {
   width: 80px;
   text-align: right;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
 }
@@ -837,26 +837,26 @@ const {
 
 .filter-chip {
   padding: 5px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 16px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.filter-chip:hover { background: var(--primary-light); color: var(--primary-color); }
-.filter-chip.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
-.income-chip.active { background: var(--success-color); border-color: var(--success-color); }
-.expense-chip.active { background: var(--danger-color); border-color: var(--danger-color); }
+.filter-chip:hover { background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
+.filter-chip.active { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
+.income-chip.active { background: oklch(var(--su)); border-color: oklch(var(--su)); }
+.expense-chip.active { background: oklch(var(--er)); border-color: oklch(var(--er)); }
 
 .filter-select {
   padding: 5px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 12px;
 }
 
@@ -868,17 +868,17 @@ const {
 .search-input {
   width: 100%;
   padding: 5px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 12px;
   outline: none;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
 }
 
 .filter-input-sm {
@@ -891,7 +891,7 @@ const {
 .records-table-wrapper {
   flex: 1;
   overflow: auto;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
 }
 
@@ -913,9 +913,9 @@ const {
   text-align: left;
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   position: sticky;
   top: 0;
   z-index: 2;
@@ -924,12 +924,12 @@ const {
 
 .records-table td {
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   white-space: nowrap;
 }
 
 .records-table tbody tr:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 .col-amount {
@@ -937,8 +937,8 @@ const {
   font-weight: 600;
 }
 
-.col-amount.income { color: var(--success-color); }
-.col-amount.expense { color: var(--danger-color); }
+.col-amount.income { color: oklch(var(--su)); }
+.col-amount.expense { color: oklch(var(--er)); }
 
 .type-badge {
   padding: 2px 8px;
@@ -949,12 +949,12 @@ const {
 
 .type-badge.income {
   background: rgba(16, 185, 129, 0.1);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .type-badge.expense {
   background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .status-badge {
@@ -966,33 +966,33 @@ const {
 
 .status-badge.pending {
   background: rgba(245, 158, 11, 0.15);
-  color: var(--warning-color);
+  color: oklch(var(--wa));
 }
 
 .status-badge.approved {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .status-badge.rejected {
   background: rgba(239, 68, 68, 0.15);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .status-badge.reimbursed {
   background: rgba(59, 130, 246, 0.15);
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .status-badge.confirmed {
   background: rgba(16, 185, 129, 0.15);
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .voucher-code {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .invoice-code {
@@ -1017,11 +1017,11 @@ const {
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   transition: transform 0.1s ease;
 }
 
@@ -1041,17 +1041,17 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .more-badge {
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding: 2px 4px;
 }
 
 .no-receipt {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
@@ -1065,7 +1065,7 @@ const {
   transition: background 0.1s ease;
 }
 
-.action-btn:hover { background: var(--primary-light); }
+.action-btn:hover { background: oklch(var(--p) / 0.1); }
 .approve-btn:hover { background: rgba(16, 185, 129, 0.15); }
 .reject-btn:hover { background: rgba(239, 68, 68, 0.15); }
 .reimburse-btn:hover { background: rgba(59, 130, 246, 0.15); }
@@ -1077,7 +1077,7 @@ const {
   align-items: center;
   justify-content: center;
   padding: 48px 16px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   gap: 12px;
 }
 
@@ -1093,24 +1093,24 @@ const {
 
 .page-info {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Upload Area */
 .upload-area {
-  border: 2px dashed var(--border-color);
+  border: 2px dashed oklch(var(--bc) / 0.1);
   border-radius: 10px;
   padding: 24px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .upload-area:hover,
 .upload-dragover {
-  border-color: var(--primary-color);
-  background: var(--primary-light);
+  border-color: oklch(var(--p));
+  background: oklch(var(--p) / 0.1);
 }
 
 .upload-placeholder {
@@ -1121,19 +1121,19 @@ const {
 }
 
 .upload-icon {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.5;
 }
 
 .upload-text {
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 
 .upload-hint {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin: 0;
 }
 
@@ -1149,9 +1149,9 @@ const {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   position: relative;
 }
 
@@ -1163,7 +1163,7 @@ const {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .upload-preview-thumb img {
@@ -1173,7 +1173,7 @@ const {
 }
 
 .pdf-preview-icon {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .upload-preview-info {
@@ -1185,7 +1185,7 @@ const {
 
 .upload-preview-name {
   font-size: 11px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1194,7 +1194,7 @@ const {
 
 .upload-preview-size {
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .upload-remove-btn {
@@ -1204,7 +1204,7 @@ const {
   width: 20px;
   height: 20px;
   border: none;
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: white;
   border-radius: 50%;
   font-size: 14px;
@@ -1220,17 +1220,17 @@ const {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  border: 2px dashed var(--border-color);
+  border: 2px dashed oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .upload-add-more:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 /* Modal */
@@ -1245,8 +1245,8 @@ const {
 }
 
 .modal-dialog {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   width: 560px;
   max-height: 80vh;
@@ -1269,14 +1269,14 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .modal-close {
@@ -1284,7 +1284,7 @@ const {
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   border-radius: 6px;
@@ -1293,7 +1293,7 @@ const {
   justify-content: center;
 }
 
-.modal-close:hover { background: var(--primary-light); color: var(--primary-color); }
+.modal-close:hover { background: oklch(var(--p) / 0.1); color: oklch(var(--p)); }
 
 .modal-body {
   padding: 16px 20px;
@@ -1306,7 +1306,7 @@ const {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 /* Form */
@@ -1326,23 +1326,23 @@ const {
 .form-label-wide {
   font-size: 13px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .form-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   outline: none;
 }
 
 .form-input:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
 }
 
 .amount-input {
@@ -1360,26 +1360,26 @@ const {
 .type-btn {
   flex: 1;
   padding: 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.type-btn:hover { background: var(--primary-light); }
-.type-btn.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+.type-btn:hover { background: oklch(var(--p) / 0.1); }
+.type-btn.active { background: oklch(var(--p)); color: white; border-color: oklch(var(--p)); }
 
 .voucher-display {
   font-family: 'JetBrains Mono', monospace;
   font-size: 14px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-weight: 600;
   padding: 8px 12px;
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   border-radius: 6px;
   width: 100%;
 }
@@ -1395,7 +1395,7 @@ const {
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .category-list {
@@ -1409,11 +1409,11 @@ const {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .cat-icon {
@@ -1423,20 +1423,20 @@ const {
 .cat-delete {
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 16px;
   cursor: pointer;
   padding: 0 2px;
   line-height: 1;
 }
 
-.cat-delete:hover { color: var(--danger-color); }
+.cat-delete:hover { color: oklch(var(--er)); }
 
 .category-add-row {
   display: flex;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .form-sm {
@@ -1457,8 +1457,8 @@ const {
 }
 
 .preview-dialog {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   width: 90vw;
   max-width: 900px;
@@ -1487,9 +1487,9 @@ const {
 }
 
 .preview-nav-btn {
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  color: var(--main-text);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   width: 28px;
   height: 28px;
   border-radius: 6px;
@@ -1507,7 +1507,7 @@ const {
 
 .preview-counter {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-family: 'JetBrains Mono', monospace;
 }
 
@@ -1522,7 +1522,7 @@ const {
 }
 
 .preview-loading {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 14px;
 }
 
@@ -1570,8 +1570,8 @@ const {
 
 /* Trend Chart */
 .trend-chart {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   padding: 12px 16px;
   flex-shrink: 0;
@@ -1580,7 +1580,7 @@ const {
 .trend-chart-header {
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 8px;
 }
 
@@ -1595,7 +1595,7 @@ const {
 }
 
 .trend-axis-label {
-  fill: var(--main-text-secondary);
+  fill: oklch(var(--bc) / 0.6);
   font-size: 9px;
   font-family: 'JetBrains Mono', monospace;
 }
@@ -1606,7 +1606,7 @@ const {
   justify-content: center;
   margin-top: 4px;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .trend-legend-item {
@@ -1622,14 +1622,14 @@ const {
   display: inline-block;
 }
 
-.trend-legend-income { background: var(--success-color); }
-.trend-legend-expense { background: var(--danger-color); }
-.trend-legend-bar { background: var(--danger-color); opacity: 0.3; }
+.trend-legend-income { background: oklch(var(--su)); }
+.trend-legend-expense { background: oklch(var(--er)); }
+.trend-legend-bar { background: oklch(var(--er)); opacity: 0.3; }
 
 /* Budget Alerts */
 .budget-alerts {
-  background: var(--card-bg);
-  border: 1px solid var(--warning-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--wa));
   border-radius: 10px;
   padding: 12px 16px;
   flex-shrink: 0;
@@ -1645,7 +1645,7 @@ const {
 .budget-alerts-title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--warning-color);
+  color: oklch(var(--wa));
 }
 
 .budget-alert-list {
@@ -1671,7 +1671,7 @@ const {
 .budget-alert-cat {
   width: 70px;
   flex-shrink: 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1680,14 +1680,14 @@ const {
 .budget-alert-track {
   flex: 1;
   height: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 4px;
   overflow: hidden;
 }
 
 .budget-alert-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--warning-color), var(--danger-color));
+  background: linear-gradient(90deg, oklch(var(--wa)), oklch(var(--er)));
   border-radius: 4px;
   transition: width 0.3s ease;
 }
@@ -1698,17 +1698,17 @@ const {
   font-weight: 600;
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: var(--warning-color);
+  color: oklch(var(--wa));
 }
 
 .budget-alert-item.budget-over .budget-alert-pct {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .budget-alert-amount {
   width: 120px;
   text-align: right;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
 }
@@ -1720,10 +1720,10 @@ const {
   margin-top: 2px;
 }
 
-.stat-mom.mom-up { color: var(--danger-color); }
-.stat-mom.mom-down { color: var(--success-color); }
+.stat-mom.mom-up { color: oklch(var(--er)); }
+.stat-mom.mom-down { color: oklch(var(--su)); }
 
-.stat-daily .stat-value { color: var(--warning-color); }
+.stat-daily .stat-value { color: oklch(var(--wa)); }
 
 /* Templates */
 .template-list {
@@ -1737,13 +1737,13 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   transition: background 0.1s ease;
 }
 
-.template-item:hover { background: var(--card-bg); }
+.template-item:hover { background: oklch(var(--b1)); }
 
 .template-main {
   display: flex;
@@ -1761,13 +1761,13 @@ const {
   flex-shrink: 0;
 }
 
-.template-type.income { background: rgba(16, 185, 129, 0.1); color: var(--success-color); }
-.template-type.expense { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+.template-type.income { background: rgba(16, 185, 129, 0.1); color: oklch(var(--su)); }
+.template-type.expense { background: rgba(239, 68, 68, 0.1); color: oklch(var(--er)); }
 
-.template-name { font-weight: 600; color: var(--main-text); }
-.template-cat { color: var(--main-text-secondary); font-size: 12px; }
-.template-amount { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--main-text); }
-.template-usecount { font-size: 10px; color: var(--main-text-secondary); }
+.template-name { font-weight: 600; color: oklch(var(--bc)); }
+.template-cat { color: oklch(var(--bc) / 0.6); font-size: 12px; }
+.template-amount { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: oklch(var(--bc)); }
+.template-usecount { font-size: 10px; color: oklch(var(--bc) / 0.6); }
 
 .template-actions {
   display: flex;
@@ -1777,7 +1777,7 @@ const {
 
 .templates-empty, .budgets-empty {
   text-align: center;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding: 24px;
   font-size: 13px;
 }
@@ -1805,14 +1805,14 @@ const {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .budget-cat { flex: 1; font-weight: 500; }
 .budget-amount { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
-.budget-period { font-size: 11px; color: var(--main-text-secondary); }
+.budget-period { font-size: 11px; color: oklch(var(--bc) / 0.6); }
 
 .btn-xs {
   padding: 2px 6px;

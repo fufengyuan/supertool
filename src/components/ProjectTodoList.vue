@@ -90,26 +90,26 @@ const deleteTask = (task) => { emit('task-deleted', task) }
 
 <style scoped>
 .task-input-section { display: flex; gap: 12px; margin-bottom: 20px; }
-.task-input { flex: 1; padding: 12px 16px; border: 2px solid var(--input-border); border-radius: 8px; background-color: var(--input-bg); color: var(--main-text); font-size: 16px; }
-.add-task-btn { padding: 12px 24px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s ease; }
-.add-task-btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
+.task-input { flex: 1; padding: 12px 16px; border: 2px solid oklch(var(--bc) / 0.2); border-radius: 8px; background-color: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 16px; }
+.add-task-btn { padding: 12px 24px; background: oklch(var(--p)); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s ease; }
+.add-task-btn:hover { background: oklch(var(--p) / 0.8); transform: translateY(-2px); }
 .tasks-list { margin-bottom: 20px; }
-.task-item { background: var(--card-bg); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; box-shadow: var(--card-shadow); }
-.task-item.completed { opacity: 0.7; background: var(--input-bg); }
+.task-item { background: oklch(var(--b1)); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.task-item.completed { opacity: 0.7; background: oklch(var(--b2)); }
 .task-content { flex: 1; display: flex; align-items: center; gap: 12px; }
 .task-checkbox { width: 18px; height: 18px; cursor: pointer; }
 .task-text { flex: 1; font-size: 16px; }
-.task-item.completed .task-text { text-decoration: line-through; color: var(--main-text-secondary); }
+.task-item.completed .task-text { text-decoration: line-through; color: oklch(var(--bc) / 0.6); }
 .task-meta { display: flex; gap: 12px; align-items: center; }
-.due-date { font-size: 14px; color: var(--main-text-secondary); white-space: nowrap; }
+.due-date { font-size: 14px; color: oklch(var(--bc) / 0.6); white-space: nowrap; }
 .priority-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-.priority-badge.low { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
-.priority-badge.medium { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
-.priority-badge.high { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+.priority-badge.low { background: rgba(34, 197, 94, 0.1); color: oklch(var(--su)); }
+.priority-badge.medium { background: rgba(245, 158, 11, 0.1); color: oklch(var(--wa)); }
+.priority-badge.high { background: rgba(239, 68, 68, 0.1); color: oklch(var(--er)); }
 .delete-task-btn { background: none; border: none; cursor: pointer; font-size: 16px; opacity: 0.6; transition: opacity 0.3s ease; }
 .delete-task-btn:hover { opacity: 1; }
 .progress-container { display: flex; align-items: center; gap: 12px; }
-.progress-bar { flex: 1; height: 12px; background: var(--input-bg); border-radius: 6px; overflow: hidden; }
+.progress-bar { flex: 1; height: 12px; background: oklch(var(--b2)); border-radius: 6px; overflow: hidden; }
 .progress-fill { height: 100%; transition: width 0.3s ease; }
-.progress-text { font-size: 14px; color: var(--main-text-secondary); white-space: nowrap; }
+.progress-text { font-size: 14px; color: oklch(var(--bc) / 0.6); white-space: nowrap; }
 </style>

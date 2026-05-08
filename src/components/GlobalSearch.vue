@@ -370,8 +370,8 @@ onUnmounted(() => {
 .global-search-container {
   width: 560px;
   max-width: 90vw;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #e0e0e0);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -384,13 +384,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color, #e0e0e0);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .search-icon {
   position: absolute;
   left: 24px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   pointer-events: none;
 }
 
@@ -400,21 +400,21 @@ onUnmounted(() => {
   outline: none;
   font-size: 16px;
   background: transparent;
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
   padding-left: 32px;
 }
 
 .search-input::placeholder {
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .shortcut-hint {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: var(--input-bg, #f5f5f5);
-  color: var(--main-text-secondary, #999);
-  border: 1px solid var(--border-color, #ddd);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .search-results,
@@ -429,7 +429,7 @@ onUnmounted(() => {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   letter-spacing: 0.5px;
 }
 
@@ -480,7 +480,7 @@ onUnmounted(() => {
   display: block;
   font-size: 14px;
   font-weight: 500;
-  color: var(--main-text, #333);
+  color: oklch(var(--bc));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -496,7 +496,7 @@ onUnmounted(() => {
 .result-subtitle {
   display: block;
   font-size: 12px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
   margin-top: 2px;
 }
 
@@ -527,9 +527,9 @@ onUnmounted(() => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 4px;
-  background: var(--input-bg, #f5f5f5);
-  color: var(--main-text-secondary, #999);
-  border: 1px solid var(--border-color, #ddd);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   flex-shrink: 0;
 }
 
@@ -538,7 +538,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 40px 20px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .no-results svg {
@@ -561,8 +561,8 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   padding: 10px 20px;
-  border-top: 1px solid var(--border-color, #e0e0e0);
-  background: var(--input-bg, #f5f5f5);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
 }
 
 .footer-item {
@@ -570,15 +570,15 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--main-text-secondary, #999);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .footer-item kbd {
   font-size: 10px;
   padding: 1px 6px;
   border-radius: 3px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border-color, #ddd);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 /* 过渡动画 */

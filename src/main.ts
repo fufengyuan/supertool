@@ -1,9 +1,11 @@
-import "./assets/main.css";
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import { createI18n } from "vue-i18n";
 import App from "./App.vue";
 import router from "./router";
+
+// Tailwind CSS + daisyUI + global CSS variables
+import "./assets/main.css";
 
 // i18n
 import zhCN from "./locales/zh-CN";
@@ -96,15 +98,15 @@ const origError = console.error.bind(console);
 
 console.log = function (...args: any[]) {
   origLog(...args);
-  try { queueLog("info", args); } catch {}
+  try { queueLog("info", args); } catch {};
 };
 console.warn = function (...args: any[]) {
   origWarn(...args);
-  try { queueLog("warn", args); } catch {}
+  try { queueLog("warn", args); } catch {};
 };
 console.error = function (...args: any[]) {
   origError(...args);
-  try { queueLog("error", args); } catch {}
+  try { queueLog("error", args); } catch {};
 };
 
 window.addEventListener("beforeunload", () => {

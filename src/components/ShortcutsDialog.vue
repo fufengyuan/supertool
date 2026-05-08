@@ -93,37 +93,37 @@ const close = () => { visible.value = false }
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
 .modal-content {
-  background: var(--card-bg); border-radius: 16px; width: 90%; max-width: 680px;
+  background: oklch(var(--b1)); border-radius: 16px; width: 90%; max-width: 680px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); overflow: hidden;
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; border-bottom: 1px solid var(--border-color);
+  padding: 20px 24px; border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
-.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--main-text); }
+.modal-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: oklch(var(--bc)); }
 .modal-close-btn {
   width: 32px; height: 32px; border: none; border-radius: 8px;
-  background: transparent; color: var(--main-text-secondary); font-size: 20px;
+  background: transparent; color: oklch(var(--bc) / 0.6); font-size: 20px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: all 0.15s ease;
 }
-.modal-close-btn:hover { background: var(--input-bg); color: var(--main-text); }
+.modal-close-btn:hover { background: oklch(var(--b2)); color: oklch(var(--bc)); }
 .modal-body { padding: 24px; }
 .shortcuts-list { display: flex; flex-direction: column; gap: 20px; }
 .shortcut-group h4 {
-  margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--main-text-secondary);
+  margin: 0 0 8px; font-size: 13px; font-weight: 600; color: oklch(var(--bc) / 0.6);
   text-transform: uppercase; letter-spacing: 0.5px;
 }
 .shortcut-item {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 0; border-bottom: 1px solid var(--border-color);
+  padding: 8px 0; border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 .shortcut-item:last-child { border-bottom: none; }
-.shortcut-item span { font-size: 14px; color: var(--main-text); }
+.shortcut-item span { font-size: 14px; color: oklch(var(--bc)); }
 .shortcut-item kbd {
-  padding: 4px 10px; background: var(--input-bg); border: 1px solid var(--border-color);
-  border-radius: 6px; font-size: 12px; font-family: monospace; color: var(--main-text);
-  box-shadow: 0 1px 0 var(--border-color);
+  padding: 4px 10px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1);
+  border-radius: 6px; font-size: 12px; font-family: monospace; color: oklch(var(--bc));
+  box-shadow: 0 1px 0 oklch(var(--bc) / 0.1);
 }
 .modal-enter-active, .modal-leave-active { transition: opacity 0.2s ease; }
 .modal-enter-from, .modal-leave-to { opacity: 0; }

@@ -856,13 +856,13 @@ function scrollToBottom() {
   margin: 0 0 4px 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .panel-subtitle {
   margin: 0;
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* ============ Two-Column Layout ============ */
@@ -891,8 +891,8 @@ function scrollToBottom() {
 
 /* ============ Card ============ */
 .card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   padding: 16px;
 }
@@ -900,7 +900,7 @@ function scrollToBottom() {
 .card-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin-bottom: 12px;
 }
 
@@ -916,7 +916,7 @@ function scrollToBottom() {
   display: block;
   margin-bottom: 8px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 13px;
 }
 
@@ -925,22 +925,22 @@ function scrollToBottom() {
   padding: 10px 12px;
   font-size: 13px;
   border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--input-bg);
-  color: var(--main-text);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 /* ============ Config Tree Selector ============ */
 .config-tree {
   max-height: 280px;
   overflow-y: auto;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .config-tree-group {
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .config-tree-group:last-child {
@@ -956,7 +956,7 @@ function scrollToBottom() {
   user-select: none;
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   background: rgba(0, 0, 0, 0.04);
   transition: background 0.15s;
 }
@@ -968,7 +968,7 @@ function scrollToBottom() {
 .tree-chevron {
   flex-shrink: 0;
   transition: transform 0.2s;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .config-tree-group-body {
@@ -990,7 +990,7 @@ function scrollToBottom() {
 .tree-group-count {
   font-size: 11px;
   font-weight: 400;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   background: rgba(0, 0, 0, 0.06);
   padding: 1px 6px;
   border-radius: 8px;
@@ -1012,7 +1012,7 @@ function scrollToBottom() {
 
 .config-tree-item.active {
   background: rgba(59, 130, 246, 0.12);
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .config-tree-item-name {
@@ -1029,7 +1029,7 @@ function scrollToBottom() {
   align-items: center;
   gap: 4px;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
 }
 
@@ -1047,7 +1047,7 @@ function scrollToBottom() {
 
 .config-tree-item-check {
   font-size: 12px;
-  color: var(--success-color);
+  color: oklch(var(--su));
   font-weight: 700;
   flex-shrink: 0;
 }
@@ -1070,7 +1070,7 @@ function scrollToBottom() {
   justify-content: space-between;
   align-items: center;
   padding: 6px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .info-item:last-child {
@@ -1080,12 +1080,12 @@ function scrollToBottom() {
 .info-label {
   font-size: 12px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .info-value {
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-weight: 500;
   text-align: right;
 }
@@ -1093,7 +1093,7 @@ function scrollToBottom() {
 .info-value.code {
   font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: 12px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   padding: 2px 8px;
   border-radius: 4px;
   word-break: break-all;
@@ -1106,8 +1106,8 @@ function scrollToBottom() {
 .branch-badge {
   display: inline-flex;
   padding: 2px 8px;
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
   border-radius: 10px;
   font-size: 12px;
   font-weight: 600;
@@ -1143,26 +1143,26 @@ function scrollToBottom() {
 }
 
 .btn-primary {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px var(--primary-light);
+  box-shadow: 0 4px 12px oklch(var(--p) / 0.1);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  background: var(--input-bg);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  background: oklch(var(--b2));
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .btn-deploy {
@@ -1171,8 +1171,8 @@ function scrollToBottom() {
 }
 
 .btn-requires-approval {
-  background: linear-gradient(135deg, var(--warning-color, #f59e0b), #d97706) !important;
-  border-color: var(--warning-color, #f59e0b) !important;
+  background: linear-gradient(135deg, oklch(var(--wa)), #d97706) !important;
+  border-color: oklch(var(--wa)) !important;
 }
 
 /* ============ Pre-flight ============ */
@@ -1185,7 +1185,7 @@ function scrollToBottom() {
   align-items: center;
   gap: 8px;
   padding: 6px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   font-size: 13px;
 }
 
@@ -1194,16 +1194,16 @@ function scrollToBottom() {
 }
 
 .preflight-item.passed .preflight-name {
-  color: var(--success-color);
+  color: oklch(var(--su));
 }
 
 .preflight-item.failed .preflight-name {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 .preflight-message {
   margin-left: auto;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
@@ -1221,36 +1221,36 @@ function scrollToBottom() {
 
 .progress-label {
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-weight: 500;
 }
 
 .progress-pct {
   font-size: 13px;
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .progress-bar {
   height: 6px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   transition: width 0.3s ease;
 }
 
 .progress-fill.progress-cancelled {
-  background: var(--main-text-secondary);
+  background: oklch(var(--bc) / 0.6);
 }
 
 .btn-cancel-deploy {
   padding: 4px 10px;
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: white;
   border: none;
   border-radius: 4px;
@@ -1272,8 +1272,8 @@ function scrollToBottom() {
 
 .realtime-log .card-title-row {
   padding: 12px 16px;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   margin-bottom: 0;
 }
 
@@ -1285,8 +1285,8 @@ function scrollToBottom() {
 .btn-clear-logs {
   padding: 3px 8px;
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   cursor: pointer;
   font-size: 11px;
@@ -1294,8 +1294,8 @@ function scrollToBottom() {
 }
 
 .btn-clear-logs:hover {
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
 
 .log-output {
@@ -1314,7 +1314,7 @@ function scrollToBottom() {
 }
 
 .log-time {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
   min-width: 75px;
 }
@@ -1322,19 +1322,19 @@ function scrollToBottom() {
 .log-stage {
   flex-shrink: 0;
   min-width: 55px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
-.log-git .log-stage { color: var(--success-color); }
-.log-maven .log-stage { color: var(--warning-color); }
-.log-ssh .log-stage { color: var(--primary-color); }
+.log-git .log-stage { color: oklch(var(--su)); }
+.log-maven .log-stage { color: oklch(var(--wa)); }
+.log-ssh .log-stage { color: oklch(var(--p)); }
 .log-restart .log-stage { color: #8b5cf6; }
-.log-rollback .log-stage { color: var(--warning-color); }
-.log-error .log-stage, .log-error .log-msg { color: var(--danger-color); }
+.log-rollback .log-stage { color: oklch(var(--wa)); }
+.log-error .log-stage, .log-error .log-msg { color: oklch(var(--er)); }
 .log-collect .log-stage { color: #f97316; }
 
 .log-msg {
-  color: var(--main-text);
+  color: oklch(var(--bc));
   word-break: break-all;
 }
 
@@ -1349,7 +1349,7 @@ function scrollToBottom() {
 
 .history-count {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .logs-list {
@@ -1360,25 +1360,25 @@ function scrollToBottom() {
 
 .log-item {
   padding: 12px 14px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 8px;
   border-left: 3px solid transparent;
 }
 
 .log-item.success {
-  border-left-color: var(--success-color);
+  border-left-color: oklch(var(--su));
 }
 
 .log-item.failed {
-  border-left-color: var(--danger-color);
+  border-left-color: oklch(var(--er));
 }
 
 .log-item.running {
-  border-left-color: var(--primary-color);
+  border-left-color: oklch(var(--p));
 }
 
 .log-item.cancelled {
-  border-left-color: var(--main-text-secondary);
+  border-left-color: oklch(var(--bc) / 0.6);
 }
 
 .log-item.rolled_back {
@@ -1396,19 +1396,19 @@ function scrollToBottom() {
 }
 
 .log-time {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
 .log-trigger {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
 .btn-rollback {
   margin-left: auto;
   padding: 3px 10px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 4px;
@@ -1419,7 +1419,7 @@ function scrollToBottom() {
 }
 
 .btn-rollback:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
 }
 
 .btn-rollback:disabled {
@@ -1436,9 +1436,9 @@ function scrollToBottom() {
 
 .btn-view-full-log {
   padding: 5px 14px;
-  background: var(--border-color);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--bc) / 0.1);
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
@@ -1446,7 +1446,7 @@ function scrollToBottom() {
 }
 
 .btn-view-full-log:hover:not(:disabled) {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: #fff;
 }
 
@@ -1464,8 +1464,8 @@ function scrollToBottom() {
   justify-content: space-between;
   align-items: center;
   padding: 6px 10px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-bottom: none;
   border-radius: 4px 4px 0 0;
   font-size: 13px;
@@ -1475,17 +1475,17 @@ function scrollToBottom() {
 .btn-close-log {
   padding: 2px 8px;
   background: transparent;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 3px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   cursor: pointer;
 }
 
 .btn-close-log:hover {
-  background: var(--danger-color);
+  background: oklch(var(--er));
   color: #fff;
-  border-color: var(--danger-color);
+  border-color: oklch(var(--er));
 }
 
 .full-log-content {
@@ -1497,14 +1497,14 @@ function scrollToBottom() {
   color: #d4d4d4;
   font-size: 12px;
   line-height: 1.5;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 0 0 4px 4px;
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 .log-config-name {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   font-size: 13px;
   font-weight: 700;
 }
@@ -1512,23 +1512,23 @@ function scrollToBottom() {
 .log-config-group {
   font-size: 10px;
   font-weight: 600;
-  color: var(--main-text-secondary);
-  background: var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--bc) / 0.1);
   padding: 1px 6px;
   border-radius: 3px;
   white-space: nowrap;
 }
 
 .log-project-name {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 11px;
   opacity: 0.7;
 }
 
 .log-branch {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 11px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   padding: 1px 6px;
   border-radius: 3px;
 }
@@ -1536,19 +1536,19 @@ function scrollToBottom() {
 .log-details {
   margin-top: 8px;
   padding: 8px 10px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 4px;
 }
 
 .error-message {
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-weight: 500;
   font-size: 13px;
   margin: 0;
 }
 
 .cancelled-message {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-style: italic;
   font-size: 13px;
   margin: 0;
@@ -1565,16 +1565,16 @@ function scrollToBottom() {
   display: flex;
   flex-direction: column;
   padding: 8px 10px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 6px;
   border-left: 3px solid transparent;
   font-size: 12px;
 }
 
-.step-item.success { border-left-color: var(--success-color); }
-.step-item.failed { border-left-color: var(--danger-color); }
-.step-item.running { border-left-color: var(--primary-color); }
-.step-item.pending { border-left-color: var(--main-text-secondary); }
+.step-item.success { border-left-color: oklch(var(--su)); }
+.step-item.failed { border-left-color: oklch(var(--er)); }
+.step-item.running { border-left-color: oklch(var(--p)); }
+.step-item.pending { border-left-color: oklch(var(--bc) / 0.6); }
 
 .step-header {
   display: flex;
@@ -1586,7 +1586,7 @@ function scrollToBottom() {
 .step-name {
   min-width: 120px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .step-status-badge {
@@ -1597,14 +1597,14 @@ function scrollToBottom() {
   text-transform: capitalize;
 }
 
-.step-status-badge.success { background: rgba(34, 197, 94, 0.15); color: var(--success-color); }
-.step-status-badge.failed { background: rgba(239, 68, 68, 0.15); color: var(--danger-color); }
-.step-status-badge.running { background: rgba(59, 130, 246, 0.15); color: var(--primary-color); }
-.step-status-badge.pending { background: rgba(107, 114, 128, 0.15); color: var(--main-text-secondary); }
+.step-status-badge.success { background: rgba(34, 197, 94, 0.15); color: oklch(var(--su)); }
+.step-status-badge.failed { background: rgba(239, 68, 68, 0.15); color: oklch(var(--er)); }
+.step-status-badge.running { background: rgba(59, 130, 246, 0.15); color: oklch(var(--p)); }
+.step-status-badge.pending { background: rgba(107, 114, 128, 0.15); color: oklch(var(--bc) / 0.6); }
 
 .step-meta {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 4px;
 }
 
@@ -1612,19 +1612,19 @@ function scrollToBottom() {
 .step-item pre {
   margin-top: 4px;
   padding: 8px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 4px;
   overflow-x: auto;
   font-size: 11px;
   max-height: 300px;
   white-space: pre-wrap;
   word-break: break-all;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .step-error {
   margin-top: 4px;
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-size: 12px;
   font-weight: 500;
 }
@@ -1637,7 +1637,7 @@ function scrollToBottom() {
 .raw-log-header {
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin-bottom: 6px;
 }
 
@@ -1645,7 +1645,7 @@ function scrollToBottom() {
 .no-details {
   text-align: center;
   padding: 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .no-details p {
@@ -1660,33 +1660,33 @@ function scrollToBottom() {
 }
 
 .step-status {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .btn-toggle {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .btn-toggle {
   margin-top: 8px;
   padding: 4px 10px;
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
 }
 
 .btn-toggle:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .empty-logs {
   text-align: center;
   padding: 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
 }
 
@@ -1694,9 +1694,9 @@ function scrollToBottom() {
 .empty-state {
   padding: 60px 32px;
   text-align: center;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .empty-icon {
@@ -1707,13 +1707,13 @@ function scrollToBottom() {
 .empty-state h3 {
   margin: 0 0 8px 0;
   font-size: 18px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .empty-state p {
   margin: 0 0 20px 0;
   font-size: 14px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* ============ Scrollbar ============ */
@@ -1726,11 +1726,11 @@ function scrollToBottom() {
 }
 
 .log-output::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
 }
 
 .log-output::-webkit-scrollbar-thumb:hover {
-  background: var(--main-text-secondary);
+  background: oklch(var(--bc) / 0.6);
 }
 </style>

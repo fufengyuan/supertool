@@ -134,7 +134,7 @@ const currentToolComponent = computed(() => {
   display: flex;
   height: 100%;
   overflow: hidden;
-  background: var(--main-bg);
+  background: oklch(var(--b2));
 }
 
 /* Sidebar */
@@ -142,8 +142,8 @@ const currentToolComponent = computed(() => {
   width: 260px;
   min-width: 220px;
   max-width: 300px;
-  border-right: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-right: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -157,7 +157,7 @@ const currentToolComponent = computed(() => {
   margin: 0 0 12px 0;
   font-size: 16px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .sidebar-search {
@@ -169,23 +169,23 @@ const currentToolComponent = computed(() => {
   left: 10px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 7px 10px 7px 30px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   font-size: 12px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   outline: none;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 /* Categories */
@@ -202,7 +202,7 @@ const currentToolComponent = computed(() => {
 .category-header {
   font-size: 10px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding: 4px 8px;
@@ -222,16 +222,16 @@ const currentToolComponent = computed(() => {
   cursor: pointer;
   transition: all 0.1s;
   font-size: 13px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .tool-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .tool-item.active {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .tool-icon {
@@ -266,7 +266,7 @@ const currentToolComponent = computed(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
   gap: 12px;
 }
@@ -279,7 +279,7 @@ const currentToolComponent = computed(() => {
 .content-empty h3 {
   font-size: 18px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
 }
 

@@ -112,12 +112,12 @@ function onSingleSelect(serverId: string) {
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
-  background: var(--input-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .server-group-header:hover {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .group-chevron {
@@ -172,7 +172,7 @@ function onSingleSelect(serverId: string) {
 }
 
 .server-check-item input[type="checkbox"] {
-  accent-color: var(--primary-color);
+  accent-color: oklch(var(--p));
   flex-shrink: 0;
 }
 
@@ -209,7 +209,7 @@ function onSingleSelect(serverId: string) {
 }
 
 .server-option-item.active {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 

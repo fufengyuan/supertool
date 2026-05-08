@@ -39,11 +39,11 @@ const cancel = () => {
 <style scoped>
 .subtask-add-form { display: flex; gap: 8px; margin-bottom: 12px; }
 .subtask-input {
-  flex: 1; padding: 8px 12px; border: 1px solid var(--border-color);
-  border-radius: 6px; background-color: var(--input-bg); color: var(--main-text);
+  flex: 1; padding: 8px 12px; border: 1px solid oklch(var(--bc) / 0.1);
+  border-radius: 6px; background-color: oklch(var(--b2)); color: oklch(var(--bc));
   font-size: 14px;
 }
-.subtask-input:focus { outline: none; border-color: var(--primary-color); }
+.subtask-input:focus { outline: none; border-color: oklch(var(--p)); }
 .btn-confirm {
   padding: 8px 12px; background-color: #22c55e; color: white;
   border: none; border-radius: 6px; cursor: pointer; font-weight: bold;

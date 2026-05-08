@@ -78,11 +78,11 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
-import ProjectItem from './ProjectItem.vue';
-import ProjectForm from './ProjectForm.vue';
-import UiButton from './ui/Button.vue';
-import UiModal from './ui/Modal.vue';
-import UiEmptyState from './ui/EmptyState.vue';
+import ProjectItem from '@/components/ProjectItem.vue';
+import ProjectForm from '@/components/ProjectForm.vue';
+import UiButton from '@/components/ui/Button.vue';
+import UiModal from '@/components/ui/Modal.vue';
+import UiEmptyState from '@/components/ui/EmptyState.vue';
 import { useProjects } from '../composables/useProjects';
 import { useErrorHandler } from '../composables/useErrorHandler';
 import { getTauriAPI } from '../utils/tauri-api';
@@ -226,23 +226,23 @@ onMounted(async () => {
 <style scoped>
 .project-list-container { padding: 20px; }
 .project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.project-header h2 { margin: 0; color: var(--main-text); font-size: 24px; }
+.project-header h2 { margin: 0; color: oklch(var(--bc)); font-size: 24px; }
 
 /* 筛选栏 */
 .filters-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
 .search-wrapper { position: relative; flex: 1; min-width: 200px; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--main-text-secondary); pointer-events: none; }
-.search-input { width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid var(--input-border); border-radius: 10px; background: var(--input-bg); color: var(--main-text); font-size: 14px; outline: none; transition: all 0.15s ease; }
-.search-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light); }
-.search-input::placeholder { color: var(--main-text-secondary); opacity: 0.7; }
+.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: oklch(var(--bc) / 0.6); pointer-events: none; }
+.search-input { width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid oklch(var(--bc) / 0.2); border-radius: 10px; background: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 14px; outline: none; transition: all 0.15s ease; }
+.search-input:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1); }
+.search-input::placeholder { color: oklch(var(--bc) / 0.6); opacity: 0.7; }
 .filter-group { display: flex; gap: 8px; }
-.filter-select { padding: 10px 14px; border: 1.5px solid var(--input-border); border-radius: 10px; background: var(--input-bg); color: var(--main-text); font-size: 13px; cursor: pointer; outline: none; transition: all 0.15s ease; }
-.filter-select:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--primary-light); }
+.filter-select { padding: 10px 14px; border: 1.5px solid oklch(var(--bc) / 0.2); border-radius: 10px; background: oklch(var(--b2)); color: oklch(var(--bc)); font-size: 13px; cursor: pointer; outline: none; transition: all 0.15s ease; }
+.filter-select:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px oklch(var(--p) / 0.1); }
 
 /* 项目列表 - 一行一个，全宽 */
 .project-list { display: flex; flex-direction: column; gap: 16px; }
 
 .empty-state-shortcuts { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-.shortcut-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--main-text-secondary); }
-.shortcut-tag kbd { padding: 2px 6px; border-radius: 4px; background: var(--input-bg, #f5f5f5); border: 1px solid var(--border-color, #ddd); font-size: 11px; font-family: inherit; }
+.shortcut-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: oklch(var(--bc) / 0.6); }
+.shortcut-tag kbd { padding: 2px 6px; border-radius: 4px; background: oklch(var(--b2)); border: 1px solid oklch(var(--bc) / 0.1); font-size: 11px; font-family: inherit; }
 </style>

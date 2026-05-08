@@ -746,14 +746,14 @@ onUnmounted(() => {
   right: 20px;
   width: 720px;
   height: 650px;
-  background: var(--card-bg, #1e1e2e);
+  background: oklch(var(--b1));
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   z-index: 1000;
   transition: all 0.3s ease;
-  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+  border: 1px solid oklch(var(--bc) / 0.1));
   overflow: hidden;
 }
 
@@ -784,7 +784,7 @@ onUnmounted(() => {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: var(--accent-color, #667eea);
+  color: oklch(var(--p));
   font-size: 18px;
   font-weight: 600;
 }
@@ -876,7 +876,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: var(--input-bg, rgba(255,255,255,0.02));
+  background: oklch(var(--b2)));
 }
 
 /* 微信式时间分隔 */
@@ -884,14 +884,14 @@ onUnmounted(() => {
   text-align: center;
   padding: 8px 0;
   font-size: 11px;
-  color: var(--main-text-secondary, #94a3b8);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
 }
 
 .loading-more {
   text-align: center;
   padding: 8px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
@@ -899,7 +899,7 @@ onUnmounted(() => {
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid var(--main-text-secondary);
+  border: 2px solid oklch(var(--bc) / 0.6);
   border-top-color: transparent;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -914,7 +914,7 @@ onUnmounted(() => {
 .no-more {
   text-align: center;
   padding: 4px 8px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 11px;
   opacity: 0.6;
 }
@@ -927,7 +927,7 @@ onUnmounted(() => {
   background: transparent;
 }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: var(--border-color, rgba(255,255,255,0.1));
+  background: oklch(var(--bc) / 0.1));
   border-radius: 3px;
 }
 </style>

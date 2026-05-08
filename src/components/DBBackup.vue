@@ -469,7 +469,7 @@ watch(() => props.connectionId, (newId) => {
 .backup-desc {
   margin: 0;
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Two-column layout */
@@ -492,7 +492,7 @@ watch(() => props.connectionId, (newId) => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-left: 1px solid var(--border-color);
+  border-left: 1px solid oklch(var(--bc) / 0.1);
   padding-left: 24px;
 }
 
@@ -515,22 +515,22 @@ watch(() => props.connectionId, (newId) => {
   margin-bottom: 6px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .select-input {
   width: 100%;
   padding: 7px 10px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   outline: none;
 }
 
 .select-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .select-input:disabled {
@@ -552,14 +552,14 @@ watch(() => props.connectionId, (newId) => {
 
 .selected-info {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Object selection */
 .object-selection {
   flex: 1;
   min-height: 0;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   overflow: hidden;
   display: flex;
@@ -571,8 +571,8 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 14px;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   font-size: 13px;
   font-weight: 600;
   flex-shrink: 0;
@@ -590,15 +590,15 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-section + .object-section {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .section-label {
   padding: 6px 14px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--main-text-secondary);
-  background: var(--card-bg);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b1));
   position: sticky;
   top: 0;
   z-index: 1;
@@ -623,7 +623,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .object-item.selected {
@@ -631,7 +631,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .object-item input[type="checkbox"] {
-  accent-color: var(--primary-color);
+  accent-color: oklch(var(--p));
   flex-shrink: 0;
 }
 
@@ -649,18 +649,18 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   gap: 3px;
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
 }
 
 .include-data input {
-  accent-color: var(--primary-color);
+  accent-color: oklch(var(--p));
 }
 
 .no-objects {
   text-align: center;
   padding: 40px 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
 }
 
@@ -678,13 +678,13 @@ watch(() => props.connectionId, (newId) => {
 .history-count {
   font-size: 11px;
   font-weight: 400;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .history-loading, .history-empty {
   text-align: center;
   padding: 30px 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
 }
 
@@ -705,7 +705,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .history-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .history-item.selected {
@@ -732,13 +732,13 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .item-db {
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .item-conn {
   font-size: 10px;
-  color: var(--main-text-secondary);
-  background: var(--card-bg);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b1));
   padding: 1px 6px;
   border-radius: 3px;
   white-space: nowrap;
@@ -749,7 +749,7 @@ watch(() => props.connectionId, (newId) => {
 
 .item-file {
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -761,7 +761,7 @@ watch(() => props.connectionId, (newId) => {
   align-items: center;
   gap: 10px;
   font-size: 10px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding-left: 22px;
 }
 
@@ -777,8 +777,8 @@ watch(() => props.connectionId, (newId) => {
 .progress-spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--primary-color);
+  border: 3px solid oklch(var(--bc) / 0.1);
+  border-top-color: oklch(var(--p));
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -790,14 +790,14 @@ watch(() => props.connectionId, (newId) => {
 .progress-text {
   margin: 0;
   font-size: 14px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* Context menu */
 .context-menu {
   position: fixed;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
   z-index: 3000;
@@ -814,11 +814,11 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .context-menu-item:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .context-menu-item.danger {
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 /* Confirm dialog */
@@ -833,7 +833,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .confirm-dialog {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
   padding: 24px;
   width: 400px;
@@ -852,7 +852,7 @@ watch(() => props.connectionId, (newId) => {
 }
 
 .confirm-warn {
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-weight: 500;
 }
 

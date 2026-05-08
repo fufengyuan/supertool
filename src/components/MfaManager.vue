@@ -88,7 +88,7 @@
                 :style="{
                   strokeDasharray: circumference,
                   strokeDashoffset: dashOffsetFor(entry),
-                  stroke: remainingFor(entry) <= 5 ? 'var(--danger-color)' : 'var(--card-color)'
+                  stroke: remainingFor(entry) <= 5 ? 'text-error' : 'var(--card-color)'
                 }"
               />
             </svg>
@@ -498,7 +498,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 28px 32px;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-hover), #7c3aed);
+  background: linear-gradient(135deg, oklch(var(--p)), oklch(var(--p) / 0.8), #7c3aed);
   box-shadow: 0 4px 16px rgba(136, 57, 239, 0.2);
   position: relative;
   overflow: hidden;
@@ -570,7 +570,7 @@ onUnmounted(() => {
 
 .mfa-header .btn-add:hover {
   background: #ffffff;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   border-color: #ffffff;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -582,9 +582,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 0;
   padding: 18px 24px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
@@ -600,13 +600,13 @@ onUnmounted(() => {
 .stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   line-height: 1.2;
 }
 
 .stat-label {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -615,7 +615,7 @@ onUnmounted(() => {
 .stat-divider {
   width: 1px;
   height: 32px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   flex-shrink: 0;
 }
 
@@ -626,7 +626,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-align: center;
   gap: 16px;
 }
@@ -635,7 +635,7 @@ onUnmounted(() => {
   width: 120px;
   height: 120px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--primary-light), var(--input-bg));
+  background: linear-gradient(135deg, oklch(var(--p) / 0.1), oklch(var(--b2)));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -645,14 +645,14 @@ onUnmounted(() => {
 
 .empty-icon-wrapper svg {
   opacity: 0.4;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .empty-text {
   font-size: 18px;
   font-weight: 600;
   margin: 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .empty-hint {
@@ -670,7 +670,7 @@ onUnmounted(() => {
   font-weight: 500;
   border: none;
   border-radius: 10px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: #ffffff;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -678,7 +678,7 @@ onUnmounted(() => {
 }
 
 .btn-add-empty:hover {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(136, 57, 239, 0.3);
 }
@@ -694,9 +694,9 @@ onUnmounted(() => {
 }
 
 .mfa-card {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   padding: 0;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -711,7 +711,7 @@ onUnmounted(() => {
 
 .card-color-bar {
   height: 4px;
-  background: linear-gradient(90deg, var(--card-color), var(--primary-hover));
+  background: linear-gradient(90deg, var(--card-color), oklch(var(--p) / 0.8));
   flex-shrink: 0;
 }
 
@@ -753,7 +753,7 @@ onUnmounted(() => {
 .mfa-issuer {
   font-size: 15px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -761,7 +761,7 @@ onUnmounted(() => {
 
 .mfa-account {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -784,7 +784,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -793,13 +793,13 @@ onUnmounted(() => {
 }
 
 .mfa-action-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .mfa-action-delete:hover {
   background: rgba(210, 15, 57, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 /* 底部：验证码 + 倒计时 */
@@ -821,7 +821,7 @@ onUnmounted(() => {
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 4px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   text-align: center;
   display: block;
 }
@@ -847,7 +847,7 @@ onUnmounted(() => {
 
 .timer-bg {
   fill: none;
-  stroke: var(--border-color);
+  stroke: oklch(var(--bc) / 0.1);
   stroke-width: 3;
 }
 
@@ -865,7 +865,7 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   font-size: 14px;
   font-weight: 700;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 /* ======================== 复制提示 ======================== */
@@ -874,8 +874,8 @@ onUnmounted(() => {
   bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--main-text);
-  color: var(--card-bg);
+  background: oklch(var(--bc));
+  color: oklch(var(--b1));
   padding: 10px 20px;
   border-radius: 24px;
   font-size: 14px;
@@ -923,7 +923,7 @@ onUnmounted(() => {
 }
 
 .mfa-dialog {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 20px;
   width: 90%;
   max-width: 520px;
@@ -931,7 +931,7 @@ onUnmounted(() => {
   overflow-y: auto;
   box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.3);
   animation: dialogIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 @keyframes dialogIn {
@@ -948,14 +948,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .mfa-dialog-header h3 {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .mfa-dialog-close {
@@ -964,7 +964,7 @@ onUnmounted(() => {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -974,8 +974,8 @@ onUnmounted(() => {
 }
 
 .mfa-dialog-close:hover {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .mfa-dialog-body {
@@ -1007,33 +1007,33 @@ onUnmounted(() => {
 /* ======================== 高级选项 ======================== */
 .mfa-advanced {
   margin-bottom: 16px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
   overflow: hidden;
   transition: border-color 0.15s ease;
 }
 
 .mfa-advanced:hover {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .mfa-advanced summary {
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   user-select: none;
   transition: background 0.15s ease;
 }
 
 .mfa-advanced summary:hover {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
 }
 
 .mfa-advanced .form-row {
   padding: 14px 16px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .mfa-advanced .form-row .form-field {
@@ -1042,9 +1042,9 @@ onUnmounted(() => {
 
 /* ======================== 预览验证码 ======================== */
 .mfa-preview {
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 10px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   padding: 14px 16px;
   display: flex;
   align-items: center;
@@ -1054,7 +1054,7 @@ onUnmounted(() => {
 
 .preview-label {
   font-size: 12px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-weight: 500;
 }
 
@@ -1063,11 +1063,11 @@ onUnmounted(() => {
   font-size: 22px;
   font-weight: 700;
   letter-spacing: 4px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .mfa-error {
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-size: 13px;
   margin: 0 0 16px 0;
   padding: 10px 14px;
@@ -1081,7 +1081,7 @@ onUnmounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 /* ======================== 表单覆盖 ======================== */
@@ -1090,7 +1090,7 @@ onUnmounted(() => {
 .mfa-dialog-body .form-input,
 .mfa-dialog-body .form-select {
   border-radius: 10px;
-  border: 1.5px solid var(--input-border);
+  border: 1.5px solid oklch(var(--bc) / 0.2);
   padding: 10px 14px;
   transition: all 0.15s ease;
   outline: none;
@@ -1099,8 +1099,8 @@ onUnmounted(() => {
 .mfa-dialog-body .form-textarea:focus,
 .mfa-dialog-body .form-input:focus,
 .mfa-dialog-body .form-select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 
 /* 对话框内按钮圆角 */

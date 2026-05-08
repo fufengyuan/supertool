@@ -84,7 +84,7 @@
               <span class="project-header-count">{{ group.todos.length }}</span>
             </span>
             <span v-else class="project-header-name no-project">
-              <span class="project-color-dot" style="background-color: var(--main-text-secondary)"></span>
+              <span class="project-color-dot" style="background-color: text-base-content/60"></span>
               无项目
               <span class="project-header-count">{{ group.todos.length }}</span>
             </span>
@@ -140,7 +140,7 @@
                 </div>
                 <div v-else class="project-group-header completed-group-header">
                   <span class="project-header-name no-project">
-                    <span class="project-color-dot" style="background-color: var(--main-text-secondary)"></span>
+                    <span class="project-color-dot" style="background-color: text-base-content/60"></span>
                     无项目
                     <span class="project-header-count">{{ group.todos.length }}</span>
                   </span>
@@ -283,7 +283,7 @@
 // @ts-nocheck
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
-import TodoItem from './TodoItem.vue'
+import TodoItem from '@/components/todo/TodoItem.vue'
 import VirtualList from './VirtualList.vue'
 import draggable from 'vuedraggable'
 import { useTodoStore } from '../stores/todoStore'
@@ -882,19 +882,19 @@ setupMenuListeners()
   align-items: center;
   gap: 10px;
   padding: 12px 16px;
-  background: var(--card-bg);
-  border: 2px solid var(--primary-color);
+  background: oklch(var(--b1));
+  border: 2px solid oklch(var(--p));
   border-radius: 14px;
-  box-shadow: 0 2px 12px var(--primary-light);
+  box-shadow: 0 2px 12px oklch(var(--p) / 0.1);
   transition: all 0.2s ease;
   flex-shrink: 0;
 }
 .quick-add-bar:focus-within {
   box-shadow: 0 4px 20px rgba(136, 57, 239, 0.2);
-  border-color: var(--primary-hover);
+  border-color: oklch(var(--p) / 0.8);
 }
 .quick-add-icon {
-  color: var(--primary-color);
+  color: oklch(var(--p));
   flex-shrink: 0;
   opacity: 0.7;
 }
@@ -904,11 +904,11 @@ setupMenuListeners()
   outline: none;
   background: transparent;
   font-size: 15px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-weight: 500;
 }
 .quick-add-input::placeholder {
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
   font-weight: 400;
 }
 .quick-add-priority {
@@ -916,10 +916,10 @@ setupMenuListeners()
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text-secondary);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -927,15 +927,15 @@ setupMenuListeners()
   flex-shrink: 0;
 }
 .quick-add-priority:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 .quick-add-project {
   padding: 4px 8px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -945,11 +945,11 @@ setupMenuListeners()
 }
 .quick-add-project:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
-.priority-dot-low { width: 8px; height: 8px; border-radius: 50%; background: var(--success-color); }
-.priority-dot-medium { width: 8px; height: 8px; border-radius: 50%; background: var(--warning-color); }
-.priority-dot-high { width: 8px; height: 8px; border-radius: 50%; background: var(--danger-color); }
+.priority-dot-low { width: 8px; height: 8px; border-radius: 50%; background: oklch(var(--su)); }
+.priority-dot-medium { width: 8px; height: 8px; border-radius: 50%; background: oklch(var(--wa)); }
+.priority-dot-high { width: 8px; height: 8px; border-radius: 50%; background: oklch(var(--er)); }
 
 /* ===== 顶部工具栏 ===== */
 .todo-toolbar {
@@ -974,28 +974,28 @@ setupMenuListeners()
   min-width: 180px;
   max-width: 520px;
   padding: 7px 12px 7px 32px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 10px center no-repeat;
-  color: var(--main-text);
+  background: oklch(var(--b1)) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 10px center no-repeat;
+  color: oklch(var(--bc));
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .toolbar-search:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 .toolbar-search::placeholder {
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
 }
 
 .toolbar-select {
   padding: 7px 24px 7px 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   font-size: 13px;
   cursor: pointer;
   outline: none;
@@ -1006,10 +1006,10 @@ setupMenuListeners()
   transition: border-color 0.15s ease;
 }
 .toolbar-select:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 .toolbar-select:hover {
-  border-color: var(--main-text-secondary);
+  border-color: oklch(var(--bc) / 0.6);
 }
 
 .toolbar-right {
@@ -1022,9 +1022,9 @@ setupMenuListeners()
 .toolbar-count {
   font-size: 13px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   padding: 4px 10px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 6px;
 }
 
@@ -1033,9 +1033,9 @@ setupMenuListeners()
   align-items: center;
   gap: 5px;
   padding: 7px 14px;
-  background: var(--card-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;
@@ -1044,8 +1044,8 @@ setupMenuListeners()
   transition: all 0.15s ease;
 }
 .add-task-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 .add-task-btn svg {
   flex-shrink: 0;
@@ -1065,22 +1065,22 @@ setupMenuListeners()
 .progress-label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 .progress-count {
   font-size: 12px;
   font-weight: 600;
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 .progress-track {
   height: 4px;
-  background: var(--input-bg);
+  background: oklch(var(--b2));
   border-radius: 4px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary-color), var(--primary-hover));
+  background: linear-gradient(90deg, oklch(var(--p)), oklch(var(--p) / 0.8));
   border-radius: 4px;
   transition: width 0.4s ease;
 }
@@ -1091,34 +1091,34 @@ setupMenuListeners()
   align-items: center;
   gap: 5px;
   padding: 3px 10px;
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   border-radius: 6px;
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   flex-shrink: 0;
 }
 .keyboard-hint kbd {
   display: inline-block;
   padding: 1px 5px;
   border-radius: 3px;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 10px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-family: inherit;
 }
 :deep(.todo-item.keyboard-focused) {
-  outline: 2px solid var(--primary-color);
+  outline: 2px solid oklch(var(--p));
   outline-offset: -2px;
   border-radius: 10px;
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 /* ===== 任务卡片容器 ===== */
 .todo-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   display: flex;
@@ -1146,7 +1146,7 @@ setupMenuListeners()
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
 }
 
 .completed-group-header {
@@ -1160,14 +1160,14 @@ setupMenuListeners()
   gap: 6px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   padding: 2px 0 2px 10px;
-  border-left: 3px solid var(--primary-color);
+  border-left: 3px solid oklch(var(--p));
 }
 
 .project-header-name.no-project {
-  color: var(--main-text-secondary);
-  border-left-color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
+  border-left-color: oklch(var(--bc) / 0.6);
 }
 
 .project-color-dot {
@@ -1180,19 +1180,19 @@ setupMenuListeners()
 .project-header-count {
   font-size: 11px;
   font-weight: 400;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-left: 2px;
 }
 
 .draggable-list { min-height: 10px; }
 .virtual-todo-list { border-radius: 8px; }
 .virtual-todo-list > .virtual-list { height: 100% !important; }
-.drag-ghost { opacity: 0.4; background: var(--primary-light); }
-.drag-chosen { box-shadow: 0 0 0 2px var(--primary-color); }
+.drag-ghost { opacity: 0.4; background: oklch(var(--p) / 0.1); }
+.drag-chosen { box-shadow: 0 0 0 2px oklch(var(--p)); }
 
 /* ===== 已完成折叠区 ===== */
 .completed-section {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
   margin-top: 4px;
   padding: 0;
 }
@@ -1204,14 +1204,14 @@ setupMenuListeners()
   padding: 10px 16px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 .completed-toggle:hover {
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 .completed-toggle svg {
   transition: transform 0.2s ease;
@@ -1250,10 +1250,10 @@ setupMenuListeners()
   align-items: center;
   justify-content: center;
   padding: 80px 20px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 .empty-state-icon { opacity: 0.12; margin-bottom: 20px; }
-.empty-state-title { font-size: 16px; font-weight: 600; color: var(--main-text); margin: 0 0 8px 0; }
+.empty-state-title { font-size: 16px; font-weight: 600; color: oklch(var(--bc)); margin: 0 0 8px 0; }
 .empty-state-hint { font-size: 13px; margin: 0; opacity: 0.7; }
 
 /* ===== 批量操作 ===== */
@@ -1268,29 +1268,29 @@ setupMenuListeners()
 .batch-actions { display: flex; gap: 6px; }
 .batch-btn {
   padding: 5px 12px;
-  border: 1px solid var(--border-color);
-  background: var(--card-bg);
-  color: var(--main-text);
+  border: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
   transition: all 0.15s ease;
 }
-.batch-btn.complete:hover { border-color: var(--success-color); color: var(--success-color); background: rgba(34, 197, 94, 0.05); }
-.batch-btn.delete:hover { border-color: var(--danger-color); color: var(--danger-color); background: rgba(239, 68, 68, 0.05); }
+.batch-btn.complete:hover { border-color: oklch(var(--su)); color: oklch(var(--su)); background: rgba(34, 197, 94, 0.05); }
+.batch-btn.delete:hover { border-color: oklch(var(--er)); color: oklch(var(--er)); background: rgba(239, 68, 68, 0.05); }
 .single-actions { margin-left: auto; }
 .clear-btn {
   padding: 5px 12px;
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
   cursor: pointer;
   font-size: 12px;
   transition: all 0.15s ease;
 }
-.clear-btn:hover { color: var(--warning-color); border-color: var(--warning-color); }
+.clear-btn:hover { color: oklch(var(--wa)); border-color: oklch(var(--wa)); }
 
 /* ===== 弹窗 ===== */
 .modal-overlay {
@@ -1317,9 +1317,9 @@ setupMenuListeners()
 .modal-dialog {
   width: 540px;
   max-height: 85vh;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
@@ -1332,14 +1332,14 @@ setupMenuListeners()
   align-items: center;
   justify-content: space-between;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .modal-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .modal-close {
@@ -1347,7 +1347,7 @@ setupMenuListeners()
   height: 32px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   border-radius: 8px;
@@ -1357,8 +1357,8 @@ setupMenuListeners()
   transition: all 0.15s ease;
 }
 .modal-close:hover {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
 }
 
 .modal-body {
@@ -1374,7 +1374,7 @@ setupMenuListeners()
   display: block;
   font-size: 12px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 5px;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -1394,20 +1394,20 @@ setupMenuListeners()
 .form-input, .form-select {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .form-input:focus, .form-select:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 .form-input::placeholder {
-  color: var(--empty-color);
+  color: oklch(var(--bc) / 0.4);
 }
 .form-input.textarea {
   resize: vertical;
@@ -1429,15 +1429,15 @@ setupMenuListeners()
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 24px;
-  border-top: 1px solid var(--border-color);
-  background: var(--input-bg);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
 }
 
 .modal-cancel {
   padding: 8px 20px;
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
@@ -1445,13 +1445,13 @@ setupMenuListeners()
   transition: all 0.15s ease;
 }
 .modal-cancel:hover {
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
 
 .modal-confirm {
   padding: 8px 24px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 8px;
@@ -1461,7 +1461,7 @@ setupMenuListeners()
   transition: all 0.15s ease;
 }
 .modal-confirm:hover {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   transform: translateY(-1px);
 }
 .modal-confirm:active {

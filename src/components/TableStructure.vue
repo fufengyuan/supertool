@@ -501,8 +501,8 @@ const {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
 }
 
 /* ============ Toolbar ============ */
@@ -511,8 +511,8 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--main-bg);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
   flex-shrink: 0;
 }
 
@@ -535,8 +535,8 @@ const {
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
@@ -552,10 +552,10 @@ const {
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 6px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
@@ -564,9 +564,9 @@ const {
 }
 
 .ts-btn:hover:not(:disabled) {
-  background: var(--primary-light);
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .ts-btn:disabled {
@@ -575,13 +575,13 @@ const {
 }
 
 .ts-btn-primary {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: oklch(var(--p));
+  border-color: oklch(var(--p));
   color: #fff;
 }
 
 .ts-btn-primary:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   color: #fff;
 }
 
@@ -591,14 +591,14 @@ const {
 }
 
 .ts-btn-ghost:hover:not(:disabled) {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   border-color: transparent;
 }
 
 .ts-btn-danger:hover:not(:disabled) {
-  background: var(--primary-light);
-  border-color: var(--danger-color);
-  color: var(--danger-color);
+  background: oklch(var(--p) / 0.1);
+  border-color: oklch(var(--er));
+  color: oklch(var(--er));
 }
 
 .ts-btn-sm {
@@ -619,20 +619,20 @@ const {
   height: 24px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .ts-btn-icon:hover {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .ts-btn-icon.ts-btn-danger:hover {
-  background: var(--primary-light);
-  color: var(--danger-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--er));
 }
 
 .ts-btn-close {
@@ -643,13 +643,13 @@ const {
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   border-radius: 4px;
   cursor: pointer;
 }
 
 .ts-btn-close:hover {
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
 }
 
 /* ============ Loading / Error ============ */
@@ -659,7 +659,7 @@ const {
   justify-content: center;
   gap: 8px;
   padding: 48px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
 }
 
@@ -684,7 +684,7 @@ const {
   margin: 16px;
   border-radius: 8px;
   background: rgba(210, 15, 57, 0.08);
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-size: 13px;
 }
 
@@ -697,10 +697,10 @@ const {
   display: flex;
   align-items: center;
   gap: 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   padding: 0 16px;
   flex-shrink: 0;
-  background: var(--main-bg);
+  background: oklch(var(--b2));
 }
 
 .ts-tab {
@@ -710,7 +710,7 @@ const {
   padding: 10px 16px;
   font-size: 13px;
   font-weight: 500;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
@@ -718,13 +718,13 @@ const {
 }
 
 .ts-tab:hover {
-  color: var(--main-text);
-  background: var(--primary-light);
+  color: oklch(var(--bc));
+  background: oklch(var(--p) / 0.1);
 }
 
 .ts-tab.active {
-  color: var(--primary-color);
-  border-bottom-color: var(--primary-color);
+  color: oklch(var(--p));
+  border-bottom-color: oklch(var(--p));
 }
 
 .ts-tab-badge {
@@ -735,7 +735,7 @@ const {
   height: 16px;
   padding: 0 4px;
   border-radius: 8px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -754,13 +754,13 @@ const {
   align-items: center;
   gap: 6px;
   padding: 8px 12px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   flex-shrink: 0;
 }
 
 .ts-hint {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-left: auto;
 }
 
@@ -787,16 +787,16 @@ const {
   text-align: left;
   font-weight: 600;
   font-size: 11px;
-  color: var(--main-text-secondary);
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   white-space: nowrap;
   user-select: none;
 }
 
 .ts-table td {
   padding: 2px 4px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   white-space: nowrap;
   vertical-align: middle;
 }
@@ -850,7 +850,7 @@ const {
 }
 
 .ts-row-selected td {
-  background: var(--primary-light) !important;
+  background: oklch(var(--p) / 0.1) !important;
 }
 
 .ts-row-dragging {
@@ -858,14 +858,14 @@ const {
 }
 
 .ts-row-dragging td {
-  border-top: 2px solid var(--primary-color) !important;
-  border-bottom: 2px solid var(--primary-color) !important;
+  border-top: 2px solid oklch(var(--p)) !important;
+  border-bottom: 2px solid oklch(var(--p)) !important;
 }
 
 /* Drop indicator */
 .ts-drop-indicator {
   height: 3px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   position: relative;
 }
 
@@ -877,7 +877,7 @@ const {
   transform: translateY(-50%);
   width: 8px;
   height: 8px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   border-radius: 50%;
 }
 
@@ -891,7 +891,7 @@ const {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 12px;
   font-family: inherit;
   outline: none;
@@ -899,13 +899,13 @@ const {
 }
 
 .ts-input:hover {
-  border-color: var(--border-color);
-  background: var(--card-bg);
+  border-color: oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
 }
 
 .ts-input:focus {
-  border-color: var(--primary-color);
-  background: var(--card-bg);
+  border-color: oklch(var(--p));
+  background: oklch(var(--b1));
   box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.15);
 }
 
@@ -921,7 +921,7 @@ const {
 }
 
 .ts-input-pri {
-  color: var(--primary-color);
+  color: oklch(var(--p));
 }
 
 .ts-select {
@@ -930,7 +930,7 @@ const {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   outline: none;
@@ -939,13 +939,13 @@ const {
 }
 
 .ts-select:hover {
-  border-color: var(--border-color);
-  background: var(--card-bg);
+  border-color: oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
 }
 
 .ts-select:focus {
-  border-color: var(--primary-color);
-  background: var(--card-bg);
+  border-color: oklch(var(--p));
+  background: oklch(var(--b1));
 }
 
 .ts-select-sm {
@@ -972,7 +972,7 @@ const {
   width: 32px;
   height: 18px;
   border-radius: 9px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   position: relative;
   transition: all 0.2s;
 }
@@ -984,13 +984,13 @@ const {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: var(--main-text);
+  background: oklch(var(--bc));
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .ts-toggle input:checked + .ts-toggle-track {
-  background: var(--primary-color);
+  background: oklch(var(--p));
 }
 
 .ts-toggle input:checked + .ts-toggle-track .ts-toggle-thumb {
@@ -1000,7 +1000,7 @@ const {
 /* ============ Drag Handle ============ */
 .ts-drag-handle {
   display: inline-block;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 14px;
   line-height: 1;
   cursor: grab;
@@ -1031,7 +1031,7 @@ const {
   padding: 1px 6px;
   border-radius: 3px;
   background: rgba(210, 15, 57, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 :root.dark .ts-deleted-badge {
@@ -1042,7 +1042,7 @@ const {
 .ts-empty {
   text-align: center;
   padding: 32px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 13px;
 }
 
@@ -1067,7 +1067,7 @@ const {
   width: 720px;
   max-width: 90vw;
   max-height: 80vh;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -1086,7 +1086,7 @@ const {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .ts-modal-title {
@@ -1110,12 +1110,12 @@ const {
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 20px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .ts-modal-hint {
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin: 0 0 12px;
 }
 
@@ -1124,7 +1124,7 @@ const {
   padding: 8px 12px;
   border-radius: 6px;
   background: rgba(210, 15, 57, 0.08);
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-size: 12px;
 }
 
@@ -1134,13 +1134,13 @@ const {
 
 /* ============ SQL Preview ============ */
 .ts-sql-stmt code {
-  color: var(--success-color);
+  color: oklch(var(--su));
   word-break: break-all;
 }
 
 .ts-sql-preview {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
   padding: 12px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
@@ -1154,7 +1154,7 @@ const {
   display: flex;
   gap: 8px;
   padding: 4px 0;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .ts-sql-stmt:last-child {
@@ -1162,7 +1162,7 @@ const {
 }
 
 .ts-sql-num {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   user-select: none;
   min-width: 20px;
   text-align: right;
@@ -1180,12 +1180,12 @@ const {
 }
 
 .ts-table-wrapper::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 4px;
 }
 
 .ts-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: var(--main-text-secondary);
+  background: oklch(var(--bc) / 0.6);
 }
 
 .ts-sql-preview::-webkit-scrollbar {
@@ -1197,7 +1197,7 @@ const {
 }
 
 .ts-sql-preview::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
 }
 
@@ -1209,12 +1209,12 @@ const {
 .ts-loading-inline {
   text-align: center;
   padding: 24px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .ts-create-sql {
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   padding: 16px;
   border-radius: 8px;
   font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
@@ -1236,7 +1236,7 @@ const {
 }
 
 .ts-create-sql::-webkit-scrollbar-thumb {
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
 }
 </style>

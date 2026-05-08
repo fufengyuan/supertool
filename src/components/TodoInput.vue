@@ -128,10 +128,10 @@ const addTodo = () => {
   flex-direction: column;
   gap: 8px;
   margin-bottom: 20px;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   padding: 16px;
   border-radius: 10px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 .input-row {
   display: grid;
@@ -141,16 +141,16 @@ const addTodo = () => {
 }
 .todo-input-field {
   padding: 8px 12px;
-  border: 1px solid var(--input-border);
+  border: 1px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   outline: none;
 }
 .todo-input-field:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 2px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.1);
 }
 .todo-input-field.textarea {
   resize: vertical;
@@ -158,17 +158,17 @@ const addTodo = () => {
 }
 .priority-select {
   padding: 8px 10px;
-  border: 1px solid var(--input-border);
+  border: 1px solid oklch(var(--bc) / 0.2);
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   cursor: pointer;
 }
 .add-btn {
   align-self: flex-end;
   padding: 8px 20px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
   border: none;
   border-radius: 6px;
@@ -177,7 +177,7 @@ const addTodo = () => {
   cursor: pointer;
 }
 .add-btn:hover {
-  background: var(--primary-hover);
+  background: oklch(var(--p) / 0.8);
   transform: translateY(-1px);
 }
 </style>

@@ -1,50 +1,46 @@
 <template>
-  <div class="project-todo-list">
-    <div class="task-input-section">
+  <div>
+    <div class="flex gap-3 mb-5">
       <input
         v-model="newTaskText"
         @keyup.enter="addTask"
         placeholder="添加任务到此项目..."
-        class="task-input"
+        class="input input-bordered flex-1 text-lg"
       />
-      <button @click="addTask" class="add-task-btn">添加</button>
+      <button @click="addTask" class="btn btn-primary px-6 py-3 font-medium">添加</button>
     </div>
 
-    <div class="tasks-list">
+    <div class="mb-5">
       <div
         v-for="task in tasks"
         :key="task.id"
-        class="task-item"
-        :class="{ completed: task.completed }"
+        class="card bg-base-200 p-4 mb-3 flex items-center gap-3"
+        :class="task.completed ? 'opacity-70' : ''"
       >
-        <div class="task-content">
+        <div class="flex-1 flex items-center gap-3">
           <input
             type="checkbox"
             :checked="task.completed"
             @change="toggleTask(task)"
-            class="task-checkbox"
+            class="checkbox checkbox-sm cursor-pointer"
           />
-          <span class="task-text">{{ task.text }}</span>
+          <span class="text-lg" :class="task.completed ? 'line-through text-base-content/50' : ''">{{ task.text }}</span>
         </div>
-        <div class="task-meta">
-          <span v-if="task.dueDate" class="due-date">📅 {{ formatDate(task.dueDate) }}</span>
-          <span class="priority-badge" :class="task.priority || 'medium'">
+        <div class="flex gap-3 items-center">
+          <span v-if="task.dueDate" class="text-sm text-base-content/70 whitespace-nowrap">📅 {{ formatDate(task.dueDate) }}</span>
+          <span class="text-xs font-medium px-2 py-1 rounded whitespace-nowrap"
+            :class="task.priority === 'low' ? 'bg-success/10 text-success' : task.priority === 'high' ? 'bg-error/10 text-error' : 'bg-warning/10 text-warning'">
             {{ priorityLabel(task.priority) }}
           </span>
         </div>
-        <button @click="deleteTask(task)" class="delete-task-btn">🗑️</button>
+        <button @click="deleteTask(task)" class="btn btn-ghost btn-xs opacity-60 hover:opacity-100">🗑️</button>
       </div>
     </div>
 
     <!-- 进度条 -->
-    <div class="progress-container">
-      <div class="progress-bar">
-        <div
-          class="progress-fill"
-          :style="{ width: stats.progress + '%', backgroundColor: projectColor }"
-        ></div>
-      </div>
-      <span class="progress-text">{{ stats.completed }} / {{ stats.total }} 任务完成</span>
+    <div class="flex items-center gap-3">
+      <progress class="progress progress-primary flex-1 h-3" :value="stats.progress" max="100"></progress>
+      <span class="text-sm text-base-content/70 whitespace-nowrap">{{ stats.completed }} / {{ stats.total }} 任务完成</span>
     </div>
   </div>
 </template>
@@ -87,29 +83,3 @@ const addTask = async () => {
 const toggleTask = (task) => { emit('task-toggled', task) }
 const deleteTask = (task) => { emit('task-deleted', task) }
 </script>
-
-<style scoped>
-.task-input-section { display: flex; gap: 12px; margin-bottom: 20px; }
-.task-input { flex: 1; padding: 12px 16px; border: 2px solid var(--input-border); border-radius: 8px; background-color: var(--input-bg); color: var(--main-text); font-size: 16px; }
-.add-task-btn { padding: 12px 24px; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; transition: all 0.3s ease; }
-.add-task-btn:hover { background: var(--primary-hover); transform: translateY(-2px); }
-.tasks-list { margin-bottom: 20px; }
-.task-item { background: var(--card-bg); padding: 16px; border-radius: 8px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; box-shadow: var(--card-shadow); }
-.task-item.completed { opacity: 0.7; background: var(--input-bg); }
-.task-content { flex: 1; display: flex; align-items: center; gap: 12px; }
-.task-checkbox { width: 18px; height: 18px; cursor: pointer; }
-.task-text { flex: 1; font-size: 16px; }
-.task-item.completed .task-text { text-decoration: line-through; color: var(--main-text-secondary); }
-.task-meta { display: flex; gap: 12px; align-items: center; }
-.due-date { font-size: 14px; color: var(--main-text-secondary); white-space: nowrap; }
-.priority-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; white-space: nowrap; }
-.priority-badge.low { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
-.priority-badge.medium { background: rgba(245, 158, 11, 0.1); color: var(--warning-color); }
-.priority-badge.high { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
-.delete-task-btn { background: none; border: none; cursor: pointer; font-size: 16px; opacity: 0.6; transition: opacity 0.3s ease; }
-.delete-task-btn:hover { opacity: 1; }
-.progress-container { display: flex; align-items: center; gap: 12px; }
-.progress-bar { flex: 1; height: 12px; background: var(--input-bg); border-radius: 6px; overflow: hidden; }
-.progress-fill { height: 100%; transition: width 0.3s ease; }
-.progress-text { font-size: 14px; color: var(--main-text-secondary); white-space: nowrap; }
-</style>

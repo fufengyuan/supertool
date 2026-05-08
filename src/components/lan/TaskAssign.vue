@@ -122,7 +122,7 @@ async function assign() {
 }
 
 .task-assign-modal {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px;
   width: 90%;
   max-width: 600px;
@@ -138,10 +138,10 @@ async function assign() {
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   position: sticky;
   top: 0;
-  background: var(--card-bg);
+  background: oklch(var(--b1));
   border-radius: 16px 16px 0 0;
   z-index: 1;
 }
@@ -150,7 +150,7 @@ async function assign() {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 .task-assign-close-btn {
@@ -159,7 +159,7 @@ async function assign() {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   font-size: 20px;
   cursor: pointer;
   display: flex;
@@ -170,8 +170,8 @@ async function assign() {
 }
 
 .task-assign-close-btn:hover {
-  background: var(--primary-light);
-  color: var(--primary-color);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
 }
 
 .task-assign-body {
@@ -183,6 +183,6 @@ async function assign() {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 </style>

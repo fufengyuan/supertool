@@ -185,7 +185,7 @@
           <div class="form-row"><label>接口地址</label><input v-model="wgForm.address" class="password-input" placeholder="10.0.0.2/32" /></div>
           <div class="form-row"><label>DNS (可选)</label><input v-model="wgForm.dns" class="password-input" placeholder="1.1.1.1" /></div>
           <div class="form-row"><label>MTU (可选)</label><input v-model="wgForm.mtu" type="number" class="password-input" placeholder="1420" /></div>
-          <hr style="border-color:var(--input-bg);margin:4px 0" />
+          <hr style="border-color:bg-base-200;margin:4px 0" />
           <div class="form-row"><label>对端公钥 *</label><input v-model="wgForm.peerPublicKey" class="password-input" placeholder="Base64 公钥" /></div>
           <div class="form-row"><label>对端地址 *</label><input v-model="wgForm.peerEndpoint" class="password-input" placeholder="server.com:51820" /></div>
           <div class="form-row"><label>允许 IP</label><input v-model="wgForm.peerAllowedIPs" class="password-input" placeholder="0.0.0.0/0" /></div>
@@ -320,15 +320,15 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 </script>
 
 <style scoped>
-.vpn-manager { display: flex; flex-direction: column; height: 100%; background: var(--main-bg); overflow: hidden; }
-.vpn-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: var(--card-bg); border-bottom: 1px solid var(--input-bg); }
+.vpn-manager { display: flex; flex-direction: column; height: 100%; background: oklch(var(--b2)); overflow: hidden; }
+.vpn-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; background: oklch(var(--b1)); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-header-left { display: flex; align-items: center; gap: 10px; }
 .vpn-icon { font-size: 24px; }
-.vpn-title { font-size: 18px; font-weight: 600; margin: 0; color: var(--main-text); }
+.vpn-title { font-size: 18px; font-weight: 600; margin: 0; color: oklch(var(--bc)); }
 .vpn-header-tabs { display: flex; gap: 4px; }
-.tab-btn { padding: 6px 16px; border: 1px solid var(--input-bg); border-radius: 8px; background: transparent; color: var(--main-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-.tab-btn.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
-.tab-btn:hover:not(.active) { background: var(--input-bg); }
+.tab-btn { padding: 6px 16px; border: 1px solid oklch(var(--b2)); border-radius: 8px; background: transparent; color: oklch(var(--bc) / 0.6); font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+.tab-btn.active { background: oklch(var(--p)); color: #fff; border-color: oklch(var(--p)); }
+.tab-btn:hover:not(.active) { background: oklch(var(--b2)); }
 .protocol-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 .vpn-banner { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; margin: 12px 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; color: #856404; }
 .banner-text strong { display: block; margin-bottom: 4px; }
@@ -352,24 +352,24 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 .traffic-stats { font-size: 13px; font-weight: 500; opacity: 0.8; white-space: nowrap; }
 .status-actions { display: flex; gap: 8px; }
 .vpn-layout { display: flex; flex: 1; overflow: hidden; margin: 12px 20px 20px; gap: 16px; min-height: 0; }
-.vpn-sidebar { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 10px; overflow: hidden; }
-.vpn-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--main-text-secondary); border-bottom: 1px solid var(--input-bg); }
+.vpn-sidebar { width: 420px; flex-shrink: 0; display: flex; flex-direction: column; background: oklch(var(--b1)); border-radius: 10px; overflow: hidden; }
+.vpn-sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: oklch(var(--bc) / 0.6); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-sidebar-actions { display: flex; gap: 4px; }
 .vpn-config-list { flex: 1; overflow-y: auto; padding: 8px; }
 .vpn-config-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; margin-bottom: 4px; border-radius: 8px; cursor: pointer; transition: background 0.15s; border-left: 3px solid transparent; }
-.vpn-config-item:hover { background: var(--input-bg); }
-.vpn-config-item.active { background: var(--primary-light); border-left-color: var(--primary-color); }
+.vpn-config-item:hover { background: oklch(var(--b2)); }
+.vpn-config-item.active { background: oklch(var(--p) / 0.1); border-left-color: oklch(var(--p)); }
 .vpn-config-item.is-connecting { background: #e3f2fd; border-left-color: #2196f3; }
 .config-info { flex: 1; min-width: 0; }
-.config-name { display: block; font-size: 14px; font-weight: 500; color: var(--main-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.config-path { display: block; font-size: 11px; color: var(--main-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.config-name { display: block; font-size: 14px; font-weight: 500; color: oklch(var(--bc)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.config-path { display: block; font-size: 11px; color: oklch(var(--bc) / 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
 .config-actions { display: flex; gap: 4px; flex-shrink: 0; }
 .config-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 4px; font-size: 14px; transition: background 0.15s; }
 .config-btn:hover { background: rgba(0,0,0,0.1); }
-.vpn-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: var(--main-text-secondary); }
+.vpn-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; text-align: center; color: oklch(var(--bc) / 0.6); }
 .vpn-empty p { margin: 12px 0 16px; }
-.vpn-main { flex: 1; display: flex; flex-direction: column; background: var(--card-bg); border-radius: 10px; overflow: hidden; min-width: 0; }
-.vpn-log-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: var(--main-text-secondary); border-bottom: 1px solid var(--input-bg); }
+.vpn-main { flex: 1; display: flex; flex-direction: column; background: oklch(var(--b1)); border-radius: 10px; overflow: hidden; min-width: 0; }
+.vpn-log-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; font-size: 13px; font-weight: 600; color: oklch(var(--bc) / 0.6); border-bottom: 1px solid oklch(var(--b2)); }
 .vpn-log { flex: 1; overflow-y: auto; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace; font-size: 12px; line-height: 1.5; background: #1e1e2e; color: #cdd6f4; }
 .log-line { white-space: pre-wrap; word-break: break-all; }
 .log-line.log-success { color: #a6e3a1; }
@@ -380,25 +380,25 @@ function getLogClass(line: string): string { if (line.includes('✅') || line.in
 .btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; transition: all 0.15s; }
 .btn-sm { padding: 4px 10px; font-size: 12px; }
 .btn-xs { padding: 2px 8px; font-size: 11px; }
-.btn-primary { background: var(--primary-color); color: white; }
-.btn-primary:hover:not(:disabled) { background: var(--primary-light); }
-.btn-ghost { background: transparent; color: var(--main-text); border: 1px solid var(--input-bg); }
-.btn-ghost:hover:not(:disabled) { background: var(--input-bg); }
-.btn-danger { background: var(--danger-color); color: white; }
+.btn-primary { background: oklch(var(--p)); color: white; }
+.btn-primary:hover:not(:disabled) { background: oklch(var(--p) / 0.1); }
+.btn-ghost { background: transparent; color: oklch(var(--bc)); border: 1px solid oklch(var(--b2)); }
+.btn-ghost:hover:not(:disabled) { background: oklch(var(--b2)); }
+.btn-danger { background: oklch(var(--er)); color: white; }
 .btn-danger:hover:not(:disabled) { opacity: 0.9; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .form-row { display: flex; flex-direction: column; gap: 4px; }
-.form-row label { font-size: 12px; font-weight: 600; color: var(--main-text-secondary); }
+.form-row label { font-size: 12px; font-weight: 600; color: oklch(var(--bc) / 0.6); }
 
 .password-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-.password-dialog { background: var(--card-bg); border-radius: 12px; padding: 24px; width: 600px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid var(--input-bg); }
-.password-dialog-header { font-size: 18px; font-weight: 600; color: var(--main-text); margin-bottom: 12px; }
-.password-dialog-body { font-size: 14px; color: var(--main-text); margin-bottom: 16px; line-height: 1.5; }
+.password-dialog { background: oklch(var(--b1)); border-radius: 12px; padding: 24px; width: 600px; max-width: 90vw; box-shadow: 0 20px 60px rgba(0,0,0,0.3); border: 1px solid oklch(var(--b2)); }
+.password-dialog-header { font-size: 18px; font-weight: 600; color: oklch(var(--bc)); margin-bottom: 12px; }
+.password-dialog-body { font-size: 14px; color: oklch(var(--bc)); margin-bottom: 16px; line-height: 1.5; }
 .password-dialog-input { margin-bottom: 16px; }
-.password-input { width: 100%; padding: 10px 12px; border: 1px solid var(--input-bg); border-radius: 8px; font-size: 14px; background: var(--input-bg); color: var(--main-text); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
-.password-input:focus { border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
+.password-input { width: 100%; padding: 10px 12px; border: 1px solid oklch(var(--b2)); border-radius: 8px; font-size: 14px; background: oklch(var(--b2)); color: oklch(var(--bc)); outline: none; transition: border-color 0.15s; box-sizing: border-box; }
+.password-input:focus { border-color: oklch(var(--p)); box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
 .password-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 12px; }
-.password-dialog-hint { font-size: 11px; color: var(--main-text); opacity: 0.7; line-height: 1.5; padding: 8px 10px; background: rgba(0,0,0,0.03); border-radius: 6px; }
+.password-dialog-hint { font-size: 11px; color: oklch(var(--bc)); opacity: 0.7; line-height: 1.5; padding: 8px 10px; background: rgba(0,0,0,0.03); border-radius: 6px; }
 .password-dialog-hint code { font-size: 10px; background: rgba(0,0,0,0.08); padding: 1px 4px; border-radius: 3px; word-break: break-all; }
 </style>

@@ -154,11 +154,11 @@ onMounted(() => { if (expanded.value) loadSubtasks(); });
 .subtask-list.collapsed { opacity: 0.8; }
 .subtask-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 12px; background-color: var(--input-bg); cursor: pointer; user-select: none;
+  padding: 8px 12px; background-color: oklch(var(--b2)); cursor: pointer; user-select: none;
 }
 .progress-bar { display: flex; align-items: center; gap: 8px; flex: 1; }
 .progress-track {
-  flex: 1; height: 12px; background-color: var(--border-color);
+  flex: 1; height: 12px; background-color: oklch(var(--bc) / 0.1);
   border-radius: 6px; overflow: hidden; position: relative;
 }
 .progress-fill {
@@ -166,18 +166,18 @@ onMounted(() => { if (expanded.value) loadSubtasks(); });
   border-radius: 6px; transition: width 0.3s ease;
 }
 .progress-text {
-  font-size: 12px; font-weight: 600; color: var(--main-text);
+  font-size: 12px; font-weight: 600; color: oklch(var(--bc));
   min-width: 40px; text-align: right;
 }
-.expand-icon { font-size: 12px; margin-left: 8px; color: var(--main-text); }
+.expand-icon { font-size: 12px; margin-left: 8px; color: oklch(var(--bc)); }
 .subtask-content {
-  padding: 12px; background-color: var(--card-bg); border-top: 1px solid var(--border-color);
+  padding: 12px; background-color: oklch(var(--b1)); border-top: 1px solid oklch(var(--bc) / 0.1);
 }
 .add-subtask-btn {
-  width: 100%; padding: 8px; background-color: var(--input-bg); color: var(--main-text);
-  border: 1px dashed var(--border-color); border-radius: 6px; cursor: pointer;
+  width: 100%; padding: 8px; background-color: oklch(var(--b2)); color: oklch(var(--bc));
+  border: 1px dashed oklch(var(--bc) / 0.1); border-radius: 6px; cursor: pointer;
   font-size: 14px; margin-bottom: 12px;
 }
-.add-subtask-btn:hover { background-color: var(--completed-bg); }
+.add-subtask-btn:hover { background-color: oklch(var(--su) / 0.1); }
 .subtasks { display: flex; flex-direction: column; gap: 6px; }
 </style>

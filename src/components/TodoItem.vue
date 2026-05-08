@@ -101,7 +101,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
-import SubtaskList from './subtask/SubtaskList.vue'
+import SubtaskList from '@/components/subtask/SubtaskList.vue'
 
 defineOptions({ inheritAttrs: false })
 
@@ -216,8 +216,8 @@ const priorityShort = (p: string) => {
   gap: 0;
   padding: 0 14px;
   height: 44px;
-  border-bottom: 1px solid var(--border-color);
-  background: var(--card-bg);
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b1));
   cursor: default;
   position: relative;
   transition: all 0.15s ease;
@@ -227,8 +227,8 @@ const priorityShort = (p: string) => {
   border-bottom: none;
 }
 .todo-item:hover {
-  background: var(--input-bg);
-  box-shadow: inset 0 0 0 1px var(--border-color);
+  background: oklch(var(--b2));
+  box-shadow: inset 0 0 0 1px oklch(var(--bc) / 0.1);
 }
 .todo-item:hover .drag-handle { opacity: 1; }
 .todo-item:hover .todo-actions { opacity: 1; }
@@ -248,16 +248,16 @@ const priorityShort = (p: string) => {
   transition: opacity 0.15s ease;
 }
 .todo-item:hover .priority-bar { opacity: 1; }
-.priority-bar.priority-high { background: var(--danger-color); }
-.priority-bar.priority-medium { background: var(--warning-color); }
-.priority-bar.priority-low { background: var(--success-color); }
+.priority-bar.priority-high { background: oklch(var(--er)); }
+.priority-bar.priority-medium { background: oklch(var(--wa)); }
+.priority-bar.priority-low { background: oklch(var(--su)); }
 
 /* 拖拽 */
 .drag-handle {
   width: 18px;
   text-align: center;
   font-size: 14px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: grab;
   opacity: 0;
   transition: opacity 0.15s;
@@ -271,7 +271,7 @@ const priorityShort = (p: string) => {
   width: 20px;
   height: 20px;
   min-width: 20px;
-  border: 2px solid var(--border-color);
+  border: 2px solid oklch(var(--bc) / 0.1);
   border-radius: 50%;
   cursor: pointer;
   margin: 0 10px 0 4px;
@@ -280,12 +280,12 @@ const priorityShort = (p: string) => {
   flex-shrink: 0;
 }
 .todo-check:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px var(--primary-light);
+  border-color: oklch(var(--p));
+  box-shadow: 0 0 0 3px oklch(var(--p) / 0.1);
 }
 .todo-check:checked {
-  background: var(--primary-color);
-  border-color: var(--primary-color);
+  background: oklch(var(--p));
+  border-color: oklch(var(--p));
   animation: checkPop 0.25s ease;
 }
 .todo-check:checked::after {
@@ -309,7 +309,7 @@ const priorityShort = (p: string) => {
   flex: 1;
   min-width: 0;
   font-size: 14px;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -318,7 +318,7 @@ const priorityShort = (p: string) => {
 }
 .todo-text.done {
   text-decoration: line-through;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 .todo-text :deep(mark) {
   background: rgba(250, 204, 21, 0.35);
@@ -337,12 +337,12 @@ const priorityShort = (p: string) => {
 
 .meta-due {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   white-space: nowrap;
   font-weight: 500;
 }
 .meta-due.overdue {
-  color: var(--danger-color);
+  color: oklch(var(--er));
   font-weight: 600;
 }
 
@@ -355,16 +355,16 @@ const priorityShort = (p: string) => {
   letter-spacing: 0.2px;
   white-space: nowrap;
 }
-.meta-priority.high { color: var(--danger-color); background: rgba(239, 68, 68, 0.1); }
-.meta-priority.medium { color: var(--warning-color); background: rgba(245, 158, 11, 0.1); }
-.meta-priority.low { color: var(--success-color); background: rgba(34, 197, 94, 0.1); }
+.meta-priority.high { color: oklch(var(--er)); background: rgba(239, 68, 68, 0.1); }
+.meta-priority.medium { color: oklch(var(--wa)); background: rgba(245, 158, 11, 0.1); }
+.meta-priority.low { color: oklch(var(--su)); background: rgba(34, 197, 94, 0.1); }
 
 .meta-tag {
   font-size: 11px;
-  color: var(--primary-color);
+  color: oklch(var(--p));
   padding: 2px 6px;
   border-radius: 4px;
-  background: var(--primary-light);
+  background: oklch(var(--p) / 0.1);
   white-space: nowrap;
   font-weight: 500;
 }
@@ -393,7 +393,7 @@ const priorityShort = (p: string) => {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -402,22 +402,22 @@ const priorityShort = (p: string) => {
 }
 .act-btn:hover {
   background: rgba(239, 68, 68, 0.1);
-  color: var(--danger-color);
+  color: oklch(var(--er));
 }
 
 /* ===== 展开详情 ===== */
 .todo-detail {
   list-style: none;
-  background: var(--input-bg);
-  border-bottom: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  border-bottom: 1px solid oklch(var(--bc) / 0.1);
   padding: 12px 14px 12px 48px;
 }
-.detail-inner { font-size: 13px; color: var(--main-text); }
+.detail-inner { font-size: 13px; color: oklch(var(--bc)); }
 .detail-section label {
   display: block;
   font-size: 11px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   text-transform: uppercase;
   letter-spacing: 0.3px;
   margin-bottom: 4px;
@@ -425,13 +425,13 @@ const priorityShort = (p: string) => {
 .detail-section p {
   margin: 0;
   line-height: 1.5;
-  color: var(--main-text);
+  color: oklch(var(--bc));
 }
 
 /* ===== 行内编辑模式 ===== */
 .todo-edit {
-  background: var(--input-bg);
-  border-bottom: 2px solid var(--primary-color);
+  background: oklch(var(--b2));
+  border-bottom: 2px solid oklch(var(--p));
   padding: 12px 14px;
   list-style: none;
 }
@@ -451,23 +451,23 @@ const priorityShort = (p: string) => {
 .edit-field label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .edit-input {
   width: 100%;
   padding: 8px 10px;
   font-size: 14px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   transition: all 0.15s ease;
 }
 
 .edit-input:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
   box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15);
 }
 
@@ -481,16 +481,16 @@ const priorityShort = (p: string) => {
   width: 100%;
   padding: 7px 10px;
   font-size: 13px;
-  border: 1px solid var(--border-color);
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 8px;
-  background: var(--card-bg);
-  color: var(--main-text);
+  background: oklch(var(--b1));
+  color: oklch(var(--bc));
   cursor: pointer;
 }
 
 .edit-select:focus {
   outline: none;
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .edit-actions {
@@ -511,7 +511,7 @@ const priorityShort = (p: string) => {
 }
 
 .edit-save {
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: white;
 }
 
@@ -521,11 +521,11 @@ const priorityShort = (p: string) => {
 
 .edit-cancel {
   background: transparent;
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
 }
 
 .edit-cancel:hover {
-  background: var(--card-bg);
+  background: oklch(var(--b1));
 }
 </style>

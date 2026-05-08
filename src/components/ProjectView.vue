@@ -137,10 +137,10 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
-import ProjectForm from './ProjectForm.vue';
-import UiButton from './ui/Button.vue';
-import UiModal from './ui/Modal.vue';
-import UiEmptyState from './ui/EmptyState.vue';
+import ProjectForm from '@/components/ProjectForm.vue';
+import UiButton from '@/components/ui/Button.vue';
+import UiModal from '@/components/ui/Modal.vue';
+import UiEmptyState from '@/components/ui/EmptyState.vue';
 import { getTauriAPI } from '../utils/tauri-api';
 import { useProjects } from '../composables/useProjects';
 import { useErrorHandler } from '../composables/useErrorHandler';
@@ -307,7 +307,7 @@ onMounted(async () => {
 
 .project-header h2 {
   margin: 0;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   font-size: 24px;
 }
 
@@ -331,28 +331,28 @@ onMounted(async () => {
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 10px 14px 10px 36px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 14px;
   outline: none;
   transition: all 0.15s ease;
 }
 
 .search-input:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 .search-input::placeholder {
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   opacity: 0.7;
 }
 
@@ -363,10 +363,10 @@ onMounted(async () => {
 
 .filter-select {
   padding: 10px 14px;
-  border: 1.5px solid var(--border-color);
+  border: 1.5px solid oklch(var(--bc) / 0.1);
   border-radius: 10px;
-  background: var(--input-bg);
-  color: var(--main-text);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
   font-size: 13px;
   cursor: pointer;
   outline: none;
@@ -374,7 +374,7 @@ onMounted(async () => {
 }
 
 .filter-select:focus {
-  border-color: var(--primary-color);
+  border-color: oklch(var(--p));
 }
 
 /* 项目卡片网格 */
@@ -385,8 +385,8 @@ onMounted(async () => {
 }
 
 .project-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   padding: 20px;
   transition: transform 0.15s, box-shadow 0.15s;
@@ -419,7 +419,7 @@ onMounted(async () => {
 .card-header h3 {
   font-size: 16px;
   font-weight: 600;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   margin: 0;
   flex: 1;
 }
@@ -429,7 +429,7 @@ onMounted(async () => {
   padding: 2px 8px;
   border-radius: 10px;
   background: var(--danger-bg, #fef2f2);
-  color: var(--danger-color, #dc2626);
+  color: oklch(var(--er));
   font-weight: 500;
 }
 
@@ -437,14 +437,14 @@ onMounted(async () => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 10px;
-  background: var(--primary-light, #e0e7ff);
-  color: var(--primary-color, #4f46e5);
+  background: oklch(var(--p) / 0.1);
+  color: oklch(var(--p));
   font-weight: 500;
 }
 
 .project-desc {
   font-size: 13px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
   margin-bottom: 12px;
   min-height: 20px;
   line-height: 1.5;
@@ -461,9 +461,9 @@ onMounted(async () => {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: var(--input-bg);
-  color: var(--main-text-secondary);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc) / 0.6);
+  border: 1px solid oklch(var(--bc) / 0.1);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -483,22 +483,22 @@ onMounted(async () => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--main-text);
+  color: oklch(var(--bc));
   display: block;
 }
 
 .stat-value.done {
-  color: var(--success-color, #22c55e);
+  color: oklch(var(--su));
 }
 
 .stat-label {
   font-size: 11px;
-  color: var(--main-text-secondary);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .progress-bar {
   height: 6px;
-  background: var(--border-color);
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
   overflow: hidden;
   margin-bottom: 16px;
@@ -523,21 +523,21 @@ onMounted(async () => {
   padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
-  background: var(--input-bg);
-  color: var(--main-text);
-  border: 1px solid var(--border-color);
+  background: oklch(var(--b2));
+  color: oklch(var(--bc));
+  border: 1px solid oklch(var(--bc) / 0.1);
   font-size: 12px;
   transition: all 0.15s ease;
 }
 
 .action-btn:hover {
-  border-color: var(--primary-color);
-  color: var(--primary-color);
+  border-color: oklch(var(--p));
+  color: oklch(var(--p));
 }
 
 .action-btn.danger:hover {
-  border-color: var(--danger-color);
-  color: var(--danger-color);
+  border-color: oklch(var(--er));
+  color: oklch(var(--er));
 }
 
 .empty-state-shortcuts {
@@ -549,7 +549,7 @@ onMounted(async () => {
 
 .btn-primary {
   padding: 8px 16px;
-  background: var(--primary-color);
+  background: oklch(var(--p));
   color: #fff;
   border: none;
   border-radius: 6px;
