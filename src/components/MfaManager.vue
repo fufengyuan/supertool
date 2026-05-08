@@ -1028,7 +1028,7 @@ onUnmounted(() => {
 }
 
 .mfa-advanced summary:hover {
-  background: oklch(var(--b2));
+  background: oklch(var(--b2)));
 }
 
 .mfa-advanced .form-row {
@@ -1042,7 +1042,7 @@ onUnmounted(() => {
 
 /* ======================== 预览验证码 ======================== */
 .mfa-preview {
-  background: oklch(var(--b2));
+  background: oklch(var(--b2)));
   border-radius: 10px;
   border: 1.5px solid oklch(var(--bc) / 0.1);
   padding: 14px 16px;

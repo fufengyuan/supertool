@@ -210,11 +210,11 @@ defineExpose({ open, close })
 }
 
 .quick-switch-item:hover {
-  background: oklch(var(--b2)));
+  background: oklch(var(--b2));
 }
 
 .quick-switch-item.active {
-  background: oklch(var(--p) / 0.1));
+  background: oklch(var(--p) / 0.1);
 }
 
 .item-icon {
@@ -224,7 +224,7 @@ defineExpose({ open, close })
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  background: oklch(var(--p) / 0.2));
+  background: oklch(var(--p) / 0.2);
   color: oklch(var(--bc));
   flex-shrink: 0;
 }

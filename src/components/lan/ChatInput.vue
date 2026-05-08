@@ -150,8 +150,8 @@ onUnmounted(() => {
   display: flex;
   padding: 10px 12px;
   gap: 8px;
-  border-top: 1px solid oklch(var(--bc) / 0.1));
-  background: oklch(var(--b2)));
+  border-top: 1px solid oklch(var(--bc) / 0.1);
+  background: oklch(var(--b2));
   align-items: flex-end;
 }
 
@@ -193,7 +193,7 @@ onUnmounted(() => {
   width: 280px;
   max-height: 200px;
   background: oklch(var(--b1));
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   padding: 8px;
@@ -238,7 +238,7 @@ onUnmounted(() => {
 .message-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   border-radius: 12px;
   font-size: 14px;
   background: rgba(255, 255, 255, 0.04);

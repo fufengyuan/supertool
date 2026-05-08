@@ -753,7 +753,7 @@ onUnmounted(() => {
   flex-direction: column;
   z-index: 1000;
   transition: all 0.3s ease;
-  border: 1px solid oklch(var(--bc) / 0.1));
+  border: 1px solid oklch(var(--bc) / 0.1);
   overflow: hidden;
 }
 
@@ -876,7 +876,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: oklch(var(--b2)));
+  background: oklch(var(--b2));
 }
 
 /* 微信式时间分隔 */
@@ -927,7 +927,7 @@ onUnmounted(() => {
   background: transparent;
 }
 .chat-messages::-webkit-scrollbar-thumb {
-  background: oklch(var(--bc) / 0.1));
+  background: oklch(var(--bc) / 0.1);
   border-radius: 3px;
 }
 </style>
