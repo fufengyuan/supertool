@@ -124,11 +124,11 @@ export function useProjects() {
     }
   };
 
-  const scanLocalGitRepos = async (): Promise<unknown[]> => {
+  const scanLocalGitRepos = async (directories: string[]): Promise<unknown[]> => {
     console.log("[useProjects.ts] scanLocalGitRepos() called")
     error.value = null;
     try {
-      return (await getTauriAPI().scanLocalGitRepos()) || [];
+      return (await getTauriAPI().scanLocalGitRepos(directories)) || [];
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'scanLocalGitRepos', showToast: false });
