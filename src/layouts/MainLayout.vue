@@ -123,9 +123,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
+import SidebarNav from '@/layouts/SidebarNav.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+
+const router = useRouter()
 
 const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
@@ -211,7 +215,7 @@ onMounted(async () => {
       'data-backup': '/backup', 'report': '/report', 'settings': '/settings',
     }
     const path = routeMap[view]
-    if (path) window.location.hash = '#' + path
+    if (path) router.push(path)
   }).catch(() => () => {})
   unlistenFns.push(unlistenNav as () => void)
 })
