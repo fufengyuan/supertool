@@ -759,10 +759,11 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
+// @ts-nocheck
 import { useCicdConfig } from '@/composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
-import GroupedServerSelector from '@/components/server/GroupedServerSelector.vue';
+import GroupedServerSelector from '../server/GroupedServerSelector.vue';
 
 const cicd = useCicdConfig();
 

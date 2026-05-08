@@ -249,7 +249,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
 import { useToast } from '../composables/useToast'
 import type { Server } from '../types'
-import GroupedServerSelector from '@/components/server/GroupedServerSelector.vue'
+import GroupedServerSelector from './server/GroupedServerSelector.vue'
 
 const toast = useToast()
 
