@@ -145,6 +145,22 @@ const searchQuery = ref('');
 const showScanDirs = ref(false);
 const scanDirsText = ref('');
 
+// 加载保存的扫描目录
+const loadScanDirs = async () => {
+  try {
+    const saved = await getTauriAPI().getSetting('git_scan_directories');
+    if (saved) scanDirsText.value = saved;
+  } catch {}
+};
+loadScanDirs();
+
+// 保存扫描目录
+const saveScanDirs = async (dirs: string) => {
+  try {
+    await getTauriAPI().setSetting('git_scan_directories', dirs);
+  } catch {}
+};
+
 // 手动输入路径
 const manualPath = ref('');
 const manualPathValid = ref(false);
@@ -174,6 +190,7 @@ const loadRepos = async () => {
 // 使用自定义目录扫描
 const scanWithCustomDirs = async () => {
   const dirs = scanDirsText.value.split('\n').map(s => s.trim()).filter(Boolean);
+  saveScanDirs(scanDirsText.value);
   loading.value = true;
   try {
     repos.value = (await getTauriAPI().scanLocalGitRepos(dirs.length > 0 ? dirs : undefined)) || [];
