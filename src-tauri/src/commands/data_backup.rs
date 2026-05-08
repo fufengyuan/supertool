@@ -858,9 +858,18 @@ async fn import_all_tables(
     }
 
     // CICD data
-    let (cicd_imported, cicd_skipped) = core.import_cicd_data(&data, mode).await.unwrap_or((0, 0));
-    imported += cicd_imported;
-    skipped += cicd_skipped;
+    log::info!("[Backup] Importing CICD data (mode={})...", mode);
+    match core.import_cicd_data(&data, mode).await {
+        Ok((cicd_imported, cicd_skipped)) => {
+            log::info!("[Backup] CICD done: imported={}, skipped={}", cicd_imported, cicd_skipped);
+            imported += cicd_imported;
+            skipped += cicd_skipped;
+        }
+        Err(e) => {
+            log::error!("[Backup] CICD import failed: {}", e);
+            errors.push(format!("cicd: {}", e));
+        }
+    }
 
     Ok((imported, skipped, errors))
 }
