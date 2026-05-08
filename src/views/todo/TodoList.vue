@@ -1,50 +1,51 @@
 <template>
-  <div class="todo-container" ref="containerRef" tabindex="0" @keydown="handleKeyboardNav">
+  <div class="flex flex-col gap-3 p-5 w-full outline-none" ref="containerRef" tabindex="0" @keydown="handleKeyboardNav">
     <!-- 快速输入框 -->
-    <div class="quick-add-bar">
-      <svg class="quick-add-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    <div class="flex items-center gap-2.5 px-4 py-3 bg-base-100 border-2 border-primary rounded-xl shadow-sm flex-shrink-0 transition-all duration-200 focus-within:border-primary/80 focus-within:shadow-[0_4px_20px_rgba(136,57,239,0.2)]">
+      <svg class="text-primary shrink-0 opacity-70" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <input
         ref="quickAddInput"
         v-model="quickAddText"
-        class="quick-add-input"
+        class="flex-1 bg-transparent border-none outline-none text-[15px] text-base-content font-medium placeholder:text-base-content/40"
         placeholder="添加新任务，回车即可保存…"
         @keyup.enter="handleQuickAdd"
         @keydown.escape="quickAddText = ''"
       />
-      <button v-if="quickAddText" class="quick-add-priority" @click="cycleQuickPriority" :title="'优先级: ' + quickPriorityLabel">
-        <span :class="'priority-dot-' + quickAddPriority"></span>
+      <button v-if="quickAddText" class="btn btn-ghost btn-xs gap-1" @click="cycleQuickPriority" :title="'优先级: ' + quickPriorityLabel">
+        <span :class="`w-2 h-2 rounded-full ${quickAddPriority === 'low' ? 'bg-success' : quickAddPriority === 'medium' ? 'bg-warning' : 'bg-error'}`"></span>
         {{ quickPriorityLabel }}
       </button>
-      <select v-if="quickAddText" v-model="quickAddProjectId" class="quick-add-project" @change="handleQuickAdd">
+      <select v-if="quickAddText" v-model="quickAddProjectId" class="select select-ghost w-auto max-w-[180px]" @change="handleQuickAdd">
         <option value="">无项目</option>
         <option v-for="p in projectStore.projects" :key="p.id" :value="p.id">{{ p.name }}</option>
       </select>
     </div>
 
     <!-- 顶部工具栏：搜索 + 排序 + 添加按钮 -->
-    <div class="todo-toolbar">
-      <div class="toolbar-left">
+    <div class="flex items-center justify-between gap-3 py-1 pb-2 flex-shrink-0">
+      <div class="flex items-center gap-2 flex-1 min-w-0">
         <input
           v-model="searchQueryValue"
           placeholder="搜索任务…"
-          class="toolbar-search"
+          class="input flex-1 min-w-[180px] max-w-[520px] text-[13px] ps-8 bg-[length:14px]"
+          style="background-image: url('data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'14\\' height=\\'14\\' viewBox=\\'0 0 24 24\\' fill=\\'none\\' stroke=\\'%239ca3af\\' stroke-width=\\'2\\' stroke-linecap=\\'round\\'%3E%3Ccircle cx=\\'11\\' cy=\\'11\\' r=\\'8\\'/%3E%3Cline x1=\\'21\\' y1=\\'21\\' x2=\\'16.65\\' y2=\\'16.65\\'/%3E%3C/svg%3E'); background-position: 10px center; background-repeat: no-repeat;"
           @keydown.escape="searchQueryValue = ''"
         />
-        <select v-model="filterValue" class="toolbar-select">
+        <select v-model="filterValue" class="select">
           <option value="all">全部</option>
           <option value="active">进行中</option>
           <option value="completed">已完成</option>
         </select>
-        <select v-model="sortValue" class="toolbar-select">
+        <select v-model="sortValue" class="select">
           <option value="">默认排序</option>
           <option value="priority">按优先级</option>
           <option value="dueDate">按截止日期</option>
           <option value="createdAt">按创建时间</option>
         </select>
       </div>
-      <div class="toolbar-right">
-        <span class="toolbar-count">{{ todoStore.activeCount }} 进行中</span>
-        <button class="add-task-btn" @click="showAddModal = true" title="添加任务 (Ctrl+N)">
+      <div class="flex items-center gap-3 shrink-0">
+        <span class="badge badge-ghost text-[13px] font-medium">{{ todoStore.activeCount }} 进行中</span>
+        <button class="btn btn-outline btn-sm gap-1.5" @click="showAddModal = true" title="添加任务 (Ctrl+N)">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           更多
         </button>
@@ -52,45 +53,46 @@
     </div>
 
     <!-- 今日进度 -->
-    <div class="progress-bar-container" v-if="todoStore.todos.length > 0">
-      <div class="progress-info">
-        <span class="progress-label">今日进度</span>
-        <span class="progress-count">{{ todoStore.completedCount }}/{{ todoStore.todos.length }}</span>
+    <div class="flex flex-col gap-1.5" v-if="todoStore.todos.length > 0">
+      <div class="flex justify-between items-center">
+        <span class="text-sm font-medium text-base-content/70">今日进度</span>
+        <span class="text-xs text-base-content/50">{{ todoStore.completedCount }}/{{ todoStore.todos.length }}</span>
       </div>
-      <div class="progress-track">
-        <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
+      <div class="h-2 bg-base-200 rounded-full overflow-hidden">
+        <div class="h-full bg-primary rounded-full transition-all duration-300 ease-out" :style="{ width: progressPercent + '%' }"></div>
       </div>
     </div>
 
     <!-- 键盘导航提示 -->
-    <div class="keyboard-hint" v-if="keyboardFocusedIndex >= 0">
-      <kbd>↑↓</kbd> 浏览 <kbd>Enter</kbd> 展开 <kbd>Space</kbd> 完成 <kbd>Del</kbd> 删除 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> 优先级
+    <div class="flex items-center gap-1.5 px-2.5 py-1.5 bg-base-200/60 rounded-lg text-xs text-base-content/60" v-if="keyboardFocusedIndex >= 0">
+      <kbd class="kbd kbd-xs">↑↓</kbd> 浏览 <kbd class="kbd kbd-xs">Enter</kbd> 展开 <kbd class="kbd kbd-xs">Space</kbd> 完成
+      <kbd class="kbd kbd-xs">Del</kbd> 删除 <kbd class="kbd kbd-xs">1</kbd><kbd class="kbd kbd-xs">2</kbd><kbd class="kbd kbd-xs">3</kbd> 优先级
     </div>
 
     <!-- 任务卡片容器 -->
-    <div class="todo-card">
-      <div class="todo-list-area">
+    <div>
+      <div>
         <!-- 活跃任务列表（按项目分组） -->
         <template v-for="group in groupedActiveTodos" :key="group.projectId">
           <!-- 项目分组头部 -->
-          <div class="project-group-header">
+          <div class="flex items-center gap-2 px-1 py-1.5 mt-1 mb-0.5 border-b border-base-content/10 first:mt-0">
             <span
               v-if="group.project"
-              class="project-header-name"
+              class="flex items-center gap-1.5 text-sm font-semibold text-base-content/80 pl-2 border-l-[3px] border-transparent"
               :style="group.project.color ? { borderLeftColor: group.project.color } : {}"
             >
-              <span v-if="group.project.color" class="project-color-dot" :style="{ backgroundColor: group.project.color }"></span>
+              <span v-if="group.project.color" class="inline-block w-2 h-2 rounded-full" :style="{ backgroundColor: group.project.color }"></span>
               {{ group.project.name }}
-              <span class="project-header-count">{{ group.todos.length }}</span>
+              <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
             </span>
-            <span v-else class="project-header-name no-project">
-              <span class="project-color-dot" style="background-color: text-base-content/60"></span>
+            <span v-else class="flex items-center gap-1.5 text-sm font-semibold text-base-content/50 pl-2 border-l-[3px] border-transparent">
+              <span class="inline-block w-2 h-2 rounded-full bg-base-content/30"></span>
               无项目
-              <span class="project-header-count">{{ group.todos.length }}</span>
+              <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
             </span>
           </div>
           <!-- 分组内的任务列表 -->
-          <ul class="todo-list">
+          <ul class="list-none p-0 m-0 space-y-0.5">
             <TodoItem
               v-for="todo in group.todos"
               :key="todo.id"
@@ -123,29 +125,29 @@
         </template>
 
         <!-- 已完成折叠区（按项目分组） -->
-        <div v-if="groupedCompletedTodos.length > 0 && filterValue === 'all' && !searchQueryValue" class="completed-section">
-          <button class="completed-toggle" @click="showCompleted = !showCompleted">
-            <svg :class="{ rotated: showCompleted }" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <div v-if="groupedCompletedTodos.length > 0 && filterValue === 'all' && !searchQueryValue" class="mt-4">
+          <button class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 w-full justify-start" @click="showCompleted = !showCompleted">
+            <svg :class="{ 'rotate-180': showCompleted }" class="transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
             已完成 ({{ completedTodos.length }})
           </button>
           <Transition name="slide">
-            <div v-if="showCompleted" class="completed-groups-wrapper">
+            <div v-if="showCompleted" class="overflow-hidden">
               <template v-for="group in groupedCompletedTodos" :key="'completed-' + group.projectId">
-                <div v-if="group.project" class="project-group-header completed-group-header">
-                  <span class="project-header-name" :style="group.project.color ? { borderLeftColor: group.project.color } : {}">
-                    <span v-if="group.project.color" class="project-color-dot" :style="{ backgroundColor: group.project.color }"></span>
+                <div v-if="group.project" class="flex items-center gap-2 px-1 py-1.5 mt-2 mb-0.5 border-b border-base-content/5">
+                  <span class="flex items-center gap-1.5 text-sm font-medium text-base-content/60 pl-2 border-l-[3px] border-transparent" :style="group.project.color ? { borderLeftColor: group.project.color } : {}">
+                    <span v-if="group.project.color" class="inline-block w-2 h-2 rounded-full" :style="{ backgroundColor: group.project.color }"></span>
                     {{ group.project.name }}
-                    <span class="project-header-count">{{ group.todos.length }}</span>
+                    <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
                   </span>
                 </div>
-                <div v-else class="project-group-header completed-group-header">
-                  <span class="project-header-name no-project">
-                    <span class="project-color-dot" style="background-color: text-base-content/60"></span>
+                <div v-else class="flex items-center gap-2 px-1 py-1.5 mt-2 mb-0.5 border-b border-base-content/5">
+                  <span class="flex items-center gap-1.5 text-sm font-medium text-base-content/40 pl-2 border-l-[3px] border-transparent">
+                    <span class="inline-block w-2 h-2 rounded-full bg-base-content/20"></span>
                     无项目
-                    <span class="project-header-count">{{ group.todos.length }}</span>
+                    <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
                   </span>
                 </div>
-                <ul class="completed-list">
+                <ul class="list-none p-0 m-0 space-y-0.5">
                   <TodoItem
                     v-for="todo in group.todos"
                     :key="todo.id"
@@ -178,86 +180,86 @@
       </div>
 
       <!-- 空状态提示 -->
-      <div v-if="activeTodos.length === 0 && completedTodos.length === 0 && todoStore.todos.length === 0 && !searchQueryValue" class="empty-state">
-        <svg class="empty-state-icon" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1">
+      <div v-if="activeTodos.length === 0 && completedTodos.length === 0 && todoStore.todos.length === 0 && !searchQueryValue" class="flex flex-col items-center justify-center py-16 text-base-content/40">
+        <svg class="mb-4 opacity-30" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1">
           <path d="M9 11l3 3L22 4" />
           <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
         </svg>
-        <p class="empty-state-title">还没有任务</p>
-        <p class="empty-state-hint">在上方输入框添加你的第一个任务</p>
+        <p class="text-lg font-medium text-base-content/60">还没有任务</p>
+        <p class="text-sm text-base-content/40 mt-1">在上方输入框添加你的第一个任务</p>
       </div>
-      <div v-else-if="activeTodos.length === 0 && completedTodos.length === 0" class="empty-state">
-        <p>没有找到匹配的任务，尝试调整筛选条件</p>
+      <div v-else-if="activeTodos.length === 0 && completedTodos.length === 0" class="flex flex-col items-center justify-center py-12 text-base-content/40">
+        <p class="text-sm">没有找到匹配的任务，尝试调整筛选条件</p>
       </div>
     </div>
 
     <!-- 批量操作和清空已完成 -->
-    <div class="todo-actions" v-if="selectedTodoIds.length > 0 || (todoStore.completedCount > 0 && filterValue === 'all')">
-      <div v-if="selectedTodoIds.length > 0" class="batch-actions">
-        <button @click="batch.batchComplete" class="batch-btn complete">完成 ({{ selectedTodoIds.length }})</button>
-        <button @click="batch.batchDelete" class="batch-btn delete">删除 ({{ selectedTodoIds.length }})</button>
+    <div class="flex items-center justify-between gap-3 mt-1" v-if="selectedTodoIds.length > 0 || (todoStore.completedCount > 0 && filterValue === 'all')">
+      <div v-if="selectedTodoIds.length > 0" class="flex items-center gap-2">
+        <button @click="batch.batchComplete" class="btn btn-success btn-sm">完成 ({{ selectedTodoIds.length }})</button>
+        <button @click="batch.batchDelete" class="btn btn-error btn-sm">删除 ({{ selectedTodoIds.length }})</button>
       </div>
-      <div v-if="todoStore.completedCount > 0 && filterValue === 'all'" class="single-actions">
-        <button @click="todoStore.clearCompleted" class="clear-btn">清空已完成</button>
+      <div v-if="todoStore.completedCount > 0 && filterValue === 'all'" class="ml-auto">
+        <button @click="todoStore.clearCompleted" class="btn btn-ghost btn-sm text-base-content/50">清空已完成</button>
       </div>
     </div>
 
     <!-- 添加任务弹出框 -->
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-      <div class="modal-dialog">
-        <div class="modal-header">
-          <h3>添加任务</h3>
-          <button class="modal-close" @click="showAddModal = false">×</button>
+    <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
+      <div class="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+        <div class="flex items-center justify-between px-6 pt-5 pb-3">
+          <h3 class="text-lg font-semibold text-base-content">添加任务</h3>
+          <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false">✕</button>
         </div>
-        <div class="modal-body">
-          <div class="form-row">
-            <label>任务内容</label>
+        <div class="px-6 space-y-4">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-base-content/60">任务内容</label>
             <input
               ref="addTaskInput"
               v-model="newTaskText"
               @keyup.enter="handleAddFromModal"
               placeholder="输入任务内容…"
-              class="form-input"
+              class="input input-bordered w-full"
               autofocus
             />
           </div>
-          <div class="form-row form-row-inline">
-            <div class="form-field">
-              <label>优先级</label>
-              <select v-model="newTaskPriority" class="form-select">
+          <div class="flex gap-4 flex-wrap">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+              <label class="text-xs font-medium text-base-content/60">优先级</label>
+              <select v-model="newTaskPriority" class="select select-bordered w-full">
                 <option value="low">低</option>
                 <option value="medium">中</option>
                 <option value="high">高</option>
               </select>
             </div>
-            <div class="form-field">
-              <label>截止日期</label>
-              <input v-model="newTaskDueDate" type="date" class="form-input" />
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+              <label class="text-xs font-medium text-base-content/60">截止日期</label>
+              <input v-model="newTaskDueDate" type="date" class="input input-bordered w-full" />
             </div>
-            <div class="form-field">
-              <label>标签</label>
-              <select v-model="newTaskTag" class="form-select">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+              <label class="text-xs font-medium text-base-content/60">标签</label>
+              <select v-model="newTaskTag" class="select select-bordered w-full">
                 <option value="">无</option>
                 <option v-for="tag in todoStore.tags" :key="tag" :value="tag">{{ tag }}</option>
                 <option value="__custom__">自定义</option>
               </select>
             </div>
           </div>
-          <div class="form-row" v-if="newTaskTag === '__custom__'">
-            <label>自定义标签</label>
-            <input v-model="newTaskCustomTag" placeholder="输入标签名称" class="form-input" />
+          <div class="flex flex-col gap-1.5" v-if="newTaskTag === '__custom__'">
+            <label class="text-xs font-medium text-base-content/60">自定义标签</label>
+            <input v-model="newTaskCustomTag" placeholder="输入标签名称" class="input input-bordered w-full" />
           </div>
-          <div class="form-row form-row-inline">
-            <div class="form-field">
-              <label>项目</label>
-              <select v-model="newTaskProjectId" class="form-select">
+          <div class="flex gap-4 flex-wrap">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+              <label class="text-xs font-medium text-base-content/60">项目</label>
+              <select v-model="newTaskProjectId" class="select select-bordered w-full">
                 <option value="">无</option>
                 <option v-for="p in projectStore.projects" :key="p.id" :value="p.id">{{ p.name }}</option>
               </select>
             </div>
-            <div class="form-field">
-              <label>重复</label>
-              <select v-model="newTaskRepeat" class="form-select">
+            <div class="flex flex-col gap-1.5 flex-1 min-w-[120px]">
+              <label class="text-xs font-medium text-base-content/60">重复</label>
+              <select v-model="newTaskRepeat" class="select select-bordered w-full">
                 <option value="">不重复</option>
                 <option value="daily">每天</option>
                 <option value="weekly">每周</option>
@@ -265,14 +267,14 @@
               </select>
             </div>
           </div>
-          <div class="form-row">
-            <label>描述</label>
-            <textarea v-model="newTaskDesc" placeholder="任务描述（可选）" class="form-input textarea" rows="2"></textarea>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-medium text-base-content/60">描述</label>
+            <textarea v-model="newTaskDesc" placeholder="任务描述（可选）" class="textarea textarea-bordered w-full" rows="2"></textarea>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="modal-cancel" @click="showAddModal = false">取消</button>
-          <button class="modal-confirm" @click="handleAddFromModal">添加任务</button>
+        <div class="flex justify-end gap-2 px-6 py-4 mt-2 border-t border-base-content/10">
+          <button class="btn btn-ghost" @click="showAddModal = false">取消</button>
+          <button class="btn btn-primary" @click="handleAddFromModal">添加任务</button>
         </div>
       </div>
     </div>
@@ -863,247 +865,14 @@ setupMenuListeners()
 </script>
 
 <style scoped>
-.todo-container {
-  width: 100%;
-  outline: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-}
+/* Drag and drop styles for vuedraggable — must stay in scoped CSS */
+.draggable-list { min-height: 10px; }
+.virtual-todo-list { border-radius: 8px; }
+.virtual-todo-list > .virtual-list { height: 100% !important; }
+.drag-ghost { opacity: 0.4; background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
+.drag-chosen { box-shadow: 0 0 0 2px var(--color-primary); }
 
-/* ===== 快速输入框 ===== */
-.quick-add-bar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: var(--color-base-100);
-  border: 2px solid var(--color-primary);
-  border-radius: 14px;
-  box-shadow: 0 2px 12px color-mix(in oklab, var(--color-primary) 10%, transparent);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-.quick-add-bar:focus-within {
-  box-shadow: 0 4px 20px rgba(136, 57, 239, 0.2);
-  border-color: color-mix(in oklab, var(--color-primary) 80%, transparent);
-}
-.quick-add-icon {
-  color: var(--color-primary);
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-.quick-add-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 15px;
-  color: var(--color-base-content);
-  font-weight: 500;
-}
-.quick-add-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  font-weight: 400;
-}
-.quick-add-priority {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-}
-.quick-add-priority:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-.quick-add-project {
-  padding: 4px 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-  max-width: 180px;
-}
-.quick-add-project:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-.priority-dot-low { width: 8px; height: 8px; border-radius: 50%; background: var(--color-success); }
-.priority-dot-medium { width: 8px; height: 8px; border-radius: 50%; background: var(--color-warning); }
-.priority-dot-high { width: 8px; height: 8px; border-radius: 50%; background: var(--color-error); }
-
-/* ===== 顶部工具栏 ===== */
-.todo-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 4px 0 8px;
-  flex-shrink: 0;
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-
-.toolbar-search {
-  flex: 1;
-  min-width: 180px;
-  max-width: 520px;
-  padding: 7px 12px 7px 32px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-100) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cline x1='21' y1='21' x2='16.65' y2='16.65'/%3E%3C/svg%3E") 10px center no-repeat;
-  color: var(--color-base-content);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.toolbar-search:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-.toolbar-search::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-
-.toolbar-select {
-  padding: 7px 24px 7px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  font-size: 13px;
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  transition: border-color 0.15s ease;
-}
-.toolbar-select:focus {
-  border-color: var(--color-primary);
-}
-.toolbar-select:hover {
-  border-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.toolbar-count {
-  font-size: 13px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding: 4px 10px;
-  background: var(--color-base-200);
-  border-radius: 6px;
-}
-
-.add-task-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.15s ease;
-}
-.add-task-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-.add-task-btn svg {
-  flex-shrink: 0;
-}
-
-/* ===== 进度条 ===== */
-.progress-bar-container {
-  padding: 0 2px;
-  flex-shrink: 0;
-}
-.progress-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.progress-label {
-  font-size: 12px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-.progress-count {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--color-primary);
-}
-.progress-track {
-  height: 4px;
-  background: var(--color-base-200);
-  border-radius: 4px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--color-primary), color-mix(in oklab, var(--color-primary) 80%, transparent));
-  border-radius: 4px;
-  transition: width 0.4s ease;
-}
-
-/* ===== 键盘导航 ===== */
-.keyboard-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 3px 10px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  border-radius: 6px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-}
-.keyboard-hint kbd {
-  display: inline-block;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  font-family: inherit;
-}
+/* Keyboard focus on TodoItem (applied via :deep) — cannot be expressed in Tailwind */
 :deep(.todo-item.keyboard-focused) {
   outline: 2px solid var(--color-primary);
   outline-offset: -2px;
@@ -1111,118 +880,7 @@ setupMenuListeners()
   background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
-/* ===== 任务卡片容器 ===== */
-.todo-card {
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  display: flex;
-  flex-direction: column;
-}
-
-/* ===== 列表区域 ===== */
-.todo-list-area {
-  display: flex;
-  flex-direction: column;
-  padding: 4px 0;
-}
-
-.todo-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-/* ===== 项目分组头部 ===== */
-.project-group-header {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px 4px;
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--color-base-100);
-}
-
-.completed-group-header {
-  opacity: 0.6;
-  padding: 6px 16px 2px;
-}
-
-.project-header-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  padding: 2px 0 2px 10px;
-  border-left: 3px solid var(--color-primary);
-}
-
-.project-header-name.no-project {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border-left-color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.project-color-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.project-header-count {
-  font-size: 11px;
-  font-weight: 400;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-left: 2px;
-}
-
-.draggable-list { min-height: 10px; }
-.virtual-todo-list { border-radius: 8px; }
-.virtual-todo-list > .virtual-list { height: 100% !important; }
-.drag-ghost { opacity: 0.4; background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.drag-chosen { box-shadow: 0 0 0 2px var(--color-primary); }
-
-/* ===== 已完成折叠区 ===== */
-.completed-section {
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin-top: 4px;
-  padding: 0;
-}
-.completed-toggle {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
-  padding: 10px 16px;
-  border: none;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-.completed-toggle:hover {
-  color: var(--color-base-content);
-}
-.completed-toggle svg {
-  transition: transform 0.2s ease;
-}
-.completed-toggle svg.rotated {
-  transform: rotate(90deg);
-}
-.completed-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  opacity: 0.6;
-}
-
-/* slide 动画 */
+/* Slide transition for completed section — Vue <Transition name="slide"> needs these */
 .slide-enter-active,
 .slide-leave-active {
   transition: all 0.3s ease;
@@ -1237,230 +895,5 @@ setupMenuListeners()
 .slide-leave-from {
   opacity: 1;
   max-height: 500px;
-}
-
-/* ===== 空状态 ===== */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-.empty-state-icon { opacity: 0.12; margin-bottom: 20px; }
-.empty-state-title { font-size: 16px; font-weight: 600; color: var(--color-base-content); margin: 0 0 8px 0; }
-.empty-state-hint { font-size: 13px; margin: 0; opacity: 0.7; }
-
-/* ===== 批量操作 ===== */
-.todo-actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-  flex-shrink: 0;
-  padding: 8px 0;
-  flex-wrap: wrap;
-}
-.batch-actions { display: flex; gap: 6px; }
-.batch-btn {
-  padding: 5px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-.batch-btn.complete:hover { border-color: var(--color-success); color: var(--color-success); background: rgba(34, 197, 94, 0.05); }
-.batch-btn.delete:hover { border-color: var(--color-error); color: var(--color-error); background: rgba(239, 68, 68, 0.05); }
-.single-actions { margin-left: auto; }
-.clear-btn {
-  padding: 5px 12px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: all 0.15s ease;
-}
-.clear-btn:hover { color: var(--color-warning); border-color: var(--color-warning); }
-
-/* ===== 弹窗 ===== */
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.15s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-.modal-dialog {
-  width: 540px;
-  max-height: 85vh;
-  background: var(--color-base-100);
-  border-radius: 16px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.25);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  animation: slideUp 0.2s ease;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 24px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.modal-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 20px;
-  cursor: pointer;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-.modal-close:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.modal-body {
-  padding: 20px 24px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-.form-row {
-  margin-bottom: 14px;
-}
-.form-row label {
-  display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 5px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.form-row-inline {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 12px;
-}
-
-.form-field {
-  display: flex;
-  flex-direction: column;
-}
-
-.form-input, .form-select {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-  outline: none;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-.form-input:focus, .form-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-.form-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-.form-input.textarea {
-  resize: vertical;
-  min-height: 56px;
-  font-family: inherit;
-}
-
-.form-select {
-  appearance: none;
-  cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  padding: 14px 24px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-200);
-}
-
-.modal-cancel {
-  padding: 8px 20px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-.modal-cancel:hover {
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-}
-
-.modal-confirm {
-  padding: 8px 24px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.15s ease;
-}
-.modal-confirm:hover {
-  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
-  transform: translateY(-1px);
-}
-.modal-confirm:active {
-  transform: translateY(0);
 }
 </style>

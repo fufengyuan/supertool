@@ -1,56 +1,56 @@
 <template>
-  <div class="pinyin-tool">
-    <h3>🔤 汉字转拼音</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🔤 汉字转拼音</h3>
 
-    <div class="tool-section">
-      <h4>输入汉字</h4>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输入汉字</h4>
       <textarea
         v-model="chineseInput"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
         placeholder="请输入中文文本..."
         rows="3"
         @input="convertPinyin"
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px">
+      <div class="flex flex-wrap gap-2.5 mb-3 mt-3 items-end">
         <div>
-          <label class="tool-label">转换模式</label>
-          <select v-model="pinyinMode" class="tool-select" @change="convertPinyin">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">转换模式</span>
+          <select v-model="pinyinMode" class="select select-bordered" @change="convertPinyin">
             <option value="tone">带声调 (nǐ hǎo)</option>
             <option value="notone">无声调 (ni hao)</option>
             <option value="initials">首字母 (nh)</option>
           </select>
         </div>
         <div>
-          <label class="tool-label">分隔符</label>
-          <select v-model="separator" class="tool-select" @change="convertPinyin">
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">分隔符</span>
+          <select v-model="separator" class="select select-bordered" @change="convertPinyin">
             <option value=" ">空格</option>
             <option value=",">逗号</option>
             <option value="-">横线</option>
             <option value="">无分隔</option>
           </select>
         </div>
-        <button class="tool-btn primary" @click="convertPinyin">转换</button>
-        <button class="tool-btn" @click="copyText(pinyinOutput, toast)">📋 复制</button>
+        <button class="btn btn-primary" @click="convertPinyin">转换</button>
+        <button class="btn btn-ghost" @click="copyText(pinyinOutput, toast)">📋 复制</button>
       </div>
 
-      <div v-if="pinyinOutput" class="tool-result">{{ pinyinOutput }}</div>
+      <div v-if="pinyinOutput" class="bg-base-200 border border-base-content/10 rounded-box p-3 text-base whitespace-pre-wrap break-all">{{ pinyinOutput }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Examples -->
-    <div class="tool-section">
-      <h4>示例</h4>
-      <div class="examples-grid">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">示例</h4>
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
         <div
           v-for="ex in examples"
           :key="ex.text"
-          class="example-item"
+          class="p-2 bg-base-200 border border-base-content/10 rounded-box cursor-pointer transition-all duration-150 flex flex-col gap-1 hover:border-primary hover:bg-primary/10"
           @click="chineseInput = ex.text; convertPinyin()"
         >
-          <span class="example-text">{{ ex.text }}</span>
-          <span class="example-pinyin">{{ ex.pinyin }}</span>
+          <span class="text-sm text-base-content font-medium">{{ ex.text }}</span>
+          <span class="text-xs opacity-60">{{ ex.pinyin }}</span>
         </div>
       </div>
     </div>
@@ -101,155 +101,3 @@ const examples = [
   { text: '北京欢迎你', pinyin: 'běi jīng huān yíng nǐ' },
 ]
 </script>
-
-<style scoped>
-
-.pinyin-tool {
-  max-width: 700px;
-}
-
-.pinyin-tool h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.tool-section h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0 0 10px 0;
-}
-
-.tool-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.tool-result {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-size: 16px;
-  color: var(--color-base-content);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.examples-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.example-item {
-  padding: 8px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.15s;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.example-item:hover {
-  border-color: var(--color-primary);
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.example-text {
-  font-size: 14px;
-  color: var(--color-base-content);
-  font-weight: 500;
-}
-
-.example-pinyin {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.tool-btn {
-  padding: 7px 16px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tool-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.tool-btn.primary {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.tool-btn.primary:hover {
-  opacity: 0.9;
-}
-
-.tool-divider {
-  border: none;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 20px 0;
-}
-
-.tool-select {
-  padding: 7px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-}
-
-.tool-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 4px;
-  display: block;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

@@ -1,70 +1,70 @@
 <template>
-  <div class="time-calc-tool">
-    <h3>📅 时间计算器</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">📅 时间计算器</h3>
 
     <!-- Date Math -->
-    <div class="tool-section">
-      <h4>日期加减</h4>
-      <div class="tool-row">
-        <input v-model="dateMathStart" type="date" class="tool-input" />
-        <select v-model="dateMathUnit" class="tool-select">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">日期加减</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
+        <input v-model="dateMathStart" type="date" class="input input-bordered" />
+        <select v-model="dateMathUnit" class="select select-bordered">
           <option value="days">天</option>
           <option value="months">月</option>
           <option value="years">年</option>
         </select>
-        <input v-model.number="dateMathAmount" type="number" class="tool-input mono" style="max-width: 100px" placeholder="数量" />
-        <select v-model="dateMathOp" class="tool-select">
+        <input v-model.number="dateMathAmount" type="number" class="input input-bordered font-mono max-w-[100px]" placeholder="数量" />
+        <select v-model="dateMathOp" class="select select-bordered">
           <option value="add">加</option>
           <option value="sub">减</option>
         </select>
-        <button class="tool-btn primary" @click="calcDateMath">计算</button>
-        <button class="tool-btn" @click="copyText(dateMathResult, toast)">📋</button>
+        <button class="btn btn-primary" @click="calcDateMath">计算</button>
+        <button class="btn btn-ghost" @click="copyText(dateMathResult, toast)">📋</button>
       </div>
-      <div v-if="dateMathResult" class="tool-result">{{ dateMathResult }}</div>
+      <div v-if="dateMathResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ dateMathResult }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Date Difference -->
-    <div class="tool-section">
-      <h4>日期差值</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">日期差值</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
         <div>
-          <label class="tool-label">开始日期</label>
-          <input v-model="diffStart" type="date" class="tool-input" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">开始日期</span>
+          <input v-model="diffStart" type="date" class="input input-bordered" />
         </div>
         <div>
-          <label class="tool-label">结束日期</label>
-          <input v-model="diffEnd" type="date" class="tool-input" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">结束日期</span>
+          <input v-model="diffEnd" type="date" class="input input-bordered" />
         </div>
-        <button class="tool-btn primary" @click="calcDateDiff" style="align-self: flex-end">计算</button>
-        <button class="tool-btn" @click="copyText(diffResult, toast)" style="align-self: flex-end">📋</button>
+        <button class="btn btn-primary self-end" @click="calcDateDiff">计算</button>
+        <button class="btn btn-ghost self-end" @click="copyText(diffResult, toast)">📋</button>
       </div>
-      <div v-if="diffResult" class="tool-result">{{ diffResult }}</div>
+      <div v-if="diffResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ diffResult }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Workday Calculator -->
-    <div class="tool-section">
-      <h4>工作日计算（跳过周末）</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">工作日计算（跳过周末）</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3 items-end">
         <div>
-          <label class="tool-label">开始日期</label>
-          <input v-model="workdayStart" type="date" class="tool-input" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">开始日期</span>
+          <input v-model="workdayStart" type="date" class="input input-bordered" />
         </div>
         <div>
-          <label class="tool-label">工作日数量</label>
-          <input v-model.number="workdayCount" type="number" class="tool-input mono" style="max-width: 100px" min="1" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">工作日数量</span>
+          <input v-model.number="workdayCount" type="number" class="input input-bordered font-mono max-w-[100px]" min="1" />
         </div>
-        <select v-model="workdayOp" class="tool-select" style="align-self: flex-end">
+        <select v-model="workdayOp" class="select select-bordered self-end">
           <option value="add">加</option>
           <option value="sub">减</option>
         </select>
-        <button class="tool-btn primary" @click="calcWorkday" style="align-self: flex-end">计算</button>
-        <button class="tool-btn" @click="copyText(workdayResult, toast)" style="align-self: flex-end">📋</button>
+        <button class="btn btn-primary self-end" @click="calcWorkday">计算</button>
+        <button class="btn btn-ghost self-end" @click="copyText(workdayResult, toast)">📋</button>
       </div>
-      <div v-if="workdayResult" class="tool-result">{{ workdayResult }}</div>
+      <div v-if="workdayResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ workdayResult }}</div>
     </div>
   </div>
 </template>
@@ -159,126 +159,3 @@ function calcWorkday() {
   }
 }
 </script>
-
-<style scoped>
-
-.time-calc-tool {
-  max-width: 700px;
-}
-
-.time-calc-tool h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.tool-section h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0 0 10px 0;
-}
-
-.tool-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.tool-result {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  color: var(--color-base-content);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.tool-btn {
-  padding: 7px 16px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tool-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.tool-btn.primary {
-  background: var(--color-primary);
-  color: white;
-  border-color: var(--color-primary);
-}
-
-.tool-btn.primary:hover {
-  opacity: 0.9;
-}
-
-.tool-divider {
-  border: none;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 20px 0;
-}
-
-.tool-select {
-  padding: 7px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-}
-
-.tool-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 4px;
-  display: block;
-}
-
-.mono {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

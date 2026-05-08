@@ -1,28 +1,36 @@
 <template>
-  <div class="drawer-group" :class="{ 'drawer-expanded': isExpanded, [`drawer-depth-${depth}`]: true }">
-    <div class="drawer-handle" @click="toggle" :style="{ '--group-color': group.color || '#6c63ff' }">
-      <div class="drawer-handle-left">
-        <svg class="drawer-chevron" :class="{ expanded: isExpanded }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+  <div class="mb-1 rounded-xl" :class="{ 'mb-2': isExpanded }">
+    <div class="flex items-center justify-between p-[7px_12px] rounded-xl cursor-pointer select-none bg-base-100 border border-base-content/10 relative overflow-hidden transition-all hover:shadow-[0_2px_12px_rgba(108,99,255,0.1)] hover:-translate-y-px"
+      :style="{ '--group-color': group.color || '#6c63ff', borderColor: expandedGroups.has(group.id) ? 'var(--group-color, var(--color-primary))' : undefined }"
+      @click="toggle">
+      <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-[3px]" :style="{ background: group.color || '#6c63ff' }"></div>
+      <div class="flex items-center gap-2 relative z-[1]">
+        <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': isExpanded }" :style="{ color: isExpanded ? (group.color || '#6c63ff') : undefined }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
-        <span class="drawer-icon">{{ getGroupIcon(depth) }}</span>
-        <span class="drawer-name">{{ group.name }}</span>
-        <span class="drawer-count" :style="{ background: (group.color || '#6c63ff') + '22', color: group.color || '#6c63ff' }">
+        <span class="text-sm leading-none">{{ getGroupIcon(depth) }}</span>
+        <span class="font-semibold text-xs text-base-content">{{ group.name }}</span>
+        <span class="text-[11px] font-semibold px-1.5 py-px rounded-full leading-tight" :style="{ background: (group.color || '#6c63ff') + '22', color: group.color || '#6c63ff' }">
           {{ serversInGroup.length }}
         </span>
       </div>
-      <div class="drawer-handle-right">
-        <span class="drawer-online" v-if="onlineCount > 0">
-          <span class="online-dot"></span>
+      <div class="flex items-center gap-2 relative z-[1]">
+        <span class="flex items-center gap-1 text-xs text-success font-medium" v-if="onlineCount > 0">
+          <span class="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_4px_var(--color-success)]"></span>
           {{ onlineCount }} 在线
         </span>
       </div>
     </div>
 
-    <Transition name="drawer-expand">
-      <div v-show="isExpanded" class="drawer-body">
+    <Transition
+      enter-active-class="transition-all duration-300 ease-out"
+      leave-active-class="transition-all duration-300 ease-in"
+      enter-from-class="opacity-0 -translate-y-1.5"
+      leave-to-class="opacity-0 -translate-y-1.5"
+    >
+      <div v-show="isExpanded" class="mt-1 p-2 rounded-xl bg-base-100/80 border border-base-content/10 border-t-0" :style="{ paddingLeft: `${10 + depth * 6}px` }">
         <!-- 该分组下的服务器 -->
-        <div v-if="serversInGroup.length > 0" class="drawer-servers">
+        <div v-if="serversInGroup.length > 0" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
           <ServerItem
             v-for="server in serversInGroup"
             :key="server.id"
@@ -35,7 +43,7 @@
           />
         </div>
         <!-- 子分组递归 -->
-        <div v-if="childGroups.length > 0" class="drawer-subgroups">
+        <div v-if="childGroups.length > 0" class="mt-1.5 pl-1">
           <GroupTree
             v-for="child in childGroups"
             :key="child.id"
@@ -52,7 +60,7 @@
             @delete="$emit('delete', $event)"
           />
         </div>
-        <div v-if="serversInGroup.length === 0 && childGroups.length === 0" class="drawer-empty">
+        <div v-if="serversInGroup.length === 0 && childGroups.length === 0" class="text-center p-3 text-base-content/60 text-xs bg-base-200 rounded-lg border border-dashed border-base-content/10">
           暂无服务器
         </div>
       </div>
@@ -107,171 +115,3 @@ function toggle() {
   emit('toggle', props.group.id);
 }
 </script>
-
-<style scoped>
-/* ── 抽屉容器 ── */
-.drawer-group {
-  margin-bottom: 4px;
-  border-radius: 10px;
-}
-
-.drawer-group.drawer-expanded {
-  margin-bottom: 8px;
-}
-
-/* ── 抽屉把手（标题栏）── */
-.drawer-handle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s ease;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  position: relative;
-  overflow: hidden;
-}
-
-.drawer-handle::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--group-color, #6c63ff);
-}
-
-.drawer-handle:hover {
-  border-color: var(--group-color, var(--color-primary));
-  box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
-  transform: translateY(-1px);
-}
-
-.drawer-handle-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
-}
-
-.drawer-chevron {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-}
-
-.drawer-chevron.expanded {
-  transform: rotate(180deg);
-  color: var(--group-color, var(--color-primary));
-}
-
-.drawer-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.drawer-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.drawer-count {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 12px;
-  line-height: 1.4;
-}
-
-.drawer-handle-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
-}
-
-.drawer-online {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--color-success);
-  font-weight: 500;
-}
-
-.online-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-success);
-  box-shadow: 0 0 4px var(--color-success);
-}
-
-/* ── 抽屉面板（内容区）── */
-.drawer-body {
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-base-100) 80%, color-mix(in oklab, var(--color-base-content) 10%, transparent) 20%);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-top: none;
-}
-
-/* 卡片置于抽屉面板之上 */
-.drawer-servers {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-/* 子分组缩进 */
-.drawer-subgroups {
-  margin-top: 6px;
-  padding-left: 4px;
-}
-
-.drawer-empty {
-  text-align: center;
-  padding: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-  background: var(--color-base-200);
-  border-radius: 6px;
-  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* 多级缩进 */
-.drawer-depth-0 .drawer-body { padding-left: 10px; }
-.drawer-depth-1 .drawer-body { padding-left: 16px; }
-.drawer-depth-2 .drawer-body { padding-left: 22px; }
-.drawer-depth-3 .drawer-body { padding-left: 28px; }
-
-/* ── 展开/折叠动画 ── */
-.drawer-expand-enter-active,
-.drawer-expand-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.drawer-expand-enter-from,
-.drawer-expand-leave-to {
-  opacity: 0;
-  max-height: 0;
-  transform: translateY(-6px);
-}
-
-.drawer-expand-enter-to,
-.drawer-expand-leave-from {
-  opacity: 1;
-  max-height: 5000px;
-  transform: translateY(0);
-}
-</style>

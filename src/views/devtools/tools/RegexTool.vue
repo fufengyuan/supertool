@@ -1,84 +1,82 @@
 <template>
-  <div class="regex-tool">
-    <h3>正则表达式</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">正则表达式</h3>
 
-    <div class="tool-section">
-      <h4>正则表达式</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">正则表达式</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <input
           v-model="pattern"
-          class="tool-input"
-          style="flex: 1;"
+          class="input input-bordered flex-1"
           placeholder="输入正则表达式，如 \d+"
           @input="runTest"
         />
-        <div class="tool-btn-group">
-          <button class="tool-btn" :class="{ active: flags.includes('g') }" @click="toggleFlag('g')">g</button>
-          <button class="tool-btn" :class="{ active: flags.includes('i') }" @click="toggleFlag('i')">i</button>
-          <button class="tool-btn" :class="{ active: flags.includes('m') }" @click="toggleFlag('m')">m</button>
-          <button class="tool-btn" :class="{ active: flags.includes('s') }" @click="toggleFlag('s')">s</button>
-          <button class="tool-btn" :class="{ active: flags.includes('u') }" @click="toggleFlag('u')">u</button>
+        <div class="join">
+          <button class="btn btn-ghost join-item" :class="{ 'btn-active': flags.includes('g') }" @click="toggleFlag('g')">g</button>
+          <button class="btn btn-ghost join-item" :class="{ 'btn-active': flags.includes('i') }" @click="toggleFlag('i')">i</button>
+          <button class="btn btn-ghost join-item" :class="{ 'btn-active': flags.includes('m') }" @click="toggleFlag('m')">m</button>
+          <button class="btn btn-ghost join-item" :class="{ 'btn-active': flags.includes('s') }" @click="toggleFlag('s')">s</button>
+          <button class="btn btn-ghost join-item" :class="{ 'btn-active': flags.includes('u') }" @click="toggleFlag('u')">u</button>
         </div>
       </div>
-      <div class="regex-flags-info" v-if="pattern">
-        正则: <code>/{{ pattern }}/{{ flags }}</code>
-        <span v-if="regexError" class="regex-error"> ⚠️ {{ regexError }}</span>
+      <div v-if="pattern" class="mt-1.5 text-xs opacity-60">
+        正则: <code class="bg-base-200 px-1.5 py-0.5 rounded font-mono">/{{ pattern }}/{{ flags }}</code>
+        <span v-if="regexError" class="text-error"> ⚠️ {{ regexError }}</span>
       </div>
     </div>
 
-    <div class="tool-section">
-      <h4>测试文本</h4>
-      <textarea v-model="testText" class="tool-textarea" placeholder="输入测试文本..." rows="5" @input="runTest"></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">测试文本</h4>
+      <textarea v-model="testText" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" placeholder="输入测试文本..." rows="5" @input="runTest"></textarea>
     </div>
 
-    <div class="tool-section" v-if="matchCount !== null">
-      <h4>匹配结果</h4>
-      <div class="tool-result">
-        <div class="match-summary">
+    <div class="mb-5" v-if="matchCount !== null">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">匹配结果</h4>
+      <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">
+        <div class="mb-2 text-sm text-base-content">
           共找到 <strong>{{ matchCount }}</strong> 个匹配
           <span v-if="groups.length > 0">, {{ groups.length }} 个捕获组</span>
         </div>
-        <div v-if="matches.length > 0" class="match-list">
-          <div v-for="(m, idx) in matches.slice(0, 50)" :key="idx" class="match-item">
-            <span class="match-index">#{{ idx + 1}}</span>
-            <span class="match-value">{{ m }}</span>
+        <div v-if="matches.length > 0" class="max-h-[200px] overflow-y-auto">
+          <div v-for="(m, idx) in matches.slice(0, 50)" :key="idx" class="flex gap-2 py-1 border-b border-base-content/10 text-sm">
+            <span class="opacity-60 font-semibold min-w-[32px]">#{{ idx + 1}}</span>
+            <span class="font-mono break-all">{{ m }}</span>
           </div>
-          <div v-if="matches.length > 50" class="match-more">... 还有 {{ matches.length - 50 }} 个匹配</div>
+          <div v-if="matches.length > 50" class="opacity-60 py-1">... 还有 {{ matches.length - 50 }} 个匹配</div>
         </div>
-        <div v-if="matches.length === 0 && matchCount === 0" class="match-empty">
+        <div v-if="matches.length === 0 && matchCount === 0" class="opacity-60 italic">
           没有匹配结果
         </div>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Replace section -->
-    <div class="tool-section">
-      <h4>替换</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">替换</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <input
           v-model="replacement"
-          class="tool-input"
-          style="flex: 1;"
+          class="input input-bordered flex-1"
           placeholder="替换内容，支持 $1, $2 等引用"
         />
-        <button class="tool-btn primary" @click="runReplace" :disabled="!pattern || !testText">替换</button>
-        <button class="tool-btn" @click="copyReplaced" :disabled="!replacedResult">复制结果</button>
+        <button class="btn btn-primary" @click="runReplace" :disabled="!pattern || !testText">替换</button>
+        <button class="btn btn-ghost" @click="copyReplaced" :disabled="!replacedResult">复制结果</button>
       </div>
 
-      <div class="tool-section" v-if="replacedResult !== null">
-        <h4>替换结果</h4>
-        <textarea v-model="replacedResult" class="tool-textarea" readonly rows="4"></textarea>
+      <div class="mb-5" v-if="replacedResult !== null">
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">替换结果</h4>
+        <textarea v-model="replacedResult" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" readonly rows="4"></textarea>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Highlighted text -->
-    <div class="tool-section" v-if="highlightedHtml">
-      <h4>匹配高亮</h4>
-      <div class="highlighted-text" v-html="highlightedHtml"></div>
+    <div class="mb-5" v-if="highlightedHtml">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">匹配高亮</h4>
+      <div class="p-3 bg-base-200 border border-base-content/10 rounded-box font-mono text-sm leading-relaxed whitespace-pre-wrap break-all max-h-72 overflow-y-auto" v-html="highlightedHtml"></div>
     </div>
   </div>
 </template>
@@ -201,14 +199,14 @@ const highlightedHtml = computed(() => {
         // Add text before match
         result += escapeHtml(testText.value.substring(lastIndex, match.index))
         // Add highlighted match
-        result += `<mark class="regex-match">${escapeHtml(match[0])}</mark>`
+        result += `<mark class="bg-yellow-300/30 text-yellow-800 px-0.5 rounded">${escapeHtml(match[0])}</mark>`
         lastIndex = match.index + match[0].length
       }
     } else {
       const match = regex.exec(testText.value)
       if (match) {
         result += escapeHtml(testText.value.substring(0, match.index))
-        result += `<mark class="regex-match">${escapeHtml(match[0])}</mark>`
+        result += `<mark class="bg-yellow-300/30 text-yellow-800 px-0.5 rounded">${escapeHtml(match[0])}</mark>`
         lastIndex = match.index + match[0].length
       }
     }
@@ -232,107 +230,3 @@ async function copyReplaced() {
   await copyText(replacedResult.value, toast)
 }
 </script>
-
-<style scoped>
-
-.regex-flags-info {
-  margin-top: 6px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.regex-flags-info code {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  background: var(--color-base-200);
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.regex-error {
-  color: #ef4444;
-}
-
-.match-summary {
-  margin-bottom: 8px;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.match-list {
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.match-item {
-  display: flex;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 13px;
-}
-
-.match-index {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-weight: 600;
-  min-width: 32px;
-}
-
-.match-value {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  word-break: break-all;
-}
-
-.match-empty {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-style: italic;
-}
-
-.match-more {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding: 4px 0;
-}
-
-.highlighted-text {
-  padding: 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-all;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-:deep(.regex-match) {
-  background: rgba(250, 204, 21, 0.3);
-  color: #854d0e;
-  padding: 1px 2px;
-  border-radius: 2px;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

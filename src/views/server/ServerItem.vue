@@ -1,61 +1,78 @@
 <template>
-  <div class="server-card" :class="statusClass">
-    <div class="server-status-bar" :style="{ background: statusGradient }"></div>
-    <div class="server-content">
-      <div class="server-header">
-        <div class="server-title-row">
-          <div class="server-title-left">
-            <span class="server-name">{{ server.name }}</span>
-            <span v-if="server.requiresApproval" class="approval-badge" title="执行审核已开启">🔒</span>
+  <div class="relative bg-base-100 rounded-xl border border-base-content/10 transition-all duration-300 overflow-hidden hover:shadow-md hover:-translate-y-px hover:border-primary"
+    :class="{
+      'border-success/40': connectionStatus === 'online',
+      'border-warning/40 animate-pulse': connectionStatus === 'connecting',
+      'border-error/40': connectionStatus === 'heartbeat_failed',
+    }">
+    <div class="absolute top-0 left-0 right-0 h-0.5" :style="{ background: statusGradient }"></div>
+    <div class="p-2 px-2.5">
+      <div class="mb-1.5">
+        <div class="flex justify-between items-center">
+          <div class="flex items-center gap-1 min-w-0">
+            <span class="font-semibold text-xs text-base-content truncate">{{ server.name }}</span>
+            <span v-if="server.requiresApproval" class="text-[10px] opacity-80 flex-shrink-0" title="执行审核已开启">🔒</span>
           </div>
-          <div class="status-badge" :class="connectionStatus">
-            <span class="status-pulse" :class="connectionStatus"></span>
+          <div class="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0"
+            :class="{
+              'bg-success/15 text-success': connectionStatus === 'online',
+              'bg-warning/15 text-warning': connectionStatus === 'connecting',
+              'bg-base-200 text-base-content/60': connectionStatus === 'offline',
+              'bg-error/15 text-error': connectionStatus === 'heartbeat_failed',
+            }">
+            <span class="w-1 h-1 rounded-full flex-shrink-0"
+              :class="{
+                'bg-success shadow-[0_0_6px_var(--color-success)]': connectionStatus === 'online',
+                'bg-warning animate-pulse': connectionStatus === 'connecting',
+                'bg-base-content/60': connectionStatus === 'offline',
+                'bg-error shadow-[0_0_6px_var(--color-error)] animate-pulse': connectionStatus === 'heartbeat_failed',
+              }"></span>
             {{ statusLabel }}
           </div>
         </div>
       </div>
 
-      <div class="server-info">
-        <div class="info-row">
-          <svg class="info-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+      <div class="flex flex-col gap-0.5 mb-1.5">
+        <div class="flex items-center gap-1 text-[11px] text-base-content/60">
+          <svg class="opacity-50 flex-shrink-0 w-3 h-3" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
             <line x1="8" y1="21" x2="16" y2="21"/>
             <line x1="12" y1="17" x2="12" y2="21"/>
           </svg>
-          <span class="info-text">{{ server.host }}<span class="info-port">:{{ server.port }}</span></span>
+          <span class="truncate">{{ server.host }}<span class="text-base-content/40">:{{ server.port }}</span></span>
         </div>
-        <div class="info-row">
-          <svg class="info-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+        <div class="flex items-center gap-1 text-[11px] text-base-content/60">
+          <svg class="opacity-50 flex-shrink-0 w-3 h-3" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
             <circle cx="12" cy="7" r="4"/>
           </svg>
-          <span class="info-text">{{ server.username }}</span>
+          <span class="truncate">{{ server.username }}</span>
         </div>
       </div>
 
-      <div v-if="server.tags && server.tags.length > 0" class="server-tags">
-        <span v-for="tag in server.tags" :key="tag" class="tag">{{ tag }}</span>
+      <div v-if="server.tags && server.tags.length > 0" class="flex gap-0.5 mb-1.5 flex-wrap">
+        <span v-for="tag in server.tags" :key="tag" class="px-1 py-px bg-base-200 rounded text-[9px] text-base-content/60 border border-base-content/10">{{ tag }}</span>
       </div>
 
-      <div class="server-actions">
-        <button @click="$emit('terminal', server)" class="action-btn terminal" title="终端">
+      <div class="flex items-center gap-px">
+        <button @click="$emit('terminal', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content hover:bg-primary/15 hover:text-primary" title="终端">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
           </svg>
         </button>
-        <button @click="$emit('sftp', server)" class="action-btn sftp" title="SFTP">
+        <button @click="$emit('sftp', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content hover:bg-primary/15 hover:text-primary" title="SFTP">
           <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
         </button>
-        <div class="action-separator"></div>
-        <button @click="$emit('edit', server)" class="action-btn edit" title="编辑">
+        <div class="w-px h-3.5 bg-base-content/10 mx-0.5"></div>
+        <button @click="$emit('edit', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content" title="编辑">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
           </svg>
         </button>
-        <button @click="$emit('delete', server.id)" class="action-btn delete" title="删除">
+        <button @click="$emit('delete', server.id)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-error/15 hover:text-error" title="删除">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="3 6 5 6 21 6"/>
             <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -76,12 +93,6 @@ const props = defineProps({
 
 defineEmits(['connect', 'terminal', 'sftp', 'edit', 'delete']);
 
-const statusClass = computed(() => ({
-  connected: props.connectionStatus === 'online',
-  connecting: props.connectionStatus === 'connecting',
-  'heartbeat-failed': props.connectionStatus === 'heartbeat_failed',
-}));
-
 const statusLabel = computed(() => {
   switch (props.connectionStatus) {
     case 'online': return '已连接';
@@ -100,240 +111,3 @@ const statusGradient = computed(() => {
   }
 });
 </script>
-
-<style scoped>
-.server-card {
-  position: relative;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-}
-
-.server-card:hover {
-  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.06);
-  transform: translateY(-1px);
-  border-color: var(--color-primary);
-}
-
-.server-card.connected {
-  border-color: rgba(166, 227, 161, 0.4);
-}
-
-.server-card.connecting {
-  border-color: rgba(249, 168, 37, 0.4);
-  animation: card-pulse 2s ease-in-out infinite;
-}
-
-.server-card.heartbeat-failed {
-  border-color: rgba(243, 139, 168, 0.4);
-}
-
-@keyframes card-pulse {
-  0%, 100% { border-color: rgba(249, 168, 37, 0.4); }
-  50% { border-color: rgba(249, 168, 37, 0.15); }
-}
-
-.server-status-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-}
-
-.server-content {
-  padding: 8px 10px;
-}
-
-.server-header {
-  margin-bottom: 6px;
-}
-
-.server-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.server-name {
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--color-base-content);
-  line-height: 1.3;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.approval-badge {
-  font-size: 10px;
-  margin-left: 4px;
-  opacity: 0.8;
-}
-
-/* 连接状态徽章 */
-.status-badge {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 9px;
-  padding: 2px 7px;
-  border-radius: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.status-badge.online {
-  background: rgba(166, 227, 161, 0.12);
-  color: var(--color-success);
-}
-
-.status-badge.connecting {
-  background: rgba(249, 168, 37, 0.12);
-  color: var(--color-warning);
-}
-
-.status-badge.offline {
-  background: var(--color-base-200);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.status-badge.heartbeat_failed {
-  background: rgba(243, 139, 168, 0.12);
-  color: var(--color-error);
-}
-
-.status-pulse {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.status-pulse.online {
-  background: var(--color-success);
-  box-shadow: 0 0 6px var(--color-success);
-}
-
-.status-pulse.connecting {
-  background: var(--color-warning);
-  animation: dot-blink 0.8s ease-in-out infinite;
-}
-
-.status-pulse.offline {
-  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.status-pulse.heartbeat_failed {
-  background: var(--color-error);
-  box-shadow: 0 0 6px var(--color-error);
-  animation: dot-blink-danger 1s ease-in-out infinite;
-}
-
-@keyframes dot-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-@keyframes dot-blink-danger {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.server-info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 6px;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 11px;
-}
-
-.info-icon {
-  opacity: 0.5;
-  flex-shrink: 0;
-  width: 12px;
-  height: 12px;
-}
-
-.info-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.info-port {
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-}
-
-.server-tags {
-  display: flex;
-  gap: 3px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-
-.server-tags .tag {
-  padding: 1px 5px;
-  background: var(--color-base-200);
-  border-radius: 3px;
-  font-size: 9px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.server-actions {
-  display: flex;
-  align-items: center;
-  gap: 1px;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: all 0.15s ease;
-}
-
-.action-btn:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.action-btn.terminal:hover {
-  background: rgba(108, 99, 255, 0.12);
-  color: var(--color-primary);
-}
-
-.action-btn.sftp:hover {
-  background: rgba(108, 99, 255, 0.12);
-  color: var(--color-primary);
-}
-
-.action-btn.delete:hover {
-  background: rgba(243, 139, 168, 0.12);
-  color: var(--color-error);
-}
-
-.action-separator {
-  width: 1px;
-  height: 14px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 0 3px;
-}
-</style>

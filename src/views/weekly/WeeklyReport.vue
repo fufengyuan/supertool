@@ -1,8 +1,8 @@
 <template>
-  <div class="weekly-report-container">
-    <div class="report-header">
-      <h2>📊 {{ $t('report.title') }}</h2>
-      <div class="report-controls">
+  <div class="p-5 w-full max-w-full">
+    <div class="flex justify-between items-center mb-7 flex-wrap gap-5">
+      <h2 class="text-2xl text-base-content m-0">📊 {{ $t('report.title') }}</h2>
+      <div class="flex gap-4 items-end flex-wrap">
         <ReportConfig
           ref="reportConfigRef"
           :initial-range="selectedRange"
@@ -21,9 +21,9 @@
       </div>
     </div>
 
-    <div class="report-tabs">
-      <button class="tab-btn" :class="{ active: activeTab === 'current' }" @click="activeTab = 'current'">当前周报</button>
-      <button class="tab-btn" :class="{ active: activeTab === 'history' }" @click="activeTab = 'history'; loadHistory()">历史周报</button>
+    <div role="tablist" class="tabs tabs-bordered mb-5">
+      <button role="tab" class="tab" :class="{ 'tab-active': activeTab === 'current' }" @click="activeTab = 'current'">当前周报</button>
+      <button role="tab" class="tab" :class="{ 'tab-active': activeTab === 'history' }" @click="activeTab = 'history'; loadHistory()">历史周报</button>
     </div>
 
     <template v-if="activeTab === 'current'">
@@ -31,22 +31,28 @@
     </template>
 
     <template v-if="activeTab === 'history'">
-      <div class="history-list">
-        <div v-if="historyLoading" class="loading-state">加载中...</div>
-        <div v-else-if="historyReports.length === 0" class="empty-state">暂无历史周报</div>
-        <div v-else class="history-items">
-          <div v-for="report in historyReports" :key="report.id" class="history-item" :class="{ selected: selectedHistoryId === report.id }" @click="loadHistoryReport(report.id)">
-            <div class="history-item-info">
-              <span class="history-date">{{ formatDate(report.startDate) }} ~ {{ formatDate(report.endDate) }}</span>
-              <span class="history-created">创建于 {{ formatDateTime(report.createdAt) }}</span>
+      <div class="mb-5">
+        <div v-if="historyLoading" class="text-center py-10 text-base-content/60">加载中...</div>
+        <div v-else-if="historyReports.length === 0" class="text-center py-10 text-base-content/60">暂无历史周报</div>
+        <div v-else class="flex flex-col gap-2">
+          <div
+            v-for="report in historyReports"
+            :key="report.id"
+            class="flex justify-between items-center py-3 px-4 bg-base-100 border border-base-content/10 rounded-lg cursor-pointer transition-all duration-200 hover:border-primary hover:bg-primary/10"
+            :class="{ 'border-primary bg-primary/10': selectedHistoryId === report.id }"
+            @click="loadHistoryReport(report.id)"
+          >
+            <div class="flex flex-col gap-1">
+              <span class="font-medium text-base-content">{{ formatDate(report.startDate) }} ~ {{ formatDate(report.endDate) }}</span>
+              <span class="text-xs text-base-content/60">创建于 {{ formatDateTime(report.createdAt) }}</span>
             </div>
-            <button class="history-load-btn" @click.stop="loadHistoryReport(report.id)">查看</button>
+            <button class="btn btn-outline btn-primary btn-xs" @click.stop="loadHistoryReport(report.id)">查看</button>
           </div>
         </div>
       </div>
-      <div v-if="historyReportData" class="history-report-view">
-        <div class="history-report-header">
-          <h3>周报详情: {{ formatDate(historyReportData.startDate) }} ~ {{ formatDate(historyReportData.endDate) }}</h3>
+      <div v-if="historyReportData" class="mt-5">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-base-content m-0">周报详情: {{ formatDate(historyReportData.startDate) }} ~ {{ formatDate(historyReportData.endDate) }}</h3>
           <button class="btn btn-ghost" @click="restoreFromHistory">恢复到当前视图</button>
         </div>
         <ReportContent :report-data="historyReportData" :get-project-name="getProjectName" :format-date="formatDate" />
@@ -324,30 +330,3 @@ onBeforeUnmount(() => {
   unlistenDataChanged?.()
 })
 </script>
-
-<style scoped>
-.weekly-report-container { padding: 20px; width: 100%; max-width: 100%; }
-.report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; flex-wrap: wrap; gap: 20px; }
-.report-header h2 { margin: 0; color: var(--color-base-content); font-size: 24px; }
-.report-controls { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
-.report-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
-.tab-btn { padding: 8px 20px; border: none; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s ease; }
-.tab-btn:hover { color: var(--color-base-content); }
-.tab-btn.active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
-.history-list { margin-bottom: 20px; }
-.loading-state, .empty-state { text-align: center; padding: 40px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.history-items { display: flex; flex-direction: column; gap: 8px; }
-.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--color-base-100); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
-.history-item:hover { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.history-item.selected { border-color: var(--color-primary); background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.history-item-info { display: flex; flex-direction: column; gap: 4px; }
-.history-date { font-weight: 500; color: var(--color-base-content); }
-.history-created { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.history-load-btn { padding: 6px 16px; border: 1px solid var(--color-primary); background: transparent; color: var(--color-primary); border-radius: 6px; cursor: pointer; font-size: 13px; transition: all 0.2s ease; }
-.history-load-btn:hover { background: var(--color-primary); color: white; }
-.history-report-view { margin-top: 20px; }
-.history-report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.history-report-header h3 { margin: 0; color: var(--color-base-content); }
-.btn-ghost { padding: 6px 14px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); border-radius: 6px; cursor: pointer; font-size: 13px; }
-.btn-ghost:hover { border-color: var(--color-primary); color: var(--color-primary); }
-</style>

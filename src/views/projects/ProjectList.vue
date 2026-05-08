@@ -1,25 +1,25 @@
 <template>
-  <div class="project-list-container">
-    <div class="project-header">
-      <h2>{{ $t('project.list') }}</h2>
+  <div class="p-5">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="m-0 text-2xl text-base-content">{{ $t('project.list') }}</h2>
       <UiButton @click="openAddModal">+ {{ $t('project.add') }}</UiButton>
     </div>
 
     <!-- 搜索和筛选 -->
-    <div class="filters-bar">
-      <div class="search-wrapper">
-        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="flex gap-3 mb-5 flex-wrap items-center">
+      <div class="relative flex-1 min-w-[200px]">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
         </svg>
-        <input v-model="searchQuery" type="text" class="search-input" :placeholder="$t('projectList.searchPlaceholder')" />
+        <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9 text-sm placeholder:text-base-content/60 placeholder:opacity-70" :placeholder="$t('projectList.searchPlaceholder')" />
       </div>
-      <div class="filter-group">
-        <select v-model="archiveFilter" class="filter-select">
+      <div class="flex gap-2">
+        <select v-model="archiveFilter" class="select select-bordered text-sm">
           <option value="active">{{ $t('projectList.archive.active') }}</option>
           <option value="archived">{{ $t('projectList.archive.archived') }}</option>
           <option value="all">{{ $t('projectList.archive.all') }}</option>
         </select>
-        <select v-model="categoryFilter" class="filter-select">
+        <select v-model="categoryFilter" class="select select-bordered text-sm">
           <option value="all">{{ $t('projectList.category.all') }}</option>
           <option value="frontend">🎨 {{ $t('projectForm.frontend') }}</option>
           <option value="backend">⚙️ {{ $t('projectForm.backend') }}</option>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- 项目列表 - 一行一个 -->
-    <div v-if="filteredProjects.length > 0" class="project-list">
+    <div v-if="filteredProjects.length > 0" class="flex flex-col gap-4">
       <ProjectItem
         v-for="project in filteredProjects"
         :key="project.id"
@@ -51,9 +51,9 @@
         </svg>
       </template>
       <template #action>
-        <div class="empty-state-shortcuts" v-if="!searchQuery && categoryFilter === 'all'">
-          <span class="shortcut-tag"><kbd>Enter</kbd> 创建项目</span>
-          <span class="shortcut-tag"><kbd>Esc</kbd> 关闭弹窗</span>
+        <div class="flex gap-2 justify-center mb-3" v-if="!searchQuery && categoryFilter === 'all'">
+          <span class="inline-flex items-center gap-1 text-xs text-base-content/60"><kbd class="px-1.5 py-0.5 rounded bg-base-200 border border-base-content/10 text-xs font-[inherit]">Enter</kbd> 创建项目</span>
+          <span class="inline-flex items-center gap-1 text-xs text-base-content/60"><kbd class="px-1.5 py-0.5 rounded bg-base-200 border border-base-content/10 text-xs font-[inherit]">Esc</kbd> 关闭弹窗</span>
         </div>
       </template>
     </UiEmptyState>
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter } from 'vue-router';
 import ProjectItem from '@/views/projects/ProjectItem.vue';
 import ProjectForm from '@/views/projects/ProjectForm.vue';
 import UiButton from '@/components/ui/Button.vue';
@@ -86,10 +86,10 @@ import UiModal from '@/components/ui/Modal.vue';
 import UiEmptyState from '@/components/ui/EmptyState.vue';
 import { useProjects } from '../../composables/useProjects';
 import { useErrorHandler } from '../../composables/useErrorHandler';
+import { getTauriAPI } from '../../utils/tauri-api';
 import type { Project } from '../../types';
 
 const router = useRouter();
-const route = useRoute();
 
 const projectsApi = useProjects();
 const { handleError } = useErrorHandler();
@@ -166,6 +166,11 @@ const openEditModal = (project: Project) => {
   showModal.value = true;
 };
 
+const closeModal = () => {
+  showModal.value = false;
+  editingProject.value = null;
+};
+
 const resetModal = () => {
   editingProject.value = null;
   showModal.value = false;
@@ -206,7 +211,7 @@ const toggleArchive = async (project: Project) => {
       archived: !project.archived,
       updatedAt: new Date().toISOString(),
     };
-    await projectsApi.updateProject(updated as unknown as Project);
+    await getTauriAPI().updateProject(updated);
     await loadProjects();
   } catch (error) {
     handleError(error, { context: 'toggleArchive' });
@@ -214,37 +219,7 @@ const toggleArchive = async (project: Project) => {
 };
 
 onMounted(async () => {
-    console.log("[views/projects/ProjectList.vue] mounted")
+    console.log("[components/ProjectList.vue] mounted")
   await loadProjects();
-  // 从详情页点编辑跳回来时自动打开编辑弹窗
-  const editId = route.query.edit as string;
-  if (editId) {
-    const target = projects.value.find(p => p.id === editId);
-    if (target) openEditModal(target);
-  }
 });
 </script>
-
-<style scoped>
-.project-list-container { padding: 20px; }
-.project-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.project-header h2 { margin: 0; color: var(--color-base-content); font-size: 24px; }
-
-/* 筛选栏 */
-.filters-bar { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
-.search-wrapper { position: relative; flex: 1; min-width: 200px; }
-.search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); pointer-events: none; }
-.search-input { width: 100%; padding: 10px 14px 10px 36px; border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent); border-radius: 10px; background: var(--color-base-200); color: var(--color-base-content); font-size: 14px; outline: none; transition: all 0.15s ease; }
-.search-input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.search-input::placeholder { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.7; }
-.filter-group { display: flex; gap: 8px; }
-.filter-select { padding: 10px 14px; border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent); border-radius: 10px; background: var(--color-base-200); color: var(--color-base-content); font-size: 13px; cursor: pointer; outline: none; transition: all 0.15s ease; }
-.filter-select:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent); }
-
-/* 项目列表 - 一行一个，全宽 */
-.project-list { display: flex; flex-direction: column; gap: 16px; }
-
-.empty-state-shortcuts { display: flex; gap: 8px; justify-content: center; margin-bottom: 12px; }
-.shortcut-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.shortcut-tag kbd { padding: 2px 6px; border-radius: 4px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); font-size: 11px; font-family: inherit; }
-</style>

@@ -1,60 +1,60 @@
 <template>
-  <div class="time-tool">
-    <h3>⏰ 时间戳转换</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">⏰ 时间戳转换</h3>
 
     <!-- Current Timestamp -->
-    <div class="tool-section">
-      <h4>当前时间戳</h4>
-      <div class="current-timestamp">
-        <span class="ts-value">{{ currentTsMs }}</span>
-        <span class="ts-label">毫秒</span>
-        <span class="ts-value sec">{{ currentTsSec }}</span>
-        <span class="ts-label">秒</span>
-        <button class="tool-btn" @click="copyText(currentTsMs, toast, '已复制毫秒时间戳')">📋 复制</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">当前时间戳</h4>
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span class="font-mono text-xl font-bold text-primary">{{ currentTsMs }}</span>
+        <span class="text-xs opacity-60">毫秒</span>
+        <span class="font-mono text-base opacity-60">{{ currentTsSec }}</span>
+        <span class="text-xs opacity-60">秒</span>
+        <button class="btn btn-ghost" @click="copyText(currentTsMs, toast, '已复制毫秒时间戳')">📋 复制</button>
       </div>
-      <div class="current-date">{{ currentFormatted }}</div>
+      <div class="mt-1.5 text-sm text-base-content">{{ currentFormatted }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Timestamp → Date -->
-    <div class="tool-section">
-      <h4>时间戳 → 日期</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">时间戳 → 日期</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <input
           v-model.number="timestampInput"
           type="number"
-          class="tool-input mono"
+          class="input input-bordered font-mono flex-1 min-w-[180px]"
           placeholder="输入时间戳（秒或毫秒）"
           @input="convertTsToDate"
         />
-        <select v-model="inputTimezone" class="tool-select" @change="convertTsToDate">
+        <select v-model="inputTimezone" class="select select-bordered" @change="convertTsToDate">
           <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
         </select>
-        <button class="tool-btn" @click="copyText(dateOutput, toast)">📋 复制</button>
+        <button class="btn btn-ghost" @click="copyText(dateOutput, toast)">📋 复制</button>
       </div>
-      <div v-if="dateOutput" class="tool-result">{{ dateOutput }}</div>
+      <div v-if="dateOutput" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ dateOutput }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-base-content/10 my-5" />
 
     <!-- Date → Timestamp -->
-    <div class="tool-section">
-      <h4>日期 → 时间戳</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">日期 → 时间戳</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <input
           v-model="datetimeInput"
           type="datetime-local"
-          class="tool-input mono"
+          class="input input-bordered font-mono flex-1 min-w-[180px]"
           @input="convertDateToTs"
         />
-        <select v-model="outputTimezone" class="tool-select" @change="convertDateToTs">
+        <select v-model="outputTimezone" class="select select-bordered" @change="convertDateToTs">
           <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
         </select>
       </div>
-      <div v-if="tsOutput" class="tool-result">{{ tsOutput }}</div>
-      <div v-if="tsOutput" class="tool-row" style="margin-top: 8px">
-        <button class="tool-btn" @click="copyText(tsOutput, toast)">📋 复制</button>
+      <div v-if="tsOutput" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ tsOutput }}</div>
+      <div v-if="tsOutput" class="flex flex-wrap gap-2.5 mb-3 mt-2">
+        <button class="btn btn-ghost" @click="copyText(tsOutput, toast)">📋 复制</button>
       </div>
     </div>
   </div>
@@ -169,142 +169,3 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 </script>
-
-<style scoped>
-
-.time-tool {
-  max-width: 700px;
-}
-
-.time-tool h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.current-timestamp {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.ts-value {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.ts-value.sec {
-  font-size: 16px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.ts-label {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.current-date {
-  margin-top: 6px;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.mono {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-}
-
-.tool-section h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0 0 10px 0;
-}
-
-.tool-input {
-  flex: 1;
-  min-width: 180px;
-}
-
-.tool-result {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 13px;
-  color: var(--color-base-content);
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.tool-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.tool-btn {
-  padding: 7px 16px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  transition: all 0.15s;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tool-btn:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-}
-
-.tool-divider {
-  border: none;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 20px 0;
-}
-
-.tool-select {
-  padding: 7px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  font-size: 13px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  outline: none;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

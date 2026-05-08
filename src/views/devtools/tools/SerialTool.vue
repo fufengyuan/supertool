@@ -1,26 +1,26 @@
 <template>
-  <div class="serial-tool">
-    <h3>序列化转换</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">序列化转换</h3>
 
-    <div class="tool-row">
-      <label class="tool-label" style="align-self: center;">转换类型</label>
-      <select v-model="conversionType" class="tool-select">
+    <div class="flex flex-wrap gap-2.5 mb-3 items-center">
+      <span class="label-text text-xs font-medium opacity-60 mb-1 block self-center">转换类型</span>
+      <select v-model="conversionType" class="select select-bordered">
         <option v-for="opt in conversionOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
       </select>
-      <button class="tool-btn primary" @click="convert" :disabled="!input">转换</button>
-      <button class="tool-btn" @click="swapInputOutput">⇄ 互换</button>
-      <button class="tool-btn" @click="copyOutput" :disabled="!output">复制结果</button>
-      <button class="tool-btn" @click="clearAll">清空</button>
+      <button class="btn btn-primary" @click="convert" :disabled="!input">转换</button>
+      <button class="btn btn-ghost" @click="swapInputOutput">⇄ 互换</button>
+      <button class="btn btn-ghost" @click="copyOutput" :disabled="!output">复制结果</button>
+      <button class="btn btn-ghost" @click="clearAll">清空</button>
     </div>
 
-    <div class="tool-section">
-      <h4>输入</h4>
-      <textarea v-model="input" class="tool-textarea" placeholder="在此输入..." rows="8"></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输入</h4>
+      <textarea v-model="input" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" placeholder="在此输入..." rows="8"></textarea>
     </div>
 
-    <div class="tool-section">
-      <h4>输出</h4>
-      <textarea v-model="output" class="tool-textarea" readonly rows="8" placeholder="结果将显示在这里..."></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输出</h4>
+      <textarea v-model="output" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" readonly rows="8" placeholder="结果将显示在这里..."></textarea>
     </div>
   </div>
 </template>
@@ -457,29 +457,3 @@ async function copyOutput() {
   await copyText(output.value, toast)
 }
 </script>
-
-<style scoped>
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

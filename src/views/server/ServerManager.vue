@@ -1,19 +1,19 @@
 <template>
-  <div class="server-manager">
+  <div class="px-4 py-3">
     <h2>服务器管理</h2>
 
-    <div class="server-toolbar">
-      <button @click="showAddServer = true" class="btn-add">+ 添加服务器</button>
-      <button @click="refreshServers" class="btn-refresh">🔄 刷新</button>
-      <button @click="showGroupManager = true" class="btn-groups">📁 管理分组</button>
-      <div class="toolbar-separator"></div>
-      <button @click="expandAllGroups" class="btn-toggle-groups" title="全部展开">
+    <div class="flex gap-1.5 mb-3 items-center flex-wrap">
+      <button @click="showAddServer = true" class="btn btn-primary">+ 添加服务器</button>
+      <button @click="refreshServers" class="btn btn-ghost">🔄 刷新</button>
+      <button @click="showGroupManager = true" class="btn btn-ghost">📁 管理分组</button>
+      <div class="w-px h-7 bg-base-content/10 mx-1"></div>
+      <button @click="expandAllGroups" class="btn btn-ghost btn-xs" title="全部展开">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
         全部展开
       </button>
-      <button @click="collapseAllGroups" class="btn-toggle-groups" title="全部折叠">
+      <button @click="collapseAllGroups" class="btn btn-ghost btn-xs" title="全部折叠">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="6 15 12 9 18 15"/>
         </svg>
@@ -22,25 +22,25 @@
     </div>
 
     <!-- 搜索和分组筛选 -->
-    <div class="server-filters">
-      <div class="search-box">
-        <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+    <div class="flex gap-3 mb-5 items-center">
+      <div class="flex-1 relative flex items-center">
+        <svg class="absolute left-3 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="11" cy="11" r="8"/>
           <path d="m21 21-4.35-4.35"/>
         </svg>
         <input
           v-model="searchQuery"
           placeholder="搜索服务器名称或地址..."
-          class="search-input"
+          class="input input-bordered w-full pl-9"
         />
       </div>
-      <select v-model="selectedGroup" class="group-filter">
+      <select v-model="selectedGroup" class="select select-bordered min-w-[150px]">
         <option value="">全部分组</option>
         <template v-for="group in groups" :key="group.id">
           <option v-if="!group.parentId" :value="group.id">
             {{ group.name }}
           </option>
-          <option v-else :value="group.id" class="group-suboption">
+          <option v-else :value="group.id">
             {{ '  ' + '└ ' + group.name }}
           </option>
         </template>
@@ -49,26 +49,27 @@
 
     <!-- 按分组树形折叠显示 -->
     <template v-if="selectedGroup === ''">
-      <div v-if="getServersByGroup(null).length > 0" class="drawer-group" :class="{ 'drawer-expanded': expandedGroups.has(null) }">
-        <div class="drawer-handle" @click="toggleGroup(null)">
-          <div class="drawer-handle-left">
-            <svg class="drawer-chevron" :class="{ expanded: expandedGroups.has(null) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <div v-if="getServersByGroup(null).length > 0" class="rounded-xl mb-1" :class="{ 'mb-2': expandedGroups.has(null) }">
+        <div @click="toggleGroup(null)"
+          class="flex items-center justify-between px-3 py-[7px] rounded-lg cursor-pointer select-none transition-all bg-base-100 border border-base-content/10 relative overflow-hidden hover:border-primary hover:shadow-[0_2px_12px_rgba(108,99,255,0.1)] hover:-translate-y-px before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:rounded-r-[3px] before:bg-gradient-to-b before:from-[#6c63ff] before:to-[#4834d4]">
+          <div class="flex items-center gap-2 relative z-[1]">
+            <svg class="text-base-content/60 transition-transform duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
-            <span class="drawer-icon">🖥️</span>
-            <span class="drawer-name">未分组</span>
-            <span class="drawer-count">{{ getServersByGroup(null).length }}</span>
+            <span class="text-sm leading-none">🖥️</span>
+            <span class="text-[13px] font-semibold text-base-content">未分组</span>
+            <span class="text-[11px] font-semibold px-[7px] py-0.5 rounded-full bg-[#6c63ff]/[0.13] text-[#6c63ff]">{{ getServersByGroup(null).length }}</span>
           </div>
-          <div class="drawer-handle-right">
-            <span class="drawer-online" v-if="getOnlineCount(null) > 0">
-              <span class="online-dot"></span>
+          <div class="flex items-center gap-2 relative z-[1]">
+            <span class="flex items-center gap-1 text-[11px] text-success font-medium" v-if="getOnlineCount(null) > 0">
+              <span class="inline-block w-2 h-2 rounded-full bg-success"></span>
               {{ getOnlineCount(null) }} 在线
             </span>
           </div>
         </div>
         <Transition name="drawer-expand">
-          <div v-show="expandedGroups.has(null)" class="drawer-body">
-            <div class="drawer-servers">
+          <div v-show="expandedGroups.has(null)" class="mt-1 py-2 px-2.5 rounded-lg bg-base-100 border border-base-content/10 border-t-0">
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
               <ServerItem
                 v-for="server in getFilteredServers(getServersByGroup(null))"
                 :key="server.id"
@@ -104,7 +105,7 @@
 
     <!-- 单个分组筛选视图 -->
     <template v-else>
-      <div class="server-list">
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
         <ServerItem
           v-for="server in getFilteredServers(getServersByGroup(selectedGroup))"
           :key="server.id"
@@ -118,18 +119,18 @@
       </div>
     </template>
 
-    <div v-if="allFilteredServers.length === 0" class="empty-state">
+    <div v-if="allFilteredServers.length === 0" class="text-center py-10 text-base-content/60 bg-base-100 rounded-xl">
       <template v-if="servers.length === 0 && !searchQuery">
         <!-- 真正空状态 -->
-        <svg class="empty-state-icon" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+        <svg class="opacity-20 mb-4" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
           <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
           <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
           <line x1="6" y1="6" x2="6.01" y2="6" />
           <line x1="6" y1="18" x2="6.01" y2="18" />
         </svg>
-        <p class="empty-state-title">暂无服务器</p>
-        <p class="empty-state-subtitle">点击上方「添加服务器」按钮，管理你的远程服务器</p>
-        <button @click="showAddServer = true" class="empty-state-action-btn">+ 添加第一个服务器</button>
+        <p class="text-base font-semibold text-base-content m-0 mb-2">暂无服务器</p>
+        <p class="text-sm m-0 mb-4">点击上方「添加服务器」按钮，管理你的远程服务器</p>
+        <button @click="showAddServer = true" class="btn btn-primary">+ 添加第一个服务器</button>
       </template>
       <template v-else>
         <p>{{ searchQuery ? '没有找到匹配的服务器' : '暂无服务器，点击上方按钮添加' }}</p>
@@ -151,36 +152,36 @@
 
     <!-- 分组管理弹窗 -->
     <Modal v-model="showGroupManager" title="管理分组" width="520px">
-      <div class="group-manager">
-        <div class="group-manager-list">
-          <div v-for="group in groups" :key="group.id" class="group-manager-item" :style="{ paddingLeft: `${getGroupDepth(group) * 20}px` }">
-            <span v-if="group.parentId" class="group-indent">└ </span>
-            <span class="group-color-dot" :style="{ backgroundColor: group.color || '#6c63ff' }"></span>
-            <span class="group-manager-name">{{ group.name }}</span>
-            <span class="group-manager-count">{{ getServersByGroup(group.id).length }} 台</span>
-            <button @click="addGroupAsChild(group.id)" class="btn-add-subgroup" title="添加子分组">+</button>
-            <button @click="editGroup(group.id)" class="btn-edit-group" title="编辑">✎</button>
-            <button @click="deleteGroup(group.id)" class="btn-delete-group" title="删除">✕</button>
+      <div class="py-2">
+        <div class="mb-5">
+          <div v-for="group in groups" :key="group.id" class="flex items-center gap-2.5 py-2.5 px-3 rounded-lg bg-base-200 mb-2" :style="{ paddingLeft: `${getGroupDepth(group) * 20}px` }">
+            <span v-if="group.parentId" class="inline-block">└ </span>
+            <span class="inline-block w-3 h-3 rounded-full" :style="{ backgroundColor: group.color || '#6c63ff' }"></span>
+            <span class="flex-1 font-medium">{{ group.name }}</span>
+            <span class="text-xs text-base-content/60">{{ getServersByGroup(group.id).length }} 台</span>
+            <button @click="addGroupAsChild(group.id)" class="btn btn-ghost btn-xs" title="添加子分组">+</button>
+            <button @click="editGroup(group.id)" class="btn btn-ghost btn-xs" title="编辑">✎</button>
+            <button @click="deleteGroup(group.id)" class="btn btn-error btn-xs" title="删除">✕</button>
           </div>
-          <div v-if="groups.length === 0" class="empty-group-msg">暂无分组</div>
+          <div v-if="groups.length === 0" class="text-center py-5 text-base-content/60">暂无分组</div>
         </div>
-        <div class="group-manager-form">
-          <h4>{{ editingGroupId ? '编辑分组' : (addingChildTo ? '添加子分组' : '添加新分组') }}</h4>
-          <div class="group-form-row">
-            <input v-model="newGroupName" placeholder="分组名称" class="form-input" @keyup.enter="saveGroup" />
-            <input v-model="newGroupColor" type="color" class="color-picker" value="#6c63ff" />
+        <div class="border-t border-base-content/10 pt-4">
+          <h4 class="m-0 mb-3 text-sm text-base-content">{{ editingGroupId ? '编辑分组' : (addingChildTo ? '添加子分组' : '添加新分组') }}</h4>
+          <div class="flex gap-2.5 mb-2.5">
+            <input v-model="newGroupName" placeholder="分组名称" class="input input-bordered flex-1" @keyup.enter="saveGroup" />
+            <input v-model="newGroupColor" type="color" class="w-10 h-9 border border-base-content/10 rounded-md cursor-pointer p-0.5 bg-base-200" value="#6c63ff" />
           </div>
-          <div v-if="!editingGroupId" class="group-form-row">
-            <select v-model="newGroupParent" class="form-select">
+          <div v-if="!editingGroupId" class="flex gap-2.5 mb-2.5">
+            <select v-model="newGroupParent" class="select select-bordered flex-1">
               <option :value="null">无父分组（顶级）</option>
               <option v-for="group in groups" :key="group.id" :value="group.id">
                 {{ group.name }}
               </option>
             </select>
           </div>
-          <div class="group-form-actions">
-            <button @click="saveGroup" class="btn-add-group" :disabled="!newGroupName.trim()">{{ editingGroupId ? '保存' : '添加' }}</button>
-            <button v-if="editingGroupId || addingChildTo" @click="cancelEditGroup" class="btn-cancel-group">取消</button>
+          <div class="flex gap-2">
+            <button @click="saveGroup" class="btn btn-primary" :disabled="!newGroupName.trim()">{{ editingGroupId ? '保存' : '添加' }}</button>
+            <button v-if="editingGroupId || addingChildTo" @click="cancelEditGroup" class="btn btn-ghost">取消</button>
           </div>
         </div>
       </div>
@@ -570,194 +571,7 @@ function closeModal() {
 }
 </script>
 
-<style scoped>
-.server-manager {
-  padding: 12px 16px;
-}
-
-.server-toolbar {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.btn-add,
-.btn-groups {
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  font-size: 14px;
-}
-
-.btn-groups {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.btn-refresh {
-  padding: 10px 20px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 14px;
-}
-
-.toolbar-separator {
-  width: 1px;
-  height: 28px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 0 4px;
-}
-
-.btn-toggle-groups {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 12px;
-  transition: all 0.15s ease;
-}
-
-.btn-toggle-groups:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  border-color: var(--color-primary);
-}
-
-/* ═══════════════════════════════════════
-   抽屉式分组
-   ═══════════════════════════════════════ */
-
-/* 未分组抽屉容器 */
-.drawer-group {
-  margin-bottom: 4px;
-  border-radius: 10px;
-}
-
-.drawer-group.drawer-expanded {
-  margin-bottom: 8px;
-}
-
-/* 抽屉把手 */
-.drawer-handle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.2s ease;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  position: relative;
-  overflow: hidden;
-}
-
-.drawer-handle::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: linear-gradient(180deg, #6c63ff, #4834d4);
-}
-
-.drawer-handle:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 12px rgba(108, 99, 255, 0.1);
-  transform: translateY(-1px);
-}
-
-.drawer-handle-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
-}
-
-.drawer-chevron {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-}
-
-.drawer-chevron.expanded {
-  transform: rotate(180deg);
-  color: var(--color-primary);
-}
-
-.drawer-icon {
-  font-size: 14px;
-  line-height: 1;
-}
-
-.drawer-name {
-  font-weight: 600;
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.drawer-count {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 7px;
-  border-radius: 12px;
-  background: #6c63ff22;
-  color: #6c63ff;
-  line-height: 1.4;
-}
-
-.drawer-handle-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  position: relative;
-  z-index: 1;
-}
-
-.drawer-online {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--color-success);
-  font-weight: 500;
-}
-
-/* 抽屉面板 */
-.drawer-body {
-  margin-top: 4px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-base-100) 80%, color-mix(in oklab, var(--color-base-content) 10%, transparent) 20%);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-top: none;
-}
-
-.drawer-servers {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-/* 展开/折叠动画 */
+<style>
 .drawer-expand-enter-active,
 .drawer-expand-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -776,206 +590,5 @@ function closeModal() {
   opacity: 1;
   max-height: 5000px;
   transform: translateY(0);
-}
-
-/* 搜索和筛选 */
-.server-filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-  align-items: center;
-}
-
-.search-box {
-  flex: 1;
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  pointer-events: none;
-}
-
-.search-input {
-  width: 100%;
-  padding: 10px 12px 10px 36px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  transition: border-color 0.15s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.group-filter {
-  padding: 10px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-  min-width: 150px;
-}
-
-/* 单分组筛选视图 */
-.server-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-100);
-  border-radius: 12px;
-}
-.empty-state-icon { opacity: 0.2; margin-bottom: 16px; }
-.empty-state-title { font-size: 16px; font-weight: 600; color: var(--color-base-content); margin: 0 0 8px 0; }
-.empty-state-subtitle { font-size: 13px; margin: 0 0 16px 0; }
-.empty-state-action-btn {
-  padding: 10px 24px;
-  border-radius: 8px;
-  cursor: pointer;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-.empty-state-action-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-
-/* 分组管理器 */
-.group-manager {
-  padding: 8px 0;
-}
-
-.group-manager-list {
-  margin-bottom: 20px;
-}
-
-.group-manager-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: var(--color-base-200);
-  margin-bottom: 8px;
-}
-
-.group-manager-name {
-  flex: 1;
-  font-weight: 500;
-}
-
-.group-manager-count {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.btn-delete-group {
-  padding: 4px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  background: var(--color-error);
-  color: white;
-  border: none;
-  font-size: 12px;
-}
-
-.empty-group-msg {
-  text-align: center;
-  padding: 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.group-manager-form {
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding-top: 16px;
-}
-
-.group-manager-form h4 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: var(--color-base-content);
-}
-
-.group-form-row {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.group-form-row .form-input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 14px;
-}
-
-.color-picker {
-  width: 40px;
-  height: 36px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  cursor: pointer;
-  padding: 2px;
-  background: var(--color-base-200);
-}
-
-.btn-add-group {
-  padding: 8px 16px;
-  border-radius: 6px;
-  cursor: pointer;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  font-size: 13px;
-}
-
-.btn-add-group:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 手风琴过渡 */
-.accordion-enter-active,
-.accordion-leave-active {
-  transition: all 0.3s ease;
-  max-height: 2000px;
-  overflow: hidden;
-}
-
-.accordion-enter-from,
-.accordion-leave-to {
-  max-height: 0;
-  opacity: 0;
-}
-
-/* 终端和 SFTP 面板 */
-.terminal-panel,
-.sftp-panel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--color-base-200);
-  z-index: 2000;
 }
 </style>

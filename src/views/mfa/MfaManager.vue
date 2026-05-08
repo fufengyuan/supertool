@@ -1,98 +1,98 @@
 <template>
-  <div class="mfa-manager">
+  <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-8">
     <!-- 页面头部 -->
-    <div class="mfa-header">
-      <div class="mfa-header-left">
-        <div class="header-icon">🔐</div>
-        <div class="header-info">
-          <h2 class="mfa-title">MFA 验证码</h2>
-          <p class="mfa-subtitle">双因素身份验证令牌管理器</p>
+    <div class="flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-purple-600 p-7 px-8 shadow-lg shadow-purple-500/20 before:pointer-events-none before:absolute before:-right-[10%] before:-top-1/2 before:h-[300px] before:w-[300px] before:rounded-full before:bg-white/8">
+      <div class="relative z-10 flex items-center gap-4">
+        <div class="text-4xl leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]">🔐</div>
+        <div class="flex flex-col gap-0.5">
+          <h2 class="m-0 text-2xl font-bold tracking-tight text-white">MFA 验证码</h2>
+          <p class="m-0 text-[13px] font-normal text-white/80">双因素身份验证令牌管理器</p>
         </div>
       </div>
-      <button class="btn-add" @click="showAddDialog = true">
+      <button class="btn btn-ghost z-10 gap-1.5 border-white/35 bg-white/15 text-white hover:border-white hover:bg-white hover:text-primary" @click="showAddDialog = true">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         添加账户
       </button>
     </div>
 
     <!-- 统计信息栏 -->
-    <div v-if="secrets.length > 0" class="mfa-stats">
-      <div class="stat-item">
-        <span class="stat-value">{{ secrets.length }}</span>
-        <span class="stat-label">账户总数</span>
+    <div v-if="secrets.length > 0" class="flex items-center rounded-xl border border-base-content/10 bg-base-100 p-[18px_24px] shadow-sm">
+      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
+        <span class="text-2xl font-bold leading-tight text-primary">{{ secrets.length }}</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">账户总数</span>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-value">{{ activeCodes }}</span>
-        <span class="stat-label">活跃令牌</span>
+      <div class="h-8 w-px flex-shrink-0 bg-base-content/10"></div>
+      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
+        <span class="text-2xl font-bold leading-tight text-primary">{{ activeCodes }}</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">活跃令牌</span>
       </div>
-      <div class="stat-divider"></div>
-      <div class="stat-item">
-        <span class="stat-value">{{ nextRefresh }}s</span>
-        <span class="stat-label">下次刷新</span>
+      <div class="h-8 w-px flex-shrink-0 bg-base-content/10"></div>
+      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
+        <span class="text-2xl font-bold leading-tight text-primary">{{ nextRefresh }}s</span>
+        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">下次刷新</span>
       </div>
     </div>
 
     <!-- 空状态 -->
-    <div v-if="secrets.length === 0" class="mfa-empty">
-      <div class="empty-icon-wrapper">
-        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <div v-if="secrets.length === 0" class="flex flex-col items-center justify-center gap-4 py-20 text-center text-base-content/60">
+      <div class="mb-1 flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-base-200 shadow-lg shadow-purple-500/10">
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-primary opacity-40">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
       </div>
-      <p class="empty-text">暂无 MFA 账户</p>
-      <p class="empty-hint">点击「添加账户」录入你的第一个 MFA 密钥</p>
-      <button class="btn-add-empty" @click="showAddDialog = true">
+      <p class="m-0 text-lg font-semibold text-base-content">暂无 MFA 账户</p>
+      <p class="m-0 text-sm opacity-70">点击「添加账户」录入你的第一个 MFA 密钥</p>
+      <button class="btn btn-primary mt-1 rounded-xl hover:-translate-y-0.5" @click="showAddDialog = true">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         添加第一个账户
       </button>
     </div>
 
     <!-- MFA 列表 -->
-    <div v-else class="mfa-list">
+    <div v-else class="grid w-full grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5 p-1">
       <div
         v-for="(entry, idx) in secrets"
         :key="entry.id"
-        class="mfa-card"
-        :class="{ 'card-expiring': remainingFor(entry) <= 5 }"
+        class="group relative flex cursor-pointer select-none flex-col gap-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100 shadow-sm transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-transparent hover:shadow-lg"
+        :class="{ 'animate-[cardPulse_0.5s_ease_infinite_alternate]': remainingFor(entry) <= 5 }"
         :style="{ '--card-color': cardColor(idx) }"
         @click="copyCode(entry)"
       >
-        <div class="card-color-bar"></div>
-        <div class="mfa-card-top">
-          <div class="mfa-card-info">
-            <div class="mfa-issuer">{{ displayIssuer(entry) }}</div>
-            <div v-if="entry.account" class="mfa-account">{{ entry.account }}</div>
+        <div class="h-1 flex-shrink-0" :style="{ background: `linear-gradient(90deg, var(--card-color), color-mix(in oklab, var(--color-primary) 80%, transparent))` }"></div>
+        <div class="flex items-start justify-between px-[18px] pt-4">
+          <div class="flex min-w-0 flex-col gap-0.5">
+            <div class="truncate text-[15px] font-semibold text-base-content">{{ displayIssuer(entry) }}</div>
+            <div v-if="entry.account" class="truncate text-xs text-base-content/60">{{ entry.account }}</div>
           </div>
-          <div class="mfa-card-actions">
-            <button class="mfa-action-btn" @click.stop="editEntry(entry)" title="编辑">
+          <div class="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+            <button class="btn btn-ghost btn-square h-7 w-7 text-base-content/60 hover:bg-primary/10 hover:text-primary" @click.stop="editEntry(entry)" title="编辑">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="mfa-action-btn mfa-action-delete" @click.stop="confirmDelete(entry)" title="删除">
+            <button class="btn btn-ghost btn-square h-7 w-7 text-base-content/60 hover:bg-error/10 hover:text-error" @click.stop="confirmDelete(entry)" title="删除">
               <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="mfa-card-bottom">
-          <div class="mfa-code">
-            <span v-if="codes[entry.id]" class="code-text">{{ codes[entry.id] }}</span>
-            <span v-else class="code-text code-loading">------</span>
+        <div class="flex items-center justify-between gap-4 px-[18px] pb-[18px] pt-[14px]">
+          <div class="min-w-0 flex-1">
+            <span v-if="codes[entry.id]" class="block text-center font-mono text-[28px] font-bold tracking-widest text-base-content">{{ codes[entry.id] }}</span>
+            <span v-else class="block text-center font-mono text-[28px] font-bold tracking-wider text-base-content opacity-30">------</span>
           </div>
-          <div class="mfa-timer-ring">
-            <svg viewBox="0 0 36 36" class="timer-svg">
-              <circle class="timer-bg" cx="18" cy="18" r="15.5" />
+          <div class="relative h-[52px] w-[52px] flex-shrink-0">
+            <svg viewBox="0 0 36 36" class="h-full w-full [transform:rotate(-90deg)]">
+              <circle class="[fill:none] [stroke:color-mix(in_oklab,var(--color-base-content)_10%,transparent)] [stroke-width:3]" cx="18" cy="18" r="15.5" />
               <circle
-                class="timer-progress"
+                class="[fill:none] [stroke-width:3] [stroke-linecap:round] [transition:stroke-dashoffset_0.3s_ease,stroke_0.3s_ease]"
                 cx="18" cy="18" r="15.5"
                 :style="{
                   strokeDasharray: circumference,
                   strokeDashoffset: dashOffsetFor(entry),
-                  stroke: remainingFor(entry) <= 5 ? 'text-error' : 'var(--card-color)'
+                  stroke: remainingFor(entry) <= 5 ? 'var(--color-error)' : 'var(--card-color)'
                 }"
               />
             </svg>
-            <span class="timer-text">{{ remainingFor(entry) }}</span>
+            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-bold text-base-content/60">{{ remainingFor(entry) }}</span>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@
 
     <!-- 复制成功提示 -->
     <Transition name="copy-toast">
-      <div v-if="showCopyToast" class="copy-toast">
+      <div v-if="showCopyToast" class="fixed bottom-8 left-1/2 z-[10001] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-base-content px-5 py-2.5 text-sm font-medium text-base-100 shadow-lg">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
         已复制
       </div>
@@ -108,18 +108,18 @@
 
     <!-- 添加/编辑对话框 -->
     <Teleport to="body">
-      <div v-if="showAddDialog || showEditDialog" class="mfa-overlay" @click.self="closeDialogs">
-        <div class="mfa-dialog" @click.stop>
-          <div class="mfa-dialog-header">
-            <h3>{{ editingTarget ? '✏️ 编辑账户' : '🔑 添加 MFA 账户' }}</h3>
-            <button class="mfa-dialog-close" @click="closeDialogs">×</button>
+      <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex animate-[overlayIn_0.25s_ease] items-center justify-center bg-black/45" @click.self="closeDialogs">
+        <div class="w-[90%] max-w-[520px] animate-[dialogIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] overflow-y-auto rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl" @click.stop>
+          <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
+            <h3 class="m-0 text-[17px] font-semibold text-base-content">{{ editingTarget ? '✏️ 编辑账户' : '🔑 添加 MFA 账户' }}</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-xl text-base-content/60 hover:bg-primary/10 hover:text-primary" @click="closeDialogs">×</button>
           </div>
-          <div class="mfa-dialog-body">
-            <div class="form-field">
-              <label>otpauth:// 链接 或 Base32 密钥</label>
+          <div class="px-6 py-6">
+            <div class="mb-4">
+              <label class="mb-1.5 block text-sm font-medium text-base-content/70">otpauth:// 链接 或 Base32 密钥</label>
               <textarea
                 v-model="uriInput"
-                class="form-textarea uri-input"
+                class="textarea textarea-bordered w-full resize-y rounded-xl font-mono text-xs"
                 placeholder="otpauth://totp/... 或 Base32 密钥"
                 rows="3"
                 spellcheck="false"
@@ -127,37 +127,37 @@
               ></textarea>
             </div>
 
-            <div class="form-row">
-              <div class="form-field">
-                <label>名称 <span class="required">*</span></label>
-                <input v-model="form.name" class="form-input" placeholder="GitHub、AWS..." />
+            <div class="mb-4 grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-base-content/70">名称 <span class="text-error">*</span></label>
+                <input v-model="form.name" class="input input-bordered w-full rounded-xl" placeholder="GitHub、AWS..." />
               </div>
-              <div class="form-field">
-                <label>账户</label>
-                <input v-model="form.account" class="form-input" placeholder="user@example.com" />
+              <div>
+                <label class="mb-1.5 block text-sm font-medium text-base-content/70">账户</label>
+                <input v-model="form.account" class="input input-bordered w-full rounded-xl" placeholder="user@example.com" />
               </div>
             </div>
 
-            <details class="mfa-advanced">
-              <summary>高级选项</summary>
-              <div class="form-row">
-                <div class="form-field">
-                  <label>位数</label>
-                  <select v-model.number="form.digits" class="form-select">
+            <details class="mb-4 overflow-hidden rounded-xl border border-base-content/10 transition-colors duration-150 hover:border-primary">
+              <summary class="cursor-pointer select-none px-4 py-3 text-[13px] font-medium text-base-content/60 transition-colors duration-150 hover:bg-base-200">高级选项</summary>
+              <div class="grid grid-cols-3 gap-3 border-t border-base-content/10 px-4 py-[14px]">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">位数</label>
+                  <select v-model.number="form.digits" class="select select-bordered w-full rounded-xl">
                     <option :value="6">6 位</option>
                     <option :value="8">8 位</option>
                   </select>
                 </div>
-                <div class="form-field">
-                  <label>周期</label>
-                  <select v-model.number="form.period" class="form-select">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">周期</label>
+                  <select v-model.number="form.period" class="select select-bordered w-full rounded-xl">
                     <option :value="30">30 秒</option>
                     <option :value="60">60 秒</option>
                   </select>
                 </div>
-                <div class="form-field">
-                  <label>算法</label>
-                  <select v-model="form.algorithm" class="form-select">
+                <div>
+                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">算法</label>
+                  <select v-model="form.algorithm" class="select select-bordered w-full rounded-xl">
                     <option value="sha1">SHA1</option>
                     <option value="sha256">SHA256</option>
                     <option value="sha512">SHA512</option>
@@ -166,16 +166,16 @@
               </div>
             </details>
 
-            <div v-if="previewCode" class="mfa-preview">
-              <span class="preview-label">预览验证码：</span>
-              <span class="preview-code">{{ previewCode }}</span>
+            <div v-if="previewCode" class="mb-4 flex items-center gap-2.5 rounded-xl border border-base-content/10 bg-base-200 px-4 py-[14px]">
+              <span class="text-xs font-medium text-base-content/60">预览验证码：</span>
+              <span class="font-mono text-2xl font-bold tracking-widest text-primary">{{ previewCode }}</span>
             </div>
 
-            <p v-if="formError" class="mfa-error">{{ formError }}</p>
+            <p v-if="formError" class="m-0 mb-4 rounded-xl border border-error/15 bg-error/8 px-[14px] py-2.5 text-[13px] text-error">{{ formError }}</p>
           </div>
-          <div class="mfa-dialog-footer">
-            <button class="btn btn-ghost" @click="closeDialogs">取消</button>
-            <button class="btn btn-primary" @click="submitForm" :disabled="submitting">
+          <div class="flex justify-end gap-3 border-t border-base-content/10 px-6 py-4">
+            <button class="btn btn-ghost rounded-xl" @click="closeDialogs">取消</button>
+            <button class="btn btn-primary rounded-xl" @click="submitForm" :disabled="submitting">
               {{ submitting ? '处理中...' : (editingTarget ? '保存' : '添加') }}
             </button>
           </div>
@@ -185,18 +185,18 @@
 
     <!-- 删除确认对话框 -->
     <Teleport to="body">
-      <div v-if="deleteTarget" class="mfa-overlay" @click.self="deleteTarget = null">
-        <div class="mfa-dialog mfa-dialog-small" @click.stop>
-          <div class="mfa-dialog-header">
-            <h3>⚠️ 确认删除</h3>
-            <button class="mfa-dialog-close" @click="deleteTarget = null">×</button>
+      <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex animate-[overlayIn_0.25s_ease] items-center justify-center bg-black/45" @click.self="deleteTarget = null">
+        <div class="w-[90%] max-w-[400px] animate-[dialogIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] overflow-y-auto rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl" @click.stop>
+          <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
+            <h3 class="m-0 text-[17px] font-semibold text-base-content">⚠️ 确认删除</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-xl text-base-content/60 hover:bg-primary/10 hover:text-primary" @click="deleteTarget = null">×</button>
           </div>
-          <div class="mfa-dialog-body">
+          <div class="px-6 py-6">
             <p>确定要删除 <strong>{{ deleteTarget.name }}</strong> 吗？此操作不可撤销。</p>
           </div>
-          <div class="mfa-dialog-footer">
-            <button class="btn btn-ghost" @click="deleteTarget = null">取消</button>
-            <button class="btn btn-danger" @click="executeDelete">删除</button>
+          <div class="flex justify-end gap-3 border-t border-base-content/10 px-6 py-4">
+            <button class="btn btn-ghost rounded-xl" @click="deleteTarget = null">取消</button>
+            <button class="btn btn-error rounded-xl" @click="executeDelete">删除</button>
           </div>
         </div>
       </div>
@@ -479,414 +479,24 @@ onUnmounted(() => {
 });
 </script>
 
-<style scoped>
-/* ======================== 容器 ======================== */
-.mfa-manager {
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 0 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* ======================== 头部 ======================== */
-.mfa-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28px 32px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--color-primary), color-mix(in oklab, var(--color-primary) 80%, transparent), #7c3aed);
-  box-shadow: 0 4px 16px rgba(136, 57, 239, 0.2);
-  position: relative;
-  overflow: hidden;
-}
-
-.mfa-header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 300px;
-  height: 300px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  pointer-events: none;
-}
-
-.mfa-header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  position: relative;
-  z-index: 1;
-}
-
-.header-icon {
-  font-size: 36px;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
-}
-
-.header-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.mfa-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #ffffff;
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-
-.mfa-subtitle {
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-  font-weight: 400;
-}
-
-.mfa-header .btn-add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  border: 1.5px solid rgba(255, 255, 255, 0.35);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  position: relative;
-  z-index: 1;
-}
-
-.mfa-header .btn-add:hover {
-  background: #ffffff;
-  color: var(--color-primary);
-  border-color: #ffffff;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* ======================== 统计栏 ======================== */
-.mfa-stats {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 18px 24px;
-  background: var(--color-base-100);
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  padding: 0 16px;
-}
-
-.stat-value {
-  font-size: 22px;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1.2;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.stat-divider {
-  width: 1px;
-  height: 32px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  flex-shrink: 0;
-}
-
-/* ======================== 空状态 ======================== */
-.mfa-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  gap: 16px;
-}
-
-.empty-icon-wrapper {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, color-mix(in oklab, var(--color-primary) 10%, transparent), var(--color-base-200));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 4px;
-  box-shadow: 0 4px 16px rgba(136, 57, 239, 0.1);
-}
-
-.empty-icon-wrapper svg {
-  opacity: 0.4;
-  color: var(--color-primary);
-}
-
-.empty-text {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  color: var(--color-base-content);
-}
-
-.empty-hint {
-  font-size: 14px;
-  opacity: 0.7;
-  margin: 0;
-}
-
-.btn-add-empty {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 28px;
-  font-size: 15px;
-  font-weight: 500;
-  border: none;
-  border-radius: 10px;
-  background: var(--color-primary);
-  color: #ffffff;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  margin-top: 4px;
-}
-
-.btn-add-empty:hover {
-  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(136, 57, 239, 0.3);
-}
-
-/* ======================== 卡片网格 ======================== */
-.mfa-list {
-  display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
-  gap: 20px !important;
-  padding: 4px !important;
-  flex-direction: unset !important;
-  width: 100%;
-}
-
-.mfa-card {
-  background: var(--color-base-100);
-  border-radius: 12px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 0;
-  cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
-  position: relative;
-}
-
-.card-color-bar {
-  height: 4px;
-  background: linear-gradient(90deg, var(--card-color), color-mix(in oklab, var(--color-primary) 80%, transparent));
-  flex-shrink: 0;
-}
-
-.mfa-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-  border-color: transparent;
-}
-
-.mfa-card.card-expiring {
-  animation: cardPulse 0.5s ease infinite alternate;
-}
-
+<style>
+/* ======================== Keyframes ======================== */
 @keyframes cardPulse {
   from { opacity: 1; }
   to { opacity: 0.65; }
 }
 
-/* 卡片内容区 */
-.mfa-card > :not(.card-color-bar) {
-  padding-left: 18px;
-  padding-right: 18px;
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
-.mfa-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  padding-top: 16px;
+@keyframes dialogIn {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.mfa-card-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.mfa-issuer {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mfa-account {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mfa-card-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.mfa-card:hover .mfa-card-actions {
-  opacity: 1;
-}
-
-.mfa-action-btn {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.mfa-action-btn:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.mfa-action-delete:hover {
-  background: rgba(210, 15, 57, 0.1);
-  color: var(--color-error);
-}
-
-/* 底部：验证码 + 倒计时 */
-.mfa-card-bottom {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 14px 18px 18px 18px;
-}
-
-.mfa-code {
-  flex: 1;
-  min-width: 0;
-}
-
-.code-text {
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 28px;
-  font-weight: 700;
-  letter-spacing: 4px;
-  color: var(--color-base-content);
-  text-align: center;
-  display: block;
-}
-
-.code-loading {
-  opacity: 0.3;
-  letter-spacing: 2px;
-}
-
-/* ======================== 倒计时环 ======================== */
-.mfa-timer-ring {
-  position: relative;
-  width: 52px;
-  height: 52px;
-  flex-shrink: 0;
-}
-
-.timer-svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg);
-}
-
-.timer-bg {
-  fill: none;
-  stroke: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  stroke-width: 3;
-}
-
-.timer-progress {
-  fill: none;
-  stroke-width: 3;
-  stroke-linecap: round;
-  transition: stroke-dashoffset 0.3s ease, stroke 0.3s ease;
-}
-
-.timer-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 14px;
-  font-weight: 700;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* ======================== 复制提示 ======================== */
-.copy-toast {
-  position: fixed;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--color-base-content);
-  color: var(--color-base-100);
-  padding: 10px 20px;
-  border-radius: 24px;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  z-index: 10001;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
+/* ======================== Vue Transition: copy-toast ======================== */
 .copy-toast-enter-active {
   animation: toastIn 0.2s ease;
 }
@@ -903,219 +513,5 @@ onUnmounted(() => {
 @keyframes toastOut {
   from { opacity: 1; transform: translateX(-50%) translateY(0); }
   to { opacity: 0; transform: translateX(-50%) translateY(10px); }
-}
-
-/* ======================== 对话框 ======================== */
-.mfa-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  animation: overlayIn 0.25s ease;
-}
-
-@keyframes overlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.mfa-dialog {
-  background: var(--color-base-100);
-  border-radius: 20px;
-  width: 90%;
-  max-width: 520px;
-  max-height: 85vh;
-  overflow-y: auto;
-  box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.3);
-  animation: dialogIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-@keyframes dialogIn {
-  from { opacity: 0; transform: scale(0.92) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-.mfa-dialog-small {
-  max-width: 400px;
-}
-
-.mfa-dialog-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.mfa-dialog-header h3 {
-  margin: 0;
-  font-size: 17px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.mfa-dialog-close {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.mfa-dialog-close:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-}
-
-.mfa-dialog-body {
-  padding: 24px;
-}
-
-.mfa-dialog-body .form-field {
-  margin-bottom: 16px;
-}
-
-.mfa-dialog-body .form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.mfa-dialog-body .form-row .form-field {
-  margin-bottom: 0;
-}
-
-/* URI 输入框 */
-.uri-input {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  resize: vertical;
-}
-
-/* ======================== 高级选项 ======================== */
-.mfa-advanced {
-  margin-bottom: 16px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 10px;
-  overflow: hidden;
-  transition: border-color 0.15s ease;
-}
-
-.mfa-advanced:hover {
-  border-color: var(--color-primary);
-}
-
-.mfa-advanced summary {
-  padding: 12px 16px;
-  font-size: 13px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s ease;
-}
-
-.mfa-advanced summary:hover {
-  background: var(--color-base-200);
-}
-
-.mfa-advanced .form-row {
-  padding: 14px 16px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.mfa-advanced .form-row .form-field {
-  margin-bottom: 0;
-}
-
-/* ======================== 预览验证码 ======================== */
-.mfa-preview {
-  background: var(--color-base-200);
-  border-radius: 10px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.preview-label {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-weight: 500;
-}
-
-.preview-code {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 22px;
-  font-weight: 700;
-  letter-spacing: 4px;
-  color: var(--color-primary);
-}
-
-.mfa-error {
-  color: var(--color-error);
-  font-size: 13px;
-  margin: 0 0 16px 0;
-  padding: 10px 14px;
-  background: rgba(210, 15, 57, 0.08);
-  border-radius: 8px;
-  border: 1px solid rgba(210, 15, 57, 0.15);
-}
-
-.mfa-dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* ======================== 表单覆盖 ======================== */
-/* 对话框内 textarea 和 input/select 的圆角统一 */
-.mfa-dialog-body .form-textarea,
-.mfa-dialog-body .form-input,
-.mfa-dialog-body .form-select {
-  border-radius: 10px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  padding: 10px 14px;
-  transition: all 0.15s ease;
-  outline: none;
-}
-
-.mfa-dialog-body .form-textarea:focus,
-.mfa-dialog-body .form-input:focus,
-.mfa-dialog-body .form-select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-/* 对话框内按钮圆角 */
-.mfa-dialog-footer .btn {
-  border-radius: 10px;
-  padding: 10px 22px;
-}
-
-.mfa-dialog-footer .btn-danger {
-  border-radius: 10px;
-  padding: 10px 22px;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 </style>

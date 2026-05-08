@@ -1,72 +1,72 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔑 JWT 解码</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">🔑 JWT 解码</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">JWT Token</label>
+    <div class="mb-5">
+      <span class="label-text text-xs font-medium opacity-60 mb-1 block">JWT Token</span>
       <textarea
         v-model="input"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]"
         placeholder="输入 JWT token (eyJ...)"
         rows="3"
         @input="decode"
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn primary" @click="decode">解码</button>
-        <button class="tool-btn" @click="copyHeader">📋 复制 Header</button>
-        <button class="tool-btn" @click="copyPayload">📋 复制 Payload</button>
-        <button class="tool-btn" @click="clear">清空</button>
+      <div class="flex flex-wrap gap-2.5 mb-3 mt-3">
+        <button class="btn btn-primary" @click="decode">解码</button>
+        <button class="btn btn-ghost" @click="copyHeader">📋 复制 Header</button>
+        <button class="btn btn-ghost" @click="copyPayload">📋 复制 Payload</button>
+        <button class="btn btn-ghost" @click="clear">清空</button>
       </div>
 
-      <div v-if="error" class="error-box">{{ error }}</div>
+      <div v-if="error" class="mt-3 p-3 bg-error/10 border border-error/30 rounded-box text-error text-sm">{{ error }}</div>
 
-      <div v-if="header" class="result-block">
-        <h4>📋 Header</h4>
-        <div class="tool-result">{{ header }}</div>
-        <div v-if="headerObj" class="info-grid">
-          <div class="info-item">
-            <span class="info-label">算法 (alg)</span>
-            <span class="info-value">{{ headerObj.alg || '—' }}</span>
+      <div v-if="header" class="mt-4">
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">📋 Header</h4>
+        <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">{{ header }}</div>
+        <div v-if="headerObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">算法 (alg)</span>
+            <span class="text-sm text-base-content break-all">{{ headerObj.alg || '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">类型 (typ)</span>
-            <span class="info-value">{{ headerObj.typ || '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">类型 (typ)</span>
+            <span class="text-sm text-base-content break-all">{{ headerObj.typ || '—' }}</span>
           </div>
         </div>
       </div>
 
-      <div v-if="payload" class="result-block">
-        <h4>📋 Payload</h4>
-        <div class="tool-result">{{ payload }}</div>
-        <div v-if="payloadObj" class="info-grid">
-          <div class="info-item">
-            <span class="info-label">签发者 (iss)</span>
-            <span class="info-value">{{ payloadObj.iss || '—' }}</span>
+      <div v-if="payload" class="mt-4">
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">📋 Payload</h4>
+        <div class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto">{{ payload }}</div>
+        <div v-if="payloadObj" class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2 mt-3">
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">签发者 (iss)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.iss || '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">主体 (sub)</span>
-            <span class="info-value">{{ payloadObj.sub || '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">主体 (sub)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.sub || '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">签发时间 (iat)</span>
-            <span class="info-value">{{ payloadObj.iat ? formatDate(payloadObj.iat) : '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">签发时间 (iat)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.iat ? formatDate(payloadObj.iat) : '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">过期时间 (exp)</span>
-            <span class="info-value">{{ payloadObj.exp ? formatDate(payloadObj.exp) : '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">过期时间 (exp)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.exp ? formatDate(payloadObj.exp) : '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">生效时间 (nbf)</span>
-            <span class="info-value">{{ payloadObj.nbf ? formatDate(payloadObj.nbf) : '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">生效时间 (nbf)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.nbf ? formatDate(payloadObj.nbf) : '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">JWT ID (jti)</span>
-            <span class="info-value">{{ payloadObj.jti || '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">JWT ID (jti)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.jti || '—' }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">受众 (aud)</span>
-            <span class="info-value">{{ payloadObj.aud || '—' }}</span>
+          <div class="flex flex-col p-2 bg-base-200 border border-base-content/10 rounded-box">
+            <span class="text-xs font-medium opacity-60 mb-1">受众 (aud)</span>
+            <span class="text-sm text-base-content break-all">{{ payloadObj.aud || '—' }}</span>
           </div>
         </div>
       </div>
@@ -174,85 +174,3 @@ function clear() {
   error.value = ''
 }
 </script>
-
-<style scoped>
-.tool-panel h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
-
-.result-block {
-  margin-top: 16px;
-}
-
-.result-block h4 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin: 0 0 10px 0;
-}
-
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  padding: 8px 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-}
-
-.info-label {
-  font-size: 11px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  margin-bottom: 4px;
-}
-
-.info-value {
-  font-size: 13px;
-  color: var(--color-base-content);
-  word-break: break-all;
-}
-
-.error-box {
-  margin-top: 12px;
-  padding: 10px 12px;
-  background: #fee2e2;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
-  color: #dc2626;
-  font-size: 13px;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

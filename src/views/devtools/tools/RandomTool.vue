@@ -1,62 +1,62 @@
 <template>
-  <div class="random-tool">
-    <h3>随机字符生成器</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">随机字符生成器</h3>
 
-    <div class="tool-section">
-      <h4>生成选项</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">生成选项</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
         <div>
-          <label class="tool-label">长度</label>
-          <input v-model.number="length" type="number" class="tool-input" style="width: 100px;" min="1" max="10000" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">长度</span>
+          <input v-model.number="length" type="number" class="input input-bordered w-24" min="1" max="10000" />
         </div>
         <div>
-          <label class="tool-label">数量</label>
-          <input v-model.number="count" type="number" class="tool-input" style="width: 100px;" min="1" max="100" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">数量</span>
+          <input v-model.number="count" type="number" class="input input-bordered w-24" min="1" max="100" />
         </div>
         <div>
-          <label class="tool-label">分隔符</label>
-          <input v-model="separator" class="tool-input" style="width: 80px;" placeholder="\n" />
+          <span class="label-text text-xs font-medium opacity-60 mb-1 block">分隔符</span>
+          <input v-model="separator" class="input input-bordered w-20" placeholder="\n" />
         </div>
       </div>
 
-      <div class="tool-row">
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="uppercase" /> 大写字母 (A-Z)
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="uppercase" class="checkbox" /> 大写字母 (A-Z)
         </label>
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="lowercase" /> 小写字母 (a-z)
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="lowercase" class="checkbox" /> 小写字母 (a-z)
         </label>
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="digits" /> 数字 (0-9)
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="digits" class="checkbox" /> 数字 (0-9)
         </label>
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="symbols" /> 特殊符号 (!@#$%...)
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="symbols" class="checkbox" /> 特殊符号 (!@#$%...)
         </label>
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="spaces" /> 空格
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="spaces" class="checkbox" /> 空格
         </label>
       </div>
 
-      <div class="tool-row">
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="excludeSimilar" /> 排除相似字符 (0O, 1lI)
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="excludeSimilar" class="checkbox" /> 排除相似字符 (0O, 1lI)
         </label>
-        <label class="tool-checkbox">
-          <input type="checkbox" v-model="noRepeat" /> 字符不重复
+        <label class="label cursor-pointer gap-1.5 text-sm text-base-content">
+          <input type="checkbox" v-model="noRepeat" class="checkbox" /> 字符不重复
         </label>
       </div>
     </div>
 
-    <div class="tool-row">
-      <button class="tool-btn primary" @click="generate" :disabled="!hasCharset">生成</button>
-      <button class="tool-btn" @click="copyResults" :disabled="!results">复制结果</button>
-      <button class="tool-btn" @click="clearAll">清空</button>
+    <div class="flex flex-wrap gap-2.5 mb-3">
+      <button class="btn btn-primary" @click="generate" :disabled="!hasCharset">生成</button>
+      <button class="btn btn-ghost" @click="copyResults" :disabled="!results">复制结果</button>
+      <button class="btn btn-ghost" @click="clearAll">清空</button>
     </div>
 
-    <div class="tool-section" v-if="results">
-      <h4>生成结果</h4>
-      <textarea v-model="results" class="tool-textarea" readonly rows="8" placeholder="生成的随机字符将显示在这里..."></textarea>
-      <div class="result-info">
+    <div class="mb-5" v-if="results">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">生成结果</h4>
+      <textarea v-model="results" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" readonly rows="8" placeholder="生成的随机字符将显示在这里..."></textarea>
+      <div class="mt-1.5 text-xs opacity-60">
         共生成 {{ resultCount }} 个，总字符数 {{ totalChars }}
       </div>
     </div>
@@ -72,7 +72,7 @@ const toast = useToast()
 
 const length = ref(16)
 const count = ref(5)
-const separator = ref('\n')
+const separator = ref('\\n')
 const uppercase = ref(true)
 const lowercase = ref(true)
 const digits = ref(true)
@@ -160,35 +160,3 @@ function clearAll() {
   results.value = ''
 }
 </script>
-
-<style scoped>
-
-.result-info {
-  margin-top: 6px;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

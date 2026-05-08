@@ -1,57 +1,59 @@
 <template>
-  <div class="db-backup">
-    <div class="backup-header">
-      <h3 class="backup-title">🗂️ 数据库备份</h3>
-      <p class="backup-desc">备份和还原数据库结构和数据（.nb3 格式）</p>
+  <div class="flex flex-1 flex-col overflow-y-auto p-5 px-6 min-h-0">
+    <div class="mb-4 shrink-0">
+      <h3 class="m-0 mb-1 text-lg font-semibold">🗂️ 数据库备份</h3>
+      <p class="m-0 text-xs text-base-content/60">备份和还原数据库结构和数据（.nb3 格式）</p>
     </div>
 
-    <div class="backup-content" v-if="!backupInProgress">
+    <div class="flex flex-1 gap-6 min-h-0" v-if="!backupInProgress">
       <!-- Left: Config + Object Selection -->
-      <div class="backup-left">
-        <div class="config-row">
-          <div class="config-item">
-            <label>连接</label>
-            <select v-model="localConnectionId" @change="onConnectionChange" class="select-input">
+      <div class="flex flex-1 flex-col min-w-0">
+        <div class="flex shrink-0 items-end gap-3 mb-4">
+          <div class="flex-1 min-w-0">
+            <label class="mb-1.5 block text-xs font-medium text-base-content/60">连接</label>
+            <select v-model="localConnectionId" @change="onConnectionChange" class="select select-bordered select-sm w-full">
               <option value="">选择连接</option>
               <option v-for="conn in nonRedisConnections" :key="conn.id" :value="conn.id">
                 {{ conn.name }} ({{ conn.type }})
               </option>
             </select>
           </div>
-          <div class="config-item">
-            <label>数据库</label>
-            <select v-model="selectedDb" @change="loadObjects" :disabled="!localConnectionId || loadingObjects" class="select-input">
+          <div class="flex-1 min-w-0">
+            <label class="mb-1.5 block text-xs font-medium text-base-content/60">数据库</label>
+            <select v-model="selectedDb" @change="loadObjects" :disabled="!localConnectionId || loadingObjects" class="select select-bordered select-sm w-full">
               <option value="">{{ loadingObjects ? '加载中...' : '选择数据库' }}</option>
               <option v-for="db in databases" :key="db" :value="db">{{ db }}</option>
             </select>
           </div>
-          <div class="backup-btn-wrap">
-            <button @click="createBackup" :disabled="!canBackup || creating" class="btn btn-primary">
+          <div class="flex shrink-0 flex-col items-center gap-1">
+            <button @click="createBackup" :disabled="!canBackup || creating" class="btn btn-primary whitespace-nowrap">
               {{ creating ? '备份中...' : '💾 新建备份' }}
             </button>
-            <span v-if="selectedCount > 0" class="selected-info">已选 {{ selectedCount }} 项</span>
+            <span v-if="selectedCount > 0" class="text-[11px] text-base-content/60">已选 {{ selectedCount }} 项</span>
           </div>
         </div>
 
         <!-- Object Selection -->
-        <div class="object-selection" v-if="objects.length > 0">
-          <div class="object-header">
+        <div v-if="objects.length > 0" class="flex flex-1 flex-col overflow-hidden rounded-lg border border-base-content/10 min-h-0">
+          <div class="flex shrink-0 items-center justify-between border-b border-base-content/10 bg-base-200 px-3.5 py-2.5 text-sm font-semibold">
             <span>选择要备份的对象</span>
-            <div class="object-controls">
+            <div class="flex gap-1">
               <button @click="selectAll" class="btn btn-ghost btn-xs">全选</button>
               <button @click="selectNone" class="btn btn-ghost btn-xs">清空</button>
             </div>
           </div>
-          <div class="object-list">
+          <div class="flex flex-1 flex-col overflow-y-auto py-1">
             <!-- Tables -->
-            <div v-if="tables.length > 0" class="object-section">
-              <div class="section-label">📊 表 ({{ tables.length }})</div>
-              <div class="object-grid">
-                <label v-for="table in tables" :key="'t-' + table" class="object-item" :class="{ selected: isSelected(table) }">
-                  <input type="checkbox" :checked="isSelected(table)" @change="toggleObject(table, 'table')" />
-                  <span class="object-name">{{ table }}</span>
-                  <span v-if="isSelected(table)" class="include-data">
-                    <input type="checkbox" :checked="includeData(table)" @change="toggleData(table)" />
+            <div v-if="tables.length > 0" class="border-t border-base-content/10 first:border-t-0">
+              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60">📊 表 ({{ tables.length }})</div>
+              <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-0.5 p-1 px-2">
+                <label v-for="table in tables" :key="'t-' + table"
+                  class="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors duration-100 hover:bg-base-200"
+                  :class="isSelected(table) ? 'bg-primary/10' : ''">
+                  <input type="checkbox" :checked="isSelected(table)" @change="toggleObject(table, 'table')" class="checkbox checkbox-xs" />
+                  <span class="min-w-0 flex-1 truncate font-medium">{{ table }}</span>
+                  <span v-if="isSelected(table)" class="flex shrink-0 items-center gap-0.5 text-[10px] text-base-content/60">
+                    <input type="checkbox" :checked="includeData(table)" @change="toggleData(table)" class="checkbox checkbox-xs" />
                     <span>含数据</span>
                   </span>
                 </label>
@@ -59,52 +61,54 @@
             </div>
 
             <!-- Views -->
-            <div v-if="views.length > 0" class="object-section">
-              <div class="section-label">👁️ 视图 ({{ views.length }})</div>
-              <div class="object-grid">
-                <label v-for="view in views" :key="'v-' + view" class="object-item" :class="{ selected: isSelected(view) }">
-                  <input type="checkbox" :checked="isSelected(view)" @change="toggleObject(view, 'view')" />
-                  <span class="object-name">{{ view }}</span>
+            <div v-if="views.length > 0" class="border-t border-base-content/10 first:border-t-0">
+              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60">👁️ 视图 ({{ views.length }})</div>
+              <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-0.5 p-1 px-2">
+                <label v-for="view in views" :key="'v-' + view"
+                  class="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors duration-100 hover:bg-base-200"
+                  :class="isSelected(view) ? 'bg-primary/10' : ''">
+                  <input type="checkbox" :checked="isSelected(view)" @change="toggleObject(view, 'view')" class="checkbox checkbox-xs" />
+                  <span class="min-w-0 flex-1 truncate font-medium">{{ view }}</span>
                 </label>
               </div>
             </div>
           </div>
         </div>
 
-        <div v-else-if="selectedDb" class="no-objects">
+        <div v-else-if="selectedDb" class="px-5 py-10 text-center text-sm text-base-content/60">
           该数据库下没有表或视图
         </div>
       </div>
 
       <!-- Right: Backup History -->
-      <div class="backup-right">
-        <div class="history-header">
+      <div class="flex shrink-0 flex-col border-l border-base-content/10 ps-6 w-[340px]">
+        <div class="mb-3 flex shrink-0 items-center justify-between text-sm font-semibold">
           <span>📁 备份历史</span>
-          <span class="history-count" v-if="backups.length">{{ backups.length }} 个备份</span>
+          <span class="text-[11px] font-normal text-base-content/60" v-if="backups.length">{{ backups.length }} 个备份</span>
         </div>
-        <div v-if="loadingHistory" class="history-loading">加载中...</div>
-        <div v-else-if="backups.length === 0" class="history-empty">暂无备份</div>
-        <div v-else class="history-list">
+        <div v-if="loadingHistory" class="px-2.5 py-[30px] text-center text-xs text-base-content/60">加载中...</div>
+        <div v-else-if="backups.length === 0" class="px-2.5 py-[30px] text-center text-xs text-base-content/60">暂无备份</div>
+        <div v-else class="flex flex-1 flex-col gap-1 overflow-y-auto">
           <div
             v-for="backup in backups"
             :key="backup.file"
-            class="history-item"
-            :class="{ selected: selectedBackup?.file === backup.file }"
+            class="cursor-pointer rounded-md border border-transparent px-3 py-2.5 transition-colors duration-100 hover:bg-base-200"
+            :class="selectedBackup?.file === backup.file ? 'bg-primary/10 border-primary/20' : ''"
             @contextmenu.prevent="showContextMenu($event, backup)"
             @click="selectBackup(backup)"
           >
-            <div class="item-main">
-              <div class="item-name-row">
-                <span class="item-icon">📦</span>
-                <span class="item-db">{{ backup.databaseName }}</span>
-                <span class="item-conn">{{ backup.connectionName }}</span>
+            <div class="mb-1.5">
+              <div class="mb-0.5 flex items-center gap-1.5 text-xs font-semibold">
+                <span class="shrink-0 text-sm">📦</span>
+                <span class="text-base-content">{{ backup.databaseName }}</span>
+                <span class="max-w-[140px] truncate rounded-sm bg-base-100 px-1.5 py-0.5 text-[10px] text-base-content/60">{{ backup.connectionName }}</span>
               </div>
-              <div class="item-file">{{ backup.name }}</div>
+              <div class="truncate ps-[22px] text-[10px] text-base-content/60">{{ backup.name }}</div>
             </div>
-            <div class="item-meta">
-              <span class="item-size">{{ formatSize(backup.size) }}</span>
-              <span class="item-objects">{{ backup.objects.length }} 项</span>
-              <span class="item-time">{{ formatTime(backup.backupTime) }}</span>
+            <div class="flex items-center gap-2.5 ps-[22px] text-[10px] text-base-content/60">
+              <span>{{ formatSize(backup.size) }}</span>
+              <span>{{ backup.objects.length }} 项</span>
+              <span>{{ formatTime(backup.backupTime) }}</span>
             </div>
           </div>
         </div>
@@ -112,27 +116,27 @@
     </div>
 
     <!-- Backup Progress -->
-    <div v-if="backupInProgress" class="backup-progress">
-      <div class="progress-spinner"></div>
-      <p class="progress-text">{{ progressMessage }}</p>
+    <div v-if="backupInProgress" class="flex flex-col items-center gap-4 p-10">
+      <span class="loading loading-spinner loading-md text-primary"></span>
+      <p class="m-0 text-sm text-base-content/60">{{ progressMessage }}</p>
     </div>
 
     <!-- Context Menu -->
     <Teleport to="body">
-      <div v-if="contextMenu.visible" class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click="contextMenu.visible = false">
-        <div class="context-menu-item" @click="restoreBackup(contextMenu.backup)">🔄 还原此备份</div>
-        <div class="context-menu-item danger" @click="deleteBackup(contextMenu.backup)">🗑️ 删除备份</div>
+      <div v-if="contextMenu.visible" class="fixed z-[3000] min-w-[160px] rounded-lg border border-base-content/10 bg-base-100 p-1 shadow-xl" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click="contextMenu.visible = false">
+        <div class="cursor-pointer rounded px-3 py-2 text-sm transition-colors duration-100 hover:bg-base-200" @click="restoreBackup(contextMenu.backup)">🔄 还原此备份</div>
+        <div class="cursor-pointer rounded px-3 py-2 text-sm text-error transition-colors duration-100 hover:bg-base-200" @click="deleteBackup(contextMenu.backup)">🗑️ 删除备份</div>
       </div>
     </Teleport>
 
     <!-- Restore Confirmation -->
     <Teleport to="body">
-      <div v-if="restoreConfirm" class="confirm-overlay" @click="restoreConfirm = null">
-        <div class="confirm-dialog" @click.stop>
-          <h3>⚠️ 确认还原</h3>
-          <p>将 <strong>{{ restoreConfirm.name }}</strong> 还原到当前连接？</p>
-          <p class="confirm-warn">此操作将覆盖现有数据，请谨慎操作！</p>
-          <div class="confirm-actions">
+      <div v-if="restoreConfirm" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" @click="restoreConfirm = null">
+        <div class="w-[400px] max-w-[90vw] rounded-xl bg-base-100 p-6 shadow-2xl" @click.stop>
+          <h3 class="m-0 mb-3 text-base font-semibold">⚠️ 确认还原</h3>
+          <p class="m-0 mb-2 text-sm">将 <strong>{{ restoreConfirm.name }}</strong> 还原到当前连接？</p>
+          <p class="m-0 mb-2 text-sm font-medium text-error">此操作将覆盖现有数据，请谨慎操作！</p>
+          <div class="mt-5 flex justify-end gap-2">
             <button @click="restoreConfirm = null" class="btn btn-ghost">取消</button>
             <button @click="doRestore" class="btn btn-danger">确认还原</button>
           </div>
@@ -452,422 +456,3 @@ watch(() => props.connectionId, (newId) => {
   }
 })
 </script>
-
-<style scoped>
-.db-backup {
-  padding: 20px 24px;
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.backup-header {
-  margin-bottom: 16px;
-  flex-shrink: 0;
-}
-
-.backup-title {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.backup-desc {
-  margin: 0;
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* Two-column layout */
-.backup-content {
-  display: flex;
-  gap: 24px;
-  flex: 1;
-  min-height: 0;
-}
-
-.backup-left {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.backup-right {
-  width: 340px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding-left: 24px;
-}
-
-/* Config row */
-.config-row {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
-  flex-shrink: 0;
-  margin-bottom: 16px;
-}
-
-.config-item {
-  flex: 1;
-  min-width: 0;
-}
-
-.config-item label {
-  display: block;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.select-input {
-  width: 100%;
-  padding: 7px 10px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-  font-size: 13px;
-  outline: none;
-}
-
-.select-input:focus {
-  border-color: var(--color-primary);
-}
-
-.select-input:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.backup-btn-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.backup-btn-wrap .btn-primary {
-  white-space: nowrap;
-}
-
-.selected-info {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* Object selection */
-.object-selection {
-  flex: 1;
-  min-height: 0;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-.object-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 14px;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.object-controls {
-  display: flex;
-  gap: 4px;
-}
-
-.object-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 4px 0;
-}
-
-.object-section + .object-section {
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.section-label {
-  padding: 6px 14px;
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-100);
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.object-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 2px;
-  padding: 4px 8px;
-}
-
-.object-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 8px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 12px;
-  transition: background 0.1s;
-}
-
-.object-item:hover {
-  background: var(--color-base-200);
-}
-
-.object-item.selected {
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.object-item input[type="checkbox"] {
-  accent-color: var(--color-primary);
-  flex-shrink: 0;
-}
-
-.object-name {
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
-  min-width: 0;
-}
-
-.include-data {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-}
-
-.include-data input {
-  accent-color: var(--color-primary);
-}
-
-.no-objects {
-  text-align: center;
-  padding: 40px 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 13px;
-}
-
-/* Backup history */
-.history-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-  margin-bottom: 12px;
-}
-
-.history-count {
-  font-size: 11px;
-  font-weight: 400;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.history-loading, .history-empty {
-  text-align: center;
-  padding: 30px 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.history-item {
-  padding: 10px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background 0.12s;
-  border: 1px solid transparent;
-}
-
-.history-item:hover {
-  background: var(--color-base-200);
-}
-
-.history-item.selected {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.2);
-}
-
-.item-main {
-  margin-bottom: 6px;
-}
-
-.item-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  margin-bottom: 3px;
-}
-
-.item-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.item-db {
-  color: var(--color-base-content);
-}
-
-.item-conn {
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-100);
-  padding: 1px 6px;
-  border-radius: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 140px;
-}
-
-.item-file {
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding-left: 22px;
-}
-
-.item-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  padding-left: 22px;
-}
-
-/* Progress */
-.backup-progress {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 40px;
-  gap: 16px;
-}
-
-.progress-spinner {
-  width: 32px;
-  height: 32px;
-  border: 3px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.progress-text {
-  margin: 0;
-  font-size: 14px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-/* Context menu */
-.context-menu {
-  position: fixed;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-  z-index: 3000;
-  padding: 4px;
-  min-width: 160px;
-}
-
-.context-menu-item {
-  padding: 8px 12px;
-  font-size: 13px;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: background 0.1s;
-}
-
-.context-menu-item:hover {
-  background: var(--color-base-200);
-}
-
-.context-menu-item.danger {
-  color: var(--color-error);
-}
-
-/* Confirm dialog */
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-.confirm-dialog {
-  background: var(--color-base-100);
-  border-radius: 12px;
-  padding: 24px;
-  width: 400px;
-  max-width: 90vw;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.confirm-dialog h3 {
-  margin: 0 0 12px;
-  font-size: 16px;
-}
-
-.confirm-dialog p {
-  margin: 0 0 8px;
-  font-size: 14px;
-}
-
-.confirm-warn {
-  color: var(--color-error);
-  font-weight: 500;
-}
-
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-</style>

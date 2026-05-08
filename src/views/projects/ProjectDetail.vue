@@ -1,73 +1,73 @@
 <template>
-  <div class="project-detail-container" v-if="project">
+  <div v-if="project" class="p-5">
     <!-- 面包屑导航 -->
-    <div class="breadcrumb">
-      <button class="breadcrumb-link" @click="goBack" title="返回项目列表">
+    <div class="flex items-center gap-2 mb-4 text-sm">
+      <button class="btn btn-ghost btn-xs gap-1 px-2 text-primary font-medium no-underline" @click="goBack" title="返回项目列表">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
         </svg>
         项目
       </button>
-      <span class="breadcrumb-separator">\u203A</span>
-      <span class="breadcrumb-current">{{ project.name }}</span>
+      <span class="text-base-content/60 text-lg leading-none">›</span>
+      <span class="text-base-content/60 font-medium">{{ project.name }}</span>
     </div>
 
     <!-- 项目头部 -->
-    <div class="project-header">
-      <div class="project-info">
-        <div class="project-color-dot" :style="{ backgroundColor: project.color }"></div>
-        <div class="project-title-section">
-          <h2>{{ project.name }}</h2>
-          <p v-if="project.description" class="project-description">{{ project.description }}</p>
-          <div class="project-meta">
-            <span v-if="project.category" class="category-badge" :class="'category-' + project.category">{{ categoryLabel(project.category) }}</span>
-            <span class="meta-tag" v-if="project.createdAt">📅 {{ formatDate(project.createdAt) }}</span>
+    <div class="bg-base-100 p-5 rounded-xl mb-4 shadow-sm">
+      <div class="flex items-start gap-3 mb-4">
+        <div class="w-4 h-4 rounded-full shrink-0 mt-1" :style="{ backgroundColor: project.color }"></div>
+        <div class="min-w-0 flex-1">
+          <h2 class="text-2xl font-bold text-base-content m-0 mb-2">{{ project.name }}</h2>
+          <p v-if="project.description" class="text-sm text-base-content/60 leading-relaxed m-0 mb-2">{{ project.description }}</p>
+          <div class="flex items-center gap-3">
+            <span v-if="project.category" class="badge badge-ghost badge-sm">{{ categoryLabel(project.category) }}</span>
+            <span v-if="project.createdAt" class="text-xs text-base-content/60">📅 {{ formatDate(project.createdAt) }}</span>
           </div>
         </div>
       </div>
-      <div class="project-stats">
-        <div class="stats-row">
-          <div class="stat-item">
-            <span class="stat-value">{{ projectStats.total }}</span>
-            <span class="stat-label">总任务</span>
+      <div>
+        <div class="flex gap-6 mb-3">
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-bold text-base-content">{{ projectStats.total }}</span>
+            <span class="text-xs text-base-content/60">总任务</span>
           </div>
-          <div class="stat-item completed">
-            <span class="stat-value">{{ projectStats.completed }}</span>
-            <span class="stat-label">已完成</span>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-bold text-emerald-500">{{ projectStats.completed }}</span>
+            <span class="text-xs text-base-content/60">已完成</span>
           </div>
-          <div class="stat-item active">
-            <span class="stat-value">{{ projectStats.total - projectStats.completed }}</span>
-            <span class="stat-label">进行中</span>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-bold text-amber-500">{{ projectStats.total - projectStats.completed }}</span>
+            <span class="text-xs text-base-content/60">进行中</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ projectStats.progress }}%</span>
-            <span class="stat-label">完成率</span>
+          <div class="flex flex-col items-center">
+            <span class="text-2xl font-bold text-base-content">{{ projectStats.progress }}%</span>
+            <span class="text-xs text-base-content/60">完成率</span>
           </div>
         </div>
-        <div class="progress-container">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: projectStats.progress + '%', backgroundColor: project.color }"></div>
+        <div class="flex items-center gap-3">
+          <div class="flex-1 h-3 bg-base-200 rounded-full overflow-hidden">
+            <div class="h-full transition-all duration-300" :style="{ width: projectStats.progress + '%', backgroundColor: project.color }"></div>
           </div>
-          <span class="progress-pct">{{ projectStats.progress }}%</span>
+          <span class="text-sm font-semibold text-base-content whitespace-nowrap min-w-10 text-right">{{ projectStats.progress }}%</span>
         </div>
       </div>
     </div>
 
     <!-- 标签页切换 -->
-    <div class="tab-bar">
-      <button class="tab-btn" :class="{ active: activeTab === 'active' }" @click="activeTab = 'active'">
+    <div role="tablist" class="tabs tabs-boxed mb-4">
+      <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'active' }" @click="activeTab = 'active'">
         📋 进行中 ({{ activeTasks.length }})
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'completed' }" @click="activeTab = 'completed'">
+      <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'completed' }" @click="activeTab = 'completed'">
         ✅ 已完成 ({{ completedTasks.length }})
       </button>
-      <button class="tab-btn" :class="{ active: activeTab === 'git' }" @click="activeTab = 'git'">
+      <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'git' }" @click="activeTab = 'git'">
         📜 Git 提交
       </button>
     </div>
 
     <!-- 进行中任务 -->
-    <div v-if="activeTab === 'active'" class="tab-content">
+    <div v-if="activeTab === 'active'">
       <ProjectTodoList
         :project="project"
         :tasks="activeTasks"
@@ -81,38 +81,38 @@
     </div>
 
     <!-- 已完成任务 -->
-    <div v-if="activeTab === 'completed'" class="tab-content">
-      <div v-if="completedTasks.length === 0" class="empty-tasks">
-        <span class="empty-icon">🔍</span>
-        <p>暂无已完成任务</p>
+    <div v-if="activeTab === 'completed'">
+      <div v-if="completedTasks.length === 0" class="text-center px-5 py-10 text-base-content/60">
+        <span class="text-5xl block mb-3 opacity-50">🔍</span>
+        <p class="text-sm m-0 mb-4">暂无已完成任务</p>
       </div>
-      <div v-else class="completed-tasks-list">
-        <div v-for="task in completedTasks" :key="task.id" class="completed-task-item">
-          <div class="task-info">
-            <input type="checkbox" :checked="true" @change="handleToggleTask(task)" class="task-checkbox" />
-            <span class="task-text completed-text">{{ task.text }}</span>
+      <div v-else class="flex flex-col gap-2">
+        <div v-for="task in completedTasks" :key="task.id" class="flex items-center justify-between p-3 bg-base-200 rounded-lg gap-3">
+          <div class="flex items-center gap-2.5 flex-1 min-w-0">
+            <input type="checkbox" :checked="true" @change="handleToggleTask(task)" class="checkbox checkbox-primary checkbox-sm" />
+            <span class="text-sm text-base-content/60 line-through">{{ task.text }}</span>
           </div>
-          <div class="task-meta">
-            <span v-if="task.completedAt" class="completed-date">✅ {{ formatDate(task.completedAt) }}</span>
-            <span v-if="task.priority" class="priority-badge" :class="task.priority">{{ priorityLabel(task.priority) }}</span>
-            <button class="undo-btn" @click="handleToggleTask(task)" title="恢复为未完成">↩️ 恢复</button>
+          <div class="flex items-center gap-2.5 shrink-0">
+            <span v-if="task.completedAt" class="text-xs text-emerald-500 whitespace-nowrap">✅ {{ formatDate(task.completedAt) }}</span>
+            <span v-if="task.priority" class="badge badge-sm" :class="{ 'badge-error': task.priority === 'high', 'badge-warning': task.priority === 'medium', 'badge-info': task.priority === 'low' }">{{ priorityLabel(task.priority) }}</span>
+            <button class="btn btn-ghost btn-xs" @click="handleToggleTask(task)" title="恢复为未完成">↩️ 恢复</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Git 面板 -->
-    <div v-if="activeTab === 'git'" class="tab-content">
+    <div v-if="activeTab === 'git'">
       <ProjectGitPanel v-if="hasGitRepos" :project="project" />
-      <div v-else class="empty-git">
-        <span class="empty-icon">📜</span>
-        <p>此项目未配置 Git 仓库</p>
-        <button class="edit-git-btn" @click="editProject">✏️ 编辑项目配置</button>
+      <div v-else class="text-center px-5 py-10 text-base-content/60">
+        <span class="text-5xl block mb-3 opacity-50">📜</span>
+        <p class="text-sm m-0 mb-4">此项目未配置 Git 仓库</p>
+        <button class="btn btn-outline btn-primary btn-sm" @click="editProject">✏️ 编辑项目配置</button>
       </div>
     </div>
 
     <!-- 操作按钮 -->
-    <div class="project-actions">
+    <div class="flex gap-3 mt-4">
       <UiButton variant="ghost" @click="goBack">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6" />
@@ -129,7 +129,6 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
 import ProjectGitPanel from '@/views/projects/ProjectGitPanel.vue'
 import ProjectTodoList from '@/views/projects/ProjectTodoList.vue'
 import UiButton from '@/components/ui/Button.vue'
@@ -140,10 +139,10 @@ import { useErrorHandler } from '../../composables/useErrorHandler'
 import type { Project } from '../../types'
 
 const props = defineProps({
-  id: { type: String, required: true }
+  projectId: { type: String, required: true }
 })
 
-const router = useRouter()
+const emit = defineEmits(['goBackToList', 'editProject', 'projectUpdated'])
 
 const todoStore = useTodoStore()
 const projectStore = useProjectStore()
@@ -216,8 +215,8 @@ const handleDeleteTask = async (task: any) => {
   } catch (error) { handleError(error, { context: 'handleDeleteTask' }) }
 }
 
-const goBack = () => { router.push('/projects') }
-const editProject = () => { router.push({ path: '/projects', query: { edit: project.value?.id } }) }
+const goBack = () => { emit('goBackToList') }
+const editProject = () => { emit('editProject', project.value) }
 
 const toggleArchive = async () => {
   if (!project.value) return
@@ -225,12 +224,12 @@ const toggleArchive = async () => {
     console.log("[toggleArchive] called");
     const updated = { ...project.value, archived: !project.value.archived, updatedAt: new Date().toISOString() }
     await projectsApi.updateProject(updated as unknown as Project)
-    project.value = updated as unknown as Project
+    emit('projectUpdated', updated)
   } catch (error) { handleError(error, { context: 'toggleArchive' }) }
 }
 
 const resolveProject = () => {
-  const found = projectStore.projects.find(p => p.id === props.id)
+  const found = projectStore.projects.find(p => p.id === props.projectId)
   if (found) {
     project.value = found as unknown as Project
   }
@@ -242,7 +241,7 @@ watch(() => projectStore.projects, () => {
 }, { immediate: true })
 
 onMounted(async () => {
-    console.log("[views/projects/ProjectDetail.vue] mounted");
+    console.log("[components/ProjectDetail.vue] mounted");
     // 确保项目列表已加载
     if (projectStore.projects.length === 0) {
       await projectStore.loadProjects()
@@ -251,63 +250,3 @@ onMounted(async () => {
     await loadProjectData()
 })
 </script>
-
-<style scoped>
-.project-detail-container { padding: 20px; }
-.breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 14px; }
-.breadcrumb-link { display: inline-flex; align-items: center; gap: 4px; background: none; border: none; color: var(--color-primary); cursor: pointer; font-size: 14px; font-weight: 500; padding: 4px 8px; border-radius: 6px; transition: all 0.15s ease; }
-.breadcrumb-link:hover { background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.breadcrumb-separator { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 18px; }
-.breadcrumb-current { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-weight: 500; }
-
-.project-header { background: var(--color-base-100); padding: 20px; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.project-info { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
-.project-color-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-.project-title-section h2 { margin: 0 0 8px 0; color: var(--color-base-content); font-size: 24px; }
-.project-description { margin: 0 0 8px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; line-height: 1.4; }
-.project-meta { display: flex; align-items: center; gap: 12px; }
-.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
-.meta-tag { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-
-.stats-row { display: flex; gap: 24px; margin-bottom: 12px; }
-.stat-item { display: flex; flex-direction: column; align-items: center; }
-.stat-value { font-size: 22px; font-weight: 700; color: var(--color-base-content); }
-.stat-label { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.stat-item.completed .stat-value { color: #10b981; }
-.stat-item.active .stat-value { color: #f59e0b; }
-
-.progress-container { display: flex; align-items: center; gap: 12px; }
-.progress-bar { flex: 1; height: 12px; background: var(--color-base-200); border-radius: 6px; overflow: hidden; }
-.progress-fill { height: 100%; transition: width 0.3s ease; }
-.progress-pct { font-size: 14px; font-weight: 600; color: var(--color-base-content); white-space: nowrap; min-width: 40px; text-align: right; }
-
-/* 标签页 */
-.tab-bar { display: flex; gap: 4px; margin-bottom: 16px; background: var(--color-base-200); border-radius: 10px; padding: 4px; }
-.tab-btn { flex: 1; padding: 10px 16px; border: none; border-radius: 8px; background: transparent; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 6px; }
-.tab-btn:hover { color: var(--color-base-content); }
-.tab-btn.active { background: var(--color-base-100); color: var(--color-base-content); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-
-/* 已完成任务 */
-.completed-tasks-list { display: flex; flex-direction: column; gap: 8px; }
-.completed-task-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--color-base-200); border-radius: 8px; gap: 12px; }
-.task-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.task-checkbox { width: 16px; height: 16px; cursor: pointer; accent-color: var(--color-primary); }
-.task-text { font-size: 14px; color: var(--color-base-content); }
-.completed-text { text-decoration: line-through; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.task-meta { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-.completed-date { font-size: 12px; color: #10b981; white-space: nowrap; }
-.priority-badge { padding: 1px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
-.priority-badge.high { background: #fee2e2; color: #dc2626; }
-.priority-badge.medium { background: #fef3c7; color: #d97706; }
-.priority-badge.low { background: #dbeafe; color: #3b82f6; }
-.undo-btn { padding: 4px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-100); color: color-mix(in oklab, var(--color-base-content) 60%, transparent); cursor: pointer; font-size: 12px; transition: all 0.15s; }
-.undo-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-
-.empty-tasks, .empty-git { text-align: center; padding: 40px 20px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.empty-icon { font-size: 48px; display: block; margin-bottom: 12px; opacity: 0.5; }
-.empty-tasks p, .empty-git p { font-size: 14px; margin: 0 0 16px; }
-.edit-git-btn { padding: 8px 16px; border: 1px solid var(--color-primary); border-radius: 8px; background: transparent; color: var(--color-primary); cursor: pointer; font-size: 13px; transition: all 0.15s; }
-.edit-git-btn:hover { background: var(--color-primary); color: white; }
-
-.project-actions { display: flex; gap: 12px; justify-content: flex-start; margin-top: 16px; }
-</style>

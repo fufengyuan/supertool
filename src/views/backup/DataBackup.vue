@@ -1,15 +1,16 @@
 <template>
-  <div class="data-backup-panel">
-    <h3>💾 {{ $t('backup.title') }}</h3>
+  <div class="p-6 space-y-4">
+    <h3 class="text-lg font-semibold">💾 {{ $t('backup.title') }}</h3>
 
-    <div class="backup-sections">
-      <div class="backup-card">
-        <div class="section-title">
-          <span class="icon">📤</span>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
+      <!-- 导出 -->
+      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+          <span class="text-lg">📤</span>
           <span>数据导出</span>
         </div>
 
-        <div class="backup-desc">
+        <div class="text-sm text-base-content/60">
           导出所有模块数据为压缩包，包含：待办、项目、笔记、服务器、CI/CD、MFA、周报等 22 个表。
         </div>
 
@@ -18,19 +19,20 @@
         </button>
       </div>
 
-      <div class="backup-card">
-        <div class="section-title">
-          <span class="icon">📥</span>
+      <!-- 导入 -->
+      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+        <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+          <span class="text-lg">📥</span>
           <span>数据导入</span>
         </div>
 
-        <div class="backup-desc">
+        <div class="text-sm text-base-content/60">
           支持从完整备份 (.stbackup) 恢复数据。
         </div>
 
-        <div class="form-field">
-          <label>导入模式</label>
-          <select v-model="importMode" class="form-select">
+        <div class="flex flex-col gap-1">
+          <label class="text-xs text-base-content/60">导入模式</label>
+          <select v-model="importMode" class="select select-bordered select-sm">
             <option value="merge">合并（跳过重复数据）</option>
             <option value="replace">覆盖（清空现有数据后导入）</option>
           </select>
@@ -38,65 +40,75 @@
 
         <button
           @click="importFullBackup"
-          class="btn btn-success"
+          class="btn btn-success self-start"
           :disabled="isImporting"
-          style="align-self: flex-start"
         >
           {{ isImporting ? '导入中...' : '📂 导入备份' }}
         </button>
       </div>
 
-      <!-- 自动备份设置 -->
-      <div class="backup-card auto-backup-card">
-        <div class="section-title">
-          <span class="icon">⏰</span>
+      <!-- 自动备份 -->
+      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3 col-span-full">
+        <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+          <span class="text-lg">⏰</span>
           <span>自动备份</span>
         </div>
 
-        <div class="auto-backup-settings">
-          <div class="setting-row">
-            <label class="toggle-label">
-              <span>启用自动备份</span>
-              <label class="toggle-switch">
-                <input type="checkbox" v-model="autoBackup.enabled" @change="saveAutoBackupSettings" />
-                <span class="toggle-slider"></span>
-              </label>
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="flex items-center justify-between w-full cursor-pointer">
+              <span class="font-medium text-base-content">启用自动备份</span>
+              <input
+                type="checkbox"
+                class="toggle toggle-primary toggle-sm"
+                v-model="autoBackup.enabled"
+                @change="saveAutoBackupSettings"
+              />
             </label>
           </div>
 
           <template v-if="autoBackup.enabled">
-            <div class="setting-row">
-              <label>备份频率</label>
-              <select v-model="autoBackup.frequency" @change="saveAutoBackupSettings" class="form-select">
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="min-w-20 text-xs text-base-content/60">备份频率</label>
+              <select v-model="autoBackup.frequency" @change="saveAutoBackupSettings" class="select select-bordered select-sm">
                 <option value="daily">每天</option>
                 <option value="weekly">每周</option>
               </select>
             </div>
 
-            <div class="setting-row">
-              <label>备份时间</label>
-              <input 
-                type="time" 
-                v-model="autoBackup.time" 
-                @change="saveAutoBackupSettings" 
-                class="form-input time-input" 
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="min-w-20 text-xs text-base-content/60">备份时间</label>
+              <input
+                type="time"
+                v-model="autoBackup.time"
+                @change="saveAutoBackupSettings"
+                class="input input-bordered input-sm w-[120px]"
               />
             </div>
 
-            <div class="setting-row">
-              <label>备份路径</label>
-              <div class="path-input-group">
-                <input 
-                  type="text" 
-                  v-model="autoBackup.path" 
+            <div class="flex items-center gap-3 flex-wrap">
+              <label class="min-w-20 text-xs text-base-content/60">备份路径</label>
+              <div class="flex gap-2 flex-1">
+                <input
+                  type="text"
+                  v-model="autoBackup.path"
                   placeholder="默认为应用数据目录"
-                  class="form-input"
+                  class="input input-bordered input-sm flex-1 min-w-[150px]"
                 />
                 <button @click="selectBackupPath" class="btn btn-ghost btn-sm">选择</button>
               </div>
             </div>
 
-            <div v-if="lastBackupStatus" class="backup-status" :class="lastBackupStatus.type">
+            <div
+              v-if="lastBackupStatus"
+              class="px-3 py-1.5 rounded-md text-xs border"
+              :class="{
+                'bg-success/10 text-success border-success/30': lastBackupStatus.type === 'success',
+                'bg-error/10 text-error border-error/30': lastBackupStatus.type === 'error',
+                'bg-info/10 text-info border-info/30': lastBackupStatus.type === 'info',
+                'bg-warning/10 text-warning border-warning/30': lastBackupStatus.type === 'warning',
+              }"
+            >
               {{ lastBackupStatus.message }}
             </div>
           </template>
@@ -104,39 +116,48 @@
       </div>
     </div>
 
-    <div v-if="message" class="test-result" :class="messageType">
+    <!-- 消息 -->
+    <div
+      v-if="message"
+      class="px-3 py-1.5 rounded-md text-xs border"
+      :class="{
+        'bg-success/10 text-success border-success/30': messageType === 'success',
+        'bg-error/10 text-error border-error/30': messageType === 'error',
+        'bg-info/10 text-info border-info/30': messageType === 'info',
+      }"
+    >
       {{ message }}
     </div>
 
-    <!-- 数据目录设置 -->
-    <div class="backup-card data-dir-card">
-      <div class="section-title">
-        <span class="icon">📁</span>
+    <!-- 数据目录 -->
+    <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+        <span class="text-lg">📁</span>
         <span>数据目录</span>
-        <span v-if="dataDir.isCustom" class="status-badge custom">自定义</span>
-        <span v-else class="status-badge default">默认</span>
+        <span v-if="dataDir.isCustom" class="badge badge-info badge-sm">自定义</span>
+        <span v-else class="badge badge-ghost badge-sm">默认</span>
       </div>
 
-      <div class="data-dir-settings">
-        <div class="setting-row">
-          <label>当前路径</label>
-          <div class="path-input-group">
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="min-w-20 text-xs text-base-content/60">当前路径</label>
+          <div class="flex gap-2 flex-1">
             <input
               type="text"
               v-model="dataDir.editPath"
               :placeholder="dataDir.defaultPath"
-              class="form-input"
+              class="input input-bordered input-sm flex-1 min-w-[150px]"
             />
             <button @click="selectDataDir" class="btn btn-ghost btn-sm">选择</button>
           </div>
         </div>
 
-        <div class="setting-row">
-          <label>默认路径</label>
-          <span class="path-display">{{ dataDir.defaultPath }}</span>
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="min-w-20 text-xs text-base-content/60">默认路径</label>
+          <span class="font-mono text-xs text-base-content/70">{{ dataDir.defaultPath }}</span>
         </div>
 
-        <div class="setting-row data-dir-actions">
+        <div class="flex items-center justify-end gap-3 mt-2">
           <button @click="saveDataDir" class="btn btn-primary" :disabled="dataDir.saving">
             {{ dataDir.saving ? '保存中...' : '💾 保存' }}
           </button>
@@ -145,58 +166,88 @@
           </button>
         </div>
 
-        <div v-if="dataDir.needRestart" class="backup-status warning">
+        <div v-if="dataDir.needRestart" class="px-3 py-1.5 rounded-md text-xs border bg-warning/10 text-warning border-warning/30">
           ⚠️ 数据目录已更新，需要重启应用才能生效
         </div>
       </div>
     </div>
 
-    <!-- Git 同步设置 -->
-    <div class="backup-card git-sync-card">
-      <div class="section-title">
-        <span class="icon">🔄</span>
+    <!-- Git 同步 -->
+    <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+      <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
+        <span class="text-lg">🔄</span>
         <span>Git 数据同步</span>
-        <span v-if="gitSyncStatus.enabled" class="status-badge" :class="gitSyncStatus.status">
+        <span
+          v-if="gitSyncStatus.enabled"
+          class="badge badge-sm"
+          :class="gitSyncStatus.status === 'ok' ? 'badge-success' : 'badge-error'"
+        >
           {{ gitSyncStatus.status === 'ok' ? '✓ 正常' : '✗ 错误' }}
         </span>
       </div>
 
-      <div class="git-sync-settings">
-        <div class="setting-row">
-          <label class="toggle-label">
-            <span>启用 Git 同步</span>
-            <label class="toggle-switch">
-              <input type="checkbox" v-model="gitSyncConfig.enabled" @change="saveGitSyncConfig" />
-              <span class="toggle-slider"></span>
-            </label>
+      <div class="flex flex-col gap-4">
+        <div class="flex items-center gap-3 flex-wrap">
+          <label class="flex items-center justify-between w-full cursor-pointer">
+            <span class="font-medium text-base-content">启用 Git 同步</span>
+            <input
+              type="checkbox"
+              class="toggle toggle-primary toggle-sm"
+              v-model="gitSyncConfig.enabled"
+              @change="saveGitSyncConfig"
+            />
           </label>
         </div>
 
         <template v-if="gitSyncConfig.enabled">
-          <div class="setting-row">
-            <label>远程仓库地址</label>
-            <div class="path-input-group">
-              <input type="text" v-model="gitSyncConfig.remoteUrl" placeholder="git@github.com:user/repo.git" class="form-input" />
-              <button @click="initGitSync" class="btn btn-ghost btn-sm" :disabled="isGitSyncing">{{ isGitSyncing ? '初始化中...' : '初始化' }}</button>
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="min-w-20 text-xs text-base-content/60">远程仓库地址</label>
+            <div class="flex gap-2 flex-1">
+              <input
+                type="text"
+                v-model="gitSyncConfig.remoteUrl"
+                placeholder="git@github.com:user/repo.git"
+                class="input input-bordered input-sm flex-1 min-w-[150px]"
+              />
+              <button @click="initGitSync" class="btn btn-ghost btn-sm" :disabled="isGitSyncing">
+                {{ isGitSyncing ? '初始化中...' : '初始化' }}
+              </button>
             </div>
           </div>
 
-          <div class="setting-row">
-            <label>同步分支</label>
-            <input type="text" v-model="gitSyncConfig.branch" class="form-input" style="width: 100px" />
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="min-w-20 text-xs text-base-content/60">同步分支</label>
+            <input
+              type="text"
+              v-model="gitSyncConfig.branch"
+              class="input input-bordered input-sm w-24"
+            />
           </div>
 
-          <div class="setting-row">
-            <label>同步间隔（分钟）</label>
-            <input type="number" v-model.number="gitSyncConfig.interval" min="1" max="60" class="form-input" style="width: 80px" @change="saveGitSyncConfig" />
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="min-w-20 text-xs text-base-content/60">同步间隔（分钟）</label>
+            <input
+              type="number"
+              v-model.number="gitSyncConfig.interval"
+              min="1"
+              max="60"
+              class="input input-bordered input-sm w-20"
+              @change="saveGitSyncConfig"
+            />
           </div>
 
-          <div class="setting-row">
-            <label>SSH 私钥路径（可选）</label>
-            <input type="text" v-model="gitSyncConfig.sshKey" placeholder="~/.ssh/id_rsa" class="form-input" @change="saveGitSyncConfig" />
+          <div class="flex items-center gap-3 flex-wrap">
+            <label class="min-w-20 text-xs text-base-content/60">SSH 私钥路径（可选）</label>
+            <input
+              type="text"
+              v-model="gitSyncConfig.sshKey"
+              placeholder="~/.ssh/id_rsa"
+              class="input input-bordered input-sm flex-1 min-w-[150px]"
+              @change="saveGitSyncConfig"
+            />
           </div>
 
-          <div class="setting-row git-sync-actions">
+          <div class="flex items-center justify-end gap-3 mt-2">
             <button @click="pullGit" class="btn btn-ghost" :disabled="isGitSyncing">
               {{ isGitSyncing ? '同步中...' : '⬇️ 拉取' }}
             </button>
@@ -205,10 +256,10 @@
             </button>
           </div>
 
-          <div v-if="gitSyncStatus.lastSync" class="backup-status info">
+          <div v-if="gitSyncStatus.lastSync" class="px-3 py-1.5 rounded-md text-xs border bg-info/10 text-info border-info/30">
             上次同步: {{ formatGitSyncTime(gitSyncStatus.lastSync) }}
           </div>
-          <div v-if="gitSyncStatus.error" class="backup-status error">
+          <div v-if="gitSyncStatus.error" class="px-3 py-1.5 rounded-md text-xs border bg-error/10 text-error border-error/30">
             {{ gitSyncStatus.error }}
           </div>
         </template>
@@ -588,259 +639,3 @@ function formatGitSyncTime(iso: string): string {
   return d.toLocaleDateString('zh-CN');
 }
 </script>
-
-<style scoped>
-.data-backup-panel {
-  padding: 24px;
-}
-
-.backup-sections {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-
-.backup-card {
-  padding: 20px;
-  background: var(--color-base-200);
-  border-radius: 12px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.section-title .icon {
-  font-size: 18px;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-
-/* 自动备份设置 */
-.auto-backup-card {
-  grid-column: 1 / -1;
-}
-
-.auto-backup-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.setting-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.setting-row label {
-  font-size: 13px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  min-width: 80px;
-}
-
-.toggle-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  cursor: pointer;
-}
-
-.toggle-label span:first-child {
-  color: var(--color-base-content);
-  font-weight: 500;
-}
-
-/* 开关样式 */
-.toggle-switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 24px;
-}
-
-.toggle-switch input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.toggle-slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  transition: 0.3s;
-  border-radius: 24px;
-}
-
-.toggle-slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background-color: white;
-  transition: 0.3s;
-  border-radius: 50%;
-}
-
-.toggle-switch input:checked + .toggle-slider {
-  background-color: var(--color-primary);
-}
-
-.toggle-switch input:checked + .toggle-slider:before {
-  transform: translateX(20px);
-}
-
-.form-select {
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  font-size: 13px;
-}
-
-.form-input {
-  padding: 6px 10px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  font-size: 13px;
-  flex: 1;
-  min-width: 150px;
-}
-
-.time-input {
-  width: 120px;
-  flex: none;
-}
-
-.path-input-group {
-  display: flex;
-  gap: 8px;
-  flex: 1;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
-  white-space: nowrap;
-}
-
-.backup-status {
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  margin-top: 4px;
-}
-
-.backup-status.success {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--color-success);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.backup-status.error {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-error);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.backup-status.info {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-/* Git Sync */
-.git-sync-card {
-  grid-column: 1 / -1;
-}
-
-.git-sync-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.status-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  margin-left: 8px;
-}
-
-.status-badge.ok {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-}
-
-.status-badge.error {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-}
-
-.status-badge.custom {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-}
-
-.status-badge.default {
-  background: rgba(107, 114, 128, 0.15);
-  color: #6b7280;
-}
-
-.backup-status.warning {
-  background: color-mix(in oklab, var(--color-warning) 10%, transparent);
-  color: var(--color-warning);
-  border: 1px solid var(--color-warning);
-}
-
-.path-display {
-  font-family: monospace;
-  font-size: 13px;
-  color: var(--color-base-content);
-  opacity: 0.7;
-}
-
-.data-dir-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.data-dir-actions {
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
-}
-
-.git-sync-actions {
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 8px;
-}
-</style>

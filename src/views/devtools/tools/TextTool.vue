@@ -1,93 +1,93 @@
 <template>
-  <div class="text-tool">
-    <h3>文本处理</h3>
+  <div>
+    <h3 class="text-lg font-bold text-base-content mb-5">文本处理</h3>
 
-    <div class="tool-section">
-      <h4>输入文本</h4>
-      <textarea v-model="input" class="tool-textarea" placeholder="在此输入文本..." rows="6"></textarea>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输入文本</h4>
+      <textarea v-model="input" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" placeholder="在此输入文本..." rows="6"></textarea>
     </div>
 
     <!-- Case Conversion -->
-    <div class="tool-section">
-      <h4>大小写转换</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="toUpper" :disabled="!input">大写 UPPER</button>
-        <button class="tool-btn" @click="toLower" :disabled="!input">小写 lower</button>
-        <button class="tool-btn" @click="toTitleCase" :disabled="!input">首字母大写</button>
-        <button class="tool-btn" @click="toCamelCase" :disabled="!input">驼峰式</button>
-        <button class="tool-btn" @click="toSnakeCase" :disabled="!input">蛇形命名</button>
-        <button class="tool-btn" @click="toSentenceCase" :disabled="!input">句子首字母大写</button>
-        <button class="tool-btn" @click="toAlternatingCase" :disabled="!input">交替大小写</button>
-        <button class="tool-btn" @click="toInverseCase" :disabled="!input">反转大小写</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">大小写转换</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="toUpper" :disabled="!input">大写 UPPER</button>
+        <button class="btn btn-ghost" @click="toLower" :disabled="!input">小写 lower</button>
+        <button class="btn btn-ghost" @click="toTitleCase" :disabled="!input">首字母大写</button>
+        <button class="btn btn-ghost" @click="toCamelCase" :disabled="!input">驼峰式</button>
+        <button class="btn btn-ghost" @click="toSnakeCase" :disabled="!input">蛇形命名</button>
+        <button class="btn btn-ghost" @click="toSentenceCase" :disabled="!input">句子首字母大写</button>
+        <button class="btn btn-ghost" @click="toAlternatingCase" :disabled="!input">交替大小写</button>
+        <button class="btn btn-ghost" @click="toInverseCase" :disabled="!input">反转大小写</button>
       </div>
     </div>
 
     <!-- Punctuation -->
-    <div class="tool-section">
-      <h4>标点符号转换</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="cnToEnPunct" :disabled="!input">中文标点 → 英文</button>
-        <button class="tool-btn" @click="enToCnPunct" :disabled="!input">英文标点 → 中文</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">标点符号转换</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="cnToEnPunct" :disabled="!input">中文标点 → 英文</button>
+        <button class="btn btn-ghost" @click="enToCnPunct" :disabled="!input">英文标点 → 中文</button>
       </div>
     </div>
 
     <!-- Text Operations -->
-    <div class="tool-section">
-      <h4>文本操作</h4>
-      <div class="tool-row">
-        <button class="tool-btn" @click="dedupLines" :disabled="!input">行去重</button>
-        <button class="tool-btn" @click="sortLines" :disabled="!input">字母排序</button>
-        <button class="tool-btn" @click="sortLinesReverse" :disabled="!input">逆序排序</button>
-        <button class="tool-btn" @click="sortLinesRandom" :disabled="!input">随机排序</button>
-        <button class="tool-btn" @click="sortLinesByLength" :disabled="!input">按长度排序</button>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本操作</h4>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="dedupLines" :disabled="!input">行去重</button>
+        <button class="btn btn-ghost" @click="sortLines" :disabled="!input">字母排序</button>
+        <button class="btn btn-ghost" @click="sortLinesReverse" :disabled="!input">逆序排序</button>
+        <button class="btn btn-ghost" @click="sortLinesRandom" :disabled="!input">随机排序</button>
+        <button class="btn btn-ghost" @click="sortLinesByLength" :disabled="!input">按长度排序</button>
       </div>
-      <div class="tool-row">
-        <button class="tool-btn" @click="trimLines" :disabled="!input">去除首尾空格</button>
-        <button class="tool-btn" @click="removeEmptyLines" :disabled="!input">删除空行</button>
-        <button class="tool-btn" @click="addLineNumbers" :disabled="!input">添加行号</button>
-        <button class="tool-btn" @click="removeLineNumbers" :disabled="!input">删除行号</button>
-        <button class="tool-btn" @click="reverseText" :disabled="!input">文本反转</button>
-        <button class="tool-btn" @click="reverseLines" :disabled="!input">行序反转</button>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="trimLines" :disabled="!input">去除首尾空格</button>
+        <button class="btn btn-ghost" @click="removeEmptyLines" :disabled="!input">删除空行</button>
+        <button class="btn btn-ghost" @click="addLineNumbers" :disabled="!input">添加行号</button>
+        <button class="btn btn-ghost" @click="removeLineNumbers" :disabled="!input">删除行号</button>
+        <button class="btn btn-ghost" @click="reverseText" :disabled="!input">文本反转</button>
+        <button class="btn btn-ghost" @click="reverseLines" :disabled="!input">行序反转</button>
       </div>
-      <div class="tool-row">
-        <button class="tool-btn" @click="mergeLines" :disabled="!input">合并为单行</button>
-        <button class="tool-btn" @click="splitByComma" :disabled="!input">逗号分行</button>
-        <button class="tool-btn" @click="uniqueWords" :disabled="!input">词去重</button>
+      <div class="flex flex-wrap gap-2.5 mb-3">
+        <button class="btn btn-ghost" @click="mergeLines" :disabled="!input">合并为单行</button>
+        <button class="btn btn-ghost" @click="splitByComma" :disabled="!input">逗号分行</button>
+        <button class="btn btn-ghost" @click="uniqueWords" :disabled="!input">词去重</button>
       </div>
     </div>
 
-    <div class="tool-row">
-      <button class="tool-btn primary" @click="copyOutput" :disabled="!input">复制结果</button>
-      <button class="tool-btn" @click="clearAll">清空</button>
+    <div class="flex flex-wrap gap-2.5 mb-3">
+      <button class="btn btn-primary" @click="copyOutput" :disabled="!input">复制结果</button>
+      <button class="btn btn-ghost" @click="clearAll">清空</button>
     </div>
 
     <!-- Statistics -->
-    <div class="tool-section" v-if="stats">
-      <h4>文本统计</h4>
-      <div class="stats-grid">
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.chars }}</span>
-          <span class="stat-label">字符数</span>
+    <div class="mb-5" v-if="stats">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本统计</h4>
+      <div class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-3 bg-base-200 border border-base-content/10 rounded-box">
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.chars }}</span>
+          <span class="text-xs opacity-60">字符数</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.noSpaceChars }}</span>
-          <span class="stat-label">无空格字符</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.noSpaceChars }}</span>
+          <span class="text-xs opacity-60">无空格字符</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.words }}</span>
-          <span class="stat-label">单词数</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.words }}</span>
+          <span class="text-xs opacity-60">单词数</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.lines }}</span>
-          <span class="stat-label">行数</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.lines }}</span>
+          <span class="text-xs opacity-60">行数</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.bytes }}</span>
-          <span class="stat-label">字节数</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.bytes }}</span>
+          <span class="text-xs opacity-60">字节数</span>
         </div>
-        <div class="stat-item">
-          <span class="stat-value">{{ stats.chineseChars }}</span>
-          <span class="stat-label">中文字符</span>
+        <div class="flex flex-col items-center gap-1">
+          <span class="text-xl font-bold text-primary">{{ stats.chineseChars }}</span>
+          <span class="text-xs opacity-60">中文字符</span>
         </div>
       </div>
     </div>
@@ -169,7 +169,7 @@ function toInverseCase() {
 /* ─── Punctuation ─── */
 const cnPunctMap: [RegExp, string][] = [
   [/，/g, ','], [/。/g, '.'], [/！/g, '!'], [/？/g, '?'],
-  [/；/g, ';'], [/：/g, ':'], [/"/g, '"'], [/"/g, '"'],
+  [/；/g, ';'], [/：/g, ':'], [/"'/g, '"'], [/"'/g, '"'],
   [/'/g, "'"], [/'/g, "'"], [/（/g, '('], [/）/g, ')'],
   [/【/g, '['], [/】/g, ']'], [/《/g, '<'], [/》/g, '>'],
   [/……/g, '...'], [/—/g, '-'], [/·/g, '.'],
@@ -299,57 +299,3 @@ function clearAll() {
   input.value = ''
 }
 </script>
-
-<style scoped>
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 12px;
-  padding: 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--color-primary);
-}
-
-.stat-label {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

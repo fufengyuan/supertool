@@ -1,27 +1,29 @@
 <template>
   <Teleport to="body">
-    <Transition name="modal">
-      <div v-if="modelValue" class="modal-overlay" @click="handleOverlayClick">
-        <div class="modal-content" :class="contentClass" @click.stop :style="contentStyle">
-          <div class="modal-header" v-if="$slots.header || title || showClose">
-            <slot name="header">
-              <h3>{{ title }}</h3>
-            </slot>
-            <button v-if="showClose" class="modal-close-btn" @click="close" title="关闭">×</button>
-          </div>
-          <div class="modal-body">
-            <slot />
-          </div>
-          <div class="modal-footer" v-if="$slots.footer">
-            <slot name="footer" />
-          </div>
+    <dialog ref="dialogRef" class="modal" :class="{ 'modal-open': modelValue }" @close="handleClose">
+      <div class="modal-box w-full max-w-[560px]" :style="{ maxHeight: maxHeight }">
+        <form method="dialog">
+          <button v-if="showClose" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-base-content/60 hover:text-base-content" @click="close">✕</button>
+        </form>
+        <h3 v-if="title" class="text-lg font-bold mb-2">{{ title }}</h3>
+        <slot name="header" />
+        <div class="py-2">
+          <slot />
+        </div>
+        <div v-if="$slots.footer" class="modal-action">
+          <slot name="footer" />
         </div>
       </div>
-    </Transition>
+      <form method="dialog" class="modal-backdrop">
+        <button @click="close">关闭</button>
+      </form>
+    </dialog>
   </Teleport>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+
 const props = defineProps({
   modelValue: {
     type: Boolean,
@@ -43,121 +45,28 @@ const props = defineProps({
     type: String,
     default: '85vh',
   },
-});
+})
 
-const emit = defineEmits(['update:modelValue', 'close']);
+const emit = defineEmits(['update:modelValue', 'close'])
+const dialogRef = ref<HTMLDialogElement | null>(null)
 
-const handleOverlayClick = () => {
-  close();
-};
+watch(() => props.modelValue, (val) => {
+  const el = dialogRef.value
+  if (!el) return
+  if (val) {
+    el.showModal()
+  } else {
+    el.close()
+  }
+})
 
-const close = () => {
-  emit('update:modelValue', false);
-  emit('close');
-};
+function handleClose() {
+  emit('update:modelValue', false)
+  emit('close')
+}
 
-const contentClass = '';
-const contentStyle = {
-  maxWidth: props.width,
-  maxHeight: props.maxHeight,
-};
+function close() {
+  const el = dialogRef.value
+  if (el) el.close()
+}
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: var(--color-base-100);
-  border-radius: 16px;
-  width: 90%;
-  max-height: v-bind(maxHeight);
-  overflow-y: auto;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.modal-close-btn {
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 20px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.15s ease;
-}
-
-.modal-close-btn:hover {
-  background: var(--color-base-200);
-  color: var(--color-base-content);
-}
-
-.modal-body {
-  padding: 24px;
-}
-
-.modal-footer {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  padding: 16px 24px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-/* Transitions */
-.modal-enter-active,
-.modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.modal-enter-active .modal-content,
-.modal-leave-active .modal-content {
-  transition:
-    transform 0.3s ease,
-    opacity 0.2s ease;
-}
-
-.modal-enter-from,
-.modal-leave-to {
-  opacity: 0;
-}
-
-.modal-enter-from .modal-content {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.modal-leave-to .modal-content {
-  opacity: 0;
-  transform: translateY(10px);
-}
-</style>
