@@ -72,8 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
-import { getTauriAPI } from '../utils/tauri-api'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
   modelValue: {
@@ -105,15 +104,8 @@ const resetUpdateState = () => {
   updateAvailable.value = false
 }
 
-const loadVersion = async () => {
-  try {
-    console.log("[loadVersion] called")
-    const api = getTauriAPI()
-    const ver = await (api as any).getAppVersion?.()
-    if (ver) appVersion.value = ver
-  } catch {
-    appVersion.value = __APP_VERSION__ || '1.0.0'
-  }
+const loadVersion = () => {
+  appVersion.value = __APP_VERSION__ || '4.0.0'
 }
 
 const checkForUpdates = () => {
@@ -137,10 +129,5 @@ watch(visible, (val) => {
     loadVersion()
     resetUpdateState()
   }
-})
-
-onMounted(() => {
-    console.log("[components/AboutDialog.vue] mounted")
-  loadVersion()
 })
 </script>
