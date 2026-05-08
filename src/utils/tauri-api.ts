@@ -1073,7 +1073,7 @@ export function useNginxAPI() {
     updateNginxPreset: async (preset: any): Promise<any> => tauriCall('update_nginx_preset', { preset }),
     deleteNginxPreset: async (id: string): Promise<any> => tauriCall('delete_nginx_preset', { id }),
     fetchNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('fetch_nginx_config', { serverId, configPath }),
-    testNginxConfig: async (serverId: string): Promise<any> => tauriCall('test_nginx_config', { serverId }),
+    testNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('test_nginx_config', { serverId, configPath }),
     deployNginxConfig: async (serverId: string, configPath: string, content: string, comment: string): Promise<any> => tauriCall('deploy_nginx_config', { serverId, configPath, content, comment }),
     getNginxConfigVersions: async (presetId: string): Promise<any> => tauriCall('get_nginx_config_versions', { presetId }),
     saveNginxConfigVersion: async (version: any): Promise<any> => tauriCall('save_nginx_config_version', { version }),
@@ -1606,7 +1606,7 @@ export interface TauriAPI {
   updateNginxPreset: (preset: any) => Promise<any>
   deleteNginxPreset: (id: string) => Promise<any>
   fetchNginxConfig: (serverId: string, configPath: string) => Promise<any>
-  testNginxConfig: (serverId: string) => Promise<any>
+  testNginxConfig: (serverId: string, configPath: string) => Promise<any>
   deployNginxConfig: (serverId: string, configPath: string, content: string, comment: string) => Promise<any>
   getNginxConfigVersions: (presetId: string) => Promise<any>
   saveNginxConfigVersion: (version: any) => Promise<any>

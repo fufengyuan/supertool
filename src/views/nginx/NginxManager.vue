@@ -89,15 +89,11 @@
             :class="['mode-tab', { active: viewMode === 'raw' }]"
             @click="viewMode = 'raw'"
           >📝 原始编辑</button>
-          <button
-            :class="['mode-tab', { active: viewMode === 'parsed' }]"
-            @click="viewMode = 'parsed'"
-          >📋 配置预览</button>
         </div>
 
         <!-- 测试结果提示 -->
-        <div v-if="testResult" class="test-result" :class="testResult.success ? 'test-success' : 'test-error'">
-          <span>{{ testResult.success ? '✅ 配置检测通过' : '❌ 配置检测失败' }}</span>
+        <div v-if="testResult" class="test-result" :class="testResult.passed ? 'test-success' : 'test-error'">
+          <span>{{ testResult.passed ? '✅ 配置检测通过' : '❌ 配置检测失败' }}</span>
           <span v-if="testResult.message" class="test-message">{{ testResult.message }}</span>
           <button @click="testResult = null" class="btn-icon btn-close-test">×</button>
         </div>
@@ -129,6 +125,7 @@
             >
               <div class="version-info">
                 <span class="version-comment">{{ version.comment || '无备注' }}</span>
+                <span v-if="version.isCurrent" class="version-current">当前生效</span>
                 <span class="version-time">{{ formatDate(version.createdAt) }}</span>
                 <span v-if="version.checksum" class="version-checksum">{{ version.checksum }}</span>
               </div>
@@ -188,7 +185,7 @@
         </div>
         <div class="modal-actions">
           <button @click="showPresetForm = false" class="btn-cancel">取消</button>
-          <button @click="onSavePreset" class="btn-save" :disabled="!presetForm.name || !presetForm.serverId">
+          <button @click="onSavePreset" class="btn-save" :disabled="!presetForm.name || !presetForm.serverId || !presetForm.configPath">
             {{ editingPreset ? '保存' : '创建' }}
           </button>
         </div>
@@ -299,6 +296,7 @@ async function onSavePreset() {
 }
 
 async function onDeletePreset(id: string) {
+  if (!confirm('确定删除此预设？关联的版本历史也会一并删除。')) return
   await deletePreset(id)
 }
 
@@ -313,17 +311,20 @@ async function onFetchConfig() {
 
 async function onTestConfig() {
   if (!currentPreset.value) return
-  await testConfig(currentPreset.value.serverId)
+  await testConfig(currentPreset.value.serverId, currentPreset.value.configPath)
 }
 
 async function onDeploy() {
   if (!deployComment.value.trim()) return
-  await deployConfig(deployComment.value)
-  showDeployDialog.value = false
-  deployComment.value = ''
+  const result = await deployConfig(deployComment.value)
+  if (result?.success) {
+    showDeployDialog.value = false
+    deployComment.value = ''
+  }
 }
 
 async function onRollback(versionId: string) {
+  if (!confirm('确定回滚到此版本？当前配置将被替换。')) return
   await rollbackToVersion(versionId)
 }
 
@@ -777,6 +778,16 @@ onMounted(async () => {
   background: color-mix(in oklab, var(--color-base-content) 5%, transparent);
   padding: 1px 4px;
   border-radius: 3px;
+  white-space: nowrap;
+}
+
+.version-current {
+  font-size: 10px;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.1);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
   white-space: nowrap;
 }
 

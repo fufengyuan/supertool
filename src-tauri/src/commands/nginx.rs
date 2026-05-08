@@ -59,9 +59,10 @@ pub async fn fetch_nginx_config(
 pub async fn test_nginx_config(
     core: State<'_, CoreService>,
     server_id: String,
+    config_path: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] test_nginx_config() called");
-    let result = core.test_nginx_config(&server_id).await?;
+    let result = core.test_nginx_config(&server_id, &config_path).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -71,11 +72,11 @@ pub async fn deploy_nginx_config(
     server_id: String,
     config_path: String,
     content: String,
-    comment: String,
+    _comment: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy_nginx_config() called");
     let result = core
-        .deploy_nginx_config(&server_id, &config_path, &content, &comment)
+        .deploy_nginx_config(&server_id, &config_path, &content)
         .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
