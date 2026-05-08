@@ -1,12 +1,12 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔒 加密/解密</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🔒 加密/解密</h3>
 
     <!-- Algorithm & Mode Selection -->
-    <div class="tool-row">
+    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
       <div>
-        <label class="tool-label">算法</label>
-        <select v-model="algorithm" class="tool-select" @change="onAlgorithmChange">
+        <label class="text-xs font-medium text-base-content/60 mb-1 block">算法</label>
+        <select v-model="algorithm" class="select select-bordered select-sm" @change="onAlgorithmChange">
           <option value="AES">AES (对称, 128/192/256 bit)</option>
           <option value="DES">DES (对称, 64 bit)</option>
           <option value="TripleDES">TripleDES (对称, 192 bit)</option>
@@ -18,15 +18,15 @@
         </select>
       </div>
       <div>
-        <label class="tool-label">模式</label>
+        <label class="text-xs font-medium text-base-content/60 mb-1 block">模式</label>
         <div class="tool-btn-group">
           <button
-            class="tool-btn"
+            class="btn btn-ghost btn-sm"
             :class="{ active: mode === 'encrypt' }"
             @click="mode = 'encrypt'"
           >加密</button>
           <button
-            class="tool-btn"
+            class="btn btn-ghost btn-sm"
             :class="{ active: mode === 'decrypt' }"
             @click="mode = 'decrypt'"
           >解密</button>
@@ -36,31 +36,31 @@
 
     <!-- Symmetric Key & IV -->
     <template v-if="!isAsymmetric">
-      <div class="tool-row">
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <div style="flex: 1;">
-          <label class="tool-label">密钥 (Key) <span class="key-hint">{{ keyHint }}</span></label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">密钥 (Key) <span class="key-hint">{{ keyHint }}</span></label>
           <div style="display: flex; gap: 6px;">
             <input
               v-model="key"
-              class="tool-input"
+              class="input input-bordered w-full font-mono text-xs"
               type="text"
               :placeholder="keyPlaceholder"
               style="flex: 1;"
             />
-            <button class="tool-btn" @click="generateKey" title="生成随机密钥">🎲 生成</button>
+            <button class="btn btn-ghost btn-sm" @click="generateKey" title="生成随机密钥">🎲 生成</button>
           </div>
         </div>
         <div v-if="showIV" style="flex: 1;">
-          <label class="tool-label">初始向量 (IV) <span class="key-hint">16 字节 (32 hex)</span></label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">初始向量 (IV) <span class="key-hint">16 字节 (32 hex)</span></label>
           <div style="display: flex; gap: 6px;">
             <input
               v-model="iv"
-              class="tool-input"
+              class="input input-bordered w-full font-mono text-xs"
               type="text"
               placeholder="hex 格式，留空自动生成"
               style="flex: 1;"
             />
-            <button class="tool-btn" @click="generateIV" title="生成随机 IV">🎲 生成</button>
+            <button class="btn btn-ghost btn-sm" @click="generateIV" title="生成随机 IV">🎲 生成</button>
           </div>
         </div>
       </div>
@@ -70,51 +70,51 @@
     <template v-if="isAsymmetric">
       <div class="tool-row sm2-keys">
         <div style="flex: 1;">
-          <label class="tool-label">公钥 (Public Key) <span class="key-hint">用于加密</span></label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">公钥 (Public Key) <span class="key-hint">用于加密</span></label>
           <textarea
             v-model="asymmetricPublicKey"
             class="tool-textarea mono"
             :placeholder="mode === 'encrypt' ? '输入或生成公钥...' : '加密后的数据'"
             rows="4"
           ></textarea>
-          <button class="tool-btn" @click="generateAsymmetricKeys" style="margin-top: 6px">🎲 生成密钥对</button>
+          <button class="btn btn-ghost btn-sm" @click="generateAsymmetricKeys" style="margin-top: 6px">🎲 生成密钥对</button>
         </div>
         <div style="flex: 1;">
-          <label class="tool-label">私钥 (Private Key) <span class="key-hint">用于解密</span></label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">私钥 (Private Key) <span class="key-hint">用于解密</span></label>
           <textarea
             v-model="asymmetricPrivateKey"
             class="tool-textarea mono"
             :placeholder="mode === 'decrypt' ? '输入或生成私钥...' : '留空（加密不需要私钥）'"
             rows="4"
           ></textarea>
-          <button class="tool-btn" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey">📋 复制密钥对</button>
+          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey">📋 复制密钥对</button>
         </div>
       </div>
     </template>
 
     <!-- Input -->
-    <div class="tool-section">
-      <label class="tool-label">输入</label>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入</label>
       <textarea
         v-model="inputText"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
         :placeholder="mode === 'encrypt' ? '输入要加密的文本...' : '输入要解密的文本（hex/C1C3C2 格式）...'"
       ></textarea>
     </div>
 
     <!-- Action Buttons -->
-    <div class="tool-row">
-      <button class="tool-btn primary" @click="process">
+    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
+      <button class="btn btn-primary btn-sm" @click="process">
         {{ mode === 'encrypt' ? '加密' : '解密' }}
       </button>
-      <button class="tool-btn" @click="copyResult">复制结果</button>
-      <button class="tool-btn" @click="clearAll">清空</button>
+      <button class="btn btn-ghost btn-sm" @click="copyResult">复制结果</button>
+      <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
     </div>
 
     <!-- Output -->
-    <div class="tool-section">
-      <label class="tool-label">输出</label>
-      <div class="tool-result">{{ outputText || '结果将显示在这里...' }}</div>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">输出</label>
+      <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ outputText || '结果将显示在这里...' }}</div>
     </div>
   </div>
 </template>
@@ -444,4 +444,3 @@ function clearAll() {
   asymmetricPrivateKey.value = ''
 }
 </script>
-

@@ -1,46 +1,46 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔐 哈希计算</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🔐 哈希计算</h3>
 
     <!-- Single Input -->
-    <div class="tool-section">
-      <h4>文本哈希</h4>
-      <label class="tool-label">输入文本</label>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本哈希</h4>
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入文本</label>
       <textarea
         v-model="inputText"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
         placeholder="输入需要计算哈希的文本..."
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px;">
-        <button class="tool-btn primary" @click="computeHashes">计算哈希</button>
-        <button class="tool-btn" @click="clearSingle">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="computeHashes">计算哈希</button>
+        <button class="btn btn-ghost btn-sm" @click="clearSingle">清空</button>
       </div>
 
       <div v-if="singleResults" class="hash-results">
         <div class="hash-result-item" v-for="(hash, algo) in singleResults" :key="algo">
           <span class="hash-algo">{{ algo }}</span>
           <div class="hash-value">{{ hash }}</div>
-          <button class="tool-btn copy-btn" @click="copyHash(hash)" title="复制">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制">📋</button>
         </div>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- Batch Processing -->
-    <div class="tool-section">
-      <h4>批量哈希</h4>
-      <label class="tool-label">每行一条文本，分别计算哈希</label>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">批量哈希</h4>
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">每行一条文本，分别计算哈希</label>
       <textarea
         v-model="batchInput"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
         placeholder="第一行文本&#10;第二行文本&#10;第三行文本"
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px;">
-        <button class="tool-btn primary" @click="computeBatch">批量计算</button>
-        <button class="tool-btn" @click="clearBatch">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="computeBatch">批量计算</button>
+        <button class="btn btn-ghost btn-sm" @click="clearBatch">清空</button>
       </div>
 
       <div v-if="batchResults.length" class="batch-results">
@@ -49,22 +49,22 @@
           <span class="batch-input">{{ row.input }}</span>
           <span class="batch-hash sha256">{{ row.sha256 }}</span>
           <span class="batch-hash sm3">{{ row.sm3 }}</span>
-          <button class="tool-btn copy-btn" @click="copyHash(row.sha256 + '\\n' + row.sm3)" title="复制两个哈希">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(row.sha256 + '\\n' + row.sm3)" title="复制两个哈希">📋</button>
         </div>
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- File Hash -->
-    <div class="tool-section">
-      <h4>文件哈希</h4>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文件哈希</h4>
       <input type="file" ref="fileInput" @change="handleFileHash" class="tool-file-input" />
       <div v-if="fileHashResults" class="hash-results">
         <div class="hash-result-item" v-for="(hash, algo) in fileHashResults" :key="algo">
           <span class="hash-algo">{{ algo }}</span>
           <div class="hash-value">{{ hash }}</div>
-          <button class="tool-btn copy-btn" @click="copyHash(hash)" title="复制">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制">📋</button>
         </div>
       </div>
       <div v-if="fileHashing" class="loading-text">正在计算文件哈希...</div>
@@ -171,5 +171,3 @@ function copyHash(hash: string) {
   copyText(hash, toast)
 }
 </script>
-
-

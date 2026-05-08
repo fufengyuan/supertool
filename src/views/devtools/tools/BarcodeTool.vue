@@ -1,10 +1,10 @@
 <template>
   <div class="barcode-tool">
-    <h3>📊 条形码生成</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5">📊 条形码生成</h3>
 
-    <div class="tool-section">
-      <h4>条形码设置</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">条形码设置</h4>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <input
           v-model="barcodeInput"
           type="text"
@@ -12,7 +12,7 @@
           placeholder="输入条形码内容..."
           @input="debouncedGenerate"
         />
-        <select v-model="barcodeFormat" class="tool-select" @change="generateBarcode">
+        <select v-model="barcodeFormat" class="select select-bordered select-sm" @change="generateBarcode">
           <option value="CODE128">CODE128</option>
           <option value="CODE39">CODE39</option>
           <option value="EAN13">EAN13</option>
@@ -25,21 +25,21 @@
         </select>
       </div>
 
-      <div class="tool-row">
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <div>
-          <label class="tool-label">宽度</label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">宽度</label>
           <input v-model.number="barcodeWidth" type="number" class="tool-input mono" style="width: 80px" min="1" max="4" />
         </div>
         <div>
-          <label class="tool-label">高度</label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">高度</label>
           <input v-model.number="barcodeHeight" type="number" class="tool-input mono" style="width: 80px" min="20" max="200" />
         </div>
-        <label class="tool-checkbox">
+        <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer">
           <input type="checkbox" v-model="barcodeShowText" />
           显示文字
         </label>
-        <button class="tool-btn primary" @click="generateBarcode">生成</button>
-        <button class="tool-btn" @click="downloadBarcode">⬇️ 下载 PNG</button>
+        <button class="btn btn-primary btn-sm" @click="generateBarcode">生成</button>
+        <button class="btn btn-ghost btn-sm" @click="downloadBarcode">⬇️ 下载 PNG</button>
       </div>
 
       <!-- Barcode Canvas -->
@@ -128,5 +128,3 @@ onMounted(() => {
   generateBarcode()
 })
 </script>
-
-

@@ -225,7 +225,7 @@
           </svg>
           Push
         </button>
-        <button class="btn btn-ghost btn-sm btn-danger" @click="doForcePush" :disabled="pushing" title="Force Push">
+        <button class="btn btn-ghost btn-sm btn-error" @click="doForcePush" :disabled="pushing" title="Force Push">
           <svg v-if="!pushing" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="17 8 12 3 7 8" />
@@ -953,7 +953,7 @@
                 <div class="branch-actions" v-if="!b.current">
                   <button class="btn btn-ghost btn-xs" @click.stop="openBranchRename(b.name)" title="重命名分支">Rename</button>
                   <button class="btn btn-ghost btn-xs" @click.stop="showMergeDialog(b.name)" title="合并到此分支">Merge</button>
-                  <button class="btn btn-ghost btn-xs btn-danger" @click.stop="confirmDeleteBranch(b.name)" title="删除分支">✕</button>
+                  <button class="btn btn-ghost btn-xs btn-error" @click.stop="confirmDeleteBranch(b.name)" title="删除分支">✕</button>
                 </div>
               </div>
             </div>
@@ -974,7 +974,7 @@
                 <span class="branch-label">{{ b.name }}</span>
                 <div class="branch-actions">
                   <button class="btn btn-ghost btn-xs" @click.stop="checkoutRemoteBranch(b.name)" title="Checkout as new local branch">Checkout</button>
-                  <button class="btn btn-ghost btn-xs btn-danger" @click.stop="confirmDeleteRemoteBranch(b.name)" title="删除远程分支">✕</button>
+                  <button class="btn btn-ghost btn-xs btn-error" @click.stop="confirmDeleteRemoteBranch(b.name)" title="删除远程分支">✕</button>
                 </div>
               </div>
               <div v-if="remoteBranches.length === 0" class="branch-empty">没有远程分支</div>
@@ -1182,7 +1182,7 @@
             </svg>
             <span class="tag-label">{{ tag.name }}</span>
             <span class="tag-commit" :title="tag.commit">{{ tag.commit?.substring(0, 7) || '' }}</span>
-            <button class="btn btn-ghost btn-xs btn-danger" @click.stop="confirmDeleteTag(tag.name)" title="删除">✕</button>
+            <button class="btn btn-ghost btn-xs btn-error" @click.stop="confirmDeleteTag(tag.name)" title="删除">✕</button>
           </div>
           <div v-if="tagsList.length === 0 && !loading" class="tags-empty">没有标签</div>
         </div>
@@ -1489,7 +1489,7 @@
             <span class="remote-name">{{ r }}</span>
             <span class="remote-url" :title="remoteUrls[r]">{{ remoteUrls[r] }}</span>
             <button class="btn btn-ghost btn-xs" @click.stop="doFetchRemote(r)" title="Fetch">Fetch</button>
-            <button class="btn btn-ghost btn-xs btn-danger" @click.stop="confirmDeleteRemote(r)" title="删除">✕</button>
+            <button class="btn btn-ghost btn-xs btn-error" @click.stop="confirmDeleteRemote(r)" title="删除">✕</button>
           </div>
           <div v-if="remotesList.length === 0 && !loading" class="remotes-empty">没有远程仓库</div>
         </div>
@@ -1734,7 +1734,7 @@
         <div v-if="gitCleanFiles.length === 0 && !gcLoading" class="git-clean-empty">没有未跟踪的文件需要清理</div>
         <div class="dialog-actions" style="padding: 8px 16px 12px;">
           <button class="btn btn-ghost btn-sm" @click="showGitCleanDialog = false">取消</button>
-          <button class="btn btn-danger btn-sm" @click="doGitClean" :disabled="gitCleanFiles.length === 0 || gcLoading">
+          <button class="btn btn-error btn-sm" @click="doGitClean" :disabled="gitCleanFiles.length === 0 || gcLoading">
             确认清理
           </button>
         </div>
@@ -1750,7 +1750,7 @@
         </p>
         <div class="dialog-actions">
           <button class="btn btn-ghost btn-sm" @click="deleteRemoteBranchTarget = null">取消</button>
-          <button class="btn btn-danger btn-sm" @click="doDeleteRemoteBranch" :disabled="deletingBranch">删除</button>
+          <button class="btn btn-error btn-sm" @click="doDeleteRemoteBranch" :disabled="deletingBranch">删除</button>
         </div>
       </div>
     </div>
@@ -3288,7 +3288,7 @@ const {
   opacity: 1;
 }
 
-.btn-danger:hover {
+.btn-error:hover {
   color: #ef4444;
 }
 
@@ -3437,11 +3437,11 @@ const {
   filter: brightness(1.1);
 }
 
-.btn-danger {
+.btn-error {
   color: #ef4444;
 }
 
-.btn-danger:hover:not(:disabled) {
+.btn-error:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.1);
 }
 
@@ -3932,11 +3932,11 @@ const {
 }
 
 /* ===================== Force Push 按钮 ===================== */
-.btn-danger {
+.btn-error {
   color: #ef4444;
 }
 
-.btn-danger:hover {
+.btn-error:hover {
   background: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }

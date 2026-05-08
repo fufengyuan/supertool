@@ -1,5 +1,5 @@
 <template>
-  <div class="tool-panel">
+  <div class="max-w-[700px]">
     <h3 class="text-lg font-bold text-base-content mb-5">🔣 进制转换</h3>
 
     <div class="mb-5">

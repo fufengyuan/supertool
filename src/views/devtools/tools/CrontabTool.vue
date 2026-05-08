@@ -1,11 +1,11 @@
 <template>
   <div class="crontab-tool">
-    <h3>⏱️ Crontab 校验</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5">⏱️ Crontab 校验</h3>
 
     <!-- Input -->
-    <div class="tool-section">
-      <h4>Cron 表达式（5 字段）</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Cron 表达式（5 字段）</h4>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <input
           v-model="cronInput"
           type="text"
@@ -13,8 +13,8 @@
           placeholder="* * * * *"
           @input="validateCron"
         />
-        <button class="tool-btn primary" @click="validateCron">校验</button>
-        <button class="tool-btn" @click="copyText(cronDescription, toast)">📋 复制</button>
+        <button class="btn btn-primary btn-sm" @click="validateCron">校验</button>
+        <button class="btn btn-ghost btn-sm" @click="copyText(cronDescription, toast)">📋 复制</button>
       </div>
 
       <!-- Description -->
@@ -22,9 +22,9 @@
       <div v-if="cronError" class="tool-result error">{{ cronError }}</div>
 
       <!-- Next execution times -->
-      <div v-if="nextTimes.length > 0" class="tool-section">
-        <h4>接下来 10 次执行时间</h4>
-        <div class="tool-result">
+      <div v-if="nextTimes.length > 0" class="mb-5">
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">接下来 10 次执行时间</h4>
+        <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">
           <div v-for="(t, i) in nextTimes" :key="i" class="next-time-item">
             <span class="next-time-index">{{ i + 1 }}.</span>
             <span class="next-time-value">{{ t }}</span>
@@ -33,11 +33,11 @@
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- Examples -->
-    <div class="tool-section">
-      <h4>常见示例</h4>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">常见示例</h4>
       <div class="examples-grid">
         <div
           v-for="ex in examples"
@@ -51,11 +51,11 @@
       </div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- Field Explanation -->
-    <div class="tool-section">
-      <h4>字段说明</h4>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">字段说明</h4>
       <div class="field-table">
         <div class="field-row header">
           <span>字段</span><span>允许值</span><span>特殊字符</span>
@@ -186,5 +186,3 @@ const fieldRules = [
   { name: '星期', range: '0-6 (0=周日)', chars: '* , - / ? L #' },
 ]
 </script>
-
-

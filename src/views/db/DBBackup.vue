@@ -138,7 +138,7 @@
           <p class="m-0 mb-2 text-sm font-medium text-error">此操作将覆盖现有数据，请谨慎操作！</p>
           <div class="mt-5 flex justify-end gap-2">
             <button @click="restoreConfirm = null" class="btn btn-ghost">取消</button>
-            <button @click="doRestore" class="btn btn-danger">确认还原</button>
+            <button @click="doRestore" class="btn btn-error">确认还原</button>
           </div>
         </div>
       </div>

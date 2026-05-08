@@ -1,20 +1,20 @@
 <template>
-  <div class="tool-panel">
-    <h3>🖧 IP 网络计算器</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🖧 IP 网络计算器</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">IP 地址 / CIDR</label>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">IP 地址 / CIDR</label>
       <input
         v-model="input"
-        class="tool-input"
+        class="input input-bordered w-full font-mono text-xs"
         placeholder="输入 IP/CIDR，如 192.168.1.0/24 或 10.0.0.0/8"
         @keyup.enter="calculate"
       />
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn primary" @click="calculate">计算</button>
-        <button class="tool-btn" @click="copyAll">📋 复制全部</button>
-        <button class="tool-btn" @click="clear">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="calculate">计算</button>
+        <button class="btn btn-ghost btn-sm" @click="copyAll">📋 复制全部</button>
+        <button class="btn btn-ghost btn-sm" @click="clear">清空</button>
       </div>
 
       <div v-if="error" class="error-box">{{ error }}</div>
@@ -64,7 +64,7 @@
 
       <!-- Binary representation -->
       <div v-if="result" class="binary-section" style="margin-top: 20px">
-        <h4>二进制表示</h4>
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">二进制表示</h4>
         <div class="binary-table">
           <div class="binary-row">
             <span class="binary-label">IP 地址:</span>
@@ -83,22 +83,22 @@
 
       <!-- IP conversion -->
       <div v-if="result" class="conversion-section" style="margin-top: 20px">
-        <h4>IP 进制转换</h4>
+        <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">IP 进制转换</h4>
         <div class="conversion-grid">
           <div class="conversion-item">
             <span class="conversion-label">十进制</span>
             <span class="conversion-value">{{ result.ipDecimal }}</span>
-            <button class="tool-btn copy-btn" @click="doCopy(result.ipDecimal)">📋</button>
+            <button class="btn btn-ghost btn-sm" @click="doCopy(result.ipDecimal)">📋</button>
           </div>
           <div class="conversion-item">
             <span class="conversion-label">十六进制</span>
             <span class="conversion-value">{{ result.ipHex }}</span>
-            <button class="tool-btn copy-btn" @click="doCopy(result.ipHex)">📋</button>
+            <button class="btn btn-ghost btn-sm" @click="doCopy(result.ipHex)">📋</button>
           </div>
           <div class="conversion-item">
             <span class="conversion-label">八进制</span>
             <span class="conversion-value">{{ result.ipOctal }}</span>
-            <button class="tool-btn copy-btn" @click="doCopy(result.ipOctal)">📋</button>
+            <button class="btn btn-ghost btn-sm" @click="doCopy(result.ipOctal)">📋</button>
           </div>
         </div>
       </div>
@@ -265,5 +265,3 @@ function clear() {
   result.value = null
 }
 </script>
-
-

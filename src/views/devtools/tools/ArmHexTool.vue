@@ -1,47 +1,47 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔧 ARM / HEX 互转</h3>
+  <div class="max-w-[700px]">
+    <h3 class="text-lg font-bold text-base-content mb-5">🔧 ARM / HEX 互转</h3>
 
     <!-- Hex → ARM-like dump -->
-    <div class="tool-section">
-      <h4>Hex → ARM 指令 (解码)</h4>
-      <label class="tool-label">Hex 输入 (空格分隔的 32-bit 指令)</label>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">Hex → ARM 指令 (解码)</h4>
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">Hex 输入 (空格分隔的 32-bit 指令)</label>
       <textarea
         v-model="hexInput"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
         placeholder="输入 ARM 机器码 Hex，如: E3A00000 E28F0000 ..."
         rows="3"
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn primary" @click="hexToArm">解码 →</button>
-        <button class="tool-btn" @click="copyArmResult">📋 复制</button>
-        <button class="tool-btn" @click="clearHex">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="hexToArm">解码 →</button>
+        <button class="btn btn-ghost btn-sm" @click="copyArmResult">📋 复制</button>
+        <button class="btn btn-ghost btn-sm" @click="clearHex">清空</button>
       </div>
 
-      <div v-if="armOutput" class="tool-result arm-dump">{{ armOutput }}</div>
+      <div v-if="armOutput" class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ armOutput }}</div>
     </div>
 
-    <hr class="tool-divider" />
+    <hr class="border-t border-base-content/10 my-5" />
 
     <!-- ARM Assembly → Hex -->
-    <div class="tool-section">
-      <h4>ARM 汇编 → Hex (编码)</h4>
-      <label class="tool-label">ARM 汇编输入 (简易模式)</label>
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">ARM 汇编 → Hex (编码)</h4>
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">ARM 汇编输入 (简易模式)</label>
       <textarea
         v-model="armInput"
-        class="tool-textarea"
+        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
         placeholder="输入 ARM 汇编指令，如: MOV R0, #0 ..."
         rows="3"
       ></textarea>
 
-      <div class="tool-row" style="margin-top: 12px">
-        <button class="tool-btn primary" @click="armToHex">编码 →</button>
-        <button class="tool-btn" @click="copyHexResult">📋 复制</button>
-        <button class="tool-btn" @click="clearArm">清空</button>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center mt-3">
+        <button class="btn btn-primary btn-sm" @click="armToHex">编码 →</button>
+        <button class="btn btn-ghost btn-sm" @click="copyHexResult">📋 复制</button>
+        <button class="btn btn-ghost btn-sm" @click="clearArm">清空</button>
       </div>
 
-      <div v-if="hexOutput" class="tool-result">{{ hexOutput }}</div>
+      <div v-if="hexOutput" class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ hexOutput }}</div>
       <div v-if="armInfo" class="info-box">{{ armInfo }}</div>
     </div>
   </div>
@@ -324,5 +324,3 @@ function clearArm() {
   armInfo.value = ''
 }
 </script>
-
-

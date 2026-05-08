@@ -1,12 +1,12 @@
 <template>
   <div class="uuid-tool">
-    <h3>🆔 UUID 生成器</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5">🆔 UUID 生成器</h3>
 
-    <div class="tool-section">
-      <h4>批量生成 UUID v4</h4>
-      <div class="tool-row">
+    <div class="mb-5">
+      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">批量生成 UUID v4</h4>
+      <div class="flex gap-2.5 mb-3 flex-wrap items-center">
         <div>
-          <label class="tool-label">生成数量</label>
+          <label class="text-xs font-medium text-base-content/60 mb-1 block">生成数量</label>
           <input
             v-model.number="uuidCount"
             type="number"
@@ -16,9 +16,9 @@
             max="100"
           />
         </div>
-        <button class="tool-btn primary" @click="generateUUIDs">🔄 生成</button>
-        <button class="tool-btn" @click="copyText(uuidOutput, toast)">📋 复制全部</button>
-        <button class="tool-btn" @click="downloadUUIDs">⬇️ 下载 TXT</button>
+        <button class="btn btn-primary btn-sm" @click="generateUUIDs">🔄 生成</button>
+        <button class="btn btn-ghost btn-sm" @click="copyText(uuidOutput, toast)">📋 复制全部</button>
+        <button class="btn btn-ghost btn-sm" @click="downloadUUIDs">⬇️ 下载 TXT</button>
       </div>
 
       <div v-if="uuids.length > 0" class="tool-result uuid-list">
