@@ -1,65 +1,64 @@
 <template>
-  <div class="git-panel">
+  <div class="my-4">
     <!-- 仓库信息 - 所有仓库都显示 -->
-    <div class="repos-container">
-      <div v-if="project.repoPath" class="git-repo-card">
-        <div class="repo-header">
-          <span class="repo-label">📂 本地仓库 1</span>
-          <span v-if="project.branch" class="branch-badge">{{ project.branch }}</span>
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 mb-5">
+      <div v-if="project.repoPath" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-semibold text-base-content">📂 本地仓库 1</span>
+          <span v-if="project.branch" class="badge badge-sm badge-primary">{{ project.branch }}</span>
         </div>
-        <div class="repo-path">{{ project.repoPath }}</div>
+        <div class="text-xs text-base-content/60 font-mono break-all">{{ project.repoPath }}</div>
       </div>
-      <div v-if="project.repoPath2" class="git-repo-card">
-        <div class="repo-header">
-          <span class="repo-label">📂 本地仓库 2</span>
-          <span v-if="project.branch2" class="branch-badge">{{ project.branch2 }}</span>
+      <div v-if="project.repoPath2" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
+        <div class="flex items-center justify-between mb-1.5">
+          <span class="text-xs font-semibold text-base-content">📂 本地仓库 2</span>
+          <span v-if="project.branch2" class="badge badge-sm badge-primary">{{ project.branch2 }}</span>
         </div>
-        <div class="repo-path">{{ project.repoPath2 }}</div>
+        <div class="text-xs text-base-content/60 font-mono break-all">{{ project.repoPath2 }}</div>
       </div>
-      <div v-if="project.gitUrl1" class="git-repo-card">
-        <div class="repo-header">
-          <span class="repo-label">🌐 远程仓库 1</span>
+      <div v-if="project.gitUrl1" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
+        <div class="flex items-center mb-1.5">
+          <span class="text-xs font-semibold text-base-content">🌐 远程仓库 1</span>
         </div>
-        <div class="repo-path">{{ project.gitUrl1 }}</div>
+        <div class="text-xs text-base-content/60 font-mono break-all">{{ project.gitUrl1 }}</div>
       </div>
-      <div v-if="project.gitUrl2" class="git-repo-card">
-        <div class="repo-header">
-          <span class="repo-label">🌐 远程仓库 2</span>
+      <div v-if="project.gitUrl2" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
+        <div class="flex items-center mb-1.5">
+          <span class="text-xs font-semibold text-base-content">🌐 远程仓库 2</span>
         </div>
-        <div class="repo-path">{{ project.gitUrl2 }}</div>
+        <div class="text-xs text-base-content/60 font-mono break-all">{{ project.gitUrl2 }}</div>
       </div>
     </div>
 
     <!-- 提交记录 - 分仓库显示 -->
-    <div class="git-commits-section">
-      <div class="commits-header">
-        <h3>📜 提交记录</h3>
+    <div class="p-5 bg-base-100 rounded-xl shadow-sm">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="m-0 text-base-content text-lg">📜 提交记录</h3>
         <div class="commits-filter">
-          <select v-model="repoFilter" class="repo-select">
+          <select v-model="repoFilter" class="select select-bordered select-sm">
             <option value="all">🔀 全部仓库</option>
             <option v-for="repo in repos" :key="repo.key" :value="repo.key">{{ repo.label }}</option>
           </select>
         </div>
       </div>
 
-      <div v-if="loading" class="loading-commits">\u23F3 加载中...</div>
-      <div v-else-if="filteredCommits.length === 0" class="no-commits">📝 暂无提交记录</div>
-      <div v-else class="commits-list">
+      <div v-if="loading" class="text-center py-6 text-base-content/60 text-sm">⏳ 加载中...</div>
+      <div v-else-if="filteredCommits.length === 0" class="text-center py-6 text-base-content/60 text-sm">📝 暂无提交记录</div>
+      <div v-else class="max-h-[400px] overflow-y-auto">
         <div
           v-for="commit in filteredCommits"
           :key="commit.repo + commit.hash"
-          class="commit-item"
-          :class="{ 'cross-repo': commit.repo && commit.repo.length > 1 }"
+          class="p-3 mb-2.5 bg-base-200 rounded-lg border-l-4 border-primary"
         >
-          <div class="commit-header">
-            <div class="commit-left">
-              <span v-if="commit.repo" class="commit-repo-tag">{{ commit.repo }}</span>
-              <span class="commit-hash">{{ commit.hash }}</span>
+          <div class="flex justify-between items-center mb-1">
+            <div class="flex items-center gap-2">
+              <span v-if="commit.repo" class="text-[11px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold">{{ commit.repo }}</span>
+              <span class="font-mono text-xs text-base-content/60">{{ commit.hash }}</span>
             </div>
-            <span class="commit-date">{{ formatDate(commit.date) }}</span>
+            <span class="text-xs text-base-content/60 whitespace-nowrap">{{ formatDate(commit.date) }}</span>
           </div>
-          <div class="commit-author">{{ commit.author }}</div>
-          <div class="commit-message">{{ commit.message }}</div>
+          <div class="text-xs text-primary mb-1">{{ commit.author }}</div>
+          <div class="text-sm text-base-content break-words">{{ commit.message }}</div>
         </div>
       </div>
     </div>
@@ -144,30 +143,3 @@ const loadGitCommits = async () => {
 
 onMounted(loadGitCommits)
 </script>
-
-<style scoped>
-.git-panel { margin: 16px 0; }
-
-.repos-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 20px; }
-.git-repo-card { padding: 12px; background: var(--color-base-200); border-radius: 8px; border-left: 3px solid var(--color-primary); }
-.repo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.repo-label { font-size: 13px; font-weight: 600; color: var(--color-base-content); }
-.branch-badge { padding: 1px 8px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 10px; font-size: 11px; font-weight: 600; }
-.repo-path { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-family: 'SF Mono', monospace; word-break: break-all; }
-
-.git-commits-section { padding: 20px; background: var(--color-base-100); border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-.commits-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-.commits-header h3 { margin: 0; color: var(--color-base-content); font-size: 18px; }
-.repo-select { padding: 6px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-200); color: var(--color-base-content); font-size: 13px; outline: none; }
-
-.loading-commits, .no-commits { text-align: center; padding: 24px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 14px; }
-.commits-list { max-height: 400px; overflow-y: auto; }
-.commit-item { padding: 12px; margin-bottom: 10px; background: var(--color-base-200); border-radius: 8px; border-left: 3px solid var(--color-primary); }
-.commit-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.commit-left { display: flex; align-items: center; gap: 8px; }
-.commit-repo-tag { font-size: 11px; padding: 1px 6px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 4px; font-weight: 600; }
-.commit-hash { font-family: 'SF Mono', monospace; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.commit-date { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); white-space: nowrap; }
-.commit-author { font-size: 13px; color: var(--color-primary); margin-bottom: 4px; }
-.commit-message { font-size: 14px; color: var(--color-base-content); word-break: break-word; }
-</style>

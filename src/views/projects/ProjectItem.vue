@@ -1,69 +1,82 @@
 <template>
-  <div class="project-card" :style="{ borderColor: project.color }" @click="$emit('select', project)">
+  <div
+    class="flex items-stretch gap-4 p-4 px-5 border border-base-content/10 border-l-4 rounded-xl bg-base-100 cursor-pointer transition-all duration-150 shadow-sm hover:border-primary hover:shadow-md hover:-translate-y-0.5"
+    :style="{ borderLeftColor: project.color }"
+    @click="$emit('select', project)"
+  >
     <!-- 左侧：颜色+核心信息 -->
-    <div class="card-left">
-      <div class="color-dot" :style="{ backgroundColor: project.color }"></div>
-      <div class="card-main">
+    <div class="flex gap-3.5 flex-1 min-w-0">
+      <div class="w-3 h-3 rounded-full flex-shrink-0 mt-1.5" :style="{ backgroundColor: project.color }"></div>
+      <div class="flex-1 min-w-0">
         <!-- 标题行 -->
-        <div class="title-row">
-          <h3 class="project-name">{{ project.name }}</h3>
-          <span v-if="project.category" class="category-badge" :class="'category-' + project.category">{{ categoryLabel(project.category) }}</span>
-          <span v-if="project.archived" class="archived-badge">已归档</span>
+        <div class="flex items-center gap-2.5 flex-wrap mb-1.5">
+          <h3 class="m-0 text-base-content text-lg font-bold">{{ project.name }}</h3>
+          <span v-if="project.category" class="badge badge-sm badge-primary">{{ categoryLabel(project.category) }}</span>
+          <span v-if="project.archived" class="badge badge-sm badge-warning">已归档</span>
         </div>
         <!-- 描述 -->
-        <p v-if="project.description" class="project-description">{{ project.description }}</p>
+        <p v-if="project.description" class="m-0 mb-2 text-base-content/60 text-sm leading-relaxed line-clamp-2">{{ project.description }}</p>
         <!-- 元信息行 -->
-        <div class="meta-row">
-          <span class="meta-item" v-if="project.createdAt">
-            <span class="meta-icon">📅 创建于 {{ formatDate(project.createdAt) }}</span>
+        <div class="flex gap-4 mb-2 flex-wrap">
+          <span class="text-xs text-base-content/60 flex items-center gap-1" v-if="project.createdAt">
+            <span class="text-xs">📅 创建于 {{ formatDate(project.createdAt) }}</span>
           </span>
-          <span class="meta-item" v-if="project.updatedAt">
-            <span class="meta-icon">✏️ 更新于 {{ formatDate(project.updatedAt) }}</span>
+          <span class="text-xs text-base-content/60 flex items-center gap-1" v-if="project.updatedAt">
+            <span class="text-xs">✏️ 更新于 {{ formatDate(project.updatedAt) }}</span>
           </span>
         </div>
         <!-- Git 仓库 -->
-        <div class="git-repos" v-if="hasGitRepos">
-          <div v-if="project.repoPath" class="git-repo">
-            <span class="git-icon">📂</span>
-            <span class="git-url">{{ project.repoPath.split('/').pop() }}</span>
-            <span v-if="project.branch" class="branch-badge">{{ project.branch }}</span>
+        <div class="flex flex-col gap-1" v-if="hasGitRepos">
+          <div v-if="project.repoPath" class="flex items-center gap-1.5 text-xs text-base-content/60">
+            <span class="flex-shrink-0 text-sm">📂</span>
+            <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.repoPath.split('/').pop() }}</span>
+            <span v-if="project.branch" class="badge badge-sm badge-primary">{{ project.branch }}</span>
           </div>
-          <div v-if="project.repoPath2" class="git-repo">
-            <span class="git-icon">📂</span>
-            <span class="git-url">{{ project.repoPath2.split('/').pop() }}</span>
-            <span v-if="project.branch2" class="branch-badge">{{ project.branch2 }}</span>
+          <div v-if="project.repoPath2" class="flex items-center gap-1.5 text-xs text-base-content/60">
+            <span class="flex-shrink-0 text-sm">📂</span>
+            <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.repoPath2.split('/').pop() }}</span>
+            <span v-if="project.branch2" class="badge badge-sm badge-primary">{{ project.branch2 }}</span>
           </div>
-          <div v-if="project.gitUrl1" class="git-repo">
-            <span class="git-icon">🌐</span>
-            <span class="git-url">{{ project.gitUrl1 }}</span>
+          <div v-if="project.gitUrl1" class="flex items-center gap-1.5 text-xs text-base-content/60">
+            <span class="flex-shrink-0 text-sm">🌐</span>
+            <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.gitUrl1 }}</span>
           </div>
-          <div v-if="project.gitUrl2" class="git-repo">
-            <span class="git-icon">🌐</span>
-            <span class="git-url">{{ project.gitUrl2 }}</span>
+          <div v-if="project.gitUrl2" class="flex items-center gap-1.5 text-xs text-base-content/60">
+            <span class="flex-shrink-0 text-sm">🌐</span>
+            <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.gitUrl2 }}</span>
           </div>
         </div>
       </div>
     </div>
     <!-- 右侧：统计+操作 -->
-    <div class="card-right">
-      <div class="stats-section">
-        <div class="stats-numbers">
-          <div class="stat"><span class="stat-val">{{ stats?.total || 0 }}</span><span class="stat-lbl">总任务</span></div>
-          <div class="stat completed"><span class="stat-val">{{ stats?.completed || 0 }}</span><span class="stat-lbl">已完成</span></div>
-          <div class="stat active"><span class="stat-val">{{ (stats?.total || 0) - (stats?.completed || 0) }}</span><span class="stat-lbl">进行中</span></div>
-        </div>
-        <div class="progress-section">
-          <div class="progress-bar">
-            <div class="progress-fill" :style="{ width: (stats?.progress || 0) + '%', backgroundColor: project.color }"></div>
+    <div class="flex flex-col items-end justify-between flex-shrink-0 gap-3 min-w-[200px]">
+      <div class="flex flex-col gap-2 w-full">
+        <div class="flex gap-4">
+          <div class="flex flex-col items-center">
+            <span class="text-lg font-bold text-base-content">{{ stats?.total || 0 }}</span>
+            <span class="text-[11px] text-base-content/60">总任务</span>
           </div>
-          <span class="progress-pct">{{ stats?.progress || 0 }}%</span>
+          <div class="flex flex-col items-center">
+            <span class="text-lg font-bold text-emerald-500">{{ stats?.completed || 0 }}</span>
+            <span class="text-[11px] text-base-content/60">已完成</span>
+          </div>
+          <div class="flex flex-col items-center">
+            <span class="text-lg font-bold text-amber-400">{{ (stats?.total || 0) - (stats?.completed || 0) }}</span>
+            <span class="text-[11px] text-base-content/60">进行中</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="flex-1 h-2 bg-base-200 rounded-full overflow-hidden min-w-[100px]">
+            <div class="h-full rounded-full transition-[width] duration-300" :style="{ width: (stats?.progress || 0) + '%', backgroundColor: project.color }"></div>
+          </div>
+          <span class="text-sm font-semibold text-base-content whitespace-nowrap min-w-[36px] text-right">{{ stats?.progress || 0 }}%</span>
         </div>
       </div>
-      <div class="card-actions">
-        <button class="action-btn" @click.stop="$emit('toggle-archive', project)" :title="project.archived ? '取消归档' : '归档'">
+      <div class="flex gap-1.5">
+        <button class="btn btn-ghost btn-sm" @click.stop="$emit('toggle-archive', project)" :title="project.archived ? '取消归档' : '归档'">
           {{ project.archived ? '↩️' : '📁' }}
         </button>
-        <button class="action-btn primary" @click.stop="$emit('edit', project)" title="编辑">✏️</button>
+        <button class="btn btn-primary btn-sm" @click.stop="$emit('edit', project)" title="编辑">✏️</button>
       </div>
     </div>
   </div>
@@ -97,66 +110,3 @@ const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 };
 </script>
-
-<style scoped>
-.project-card {
-  display: flex;
-  align-items: stretch;
-  gap: 16px;
-  padding: 16px 20px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-left: 4px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 12px;
-  background: var(--color-base-100);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-.project-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-  transform: translateY(-1px);
-}
-
-.card-left { display: flex; gap: 14px; flex: 1; min-width: 0; }
-.color-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 6px; }
-.card-main { flex: 1; min-width: 0; }
-
-.title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
-.project-name { margin: 0; color: var(--color-base-content); font-size: 18px; font-weight: 700; }
-.category-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 500; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); }
-.archived-badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; background: color-mix(in oklab, var(--color-warning) 10%, transparent); color: var(--color-warning); }
-
-.project-description { margin: 0 0 8px 0; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-.meta-row { display: flex; gap: 16px; margin-bottom: 8px; flex-wrap: wrap; }
-.meta-item { font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); display: flex; align-items: center; gap: 4px; }
-.meta-icon { font-size: 13px; }
-
-.git-repos { display: flex; flex-direction: column; gap: 4px; }
-.git-repo { display: flex; align-items: center; gap: 6px; font-size: 12px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.git-icon { flex-shrink: 0; font-size: 14px; }
-.git-url { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: 'SF Mono', monospace; font-size: 11px; }
-.branch-badge { padding: 1px 8px; background: color-mix(in oklab, var(--color-primary) 10%, transparent); color: var(--color-primary); border-radius: 10px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-
-/* 右侧统计+操作 */
-.card-right { display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; flex-shrink: 0; gap: 12px; min-width: 200px; }
-
-.stats-section { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.stats-numbers { display: flex; gap: 16px; }
-.stat { display: flex; flex-direction: column; align-items: center; }
-.stat-val { font-size: 18px; font-weight: 700; color: var(--color-base-content); }
-.stat-lbl { font-size: 11px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); }
-.stat.completed .stat-val { color: #10b981; }
-.stat.active .stat-val { color: #f59e0b; }
-
-.progress-section { display: flex; align-items: center; gap: 8px; }
-.progress-bar { flex: 1; height: 8px; background: var(--color-base-200); border-radius: 4px; overflow: hidden; min-width: 100px; }
-.progress-fill { height: 100%; transition: width 0.3s ease; border-radius: 4px; }
-.progress-pct { font-size: 13px; font-weight: 600; color: var(--color-base-content); white-space: nowrap; min-width: 36px; text-align: right; }
-
-.card-actions { display: flex; gap: 6px; }
-.action-btn { padding: 6px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; background: var(--color-base-100); color: var(--color-base-content); cursor: pointer; font-size: 14px; transition: all 0.15s; }
-.action-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.action-btn.primary:hover { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-</style>

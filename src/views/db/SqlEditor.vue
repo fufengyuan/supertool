@@ -1,10 +1,10 @@
 <template>
-  <div class="sql-editor">
-    <div class="editor-toolbar">
-      <div class="editor-connection-info" v-if="connection">
-        <span class="editor-conn-badge">{{ dbTypeIcon(connection.type) }} {{ connection.name }}</span>
+  <div class="flex flex-col h-full gap-2">
+    <div class="flex items-center justify-between gap-2 pb-2 border-b border-base-content/10">
+      <div v-if="connection" class="flex items-center gap-1.5">
+        <span class="text-xs px-2 py-[3px] rounded bg-primary/10 text-primary font-medium">{{ dbTypeIcon(connection.type) }} {{ connection.name }}</span>
       </div>
-      <div class="editor-actions">
+      <div class="flex gap-1.5">
         <button
           @click="handleExecute"
           class="btn btn-primary btn-sm"
@@ -39,7 +39,7 @@
     </div>
 
     <!-- Editor with syntax highlighting overlay -->
-    <div class="editor-container">
+    <div class="relative flex-1 min-h-[120px] max-h-[300px] border border-base-content/20 rounded-lg overflow-hidden transition-[border-color] duration-150 focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(59,130,246,0.1)]">
       <!-- Highlighted background layer -->
       <pre
         class="sql-highlight"
@@ -59,36 +59,36 @@
     </div>
 
     <!-- Status bar -->
-    <div class="editor-status">
-      <div class="status-left">
-        <span v-if="lastExecutionTime != null" class="status-item status-time">
+    <div class="flex items-center justify-between px-2 py-1 text-[11px] text-base-content/60 bg-base-200 rounded-md border border-base-content/10">
+      <div class="flex items-center gap-3">
+        <span v-if="lastExecutionTime != null" class="flex items-center gap-1 text-primary font-medium">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10" />
             <polyline points="12 6 12 12 16 14" />
           </svg>
           {{ lastExecutionTime }}ms
         </span>
-        <span v-if="lastRowCount != null" class="status-item status-rows">
+        <span v-if="lastRowCount != null" class="flex items-center gap-1 text-success">
           <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
             <line x1="3" y1="9" x2="21" y2="9" />
           </svg>
           {{ lastRowCount }} 行
         </span>
-        <span v-if="executedSql" class="status-item status-sql" :title="executedSql">
+        <span v-if="executedSql" class="flex items-center gap-1 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" :title="executedSql">
           已执行: {{ truncate(executedSql, 60) }}
         </span>
       </div>
-      <div class="status-right">
-        <span class="status-item status-chars">{{ charCount }} 字符</span>
-        <span class="status-item status-lines">{{ lineCount }} 行</span>
-        <span v-if="hasSelection" class="status-item status-selection">已选中 {{ selectionLength }} 字符</span>
+      <div class="flex items-center gap-3">
+        <span class="flex items-center gap-1">{{ charCount }} 字符</span>
+        <span class="flex items-center gap-1">{{ lineCount }} 行</span>
+        <span v-if="hasSelection" class="flex items-center gap-1 text-warning">已选中 {{ selectionLength }} 字符</span>
       </div>
     </div>
 
     <!-- Error display -->
-    <div v-if="error" class="sql-error">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+    <div v-if="error" class="flex items-start gap-2 p-[10px_12px] rounded-lg bg-red-900/10 text-error text-[13px] leading-5">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5">
         <circle cx="12" cy="12" r="10" />
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -97,20 +97,20 @@
     </div>
 
     <!-- Query history -->
-    <div v-if="history.length > 0" class="query-history">
-      <div class="history-header">
+    <div v-if="history.length > 0" class="border-t border-base-content/10 pt-2">
+      <div class="flex items-center justify-between mb-1.5 text-xs font-semibold text-base-content/60">
         <span>查询历史</span>
         <button @click="$emit('clear-history')" class="btn btn-ghost btn-sm">清空</button>
       </div>
       <div
         v-for="record in history.slice(0, 10)"
         :key="record.id"
-        class="history-item"
-        :class="{ success: record.success, failed: !record.success }"
+        :class="[record.success ? 'text-success' : 'text-error']"
+        class="px-2 py-1.5 rounded-md cursor-pointer text-xs font-mono transition-[background] duration-100 ease-in-out hover:bg-primary/10"
         @click="$emit('rerun', record.sql)"
       >
-        <span class="history-sql">{{ truncate(record.sql, 80) }}</span>
-        <span class="history-meta">
+        <span class="block overflow-hidden text-ellipsis whitespace-nowrap">{{ truncate(record.sql, 80) }}</span>
+        <span class="flex gap-3 text-[11px] text-base-content/60 font-inherit mt-0.5">
           <span>{{ formatTime(record.timestamp) }}</span>
           <span v-if="record.rowCount !== undefined">{{ record.rowCount }} 行</span>
           <span v-if="record.executionTime">{{ record.executionTime }}ms</span>
@@ -206,7 +206,7 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
+    .replace(/\"/g, '&quot;')
 }
 
 function syncScroll() {
@@ -313,54 +313,8 @@ defineExpose({
 })
 </script>
 
-<style scoped>
-.sql-editor {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  gap: 8px;
-}
-
-.editor-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.editor-conn-badge {
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 4px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.editor-actions {
-  display: flex;
-  gap: 6px;
-}
-
-/* Editor container with overlay */
-.editor-container {
-  position: relative;
-  flex: 1;
-  min-height: 120px;
-  max-height: 300px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-  border-radius: 8px;
-  overflow: hidden;
-  transition: border-color 0.15s ease;
-}
-
-.editor-container:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
+<!-- Preserved: code editor syntax highlighting styles (SqlEditor specific) -->
+<style>
 .sql-highlight {
   position: absolute;
   top: 0;
@@ -413,133 +367,10 @@ defineExpose({
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow: auto;
-  /* Text must be somewhat transparent to see highlights behind */
-  color: var(--color-base-content);
 }
 
 .sql-textarea::placeholder {
   color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
   opacity: 0.5;
-}
-
-/* Status bar */
-.editor-status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 8px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-200);
-  border-radius: 6px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.status-left, .status-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.status-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.status-time {
-  color: var(--color-primary);
-  font-weight: 500;
-}
-
-.status-rows {
-  color: var(--color-success);
-}
-
-.status-sql {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-selection {
-  color: var(--color-warning);
-}
-
-/* Error display */
-.sql-error {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(210, 15, 57, 0.1);
-  color: var(--color-error);
-  font-size: 13px;
-  line-height: 1.5;
-}
-
-.sql-error svg {
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-/* Query history */
-.query-history {
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding-top: 8px;
-}
-
-.history-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.history-item {
-  padding: 6px 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 12px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  transition: background 0.1s ease;
-}
-
-.history-item:hover {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.history-item.success {
-  color: var(--color-success);
-}
-
-.history-item.failed {
-  color: var(--color-error);
-}
-
-.history-sql {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.history-meta {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-family: inherit;
-  margin-top: 2px;
-}
-
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 12px;
 }
 </style>

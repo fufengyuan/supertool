@@ -1,39 +1,39 @@
 <template>
-  <div class="stats-bar">
-    <div class="stat-item">
-      <span class="stat-value">{{ totalTasks }}</span>
-      <span class="stat-label">{{ $t('stats.totalTasks') }}</span>
+  <div class="flex items-center gap-3 p-2 px-3 bg-base-100 border border-base-content/10 rounded-xl flex-wrap">
+    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span class="text-lg font-bold text-base-content">{{ totalTasks }}</span>
+      <span class="text-xs text-base-content/60">{{ $t('stats.totalTasks') }}</span>
     </div>
-    <div class="stat-divider"></div>
-    <div class="stat-item">
-      <span class="stat-value success">{{ completedToday }}</span>
-      <span class="stat-label">{{ $t('stats.completedToday') }}</span>
-      <span v-if="todayVsYesterday !== 0" class="trend" :class="todayVsYesterday > 0 ? 'up' : 'down'">
+    <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
+    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span class="text-lg font-bold text-success">{{ completedToday }}</span>
+      <span class="text-xs text-base-content/60">{{ $t('stats.completedToday') }}</span>
+      <span v-if="todayVsYesterday !== 0" :class="['text-xs font-semibold px-1 py-0.5 rounded', todayVsYesterday > 0 ? 'text-success bg-success/10' : 'text-error bg-error/10']">
         {{ todayVsYesterday > 0 ? '↑' : '↓' }}{{ Math.abs(todayVsYesterday) }}
       </span>
     </div>
-    <div class="stat-divider"></div>
-    <div class="stat-item">
-      <span class="stat-value">{{ completedThisWeek }}</span>
-      <span class="stat-label">{{ $t('stats.completedThisWeek') }}</span>
+    <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
+    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span class="text-lg font-bold text-base-content">{{ completedThisWeek }}</span>
+      <span class="text-xs text-base-content/60">{{ $t('stats.completedThisWeek') }}</span>
     </div>
-    <div class="stat-divider"></div>
-    <div class="stat-item">
-      <span class="stat-value">{{ completionRate }}%</span>
-      <span class="stat-label">{{ $t('stats.completionRate') }}</span>
+    <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
+    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span class="text-lg font-bold text-base-content">{{ completionRate }}%</span>
+      <span class="text-xs text-base-content/60">{{ $t('stats.completionRate') }}</span>
     </div>
-    <div class="stat-divider"></div>
-    <div class="stat-item compact">
-      <span class="stat-label">🔥 Streak</span>
-      <span class="stat-value streak">{{ streak }}天</span>
+    <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
+    <div class="flex items-baseline gap-1 whitespace-nowrap">
+      <span class="text-xs text-base-content/60">🔥 Streak</span>
+      <span class="text-[15px] font-bold text-warning">{{ streak }}天</span>
     </div>
-    <div class="stat-divider"></div>
-    <div class="stat-item compact">
-      <span class="stat-label">本周进度</span>
-      <div class="mini-progress">
-        <div class="mini-progress-fill" :style="{ width: `${weeklyCompletionRate}%` }"></div>
+    <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
+    <div class="flex items-baseline gap-1.5 whitespace-nowrap">
+      <span class="text-xs text-base-content/60">本周进度</span>
+      <div class="w-12 h-1.5 bg-base-200 rounded-full overflow-hidden">
+        <div class="h-full bg-primary rounded-full transition-all duration-500" :style="{ width: `${weeklyCompletionRate}%` }"></div>
       </div>
-      <span class="stat-value mini">{{ weeklyCompletionRate }}%</span>
+      <span class="text-xs font-semibold text-base-content/60 min-w-[32px]">{{ weeklyCompletionRate }}%</span>
     </div>
   </div>
 </template>
@@ -264,93 +264,3 @@ const dailyMotivation = computed(() => {
   return motivations[dayOfYear % motivations.length];
 });
 </script>
-
-<style scoped>
-.stats-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  flex-wrap: wrap;
-}
-
-.stat-item {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-.stat-item.compact {
-  gap: 4px;
-}
-
-.stat-value {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-}
-
-.stat-value.success {
-  color: var(--color-success);
-}
-
-.stat-value.streak {
-  color: var(--color-warning);
-  font-size: 15px;
-}
-
-.stat-value.mini {
-  font-size: 13px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  min-width: 32px;
-}
-
-.stat-label {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.trend {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
-
-.trend.up {
-  color: var(--color-success);
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.trend.down {
-  color: var(--color-error);
-  background: rgba(239, 68, 68, 0.1);
-}
-
-.stat-divider {
-  width: 1px;
-  height: 20px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  flex-shrink: 0;
-}
-
-.mini-progress {
-  width: 48px;
-  height: 6px;
-  background: var(--color-base-200);
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.mini-progress-fill {
-  height: 100%;
-  background: var(--color-primary);
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-</style>

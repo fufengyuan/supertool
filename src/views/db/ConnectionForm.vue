@@ -1,19 +1,19 @@
 <template>
-  <div class="form-modal-overlay" @click="$emit('close')">
-    <div class="form-modal" @click.stop>
-      <div class="form-modal-header">
-        <h3>{{ isEditing ? '✏️ 编辑连接' : '🗄️ 添加数据库连接' }}</h3>
-        <button @click="$emit('close')" class="form-modal-close">×</button>
+  <div class="fixed inset-0 flex items-center justify-center z-50 bg-black/40" @click="$emit('close')">
+    <div class="bg-base-100 rounded-2xl w-[520px] max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
+      <div class="flex items-center justify-between p-5 border-b border-base-content/10 sticky top-0 bg-base-100 z-10 rounded-t-2xl">
+        <h3 class="m-0 text-lg font-semibold">{{ isEditing ? '✏️ 编辑连接' : '🗄️ 添加数据库连接' }}</h3>
+        <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square">×</button>
       </div>
-      <div class="form-modal-body">
-        <div class="form-row">
-          <div class="form-field">
-            <label>连接名称 <span class="required">*</span></label>
-            <input v-model="localForm.name" class="form-input" placeholder="我的数据库" />
+      <div class="p-6">
+        <div class="flex gap-4">
+          <div class="flex-1 min-w-0">
+            <label class="label"><span class="label-text">连接名称 <span class="text-error">*</span></span></label>
+            <input v-model="localForm.name" class="input input-bordered w-full" placeholder="我的数据库" />
           </div>
-          <div class="form-field">
-            <label>数据库类型 <span class="required">*</span></label>
-            <select v-model="localForm.type" class="form-input form-select">
+          <div class="flex-1 min-w-0">
+            <label class="label"><span class="label-text">数据库类型 <span class="text-error">*</span></span></label>
+            <select v-model="localForm.type" class="select select-bordered w-full">
               <option value="mysql">MySQL</option>
               <option value="postgresql">PostgreSQL</option>
               <option value="redis">Redis</option>
@@ -24,58 +24,58 @@
 
         <!-- SQLite uses path instead of host/port -->
         <template v-if="localForm.type === 'sqlite'">
-          <div class="form-field">
-            <label>数据库文件路径</label>
-            <input v-model="localForm.path" class="form-input" placeholder="/path/to/database.db" />
+          <div class="mt-4">
+            <label class="label"><span class="label-text">数据库文件路径</span></label>
+            <input v-model="localForm.path" class="input input-bordered w-full" placeholder="/path/to/database.db" />
           </div>
         </template>
 
         <template v-else>
-          <div class="form-row">
-            <div class="form-field">
-              <label>主机地址</label>
-              <input v-model="localForm.host" class="form-input" placeholder="127.0.0.1" />
+          <div class="flex gap-4 mt-4">
+            <div class="flex-1 min-w-0">
+              <label class="label"><span class="label-text">主机地址</span></label>
+              <input v-model="localForm.host" class="input input-bordered w-full" placeholder="127.0.0.1" />
             </div>
-            <div class="form-field">
-              <label>端口</label>
-              <input v-model.number="localForm.port" type="number" class="form-input" :placeholder="defaultPort" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-field" v-if="localForm.type !== 'redis'">
-              <label>用户名</label>
-              <input v-model="localForm.user" class="form-input" placeholder="root" />
-            </div>
-            <div class="form-field" :class="{ 'full-width': localForm.type === 'redis' }">
-              <label>密码</label>
-              <input v-model="localForm.password" type="password" class="form-input" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : '密码'" />
+            <div class="flex-1 min-w-0">
+              <label class="label"><span class="label-text">端口</span></label>
+              <input v-model.number="localForm.port" type="number" class="input input-bordered w-full" :placeholder="defaultPort" />
             </div>
           </div>
 
-          <div class="form-field" v-if="localForm.type !== 'redis'">
-            <label>数据库名</label>
-            <input v-model="localForm.database" class="form-input" placeholder="database_name" />
+          <div class="flex gap-4">
+            <div class="flex-1 min-w-0" v-if="localForm.type !== 'redis'">
+              <label class="label"><span class="label-text">用户名</span></label>
+              <input v-model="localForm.user" class="input input-bordered w-full" placeholder="root" />
+            </div>
+            <div class="flex-1 min-w-0" :class="{ 'basis-full': localForm.type === 'redis' }">
+              <label class="label"><span class="label-text">密码</span></label>
+              <input v-model="localForm.password" type="password" class="input input-bordered w-full" autocomplete="off" :placeholder="localForm.type === 'redis' ? '无密码留空' : '密码'" />
+            </div>
           </div>
 
-          <div class="form-field" v-if="localForm.type === 'redis'">
-            <label>数据库索引</label>
-            <input v-model.number="localForm.dbIndex" type="number" class="form-input" placeholder="0" />
+          <div class="mt-4" v-if="localForm.type !== 'redis'">
+            <label class="label"><span class="label-text">数据库名</span></label>
+            <input v-model="localForm.database" class="input input-bordered w-full" placeholder="database_name" />
           </div>
 
-          <div class="form-divider"></div>
+          <div class="mt-4" v-if="localForm.type === 'redis'">
+            <label class="label"><span class="label-text">数据库索引</span></label>
+            <input v-model.number="localForm.dbIndex" type="number" class="input input-bordered w-full" placeholder="0" />
+          </div>
 
-          <label class="form-checkbox form-checkbox-security">
-            <input v-model="localForm.requiresApproval" type="checkbox" />
-            <span class="security-label">
+          <div class="my-2 border-t border-base-content/10"></div>
+
+          <label class="flex items-center gap-2 p-2 bg-amber-50/60 dark:bg-amber-900/10 rounded-lg border border-amber-200/30 dark:border-amber-500/15 cursor-pointer">
+            <input v-model="localForm.requiresApproval" type="checkbox" class="checkbox checkbox-sm" />
+            <span class="flex flex-col gap-0.5">
               <span>🔒 SQL 执行审核</span>
-              <span class="security-desc">开启后 CLI 无法执行 SQL，GUI 执行前需要确认</span>
+              <span class="text-xs text-base-content/60">开启后 CLI 无法执行 SQL，GUI 执行前需要确认</span>
             </span>
           </label>
         </template>
       </div>
 
-      <div class="form-modal-footer">
+      <div class="flex justify-end gap-3 p-4 border-t border-base-content/10">
         <button @click="$emit('test', localForm)" class="btn btn-ghost" :disabled="testing">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
@@ -87,9 +87,9 @@
         <button @click="$emit('save', localForm)" class="btn btn-primary">保存</button>
       </div>
 
-      <div v-if="testResult" class="test-result" :class="testResult.success ? 'success' : 'error'"
-        style="margin: 0 24px 20px">
-        {{ testResult.success ? '✅ 连接成功！' : '❌ 连接失败: ' + testResult.error }}
+      <div v-if="testResult" :class="testResult.success ? 'alert alert-success' : 'alert alert-error'"
+        class="mx-6 mb-5 rounded-lg">
+        <span>{{ testResult.success ? '✅ 连接成功！' : '❌ 连接失败: ' + testResult.error }}</span>
       </div>
     </div>
   </div>
@@ -147,37 +147,3 @@ const defaultPort = computed(() => {
   return map[localForm.value.type] || ''
 })
 </script>
-
-<style scoped>
-.form-field.full-width {
-  flex: 1 1 100%;
-  max-width: 100%;
-}
-
-.form-divider {
-  margin: 8px 0;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.form-checkbox-security {
-  padding: 8px 10px;
-  background: rgba(245, 158, 11, 0.06);
-  border-radius: 6px;
-  border: 1px solid rgba(245, 158, 11, 0.15);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.security-label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.security-desc {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-</style>

@@ -1,7 +1,12 @@
 <template>
   <div
-    class="chat-panel"
-    :class="{ maximized: isMaximized, 'drag-over': isDragOver }"
+    :class="[
+      'fixed bottom-5 right-5 w-[720px] h-[650px] bg-base-100 rounded-xl shadow-2xl flex flex-col z-[1000] transition-all duration-300 border border-base-content/10 overflow-hidden',
+      {
+        '!w-[90vw] !h-[85vh] !bottom-[5vh] !right-[5vw] !rounded-2xl': isMaximized,
+        'drag-over': isDragOver,
+      }
+    ]"
     v-if="peer"
     @dragover.prevent="onDragOver"
     @dragleave="onDragLeave"
@@ -9,8 +14,8 @@
     @paste="onPaste"
   >
     <!-- 拖拽遮罩 -->
-    <div v-if="isDragOver" class="drag-overlay">
-      <div class="drag-content">
+    <div v-if="isDragOver" class="absolute inset-0 bg-[rgba(102,126,234,0.15)] z-[9999] flex items-center justify-center pointer-events-none border-3 border-dashed border-[rgba(102,126,234,0.6)] rounded-xl">
+      <div class="flex flex-col items-center gap-3 text-primary text-lg font-semibold">
         <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
         </svg>
@@ -18,28 +23,28 @@
       </div>
     </div>
 
-    <div class="chat-header">
+    <div class="flex justify-between items-center px-4 py-[14px] bg-primary text-white rounded-t-xl shrink-0">
       <div class="header-left">
-        <h3>{{ $t('lan.chatWith', { name: peer.name }) }}</h3>
+        <h3 class="text-sm font-semibold m-0 whitespace-nowrap overflow-hidden text-ellipsis">{{ $t('lan.chatWith', { name: peer.name }) }}</h3>
       </div>
-      <div class="header-actions">
-        <button class="icon-btn" @click="toggleMaximize" :title="isMaximized ? '还原' : '最大化'">
+      <div class="flex items-center gap-1.5">
+        <button class="bg-none border-none text-white text-sm cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="toggleMaximize" :title="isMaximized ? '还原' : '最大化'">
           {{ isMaximized ? '❐' : '⬚' }}
         </button>
-        <button class="close-btn" @click="$emit('close')">✕</button>
+        <button class="bg-none border-none text-white text-base cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="$emit('close')">✕</button>
       </div>
     </div>
 
-    <div class="chat-messages" ref="messagesContainerRef" @scroll="handleScroll">
+    <div class="flex-1 p-3 overflow-y-auto flex flex-col gap-1 bg-base-200" ref="messagesContainerRef" @scroll="handleScroll">
       <!-- 加载更多提示 -->
-      <div v-if="isLoadingMore" class="loading-more">
-        <span class="spinner"></span> 加载历史消息...
+      <div v-if="isLoadingMore" class="text-center p-2 text-base-content/60 text-xs">
+        <span class="inline-block w-3 h-3 border-2 border-base-content/60 border-t-transparent rounded-full animate-spin align-middle me-1.5"></span> 加载历史消息...
       </div>
-      <div v-if="noMoreMessages" class="no-more">没有更多消息了</div>
+      <div v-if="noMoreMessages" class="text-center px-2 py-1 text-base-content/60 text-[11px] opacity-60">没有更多消息了</div>
 
       <template v-for="item in displayMessages" :key="item.key">
         <!-- 时间分隔 -->
-        <div v-if="item.type === 'time-sep'" class="time-separator">
+        <div v-if="item.type === 'time-sep'" class="text-center py-2 text-[11px] text-base-content/60 opacity-70">
           {{ item.text }}
         </div>
         <!-- 消息气泡 -->
@@ -354,7 +359,7 @@ async function onDrop(event: DragEvent) {
 async function handleDroppedFiles(paths: string[]) {
   if (!props.peer) return;
   for (const filePath of paths) {
-    const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
+    const name = filePath.split('/').pop() || filePath.split('\\\\').pop() || 'file';
     // size=0 — 主进程 sendFile 会用 fs.statSync 获取真实大小
     await sendFile({ path: filePath, name, size: 0 });
   }
@@ -480,7 +485,7 @@ async function pickFileAndSend() {
   const result = await getTauriAPI().showOpenDialogForDirs();
   if (result.canceled || !result.filePaths.length) return;
   const filePath = result.filePaths[0];
-  const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
+  const name = filePath.split('/').pop() || filePath.split('\\\\').pop() || 'file';
   logger.info(`[ChatPanel][pickFileAndSend] Selected: path=${filePath}, name=${name}`);
   sendFile({ path: filePath, name, size: 0 });
 }
@@ -748,172 +753,3 @@ onUnmounted(() => {
   window.removeEventListener('tauri-file-drop', onFileDrop);
 });
 </script>
-
-<style scoped>
-.chat-panel {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 720px;
-  height: 650px;
-  background: var(--color-base-100);
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
-  transition: all 0.3s ease;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  overflow: hidden;
-}
-
-.chat-panel.maximized {
-  width: 90vw !important;
-  height: 85vh !important;
-  bottom: 5vh !important;
-  right: 5vw !important;
-  border-radius: 16px;
-}
-
-/* 拖拽遮罩 */
-.drag-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(102, 126, 234, 0.15);
-  z-index: 9999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  border: 3px dashed rgba(102, 126, 234, 0.6);
-  border-radius: 12px;
-}
-
-.drag-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: var(--color-primary);
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.chat-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 16px;
-  background: var(--color-primary);
-  color: white;
-  border-radius: 12px 12px 0 0;
-  flex-shrink: 0;
-}
-
-.header-left h3 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.icon-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 14px;
-  cursor: pointer;
-  opacity: 0.8;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.icon-btn:hover {
-  opacity: 1;
-  background: rgba(255,255,255,0.15);
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-  opacity: 0.8;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  opacity: 1;
-  background: rgba(255,255,255,0.15);
-}
-
-.chat-messages {
-  flex: 1;
-  padding: 12px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: var(--color-base-200);
-}
-
-/* 微信式时间分隔 */
-.time-separator {
-  text-align: center;
-  padding: 8px 0;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.7;
-}
-
-.loading-more {
-  text-align: center;
-  padding: 8px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 12px;
-}
-
-.loading-more .spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-  margin-right: 6px;
-  vertical-align: middle;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.no-more {
-  text-align: center;
-  padding: 4px 8px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 11px;
-  opacity: 0.6;
-}
-</style>

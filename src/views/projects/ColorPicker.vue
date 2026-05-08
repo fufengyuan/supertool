@@ -1,9 +1,14 @@
 <template>
-  <div class="color-picker">
-    <label class="form-label">项目颜色</label>
-    <div class="color-picker-row">
-      <input :value="modelValue" type="color" class="color-input" @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)" />
-      <span class="color-hex">{{ modelValue }}</span>
+  <div>
+    <label class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">项目颜色</label>
+    <div class="flex items-center gap-2.5 rounded-xl border border-base-content/20 bg-base-200 px-3 py-1.5">
+      <input
+        :value="modelValue"
+        type="color"
+        class="h-7 w-7 cursor-pointer rounded-md border-none bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-2 [&::-webkit-color-swatch]:border-base-content/10"
+        @input="$emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+      />
+      <span class="font-mono text-xs text-base-content/60">{{ modelValue }}</span>
     </div>
   </div>
 </template>
@@ -11,25 +16,3 @@
 <script setup lang="ts">
 defineModel({ type: String, default: '#6366f1' });
 </script>
-
-<style scoped>
-.form-label {
-  display: flex; align-items: center; gap: 6px; margin-bottom: 8px;
-  color: var(--color-base-content); font-size: 13px; font-weight: 500;
-}
-.color-picker-row {
-  display: flex; align-items: center; gap: 10px; padding: 6px 12px;
-  background: var(--color-base-200); border-radius: 10px;
-  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
-}
-.color-input {
-  width: 28px; height: 28px; border: none; border-radius: 6px;
-  cursor: pointer; background: transparent; padding: 0;
-}
-.color-input::-webkit-color-swatch-wrapper { padding: 0; }
-.color-input::-webkit-color-swatch { border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; }
-.color-hex {
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 13px; color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-</style>

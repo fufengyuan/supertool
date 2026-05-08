@@ -1,18 +1,18 @@
 <template>
-  <div v-if="reportData" class="report-content">
-    <div class="report-summary">
-      <h3>{{ $t('report.summary') }}</h3>
-      <p>
+  <div v-if="reportData" class="bg-base-100 rounded-xl p-6 shadow-sm">
+    <div class="mb-8 p-4 bg-base-200 rounded-lg">
+      <h3 class="m-0 mb-2.5 text-base-content">{{ $t('report.summary') }}</h3>
+      <p class="my-1 text-base-content/60">
         {{ $t('report.timeRange') }}: {{ formatDate(reportData.startDate) }} {{ $t('report.to') }} {{ formatDate(reportData.endDate) }}
       </p>
-      <p>{{ $t('report.completedTasks') }}: {{ reportData.completedTasks.length }}</p>
-      <p>{{ $t('report.projectCount') }}: {{ reportData.projects.length }}</p>
+      <p class="my-1 text-base-content/60">{{ $t('report.completedTasks') }}: {{ reportData.completedTasks.length }}</p>
+      <p class="my-1 text-base-content/60">{{ $t('report.projectCount') }}: {{ reportData.projects.length }}</p>
     </div>
 
     <!-- 项目统计表 -->
-    <div class="report-section">
-      <h3>{{ $t('report.projectStats') }}</h3>
-      <table class="report-table">
+    <div class="mb-8">
+      <h3 class="m-0 mb-4 text-base-content pb-2 border-b-2 border-base-content/10">{{ $t('report.projectStats') }}</h3>
+      <table class="table table-zebra w-full rounded-lg overflow-hidden">
         <thead>
           <tr>
             <th>{{ $t('report.project') }}</th>
@@ -29,9 +29,9 @@
     </div>
 
     <!-- 本周工作表 -->
-    <div class="report-section">
-      <h3>{{ $t('report.weeklyWork') }}</h3>
-      <table class="report-table">
+    <div class="mb-8">
+      <h3 class="m-0 mb-4 text-base-content pb-2 border-b-2 border-base-content/10">{{ $t('report.weeklyWork') }}</h3>
+      <table class="table table-zebra w-full rounded-lg overflow-hidden">
         <thead>
           <tr>
             <th>{{ $t('report.project') }}</th>
@@ -42,8 +42,8 @@
           <tr v-for="(tasks, projectId) in reportData.weeklyWork" :key="projectId">
             <td>{{ getProjectName(projectId) }}</td>
             <td>
-              <ul class="task-list">
-                <li v-for="task in tasks" :key="task.id">{{ task.text }}</li>
+              <ul class="m-0 ps-5">
+                <li v-for="task in tasks" :key="task.id" class="mb-1 text-base-content">{{ task.text }}</li>
               </ul>
             </td>
           </tr>
@@ -52,9 +52,9 @@
     </div>
 
     <!-- Git提交记录表 -->
-    <div v-if="reportData.gitCommits.length > 0" class="report-section">
-      <h3>{{ $t('report.gitCommits') }}</h3>
-      <table class="report-table">
+    <div v-if="reportData.gitCommits.length > 0" class="mb-8">
+      <h3 class="m-0 mb-4 text-base-content pb-2 border-b-2 border-base-content/10">{{ $t('report.gitCommits') }}</h3>
+      <table class="table table-zebra w-full rounded-lg overflow-hidden">
         <thead>
           <tr>
             <th>{{ $t('report.project') }}</th>
@@ -75,9 +75,9 @@
     </div>
 
     <!-- 下周计划表 -->
-    <div class="report-section">
-      <h3>{{ $t('report.nextWeekPlan') }}</h3>
-      <table class="report-table">
+    <div class="mb-8">
+      <h3 class="m-0 mb-4 text-base-content pb-2 border-b-2 border-base-content/10">{{ $t('report.nextWeekPlan') }}</h3>
+      <table class="table table-zebra w-full rounded-lg overflow-hidden">
         <thead>
           <tr>
             <th>{{ $t('report.project') }}</th>
@@ -88,8 +88,8 @@
           <tr v-for="(tasks, projectId) in reportData.nextWeekPlan" :key="projectId">
             <td>{{ getProjectName(projectId) }}</td>
             <td>
-              <ul class="task-list">
-                <li v-for="task in tasks" :key="task.id">{{ task.text }}</li>
+              <ul class="m-0 ps-5">
+                <li v-for="task in tasks" :key="task.id" class="mb-1 text-base-content">{{ task.text }}</li>
               </ul>
             </td>
           </tr>
@@ -98,7 +98,7 @@
     </div>
   </div>
 
-  <div v-else class="no-report">
+  <div v-else class="text-center p-16 text-base-content/60 text-base bg-base-100 rounded-2xl mt-5">
     <p>{{ $t('report.noReport') }}</p>
   </div>
 </template>
@@ -110,90 +110,3 @@ const props = defineProps({
   formatDate: { type: Function, required: true },
 });
 </script>
-
-<style scoped>
-.report-content {
-  background: var(--color-base-100);
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
-
-.report-summary {
-  margin-bottom: 30px;
-  padding: 16px;
-  background: var(--color-base-200);
-  border-radius: 8px;
-}
-
-.report-summary h3 {
-  margin: 0 0 10px 0;
-  color: var(--color-base-content);
-}
-
-.report-summary p {
-  margin: 5px 0;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.report-section {
-  margin-bottom: 30px;
-}
-
-.report-section h3 {
-  margin: 0 0 15px 0;
-  color: var(--color-base-content);
-  padding-bottom: 8px;
-  border-bottom: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.report-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: 20px;
-  background: var(--color-base-200);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.report-table th,
-.report-table td {
-  padding: 12px;
-  text-align: left;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.report-table th {
-  background: var(--color-primary);
-  color: white;
-  font-weight: 600;
-}
-
-.report-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.report-table tbody tr:hover {
-  background: var(--color-base-100);
-}
-
-.task-list {
-  margin: 0;
-  padding-left: 20px;
-}
-
-.task-list li {
-  margin-bottom: 5px;
-  color: var(--color-base-content);
-}
-
-.no-report {
-  text-align: center;
-  padding: 60px 20px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 16px;
-  background: var(--color-base-100);
-  border-radius: 16px;
-  margin-top: 20px;
-}
-</style>

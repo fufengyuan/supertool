@@ -1,97 +1,109 @@
 <template>
+  <!-- 主任务行 -->
   <li
-    class="todo-item"
-    :class="{ completed: todo.completed, 'keyboard-focused': isSelected && false }"
+    class="group flex items-center px-3.5 h-11 border-b border-base-content/10 bg-base-100 relative transition-all duration-150 ease cursor-default list-none"
+    :class="{ 'opacity-45 hover:opacity-65': todo.completed }"
     :data-todo-id="todo.id"
     @click="$emit('toggle-expand', todo.id)"
   >
     <!-- 优先级色条 -->
-    <span class="priority-bar" :class="'priority-' + (todo.priority || 'medium')"></span>
+    <span
+      class="absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded opacity-0 transition-opacity duration-150 group-hover:opacity-100"
+      :class="{
+        'bg-error': (todo.priority || 'medium') === 'high',
+        'bg-warning': (todo.priority || 'medium') === 'medium',
+        'bg-success': (todo.priority || 'medium') === 'low',
+      }"
+    ></span>
 
     <!-- 复选框 -->
     <input
       type="checkbox"
       :checked="todo.completed"
       @change.stop="$emit('toggle', todo.id)"
-      class="todo-check"
+      class="checkbox checkbox-primary checkbox-sm mx-2.5 ms-1 shrink-0"
       @click.stop
     />
 
     <!-- 任务文字 -->
-    <span class="todo-text" :class="{ done: todo.completed }">
-      <span v-html="highlightedText"></span>
+    <span class="flex-1 min-w-0 text-sm text-base-content truncate leading-tight font-normal" :class="{ 'line-through text-base-content/60': todo.completed }">
+      <span class="[&_mark]:bg-yellow-300/35 [&_mark]:rounded-sm [&_mark]:px-0.5" v-html="highlightedText"></span>
     </span>
 
     <!-- 元信息（右侧） -->
-    <div class="todo-meta">
-      <span v-if="todo.dueDate" class="meta-due" :class="{ overdue: isOverdue }">
+    <div class="flex items-center gap-1.5 shrink-0 ml-2.5">
+      <span v-if="todo.dueDate" class="text-xs text-base-content/60 whitespace-nowrap font-medium" :class="{ 'text-error font-semibold': isOverdue }">
         {{ formatDue(todo.dueDate) }}
       </span>
-      <span v-if="todo.priority" class="meta-priority" :class="todo.priority">
+      <span v-if="todo.priority" class="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide whitespace-nowrap" :class="{
+        'text-error bg-error/10': todo.priority === 'high',
+        'text-warning bg-warning/10': todo.priority === 'medium',
+        'text-success bg-success/10': todo.priority === 'low',
+      }">
         {{ priorityShort(todo.priority) }}
       </span>
-      <span v-if="todo.tag" class="meta-tag">#{{ todo.tag }}</span>
-      <span v-if="todo.projectId" class="meta-project" :style="{ background: projectColor }">
+      <span v-if="todo.tag" class="text-[11px] text-primary px-1.5 py-0.5 rounded bg-primary/10 whitespace-nowrap font-medium">#{{ todo.tag }}</span>
+      <span v-if="todo.projectId" class="text-[10px] font-medium text-white px-1.5 py-0.5 rounded opacity-85 whitespace-nowrap" :style="{ background: projectColor }">
         {{ projectName }}
       </span>
     </div>
 
     <!-- 行内操作（hover显示） -->
-    <div class="todo-actions" @click.stop>
-      <button class="act-btn" @click="$emit('start-edit', todo)" title="编辑">
+    <div class="flex items-center shrink-0 ml-2 opacity-0 transition-opacity duration-100 group-hover:opacity-100" @click.stop>
+      <button class="w-7 h-7 border-0 rounded-lg bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center transition-all duration-100 hover:bg-error/10 hover:text-error" @click="$emit('start-edit', todo)" title="编辑">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
-      <button class="act-btn" @click="$emit('delete', todo.id)" title="删除">
+      <button class="w-7 h-7 border-0 rounded-lg bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center transition-all duration-100 hover:bg-error/10 hover:text-error" @click="$emit('delete', todo.id)" title="删除">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       </button>
     </div>
   </li>
 
   <!-- 展开详情 -->
-  <li v-if="expanded" class="todo-detail">
-    <div class="detail-inner">
+  <li v-if="expanded" class="list-none bg-base-200 border-b border-base-content/10 p-3 pl-12">
+    <div class="text-sm text-base-content space-y-2">
       <div v-if="todo.description" class="detail-section">
-        <label>描述</label>
-        <p>{{ todo.description }}</p>
+        <label class="text-[11px] font-semibold uppercase text-base-content/60 tracking-wider block mb-1">描述</label>
+        <p class="m-0 leading-normal text-base-content">{{ todo.description }}</p>
       </div>
       <SubtaskList :todo-id="todo.id" @subtask-completed="$emit('subtask-completed', $event)" />
     </div>
   </li>
 
   <!-- 行内编辑模式 -->
-  <li v-if="editingId === todo.id" class="todo-edit">
-    <div class="edit-inner">
-      <div class="edit-field">
-        <label>任务内容</label>
-        <input v-model="editLocalText" class="edit-input" @keyup.enter="$emit('save-edit')" @keyup.escape="$emit('cancel-edit')" ref="editInputRef" />
+  <li v-if="editingId === todo.id" class="list-none bg-base-200 border-b-2 border-primary p-3">
+    <div class="flex flex-col gap-2.5">
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-semibold text-base-content/60">任务内容</label>
+        <input v-model="editLocalText" class="input input-bordered w-full text-sm" @keyup.enter="emitSaveEdit" @keyup.escape="$emit('cancel-edit')" ref="editInputRef" />
       </div>
-      <div class="edit-row">
-        <div class="edit-field">
-          <label>项目</label>
-          <select v-model="editLocalProjectId" class="edit-select">
+      <div class="grid grid-cols-3 gap-2.5">
+        <div class="flex flex-col gap-1">
+          <label class="text-[11px] font-semibold text-base-content/60">项目</label>
+          <select v-model="editLocalProjectId" class="select select-bordered select-sm w-full text-sm">
             <option value="">无</option>
             <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
         </div>
-        <div class="edit-field">
-          <label>优先级</label>
-          <select v-model="editLocalPriority" class="edit-select">
+        <div class="flex flex-col gap-1">
+          <label class="text-[11px] font-semibold text-base-content/60">优先级</label>
+          <select v-model="editLocalPriority" class="select select-bordered select-sm w-full text-sm">
             <option value="low">低</option>
             <option value="medium">中</option>
             <option value="high">高</option>
           </select>
         </div>
-        <div class="edit-field">
-          <label>标签</label>
-          <select v-model="editLocalTag" class="edit-select">
+        <div class="flex flex-col gap-1">
+          <label class="text-[11px] font-semibold text-base-content/60">标签</label>
+          <select v-model="editLocalTag" class="select select-bordered select-sm w-full text-sm">
             <option value="">无</option>
             <option v-for="t in tags" :key="t" :value="t">#{{ t }}</option>
           </select>
         </div>
       </div>
-      <div class="edit-actions">
-        <button class="edit-btn edit-save" @click="emitSaveEdit">保存</button>
-        <button class="edit-btn edit-cancel" @click="$emit('cancel-edit')">取消</button>
+      <div class="flex gap-2 justify-end mt-1">
+        <button class="btn btn-primary btn-sm" @click="emitSaveEdit">保存</button>
+        <button class="btn btn-ghost btn-sm" @click="$emit('cancel-edit')">取消</button>
       </div>
     </div>
   </li>
@@ -207,325 +219,3 @@ const priorityShort = (p: string) => {
   return map[p] || p
 }
 </script>
-
-<style scoped>
-/* ===== 任务行 ===== */
-.todo-item {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  padding: 0 14px;
-  height: 44px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  cursor: default;
-  position: relative;
-  transition: all 0.15s ease;
-  list-style: none;
-}
-.todo-item:last-child {
-  border-bottom: none;
-}
-.todo-item:hover {
-  background: var(--color-base-200);
-  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.todo-item:hover .drag-handle { opacity: 1; }
-.todo-item:hover .todo-actions { opacity: 1; }
-
-.todo-item.completed { opacity: 0.45; }
-.todo-item.completed:hover { opacity: 0.65; }
-
-/* 优先级色条 */
-.priority-bar {
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 2px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-.todo-item:hover .priority-bar { opacity: 1; }
-.priority-bar.priority-high { background: var(--color-error); }
-.priority-bar.priority-medium { background: var(--color-warning); }
-.priority-bar.priority-low { background: var(--color-success); }
-
-/* 拖拽 */
-.drag-handle {
-  width: 18px;
-  text-align: center;
-  font-size: 14px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: grab;
-  opacity: 0;
-  transition: opacity 0.15s;
-  flex-shrink: 0;
-  user-select: none;
-}
-
-/* 复选框 */
-.todo-check {
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  min-width: 20px;
-  border: 2px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 50%;
-  cursor: pointer;
-  margin: 0 10px 0 4px;
-  position: relative;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-.todo-check:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-.todo-check:checked {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
-  animation: checkPop 0.25s ease;
-}
-.todo-check:checked::after {
-  content: '';
-  position: absolute;
-  left: 5px; top: 2px;
-  width: 5px; height: 9px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
-}
-
-@keyframes checkPop {
-  0% { transform: scale(1); }
-  40% { transform: scale(1.25); }
-  100% { transform: scale(1); }
-}
-
-/* 文字 */
-.todo-text {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  color: var(--color-base-content);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  line-height: 1.4;
-  font-weight: 400;
-}
-.todo-text.done {
-  text-decoration: line-through;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-.todo-text :deep(mark) {
-  background: rgba(250, 204, 21, 0.35);
-  border-radius: 2px;
-  padding: 0 1px;
-}
-
-/* 元信息 */
-.todo-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  margin-left: 10px;
-}
-
-.meta-due {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  white-space: nowrap;
-  font-weight: 500;
-}
-.meta-due.overdue {
-  color: var(--color-error);
-  font-weight: 600;
-}
-
-.meta-priority {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-}
-.meta-priority.high { color: var(--color-error); background: rgba(239, 68, 68, 0.1); }
-.meta-priority.medium { color: var(--color-warning); background: rgba(245, 158, 11, 0.1); }
-.meta-priority.low { color: var(--color-success); background: rgba(34, 197, 94, 0.1); }
-
-.meta-tag {
-  font-size: 11px;
-  color: var(--color-primary);
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.meta-project {
-  font-size: 10px;
-  font-weight: 500;
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  opacity: 0.85;
-  white-space: nowrap;
-}
-
-/* 操作按钮 */
-.todo-actions {
-  display: flex;
-  align-items: center;
-  flex-shrink: 0;
-  margin-left: 8px;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
-.act-btn {
-  width: 28px; height: 28px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.1s;
-}
-.act-btn:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: var(--color-error);
-}
-
-/* ===== 展开详情 ===== */
-.todo-detail {
-  list-style: none;
-  background: var(--color-base-200);
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  padding: 12px 14px 12px 48px;
-}
-.detail-inner { font-size: 13px; color: var(--color-base-content); }
-.detail-section label {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  margin-bottom: 4px;
-}
-.detail-section p {
-  margin: 0;
-  line-height: 1.5;
-  color: var(--color-base-content);
-}
-
-/* ===== 行内编辑模式 ===== */
-.todo-edit {
-  background: var(--color-base-200);
-  border-bottom: 2px solid var(--color-primary);
-  padding: 12px 14px;
-  list-style: none;
-}
-
-.edit-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.edit-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.edit-field label {
-  font-size: 11px;
-  font-weight: 600;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.edit-input {
-  width: 100%;
-  padding: 8px 10px;
-  font-size: 14px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  transition: all 0.15s ease;
-}
-
-.edit-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(66, 133, 244, 0.15);
-}
-
-.edit-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.edit-select {
-  width: 100%;
-  padding: 7px 10px;
-  font-size: 13px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
-  cursor: pointer;
-}
-
-.edit-select:focus {
-  outline: none;
-  border-color: var(--color-primary);
-}
-
-.edit-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-  margin-top: 4px;
-}
-
-.edit-btn {
-  padding: 6px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.edit-save {
-  background: var(--color-primary);
-  color: white;
-}
-
-.edit-save:hover {
-  opacity: 0.9;
-}
-
-.edit-cancel {
-  background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.edit-cancel:hover {
-  background: var(--color-base-100);
-}
-</style>

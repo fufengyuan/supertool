@@ -1,33 +1,38 @@
 <template>
   <Teleport to="body">
-    <Transition name="quick-switch">
-      <div v-if="isOpen" class="quick-switch-overlay" @mousedown.self="close">
-        <div class="quick-switch-container">
+    <Transition
+      enter-active-class="transition-opacity duration-150 ease"
+      leave-active-class="transition-opacity duration-150 ease"
+      enter-from-class="opacity-0"
+      leave-to-class="opacity-0"
+    >
+      <div v-if="isOpen" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] [-webkit-app-region:no-drag]" @mousedown.self="close">
+        <div class="w-[520px] max-h-[420px] bg-base-100 border border-base-content/10 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col">
           <!-- 功能列表 -->
-          <div class="quick-switch-list">
+          <div class="flex-1 overflow-y-auto p-2">
             <div
               v-for="(item, index) in items"
               :key="item.id"
-              class="quick-switch-item"
-              :class="{ active: index === selectedIndex }"
+              class="flex items-center gap-3.5 px-3.5 py-2.5 rounded-xl cursor-pointer transition-all duration-100 ease-in-out hover:bg-base-200"
+              :class="{ 'bg-primary/10': index === selectedIndex }"
               @click="selectItem(item)"
             >
-              <div class="item-icon">
+              <div class="w-9 h-9 flex items-center justify-center rounded-lg bg-primary/20 text-base-content shrink-0 [&_svg]:w-5 [&_svg]:h-5">
                 <component :is="item.iconComponent" />
               </div>
-              <div class="item-info">
-                <span class="item-label">{{ item.label }}</span>
-                <span class="item-group">{{ item.group }}</span>
+              <div class="flex-1 flex flex-col gap-0.5 min-w-0">
+                <span class="text-sm font-semibold text-base-content">{{ item.label }}</span>
+                <span class="text-[11px] text-base-content/60">{{ item.group }}</span>
               </div>
-              <kbd v-if="item.accelerator" class="item-shortcut">{{ item.accelerator }}</kbd>
+              <kbd v-if="item.accelerator" class="text-[11px] px-2 py-[3px] rounded-md bg-base-200 border border-base-content/10 text-base-content/60 font-inherit shrink-0">{{ item.accelerator }}</kbd>
             </div>
           </div>
 
           <!-- 快捷键提示 -->
-          <div class="quick-switch-hints">
-            <span>↑↓ 选择</span>
-            <span>Enter 确认</span>
-            <span>ESC 取消</span>
+          <div class="flex gap-4 px-4 py-3 border-t border-base-content/10 text-xs text-base-content/60 bg-base-200">
+            <span class="flex items-center gap-1">↑↓ 选择</span>
+            <span class="flex items-center gap-1">Enter 确认</span>
+            <span class="flex items-center gap-1">ESC 取消</span>
           </div>
         </div>
       </div>
@@ -155,141 +160,3 @@ onBeforeUnmount(() => {
 
 defineExpose({ open, close })
 </script>
-
-<style scoped>
-/* 动画 */
-.quick-switch-enter-active,
-.quick-switch-leave-active {
-  transition: opacity 0.15s ease;
-}
-.quick-switch-enter-from,
-.quick-switch-leave-to {
-  opacity: 0;
-}
-
-/* 遮罩层 */
-.quick-switch-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
-  -webkit-app-region: no-drag;
-}
-
-/* 容器 */
-.quick-switch-container {
-  width: 520px;
-  max-height: 420px;
-  background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 16px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-/* 列表 */
-.quick-switch-list {
-  flex: 1;
-  overflow-y: auto;
-  padding: 8px;
-}
-
-.quick-switch-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: all 0.12s ease;
-}
-
-.quick-switch-item:hover {
-  background: var(--color-base-200);
-}
-
-.quick-switch-item.active {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.item-icon {
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  background: color-mix(in oklab, var(--color-primary) 20%, transparent);
-  color: var(--color-base-content);
-  flex-shrink: 0;
-}
-
-.item-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.item-info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.item-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.item-group {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.item-shortcut {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 5px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-family: inherit;
-  flex-shrink: 0;
-}
-
-/* 底部提示 */
-.quick-switch-hints {
-  display: flex;
-  gap: 16px;
-  padding: 12px 16px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  background: var(--color-base-200);
-}
-
-.quick-switch-hints span {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* 滚动条 */
-.quick-switch-list::-webkit-scrollbar {
-  width: 6px;
-}
-.quick-switch-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.quick-switch-list::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 3px;
-}
-</style>

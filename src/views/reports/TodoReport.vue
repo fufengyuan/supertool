@@ -1,18 +1,18 @@
 <template>
-  <div class="report-container">
-    <div class="report-header">
-      <h2 class="report-title">工作报表</h2>
-      <div class="week-selector">
-        <button @click="previousWeek" class="week-btn">← 上一周</button>
-        <span class="week-label">{{ currentWeekLabel }}</span>
-        <button @click="nextWeek" class="week-btn">下一周 →</button>
+  <div class="w-full px-4 py-3">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-base-content m-0">工作报表</h2>
+      <div class="flex items-center gap-2 shrink-0">
+        <button @click="previousWeek" class="btn btn-primary btn-sm">← 上一周</button>
+        <span class="text-[13px] font-semibold text-base-content">{{ currentWeekLabel }}</span>
+        <button @click="nextWeek" class="btn btn-primary btn-sm">下一周 →</button>
       </div>
     </div>
 
     <!-- 本周统计 + 标签分布 -->
-    <div class="report-grid">
-      <div class="report-section">
-        <h3 class="section-title">本周工作内容</h3>
+    <div class="grid grid-cols-[2fr_1fr] gap-3 mb-3">
+      <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10">
+        <h3 class="text-sm font-semibold text-primary mb-2.5">本周工作内容</h3>
         <StatsSummary
           :stats="currentWeekStats"
           :tasks="currentWeekTasks"
@@ -23,14 +23,14 @@
         />
       </div>
 
-      <div class="report-section">
+      <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10">
         <TagAnalysis :stats="currentWeekStats" title="标签分布" />
       </div>
     </div>
 
     <!-- 上周对比 -->
-    <div class="report-section comparison-section">
-      <h3 class="section-title">与上周对比</h3>
+    <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10 bg-gradient-to-br from-success/10 to-base-200">
+      <h3 class="text-sm font-semibold text-primary mb-2.5">与上周对比</h3>
       <ProjectAnalysis
         :current-stats="currentWeekStats"
         :previous-stats="lastWeekStats"
@@ -39,15 +39,15 @@
       />
 
       <!-- 上周任务列表 -->
-      <div class="task-list-section">
-        <h4>上周完成任务</h4>
-        <ul class="report-task-list">
-          <li v-for="task in lastWeekTasks" :key="task.id" class="report-task-item">
-            <span class="task-text">{{ task.text }}</span>
-            <span class="task-date">{{ formatDate(task.completedAt || task.updatedAt) }}</span>
+      <div class="mt-5">
+        <h4 class="text-[15px] font-semibold text-base-content mb-3">上周完成任务</h4>
+        <ul class="list-none p-0 max-h-[200px] overflow-y-auto">
+          <li v-for="task in lastWeekTasks" :key="task.id" class="flex justify-between items-center px-3 py-2.5 bg-base-100 rounded-lg mb-2 border border-base-content/10">
+            <span class="text-sm text-base-content">{{ task.text }}</span>
+            <span class="text-xs text-base-content/40 bg-success/10 px-2 py-1 rounded-md">{{ formatDate(task.completedAt || task.updatedAt) }}</span>
           </li>
         </ul>
-        <p v-if="lastWeekTasks.length === 0" class="empty-text">上周暂无完成任务</p>
+        <p v-if="lastWeekTasks.length === 0" class="text-center text-base-content/40 text-sm p-5">上周暂无完成任务</p>
       </div>
     </div>
   </div>
@@ -152,127 +152,3 @@ const nextWeek = () => {
   if (weekOffset.value < 1) weekOffset.value++;
 };
 </script>
-
-<style scoped>
-.report-container {
-  width: 100%;
-  padding: 12px 16px;
-}
-
-.report-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.report-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0;
-}
-
-.week-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.week-btn {
-  padding: 5px 12px;
-  font-size: 12px;
-  background: var(--color-primary);
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.week-btn:hover {
-  background: color-mix(in oklab, var(--color-primary) 80%, transparent);
-}
-
-.week-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-base-content);
-}
-
-.report-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.report-section {
-  margin-bottom: 12px;
-  padding: 14px;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.section-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-primary);
-  margin-bottom: 10px;
-}
-
-.comparison-section {
-  background: linear-gradient(135deg, color-mix(in oklab, var(--color-success) 10%, transparent), var(--color-base-200));
-}
-
-.task-list-section {
-  margin-top: 20px;
-}
-
-.task-list-section h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-base-content);
-  margin-bottom: 12px;
-}
-
-.report-task-list {
-  list-style: none;
-  padding: 0;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.report-task-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
-  background: var(--color-base-100);
-  border-radius: 8px;
-  margin-bottom: 8px;
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.task-text {
-  font-size: 14px;
-  color: var(--color-base-content);
-}
-
-.task-date {
-  font-size: 12px;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  background: color-mix(in oklab, var(--color-success) 10%, transparent);
-  padding: 4px 8px;
-  border-radius: 6px;
-}
-
-.empty-text {
-  text-align: center;
-  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
-  font-size: 14px;
-  padding: 20px;
-}
-</style>

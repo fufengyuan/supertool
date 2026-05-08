@@ -1,5 +1,5 @@
 <template>
-  <div class="report-actions">
+  <div class="flex gap-2 items-end">
     <button @click="$emit('generate')" :disabled="generating" class="btn btn-primary">
       {{ generating ? $t('report.generating') : $t('report.generate') }}
     </button>
@@ -20,17 +20,3 @@ defineProps({
 
 defineEmits(['generate', 'export-markdown', 'export-word']);
 </script>
-
-<style scoped>
-.report-actions {
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-}
-
-.btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none !important;
-}
-</style>

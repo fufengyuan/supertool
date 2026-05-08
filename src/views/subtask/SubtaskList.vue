@@ -1,20 +1,20 @@
 <template>
-  <div class="subtask-list" :class="{ collapsed: !expanded }">
-    <div class="subtask-header" @click="toggleExpanded">
-      <div class="progress-bar">
-        <div class="progress-track">
-          <div class="progress-fill" :style="{ width: progressPercentage + '%' }"></div>
+  <div class="mt-2 rounded-xl overflow-hidden transition-all duration-300" :class="{ 'opacity-80': !expanded }">
+    <div class="flex justify-between items-center p-2 px-3 bg-base-200 cursor-pointer select-none" @click="toggleExpanded">
+      <div class="flex items-center gap-2 flex-1">
+        <div class="flex-1 h-3 bg-base-content/10 rounded-full overflow-hidden relative">
+          <div class="h-full bg-gradient-to-r from-green-400 to-green-500 rounded-full transition-all duration-300" :style="{ width: progressPercentage + '%' }"></div>
         </div>
-        <span class="progress-text">{{ completedCount }}/{{ totalCount }}</span>
+        <span class="text-xs font-semibold text-base-content min-w-[40px] text-right">{{ completedCount }}/{{ totalCount }}</span>
       </div>
-      <div class="expand-icon">{{ expanded ? '▼' : '►' }}</div>
+      <div class="text-xs ms-2 text-base-content">{{ expanded ? '▼' : '►' }}</div>
     </div>
 
-    <div class="subtask-content" v-show="expanded">
+    <div class="p-3 bg-base-100 border-t border-base-content/10" v-show="expanded">
       <SubtaskInput v-if="showAddForm" @add="handleAdd" @cancel="showAddForm = false" />
-      <button v-else @click="showAddForm = true" class="add-subtask-btn">+ 添加子任务</button>
+      <button v-else @click="showAddForm = true" class="btn btn-ghost w-full border border-dashed border-base-content/10 mb-3">+ 添加子任务</button>
 
-      <div class="subtasks">
+      <div class="flex flex-col gap-1.5">
       <SubtaskItem
         v-for="subtask in subtasks"
         :key="subtask.id"
@@ -148,36 +148,3 @@ const updateTodoCompletion = async () => {
 
 onMounted(() => { if (expanded.value) loadSubtasks(); });
 </script>
-
-<style scoped>
-.subtask-list { margin-top: 8px; border-radius: 8px; overflow: hidden; transition: all 0.3s ease; }
-.subtask-list.collapsed { opacity: 0.8; }
-.subtask-header {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 8px 12px; background-color: var(--color-base-200); cursor: pointer; user-select: none;
-}
-.progress-bar { display: flex; align-items: center; gap: 8px; flex: 1; }
-.progress-track {
-  flex: 1; height: 12px; background-color: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px; overflow: hidden; position: relative;
-}
-.progress-fill {
-  height: 100%; background: linear-gradient(90deg, #4ade80, #22c55e);
-  border-radius: 6px; transition: width 0.3s ease;
-}
-.progress-text {
-  font-size: 12px; font-weight: 600; color: var(--color-base-content);
-  min-width: 40px; text-align: right;
-}
-.expand-icon { font-size: 12px; margin-left: 8px; color: var(--color-base-content); }
-.subtask-content {
-  padding: 12px; background-color: var(--color-base-100); border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-.add-subtask-btn {
-  width: 100%; padding: 8px; background-color: var(--color-base-200); color: var(--color-base-content);
-  border: 1px dashed color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; cursor: pointer;
-  font-size: 14px; margin-bottom: 12px;
-}
-.add-subtask-btn:hover { background-color: color-mix(in oklab, var(--color-success) 10%, transparent); }
-.subtasks { display: flex; flex-direction: column; gap: 6px; }
-</style>

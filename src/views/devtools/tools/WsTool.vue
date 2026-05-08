@@ -1,19 +1,19 @@
 <template>
-  <div class="tool-panel">
-    <h3>🔌 WebSocket 调试</h3>
+  <div class="flex flex-col gap-0 p-0">
+    <h3 class="text-lg font-bold text-base-content m-0 mb-5">🔌 WebSocket 调试</h3>
 
-    <div class="tool-section">
-      <label class="tool-label">WebSocket URL</label>
+    <div class="mb-5">
+      <label class="text-xs font-medium text-base-content/60 mb-1 block">WebSocket URL</label>
       <input
         v-model="url"
-        class="tool-input"
+        class="input w-full px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
         placeholder="ws:// 或 wss://..."
       />
 
-      <div class="tool-row" style="margin-top: 12px">
+      <div class="flex gap-2.5 mt-3 flex-wrap">
         <button
           v-if="status !== 'connected'"
-          class="tool-btn primary"
+          class="btn btn-primary btn-sm"
           @click="connect"
           :disabled="status === 'connecting'"
         >
@@ -21,48 +21,47 @@
         </button>
         <button
           v-else
-          class="tool-btn danger"
+          class="btn btn-error btn-sm"
           @click="disconnect"
         >
           ⛔ 断开
         </button>
-        <button class="tool-btn" @click="clearLog">🗑️ 清空日志</button>
+        <button class="btn btn-ghost btn-sm" @click="clearLog">🗑️ 清空日志</button>
       </div>
 
       <!-- Status indicator -->
-      <div class="status-bar">
-        <span class="status-dot" :class="status"></span>
-        <span class="status-text">{{ statusText }}</span>
+      <div class="flex items-center gap-2 px-3 py-2 mt-3 bg-base-200 border border-base-content/10 rounded-md">
+        <span class="w-2.5 h-2.5 rounded-full" :class="status === 'connected' ? 'bg-green-500 shadow-[0_0_6px_#22c55e]' : status === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'"></span>
+        <span class="text-xs text-base-content">{{ statusText }}</span>
       </div>
 
       <!-- Message log -->
-      <div ref="logContainer" class="message-log">
-        <div v-if="messages.length === 0" class="empty-log">
+      <div ref="logContainer" class="mt-3 h-[300px] overflow-y-auto p-3 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs">
+        <div v-if="messages.length === 0" class="text-base-content/60 text-center py-10">
           连接 WebSocket 服务器后，消息将显示在这里
         </div>
         <div
           v-for="msg in messages"
           :key="msg.id"
-          class="message-item"
-          :class="msg.type"
+          class="flex gap-2 py-1 border-b border-base-content/10 last:border-b-0 leading-5"
         >
-          <span class="message-time">{{ msg.time }}</span>
-          <span class="message-type">{{ msg.typeLabel }}</span>
-          <span class="message-content">{{ msg.content }}</span>
+          <span class="text-base-content/60 shrink-0 min-w-[65px]">{{ msg.time }}</span>
+          <span class="shrink-0 min-w-[55px]" :class="msg.type === 'sent' ? 'text-blue-500' : msg.type === 'received' ? 'text-green-500' : msg.type === 'system' ? 'text-amber-500' : 'text-red-500'">{{ msg.typeLabel }}</span>
+          <span class="flex-1 text-base-content break-all whitespace-pre-wrap">{{ msg.content }}</span>
         </div>
       </div>
 
       <!-- Message input -->
-      <div class="send-row">
+      <div class="flex gap-2 mt-3">
         <input
           v-model="messageInput"
-          class="tool-input"
+          class="input flex-1 px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
           placeholder="输入要发送的消息..."
           @keyup.enter="sendMessage"
           :disabled="status !== 'connected'"
         />
         <button
-          class="tool-btn primary"
+          class="btn btn-primary btn-sm"
           @click="sendMessage"
           :disabled="status !== 'connected'"
         >
@@ -75,7 +74,6 @@
 
 <script setup lang="ts">
 import { ref, nextTick, watch } from 'vue'
-// styles in <style scoped>
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
@@ -207,165 +205,4 @@ function clearLog() {
 }
 </script>
 
-<style scoped>
-.tool-panel h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-base-content);
-  margin: 0 0 20px 0;
-}
 
-.status-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  margin-top: 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.status-dot.connected {
-  background: #22c55e;
-  box-shadow: 0 0 6px #22c55e;
-}
-
-.status-dot.connecting {
-  background: #f59e0b;
-  animation: pulse 1s infinite;
-}
-
-.status-dot.disconnected {
-  background: #ef4444;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.status-text {
-  font-size: 13px;
-  color: var(--color-base-content);
-}
-
-.message-log {
-  margin-top: 12px;
-  height: 300px;
-  overflow-y: auto;
-  padding: 12px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 8px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
-  font-size: 12px;
-}
-
-.empty-log {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  text-align: center;
-  padding: 40px 0;
-}
-
-.message-item {
-  display: flex;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  line-height: 1.5;
-}
-
-.message-item:last-child {
-  border-bottom: none;
-}
-
-.message-time {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  flex-shrink: 0;
-  min-width: 65px;
-}
-
-.message-type {
-  flex-shrink: 0;
-  min-width: 55px;
-}
-
-.message-item.sent .message-type {
-  color: #3b82f6;
-}
-
-.message-item.received .message-type {
-  color: #22c55e;
-}
-
-.message-item.system .message-type {
-  color: #f59e0b;
-}
-
-.message-item.error .message-type {
-  color: #ef4444;
-}
-
-.message-content {
-  flex: 1;
-  color: var(--color-base-content);
-  word-break: break-all;
-  white-space: pre-wrap;
-}
-
-.send-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.send-row .tool-input {
-  flex: 1;
-}
-
-.tool-btn.danger {
-  background: #ef4444;
-  color: white;
-  border-color: #ef4444;
-}
-
-.tool-btn.danger:hover {
-  opacity: 0.9;
-}
-
-.tool-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.tool-section { margin-bottom: 20px; }
-.tool-section h4 { font-size: 14px; font-weight: 600; color: var(--color-base-content); margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; }
-.tool-textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); resize: vertical; outline: none; }
-.tool-textarea:focus { border-color: var(--color-primary); }
-.tool-input { width: 100%; padding: 8px 12px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-input:focus { border-color: var(--color-primary); }
-.tool-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-.tool-btn { padding: 7px 16px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; background: var(--color-base-100); color: var(--color-base-content); transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
-.tool-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
-.tool-btn.primary { background: var(--color-primary); color: white; border-color: var(--color-primary); }
-.tool-btn.primary:hover { opacity: 0.9; }
-.tool-btn-group { display: flex; gap: 4px; }
-.tool-btn-group .tool-btn { border-radius: 0; }
-.tool-btn-group .tool-btn:first-child { border-radius: 6px 0 0 6px; }
-.tool-btn-group .tool-btn:last-child { border-radius: 0 6px 6px 0; }
-.tool-btn-group .tool-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); position: relative; z-index: 1; }
-.tool-result { margin-top: 10px; padding: 10px 12px; background: var(--color-base-200); border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 8px; font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; color: var(--color-base-content); white-space: pre-wrap; word-break: break-all; max-height: 300px; overflow-y: auto; }
-.tool-label { font-size: 12px; font-weight: 500; color: color-mix(in oklab, var(--color-base-content) 60%, transparent); margin-bottom: 4px; display: block; }
-.tool-select { padding: 7px 10px; border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); border-radius: 6px; font-size: 13px; background: var(--color-base-200); color: var(--color-base-content); outline: none; }
-.tool-select:focus { border-color: var(--color-primary); }
-.tool-checkbox { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--color-base-content); cursor: pointer; }
-.tool-divider { border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); margin: 20px 0; }
-</style>

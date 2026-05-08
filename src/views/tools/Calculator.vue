@@ -1,56 +1,56 @@
 <template>
-  <div class="calculator-container">
-    <div class="calculator-layout">
+  <div class="p-5 h-full">
+    <div class="flex gap-5 h-full max-h-[600px]">
       <!-- 主计算器区域 -->
-      <div class="calculator-main">
-        <div class="calc-display">
-          <div class="calc-expression">{{ expression || '0' }}</div>
-          <div class="calc-result">{{ result || '' }}</div>
+      <div class="flex-[0_0_320px] flex flex-col rounded-2xl bg-base-100 shadow-md overflow-hidden">
+        <div class="p-6 text-right bg-base-200 min-h-[100px] flex flex-col justify-end">
+          <div class="text-lg text-base-content/60 min-h-[24px] break-all">{{ expression || '0' }}</div>
+          <div class="text-3xl font-semibold text-base-content min-h-[40px]">{{ result || '' }}</div>
         </div>
-        
-        <div class="calc-buttons">
-          <button class="calc-btn func" @click="clear">AC</button>
-          <button class="calc-btn func" @click="toggleSign">±</button>
-          <button class="calc-btn func" @click="percent">%</button>
-          <button class="calc-btn op" @click="appendOp('/')">÷</button>
-          
-          <button class="calc-btn num" @click="appendNum('7')">7</button>
-          <button class="calc-btn num" @click="appendNum('8')">8</button>
-          <button class="calc-btn num" @click="appendNum('9')">9</button>
-          <button class="calc-btn op" @click="appendOp('*')">×</button>
-          
-          <button class="calc-btn num" @click="appendNum('4')">4</button>
-          <button class="calc-btn num" @click="appendNum('5')">5</button>
-          <button class="calc-btn num" @click="appendNum('6')">6</button>
-          <button class="calc-btn op" @click="appendOp('-')">−</button>
-          
-          <button class="calc-btn num" @click="appendNum('1')">1</button>
-          <button class="calc-btn num" @click="appendNum('2')">2</button>
-          <button class="calc-btn num" @click="appendNum('3')">3</button>
-          <button class="calc-btn op" @click="appendOp('+')">+</button>
-          
-          <button class="calc-btn num zero" @click="appendNum('0')">0</button>
-          <button class="calc-btn num" @click="appendDot">.</button>
-          <button class="calc-btn eq" @click="calculate">=</button>
+
+        <div class="grid grid-cols-4 gap-px bg-base-content/10">
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="clear">AC</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="toggleSign">±</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="percent">%</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary text-2xl transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="appendOp('/')">÷</button>
+
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('7')">7</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('8')">8</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('9')">9</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary text-2xl transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="appendOp('*')">×</button>
+
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('4')">4</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('5')">5</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('6')">6</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary text-2xl transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="appendOp('-')">−</button>
+
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('1')">1</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('2')">2</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendNum('3')">3</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-200 text-primary text-2xl transition-colors duration-100 hover:bg-base-300 active:bg-base-300" @click="appendOp('+')">+</button>
+
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300 col-span-2" @click="appendNum('0')">0</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-base-100 transition-colors duration-100 hover:bg-base-200 active:bg-base-300" @click="appendDot">.</button>
+          <button class="border-none p-5 text-xl cursor-pointer bg-primary text-white col-span-2 transition-colors duration-100 hover:bg-primary-focus" @click="calculate">=</button>
         </div>
       </div>
 
       <!-- 历史记录区域 -->
-      <div class="calc-history">
-        <div class="history-header">
+      <div class="flex-1 rounded-2xl bg-base-100 p-4 shadow-md flex flex-col overflow-hidden">
+        <div class="flex justify-between items-center mb-3 font-semibold text-base-content">
           <span>历史记录</span>
-          <button class="clear-history-btn" @click="clearHistory" v-if="history.length > 0">清空</button>
+          <button v-if="history.length > 0" class="btn btn-ghost btn-xs text-error hover:bg-error/10" @click="clearHistory">清空</button>
         </div>
-        <div class="history-list">
-          <div v-if="history.length === 0" class="history-empty">暂无历史记录</div>
-          <div 
-            v-for="item in history" 
-            :key="item.id" 
-            class="history-item"
+        <div class="flex-1 overflow-y-auto">
+          <div v-if="history.length === 0" class="text-center text-base-content/40 py-10">暂无历史记录</div>
+          <div
+            v-for="item in history"
+            :key="item.id"
+            class="px-3 py-2.5 rounded-lg cursor-pointer mb-1.5 transition-colors duration-100 hover:bg-base-200"
             @click="loadFromHistory(item)"
           >
-            <div class="history-expr">{{ item.expression }}</div>
-            <div class="history-res">= {{ item.result }}</div>
+            <div class="text-sm text-base-content/60">{{ item.expression }}</div>
+            <div class="text-lg font-semibold text-base-content">= {{ item.result }}</div>
           </div>
         </div>
       </div>
@@ -115,7 +115,7 @@ async function calculate() {
     const expr = expression.value.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')
     const val = Function('"use strict"; return (' + expr + ')')()
     result.value = String(Number(val.toFixed(8)))
-    
+
     // 保存历史
     try {
       const history = JSON.parse(localStorage.getItem("calc_history") || "[]")
@@ -148,179 +148,3 @@ onMounted(() => {
   loadHistory()
 })
 </script>
-
-<style scoped>
-.calculator-container {
-  padding: 20px;
-  height: 100%;
-}
-
-.calculator-layout {
-  display: flex;
-  gap: 20px;
-  height: 100%;
-  max-height: 600px;
-}
-
-.calculator-main {
-  flex: 0 0 320px;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg-card, #fff);
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.calc-display {
-  padding: 24px;
-  text-align: right;
-  background: var(--bg-secondary, #f5f5f5);
-  min-height: 100px;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.calc-expression {
-  font-size: 18px;
-  color: var(--text-secondary, #666);
-  min-height: 24px;
-  word-break: break-all;
-}
-
-.calc-result {
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--text-primary, #333);
-  min-height: 40px;
-}
-
-.calc-buttons {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-}
-
-.calc-btn {
-  border: none;
-  padding: 20px;
-  font-size: 20px;
-  cursor: pointer;
-  background: var(--bg-card, #fff);
-  transition: background 0.1s;
-}
-
-.calc-btn:hover {
-  background: var(--bg-hover, #f0f0f0);
-}
-
-.calc-btn:active {
-  background: var(--bg-active, #e0e0e0);
-}
-
-.calc-btn.func {
-  background: var(--bg-secondary, #f5f5f5);
-  color: var(--primary, #6366f1);
-}
-
-.calc-btn.op {
-  background: var(--bg-secondary, #f5f5f5);
-  color: var(--primary, #6366f1);
-  font-size: 24px;
-}
-
-.calc-btn.eq {
-  background: var(--primary, #6366f1);
-  color: white;
-  grid-column: span 2;
-}
-
-.calc-btn.eq:hover {
-  background: var(--primary-dark, #4f46e5);
-}
-
-.calc-btn.zero {
-  grid-column: span 2;
-}
-
-.calc-history {
-  flex: 1;
-  background: var(--bg-card, #fff);
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  font-weight: 600;
-  color: var(--text-primary, #333);
-}
-
-.clear-history-btn {
-  border: none;
-  background: transparent;
-  color: var(--danger, #ef4444);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 4px 8px;
-  border-radius: 4px;
-}
-
-.clear-history-btn:hover {
-  background: var(--danger-light, #fee2e2);
-}
-
-.history-list {
-  flex: 1;
-  overflow-y: auto;
-}
-
-.history-item {
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 6px;
-  transition: background 0.1s;
-}
-
-.history-item:hover {
-  background: var(--bg-hover, #f0f0f0);
-}
-
-.history-expr {
-  font-size: 14px;
-  color: var(--text-secondary, #666);
-}
-
-.history-res {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary, #333);
-}
-
-.history-empty {
-  text-align: center;
-  color: var(--text-muted, #999);
-  padding: 40px 0;
-}
-
-.dark .calc-display { background: #1e1e1e; }
-.dark .calc-result { color: #fff; }
-.dark .calc-buttons { background: #333; }
-.dark .calc-btn { background: #2a2a2a; color: #fff; }
-.dark .calc-btn:hover { background: #3a3a3a; }
-.dark .calc-btn.func, .dark .calc-btn.op { background: #333; color: #a78bfa; }
-.dark .calc-btn.eq { background: #6366f1; }
-.dark .calc-history { background: #2a2a2a; }
-.dark .history-item:hover { background: #3a3a3a; }
-.dark .history-res { color: #fff; }
-</style>
