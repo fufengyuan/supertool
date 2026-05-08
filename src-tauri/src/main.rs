@@ -24,10 +24,30 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Use unified data directory (~/.supertool/) to share database, logs, etc. with Electron
+            // Resolve data directory: check ~/.supertool_dir for custom path, fallback to ~/.supertool
             let home_dir = dirs::home_dir().expect("Failed to resolve home directory");
-            let supertool_dir = home_dir.join(".supertool");
-            std::fs::create_dir_all(&supertool_dir).expect("Failed to create .supertool directory");
+            let config_file = home_dir.join(".supertool_dir");
+            let supertool_dir = if config_file.exists() {
+                match std::fs::read_to_string(&config_file) {
+                    Ok(content) => {
+                        let custom_path = content.trim();
+                        if !custom_path.is_empty() {
+                            let path = std::path::PathBuf::from(custom_path);
+                            log::info!("[Main] Using custom data directory: {}", path.display());
+                            path
+                        } else {
+                            home_dir.join(".supertool")
+                        }
+                    }
+                    Err(e) => {
+                        log::warn!("[Main] Failed to read ~/.supertool_dir: {}, using default", e);
+                        home_dir.join(".supertool")
+                    }
+                }
+            } else {
+                home_dir.join(".supertool")
+            };
+            std::fs::create_dir_all(&supertool_dir).expect("Failed to create data directory");
 
             // Initialize file logger (also under ~/.supertool/logs/)
             crate::core::system_logger::SystemLogger::init(&supertool_dir);
@@ -446,6 +466,8 @@ fn main() {
             // Settings additional commands
             commands::settings::check_network_permission,
             commands::settings::get_menu_icon,
+            commands::settings::get_data_dir,
+            commands::settings::set_data_dir,
             // Git commands
             commands::git::get_git_branches,
             commands::git::get_git_commits,
