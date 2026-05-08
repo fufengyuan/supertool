@@ -119,6 +119,8 @@ fn main() {
             ])?;
 
             let system_menu = Submenu::with_items(handle, "系统", true, &[
+                &action_item("search", "全局搜索", Some("CmdOrCtrl+K"))?,
+                &PredefinedMenuItem::separator(handle)?,
                 &action_item("about", "关于", None)?,
                 &PredefinedMenuItem::separator(handle)?,
                 &nav_item("nav_backup", "数据备份", None)?,

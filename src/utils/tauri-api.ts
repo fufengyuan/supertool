@@ -1434,6 +1434,7 @@ export interface TauriAPI {
   onMenuToggleLanPanel: (callback: () => void) => () => void | Promise<UnlistenFn>
   onMenuToggleLocale: (callback: () => void) => () => void | Promise<UnlistenFn>
   onMenuToggleTheme: (callback: () => void) => Promise<UnlistenFn>
+  onMenuSearch: (callback: () => void) => Promise<UnlistenFn>
   onMenuSwitchView: (callback: (view: string) => void) => () => void | Promise<UnlistenFn>
   onMenuCheckUpdate: (callback: () => void) => () => void
   onTaskCommentAdded: (callback: (data: any) => void) => () => void
@@ -1967,6 +1968,7 @@ export function getTauriAPI(): TauriAPI {
     onMenuToggleLanPanel: (callback: () => void) => { return listen('menu:toggle-lan-panel', () => callback()) as Promise<UnlistenFn> },
     onMenuToggleLocale: (callback: () => void) => { return listen('menu:toggle-locale', () => callback()) as Promise<UnlistenFn> },
     onMenuToggleTheme: (callback: () => void) => { return listen('menu:toggle-theme', () => callback()) as Promise<UnlistenFn> },
+    onMenuSearch: (callback: () => void) => { return listen('menu:search', () => callback()) as Promise<UnlistenFn> },
     onMenuSwitchView: (callback: (view: string) => void) => { return listen('menu:switch-view', (e) => callback(e.payload as string)) as Promise<UnlistenFn> },
     onMenuCheckUpdate: (callback: () => void) => { return listen('menu:check-update', () => callback()) as Promise<UnlistenFn> },
     // Nav event

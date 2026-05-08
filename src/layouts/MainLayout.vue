@@ -57,7 +57,7 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">业务</span>
           </div>
           <li v-for="item in navGroups.business" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -68,7 +68,7 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">运维</span>
           </div>
           <li v-for="item in navGroups.ops" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -79,7 +79,7 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">开发</span>
           </div>
           <li v-for="item in navGroups.dev" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -90,7 +90,7 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">安全</span>
           </div>
           <li v-for="item in navGroups.security" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="sidebarOpen = false">
+            <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
               <span class="text-lg">{{ item.icon }}</span>
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
@@ -125,11 +125,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
-import SidebarNav from '@/layouts/SidebarNav.vue'
+import { useAppStore } from '@/stores/appStore'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 
 const router = useRouter()
+const appStore = useAppStore()
 
 const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
@@ -140,27 +141,33 @@ const lanStarted = ref(false)
 
 const navGroups = {
   business: [
-    { path: '/', icon: '📝', label: '任务' },
-    { path: '/weekly', icon: '📊', label: '周报' },
-    { path: '/projects', icon: '📁', label: '项目' },
-    { path: '/accounting', icon: '💰', label: '记账本' },
+    { path: '/', icon: '📝', label: '任务', viewId: 'todo' },
+    { path: '/weekly', icon: '📊', label: '周报', viewId: 'weekly-report' },
+    { path: '/projects', icon: '📁', label: '项目', viewId: 'projects' },
+    { path: '/accounting', icon: '💰', label: '记账本', viewId: 'accounting' },
   ],
   ops: [
-    { path: '/servers', icon: '🖥️', label: '服务器' },
-    { path: '/cicd', icon: '🚀', label: 'CI/CD' },
-    { path: '/logs', icon: '📋', label: '日志聚合' },
+    { path: '/servers', icon: '🖥️', label: '服务器', viewId: 'servers' },
+    { path: '/cicd', icon: '🚀', label: 'CI/CD', viewId: 'cicd' },
+    { path: '/logs', icon: '📋', label: '日志聚合', viewId: 'log-aggregator' },
   ],
   dev: [
-    { path: '/database', icon: '🗄️', label: '数据库' },
-    { path: '/devtools', icon: '🛠️', label: '开发工具' },
-    { path: '/notes', icon: '📓', label: '笔记' },
-    { path: '/git', icon: '🔀', label: 'Git 仓库' },
+    { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
+    { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
+    { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
+    { path: '/git', icon: '🔀', label: 'Git 仓库', viewId: 'git' },
   ],
   security: [
-    { path: '/mfa', icon: '🔐', label: 'MFA' },
-    { path: '/vpn', icon: '🌐', label: 'VPN' },
-    { path: '/backup', icon: '💾', label: '备份' },
+    { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },
+    { path: '/vpn', icon: '🌐', label: 'VPN', viewId: 'vpn' },
+    { path: '/backup', icon: '💾', label: '备份', viewId: 'data-backup' },
   ],
+}
+
+function onNavClick(viewId: string, path: string) {
+  appStore.recordNavClick(viewId)
+  sidebarOpen.value = false
+  router.push(path)
 }
 
 async function toggleLan() {

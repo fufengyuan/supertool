@@ -3,7 +3,7 @@
     <router-view />
     <!-- 全局组件 -->
     <ToastContainer />
-    <GlobalSearch />
+    <GlobalSearch ref="globalSearchRef" />
     <AboutDialog v-model="showAboutDialog" />
     <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
   </div>
@@ -11,6 +11,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import GlobalSearch from '@/components/GlobalSearch.vue'
@@ -20,6 +21,8 @@ import QuickSwitch from '@/components/QuickSwitch.vue'
 const isDark = ref(false)
 const showAboutDialog = ref(false)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
+const globalSearchRef = ref<InstanceType<typeof GlobalSearch> | null>(null)
+const router = useRouter()
 
 async function onQuickSwitchSelect(viewId: string) {
   // Navigate via router
@@ -43,7 +46,7 @@ async function onQuickSwitchSelect(viewId: string) {
   }
   const path = routeMap[viewId]
   if (path) {
-    window.location.hash = '#' + path
+    router.push(path)
   }
 }
 
@@ -70,6 +73,11 @@ onMounted(async () => {
     document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
   }).catch(() => () => {})
   unlistenFns.push(unlistenToggleTheme as () => void)
+
+  const unlistenSearch = await api.onMenuSearch(() => {
+    globalSearchRef.value?.open()
+  }).catch(() => () => {})
+  unlistenFns.push(unlistenSearch as () => void)
 })
 
 onUnmounted(async () => {
