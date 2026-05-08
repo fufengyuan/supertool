@@ -1299,10 +1299,113 @@ pub async fn db_backup_list(_id: Option<String>) -> Result<serde_json::Value, St
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::Value, String> {
-    // Read backup file and restore
-    let content = std::fs::read_to_string(&file).map_err(|e| format!("Failed to read backup file: {}", e))?;
-    let backup: serde_json::Value = serde_json::from_str(&content).map_err(|e| format!("Invalid backup JSON: {}", e))?;
-    Ok(serde_json::json!({ "success": true, "restored": true }))
+    log::info!("[db_backup_restore] Restoring backup for connection '{}' from file '{}'", id, file);
+
+    // 1. Read file as binary (nb3 = gzipped JSON)
+    let compressed = std::fs::read(&file)
+        .map_err(|e| format!("读取备份文件失败: {}", e))?;
+    if compressed.is_empty() {
+        return Err("备份文件为空（0 字节）".to_string());
+    }
+
+    // 2. Decompress gzip
+    use std::io::Read;
+    let mut decoder = flate2::read::GzDecoder::new(&compressed[..]);
+    let mut json_str = String::new();
+    decoder.read_to_string(&mut json_str)
+        .map_err(|e| format!("解压备份文件失败（非有效的 .nb3 格式）: {}", e))?;
+
+    // 3. Parse JSON payload
+    let payload: serde_json::Value = serde_json::from_str(&json_str)
+        .map_err(|e| format!("解析备份文件失败: {}", e))?;
+
+    let files = payload.get("files")
+        .and_then(|v| v.as_object())
+        .ok_or_else(|| "备份文件格式错误：缺少 files 字段".to_string())?;
+    let metadata = payload.get("metadata");
+
+    // 4. Get connection from pool
+    let mut pool = CONNECTION_POOL.lock().await;
+    let conn = pool.get(&id)
+        .ok_or_else(|| format!("连接 '{}' 未找到，请先连接数据库", id))?;
+
+    // Log restore info
+    if let Some(meta) = metadata {
+        let db_name = meta.get("databaseName").and_then(|v| v.as_str()).unwrap_or("?");
+        let obj_count = meta.get("objects").and_then(|v| v.as_array()).map(|a| a.len()).unwrap_or(0);
+        log::info!("[db_backup_restore] Restoring to database '{}', {} objects, {} SQL files", db_name, obj_count, files.len());
+    }
+
+    // 5. Execute all SQL statements against the database connection
+    let mut executed = 0i64;
+    let mut errors: Vec<String> = Vec::new();
+
+    for (filename, sql_content) in files.iter() {
+        let sql = match sql_content.as_str() {
+            Some(s) => s,
+            None => { errors.push(format!("{}: 非字符串内容", filename)); continue; }
+        };
+        let trimmed = sql.trim();
+        if trimmed.is_empty() || trimmed.starts_with("--") || trimmed.starts_with("//") {
+            continue; // Skip comments/empty
+        }
+
+        match conn {
+            DbConnection::MySql(p) => {
+                match p.get_conn().await {
+                    Ok(mut mysql_conn) => {
+                        if let Err(e) = mysql_conn.query_drop(trimmed).await {
+                            errors.push(format!("{}: MySQL 执行失败: {}", filename, e));
+                        } else {
+                            executed += 1;
+                        }
+                    }
+                    Err(e) => {
+                        errors.push(format!("{}: MySQL 连接失败: {}", filename, e));
+                    }
+                }
+            }
+            DbConnection::Postgres(c) => {
+                match c.batch_execute(trimmed).await {
+                    Ok(_) => executed += 1,
+                    Err(e) => errors.push(format!("{}: PostgreSQL 执行失败: {}", filename, e)),
+                }
+            }
+            DbConnection::Sqlite(cfg) => {
+                let db_path = match cfg.path.as_deref() {
+                    Some(p) => p.to_string(),
+                    None => { errors.push(format!("{}: SQLite 数据库路径缺失", filename)); continue; }
+                };
+                let sql_owned = trimmed.to_string();
+                match tokio::task::spawn_blocking(move || {
+                    let conn = rusqlite::Connection::open(&db_path)
+                        .map_err(|e| format!("SQLite 打开失败: {}", e))?;
+                    conn.execute_batch(&sql_owned)
+                        .map_err(|e| format!("SQLite 执行失败: {}", e))?;
+                    Ok::<_, String>(())
+                }).await {
+                    Ok(Ok(_)) => executed += 1,
+                    Ok(Err(e)) => errors.push(format!("{}: {}", filename, e)),
+                    Err(e) => errors.push(format!("{}: SQLite 任务失败: {}", filename, e)),
+                }
+            }
+            DbConnection::Redis(_) => {
+                return Err("Redis 不支持备份恢复操作".to_string());
+            }
+        }
+    }
+
+    let success = errors.is_empty();
+    if !success {
+        log::warn!("[db_backup_restore] Restore completed with {} errors: {}", errors.len(), errors.join("; "));
+    }
+    log::info!("[db_backup_restore] Restore complete: executed={}, errors={}", executed, errors.len());
+
+    Ok(serde_json::json!({
+        "success": success,
+        "executed": executed,
+        "errors": errors,
+    }))
 }
 
 #[tauri::command(rename_all = "camelCase")]

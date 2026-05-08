@@ -268,7 +268,10 @@ const importFullBackup = async () => {
       message.value = `成功导入 ${result.importedCount} 条记录，跳过 ${result.skippedCount || 0} 条重复数据`;
       messageType.value = 'success';
     } else {
-      message.value = `导入失败: ${result.error || result.message || '未知错误'}`;
+      const errorList = result.errors?.length ? result.errors.slice(0, 5).join('; ') : '';
+      message.value = `导入未完成: 成功 ${result.importedCount || 0} 条, 失败 ${result.errors?.length || 0} 条` +
+        (errorList ? `\n错误: ${errorList}` : '') +
+        (result.error || result.message ? `\n${result.error || result.message}` : '');
       messageType.value = 'error';
     }
   } catch (error) {
