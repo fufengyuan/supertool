@@ -52,6 +52,12 @@ pub struct DiskInfo {
     pub usage_percent: f64,
 }
 
+/// Get the user's home directory
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_home_dir() -> Option<String> {
+    dirs::home_dir().map(|p| p.to_string_lossy().to_string())
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_disk_info() -> Vec<DiskInfo> {
     #[cfg(target_os = "macos")]

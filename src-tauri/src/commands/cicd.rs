@@ -790,7 +790,7 @@ pub async fn deploy(
             Ok(result) => {
                 crate::core::tray_notification::show_deploy_notification(
                     result.success,
-                    &proj_name,
+                    &cicd_config.name,
                     result.error.as_deref(),
                 );
                 let _ = app_arc.emit("deploy-notification", serde_json::json!({
@@ -801,7 +801,7 @@ pub async fn deploy(
                 }));
             }
             Err(e) => {
-                crate::core::tray_notification::show_deploy_notification(false, &proj_name, Some(e));
+                crate::core::tray_notification::show_deploy_notification(false, &cicd_config.name, Some(e));
                 let _ = app_arc.emit("deploy-notification", serde_json::json!({
                     "success": false,
                     "configId": *config_id_arc,
