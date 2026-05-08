@@ -5,7 +5,7 @@ use tokio::sync::Mutex as TokioMutex;
 use tauri::Emitter;
 
 // Native database drivers
-use mysql_async::{Pool as MySqlPool, OptsBuilder, Row, from_row, prelude::Queryable};
+use mysql_async::{Pool as MySqlPool, Row, prelude::Queryable};
 use tokio_postgres::{Client as PgClient, NoTls};
 use redis::aio::MultiplexedConnection as RedisConn;
 
@@ -856,6 +856,7 @@ fn build_col_def_from_info(col: &serde_json::Value, db_type: &str) -> String {
     def
 }
 
+#[allow(non_snake_case)]
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_execute_structure_sync(id: String, sqls: Vec<String>, targetDbName: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_execute_structure_sync() called, {} statements", sqls.len());
@@ -1108,7 +1109,7 @@ pub async fn db_execute_data_sync(params: serde_json::Value) -> Result<serde_jso
     for diff in &diffs {
         let diff_type = diff.get("diffType").and_then(|v| v.as_str()).unwrap_or("");
         let source_row = diff.get("sourceRow");
-        let target_row = diff.get("targetRow");
+        let _target_row = diff.get("targetRow");
         let pk = diff.get("primaryKey");
 
         let sql_result = match diff_type {
@@ -1325,7 +1326,7 @@ pub async fn db_backup_restore(id: String, file: String) -> Result<serde_json::V
     let metadata = payload.get("metadata");
 
     // 4. Get connection from pool
-    let mut pool = CONNECTION_POOL.lock().await;
+    let pool = CONNECTION_POOL.lock().await;
     let conn = pool.get(&id)
         .ok_or_else(|| format!("连接 '{}' 未找到，请先连接数据库", id))?;
 
@@ -1415,6 +1416,7 @@ pub async fn db_backup_delete(file: String) -> Result<serde_json::Value, String>
 }
 
 // Redis operations
+#[allow(unused_variables)]
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_redis_databases(id: String) -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "success": true, "databases": [0] }))
@@ -1569,6 +1571,7 @@ pub async fn db_redis_exec(id: String, db_index: i64, command: String) -> Result
     } else { Err("Not a Redis connection".to_string()) }
 }
 
+#[allow(unused_variables)]
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_redis_scan_keys(id: String, db_index: i64, pattern: String, type_filter: String) -> Result<serde_json::Value, String> {
     let pool = CONNECTION_POOL.lock().await;
@@ -1869,6 +1872,7 @@ pub async fn test_redis(config: &DbConnectionConfig) -> Result<serde_json::Value
     Ok(serde_json::json!({ "success": true }))
 }
 
+#[allow(unused_variables)]
 pub async fn db_redis_scan(id: String, pattern: String, count: usize) -> Result<serde_json::Value, String> {
     let pool = CONNECTION_POOL.lock().await;
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
