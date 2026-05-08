@@ -1,5 +1,7 @@
 node_modules/
 dist/
+dist-electron/
+dist_electron/
 src-tauri/target/
 src-tauri/gen/
 *.log
@@ -7,3 +9,6 @@ src-tauri/gen/
 .idea/
 .vscode/
 cli/target/
+tauri-app/
+supertool-patch/
+package-lock.json
