@@ -2,6 +2,7 @@
 ///
 /// UDS handlers 和 Tauri commands 都通过这一层操作数据库和服务。
 /// 保证 CLI 和 GUI 走同一套代码路径，行为 100% 一致。
+pub mod data_dir;
 pub mod git;
 pub mod ssh;
 pub mod cicd_deploy;

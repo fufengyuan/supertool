@@ -1278,9 +1278,9 @@ impl JsonRouter {
             use crate::db::DeployLog;
 
             let config_id = params["configId"].as_str().ok_or("Missing configId")?.to_string();
-            let data_dir = dirs::home_dir()
-                .map(|h| h.join(".supertool").to_string_lossy().to_string())
-                .unwrap_or_else(|| "/tmp".to_string());
+            let data_dir = crate::core::data_dir::resolve_data_dir()
+                .to_string_lossy()
+                .to_string();
 
             // Load config from DB
             let config: Option<CicdConfig> = core.db_read(|conn| crate::db::get_cicd_config_by_config_id(conn, &config_id)).map_err(|e| e.to_string())?.map_err(|e| e.to_string())?;

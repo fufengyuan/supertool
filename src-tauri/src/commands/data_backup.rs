@@ -48,10 +48,7 @@ pub async fn export_all_data(
         zip.write_all(data_json.as_bytes())
             .map_err(|e| format!("写入ZIP失败: {}", e))?;
 
-        let data_dir = dirs::data_local_dir()
-            .map(|d| d.join("supertool"))
-            .or_else(|| dirs::home_dir().map(|d| d.join(".supertool")))
-            .ok_or("无法获取数据目录")?;
+        let data_dir = crate::core::data_dir::resolve_data_dir();
         let receipt_dir = data_dir.join("accounting-receipts");
         if receipt_dir.is_dir() {
             if let Ok(entries) = std::fs::read_dir(&receipt_dir) {
@@ -130,10 +127,7 @@ pub async fn import_json(
         .map_err(|e| format!("JSON解析失败: {}", e))?;
 
     // Extract receipt files
-    let data_dir = dirs::data_local_dir()
-        .map(|d| d.join("supertool"))
-        .or_else(|| dirs::home_dir().map(|d| d.join(".supertool")))
-        .ok_or("无法获取数据目录")?;
+    let data_dir = crate::core::data_dir::resolve_data_dir();
     let receipt_dir = data_dir.join("accounting-receipts");
     for i in 0..archive.len() {
         let mut file = archive.by_index(i)

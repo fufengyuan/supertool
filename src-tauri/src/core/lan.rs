@@ -168,9 +168,7 @@ impl LanService {
         self.add_log("info", &format!("Broadcast addresses: {:?}", broadcast_addrs));
 
         // Setup receive path
-        let receive_path = dirs::home_dir()
-            .map(|h| h.join(".supertool").join("received_files"))
-            .unwrap_or_else(|| PathBuf::from("/tmp/received_files"))
+        let receive_path = crate::core::data_dir::received_files_dir()
             .to_string_lossy()
             .to_string();
         *self.receive_path.lock().unwrap() = receive_path.clone();
@@ -1371,9 +1369,7 @@ impl LanService {
 
     /// Decode base64 data and write to ~/.supertool/lan_temp/
     pub fn save_temp_file(&self, base64_data: &str, file_name: &str) -> Result<String, String> {
-        let temp_dir = dirs::home_dir()
-            .map(|h| h.join(".supertool").join("lan_temp"))
-            .ok_or("无法获取家目录")?;
+        let temp_dir = crate::core::data_dir::lan_temp_dir();
         fs::create_dir_all(&temp_dir)
             .map_err(|e| format!("创建临时目录失败: {}", e))?;
 

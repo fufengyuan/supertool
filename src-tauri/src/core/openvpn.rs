@@ -240,9 +240,7 @@ impl OpenVPNManager {
 
         self.add_log(&format!("正在连接 {}...", config_name));
 
-        let tmp_dir = dirs::home_dir()
-            .map(|h| h.join(".supertool").join("tmp"))
-            .ok_or("无法获取 home 目录".to_string())?;
+        let tmp_dir = crate::core::data_dir::tmp_dir();
         fs::create_dir_all(&tmp_dir).map_err(|e| format!("创建目录失败: {}", e))?;
 
         let timestamp = std::time::SystemTime::now()
@@ -502,7 +500,7 @@ impl OpenVPNManager {
         if let Some(path) = self.temp_config_path.lock().unwrap().take() {
             let _ = fs::remove_file(path);
         }
-        if let Some(tmp_dir) = dirs::home_dir().map(|h| h.join(".supertool").join("tmp")) {
+        if let Some(tmp_dir) = Some(crate::core::data_dir::tmp_dir()) {
             if tmp_dir.exists() {
                 if let Ok(entries) = fs::read_dir(&tmp_dir) {
                     for entry in entries.flatten() {
