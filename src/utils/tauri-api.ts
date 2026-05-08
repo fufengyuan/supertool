@@ -1127,6 +1127,12 @@ export function useDataBackupAPI() {
       const res = await tauriInvoke<string>('set_setting', { key: 'autoBackupSettings', value: settings })
       if (!res.success) throw new Error(res.error)
     },
+    getDataDir: async (): Promise<any> => {
+      return await tauriInvoke<any>('get_data_dir')
+    },
+    setDataDir: async (path: string): Promise<any> => {
+      return await tauriInvoke<any>('set_data_dir', { path })
+    },
   }
 }
 
@@ -1368,6 +1374,8 @@ export interface TauriAPI {
   importAllData: (data: any) => Promise<void>
   setAutoBackup: (settings: Record<string, unknown>) => Promise<void>
   getAppPath: () => Promise<string>
+  getDataDir: () => Promise<any>
+  setDataDir: (path: string) => Promise<any>
   // OpenVPN
   openvpnGetAll: () => Promise<any[]>
   openvpnAdd: (data: { name: string; filePath: string; content: string }) => Promise<any>
@@ -1776,6 +1784,8 @@ export function getTauriAPI(): TauriAPI {
     importAllData: dataBackup.importAllData,
     setAutoBackup: dataBackup.setAutoBackup,
     getAppPath: dataBackup.getAppPath,
+    getDataDir: dataBackup.getDataDir,
+    setDataDir: dataBackup.setDataDir,
     // OpenVPN
     openvpnGetAll: openvpn.openvpnGetAll,
     openvpnAdd: openvpn.openvpnAdd,

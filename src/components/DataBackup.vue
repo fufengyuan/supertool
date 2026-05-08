@@ -108,6 +108,49 @@
       {{ message }}
     </div>
 
+    <!-- 数据目录设置 -->
+    <div class="backup-card data-dir-card">
+      <div class="section-title">
+        <span class="icon">📁</span>
+        <span>数据目录</span>
+        <span v-if="dataDir.isCustom" class="status-badge custom">自定义</span>
+        <span v-else class="status-badge default">默认</span>
+      </div>
+
+      <div class="data-dir-settings">
+        <div class="setting-row">
+          <label>当前路径</label>
+          <div class="path-input-group">
+            <input
+              type="text"
+              v-model="dataDir.editPath"
+              :placeholder="dataDir.defaultPath"
+              class="form-input"
+            />
+            <button @click="selectDataDir" class="btn btn-ghost btn-sm">选择</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <label>默认路径</label>
+          <span class="path-display">{{ dataDir.defaultPath }}</span>
+        </div>
+
+        <div class="setting-row data-dir-actions">
+          <button @click="saveDataDir" class="btn btn-primary" :disabled="dataDir.saving">
+            {{ dataDir.saving ? '保存中...' : '💾 保存' }}
+          </button>
+          <button v-if="dataDir.isCustom" @click="resetDataDir" class="btn btn-ghost">
+            恢复默认
+          </button>
+        </div>
+
+        <div v-if="dataDir.needRestart" class="backup-status warning">
+          ⚠️ 数据目录已更新，需要重启应用才能生效
+        </div>
+      </div>
+    </div>
+
     <!-- Git 同步设置 -->
     <div class="backup-card git-sync-card">
       <div class="section-title">
@@ -225,6 +268,16 @@ const autoBackup = ref({
   path: ''
 });
 
+// 数据目录设置
+const dataDir = ref({
+  path: '',
+  editPath: '',
+  defaultPath: '',
+  isCustom: false,
+  saving: false,
+  needRestart: false
+});
+
 const lastBackupStatus = ref(null);
 
 // 导出JSON
@@ -326,6 +379,19 @@ onMounted(async () => {
     console.error('Failed to load auto backup settings:', error);
   }
 
+  // 加载数据目录设置
+  try {
+    const result = await getTauriAPI().getDataDir();
+    if (result?.success) {
+      dataDir.value.path = result.path;
+      dataDir.value.editPath = result.isCustom ? result.path : '';
+      dataDir.value.defaultPath = result.defaultPath;
+      dataDir.value.isCustom = result.isCustom;
+    }
+  } catch (error) {
+    console.error('Failed to load data dir settings:', error);
+  }
+
   // Load Git sync status
   try {
     const status = await getTauriAPI().gitSyncStatus();
@@ -363,6 +429,62 @@ let autoBackupUnsubscribe: (() => void) | undefined;
 onBeforeUnmount(() => {
   autoBackupUnsubscribe?.();
 });
+
+// 选择数据目录
+async function selectDataDir() {
+  try {
+    const result = await getTauriAPI().showOpenDialogForDirs?.() as { filePaths?: string[] } | undefined
+    if (result?.filePaths?.[0]) {
+      dataDir.value.editPath = result.filePaths[0]
+    }
+  } catch (error) {
+    console.error('选择数据目录失败:', error)
+  }
+}
+
+// 保存数据目录
+async function saveDataDir() {
+  dataDir.value.saving = true
+  try {
+    const result = await getTauriAPI().setDataDir(dataDir.value.editPath)
+    if (result?.success) {
+      dataDir.value.needRestart = true
+      dataDir.value.isCustom = !!dataDir.value.editPath
+      dataDir.value.path = result.path || dataDir.value.editPath
+      message.value = result.message || '数据目录已更新'
+      messageType.value = 'success'
+    } else {
+      message.value = `保存失败: ${result?.error || '未知错误'}`
+      messageType.value = 'error'
+    }
+  } catch (error: any) {
+    message.value = `保存失败: ${error.message}`
+    messageType.value = 'error'
+  } finally {
+    dataDir.value.saving = false
+  }
+}
+
+// 恢复默认数据目录
+async function resetDataDir() {
+  dataDir.value.saving = true
+  try {
+    const result = await getTauriAPI().setDataDir('')
+    if (result?.success) {
+      dataDir.value.needRestart = true
+      dataDir.value.isCustom = false
+      dataDir.value.editPath = ''
+      dataDir.value.path = dataDir.value.defaultPath
+      message.value = result.message || '已恢复默认数据目录'
+      messageType.value = 'success'
+    }
+  } catch (error: any) {
+    message.value = `恢复失败: ${error.message}`
+    messageType.value = 'error'
+  } finally {
+    dataDir.value.saving = false
+  }
+}
 
 // Git sync functions
 async function saveGitSyncConfig() {
@@ -679,6 +801,41 @@ function formatGitSyncTime(iso: string): string {
 .status-badge.error {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
+}
+
+.status-badge.custom {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.status-badge.default {
+  background: rgba(107, 114, 128, 0.15);
+  color: #6b7280;
+}
+
+.backup-status.warning {
+  background: color-mix(in oklab, var(--color-warning) 10%, transparent);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning);
+}
+
+.path-display {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--color-base-content);
+  opacity: 0.7;
+}
+
+.data-dir-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.data-dir-actions {
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 8px;
 }
 
 .git-sync-actions {

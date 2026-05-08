@@ -97,3 +97,81 @@ pub fn notification_test() -> Result<serde_json::Value, String> {
         .map_err(|e| format!("发送通知失败: {}", e))?;
     Ok(serde_json::json!({ "success": true, "data": "通知已发送" }))
 }
+
+/// Get the current data directory path
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_data_dir() -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_data_dir() called");
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let config_file = home_dir.join(".supertool_dir");
+
+    let (current_path, is_custom) = if config_file.exists() {
+        match std::fs::read_to_string(&config_file) {
+            Ok(content) => {
+                let custom_path = content.trim().to_string();
+                if !custom_path.is_empty() {
+                    (custom_path, true)
+                } else {
+                    (home_dir.join(".supertool").to_string_lossy().to_string(), false)
+                }
+            }
+            Err(_) => (home_dir.join(".supertool").to_string_lossy().to_string(), false),
+        }
+    } else {
+        (home_dir.join(".supertool").to_string_lossy().to_string(), false)
+    };
+
+    Ok(serde_json::json!({
+        "success": true,
+        "path": current_path,
+        "isCustom": is_custom,
+        "defaultPath": home_dir.join(".supertool").to_string_lossy()
+    }))
+}
+
+/// Set a custom data directory path (stored in ~/.supertool_dir)
+/// App restart is required for changes to take effect
+#[tauri::command(rename_all = "camelCase")]
+pub fn set_data_dir(path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] set_data_dir() called with path: {}", path);
+
+    let home_dir = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    let config_file = home_dir.join(".supertool_dir");
+
+    // Validate path
+    let target = std::path::PathBuf::from(&path);
+    if path.is_empty() {
+        // Reset to default: remove config file
+        if config_file.exists() {
+            std::fs::remove_file(&config_file)
+                .map_err(|e| format!("删除配置文件失败: {}", e))?;
+        }
+        return Ok(serde_json::json!({
+            "success": true,
+            "message": "已恢复默认数据目录，重启应用后生效",
+            "needRestart": true
+        }));
+    }
+
+    // Check if path is valid and writable
+    if !target.is_absolute() {
+        return Err("路径必须是绝对路径".to_string());
+    }
+
+    // Create directory if it doesn't exist
+    if !target.exists() {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| format!("创建目录失败: {}", e))?;
+    }
+
+    // Write config file
+    std::fs::write(&config_file, &path)
+        .map_err(|e| format!("写入配置文件失败: {}", e))?;
+
+    Ok(serde_json::json!({
+        "success": true,
+        "message": "数据目录已更新，重启应用后生效",
+        "needRestart": true,
+        "path": path
+    }))
+}
