@@ -95,9 +95,6 @@ fn main() {
 
             let business_menu = Submenu::with_items(handle, "业务", true, &[
                 &nav_item("nav_todo", "任务列表", Some("CmdOrCtrl+1"))?,
-                &action_item("new_task", "新建任务", Some("CmdOrCtrl+N"))?,
-                &action_item("search_tasks", "搜索任务", Some("CmdOrCtrl+F"))?,
-                &PredefinedMenuItem::separator(handle)?,
                 &nav_item("nav_weekly", "周报", Some("CmdOrCtrl+2"))?,
                 &nav_item("nav_projects", "项目", Some("CmdOrCtrl+3"))?,
                 &nav_item("nav_accounting", "记账本", Some("CmdOrCtrl+9"))?,
