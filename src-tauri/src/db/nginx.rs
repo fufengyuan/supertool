@@ -13,7 +13,7 @@ pub struct NginxPreset {
     pub description: String,
     #[serde(rename = "groupName")]
     pub group_name: String,
-    #[serde(rename = "isActive")]
+    #[serde(rename = "isActive", default)]
     pub is_active: bool,
     #[serde(rename = "createdAt")]
     pub created_at: String,
@@ -29,7 +29,7 @@ pub struct NginxConfigVersion {
     pub content: String,
     pub checksum: String,
     pub comment: String,
-    #[serde(rename = "isCurrent")]
+    #[serde(rename = "isCurrent", default)]
     pub is_current: bool,
     #[serde(rename = "createdAt")]
     pub created_at: String,
