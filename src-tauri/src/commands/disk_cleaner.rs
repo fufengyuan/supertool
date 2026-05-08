@@ -34,9 +34,15 @@ pub struct CachePath {
 }
 
 #[derive(Debug, Serialize)]
+pub struct DeleteFailure {
+    pub path: String,
+    pub reason: String,
+}
+
+#[derive(Debug, Serialize)]
 pub struct DeleteResult {
     pub success: Vec<String>,
-    pub failed: Vec<(String, String)>,
+    pub failed: Vec<DeleteFailure>,
     pub total_freed: u64,
 }
 
@@ -472,18 +478,24 @@ fn is_protected_path(path: &Path) -> bool {
 #[tauri::command(rename_all = "camelCase")]
 pub fn delete_items(paths: Vec<String>) -> DeleteResult {
     let mut success = Vec::new();
-    let mut failed: Vec<(String, String)> = Vec::new();
+    let mut failed: Vec<DeleteFailure> = Vec::new();
     let mut total_freed: u64 = 0;
 
     for path_str in &paths {
         let path = PathBuf::from(path_str);
         if !path.exists() {
-            failed.push((path_str.clone(), "路径不存在".to_string()));
+            failed.push(DeleteFailure {
+                path: path_str.clone(),
+                reason: "路径不存在".to_string(),
+            });
             continue;
         }
         // Safety: prevent deletion of system paths
         if is_protected_path(&path) {
-            failed.push((path_str.clone(), "系统保护路径，禁止删除".to_string()));
+            failed.push(DeleteFailure {
+                path: path_str.clone(),
+                reason: "系统保护路径，禁止删除".to_string(),
+            });
             continue;
         }
 
@@ -505,7 +517,18 @@ pub fn delete_items(paths: Vec<String>) -> DeleteResult {
                 success.push(path_str.clone());
             }
             Err(e) => {
-                failed.push((path_str.clone(), e.to_string()));
+                let err_msg = e.to_string();
+                let reason = if err_msg.contains("Permission denied") || err_msg.contains("权限") {
+                    "权限不足".to_string()
+                } else if err_msg.contains("Directory not empty") || err_msg.contains("不为空") {
+                    "目录非空，请先清空内容".to_string()
+                } else {
+                    err_msg
+                };
+                failed.push(DeleteFailure {
+                    path: path_str.clone(),
+                    reason,
+                });
             }
         }
     }
@@ -578,7 +601,11 @@ fn count_children(dir: &Path) -> io::Result<u32> {
     let mut count = 0;
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries {
-            if let Ok(_) = entry {
+            if let Ok(entry) = entry {
+                // Skip symlinks to match scan_directory behavior
+                if entry.path().is_symlink() {
+                    continue;
+                }
                 count += 1;
             }
         }
