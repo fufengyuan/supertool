@@ -1,53 +1,62 @@
 #!/bin/bash
 set -e
 
-# SuperTool Tauri build script
-# Builds CLI binary first, then Tauri app
+MODE="${1:-pre-build}"
+ARCH="${2:-native}"
 
-ARCH="${1:-native}"
+build_cli() {
+    local arch="$1"
+    echo "🔨 Building CLI (stool) for: $arch"
+    cd cli
 
-echo "🔨 Building CLI (stool)..."
-cd cli
+    case "$arch" in
+      arm64|aarch64)
+        cargo build --release --target aarch64-apple-darwin
+        mkdir -p ../target/release
+        cp target/aarch64-apple-darwin/release/stool ../target/release/stool
+        ;;
+      x64|x86_64)
+        cargo build --release --target x86_64-apple-darwin
+        mkdir -p ../target/release
+        cp target/x86_64-apple-darwin/release/stool ../target/release/stool
+        ;;
+      native)
+        cargo build --release
+        # Copy arch-specific to generic location
+        for dir in target/*/release; do
+            if [ -f "$dir/stool" ]; then
+                mkdir -p ../target/release
+                cp "$dir/stool" ../target/release/stool
+                break
+            fi
+        done
+        ;;
+      all)
+        cargo build --release --target aarch64-apple-darwin
+        cargo build --release --target x86_64-apple-darwin
+        mkdir -p ../target/release
+        lipo -create -output ../target/release/stool \
+          target/aarch64-apple-darwin/release/stool \
+          target/x86_64-apple-darwin/release/stool
+        ;;
+    esac
 
-case "$ARCH" in
-  arm64|aarch64)
-    echo "  → Target: aarch64-apple-darwin"
-    cargo build --release --target aarch64-apple-darwin
-    mkdir -p ../target/release
-    cp target/aarch64-apple-darwin/release/stool ../target/release/stool
+    cd ..
+    echo "✅ CLI built → cli/target/release/stool"
+}
+
+case "$MODE" in
+  pre-build)
+    build_cli "$ARCH"
     ;;
-  x64|x86_64)
-    echo "  → Target: x86_64-apple-darwin"
-    cargo build --release --target x86_64-apple-darwin
-    mkdir -p ../target/release
-    cp target/x86_64-apple-darwin/release/stool ../target/release/stool
-    ;;
-  native)
-    echo "  → Target: native"
-    cargo build --release
-    ;;
-  all)
-    echo "  → Building universal binary..."
-    cargo build --release --target aarch64-apple-darwin
-    cargo build --release --target x86_64-apple-darwin
-    mkdir -p ../target/release
-    lipo -create -output ../target/release/stool \
-      target/aarch64-apple-darwin/release/stool \
-      target/x86_64-apple-darwin/release/stool
+  full)
+    build_cli "$ARCH"
+    echo "📦 Building Tauri app..."
+    pnpm tauri build
+    echo "✅ Done!"
     ;;
   *)
-    echo "Unknown architecture: $ARCH"
-    echo "Usage: $0 [native|arm64|x64|all]"
+    echo "Usage: $0 {pre-build|full} [native|arm64|x64|all]"
     exit 1
     ;;
 esac
-
-cd ..
-
-echo "✅ CLI build complete"
-echo "📦 Starting Tauri build..."
-
-# Run Tauri build
-pnpm tauri build
-
-echo "✅ Build complete!"
