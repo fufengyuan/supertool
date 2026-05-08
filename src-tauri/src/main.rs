@@ -297,6 +297,10 @@ fn main() {
             });
 
             log::info!("[Main] === SuperTool Tauri ready ===");
+
+            // 启动后台通知检查定时器（每 5 分钟检查到期任务）
+            crate::core::tray_notification::start_notification_timer(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
