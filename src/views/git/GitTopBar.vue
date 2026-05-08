@@ -284,3 +284,164 @@ defineEmits<{
   'refresh': []
 }>()
 </script>
+
+<style>
+/* GitTopBar 子组件样式 — 从 GitManager.vue 复制 */
+/* ===================== 下拉菜单 ===================== */
+.dropdown-wrap {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  background: var(--color-base-100);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 200px;
+  padding: 4px 0;
+  margin-top: 4px;
+}
+
+.dropdown-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+  color: var(--color-base-content);
+}
+
+.dropdown-menu-item:hover {
+  background: var(--hover-bg);
+}
+
+.dropdown-menu-item svg {
+  flex-shrink: 0;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.dropdown-menu-separator {
+  height: 1px;
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  margin: 4px 0;
+}
+
+/* ===================== 顶部工具栏 ===================== */
+.git-topbar {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  gap: 12px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 200px;
+}
+
+.back-btn {
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.repo-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.repo-name {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.repo-path {
+  font-size: 11px;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 480px;
+}
+
+.topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.branch-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 4px;
+  background: var(--color-base-200);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.branch-selector:hover {
+  border-color: var(--color-primary);
+}
+
+.branch-name {
+  font-weight: 500;
+  color: var(--color-primary);
+}
+
+.dropdown-arrow {
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.ahead-behind {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.ahead {
+  color: #f59e0b;
+  font-weight: 500;
+}
+
+.behind {
+  color: #3b82f6;
+  font-weight: 500;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ===================== 动画 ===================== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+</style>

@@ -57,3 +57,139 @@ defineEmits<{
   'open-stash-save': []
 }>()
 </script>
+
+<style>
+/* ===================== Stash 面板 — 从 GitManager.vue 提取 ===================== */
+.stash-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  max-height: 40%;
+  flex-shrink: 0;
+  background: var(--color-base-100);
+}
+
+.stash-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 180px;
+}
+
+.stash-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.1s;
+  font-size: 12px;
+}
+
+.stash-item:hover {
+  background: var(--hover-bg);
+}
+
+.stash-item.selected {
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+}
+
+.stash-item svg {
+  flex-shrink: 0;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.stash-name {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  color: var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  padding: 1px 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.stash-desc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.stash-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  font-size: 12px;
+}
+
+.stash-preview {
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ===================== 面板头部 ===================== */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
+  flex-shrink: 0;
+}
+
+.panel-title {
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===================== Stash 预览 ===================== */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.detail-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.diff-content {
+  background: var(--color-base-200);
+  padding: 10px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-x: auto;
+  max-height: 300px;
+  white-space: pre-wrap;
+  color: var(--color-base-content);
+}
+
+.diff-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.diff-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.diff-content::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 3px;
+}
+
+.diff-content::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+</style>
