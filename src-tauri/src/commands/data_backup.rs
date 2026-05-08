@@ -717,18 +717,22 @@ async fn import_all_tables(
 
         // Log presets
         if let Some(presets) = data.get("logPresets").and_then(|v| v.as_array()) {
+            let now = chrono::Utc::now().to_rfc3339();
             for p in presets {
                 match conn.execute(
-                    "INSERT OR REPLACE INTO log_presets (id, name, serverIds, logPath, logType, maxLines, presetGroup)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    "INSERT OR REPLACE INTO log_presets (id, name, serverIds, logPath, logType, maxLines, presetGroup, keywords, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
                     rusqlite::params![
                         p.get("id").and_then(|v| v.as_str()).unwrap_or(""),
                         p.get("name").and_then(|v| v.as_str()).unwrap_or(""),
                         p.get("serverIds").and_then(|v| v.as_str()).unwrap_or("[]"),
                         p.get("logPath").and_then(|v| v.as_str()).unwrap_or(""),
                         p.get("logType").and_then(|v| v.as_str()).unwrap_or("file"),
-                        p.get("maxLines").and_then(|v| v.as_i64()).unwrap_or(100),
-                        p.get("presetGroup").and_then(|v| v.as_str()),
+                        p.get("maxLines").and_then(|v| v.as_i64()).unwrap_or(500),
+                        p.get("presetGroup").or_else(|| p.get("group")).and_then(|v| v.as_str()).unwrap_or("未分组"),
+                        p.get("keywords").and_then(|v| v.as_str()).unwrap_or("[]"),
+                        p.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now),
+                        p.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now),
                     ]) {
                     Ok(_) => imported += 1,
                     Err(e) => errors.push(format!("log_presets: {}", e)),
