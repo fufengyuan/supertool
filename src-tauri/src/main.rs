@@ -581,6 +581,13 @@ fn main() {
             commands::nginx::get_nginx_config_versions,
             commands::nginx::save_nginx_config_version,
             commands::nginx::set_active_nginx_version,
+            // Disk cleaner commands
+            commands::disk_cleaner::get_disk_info,
+            commands::disk_cleaner::scan_directory,
+            commands::disk_cleaner::scan_by_category,
+            commands::disk_cleaner::get_cache_paths,
+            commands::disk_cleaner::delete_items,
+            commands::disk_cleaner::find_duplicates,
             update_frequent_menu,
         ])
         .run(tauri::generate_context!())

@@ -73,6 +73,11 @@ const routes = [
         component: () => import('../views/backup/DataBackup.vue'),
       },
       {
+        path: 'disk-cleaner',
+        name: 'DiskCleaner',
+        component: () => import('../components/DiskCleaner.vue'),
+      },
+      {
         path: 'mfa',
         name: 'MFA',
         component: () => import('../views/mfa/MfaManager.vue'),
