@@ -1,12 +1,5 @@
 <template>
   <div class="log-aggregator">
-    <div class="log-header">
-      <h2>🔍 日志聚合中心</h2>
-      <div class="header-actions">
-        <button @click="openNewPresetForm" class="btn-add-preset">+ 新增预设</button>
-      </div>
-    </div>
-
     <div class="log-layout">
       <!-- 左侧：预设列表（按分组展示） -->
       <div class="log-sidebar">
@@ -71,6 +64,7 @@
               @click="switchQueryMode('search')"
             >🔍 日志搜索</button>
           </div>
+          <button @click="openNewPresetForm" class="btn-add-preset">+ 新增预设</button>
 
           <!-- 搜索模式：关键字输入 -->
           <div v-if="queryMode === 'search'" class="search-bar">
