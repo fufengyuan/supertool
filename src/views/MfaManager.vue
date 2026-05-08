@@ -1028,7 +1028,7 @@ onUnmounted(() => {
 }
 
 .mfa-advanced summary:hover {
-  background: var(--color-base-200));
+  background: var(--color-base-200);
 }
 
 .mfa-advanced .form-row {
@@ -1042,7 +1042,7 @@ onUnmounted(() => {
 
 /* ======================== 预览验证码 ======================== */
 .mfa-preview {
-  background: var(--color-base-200));
+  background: var(--color-base-200);
   border-radius: 10px;
   border: 1.5px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
   padding: 14px 16px;

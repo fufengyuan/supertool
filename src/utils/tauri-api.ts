@@ -1420,12 +1420,12 @@ export interface TauriAPI {
   onMenuToggleComplete: (callback: () => void) => () => void
   onMenuSetPriority: (callback: (priority: string) => void) => () => void
   onMenuSetTag: (callback: () => void) => () => void
-  onMenuAbout: (callback: () => void) => () => void
+  onMenuAbout: (callback: () => void) => Promise<UnlistenFn>
   onMenuShortcutsHelp: (callback: () => void) => () => void | Promise<UnlistenFn>
-  onMenuNav: (callback: (view: string) => void) => () => void | Promise<UnlistenFn>
+  onMenuNav: (callback: (view: string) => void) => Promise<UnlistenFn>
   onMenuToggleLanPanel: (callback: () => void) => () => void | Promise<UnlistenFn>
   onMenuToggleLocale: (callback: () => void) => () => void | Promise<UnlistenFn>
-  onMenuToggleTheme: (callback: () => void) => () => void | Promise<UnlistenFn>
+  onMenuToggleTheme: (callback: () => void) => Promise<UnlistenFn>
   onMenuSwitchView: (callback: (view: string) => void) => () => void | Promise<UnlistenFn>
   onMenuCheckUpdate: (callback: () => void) => () => void
   onTaskCommentAdded: (callback: (data: any) => void) => () => void
@@ -1457,6 +1457,7 @@ export interface TauriAPI {
   importOvpnFile: () => Promise<any>
   readFileContent: (filePath: string) => Promise<string>
   getUserInfo: (userId: string) => Promise<any>
+  lanGetUserInfo: () => Promise<any>
   setStatus: (status: string) => Promise<any>
   refreshDiscovery: () => Promise<any>
   getAllUnreadCounts: (userId: string) => Promise<any>
