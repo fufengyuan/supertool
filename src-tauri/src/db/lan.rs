@@ -168,6 +168,7 @@ pub fn get_all_users(conn: &Connection) -> Result<Vec<LanUser>, rusqlite::Error>
     rows.collect()
 }
 
+#[allow(dead_code)]
 pub fn insert_user(conn: &Connection, user: &LanUser) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT OR REPLACE INTO users (id, name, ip, port, lastSeen, isOnline) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -195,6 +196,7 @@ pub fn get_all_messages(conn: &Connection) -> Result<Vec<LanMessage>, rusqlite::
     rows.collect()
 }
 
+#[allow(dead_code)]
 pub fn insert_message(conn: &Connection, msg: &LanMessage) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT OR REPLACE INTO messages (id, fromUserId, fromUserName, toUserId, toUserName, content, type, createdAt, read) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
@@ -322,6 +324,7 @@ pub fn get_messages_between(
 }
 
 /// Get messages between two users with LEFT JOIN to file_transfers for file details
+#[allow(dead_code)]
 pub fn get_messages_with_file_transfers(
     conn: &Connection,
     user1: &str,
@@ -409,6 +412,7 @@ pub fn get_all_unread_counts(
 }
 
 /// Get all chat messages for a user (sent or received), paginated
+#[allow(dead_code)]
 pub fn get_chat_messages_for_user(
     conn: &Connection,
     user_id: &str,
@@ -446,6 +450,7 @@ pub fn get_chat_messages_for_user(
 }
 
 /// Get file transfers for a local user
+#[allow(dead_code)]
 pub fn get_file_transfers_for_user(
     conn: &Connection,
     local_user_id: &str,

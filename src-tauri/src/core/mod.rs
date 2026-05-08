@@ -50,11 +50,13 @@ impl CoreService {
     }
 
     /// 获取 SSH 服务引用
+    #[allow(dead_code)]
     pub fn ssh(&self) -> &ssh::SshService {
         &self.ssh
     }
 
     /// 克隆 SSH 服务 Arc（用于 spawn_blocking）
+    #[allow(dead_code)]
     pub fn clone_ssh(&self) -> Arc<ssh::SshService> {
         Arc::clone(&self.ssh)
     }
@@ -1509,24 +1511,28 @@ impl CoreService {
         result
     }
 
+    #[allow(dead_code)]
     pub async fn insert_lan_user(&self, user: crate::db::lan::LanUser) -> Result<(), String> {
         self.with_db(|db| {
             crate::db::lan::insert_user(db.conn(), &user).map_err(|e| e.to_string())
         })
     }
 
+    #[allow(dead_code)]
     pub async fn insert_lan_message(&self, msg: crate::db::lan::LanMessage) -> Result<(), String> {
         self.with_db(|db| {
             crate::db::lan::insert_message(db.conn(), &msg).map_err(|e| e.to_string())
         })
     }
 
+    #[allow(dead_code)]
     pub async fn insert_chat_message(&self, msg: crate::db::lan::ChatMessage) -> Result<(), String> {
         self.with_db(|db| {
             crate::db::lan::insert_chat_message(db.conn(), &msg).map_err(|e| e.to_string())
         })
     }
 
+    #[allow(dead_code)]
     pub async fn insert_file_transfer(&self, ft: crate::db::lan::FileTransfer) -> Result<(), String> {
         self.with_db(|db| {
             crate::db::lan::insert_file_transfer(db.conn(), &ft).map_err(|e| e.to_string())
@@ -1754,7 +1760,7 @@ impl CoreService {
         let mut imported = 0;
         let mut skipped = 0;
 
-        self.with_db(|db| {
+        let _ = self.with_db(|db| {
             let conn = db.conn();
             if mode == "replace" {
                 conn.execute_batch("DELETE FROM deploy_step_logs; DELETE FROM deploy_logs; DELETE FROM deploy_modules; DELETE FROM cicd_configs; DELETE FROM deploy_history;")

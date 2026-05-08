@@ -1232,6 +1232,7 @@ fn file_size_display(path: &str) -> String {
     }
 }
 
+#[allow(dead_code)]
 fn file_size_mb(path: &str) -> f64 {
     fs::metadata(path)
         .map(|m| m.len() as f64 / 1024.0 / 1024.0)

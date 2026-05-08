@@ -447,6 +447,7 @@ pub fn get_deploy_log_by_id(conn: &Connection, log_id: &str) -> Result<Option<De
 }
 
 // Deploy step logs
+#[allow(dead_code)]
 pub fn add_deploy_step_log(conn: &Connection, step: &DeployStepLog) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO deploy_step_logs (deployLogId, stage, status, message, timestamp) \

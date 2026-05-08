@@ -277,6 +277,7 @@ async fn export_all_tables(core: &CoreService) -> Result<serde_json::Value, Stri
 }
 
 // Helper: get DB connection from CoreService for direct SQL inserts
+#[allow(dead_code)]
 fn get_conn(_core: &CoreService) -> Result<rusqlite::Connection, String> {
     // Use the CoreService's internal DB — we need direct SQL access
     // Since CoreService holds a Mutex<Database>, we use db_read/db_write for access

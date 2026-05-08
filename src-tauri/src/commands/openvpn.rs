@@ -35,7 +35,7 @@ pub async fn openvpn_delete(
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_delete() called");
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         db_openvpn::delete(conn, &id).map_err(|e| e.to_string())
     })?;
     Ok(serde_json::json!({ "success": true }))

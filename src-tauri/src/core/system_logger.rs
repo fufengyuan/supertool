@@ -10,6 +10,7 @@ use std::sync::Mutex;
 
 pub struct SystemLogger {
     file: Mutex<File>,
+    #[allow(dead_code)]
     log_dir: PathBuf,
 }
 

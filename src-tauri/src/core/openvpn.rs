@@ -78,6 +78,7 @@ impl OpenVPNManager {
         }
     }
 
+    #[allow(dead_code)]
     pub fn check_available(&self) -> Result<String, String> {
         let openvpn_path = self.find_openvpn()?;
         let output = Command::new(&openvpn_path)

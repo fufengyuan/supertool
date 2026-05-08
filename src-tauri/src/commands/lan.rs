@@ -9,7 +9,8 @@ use std::sync::OnceLock;
 static LAN_SERVICE: OnceLock<Arc<Mutex<Option<LanService>>>> = OnceLock::new();
 static LAN_DB_PATH: OnceLock<String> = OnceLock::new();
 
-pub fn init_lan_service(db_conn: Arc<Mutex<rusqlite::Connection>>) -> Arc<Mutex<Option<LanService>>> {
+#[allow(dead_code)]
+pub fn init_lan_service(_db_conn: Arc<Mutex<rusqlite::Connection>>) -> Arc<Mutex<Option<LanService>>> {
     LAN_SERVICE.get_or_init(|| Arc::new(Mutex::new(None))).clone()
 }
 
@@ -57,6 +58,7 @@ pub fn lan_start(app: AppHandle, user_id: String, user_name: String) -> Result<s
 }
 
 #[tauri::command(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub fn lan_start_with_db(app: AppHandle, user_id: String, user_name: String, db_path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_start_with_db() called, user={}", user_name);
     let svc = get_lan_service().ok_or("LAN service not initialized")?;
@@ -319,7 +321,7 @@ pub fn lan_set_receive_path(path: String) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_show_open_dialog_for_dirs(app: AppHandle) -> Result<serde_json::Value, String> {
+pub fn lan_show_open_dialog_for_dirs(_app: AppHandle) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_show_open_dialog_for_dirs() called");
     // Use Tauri's dialog plugin — but we can't block here in a command easily.
     // We'll return an error telling the frontend to use the JS dialog API instead,
