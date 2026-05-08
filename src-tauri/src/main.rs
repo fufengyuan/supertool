@@ -131,8 +131,27 @@ fn main() {
                 &PredefinedMenuItem::quit(handle, Some("退出"))?,
             ])?;
 
+            let frequent_menu = Submenu::with_items(handle, "常用功能", true, &[
+                &nav_item("nav_todo", "任务", Some("CmdOrCtrl+1"))?,
+                &nav_item("nav_weekly", "周报", Some("CmdOrCtrl+2"))?,
+                &nav_item("nav_projects", "项目", Some("CmdOrCtrl+3"))?,
+                &nav_item("nav_servers", "服务器", Some("CmdOrCtrl+4"))?,
+                &nav_item("nav_cicd", "CI/CD", Some("CmdOrCtrl+5"))?,
+                &nav_item("nav_db", "数据库", Some("CmdOrCtrl+6"))?,
+                &nav_item("nav_notes", "笔记", Some("CmdOrCtrl+7"))?,
+                &PredefinedMenuItem::separator(handle)?,
+                &nav_item("nav_git", "Git 仓库", None)?,
+                &nav_item("nav_logs", "日志聚合", None)?,
+                &nav_item("nav_devtools", "开发工具", Some("CmdOrCtrl+8"))?,
+                &nav_item("nav_accounting", "记账本", Some("CmdOrCtrl+9"))?,
+                &nav_item("nav_mfa", "MFA 验证码", None)?,
+                &nav_item("nav_vpn", "VPN", None)?,
+                &nav_item("nav_backup", "数据备份", None)?,
+            ])?;
+
             let menu = Menu::with_items(handle, &[
                 &edit_menu,
+                &frequent_menu,
                 &business_menu,
                 &ops_menu,
                 &dev_menu,
