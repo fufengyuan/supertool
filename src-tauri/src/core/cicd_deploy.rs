@@ -884,16 +884,35 @@ async fn run_gradle_build(
 }
 
 fn resolve_npm_cmd(config: &DeployConfig, tool: &str) -> String {
+    // 1. 优先用 npm_home（如果填的是 npm 目录或 npm 可执行文件路径）
     if let Some(ref npm_home) = config.npm_home {
-        let npm_path = PathBuf::from(npm_home);
-        if npm_path.is_dir() {
-            let bin_tool = npm_path.join("bin").join(tool);
-            if bin_tool.exists() {
-                return bin_tool.to_string_lossy().to_string();
+        if !npm_home.is_empty() {
+            let npm_path = PathBuf::from(npm_home);
+            if npm_path.is_dir() {
+                let bin_tool = npm_path.join("bin").join(tool);
+                if bin_tool.exists() {
+                    return bin_tool.to_string_lossy().to_string();
+                }
+            }
+            // 如果填的是完整路径（如 .../bin/npm），直接用
+            if npm_path.is_file() || npm_path.exists() {
+                return npm_home.clone();
             }
         }
-        return npm_home.clone();
     }
+    // 2. Fallback 到 node_home（如果填的是 Node 版本目录，npm 就在 bin/ 下）
+    if let Some(ref node_home) = config.node_home {
+        if !node_home.is_empty() {
+            let node_path = PathBuf::from(node_home);
+            if node_path.is_dir() {
+                let bin_tool = node_path.join("bin").join(tool);
+                if bin_tool.exists() {
+                    return bin_tool.to_string_lossy().to_string();
+                }
+            }
+        }
+    }
+    // 3. 实在没有配置，回退到系统 PATH 里的命令
     tool.to_string()
 }
 
