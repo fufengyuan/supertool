@@ -1,6 +1,21 @@
 <template>
-  <div class="cicd-manager">
-    <!-- Left Sidebar: Config List -->
+  <div class="cicd-page">
+    <!-- Top Tab Bar -->
+    <div class="cicd-tabs">
+      <button class="cicd-tab" :class="{ active: cicdTab === 'deploy' }" @click="cicdTab = 'deploy'">
+        🚀 一键部署
+      </button>
+      <button class="cicd-tab" :class="{ active: cicdTab === 'config' }" @click="cicdTab = 'config'">
+        ⚙️ 部署配置
+      </button>
+    </div>
+
+    <div v-if="cicdTab === 'deploy'" class="cicd-deploy-container">
+      <DeployPanel />
+    </div>
+
+    <div v-else class="cicd-manager">
+      <!-- Left Sidebar: Config List -->
     <aside class="cicd-sidebar" :class="{ collapsed: sidebarCollapsed }">
       <div class="sidebar-header">
         <h3 v-show="!sidebarCollapsed">🚀 部署配置</h3>
@@ -757,6 +772,7 @@
       </div>
     </div>
   </div>
+</div>
 </template>
 
 <script setup lang="ts">
@@ -764,6 +780,17 @@
 import { useCicdConfig } from '@/composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
+import DeployPanel from './DeployPanel.vue';
+import { ref } from 'vue'
+
+const cicdTab = ref<'deploy' | 'config'>('deploy')
+
+// Listen for DeployPanel's "go to config" event
+if (typeof window !== 'undefined') {
+  window.addEventListener('switch-cicd-tab', ((e: CustomEvent) => {
+    cicdTab.value = e.detail
+  }) as EventListener)
+}
 
 const cicd = useCicdConfig();
 
@@ -2499,5 +2526,51 @@ import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } fro
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(20px) scale(0.95); }
   to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Tab Bar */
+.cicd-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+.cicd-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0;
+  background: var(--color-base-200);
+  border-bottom: 1px solid var(--color-base-300);
+  flex-shrink: 0;
+}
+.cicd-tab {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--color-base-content);
+  opacity: 0.6;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+  margin-bottom: -1px;
+}
+.cicd-tab:hover {
+  opacity: 0.8;
+  background: color-mix(in oklab, var(--color-base-content) 5%, transparent);
+}
+.cicd-tab.active {
+  opacity: 1;
+  border-bottom-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.cicd-deploy-container {
+  flex: 1;
+  overflow: hidden;
+}
+.cicd-manager {
+  flex: 1;
+  overflow: hidden;
 }
 </style>
