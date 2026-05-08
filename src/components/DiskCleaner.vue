@@ -73,7 +73,7 @@
         <div v-if="dirEntries.length === 0 && !dirScanning" class="text-center py-20 text-base-content/40">
           <div class="text-6xl mb-4">📂</div>
           <p class="text-lg">点击"扫描"开始分析目录</p>
-          <p class="text-sm mt-2">默认从根目录 / 开始</p>
+          <p class="text-sm mt-2">默认从当前用户目录开始</p>
         </div>
 
         <div v-else class="space-y-1">
@@ -391,11 +391,18 @@ async function confirmDelete() {
   const paths = Array.from(selectedPaths.value.keys())
   try {
     const result: any = await invoke('delete_items', { paths })
-    if (result.success?.length > 0) {
-      alert(`成功删除 ${result.success.length} 项，释放 ${formatSize(result.totalFreed || 0)}`)
-    }
-    if (result.failed?.length > 0) {
-      console.warn('删除失败:', result.failed)
+    const successCount = result.success?.length || 0
+    const failedCount = result.failed?.length || 0
+    const freedSize = formatSize(result.totalFreed || 0)
+
+    if (successCount > 0 && failedCount === 0) {
+      alert(`成功删除 ${successCount} 项，释放 ${freedSize}`)
+    } else if (successCount > 0 && failedCount > 0) {
+      const failedList = result.failed.map((f: any) => `${f.path}: ${f.reason}`).join('\n')
+      alert(`成功 ${successCount} 项，释放 ${freedSize}\n失败 ${failedCount} 项：\n${failedList}`)
+    } else if (failedCount > 0) {
+      const failedList = result.failed.map((f: any) => `${f.path}: ${f.reason}`).join('\n')
+      alert(`全部删除失败（${failedCount} 项）：\n${failedList}`)
     }
     // 刷新当前视图
     refreshCurrentView()
