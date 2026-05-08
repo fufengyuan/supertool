@@ -83,6 +83,8 @@ fn main() {
             };
 
             let edit_menu = Submenu::with_items(handle, "编辑", true, &[
+                &action_item("search", "全局搜索", Some("CmdOrCtrl+K"))?,
+                &PredefinedMenuItem::separator(handle)?,
                 &PredefinedMenuItem::undo(handle, Some("撤销"))?,
                 &PredefinedMenuItem::redo(handle, Some("重做"))?,
                 &PredefinedMenuItem::separator(handle)?,
@@ -129,10 +131,6 @@ fn main() {
                 &PredefinedMenuItem::quit(handle, Some("退出"))?,
             ])?;
 
-            let search_menu = Submenu::with_items(handle, "搜索", true, &[
-                &action_item("search", "全局搜索", Some("CmdOrCtrl+K"))?,
-            ])?;
-
             let menu = Menu::with_items(handle, &[
                 &edit_menu,
                 &business_menu,
@@ -140,7 +138,6 @@ fn main() {
                 &dev_menu,
                 &security_menu,
                 &system_menu,
-                &search_menu,
             ])?;
             app.set_menu(menu)?;
 
