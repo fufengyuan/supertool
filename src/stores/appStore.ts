@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n';
 import { useErrorHandler } from '../composables/useErrorHandler';
 import type { ViewMode } from '../types';
 import { getSetting, setSetting } from '../services/database';
+import { invoke } from '@tauri-apps/api/core';
 
 // 需要持久化的状态键
 const STATE_KEYS = {
@@ -50,6 +51,34 @@ export const useAppStore = defineStore('app', () => {
   function recordNavClick(viewId: string) {
     navClickCounts.value[viewId] = (navClickCounts.value[viewId] || 0) + 1
     saveNavClickCounts()
+    updateNativeFrequentMenu()
+  }
+
+  const NAV_TITLES: Record<string, string> = {
+    'todo': '任务', 'weekly-report': '周报', 'projects': '项目',
+    'accounting': '记账本', 'servers': '服务器', 'cicd': 'CI/CD',
+    'log-aggregator': '日志聚合', 'database': '数据库', 'devtools': '开发工具',
+    'notes': '笔记', 'git': 'Git仓库', 'mfa': 'MFA验证码',
+    'vpn': 'VPN', 'data-backup': '数据备份',
+  }
+
+  let menuUpdateTimer: ReturnType<typeof setTimeout> | null = null
+  function updateNativeFrequentMenu() {
+    if (menuUpdateTimer) clearTimeout(menuUpdateTimer)
+    menuUpdateTimer = setTimeout(async () => {
+      try {
+        const topNavs = getFrequentNavs(6)
+        const items = topNavs
+          .map(n => {
+            const title = NAV_TITLES[n.viewId]
+            return title ? `nav_${n.viewId}|${title}` : ''
+          })
+          .filter(Boolean)
+        if (items.length > 0) {
+          await invoke('update_frequent_menu', { items })
+        }
+      } catch {}
+    }, 500) // throttle: 500ms debounce
   }
 
   function getFrequentNavs(limit = 6): { viewId: string; count: number }[] {
@@ -247,5 +276,6 @@ const locale = ref(getLocale());
     toggleLocale,
     recordNavClick,
     getFrequentNavs,
+    updateNativeFrequentMenu,
   };
 });

@@ -12,10 +12,101 @@ use crate::core::CoreService;
 use crate::db::Database;
 use crate::uds::{resolve_socket_path, UdsServer};
 use std::sync::Arc;
+use std::sync::OnceLock;
 use tauri::Manager;
 use tauri::Emitter;
 use tauri::menu::{Menu, Submenu, MenuItem, PredefinedMenuItem};
 use tauri::Wry;
+
+static APP_HANDLE: OnceLock<tauri::AppHandle<Wry>> = OnceLock::new();
+
+#[tauri::command]
+fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
+    let handle = APP_HANDLE.get().ok_or("App handle not initialized")?;
+    
+    let nav_item = |id: &str, title: &str| -> Result<MenuItem<Wry>, String> {
+        MenuItem::with_id(handle, id, title, true, None::<&str>).map_err(|e| e.to_string())
+    };
+
+    let mut menu_items: Vec<MenuItem<Wry>> = Vec::new();
+    for item in &items {
+        let parts: Vec<&str> = item.splitn(2, '|').collect();
+        if parts.len() == 2 {
+            menu_items.push(nav_item(parts[0], parts[1])?);
+        }
+    }
+
+    // Build the frequent submenu items manually
+    let frequent_submenu = Submenu::with_id(handle, "frequent", "常用功能", true)
+        .map_err(|e| e.to_string())?;
+    for item in menu_items {
+        frequent_submenu.append(&item).map_err(|e| e.to_string())?;
+    }
+
+    // Rebuild all menus
+    let edit_menu = Submenu::with_items(handle, "编辑", true, &[
+        &MenuItem::with_id(handle, "search", "全局搜索", true, Some("CmdOrCtrl+K")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::undo(handle, Some("撤销")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::redo(handle, Some("重做")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::cut(handle, Some("剪切")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::copy(handle, Some("复制")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::paste(handle, Some("粘贴")).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::select_all(handle, Some("全选")).map_err(|e| e.to_string())?,
+    ]).map_err(|e| e.to_string())?;
+
+    let business_menu = Submenu::with_items(handle, "业务", true, &[
+        &nav_item("nav_todo", "任务列表")?,
+        &nav_item("nav_weekly", "周报")?,
+        &nav_item("nav_projects", "项目")?,
+        &nav_item("nav_accounting", "记账本")?,
+    ]).map_err(|e| e.to_string())?;
+
+    let ops_menu = Submenu::with_items(handle, "运维", true, &[
+        &nav_item("nav_servers", "服务器管理")?,
+        &nav_item("nav_cicd", "CI/CD 部署")?,
+        &nav_item("nav_logs", "日志聚合")?,
+    ]).map_err(|e| e.to_string())?;
+
+    let dev_menu = Submenu::with_items(handle, "开发", true, &[
+        &nav_item("nav_db", "数据库管理")?,
+        &nav_item("nav_devtools", "开发工具")?,
+        &nav_item("nav_notes", "笔记")?,
+        &nav_item("nav_git", "Git 仓库")?,
+    ]).map_err(|e| e.to_string())?;
+
+    let security_menu = Submenu::with_items(handle, "安全", true, &[
+        &nav_item("nav_mfa", "MFA 验证码")?,
+        &nav_item("nav_vpn", "VPN")?,
+    ]).map_err(|e| e.to_string())?;
+
+    let system_menu = Submenu::with_items(handle, "系统", true, &[
+        &MenuItem::with_id(handle, "about", "关于", true, None::<&str>).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &nav_item("nav_backup", "数据备份")?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &MenuItem::with_id(handle, "toggle_locale", "切换语言", true, None::<&str>).map_err(|e| e.to_string())?,
+        &MenuItem::with_id(handle, "toggle_theme", "切换主题", true, None::<&str>).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+        &PredefinedMenuItem::quit(handle, Some("退出")).map_err(|e| e.to_string())?,
+    ]).map_err(|e| e.to_string())?;
+
+    let menu = Menu::with_items(handle, &[
+        &edit_menu,
+        &frequent_submenu,
+        &business_menu,
+        &ops_menu,
+        &dev_menu,
+        &security_menu,
+        &system_menu,
+    ]).map_err(|e| e.to_string())?;
+
+    handle.set_menu(menu).map_err(|e| e.to_string())?;
+
+    Ok(())
+}
 
 fn main() {
     tauri::Builder::default()
@@ -131,27 +222,8 @@ fn main() {
                 &PredefinedMenuItem::quit(handle, Some("退出"))?,
             ])?;
 
-            let frequent_menu = Submenu::with_items(handle, "常用功能", true, &[
-                &nav_item("nav_todo", "任务", Some("CmdOrCtrl+1"))?,
-                &nav_item("nav_weekly", "周报", Some("CmdOrCtrl+2"))?,
-                &nav_item("nav_projects", "项目", Some("CmdOrCtrl+3"))?,
-                &nav_item("nav_servers", "服务器", Some("CmdOrCtrl+4"))?,
-                &nav_item("nav_cicd", "CI/CD", Some("CmdOrCtrl+5"))?,
-                &nav_item("nav_db", "数据库", Some("CmdOrCtrl+6"))?,
-                &nav_item("nav_notes", "笔记", Some("CmdOrCtrl+7"))?,
-                &PredefinedMenuItem::separator(handle)?,
-                &nav_item("nav_git", "Git 仓库", None)?,
-                &nav_item("nav_logs", "日志聚合", None)?,
-                &nav_item("nav_devtools", "开发工具", Some("CmdOrCtrl+8"))?,
-                &nav_item("nav_accounting", "记账本", Some("CmdOrCtrl+9"))?,
-                &nav_item("nav_mfa", "MFA 验证码", None)?,
-                &nav_item("nav_vpn", "VPN", None)?,
-                &nav_item("nav_backup", "数据备份", None)?,
-            ])?;
-
             let menu = Menu::with_items(handle, &[
                 &edit_menu,
-                &frequent_menu,
                 &business_menu,
                 &ops_menu,
                 &dev_menu,
@@ -159,6 +231,7 @@ fn main() {
                 &system_menu,
             ])?;
             app.set_menu(menu)?;
+            let _ = APP_HANDLE.set(app.handle().clone());
 
             // Handle menu clicks
             let handle_clone = handle.clone();
@@ -497,6 +570,7 @@ fn main() {
             commands::git_sync::git_sync_init,
             commands::git_sync::git_sync_pull,
             commands::git_sync::git_sync_push,
+            update_frequent_menu,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
