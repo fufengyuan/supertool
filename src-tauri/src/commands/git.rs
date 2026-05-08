@@ -126,12 +126,26 @@ pub fn get_git_commits(
 
 /// Scan specified directories for local git repositories
 #[tauri::command(rename_all = "camelCase")]
-pub fn scan_local_repos(directories: Vec<String>) -> Result<Vec<RepoScanResult>, String> {
-    log::info!("[Tauri CMD] scan_local_repos() called with {} directories", directories.len());
+pub fn scan_local_repos(directories: Option<Vec<String>>) -> Result<Vec<RepoScanResult>, String> {
+    let dirs = directories.unwrap_or_else(|| {
+        let home = dirs::home_dir().unwrap_or_default();
+        let mut d = Vec::new();
+        for sub in &["projects", "workspace", "code", "repos", "IdeaProjects", "WebstormProjects"] {
+            let p = home.join(sub);
+            if p.exists() && p.is_dir() {
+                d.push(p.to_string_lossy().to_string());
+            }
+        }
+        if d.is_empty() {
+            d.push(home.to_string_lossy().to_string());
+        }
+        d
+    });
+    log::info!("[Tauri CMD] scan_local_repos() called with {} directories", dirs.len());
 
     let mut repos = Vec::new();
 
-    for scan_path_str in &directories {
+    for scan_path_str in &dirs {
         let scan_path = Path::new(scan_path_str);
         if !scan_path.exists() || !scan_path.is_dir() {
             log::warn!("[scan_local_repos] Path does not exist or not a directory: {}", scan_path_str);
