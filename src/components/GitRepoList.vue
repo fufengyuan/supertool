@@ -2,7 +2,54 @@
   <div class="git-repo-list-container">
     <div class="git-repo-header">
       <h2>Git 仓库</h2>
-      <UiButton @click="openAddModal">+ 添加仓库</UiButton>
+      <div class="header-actions">
+        <UiButton @click="showScanSection = !showScanSection">
+          🔍 扫描本地目录
+        </UiButton>
+        <UiButton @click="openAddModal">+ 添加仓库</UiButton>
+      </div>
+    </div>
+
+    <!-- 扫描本地目录面板 -->
+    <div v-if="showScanSection" class="scan-panel">
+      <div class="scan-panel-header">
+        <span class="scan-panel-title">📂 扫描本地目录</span>
+        <button class="btn btn-ghost btn-xs" @click="showScanSection = false">✕</button>
+      </div>
+      <div class="scan-panel-body">
+        <p class="scan-hint">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
+        <textarea
+          v-model="scanDirectories"
+          class="scan-directories-input"
+          placeholder="/home/fufengyuan/projects&#10;/home/fufengyuan/workspace&#10;/home/fufengyuan/code"
+          rows="4"
+        ></textarea>
+        <div class="scan-actions">
+          <UiButton variant="primary" @click="doScan" :loading="scanning">
+            {{ scanning ? '扫描中...' : '🔍 扫描' }}
+          </UiButton>
+          <span v-if="scanResult !== null" class="scan-result-text">
+            {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}
+          </span>
+        </div>
+        <!-- 扫描结果列表 -->
+        <div v-if="scannedRepos.length > 0" class="scanned-repos">
+          <div v-for="repo in scannedRepos" :key="repo.path" class="scanned-repo-item">
+            <div class="scanned-repo-info">
+              <span class="scanned-repo-name">{{ repo.name }}</span>
+              <span class="scanned-repo-path">{{ repo.path }}</span>
+            </div>
+            <UiButton
+              variant="success"
+              size="sm"
+              :disabled="isRepoAlreadyAdded(repo.path)"
+              @click="addScannedRepo(repo)"
+            >
+              {{ isRepoAlreadyAdded(repo.path) ? '已添加' : '+ 添加' }}
+            </UiButton>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 搜索栏 -->
@@ -219,6 +266,18 @@ const saving = ref(false);
 const validating = ref(false);
 const validationStatus = ref<ValidationStatus | null>(null);
 const formData = ref<FormData>({ name: '', path: '', remote: '', branch: '' });
+
+// Scan section
+const showScanSection = ref(false);
+const scanDirectories = ref('');
+const scanning = ref(false);
+const scanResult = ref<number | null>(null);
+const scannedRepos = ref<RepoScanResult[]>([]);
+
+interface RepoScanResult {
+  path: string;
+  name: string;
+}
 
 let validateTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -457,6 +516,67 @@ const openRepo = (repo: GitRepo) => {
   emit('open-repo', repo);
 };
 
+// ===== Scan local repos =====
+const doScan = async () => {
+  const dirs = scanDirectories.value
+    .split('\n')
+    .map(d => d.trim())
+    .filter(d => d.length > 0);
+
+  if (dirs.length === 0) {
+    toast.warning('请至少输入一个工作目录路径');
+    return;
+  }
+
+  scanning.value = true;
+  scannedRepos.value = [];
+  scanResult.value = null;
+
+  try {
+    const api = getTauriAPI();
+    const result = await api.scanLocalGitRepos(dirs);
+    if (result && Array.isArray(result)) {
+      scannedRepos.value = result;
+      scanResult.value = result.length;
+      if (result.length > 0) {
+        toast.success(`发现 ${result.length} 个 Git 仓库`);
+      }
+    } else {
+      scanResult.value = 0;
+      toast.info('未找到 Git 仓库');
+    }
+  } catch (error) {
+    handleError(error, { context: 'scanLocalRepos' });
+    scanResult.value = 0;
+  } finally {
+    scanning.value = false;
+  }
+};
+
+const isRepoAlreadyAdded = (path: string): boolean => {
+  return repos.value.some(r => r.path === path);
+};
+
+const addScannedRepo = async (repo: RepoScanResult) => {
+  if (isRepoAlreadyAdded(repo.path)) return;
+
+  const api = getTauriAPI();
+  const result = await api.addGitRepo({
+    id: crypto.randomUUID(),
+    name: repo.name,
+    path: repo.path,
+    remote: undefined,
+    branch: undefined,
+  });
+
+  if (result.success) {
+    toast.success(`已添加仓库「${repo.name}」`);
+    await loadRepos();
+  } else {
+    toast.error(`添加失败: ${result.error}`);
+  }
+};
+
 onMounted(async () => {
     console.log("[components/GitRepoList.vue] mounted")
   await loadRepos();
@@ -483,6 +603,122 @@ onMounted(async () => {
   color: var(--color-base-content);
   font-size: 24px;
   font-weight: 600;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 扫描面板 */
+.scan-panel {
+  margin-bottom: 20px;
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
+  border-radius: 12px;
+  background: var(--color-base-100);
+  overflow: hidden;
+}
+
+.scan-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--color-base-200);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.scan-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-base-content);
+}
+
+.scan-panel-body {
+  padding: 16px;
+}
+
+.scan-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.scan-directories-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid color-mix(in oklab, var(--color-base-content) 20%, transparent);
+  border-radius: 8px;
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  font-size: 13px;
+  font-family: monospace;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.scan-directories-input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 10%, transparent);
+}
+
+.scan-directories-input::placeholder {
+  color: color-mix(in oklab, var(--color-base-content) 40%, transparent);
+}
+
+.scan-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.scan-result-text {
+  font-size: 13px;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+}
+
+/* 扫描结果列表 */
+.scanned-repos {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.scanned-repo-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--color-base-200);
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.scanned-repo-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.scanned-repo-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-base-content);
+}
+
+.scanned-repo-path {
+  font-size: 12px;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  font-family: monospace;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 筛选栏 */

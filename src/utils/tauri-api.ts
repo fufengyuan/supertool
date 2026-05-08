@@ -1873,7 +1873,7 @@ export function getTauriAPI(): TauriAPI {
     },
     // Git
     getGitCommits: async (path: string): Promise<any> => tauriCall('get_git_commits', { repoPath: path }),
-    scanLocalGitRepos: async (): Promise<any> => tauriCall('scan_local_repos'),
+    scanLocalGitRepos: async (directories: string[]): Promise<any> => tauriCall('scan_local_repos', { directories }),
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     // Subtask
     updateTodoCompletionBasedOnSubtasks: async (todoId: string): Promise<any> => { return tauriCall('update_todo_completion_based_on_subtasks', { todoId }); },

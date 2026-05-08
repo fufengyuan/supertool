@@ -124,23 +124,22 @@ pub fn get_git_commits(
     Ok(commits)
 }
 
-/// Scan common directories for local git repositories
+/// Scan specified directories for local git repositories
 #[tauri::command(rename_all = "camelCase")]
-pub fn scan_local_repos() -> Result<Vec<RepoScanResult>, String> {
-    log::info!("[Tauri CMD] scan_local_repos() called");
-    let home = dirs::home_dir().ok_or("Cannot determine home directory")?;
-    let scan_dirs = ["projects", "workspace", "code", "dev", "git", "src"];
+pub fn scan_local_repos(directories: Vec<String>) -> Result<Vec<RepoScanResult>, String> {
+    log::info!("[Tauri CMD] scan_local_repos() called with {} directories", directories.len());
 
     let mut repos = Vec::new();
 
-    for dir_name in &scan_dirs {
-        let scan_path = home.join(dir_name);
+    for scan_path_str in &directories {
+        let scan_path = Path::new(scan_path_str);
         if !scan_path.exists() || !scan_path.is_dir() {
+            log::warn!("[scan_local_repos] Path does not exist or not a directory: {}", scan_path_str);
             continue;
         }
 
-        // Read entries in the scan directory
-        if let Ok(entries) = std::fs::read_dir(&scan_path) {
+        // Read entries in the scan directory (depth 1)
+        if let Ok(entries) = std::fs::read_dir(scan_path) {
             for entry in entries.flatten() {
                 let entry_path = entry.path();
                 if !entry_path.is_dir() {
@@ -160,9 +159,11 @@ pub fn scan_local_repos() -> Result<Vec<RepoScanResult>, String> {
         }
     }
 
-    // Sort by path for consistent output
+    // Deduplicate by path
     repos.sort_by(|a, b| a.path.cmp(&b.path));
+    repos.dedup_by(|a, b| a.path == b.path);
 
+    log::info!("[scan_local_repos] Found {} repositories", repos.len());
     Ok(repos)
 }
 
