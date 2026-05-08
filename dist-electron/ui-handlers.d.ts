@@ -1,1 +1,0 @@
-export declare function registerUiHandlers(db: any, notifyDataChange: (type: string, data?: unknown) => void, dismissNotification: (todoId: string) => void, updateShortcuts: (shortcuts: Record<string, string>, db: any) => Promise<void>, testNotification: () => void, scanProjectModules: (p: string) => any, totpUtils: any): void;
