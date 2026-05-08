@@ -96,45 +96,21 @@
 
           <!-- 默认快捷操作 (无搜索词时) -->
           <div v-else class="quick-actions">
-            <div class="result-group-label">快捷导航</div>
+            <div class="result-group-label">常用功能</div>
             <div
+              v-for="(item, idx) in frequentNavs"
+              :key="item.viewId"
               class="search-result-item"
-              :class="{ active: activeIndex === 0 }"
-              @click="quickNavigate('todo')"
-              @mouseenter="activeIndex = 0"
+              :class="{ active: activeIndex === idx }"
+              @click="quickNavigateFreq(item)"
+              @mouseenter="activeIndex = idx"
             >
-              <span class="result-icon todo-icon">✓</span>
+              <span class="result-icon">{{ item.icon }}</span>
               <div class="result-info">
-                <span class="result-title">全部任务</span>
-                <span class="result-subtitle">切换到任务视图</span>
+                <span class="result-title">{{ item.label }}</span>
+                <span class="result-subtitle">点击 {{ item.count }} 次</span>
               </div>
-              <kbd class="result-kbd">1</kbd>
-            </div>
-            <div
-              class="search-result-item"
-              :class="{ active: activeIndex === 1 }"
-              @click="quickNavigate('projects')"
-              @mouseenter="activeIndex = 1"
-            >
-              <span class="result-icon project-icon">📁</span>
-              <div class="result-info">
-                <span class="result-title">项目管理</span>
-                <span class="result-subtitle">查看所有项目</span>
-              </div>
-              <kbd class="result-kbd">2</kbd>
-            </div>
-            <div
-              class="search-result-item"
-              :class="{ active: activeIndex === 2 }"
-              @click="quickNavigate('servers')"
-              @mouseenter="activeIndex = 2"
-            >
-              <span class="result-icon server-icon">🖥️</span>
-              <div class="result-info">
-                <span class="result-title">服务器管理</span>
-                <span class="result-subtitle">查看服务器列表</span>
-              </div>
-              <kbd class="result-kbd">3</kbd>
+              <kbd class="result-kbd">{{ idx + 1 }}</kbd>
             </div>
           </div>
 
@@ -155,6 +131,7 @@ import { getTauriAPI } from '../utils/tauri-api'
 import { ref, computed, watch, nextTick } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import { useTodoStore } from '../stores/todoStore'
+import { useRouter } from 'vue-router'
 
 interface SearchResult {
   id: string
@@ -164,6 +141,30 @@ interface SearchResult {
 
 const appStore = useAppStore()
 const todoStore = useTodoStore()
+const router = useRouter()
+
+const freqNavInfo: Record<string, { icon: string; label: string; route: string }> = {
+  'todo': { icon: '📝', label: '任务', route: '/' },
+  'weekly-report': { icon: '📊', label: '周报', route: '/weekly' },
+  'projects': { icon: '📁', label: '项目', route: '/projects' },
+  'accounting': { icon: '💰', label: '记账本', route: '/accounting' },
+  'servers': { icon: '🖥️', label: '服务器', route: '/servers' },
+  'cicd': { icon: '🚀', label: 'CI/CD', route: '/cicd' },
+  'log-aggregator': { icon: '📋', label: '日志聚合', route: '/logs' },
+  'database': { icon: '🗄️', label: '数据库', route: '/database' },
+  'devtools': { icon: '🛠️', label: '开发工具', route: '/devtools' },
+  'notes': { icon: '📓', label: '笔记', route: '/notes' },
+  'git': { icon: '🔀', label: 'Git 仓库', route: '/git' },
+  'mfa': { icon: '🔐', label: 'MFA', route: '/mfa' },
+  'vpn': { icon: '🌐', label: 'VPN', route: '/vpn' },
+  'data-backup': { icon: '💾', label: '备份', route: '/backup' },
+}
+
+const frequentNavs = computed(() => {
+  return appStore.getFrequentNavs(6)
+    .map(item => ({ ...item, ...freqNavInfo[item.viewId] }))
+    .filter(item => item.route) // 只显示已知路由
+})
 
 const isOpen = ref(false)
 const query = ref('')
@@ -237,7 +238,7 @@ const getGlobalIndex = (type: 'todo' | 'project' | 'server', localIdx: number): 
 // 键盘导航
 const navigateResults = (direction: number) => {
   const totalResults = results.value.length
-  const totalQuickActions = 3
+  const totalQuickActions = frequentNavs.value.length
   const total = query.value.trim() ? totalResults : totalQuickActions
   if (total === 0) return
   activeIndex.value = (activeIndex.value + direction + total) % total
@@ -264,25 +265,29 @@ const selectResult = () => {
 const selectItem = (item: any, type: string) => {
   close()
   if (type === 'todo') {
-    appStore.setViewMode('todo')
+    appStore.recordNavClick('todo')
+    router.push('/')
     setTimeout(() => {
       window.dispatchEvent(new CustomEvent('navigate-to-todo', { detail: { todoId: item.id } }))
     }, 200)
   } else if (type === 'project') {
-    appStore.setViewMode('projects')
+    appStore.recordNavClick('projects')
+    router.push('/projects')
   } else if (type === 'server') {
-    appStore.setViewMode('servers')
+    appStore.recordNavClick('servers')
+    router.push('/servers')
   }
 }
 
-const quickNavigate = (mode: string) => {
+const quickNavigateFreq = (item: any) => {
   close()
-  appStore.setViewMode(mode as any)
+  appStore.recordNavClick(item.viewId)
+  router.push(item.route)
 }
 
 const quickNavigateByIndex = (index: number) => {
-  const modes = ['todo', 'projects', 'servers']
-  if (modes[index]) quickNavigate(modes[index])
+  const navs = frequentNavs.value
+  if (navs[index]) quickNavigateFreq(navs[index])
 }
 
 // 打开/关闭

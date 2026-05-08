@@ -29,6 +29,35 @@ export const useAppStore = defineStore('app', () => {
   const viewMode = ref<ViewMode>('todo');
   const showLan = ref(false);
   const sidebarCollapsed = ref(false);
+
+  // 导航点击计数（持久化到 localStorage）
+  const NAV_CLICK_KEY = 'nav_click_counts'
+  const navClickCounts = ref<Record<string, number>>(loadNavClickCounts())
+
+  function loadNavClickCounts(): Record<string, number> {
+    try {
+      const raw = localStorage.getItem(NAV_CLICK_KEY)
+      return raw ? JSON.parse(raw) : {}
+    } catch { return {} }
+  }
+
+  function saveNavClickCounts() {
+    try {
+      localStorage.setItem(NAV_CLICK_KEY, JSON.stringify(navClickCounts.value))
+    } catch {}
+  }
+
+  function recordNavClick(viewId: string) {
+    navClickCounts.value[viewId] = (navClickCounts.value[viewId] || 0) + 1
+    saveNavClickCounts()
+  }
+
+  function getFrequentNavs(limit = 6): { viewId: string; count: number }[] {
+    return Object.entries(navClickCounts.value)
+      .map(([viewId, count]) => ({ viewId, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+  }
   // i18n locale access — use safe getter to avoid tree-shaking issues
 function getLocale(): string {
   try {
@@ -203,6 +232,7 @@ const locale = ref(getLocale());
     showLan,
     sidebarCollapsed,
     locale,
+    navClickCounts,
     // 操作
     initTheme,
     restoreState,
@@ -215,5 +245,7 @@ const locale = ref(getLocale());
     toggleSidebar,
     setLocale,
     toggleLocale,
+    recordNavClick,
+    getFrequentNavs,
   };
 });
