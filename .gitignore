@@ -12,3 +12,4 @@ cli/target/
 tauri-app/
 supertool-patch/
 package-lock.json
+target/
