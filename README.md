@@ -1,247 +1,259 @@
-# Tauri Vue3 App Template
+# SuperTool
 
 [中文文档](README_CN.md) | **English**
 
-A modern cross-platform desktop application template built with Tauri v2 and Vue 3, featuring internationalization, theme switching, and a multi-page clean responsive UI.
+Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 + Rust shared library architecture, unifying server management, CI/CD deployment, databases, logs, and Git repositories.
 
 ## Features
 
-- **Modern Stack**: Tauri v2 + Vue 3 + TypeScript + Vite
-- **Styling**: Tailwind CSS v4 + daisyUI components
-- **Internationalization**: Built-in i18n support (English & Chinese)
-- **State Management**: Pinia store with persistent settings without localStorage dependency
-- **Theme System**: Dynamic theme switching with daisyUI themes
-- **Responsive Design**: Mobile-first responsive layout
-- **Developer Experience**: Hot reload, TypeScript, OxLint, Prettier
-- **Custom Window**: Custom title bar with window controls
-- **Cross-Platform**: Build for Windows, macOS, and Linux
+- **Unified Architecture**: `core` / `cli` / `tauri` three-crate workspace, all business logic consolidated into `supertool-core`
+- **Standalone CLI**: `stool` CLI directly links to the core shared library (~12MB), no GUI required, deployable on servers independently
+- **Modern Frontend**: Vue 3 + TypeScript + Tailwind CSS v4 + daisyUI
+- **Multi-Database Support**: MySQL, PostgreSQL, Redis direct query and management
+- **SSH Management**: Remote server connections, command execution, file operations, health checks
+- **CI/CD Deployment**: Automated build/deploy, rollback, deployment history tracking
+- **Log Aggregation**: Multi-server log search and real-time tail
+- **Git Management**: Repository status, commit history, branch management
+- **OpenVPN / WireGuard**: Intranet穿透 and virtual networking
+- **Internationalization**: Chinese / English
+- **Encrypted Storage**: AES-256-GCM encryption for sensitive data (SSH passwords, DB passwords)
+
+## Architecture
+
+```
+supertool/
+├── core/          # supertool-core shared library (single source of truth)
+│   └── src/
+│       ├── db/         # SQLite data access layer
+│       ├── encryption/ # AES-256-GCM encryption
+│       └── logic/      # Business logic: ssh, cicd, git, openvpn, wireguard, nginx...
+├── cli/           # stool CLI (direct core access, standalone)
+│   └── src/
+│       ├── main.rs       # clap CLI entry point
+│       ├── commands/     # All subcommands (todo, server, cicd, db, log, git)
+│       ├── runtime.rs    # CliRuntime lifecycle management
+│       └── types.rs      # CLI type definitions
+├── tauri/         # Tauri GUI (also direct core access)
+│   ├── src/            # Rust IPC command layer
+│   ├── tauri.conf.json # Tauri config
+│   └── ...
+└── src/           # Vue 3 frontend
+    ├── views/          # Page components
+    ├── components/     # Reusable components
+    └── ...
+```
+
+### Data Flow
+
+```
+stool CLI ──┐
+            ├──▶ supertool-core (CoreService) ──▶ SQLite / SSH / MySQL / Redis / ...
+Tauri GUI ──┘
+```
+
+Both CLI and GUI directly link to `supertool-core`, **zero UDS/HTTP middleware**.
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v18 or higher)
-- [pnpm](https://pnpm.io/) package manager
-- [Rust](https://rustup.rs/) toolchain
+- [Node.js](https://nodejs.org/) (v18+) + [pnpm](https://pnpm.io/)
+- [Rust](https://rustup.rs/) toolchain (edition 2024)
 
 ### Installation
 
-1. **Clone the repository**
+```bash
+git clone git@git.code.tencent.com:fufengyuan/supertool.git
+cd supertool
+pnpm install
+```
 
-    ```bash
-    git clone https://github.com/KitsuneX07/tauri-vue-app.git
-    cd tauri-vue-app
-    ```
+### Development
 
-2. **Install dependencies**
+```bash
+# Start Tauri development environment (frontend + backend)
+pnpm tauri dev
 
-    ```bash
-    pnpm install
-    ```
+# Build CLI standalone (output cli/target/release/stool, ~12MB)
+cd cli && cargo build --release
 
-3. **Start development server**
-
-    ```bash
-    pnpm tauri dev
-    ```
-
-4. **Build for production**
-    ```bash
-    pnpm tauri build
-    ```
+# Production build
+pnpm tauri build
+```
 
 ## Development Commands
 
-### Frontend Development
+### Frontend
 
 ```bash
-pnpm dev          # Start Vue development server (port 1420)
-pnpm build        # Build Vue frontend for production
+pnpm dev          # Vue dev server (port 1420)
+pnpm build        # Production build
 pnpm preview      # Preview production build
 ```
 
-### Tauri Development
+### Tauri
 
 ```bash
-pnpm tauri dev    # Start Tauri development environment
-pnpm tauri build  # Build Tauri application
-pnpm tauri        # Access Tauri CLI commands
+pnpm tauri dev    # Development environment
+pnpm tauri build  # Production build
+pnpm tauri        # Tauri CLI
+```
+
+### Rust / CLI
+
+```bash
+# Full workspace compilation check
+cargo check --workspace
+
+# CLI release build
+cd cli && cargo build --release
+
+# Tauri release build
+cd tauri && cargo build --release
 ```
 
 ### Code Quality
 
 ```bash
-pnpm lint         # Run oxlint for linting
-pnpm lint:fix     # Run oxlint with auto-fix
-pnpm format       # Format code with Prettier
+pnpm lint         # oxlint
+pnpm lint:fix     # oxlint --fix
+pnpm format       # Prettier
 vue-tsc --noEmit  # TypeScript type checking
 ```
 
 ## Project Structure
 
 ```
-tauri-vue-app/
-├── src/                    # Vue frontend source code
-│   ├── components/         # Reusable Vue components
-│   │   └── TitleBar.vue   # Custom title bar component
-│   ├── layouts/           # Layout components
-│   │   └── MainLayout.vue # Main application layout
-│   ├── views/             # Page components
-│   │   ├── HomeView.vue   # Home page
-│   │   └── SettingsView.vue # Settings page
-│   ├── utils/             # Utility functions
-│   │   ├── i18n.ts        # Internationalization setup
-│   │   ├── settings.ts    # Settings management
-│   │   └── theme.ts       # Theme switching utilities
-│   ├── locales/           # Translation files
-│   │   ├── en-US.ts       # English translations
-│   │   └── zh-CN.ts       # Chinese translations
-│   ├── router/            # Vue Router configuration
-│   │   └── index.ts       # Router setup
-│   ├── assets/            # Static assets
-│   │   └── main.css       # Global styles
-│   ├── App.vue            # Root component
-│   └── main.ts            # Vue app entry point
-├── tauri/             # Rust backend source code
-│   ├── src/
-│   │   ├── main.rs        # Tauri app entry point
-│   │   └── lib.rs         # Main Rust library
-│   ├── icons/             # App icons
-│   ├── Cargo.toml         # Rust dependencies
-│   └── tauri.conf.json    # Tauri configuration
-├── public/                # Public assets
-├── package.json           # Node.js dependencies
-├── vite.config.ts         # Vite configuration
-├── tailwind.config.ts     # Tailwind CSS configuration
-├── tsconfig.json          # TypeScript configuration
-└── README.md              # This file
+supertool/
+├── Cargo.toml              # Workspace config (core, cli, tauri)
+├── core/                   # supertool-core shared library
+│   ├── Cargo.toml          # version = "4.0.0", edition = "2024"
+│   └── src/
+│       ├── lib.rs              # Library entry
+│       ├── service.rs          # CoreService main entry
+│       ├── db/                 # SQLite data access
+│       │   ├── database.rs         # Main database operations
+│       │   ├── servers.rs          # Server CRUD
+│       │   ├── cicd.rs             # CI/CD config
+│       │   ├── projects.rs         # Project management
+│       │   ├── openvpn.rs          # OpenVPN config
+│       │   ├── wireguard.rs        # WireGuard config
+│       │   └── lan.rs              # LAN discovery
+│       ├── encryption/         # AES-256-GCM encryption
+│       └── logic/              # Business logic
+│           ├── data_dir.rs         # Data directory resolution
+│           ├── ssh.rs              # SSH connection management
+│           ├── cicd_deploy.rs      # Deployment engine
+│           ├── git.rs              # Git operations
+│           ├── openvpn.rs          # OpenVPN tunnel
+│           ├── wireguard.rs        # WireGuard tunnel
+│           ├── nginx.rs            # Nginx config
+│           └── log_sanitizer.rs    # Log sanitization
+├── cli/                    # stool CLI
+│   ├── Cargo.toml          # version = "4.0.0"
+│   └── src/
+│       ├── main.rs             # Entry + command registration
+│       ├── commands/           # todo, server, cicd, db, log, git
+│       ├── runtime.rs          # CliRuntime
+│       ├── types.rs            # clap type definitions
+│       ├── output.rs           # Output formatting
+│       ├── utils.rs            # Utility functions
+│       └── guide.rs            # Usage guide
+├── tauri/                  # Tauri GUI
+│   ├── Cargo.toml          # version = "4.0.0"
+│   ├── tauri.conf.json     # Tauri config
+│   └── src/
+│       ├── main.rs             # Tauri entry
+│       ├── lib.rs              # Tauri command library
+│       └── commands/           # IPC commands
+└── src/                    # Vue 3 frontend
+    ├── main.ts             # Vue entry
+    ├── App.vue
+    ├── router/             # Router config
+    ├── views/              # Pages
+    ├── components/         # Components
+    ├── layouts/            # Layouts
+    ├── stores/             # Pinia stores
+    ├── utils/              # Utilities
+    ├── locales/            # i18n (zh-CN, en-US)
+    └── assets/             # Static assets
 ```
 
 ## Technology Stack
 
+### Rust Backend
+
+- **Rust** edition 2024
+- **Tauri v2** — Cross-platform desktop framework
+- **rusqlite** — SQLite embedded database
+- **mysql_async** / **tokio-postgres** — External database connections
+- **redis** — Redis client
+- **ssh2** — SSH connection management
+- **aes-gcm** — AES-256-GCM encryption
+- **tokio** — Async runtime
+
 ### Frontend
 
-- **Vue 3** - Progressive JavaScript framework with Composition API
-- **TypeScript** - Type-safe JavaScript development
-- **Vite** - Fast build tool and development server
-- **Vue Router** - Client-side routing
-- **Pinia** - State management
-- **Vue i18n** - Internationalization
-- **Tailwind CSS v4** - Utility-first CSS framework
-- **daisyUI** - Tailwind CSS components
-- **Heroicons** - Beautiful hand-crafted SVG icons
-
-### Backend
-
-- **Rust** - Systems programming language
-- **Tauri v2** - Cross-platform desktop app framework
-- **Tauri Plugins**:
-    - `store` - Persistent key-value storage
-    - `fs` - File system operations
-    - `opener` - Open URLs and files
-    - `log` - Logging functionality
+- **Vue 3** — Composition API + `<script setup>`
+- **TypeScript** — Strict mode
+- **Vite** — Build tool
+- **Tailwind CSS v4** + **daisyUI** — Styling
+- **Pinia** — State management
+- **Vue i18n** — Internationalization
+- **Vue Router** — Routing
+- **pnpm** — Package manager
 
 ### Development Tools
 
-- **oxlint** - Fast JavaScript/TypeScript linter
-- **Prettier** - Code formatter with Tailwind plugin
-- **pnpm** - Fast, disk space efficient package manager
+- **oxlint** — Fast linting
+- **Prettier** — Code formatting
+- **vue-tsc** — TS type checking
 
-## Configuration
+## Data Directory
 
-### Internationalization
+All runtime data stored in `~/.supertool/`:
 
-The app supports multiple languages out of the box:
-
-- English (en-US)
-- Chinese (zh-CN)
-
-Add new languages by creating translation files in `src/locales/` and updating the i18n configuration.
-
-### Theme System
-
-Built-in theme switching with daisyUI themes:
-
-- Light themes: light, pastel, emerald
-- Dark themes: dark, forest, luxury
-
-Customize themes in `src/utils/theme.ts`.
-
-### Settings Persistence
-
-User settings are automatically saved using Tauri's store plugin:
-
-- Language preference
-- Theme selection
-- Window state
-- Custom configurations
-
-## Building and Distribution
-
-### Development Build
-
-```bash
-pnpm tauri dev
+```
+~/.supertool/
+├── supertool.db        # SQLite main database
+├── logs/               # Application logs
+├── tmp/                # Temporary files
+├── backups/            # Backup files
+├── cicd/               # CI/CD deployment artifacts
+└── cli/                # CLI binary (auto-installed to /usr/local/bin/)
 ```
 
-### Production Build
+Customizable via `~/.supertool_dir` file.
+
+## CLI Usage
+
+The CLI is an AI Agent operations tool supporting server management, CI/CD deployment, database queries, log search, and more. See [skills/stool-cli/SKILL.md](skills/stool-cli/SKILL.md) for details.
 
 ```bash
-pnpm tauri build
+# Check version
+stool version
+
+# List servers
+stool server list -j
+
+# Deploy
+stool cicd deploy <config_id> --stream
+
+# Database query
+stool db query -d <db_id> "SELECT * FROM users LIMIT 10"
+
+# Log search
+stool log search <preset_id> "ERROR" -l 30
 ```
-
-Build outputs are generated in `tauri/target/release/bundle/`:
-
-- **Windows**: `.msi` installer and `.exe` executable
-- **macOS**: `.dmg` installer and `.app` bundle
-- **Linux**: `.deb`, `.rpm`, and `.AppImage` packages
-
-### Customization
-
-1. **App Identity**: Update `tauri/tauri.conf.json`
-2. **Icons**: Replace files in `tauri/icons/`
-3. **Window Settings**: Modify window configuration in `tauri.conf.json`
-4. **Branding**: Update app name, description, and metadata
-
-## IDE Setup
-
-### Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
-
-### Type Support For `.vue` Imports in TS
-
-Since TypeScript cannot handle type information for `.vue` imports, they are shimmed to be a generic Vue component type by default. In most cases this is fine if you don't really care about component prop types outside of templates. However, if you wish to get actual prop types in `.vue` imports (for example to get props validation when using manual `h(...)` calls), you can enable Volar's Take Over mode by following these steps:
-
-1. Run `Extensions: Show Built-in Extensions` from VS Code's command palette, look for `TypeScript and JavaScript Language Features`, then right click and select `Disable (Workspace)`. By default, Take Over mode will enable itself if the default TypeScript extension is disabled.
-2. Reload the VS Code window by running `Developer: Reload Window` from the command palette.
-
-You can learn more about Take Over mode [here](https://github.com/johnsoncodehk/volar/discussions/471).
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
+2. Create a branch: `git checkout -b feature/xxx`
+3. Commit changes: `git commit -m 'feat: xxx'`
+4. Push: `git push origin feature/xxx`
 5. Open a Pull Request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Tauri](https://tauri.app/) - For the amazing cross-platform framework
-- [Vue.js](https://vuejs.org/) - For the reactive frontend framework
-- [Tailwind CSS](https://tailwindcss.com/) - For the utility-first CSS framework
-- [daisyUI](https://daisyui.com/) - For the beautiful component library
-
-## Support
-
-If you find this template helpful, please consider:
-
-- Starring the repository
-- Reporting issues
-- Contributing improvements
-- Sharing feedback
+MIT License — see [LICENSE](LICENSE)
