@@ -152,6 +152,10 @@ const paths: Record<string, string> = {
 
   // === Sort & Filter ===
   filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+
+  // === VPN specific ===
+  power: '<polygon points="6 9 12 3 18 9 6 9"/><path d="M6 20h12"/>',
+  play: '<polygon points="5 3 19 12 5 21 5 3"/>',
 }
 
 const iconPath = computed(() => {
