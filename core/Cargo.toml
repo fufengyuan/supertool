@@ -1,0 +1,36 @@
+[package]
+name = "supertool-core"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+aes-gcm = "0.10"
+base64 = "0.22"
+getrandom = "0.2"
+scrypt = "0.11"
+thiserror = "1"
+anyhow = "1"
+log = "0.4"
+dirs = "6.0.0"
+hmac = "0.13.0"
+sha1 = "0.11.0"
+regex = "1"
+mysql_async = "0.35"
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
+postgres-native-tls = "0.5"
+redis = { version = "0.32", features = ["tokio-comp", "streams"] }
+tokio = { version = "1", features = ["full"] }
+ssh2 = "0.9.5"
+openssl = { version = "0.10", features = ["vendored"] }
+boringtun = "0.7"
+tun2 = { version = "4", features = ["async"] }
+rand = "0.8"
+notify-rust = "4"
+zip = { version = "2", default-features = false, features = ["deflate"] }
+flate2 = "1"
+libc = "0.2"

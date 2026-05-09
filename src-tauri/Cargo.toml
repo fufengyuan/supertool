@@ -17,6 +17,7 @@ tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 
 # Database
+supertool-core = { path = "../core" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 mysql_async = "0.35"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
