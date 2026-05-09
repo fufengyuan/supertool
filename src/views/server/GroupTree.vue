@@ -5,9 +5,7 @@
       @click="toggle">
       <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-[3px]" :style="{ background: group.color || '#6c63ff' }"></div>
       <div class="flex items-center gap-2 relative z-[1]">
-        <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': isExpanded }" :style="{ color: isExpanded ? (group.color || '#6c63ff') : undefined }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
+        <SvgIcon class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': isExpanded }" :style="{ color: isExpanded ? (group.color || '#6c63ff') : undefined }" name="chevronDown" size="14" strokeWidth="2.5" />
         <span class="text-sm leading-none" v-html="getGroupIcon(depth)"></span>
         <span class="font-semibold text-xs text-base-content">{{ group.name }}</span>
         <span class="text-[11px] font-semibold px-1.5 py-px rounded-full leading-tight" :style="{ background: (group.color || '#6c63ff') + '22', color: group.color || '#6c63ff' }">
@@ -69,6 +67,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { computed } from 'vue';
 import ServerItem from './ServerItem.vue';
 

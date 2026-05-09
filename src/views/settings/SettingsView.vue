@@ -70,7 +70,7 @@
         </div>
         <div class="w-px bg-base-content/10"></div>
         <div class="flex items-center gap-2.5">
-          <span class="text-base"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></span>
+          <span class="text-base"><SvgIcon name="save" size="14" class="inline-block align-text-bottom" /></span>
           <div class="flex flex-col gap-0.5">
             <span class="text-xs text-base-content/60">{{ t("settings.storage") }}</span>
             <span class="text-sm font-semibold text-base-content">{{ t("settings.local") }}</span>
@@ -91,6 +91,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useSettingsStore } from "../../utils/settings";
 import { useTheme } from "../../utils/theme";
 import { useLanguage } from "../../utils/i18n";

@@ -1,11 +1,11 @@
 <template>
   <div class="p-6 flex flex-col gap-4 text-base-content">
-    <h3><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>  {{ $t('notification.title') }}</h3>
+    <h3><SvgIcon name="bell" size="14" />  {{ $t('notification.title') }}</h3>
 
     <!-- 提醒时间设置 -->
     <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
       <div class="flex items-center gap-2.5 mb-3.5">
-        <span class="text-xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </span>
+        <span class="text-xl"><SvgIcon name="clock" size="14" /> </span>
         <span class="text-sm font-semibold text-base-content flex-1">{{ $t('notification.reminderTime') }}</span>
       </div>
       <div class="mb-2">
@@ -63,7 +63,7 @@
     <!-- 每日总结 -->
     <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
       <div class="flex items-center gap-2.5 mb-3.5">
-        <span class="text-xl"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> </span>
+        <span class="text-xl"><SvgIcon name="barChart" size="14" /> </span>
         <span class="text-sm font-semibold text-base-content flex-1">每日总结</span>
         <input type="checkbox" v-model="settings.dailySummaryEnabled" @change="saveExtendedSettings" class="toggle toggle-sm" />
       </div>
@@ -95,7 +95,7 @@
 
     <!-- 测试通知 -->
     <div class="flex items-center gap-3 py-3">
-      <button @click="testNotification" class="btn btn-ghost"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>  {{ $t('notification.test') }}</button>
+      <button @click="testNotification" class="btn btn-ghost"><SvgIcon name="bell" size="14" />  {{ $t('notification.test') }}</button>
       <span
         v-if="testResult"
         class="text-sm font-medium"
@@ -108,6 +108,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, computed } from 'vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { getTauriAPI } from '../../utils/tauri-api';
