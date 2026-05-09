@@ -160,16 +160,19 @@ fn main() {
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
 
             // Build custom application menu (mirrors Electron version)
+            // Note: accelerators removed — on Linux GTK they produce
+            // Gtk-WARNING about accel group registration. Keyboard shortcuts
+            // are handled by the frontend instead.
             let handle = app.handle();
-            let nav_item = |id: &str, title: &str, accel: Option<&str>| -> Result<MenuItem<Wry>, tauri::Error> {
-                MenuItem::with_id(handle, id, title, true, accel)
+            let nav_item = |id: &str, title: &str| -> Result<MenuItem<Wry>, tauri::Error> {
+                MenuItem::with_id(handle, id, title, true, None::<&str>)
             };
-            let action_item = |id: &str, title: &str, accel: Option<&str>| -> Result<MenuItem<Wry>, tauri::Error> {
-                MenuItem::with_id(handle, id, title, true, accel)
+            let action_item = |id: &str, title: &str| -> Result<MenuItem<Wry>, tauri::Error> {
+                MenuItem::with_id(handle, id, title, true, None::<&str>)
             };
 
             let edit_menu = Submenu::with_items(handle, "编辑", true, &[
-                &action_item("search", "全局搜索", Some("CmdOrCtrl+K"))?,
+                &action_item("search", "全局搜索")?,
                 &PredefinedMenuItem::separator(handle)?,
                 &PredefinedMenuItem::undo(handle, Some("撤销"))?,
                 &PredefinedMenuItem::redo(handle, Some("重做"))?,
@@ -182,37 +185,37 @@ fn main() {
             ])?;
 
             let business_menu = Submenu::with_items(handle, "业务", true, &[
-                &nav_item("nav_todo", "任务列表", Some("CmdOrCtrl+1"))?,
-                &nav_item("nav_weekly", "周报", Some("CmdOrCtrl+2"))?,
-                &nav_item("nav_projects", "项目", Some("CmdOrCtrl+3"))?,
-                &nav_item("nav_accounting", "记账本", Some("CmdOrCtrl+9"))?,
+                &nav_item("nav_todo", "任务列表")?,
+                &nav_item("nav_weekly", "周报")?,
+                &nav_item("nav_projects", "项目")?,
+                &nav_item("nav_accounting", "记账本")?,
             ])?;
 
             let ops_menu = Submenu::with_items(handle, "运维", true, &[
-                &nav_item("nav_servers", "服务器管理", Some("CmdOrCtrl+4"))?,
-                &nav_item("nav_cicd", "CI/CD 部署", Some("CmdOrCtrl+5"))?,
-                &nav_item("nav_logs", "日志聚合", None)?,
+                &nav_item("nav_servers", "服务器管理")?,
+                &nav_item("nav_cicd", "CI/CD 部署")?,
+                &nav_item("nav_logs", "日志聚合")?,
             ])?;
 
             let dev_menu = Submenu::with_items(handle, "开发", true, &[
-                &nav_item("nav_db", "数据库管理", Some("CmdOrCtrl+6"))?,
-                &nav_item("nav_devtools", "开发工具", Some("CmdOrCtrl+8"))?,
-                &nav_item("nav_notes", "笔记", Some("CmdOrCtrl+7"))?,
-                &nav_item("nav_git", "Git 仓库", None)?,
+                &nav_item("nav_db", "数据库管理")?,
+                &nav_item("nav_devtools", "开发工具")?,
+                &nav_item("nav_notes", "笔记")?,
+                &nav_item("nav_git", "Git 仓库")?,
             ])?;
 
             let security_menu = Submenu::with_items(handle, "安全", true, &[
-                &nav_item("nav_mfa", "MFA 验证码", None)?,
-                &nav_item("nav_vpn", "VPN", None)?,
+                &nav_item("nav_mfa", "MFA 验证码")?,
+                &nav_item("nav_vpn", "VPN")?,
             ])?;
 
             let system_menu = Submenu::with_items(handle, "系统", true, &[
-                &action_item("about", "关于", None)?,
+                &action_item("about", "关于")?,
                 &PredefinedMenuItem::separator(handle)?,
-                &nav_item("nav_backup", "数据备份", None)?,
+                &nav_item("nav_backup", "数据备份")?,
                 &PredefinedMenuItem::separator(handle)?,
-                &action_item("toggle_locale", "切换语言", None)?,
-                &action_item("toggle_theme", "切换主题", None)?,
+                &action_item("toggle_locale", "切换语言")?,
+                &action_item("toggle_theme", "切换主题")?,
                 &PredefinedMenuItem::separator(handle)?,
                 &PredefinedMenuItem::quit(handle, Some("退出"))?,
             ])?;
