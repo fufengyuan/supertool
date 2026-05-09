@@ -632,11 +632,23 @@ impl SshService {
             .get(server_id)
             .ok_or_else(|| "服务器未连接".to_string())?;
 
+        // 检查连接是否还活着
+        if !conn.session.authenticated() {
+            drop(conns);
+            self.disconnect(server_id);
+            return Err("SSH 连接已断开".to_string());
+        }
+
         // 确保 session 处于阻塞模式（防止 read_terminal 切换导致的竞态）
         conn.session.set_blocking(true);
 
         conn.session
             .sftp()
-            .map_err(|e| format!("创建 SFTP 会话失败: {}", e))
+            .map_err(|e| {
+                // SFTP 创建失败，可能连接已死
+                log::warn!("[SSH] SFTP creation failed for {}: {}", server_id, e);
+                let _ = self.disconnect(server_id);
+                format!("创建 SFTP 会话失败（连接可能已断开）: {}", e)
+            })
     }
 }
