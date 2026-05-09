@@ -23,9 +23,9 @@
             <div class="flex-1">
               <label class="label"><span class="label-text">{{ $t('lan.priority') }}</span></label>
               <select v-model="task.priority" class="select select-bordered w-full">
-                <option value="high"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> {{ $t('todo.priority.high') }}</option>
-                <option value="medium"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> {{ $t('todo.priority.medium') }}</option>
-                <option value="low"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> {{ $t('todo.priority.low') }}</option>
+                <option value="high"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> {{ $t('todo.priority.high') }}</option>
+                <option value="medium"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> {{ $t('todo.priority.medium') }}</option>
+                <option value="low"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> {{ $t('todo.priority.low') }}</option>
               </select>
             </div>
             <div class="flex-1">
@@ -56,6 +56,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 console.log("[components/lan/TaskAssign.vue] component loaded")
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'
 
