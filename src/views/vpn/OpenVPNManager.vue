@@ -3,26 +3,22 @@
     <!-- Header -->
     <div class="flex items-center justify-between px-5 py-4 bg-base-100 border-b border-base-200">
       <div class="flex items-center gap-2.5">
-        <span class="text-2xl"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+        <span class="text-2xl"><SvgIcon name="lock" size="14" class="inline-block align-text-bottom" /></span>
         <h2 class="text-lg font-semibold m-0 text-base-content">OpenVPN 客户端</h2>
       </div>
       <div class="flex gap-2">
         <button class="btn btn-sm btn-ghost" @click="checkOpenVPN" :disabled="checking">
-          <template v-if="checking">检测中...</template><template v-else><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>  检测 OpenVPN</template>
+          <template v-if="checking">检测中...</template><template v-else><SvgIcon name="search" size="14" />  检测 OpenVPN</template>
         </button>
         <button class="btn btn-sm btn-primary" @click="importConfig" :disabled="!openvpnAvailable">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  导入 .ovpn
+          <SvgIcon name="download" size="14" />  导入 .ovpn
         </button>
       </div>
     </div>
 
     <!-- OpenVPN not available banner -->
     <div v-if="!openvpnAvailable && !checking" class="flex items-start gap-3 px-5 py-4 mx-5 mt-3 bg-warning/10 border border-warning/30 rounded-box text-warning">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
+      <SvgIcon name="alertCircle" size="24" />
       <div>
         <strong class="block mb-1">OpenVPN 不可用</strong>
         <p class="m-0 text-[13px]">内置 OpenVPN 二进制加载失败，请检查应用完整性或尝试重新安装</p>
@@ -51,15 +47,15 @@
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2v8"/><path d="M4.93 10.93a8 8 0 1 1 14.14 0"/><path d="M16 16l-1.5-1.5"/></svg> 正在连接 {{ status.configName }}...
           </template>
           <template v-else-if="status.state === 'connected'">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  已连接 — {{ status.configName }}
+            <SvgIcon name="check" size="14" />  已连接 — {{ status.configName }}
             <span v-if="status.remote" class="font-normal opacity-70 ml-1">({{ status.remote }})</span>
             <span class="text-[13px] font-medium opacity-70 ml-2 font-mono">{{ connectionDuration }}</span>
           </template>
           <template v-else-if="status.state === 'disconnecting'">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  正在断开连接...
+            <SvgIcon name="clock" size="14" />  正在断开连接...
           </template>
           <template v-else-if="status.state === 'error'">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>  连接错误 — {{ status.configName }}
+            <SvgIcon name="x" size="14" />  连接错误 — {{ status.configName }}
           </template>
         </span>
       </div>
@@ -105,26 +101,23 @@
                 v-if="status.configId === cfg.id && status.connected"
                 class="btn btn-ghost btn-xs px-1"
                 title="已连接"
-              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
+              ><SvgIcon name="check" size="14" /> </button>
               <button
                 v-else-if="status.state === 'connecting' && status.configId === cfg.id"
                 class="btn btn-ghost btn-xs px-1"
                 title="连接中"
-              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </button>
+              ><SvgIcon name="clock" size="14" /> </button>
               <button
                 v-else
                 class="btn btn-ghost btn-xs px-1"
                 @click.stop="connectConfig(cfg)"
                 title="连接"
               ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
-              <button class="btn btn-ghost btn-xs px-1" @click.stop="deleteConfig(cfg)" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
+              ><SvgIcon name="trash" size="14" /> </button>
             </div>
           </div>
           <div v-if="configs.length === 0" class="flex flex-col items-center justify-center py-10 px-5 text-center text-base-content/60">
-            <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-            </svg>
+            <SvgIcon name="file" size="40" stroke-width="1.5" />
             <p class="my-3">暂无配置文件</p>
             <button class="btn btn-sm btn-primary" @click="importConfig" :disabled="!openvpnAvailable">
               导入 .ovpn 文件
@@ -155,7 +148,7 @@
     <div v-if="showPasswordDialog" class="modal modal-open" @click.self="cancelPasswordDialog">
       <div class="modal-box max-w-[600px]">
         <div class="text-lg font-semibold text-base-content mb-3">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 需要 sudo 密码
+          <SvgIcon name="lock" size="14" class="inline-block align-text-bottom" /> 需要 sudo 密码
         </div>
         <div class="text-sm text-base-content mb-4 leading-relaxed">
           OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：
@@ -188,6 +181,7 @@
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const toast = useToast()
 
