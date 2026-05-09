@@ -283,6 +283,7 @@ impl SshService {
 
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
+        session.set_timeout(30_000); // 30秒超时，防止阻塞读卡死
         session
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
@@ -365,12 +366,18 @@ impl SshService {
         }
     }
 
-    /// 检查是否已连接
+    /// 检查是否已连接（且连接真的活着）
     pub fn is_connected(&self, server_id: &str) -> bool {
-        self.connections
-            .lock()
-            .map(|conns| conns.contains_key(server_id))
-            .unwrap_or(false)
+        let conns = match self.connections.lock() {
+            Ok(c) => c,
+            Err(_) => return false,
+        };
+        if let Some(conn) = conns.get(server_id) {
+            // 检查 session 是否还认证着
+            conn.session.authenticated()
+        } else {
+            false
+        }
     }
 
     /// 执行命令
@@ -380,14 +387,22 @@ impl SshService {
             let conn = conns
                 .get(server_id)
                 .ok_or_else(|| "服务器未连接".to_string())?;
-            let mut channel = conn
-                .session
-                .channel_session()
-                .map_err(|e| format!("打开通道失败: {}", e))?;
-            channel
-                .exec(command)
-                .map_err(|e| format!("执行命令失败: {}", e))?;
-            channel
+            match conn.session.channel_session() {
+                Ok(ch) => {
+                    let mut ch = ch;
+                    if let Err(e) = ch.exec(command) {
+                        // exec 失败可能是连接已断开，清理掉
+                        let _ = self.disconnect(server_id);
+                        return Err(format!("执行命令失败（连接可能已断开）: {}", e));
+                    }
+                    ch
+                }
+                Err(e) => {
+                    // channel_session 失败说明连接已死，清理
+                    let _ = self.disconnect(server_id);
+                    return Err(format!("打开通道失败（连接可能已断开）: {}", e));
+                }
+            }
         };
 
         let mut output = String::new();
