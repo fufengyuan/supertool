@@ -26,9 +26,9 @@
         <div v-for="disk in diskInfo" :key="disk.mountPoint" class="flex items-center gap-2">
           <span class="font-mono">{{ disk.mountPoint }}</span>
           <div class="w-48 bg-base-300 rounded-full h-2">
-            <div class="h-2 rounded-full transition-all" :class="usageColor(disk.usagePercent)" :style="{ width: disk.usagePercent + '%' }"></div>
+            <div class="h-2 rounded-full transition-all" :class="usageColor(disk.usagePercent ?? 0)" :style="{ width: (disk.usagePercent ?? 0) + '%' }"></div>
           </div>
-          <span class="text-xs text-base-content/60">{{ formatSize(disk.used) }} / {{ formatSize(disk.total) }} ({{ disk.usagePercent.toFixed(1) }}%)</span>
+          <span class="text-xs text-base-content/60">{{ formatSize(disk.used) }} / {{ formatSize(disk.total) }} ({{ (disk.usagePercent ?? 0).toFixed(1) }}%)</span>
         </div>
       </div>
     </div>

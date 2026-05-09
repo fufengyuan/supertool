@@ -32,7 +32,7 @@ pub struct CachePath {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct DeleteParams {
+pub struct _DeleteParams {
     pub paths: Vec<String>,
 }
 
