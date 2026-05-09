@@ -1,24 +1,41 @@
 ---
 name: stool-cli
 category: devops
-description: SuperTool `stool` CLI v3.0.0 — AI Agent 专属运维工具。纯 JSON over UDS 通信，零网络/Express 依赖，管理服务器、CI/CD 部署、数据库、日志和 Git 仓库。
+description: SuperTool `stool` CLI v4.0.0 — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖，可独立部署运行。
 trigger: 使用 stool 命令、排查 CLI 失败、添加新 CLI 命令、AI 运维操作
 ---
 
-# SuperTool `stool` CLI v3.0.0
+# SuperTool `stool` CLI v4.0.0
 
 > AI Agent 专属运维工具 —— 人类用 GUI 配置密钥/参数，AI 用 CLI 执行部署/排查/运维操作。
+
+## 架构概述
+
+CLI (v4.0.0) 直连 `supertool-core` 共享库，**零 UDS/HTTP 依赖**，完全独立运行。
+
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│   stool CLI │────▶│  supertool-core   │◀────│  Tauri GUI       │
+│  (clap)     │     │  (db, ssh, redis, │     │  (Vue3 + IPC)    │
+│  12MB       │     │   cicd, git...)   │     │                  │
+└─────────────┘     └──────────────────┘     └──────────────────┘
+```
+
+- **CLI**: 直连 SQLite DB → 读配置 → 执行操作（SSH/Redis/MySQL/部署等）
+- **Tauri GUI**: 同样直连 `supertool-core`，负责密钥加密存储和 UI
+- **共享库 `core/`**: 单一事实来源 (Single Source of Truth)，包含所有业务逻辑
 
 ## 核心概念
 
 | 概念 | 说明 |
 |------|------|
-| **通信方式** | 纯 JSON over UDS (`~/.supertool/supertool.sock`)，零网络层/Express 依赖。`\n` 分隔的 JSON 对象 `{handler, params}`，代理/VPN 无法劫持 |
-| **环境变量** | `SUPERTOOL_SOCKET`（可选，自定义 socket 路径） |
-| **前置条件** | SuperTool GUI 必须运行（提供 UDS 监听）。除 `version`/`guide` 外所有命令都需要 socket 可用 |
+| **通信方式** | 直连 `supertool-core` Rust 库，零网络/UDS/Express 依赖 |
+| **数据库** | SQLite (`~/.supertool/supertool.db` 或 `~/.supertool_dir` 指定路径) |
+| **前置条件** | 无需 GUI 运行，CLI 完全独立 |
 | **输出格式** | 默认人类可读文本；加 `-j` 返回 JSON（所有 list/status 命令都支持） |
 | **ID 完整性** | 所有 list 命令输出完整 36 位 UUID，可复制用于后续命令 |
-| **敏感信息** | SSH 密码/DB 密码等敏感信息不暴露给 AI，GUI 中 AES-256-GCM 加密存储 |
+| **敏感信息** | SSH 密码/DB 密码等不暴露给 CLI，GUI 中 AES-256-GCM 加密存储 |
+| **版本** | 全项目统一 `4.0.0`，Rust `edition = "2024"` |
 
 ## 安全管控矩阵
 
@@ -35,8 +52,8 @@ CLI 能做的                          CLI 不能做的（需 GUI 操作）
 ✅ 日志搜索/实时 tail                  rm -rf, kill -9, shutdown, mkfs,
                                       dd, iptables -F, chmod 777 /,
                                       curl|sh, wget|bash 等
-                                     ❌ server exec-batch / rm / java-restart
-                                      （已从 CLI 彻底移除，需 GUI 操作）
+                                     ❌ server rm / server exec-batch /
+                                      server java-restart（已从 CLI 移除）
 ```
 
 ## 命令速查
@@ -225,25 +242,26 @@ stool log tail app-logs -l 200
 
 ## ⚠️ 关键陷阱
 
-1. **纯 UDS 通信** — CLI 仅通过 `~/.supertool/supertool.sock` 连接，GUI 必须运行。支持 `SUPERTOOL_SOCKET` 环境变量自定义路径
-2. **Handler 命名规范** — CLI 子命令必须与 Electron `registerHandler` 键名 1:1 对应（`stool db list` → `db:list`）。两侧必须同步改名，且 `search_files` 确认旧名清零。命名规则：全小写 + `-` 分隔模块子功能（如 `log-presets:get-all`、`db:redis:get`），禁驼峰。`db:redis-*` 格式已废弃，统一为 `db:redis:*` 三层冒号分隔
+1. **直连 Core 库** — CLI 直连 `supertool-core` 共享库，无需 GUI 运行。数据库路径 `~/.supertool/supertool.db`（或 `~/.supertool_dir` 指定）
+2. **Handler 命名规范** — CLI 子命令命名规则：全小写 + `-` 分隔模块子功能（如 `log-presets`、`db:redis:*` 三层冒号分隔），禁驼峰
 3. **`-j` 是短别名**：`-j` 等价于 `--json`，所有 list/status 命令都支持
 4. **高危命令拦截**：`server exec` 会拦截 `rm -rf`、`kill -9`、`shutdown`、`curl|sh` 等，触发后必须用 GUI 执行
-5. **requiresApproval 三重拦截**：服务器/数据库/CICD 各自独立，开启后 CLI 对应操作被拒绝，错误信息会说明原因
+5. **requiresApproval 三重拦截**：服务器/数据库/CICD 各自独立，开启后 CLI 对应操作被拒绝
 6. **preset_id 智能解析**：`log search 1 "关键词"` 中的 `1` 会被自动解析为第 1 个预设的真实 UUID
-7. **部署超时**：`--watch` 最长等待 10 分钟（5s × 120 次），超时后自动退出；`--stream` 无硬超时，等待服务端发 complete 事件。restart 脚本无超时限制，多服务并行启动也能正常等待完成
+7. **部署超时**：`--watch` 最长等待 10 分钟（5s × 120 次），超时后自动退出；`--stream` 无硬超时
 8. **server download**：通过 base64 编码传输二进制文件，自动保存到本地
-9. **ID 不可截断**：所有 UUID 必须完整输出，截断后无法匹配后续命令。所有 list 命令（包括 `subtask list`、`project todos`、`git list`）必须输出 ID，否则命令链无法闭环
-10. **CLI 不传冗余参数**：连接已在 GUI 配好，CLI 通过 `-d <db_id>` 引用即可。CLI 不应要求用户输入 host/port/password 等已保存的信息
-11. **macOS DMG 打包**：交叉编译产物需 `cp` 到 `target/release/`，否则 `electron-builder` 打包旧缓存二进制
+9. **ID 不可截断**：所有 UUID 必须完整输出，截断后无法匹配后续命令
+10. **CLI 不传冗余参数**：连接已在 GUI 配好，CLI 通过 `-d <db_id>` 引用即可
+11. **CLI 独立运行**：CLI 是纯客户端但直连本地 Core 库和 SQLite，可独立部署在服务器上使用（~12MB）
 
 ## 源码与构建
 
-- **源码**: `~/WebstormProjects/todo-list-electron/cli/src/main.rs`（纯 UDS，零网络依赖）
-- **传输层**: `cli/src/transport.rs`（`std::UnixStream` 手写 JSON 序列化/反序列化，无 HTTP 客户端）
-- **服务端**: `electron/uds-api.ts`（`net.Server` + JSON Router，零 Express 依赖）
-- **版本定义**: `cli/Cargo.toml` 中的 `version`，代码通过 `env!("CARGO_PKG_VERSION")` 动态读取
-- **构建**: `cd cli && cargo build --release`
+- **工作区结构**: `Cargo.toml` workspace = `["core", "cli", "tauri"]`
+- **CLI 源码**: `cli/src/main.rs`（clap CLI，直连 CoreService）
+- **核心库**: `core/src/`（db, encryption, logic: ssh/cicd/git/openvpn/wireguard/nginx）
+- **Tauri GUI**: `tauri/`（Vue3 前端 + Rust IPC，同样直连 core）
+- **版本定义**: `cli/Cargo.toml` / `core/Cargo.toml` / `tauri/Cargo.toml` 统一 `version = "4.0.0"`, `edition = "2024"`
+- **构建 CLI**: `cd cli && cargo build --release`（生成 ~12MB 二进制）
+- **构建 GUI**: `pnpm tauri build`（生成 .deb/.AppImage/.dmg）
 - **macOS 交叉编译**: `cargo build --target aarch64-apple-darwin --release`
-- **CLI 自动安装**: App 启动时 `cli-installer.ts` 检测版本差异 → AppleScript 密码弹窗 → `sudo -S` 安装到 `/usr/local/bin/stool`
-- **Skills 自动分发**: App 启动时 `installHermesSkills()` 比较源文件与 `~/.hermes/skills/stool-cli/SKILL.md` 的 mtime，源文件更新后自动覆盖（无需授权）
+- **数据目录**: `~/.supertool/`（通过 `data_dir::resolve_data_dir()` 解析，支持 `~/.supertool_dir` 自定义路径）

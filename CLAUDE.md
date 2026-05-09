@@ -2,109 +2,133 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+
+**SuperTool** — Cross-platform desktop operations management tool. Three-crate Rust workspace (`core`, `cli`, `tauri`) with Vue 3 frontend. CLI directly links to `supertool-core` shared library (zero UDS/HTTP).
+
 ## Development Commands
 
-### Frontend Development
+### Frontend / Tauri
 
-- `pnpm dev` - Start development server for Vue frontend (runs on port 1420)
-- `pnpm build` - Build Vue frontend for production (includes TypeScript compilation)
-- `pnpm preview` - Preview production build
+```bash
+pnpm dev                    # Vue dev server (port 1420)
+pnpm tauri dev              # Tauri dev environment (frontend + backend)
+pnpm tauri build            # Production build (.deb/.AppImage/.dmg)
+pnpm build                  # Build Vue frontend for production
+pnpm lint                   # Run oxlint
+pnpm lint:fix               # oxlint with auto-fix
+pnpm format                 # Prettier
+vue-tsc --noEmit            # TypeScript type checking
+```
 
-### Tauri Development
+### Rust / CLI
 
-- `pnpm tauri dev` - Start Tauri development environment (frontend + backend)
-- `pnpm tauri build` - Build Tauri application for production
-- `pnpm tauri` - Access Tauri CLI commands
-
-### Code Quality
-
-- `pnpm lint` - Run oxlint for linting
-- `pnpm lint:fix` - Run oxlint with auto-fix
-- `pnpm format` - Format code with Prettier
-- `vue-tsc --noEmit` - TypeScript type checking (part of build process)
+```bash
+cargo check --workspace     # Full workspace compilation check (zero errors required)
+cargo build --release       # Build all workspace crates
+cd cli && cargo build --release       # CLI standalone (~12MB)
+cd tauri && cargo build --release     # Tauri binary
+```
 
 ### Testing
 
-- No test framework is currently configured in this project
+- No test framework is currently configured.
 
-## Architecture Overview
+## Architecture
 
-This is a **Tauri v2 application** combining a Vue 3 frontend with a Rust backend, using modern web technologies.
+### Workspace Structure
 
-### Frontend Stack
+```
+Cargo.toml          # [workspace] members = ["core", "cli", "tauri"]
+core/               # supertool-core — shared library (single source of truth)
+cli/                # stool CLI — directly links to core, standalone
+tauri/              # Tauri GUI — directly links to core, Vue 3 frontend
+src/                # Vue 3 frontend source (tauri window content)
+```
 
-- **Vue 3** with TypeScript and Composition API (`<script setup>`)
-- **Vue Router** for client-side routing
-- **Vite** as build tool and development server
-- **Tailwind CSS v4** + **daisyUI** for styling and components
-- **Pinia** for state management
-- **Vue i18n** for internationalization (supports zh-CN and en-US)
-- **Heroicons** for icons
-- **pnpm** for package management
+### Data Flow
 
-### Backend Stack
+```
+stool CLI ──┐
+            ├──▶ supertool-core (CoreService) ──▶ SQLite / SSH / MySQL / Redis / ...
+Tauri GUI ──┘
+```
 
-- **Rust** with Tauri v2 framework
-- **Cargo** for Rust package management
-- **Tauri plugins**: store, fs, opener, log
+Both CLI and GUI directly link to `supertool-core`. **No UDS, no HTTP middleware.**
 
-### Project Structure
+### Core Library (`core/`)
 
-- `src/` - Vue frontend source code
-    - `main.ts` - Vue app entry point with Pinia, i18n, and router setup
-    - `App.vue` - Root component
-    - `router/` - Vue Router configuration
-    - `views/` - Page components (HomeView, SettingsView)
-    - `components/` - Reusable Vue components (TitleBar)
-    - `layouts/` - Layout components (MainLayout)
-    - `assets/` - Static assets (CSS, images)
-    - `utils/` - Utility functions (i18n, settings, theme)
-    - `locales/` - Internationalization files (zh-CN, en-US)
-- `tauri/` - Rust backend source code
-    - `src/main.rs` - Tauri app entry point
-    - `src/lib.rs` - Main Rust library with Tauri commands
-    - `Cargo.toml` - Rust dependencies
-    - `tauri.conf.json` - Tauri configuration
-    - `icons/` - App icons for different platforms
+```
+core/src/
+├── lib.rs              # Re-exports: db, encryption, logic
+├── service.rs          # CoreService — main entry point for all operations
+├── db/                 # SQLite data access (database, servers, cicd, projects, openvpn, wireguard, lan)
+├── encryption/         # AES-256-GCM encryption/decryption
+└── logic/              # Business logic
+    ├── data_dir.rs         # Data directory resolution (~/.supertool or ~/.supertool_dir)
+    ├── ssh.rs              # SSH connection management
+    ├── cicd_deploy.rs      # Deployment engine
+    ├── git.rs              # Git operations
+    ├── openvpn.rs          # OpenVPN tunnel
+    ├── wireguard.rs        # WireGuard tunnel
+    ├── nginx.rs            # Nginx config
+    └── log_sanitizer.rs    # Log desensitization
+```
 
-### Key Configuration
+### CLI (`cli/`)
 
-- **Vite config** (`vite.config.ts`): Configured for Tauri development with fixed port (1420) and HMR
-- **Tauri config** (`tauri/tauri.conf.json`): App metadata, window settings, build commands
-- **TypeScript**: Strict mode enabled with modern ES2020 target
-- **Tailwind**: v4 configuration with daisyUI components and prettier plugin
-- **Package manager**: pnpm with proper lockfile management
+```
+cli/src/
+├── main.rs             # clap entry point + command dispatch
+├── commands/           # Subcommands: todo, server, cicd, db, log, git
+├── runtime.rs          # CliRuntime — manages DB connection and CoreService
+├── types.rs            # clap CLI type definitions
+├── output.rs           # Output formatting (print_json, print_error, print_success)
+├── utils.rs            # shell_quote, is_dangerous_command, format_size
+└── guide.rs            # Usage guide output
+```
 
-### Frontend-Backend Communication
+### Tauri GUI (`tauri/`)
 
-- Tauri commands defined in `tauri/src/lib.rs` (e.g., `greet` command)
-- Frontend calls Rust functions using Tauri API
-- Available Tauri plugins: store (persistent data), fs (file system), opener (URLs/files), log (logging)
+```
+tauri/
+├── src/
+│   ├── main.rs             # Tauri app entry
+│   ├── lib.rs              # Tauri command library
+│   └── commands/           # IPC command handlers (all use CoreService)
+├── tauri.conf.json         # Tauri configuration
+└── Cargo.toml              # version = "4.0.0", edition = "2024"
+```
 
-### Development Workflow
+### Frontend (`src/`)
 
-1. Use `pnpm tauri dev` for full-stack development
-2. Frontend runs on localhost:1420 with hot reload
-3. Rust backend compiles and runs automatically
-4. Changes to either frontend or backend trigger appropriate rebuilds
-5. Use `pnpm lint` and `pnpm format` for code quality
+```
+src/
+├── main.ts             # Vue app entry (Pinia, i18n, router)
+├── App.vue
+├── router/             # Vue Router config
+├── views/              # Page components
+├── components/         # Reusable components
+├── layouts/            # Layout components
+├── stores/             # Pinia state management
+├── utils/              # Utilities (i18n, settings, theme)
+├── locales/            # zh-CN, en-US translations
+└── assets/             # Static resources (CSS)
+```
 
-### Key Features
+## Key Configuration
 
-- **Internationalization**: Built-in support for Chinese (zh-CN) and English (en-US)
-- **State Management**: Pinia store with settings persistence via Tauri store plugin
-- **Theme System**: Dynamic theme switching utility with daisyUI themes
-- **Routing**: Vue Router with Home and Settings views
-- **Code Quality**: Configured with oxlint and Prettier with Tailwind plugin
-- **Icons**: Heroicons integration for consistent iconography
-- **Window Management**: Custom title bar component with window controls
+- **Versions**: All crates unified to `version = "4.0.0"`, `edition = "2024"`
+- **Data Directory**: `~/.supertool/` (resolved via `data_dir::resolve_data_dir()`, supports `~/.supertool_dir` override)
+- **Database**: SQLite at `~/.supertool/supertool.db`
+- **Package Manager**: pnpm
+- **Vite**: Fixed port 1420 for Tauri dev
 
 ## Important Notes
 
-- The application uses **pnpm** (not npm) - ensure pnpm is installed
-- Tauri requires Rust toolchain to be installed
-- Development server runs on fixed port 1420 (configured in Vite)
-- Default language is Chinese (zh-CN) with English fallback
-- Settings are persisted using Tauri's store plugin
-- No test framework is currently configured - add testing setup if needed
-- Window size is set to 800x600 by default in tauri.conf.json
+- **`cargo fmt` may produce false positives** with edition 2024 — use `cargo check --workspace` zero errors as the standard
+- **CLI is fully standalone** — no GUI dependency required, ~12MB binary
+- **No UDS/HTTP communication** — everything goes through direct `supertool-core` function calls
+- **Sensitive data** (SSH passwords, DB passwords) encrypted with AES-256-GCM, never exposed in CLI output
+- **RequiresApproval** — production environment CLI operations require GUI approval; test/dev can bypass
+- **Git workflow**: commit immediately after code changes, don't stack uncommitted modifications
