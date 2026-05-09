@@ -257,6 +257,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref } from 'vue'
 
 defineProps<{

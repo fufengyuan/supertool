@@ -6,9 +6,7 @@
         <span class="change-count" v-if="stashList.length > 0">{{ stashList.length }}</span>
       </span>
       <button class="btn btn-ghost btn-xs" @click="$emit('open-stash-save')" title="Stash Changes">
-        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <SvgIcon name="plus" size="12" />
       </button>
     </div>
     <div class="stash-list">
@@ -35,7 +33,7 @@
     <div v-if="selectedStash" class="stash-preview">
       <div class="detail-header">
         <span class="detail-title">Stash 预览</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedStash', null)" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedStash', null)" title="关闭"><SvgIcon name="x" size="14" /></button>
       </div>
       <pre class="diff-content">{{ stashShowContent || '加载中...' }}</pre>
     </div>
@@ -43,6 +41,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 defineProps<{
   stashList: any[]
   selectedStash: any | null

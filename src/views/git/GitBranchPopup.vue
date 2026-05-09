@@ -4,14 +4,12 @@
     <div class="branches-popup" @click.stop>
       <div class="popup-header">
         <span class="popup-title">分支管理</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:showBranchesPopup', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:showBranchesPopup', false)"><SvgIcon name="x" size="14" /></button>
       </div>
 
       <div class="popup-actions">
         <button class="btn btn-primary btn-sm" @click="$emit('update:showCreateBranch', true)">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <SvgIcon name="plus" size="14" />
           新建分支
         </button>
       </div>
@@ -27,18 +25,13 @@
               :class="{ current: b.current }"
               @click="$emit('checkout-branch', b.name)"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="6" y1="3" x2="6" y2="15" />
-                <circle cx="18" cy="6" r="3" />
-                <circle cx="6" cy="18" r="3" />
-                <path d="M18 9a9 9 0 0 1-9 9" />
-              </svg>
+              <SvgIcon name="gitBranch" size="14" />
               <span class="branch-label">{{ b.name }}</span>
               <span v-if="b.current" class="current-badge">当前</span>
               <div class="branch-actions" v-if="!b.current">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('open-branch-rename', b.name)" title="重命名分支">Rename</button>
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('show-merge-dialog', b.name)" title="合并到此分支">Merge</button>
-                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-branch', b.name)" title="删除分支"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-branch', b.name)" title="删除分支"><SvgIcon name="x" size="14" /></button>
               </div>
             </div>
           </div>
@@ -59,7 +52,7 @@
               <span class="branch-label">{{ b.name }}</span>
               <div class="branch-actions">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('checkout-remote-branch', b.name)" title="Checkout as new local branch">Checkout</button>
-                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-remote-branch', b.name)" title="删除远程分支"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-remote-branch', b.name)" title="删除远程分支"><SvgIcon name="x" size="14" /></button>
               </div>
             </div>
             <div v-if="remoteBranches.length === 0" class="branch-empty">没有远程分支</div>
@@ -143,6 +136,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 defineProps<{
   showBranchesPopup: boolean
