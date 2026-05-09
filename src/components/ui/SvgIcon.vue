@@ -153,6 +153,14 @@ const paths: Record<string, string> = {
   // === Sort & Filter ===
   filter: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
 
+  // === CI/CD specific ===
+  serverRack: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>',
+  lightbulb: '<line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/>',
+  gitMerge: '<polyline points="16 3 22 3 22 9"/><line x1="2" y1="3" x2="16" y2="17"/><polyline points="13 8 19 8 19 14"/>',
+  grid: '<path d="M4 7h3a1 1 0 0 0 1-1V3a1 1 0 0 1 2 0v3a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 0-1 1v3a1 1 0 0 1-2 0v-3a1 1 0 0 0-1-1H8a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"/>',
+  stopSquare: '<rect x="6" y="6" width="12" height="12" rx="2"/>',
+  pause: '<line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/>',
+
   // === VPN specific ===
   power: '<polygon points="6 9 12 3 18 9 6 9"/><path d="M6 20h12"/>',
   play: '<polygon points="5 3 19 12 5 21 5 3"/>',

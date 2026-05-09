@@ -2,7 +2,7 @@
   <div class="px-5 py-4 w-full min-h-full">
     <!-- Header -->
     <div class="mb-4">
-      <h2 class="text-xl font-bold m-0 mb-1 text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 一键部署</h2>
+      <h2 class="text-xl font-bold m-0 mb-1 text-base-content"><SvgIcon name="rocket" size="16" class="inline-block align-text-bottom" /> 一键部署</h2>
       <p class="text-sm text-base-content/60 m-0">选择部署配置，快速将项目部署到目标服务器</p>
     </div>
 
@@ -17,9 +17,7 @@
             <template v-for="[groupName, groupItems] in groupedDeployConfigs" :key="groupName">
               <div class="border-b border-base-content/10 last:border-b-0">
                 <div class="flex items-center gap-1.5 px-2.5 py-2 cursor-pointer select-none text-xs font-semibold text-base-content bg-black/5 hover:bg-black/10" @click="toggleDeployGroup(groupName)">
-                  <svg class="shrink-0 text-base-content/60 transition-transform duration-200" :class="expandedDeployGroups.has(groupName) ? 'rotate-90' : ''" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <SvgIcon name="chevronDown" size="14" class="text-base-content/60 transition-transform duration-200" :class="expandedDeployGroups.has(groupName) ? 'rotate-90' : ''" />
                   <span class="flex-1">{{ groupName }}</span>
                   <span class="text-xs font-normal text-base-content/60 bg-black/5 px-1.5 py-0.5 rounded-full">{{ groupItems.length }}</span>
                 </div>
@@ -40,7 +38,7 @@
                       <span>{{ getServerCount(cfg) }}台</span>
                     </span>
                     <span v-if="cfg.lastDeployedAt" class="text-xs text-success font-bold shrink-0" title="最近部署过">✓</span>
-                    <span v-if="cfg.requiresApproval" class="text-xs ml-0.5 shrink-0" title="需要审核确认"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                    <span v-if="cfg.requiresApproval" class="text-xs ml-0.5 shrink-0" title="需要审核确认"><SvgIcon name="lock" size="12" class="inline-block align-text-bottom" /></span>
                   </div>
                 </div>
               </div>
@@ -87,16 +85,16 @@
           <!-- Deploy Actions -->
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5">
             <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 部署预检
+              <SvgIcon name="search" size="14" class="inline-block align-text-bottom" /> 部署预检
             </button>
             <button @click="startDeploy" :disabled="deploying || !selectedConfigId" class="btn flex-1 justify-center"
               :class="config?.requiresApproval ? 'bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90' : 'btn-primary'">
               <template v-if="deploying">部署中...</template>
               <template v-else-if="config?.requiresApproval">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 审核部署
+                <SvgIcon name="lock" size="12" class="inline-block align-text-bottom" /> 审核部署
               </template>
               <template v-else>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 开始部署
+                <SvgIcon name="rocket" size="12" class="inline-block align-text-bottom" /> 开始部署
               </template>
             </button>
           </div>
@@ -105,7 +103,7 @@
           <div v-if="preflightResults.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="text-sm font-semibold text-base-content mb-2">预检结果</div>
             <div v-for="(r, i) in preflightResults" :key="i" class="flex items-center gap-2 py-1.5 border-b border-base-content/10 last:border-b-0 text-sm">
-              <span><svg viewBox="0 0 24 24" width="14" height="14" :fill="r.passed ? 'none' : 'none'" :stroke="r.passed ? 'currentColor' : 'currentColor'" stroke-width="2" :class="r.passed ? 'text-success' : 'text-error'"><polyline v-if="r.passed" points="20 6 9 17 4 12"/><path v-if="!r.passed" d="M18 6 6 18"/><path v-if="!r.passed" d="m6 6 12 12"/></svg></span>
+              <span><SvgIcon v-if="r.passed" name="check" size="14" class="text-success" /><SvgIcon v-else name="x" size="14" class="text-error" /></span>
               <span :class="r.passed ? 'text-success' : 'text-error'" class="font-medium">{{ r.name }}</span>
               <span class="ml-auto text-base-content/60 text-xs">{{ r.message }}</span>
             </div>
@@ -115,7 +113,7 @@
           <div class="bg-base-100 border border-base-content/10 rounded-xl px-4 py-3.5" v-if="deploying || progress > 0">
             <div class="flex justify-between items-center mb-2">
               <span class="text-sm text-base-content font-medium">{{ currentStep || '准备部署...' }}</span>
-              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> 取消</button>
+              <button v-if="deploying" @click="cancelDeploy" class="px-2.5 py-1 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium hover:opacity-85"><SvgIcon name="stopSquare" size="14" class="inline-block align-text-bottom" /> 取消</button>
             </div>
             <div class="h-1.5 bg-base-content/10 rounded-full overflow-hidden">
               <div class="h-full bg-primary transition-all duration-300" :style="{ width: progress + '%' }" :class="{ 'bg-base-content/60': deployCancelled }"></div>
@@ -130,7 +128,7 @@
         <!-- Real-time Log -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden" v-if="deploying || realtimeLogs.length > 0">
           <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
-            <span class="text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 实时日志</span>
+            <span class="text-sm font-semibold text-base-content"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</span>
             <button @click="clearRealtimeLogs" class="px-2 py-0.5 bg-transparent text-base-content/60 border border-base-content/10 rounded cursor-pointer text-xs hover:bg-base-100 hover:text-base-content transition-colors">清空</button>
           </div>
           <div ref="logContainer" class="max-h-[500px] overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
@@ -172,19 +170,19 @@
               }">
               <div class="flex gap-3 items-center">
                 <span class="text-base">
-                  <svg v-if="log.status === 'success'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block text-success"><polyline points="20 6 9 17 4 12"/></svg>
-                  <svg v-else-if="log.status === 'failed'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block text-error"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                  <svg v-else-if="log.status === 'running'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block animate-spin"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-                  <svg v-else-if="log.status === 'cancelled'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                  <svg v-else-if="log.status === 'rolled_back'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                  <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <SvgIcon v-if="log.status === 'success'" name="check" size="14" class="inline-block text-success" />
+                  <SvgIcon v-else-if="log.status === 'failed'" name="x" size="14" class="inline-block text-error" />
+                  <SvgIcon v-else-if="log.status === 'running'" name="refresh" size="14" class="inline-block animate-spin" />
+                  <SvgIcon v-else-if="log.status === 'cancelled'" name="stopSquare" size="14" class="inline-block" />
+                  <SvgIcon v-else-if="log.status === 'rolled_back'" name="undo" size="14" class="inline-block" />
+                  <SvgIcon v-else name="clock" size="14" class="inline-block" />
                 </span>
                 <span class="text-primary text-sm font-bold" v-if="log.configName">{{ log.configName }}</span>
                 <span class="text-[10px] font-semibold text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded whitespace-nowrap" v-if="log.configGroupName">{{ log.configGroupName }}</span>
                 <span class="text-xs text-base-content/60 opacity-70" v-if="log.projectName">({{ log.projectName }})</span>
                 <span class="text-xs text-base-content/60">{{ formatDate(log.createdAt) }}</span>
                 <span class="text-xs text-base-content/60">触发: {{ log.triggeredBy }}</span>
-                <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded inline-flex items-center gap-1" v-if="log.deployBranch"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> {{ log.deployBranch }}</span>
+                <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded inline-flex items-center gap-1" v-if="log.deployBranch"><SvgIcon name="gitBranch" size="12" /> {{ log.deployBranch }}</span>
                 <button
                   v-if="log.status === 'success'"
                   @click="rollbackDeploy(log)"
@@ -192,8 +190,8 @@
                   class="ml-auto px-2.5 py-0.5 bg-primary text-white border-0 rounded cursor-pointer text-xs font-medium transition-colors hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed"
                   title="回滚到此版本"
                 >
-                  <template v-if="rollingBackId === log.id"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 回滚中</template>
-                  <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> 回滚</template>
+                  <template v-if="rollingBackId === log.id"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom" /> 回滚中</template>
+                  <template v-else><SvgIcon name="refresh" size="14" class="inline-block align-text-bottom" /> 回滚</template>
                 </button>
               </div>
 
@@ -209,8 +207,8 @@
                 <!-- Full log file viewer -->
                 <div v-if="fullLogContent !== null" class="mb-2.5">
                   <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
-                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 完整日志</span>
-                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors inline-flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 关闭</button>
+                    <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 完整日志</span>
+                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors inline-flex items-center gap-1"><SvgIcon name="x" size="12" /> 关闭</button>
                   </div>
                   <pre class="m-0 p-2.5 max-h-[500px] overflow-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
                 </div>
@@ -237,10 +235,10 @@
                           'bg-blue-500/15 text-primary': step.status === 'running',
                           'bg-gray-500/15 text-base-content/60': step.status === 'pending'
                         }">
-                        <svg v-if="step.status === 'success'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom text-success"><polyline points="20 6 9 17 4 12"/></svg>
-                        <svg v-else-if="step.status === 'failed'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom text-error"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        <svg v-else-if="step.status === 'running'" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><line x1="8" y1="6" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="18"/></svg>
+                        <SvgIcon v-if="step.status === 'success'" name="check" size="14" class="inline-block align-text-bottom text-success" />
+                        <SvgIcon v-else-if="step.status === 'failed'" name="x" size="14" class="inline-block align-text-bottom text-error" />
+                        <SvgIcon v-else-if="step.status === 'running'" name="clock" size="14" class="inline-block align-text-bottom" />
+                        <SvgIcon v-else name="pause" size="14" class="inline-block align-text-bottom" />
                         {{ step.status }}
                       </span>
                     </div>
@@ -254,32 +252,32 @@
 
                 <!-- Raw log output (fallback when no step logs but logOutput exists) -->
                 <div v-else-if="!fullLogContent && log.logOutput" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 部署日志</div>
+                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ log.logOutput }}</pre>
                 </div>
 
                 <!-- Auto-load log file when step logs are empty -->
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 部署日志</div>
+                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom animate-spin"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 读取日志中...</pre>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
                   <button
                     v-else
                     @click="loadLogContent(log)"
                     class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
-                  ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 点击加载日志</button>
+                  ><SvgIcon name="file" size="12" class="inline-block align-text-bottom" /> 点击加载日志</button>
                 </div>
 
                 <!-- No details available -->
                 <div v-else-if="!fullLogContent" class="text-center p-5 text-base-content/60">
-                  <p class="m-1 text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg> 暂无日志数据</p>
+                  <p class="m-1 text-sm"><SvgIcon name="mail" size="14" class="inline-block align-text-bottom" /> 暂无日志数据</p>
                 </div>
 
                 <!-- View full log button -->
                 <div v-if="log.logFilePath && fullLogContent === null" class="mt-2 flex justify-end">
                   <button @click="viewFullLog(log)" :disabled="loadingLogFile" class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <template v-if="loadingLogFile"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom animate-spin"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 加载中...</template>
-                    <template v-else><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 查看完整日志</template>
+                    <template v-if="loadingLogFile"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 加载中...</template>
+                    <template v-else><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 查看完整日志</template>
                   </button>
                 </div>
               </div>
@@ -297,7 +295,7 @@
 
     <!-- Empty State -->
     <div v-else class="p-16 text-center bg-base-100 rounded-xl border border-base-content/10">
-      <div class="mb-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-base-content/30"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+      <div class="mb-4"><SvgIcon name="package" size="48" class="text-base-content/30" /></div>
       <h3 class="m-0 mb-2 text-lg text-base-content">暂无 CI/CD 配置</h3>
       <p class="m-0 mb-5 text-sm text-base-content/60">请先在 CI/CD 配置页面创建部署配置</p>
       <button @click="goToConfig" class="btn btn-primary">前往配置页面</button>
@@ -311,6 +309,7 @@ import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useDeployPreflight } from '../../composables/useDeployPreflight';
+import SvgIcon from '../../components/ui/SvgIcon.vue';
 import type { Project, Server } from '../../types';
 
 interface CicdConfigEntry {

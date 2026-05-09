@@ -3,10 +3,10 @@
     <!-- Top Tab Bar -->
     <div role="tablist" class="tabs tabs-bordered bg-base-200 flex-shrink-0">
       <button role="tab" class="tab" :class="{ 'tab-active': cicdTab === 'deploy' }" @click="cicdTab = 'deploy'">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 一键部署
+        <SvgIcon name="rocket" :size="14" class="inline-block align-text-bottom" /> 一键部署
       </button>
       <button role="tab" class="tab" :class="{ 'tab-active': cicdTab === 'config' }" @click="cicdTab = 'config'">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 部署配置
+        <SvgIcon name="settings" :size="14" class="inline-block align-text-bottom" /> 部署配置
       </button>
     </div>
 
@@ -21,36 +21,28 @@
         sidebarCollapsed ? 'w-[52px] min-w-[52px] border-r-transparent hover:border-r-base-content/10' : 'w-[300px] min-w-[260px] max-w-[360px]'
       ]">
         <div :class="sidebarCollapsed ? 'flex flex-col items-center px-2 pt-3' : 'flex items-center justify-between px-5 pt-4 pb-3'">
-          <h3 v-show="!sidebarCollapsed" class="m-0 text-base font-bold text-base-content flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 部署配置</h3>
+          <h3 v-show="!sidebarCollapsed" class="m-0 text-base font-bold text-base-content flex items-center gap-1.5"><SvgIcon name="rocket" :size="16" /> 部署配置</h3>
           <div :class="sidebarCollapsed ? 'flex flex-col items-center gap-2.5 w-full' : 'flex gap-2'">
             <button @click="createNewConfig" :class="['btn btn-primary', sidebarCollapsed ? 'p-0 w-9 h-9 rounded-xl' : '']" title="新建配置">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <SvgIcon name="plus" :size="16" :stroke-width="2.5" />
               <span v-show="!sidebarCollapsed">新建配置</span>
             </button>
             <button @click="sidebarCollapsed = !sidebarCollapsed" :class="['btn btn-ghost', sidebarCollapsed ? 'p-0 w-9 h-9 rounded-xl' : '']" :title="sidebarCollapsed ? '展开列表' : '收起列表'">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline :points="sidebarCollapsed ? '9 18 15 12 9 6' : '15 18 9 12 15 6'" />
-              </svg>
+              <SvgIcon :name="sidebarCollapsed ? 'chevronRight' : 'chevronLeft'" :size="16" />
               <span v-show="!sidebarCollapsed">收起</span>
             </button>
           </div>
         </div>
 
         <div class="relative px-4 pb-3" v-show="!sidebarCollapsed">
-          <svg class="absolute left-7 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <SvgIcon name="search" :size="14" class="absolute left-7 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" />
           <input v-model="searchQuery" placeholder="搜索配置..." class="input input-bordered w-full pl-8 h-9 text-sm bg-base-200" />
         </div>
 
         <div class="flex-1 overflow-y-auto px-3 pb-3" v-show="!sidebarCollapsed">
           <!-- Empty state -->
           <div v-if="groupedConfigs.size === 0" class="flex flex-col items-center py-10 px-5 text-center text-base-content/60 gap-3">
-            <svg class="opacity-30" viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
+            <SvgIcon name="folder" :size="40" :stroke-width="1.5" class="opacity-30" />
             <p class="m-0 text-sm">{{ configs.length === 0 ? '还没有部署配置' : '没有匹配的搜索结果' }}</p>
             <button @click="createNewConfig" class="btn btn-primary btn-sm">创建第一个</button>
           </div>
@@ -59,16 +51,11 @@
           <template v-for="[groupName, groupConfigs] in groupedConfigs" :key="groupName">
             <div class="mb-1">
               <div class="flex items-center gap-1.5 px-2 py-1.5 cursor-pointer rounded-lg transition-colors duration-150 select-none hover:bg-white/5" @click="toggleGroup(groupName)">
-                <svg class="transition-transform duration-200 flex-shrink-0" :class="{ '-rotate-90': !expandedGroups.has(groupName) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <SvgIcon name="chevronDown" :size="14" class="transition-transform duration-200" :class="{ '-rotate-90': !expandedGroups.has(groupName) }" />
                 <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider flex-1">{{ groupName }}</span>
                 <span class="text-xs text-base-content/60 opacity-60 bg-white/5 rounded-full px-1.5 py-0.5 min-w-[18px] text-center">{{ groupConfigs.length }}</span>
                 <button v-if="groupName !== '未分组'" @click.stop="renameGroup(groupName)" class="btn btn-ghost btn-xs px-0.5 py-0 min-h-0 h-auto opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-white/10" title="重命名分组">
-                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
+                  <SvgIcon name="pencil" :size="12" />
                 </button>
               </div>
               <div :class="!expandedGroups.has(groupName) ? 'max-h-0 opacity-0 overflow-hidden transition-all duration-300' : 'max-h-[2000px] opacity-100 overflow-hidden transition-all duration-300'">
@@ -83,7 +70,7 @@
                     <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getProjectName(cfg.projectId) }}</span>
                     <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ getProjectName(cfg.projectId) }}</span>
                     <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
-                    <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                    <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><SvgIcon name="lock" :size="12" class="inline-block align-text-bottom" /></span>
                   </div>
                   <div class="flex items-center justify-between mb-1.5">
                     <span class="text-xs text-base-content/60 truncate">{{ getServerLabel(cfg) }}</span>
@@ -92,9 +79,7 @@
                   <div class="flex items-center justify-between">
                     <span class="text-xs text-base-content/60 opacity-60">{{ formatTime(cfg.updatedAt) }}</span>
                     <button @click.stop="deleteConfig(cfg.id)" class="bg-transparent border-none cursor-pointer p-1 rounded text-base-content/60 opacity-0 group-hover:opacity-100 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10" title="删除">
-                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
+                      <SvgIcon name="trash" :size="12" />
                     </button>
                   </div>
                 </div>
@@ -109,10 +94,7 @@
         <!-- No config selected -->
         <div v-if="!selectedConfigId && !isNewConfig" class="flex-1 flex flex-col items-center justify-center gap-4 text-base-content/60">
           <div class="opacity-20">
-            <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              <line x1="12" y1="11" x2="12" y2="17" /><line x1="9" y1="14" x2="15" y2="14" />
-            </svg>
+            <SvgIcon name="folderPlus" :size="64" :stroke-width="1.5" />
           </div>
           <h3 class="m-0 text-xl text-base-content">选择或创建部署配置</h3>
           <p class="m-0 text-sm">从左侧选择一个已有配置，或创建新的部署配置</p>
@@ -127,10 +109,10 @@
               <h3 class="m-0 text-lg font-bold text-base-content">{{ isNewConfig ? '新建部署配置' : '编辑部署配置' }}</h3>
               <div class="flex gap-2">
                 <button @click="testConnection" class="btn btn-ghost btn-sm" :disabled="!deployServers.some(s => s.serverId)">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 测试连接
+                  <SvgIcon name="link" :size="14" class="inline-block align-text-bottom" /> 测试连接
                 </button>
                 <button @click="saveConfig" class="btn btn-primary btn-sm">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存
+                  <SvgIcon name="save" :size="14" class="inline-block align-text-bottom" /> 保存
                 </button>
               </div>
             </div>
@@ -138,7 +120,7 @@
             <!-- Pipeline Visualization -->
             <div class="flex items-center gap-1 py-3" v-if="selectedProject">
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.projectId }">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <SvgIcon name="folder" :size="18" />
                 <span class="text-xs font-medium text-base-content">{{ selectedProject.name }}</span>
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
@@ -148,12 +130,12 @@
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': deployServers.some(s => s.serverId) }">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                <SvgIcon name="serverRack" :size="18" />
                 <span class="text-xs font-medium text-base-content">{{ deployServers.length > 0 ? deployServers.map(s => getServerName(s.serverId) || s.label).filter(Boolean).join(', ') || '服务器' : '服务器' }}</span>
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-primary border border-solid border-primary min-w-[80px]">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+                <SvgIcon name="rocket" size="18" />
                 <span class="text-xs font-medium text-white">部署</span>
               </div>
             </div>
@@ -164,7 +146,7 @@
             <!-- Column 1: Project & Git -->
             <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
               <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                <SvgIcon name="folder" :size="18" />
                 <span class="truncate">项目与仓库</span>
               </div>
 
@@ -190,9 +172,7 @@
                     <option v-for="g in groups" :key="g" :value="g">{{ g }}</option>
                   </select>
                   <button @click="addGroup" class="btn btn-ghost btn-sm" title="新建分组">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                      <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                    </svg>
+                    <SvgIcon name="plus" size="14" stroke-width="2.5" />
                   </button>
                 </div>
               </div>
@@ -214,7 +194,7 @@
                 </div>
                 <div class="flex gap-1.5 mt-2">
                   <input v-model="config.repoUrl" class="input input-bordered w-full bg-base-200 text-sm flex-1" readonly placeholder="选择上方来源后自动填充" />
-                  <button @click="copyGitUrl" class="btn btn-ghost btn-sm" :disabled="!config.repoUrl" title="复制"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
+                  <button @click="copyGitUrl" class="btn btn-ghost btn-sm" :disabled="!config.repoUrl" title="复制"><SvgIcon name="clipboard" size="14" /></button>
                 </div>
               </div>
 
@@ -222,22 +202,22 @@
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地项目目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(可选，优先使用本地已构建产物)</span></label>
                 <div class="flex gap-1.5">
                   <input v-model="config.localPath" class="input input-bordered w-full bg-base-200 text-xs flex-1" :placeholder="selectedProject?.repoPath || '选择本地项目目录...'" />
-                  <button @click="selectLocalDir" class="btn btn-ghost btn-sm" title="选择目录"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>
-                  <button v-if="config.localPath" @click="config.localPath = ''" class="btn btn-ghost btn-sm" title="清空"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+                  <button @click="selectLocalDir" class="btn btn-ghost btn-sm" title="选择目录"><SvgIcon name="folder" size="14" /></button>
+                  <button v-if="config.localPath" @click="config.localPath = ''" class="btn btn-ghost btn-sm" title="清空"><SvgIcon name="x" size="14" /></button>
                 </div>
                 <div v-if="config.localPath" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <SvgIcon name="zap" size="14" />
                   <span>部署时将跳过 Git 克隆，直接使用本地目录进行构建</span>
                 </div>
                 <template v-else>
                   <div v-if="selectedProject?.repoPath" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <SvgIcon name="folder" size="14" />
                     <span>前端目录：<code class="bg-base-200 px-1 rounded text-xs text-primary break-all">{{ selectedProject.repoPath }}</code>
                       <button @click="config.localPath = selectedProject.repoPath" class="bg-primary text-white border-none px-1 py-0.5 rounded text-[10px] cursor-pointer ml-1 hover:opacity-90">使用</button>
                     </span>
                   </div>
                   <div v-if="selectedProject?.repoPath2" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                    <SvgIcon name="folder" size="14" />
                     <span>后端目录：<code class="bg-base-200 px-1 rounded text-xs text-primary break-all">{{ selectedProject.repoPath2 }}</code>
                       <button @click="config.localPath = selectedProject.repoPath2" class="bg-primary text-white border-none px-1 py-0.5 rounded text-[10px] cursor-pointer ml-1 hover:opacity-90">使用</button>
                     </span>
@@ -248,10 +228,7 @@
               <div class="mb-3.5">
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
                 <div class="relative flex items-center gap-1.5">
-                  <svg class="absolute left-2.5 text-base-content/60 pointer-events-none z-[1]" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
-                    <path d="M18 9a9 9 0 0 1-9 9" />
-                  </svg>
+                  <SvgIcon name="gitBranch" size="14" class="absolute left-2.5 text-base-content/60 pointer-events-none z-[1]" />
                   <select v-model="config.deployBranch" class="select select-bordered w-full bg-base-200 text-sm pl-8 pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-1" :disabled="!config.repoUrl && !config.localPath">
                     <option value="main">main</option>
                     <option value="master">master</option>
@@ -263,16 +240,11 @@
                     :disabled="!config.repoUrl && !config.localPath"
                     title="刷新分支列表"
                   >
-                    <svg :class="{ 'animate-spin': loadingBranches }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M21 2v6h-6" />
-                      <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-                      <path d="M3 22v-6h6" />
-                      <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-                    </svg>
+                    <SvgIcon name="refresh" size="14" :class="{ 'animate-spin': loadingBranches }" />
                   </button>
                 </div>
                 <div v-if="config.localPath && availableBranches.length === 0 && !loadingBranches" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
+                  <SvgIcon name="lightbulb" size="14" />
                   <span>点击右侧刷新按钮加载分支列表</span>
                 </div>
               </div>
@@ -293,7 +265,7 @@
             <!-- Column 2: Servers -->
             <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
               <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                <SvgIcon name="serverRack" size="18" />
                 <span class="truncate">目标服务器</span>
                 <span class="ml-auto text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-bold">{{ deployServers.length }}</span>
               </div>
@@ -327,10 +299,7 @@
                       class="bg-transparent border-none cursor-pointer p-1 rounded-md text-base-content/60 opacity-0 group-hover:opacity-60 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10 flex-shrink-0"
                       title="移除"
                     >
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                      </svg>
+                      <SvgIcon name="trash" size="14" />
                     </button>
                   </div>
 
@@ -357,25 +326,23 @@
                       @click.stop="testServerById(srv)"
                       class="btn btn-ghost btn-sm w-full"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 测试连接
+                      <SvgIcon name="link" size="14" class="inline-block align-text-bottom" /> 测试连接
                     </button>
                     <div v-if="srv.testResult" class="mt-2 px-2.5 py-1.5 rounded-md text-xs font-medium" :class="srv.testResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'">
-                      <template v-if="srv.testResult.success"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 连接成功</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> {{ srv.testResult.error }}</template>
+                      <template v-if="srv.testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /> 连接成功</template><template v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /> {{ srv.testResult.error }}</template>
                     </div>
                   </div>
                 </div>
               </div>
 
               <button @click="addServer" class="btn btn-ghost btn-sm w-full mt-2 border border-dashed border-base-content/10 text-base-content/60 hover:border-primary hover:text-primary hover:bg-primary/10">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
+                <SvgIcon name="plus" size="14" stroke-width="2.5" />
                 添加服务器节点
               </button>
 
               <!-- Global test result -->
               <div v-if="testResult" class="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm mt-3" :class="testResult.success ? 'bg-green-500/10 text-success border border-green-500/20' : 'bg-red-500/10 text-error border border-red-500/20'">
-                <span v-if="testResult.success"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg></span><span v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
+                <span v-if="testResult.success"><SvgIcon name="check" size="14" class="inline-block align-text-bottom" /></span><span v-else><SvgIcon name="x" size="14" class="inline-block align-text-bottom" /></span>
                 <span>{{ testResult.success ? '连接成功' : testResult.error }}</span>
               </div>
             </div>
@@ -383,7 +350,7 @@
             <!-- Column 3: Build & Deploy -->
             <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
               <div class="flex items-center gap-2 mb-4 text-sm font-semibold text-base-content pb-3 border-b border-base-content/10">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <SvgIcon name="tool" size="18" />
                 <span class="truncate">构建与部署</span>
               </div>
 
@@ -413,9 +380,7 @@
                   <div class="flex gap-1.5">
                     <input v-model="config.mavenHome" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config.mavenHome === defaultPaths.mavenHome && defaultPaths.mavenHome }" :placeholder="defaultPaths.mavenHome ? `已检测: ${defaultPaths.mavenHome}` : '自动检测 / 如 /opt/homebrew/opt/maven'" />
                     <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
-                      <svg :class="{ 'animate-spin': detectingPaths }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                      </svg>
+                      <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
                       <span>检测</span>
                     </button>
                   </div>
@@ -458,9 +423,7 @@
                 <!-- 非父子模块时，折叠为高级选项 -->
                 <template v-else>
                   <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                    <svg class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
                     <span>高级选项</span>
                   </div>
                   <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
@@ -489,9 +452,7 @@
                   <div class="flex gap-1.5">
                     <input v-model="config[`${config.buildTool}Home`]" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config[`${config.buildTool}Home`] === defaultPaths[`${config.buildTool}Home`] && defaultPaths[`${config.buildTool}Home`] }" :placeholder="defaultPaths[`${config.buildTool}Home`] ? `已检测: ${defaultPaths[`${config.buildTool}Home`]}` : `自动检测 / 如 /usr/local/bin/${config.buildTool}`" />
                     <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
-                      <svg :class="{ 'animate-spin': detectingPaths }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                      </svg>
+                      <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
                       <span>检测</span>
                     </button>
                   </div>
@@ -516,9 +477,7 @@
                 </div>
                 <!-- 高级选项折叠 -->
                 <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                  <svg class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
                   <span>高级选项</span>
                 </div>
                 <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
@@ -562,9 +521,7 @@
 
                 <!-- 高级选项折叠 -->
                 <div class="flex items-center gap-1.5 py-2 cursor-pointer text-xs font-semibold text-base-content/60 uppercase tracking-wider select-none transition-colors duration-150 hover:text-primary" @click="config.showAdvanced = !config.showAdvanced">
-                  <svg class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 12 15 18 9" />
-                  </svg>
+                  <SvgIcon name="chevronRight" size="14" class="transition-transform duration-200 flex-shrink-0" :class="{ 'rotate-90': config.showAdvanced }" />
                   <span>高级选项</span>
                 </div>
                 <div v-show="config.showAdvanced" class="overflow-hidden animate-[slideDown_0.2s_ease]">
@@ -578,7 +535,7 @@
                   <label class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-2 px-2.5 py-2 bg-amber-500/10 rounded-md border border-amber-500/20">
                     <input v-model="config.requiresApproval" type="checkbox" class="checkbox checkbox-primary" />
                     <span class="flex flex-col gap-0.5">
-                      <span class="flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 部署审核</span>
+                      <span class="flex items-center gap-1"><SvgIcon name="lock" size="14" /> 部署审核</span>
                       <span class="text-xs text-base-content/60">开启后部署前需要人工确认，防止误操作</span>
                     </span>
                   </label>
@@ -594,7 +551,7 @@
             'border-l-success bg-success/[0.05]': parentBuildAutoDetected
           }">
             <div class="flex items-center gap-2.5 mb-3.5 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
-              <span class="flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><polyline points="16 3 22 3 22 9"/><line x1="2" y1="3" x2="16" y2="17"/><polyline points="13 8 19 8 19 14"/></svg> 父子模块构建</span>
+              <span class="flex items-center gap-1"><SvgIcon name="gitMerge" size="14" /> 父子模块构建</span>
               <span class="flex-1 h-px bg-base-content/10"></span>
             </div>
             <div class="mb-2">
@@ -602,14 +559,14 @@
                 <input type="checkbox" v-model="config.parentBuildMode" class="toggle toggle-primary" />
                 <span class="text-sm font-medium text-base-content">是否为父子模块项目（父 POM 统一构建）</span>
               </label>
-              <span v-if="parentBuildAutoDetected" class="inline-flex items-center gap-1 text-xs font-semibold text-success bg-green-500/10 border border-green-500/30 px-2 py-0.5 rounded-full ml-2.5 mt-1" title="由模块扫描自动检测"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 已自动检测</span>
+              <span v-if="parentBuildAutoDetected" class="inline-flex items-center gap-1 text-xs font-semibold text-success bg-green-500/10 border border-green-500/30 px-2 py-0.5 rounded-full ml-2.5 mt-1" title="由模块扫描自动检测"><SvgIcon name="search" size="12" /> 已自动检测</span>
               <span v-else class="block text-xs text-base-content/60 mt-1 ml-[54px]">开启后，所有子模块统一在父模块目录下执行一次构建，子模块只需设置远程部署路径</span>
             </div>
             <div v-if="config.parentBuildMode" class="mb-3.5 mt-2 ml-[54px]">
               <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">父模块构建目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(相对于项目本地路径)</span></label>
               <div class="flex gap-1.5">
                 <input v-model="config.parentBuildPath" class="input input-bordered w-full bg-base-200 text-sm flex-1" :class="{ '!border-success !bg-green-500/5': config.parentBuildPath === parentBuildDetectedPath && parentBuildDetectedPath }" :placeholder="parentBuildDetectedPath ? `已检测: ${parentBuildDetectedPath}` : '留空使用项目根目录，或填写如 ./yudao-framework'" />
-                <button v-if="scannedModules.length > 0" @click="autoDetectParentBuild" class="btn btn-ghost btn-sm flex-shrink-0 whitespace-nowrap gap-1 text-xs px-2.5 py-1.5" title="重新检测"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+                <button v-if="scannedModules.length > 0" @click="autoDetectParentBuild" class="btn btn-ghost btn-sm flex-shrink-0 whitespace-nowrap gap-1 text-xs px-2.5 py-1.5" title="重新检测"><SvgIcon name="search" size="12" /></button>
               </div>
               <span class="block text-xs text-base-content/60 mt-1">在该目录下执行 <code class="bg-base-200 px-1 rounded text-xs text-primary break-all">mvn clean package</code> 构建所有子模块</span>
             </div>
@@ -618,26 +575,22 @@
           <div class="px-6 pb-6">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-2 text-sm font-semibold text-base-content">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M4 7h3a1 1 0 0 0 1-1V3a1 1 0 0 1 2 0v3a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 0 1 1h3a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-3a1 1 0 0 0-1 1v3a1 1 0 0 1-2 0v-3a1 1 0 0 0-1-1H8a1 1 0 0 1-1-1v-3a1 1 0 0 0-1-1H3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z"/></svg>
+                <SvgIcon name="grid" size="18" />
                 <span>部署模块</span>
                 <span class="text-xs font-normal text-base-content/60 ml-2">多模块项目配置每个模块的构建路径、命令和产物路径</span>
                 <!-- Parent unified build mode indicator -->
                 <span v-if="config.parentBuildMode" class="text-xs font-semibold text-amber-500 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full ml-2 animate-pulse" title="父模块统一构建：一次 mvn 构建所有子模块，每个模块部署到独立远程路径">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><polyline points="16 3 22 3 22 9"/><line x1="2" y1="3" x2="16" y2="17"/><polyline points="13 8 19 8 19 14"/></svg> 父模块统一构建
+                  <SvgIcon name="gitMerge" size="14" class="inline-block align-text-bottom" /> 父模块统一构建
                 </span>
               </div>
               <div class="flex gap-2">
                 <button @click="scanModules" class="btn btn-ghost btn-sm" :disabled="scanningModules || !selectedProject?.repoPath" :title="!selectedProject?.repoPath ? '请先选择有本地路径的项目' : ''">
                   <template v-if="scanningModules">
-                    <svg class="animate-spin" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                    </svg>
+                    <SvgIcon name="search" size="14" class="animate-spin" />
                     扫描中...
                   </template>
                   <template v-else>
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom">
-                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                    </svg>
+                    <SvgIcon name="search" size="14" class="inline-block align-text-bottom" />
                     自动识别模块
                   </template>
                 </button>
@@ -648,13 +601,9 @@
             <!-- Module Tree Dropdown -->
             <div v-if="scannedModules.length > 0" class="mb-3 border border-base-content/10 rounded-xl bg-base-100 overflow-hidden">
               <div class="flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer text-sm text-base-content transition-colors duration-150 hover:bg-base-200" @click="showModuleTree = !showModuleTree">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
-                </svg>
+                <SvgIcon name="folder" size="14" />
                 <span>已识别 {{ scannedModules.length }} 个模块，点击展开选择</span>
-                <svg class="ml-auto transition-transform duration-200 text-base-content/60" :class="{ 'rotate-180': showModuleTree }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+                <SvgIcon name="chevronDown" size="16" class="ml-auto transition-transform duration-200 text-base-content/60" :class="{ 'rotate-180': showModuleTree }" />
               </div>
 
               <div v-if="showModuleTree" class="border-t border-base-content/10 max-h-[400px] overflow-y-auto">
@@ -672,7 +621,7 @@
                 <!-- Bulk add button -->
                 <div class="px-3.5 py-3 flex justify-end border-t border-base-content/10 bg-base-200">
                   <button @click="addAllDetectedModules" class="btn btn-primary btn-sm">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> 添加全部未添加的模块
+                    <SvgIcon name="clipboard" size="14" class="inline-block align-text-bottom" /> 添加全部未添加的模块
                   </button>
                 </div>
               </div>
@@ -682,18 +631,14 @@
               <div v-for="(module, idx) in modules" :key="module.id || idx" class="border border-base-content/10 rounded-xl overflow-hidden bg-base-100 transition-all duration-150 hover:border-primary group">
                 <div class="cursor-pointer px-3.5 py-2.5 transition-colors duration-150 hover:bg-base-200" @click="toggleModuleExpand(idx)">
                   <div class="flex items-center gap-2.5">
-                    <svg class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-180': expandedModules.includes(idx) }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                    <SvgIcon name="chevronDown" size="16" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-180': expandedModules.includes(idx) }" />
                     <span class="text-xs font-semibold text-base-content/60 flex-shrink-0">#{{ idx + 1 }}</span>
                     <input v-model="module.moduleName" class="flex-1 px-2.5 py-1.5 border border-base-content/10 rounded-md bg-base-200 text-base-content text-sm font-medium min-w-0 focus:border-primary focus:outline-none focus:shadow-[0_0_0_2px_rgba(64,158,255,0.1)]" placeholder="模块名称" @click.stop />
                     <label class="toggle" @click.stop>
                       <input type="checkbox" v-model="module.enabled" />
                     </label>
                     <button @click.stop="deleteModule(module.id)" class="btn btn-ghost btn-sm btn-square text-error hover:bg-error/10" title="删除">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
+                      <SvgIcon name="x" size="14" />
                     </button>
                   </div>
                 </div>
@@ -808,6 +753,7 @@ import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
 import DeployPanel from './DeployPanel.vue';
 import { ref } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const cicdTab = ref<'deploy' | 'config'>('deploy')
 
