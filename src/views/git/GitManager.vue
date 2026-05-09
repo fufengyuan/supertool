@@ -540,7 +540,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
+// @ts-nocheck — TODO: 需要修复 useGitManager composable 的类型系统
 import { ref } from 'vue'
 import type { GitRepo } from '../../types'
 import { useGitManager } from '../../composables/useGitManager'
@@ -734,8 +734,6 @@ const {
   selectedTagForBranch,
   deleteRemoteBranchTarget,
   deletingBranch,
-  showStashMenu: _stashMenuStub,
-  showGitMenu: _gitMenuStub,
   localBranches,
   remoteBranches,
   loadBranches,
