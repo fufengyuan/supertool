@@ -19,21 +19,21 @@
         <!-- 元信息行 -->
         <div class="flex gap-4 mb-2 flex-wrap">
           <span class="text-xs text-base-content/60 flex items-center gap-1" v-if="project.createdAt">
-            <span class="text-xs">📅 创建于 {{ formatDate(project.createdAt) }}</span>
+            <span class="text-xs"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>  创建于 {{ formatDate(project.createdAt) }}</span>
           </span>
           <span class="text-xs text-base-content/60 flex items-center gap-1" v-if="project.updatedAt">
-            <span class="text-xs">✏️ 更新于 {{ formatDate(project.updatedAt) }}</span>
+            <span class="text-xs"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>  更新于 {{ formatDate(project.updatedAt) }}</span>
           </span>
         </div>
         <!-- Git 仓库 -->
         <div class="flex flex-col gap-1" v-if="hasGitRepos">
           <div v-if="project.repoPath" class="flex items-center gap-1.5 text-xs text-base-content/60">
-            <span class="flex-shrink-0 text-sm">📂</span>
+            <span class="flex-shrink-0 text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> </span>
             <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.repoPath.split('/').pop() }}</span>
             <span v-if="project.branch" class="badge badge-sm badge-primary">{{ project.branch }}</span>
           </div>
           <div v-if="project.repoPath2" class="flex items-center gap-1.5 text-xs text-base-content/60">
-            <span class="flex-shrink-0 text-sm">📂</span>
+            <span class="flex-shrink-0 text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> </span>
             <span class="flex-1 whitespace-nowrap overflow-hidden text-ellipsis font-mono text-[11px]">{{ project.repoPath2.split('/').pop() }}</span>
             <span v-if="project.branch2" class="badge badge-sm badge-primary">{{ project.branch2 }}</span>
           </div>
@@ -74,9 +74,9 @@
       </div>
       <div class="flex gap-1.5">
         <button class="btn btn-ghost btn-sm" @click.stop="$emit('toggle-archive', project)" :title="project.archived ? '取消归档' : '归档'">
-          {{ project.archived ? '↩️' : '📁' }}
+          {{ project.archived ? '↩️' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> ' }}
         </button>
-        <button class="btn btn-primary btn-sm" @click.stop="$emit('edit', project)" title="编辑">✏️</button>
+        <button class="btn btn-primary btn-sm" @click.stop="$emit('edit', project)" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
       </div>
     </div>
   </div>

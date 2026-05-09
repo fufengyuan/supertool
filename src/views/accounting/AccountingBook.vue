@@ -5,7 +5,7 @@
       <h2 class="text-xl font-bold text-base-content">📒 企业记账</h2>
       <div class="flex gap-2">
         <button @click="showTemplates = true" class="btn btn-ghost btn-sm" title="快捷模板">
-          ⚡ 快捷记账
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  快捷记账
         </button>
         <button @click="openAddRecord" class="btn btn-primary btn-sm">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
@@ -22,7 +22,7 @@
           导出账本
         </button>
         <button @click="showBudgetManager = true" class="btn btn-ghost btn-sm" title="预算管理">
-          🎯 预算
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>  预算
         </button>
         <button @click="showCategoryManager = true" class="btn btn-ghost btn-sm">
           ⚙️ 分类管理
@@ -99,7 +99,7 @@
     <div v-if="budgetAlerts.length > 0" class="bg-base-100 border border-warning rounded-xl p-3 shrink-0">
       <div class="flex justify-between items-center mb-2">
         <span class="text-xs font-semibold text-warning">⚠️ 预算预警</span>
-        <button @click="loadBudgetAlerts" class="btn btn-ghost btn-xs" title="刷新">🔄</button>
+        <button @click="loadBudgetAlerts" class="btn btn-ghost btn-xs" title="刷新"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> </button>
       </div>
       <div class="flex flex-col gap-1.5">
         <div v-for="alert in budgetAlerts" :key="alert.category" class="flex items-center gap-2 text-xs" :class="{ 'bg-error/5 rounded-sm p-1 -mx-1 -my-1': alert.over }">
@@ -283,11 +283,11 @@
             </td>
             <td class="px-3 py-2 border-b border-base-content/10 whitespace-nowrap" :title="record.description">{{ record.description || '—' }}</td>
             <td class="px-3 py-2 border-b border-base-content/10 whitespace-nowrap">
-              <button @click="editRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/10" title="编辑">✏️</button>
-              <button v-if="canApprove(record)" @click="approveRecord(record, 'approved')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-success/15" title="审批通过">✅</button>
-              <button v-if="canApprove(record)" @click="approveRecord(record, 'rejected')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="驳回">❌</button>
+              <button @click="editRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/10" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
+              <button v-if="canApprove(record)" @click="approveRecord(record, 'approved')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-success/15" title="审批通过"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
+              <button v-if="canApprove(record)" @click="approveRecord(record, 'rejected')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="驳回"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> </button>
               <button v-if="canReimburse(record)" @click="approveRecord(record, 'reimbursed')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/15" title="标记报销">💰</button>
-              <button @click="deleteRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="删除">🗑️</button>
+              <button @click="deleteRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
             </td>
           </tr>
         </tbody>
@@ -451,7 +451,7 @@
           </div>
           <div class="flex justify-end gap-2 px-5 py-3 border-t border-base-content/10">
             <button @click="closeRecordForm" class="btn btn-ghost">取消</button>
-            <button v-if="formValid" @click="saveAsTemplate" class="btn btn-ghost" title="保存为模板">💾 存模板</button>
+            <button v-if="formValid" @click="saveAsTemplate" class="btn btn-ghost" title="保存为模板"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  存模板</button>
             <button @click="saveRecord" class="btn btn-primary" :disabled="!formValid">{{ editingRecord ? '保存' : '添加' }}</button>
           </div>
         </div>
@@ -536,7 +536,7 @@
       <div v-if="showTemplates" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showTemplates = false">
         <div class="bg-base-100 border border-base-content/10 rounded-xl w-[560px] max-h-[80vh] flex flex-col shadow-2xl max-sm:!w-[95vw]">
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold text-base-content">⚡ 快捷记账模板</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  快捷记账模板</h3>
             <button @click="showTemplates = false" class="w-7 h-7 border-none bg-transparent text-base-content/60 text-xl cursor-pointer rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary">×</button>
           </div>
           <div class="px-5 py-4 overflow-y-auto flex-1">
@@ -567,7 +567,7 @@
       <div v-if="showBudgetManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showBudgetManager = false">
         <div class="bg-base-100 border border-base-content/10 rounded-xl w-[560px] max-h-[80vh] flex flex-col shadow-2xl max-sm:!w-[95vw]">
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold text-base-content">🎯 预算管理</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>  预算管理</h3>
             <button @click="showBudgetManager = false" class="w-7 h-7 border-none bg-transparent text-base-content/60 text-xl cursor-pointer rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary">×</button>
           </div>
           <div class="px-5 py-4 overflow-y-auto flex-1">

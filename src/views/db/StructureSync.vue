@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full p-4 overflow-auto">
     <div class="mb-4">
-      <h3 class="text-base font-semibold m-0 mb-1">🔧 结构同步</h3>
+      <h3 class="text-base font-semibold m-0 mb-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  结构同步</h3>
       <p class="text-sm text-base-content/60 m-0">对比并同步两个数据库之间的表结构（Navicat 风格多表对比）</p>
     </div>
 
@@ -27,14 +27,14 @@
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60">📂 源数据库</label>
+          <label class="text-xs font-medium text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  源数据库</label>
           <select v-model="sourceDb" @change="loadSourceTables" :disabled="!sourceId || loadingSourceDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingSourceDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in sourceDatabases" :key="db" :value="db">{{ db }}</option>
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60">📂 目标数据库</label>
+          <label class="text-xs font-medium text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  目标数据库</label>
           <select v-model="targetDb" @change="loadTargetTables" :disabled="!targetId || loadingTargetDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingTargetDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in targetDatabases" :key="db" :value="db">{{ db }}</option>
@@ -52,7 +52,7 @@
     <!-- Step 2: Multi-Table Selection -->
     <div v-if="step === 2" class="bg-base-100 rounded-lg p-4">
       <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-semibold m-0">📋 选择要对比的表</h4>
+        <h4 class="text-sm font-semibold m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  选择要对比的表</h4>
         <div class="flex gap-1.5">
           <button @click="selectAllTables" class="btn btn-ghost btn-xs">全选</button>
           <button @click="selectCommonTables" class="btn btn-ghost btn-xs">仅共有表</button>
@@ -208,7 +208,7 @@
         </div>
 
         <div v-if="filteredDiffs.length === 0" class="text-center p-8 text-base-content/60 text-sm">
-          所选表结构完全一致 ✅
+          所选表结构完全一致 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 
         </div>
       </div>
 
@@ -218,7 +218,7 @@
         <div class="flex gap-2">
           <button @click="selectAll" class="btn btn-ghost">全选</button>
           <button @click="reset" class="btn btn-ghost">重新对比</button>
-          <button @click="showSqlDialog = true" :disabled="selectedSqls.size === 0" class="btn btn-ghost">📄 查看SQL</button>
+          <button @click="showSqlDialog = true" :disabled="selectedSqls.size === 0" class="btn btn-ghost"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  查看SQL</button>
           <button @click="executeSync" :disabled="selectedSqls.size === 0 || executing" class="btn btn-primary">
             {{ executing ? '执行中...' : '🚀 执行同步' }}
           </button>
@@ -231,9 +231,9 @@
       <div v-if="showSqlDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000]" @click="showSqlDialog = false">
         <div class="bg-base-100 rounded-xl w-[720px] max-w-[90vw] max-h-[80vh] flex flex-col shadow-2xl" @click.stop>
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold">📄 待执行 SQL ({{ selectedSqls.size }} 条)</h3>
+            <h3 class="m-0 text-base font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  待执行 SQL ({{ selectedSqls.size }} 条)</h3>
             <div class="flex items-center gap-2">
-              <button @click="copyAllSql" class="btn btn-ghost btn-sm">📋 复制全部</button>
+              <button @click="copyAllSql" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  复制全部</button>
               <button @click="showSqlDialog = false" class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:text-base-content">×</button>
             </div>
           </div>
@@ -241,7 +241,7 @@
             <div v-for="(sql, idx) in selectedSqlArray" :key="idx" class="flex items-start gap-2.5 px-3 py-2.5 bg-base-200 rounded-lg mb-2 text-xs">
               <span class="shrink-0 w-[22px] h-[22px] rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold mt-0.5">{{ idx + 1 }}</span>
               <pre class="flex-1 m-0 p-0 whitespace-pre-wrap break-all font-mono text-xs text-base-content bg-transparent">{{ sql }}</pre>
-              <button @click="copySingleSql(idx)" class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10" title="复制">📋</button>
+              <button @click="copySingleSql(idx)" class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10" title="复制"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> </button>
             </div>
           </div>
         </div>

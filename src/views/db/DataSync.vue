@@ -1,7 +1,7 @@
 <template>
     <div class="flex flex-col h-full p-4 overflow-auto">
         <div class="mb-4">
-            <h3 class="text-base font-semibold m-0 mb-1">📦 数据同步</h3>
+            <h3 class="text-base font-semibold m-0 mb-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>  数据同步</h3>
             <p class="text-xs opacity-60 m-0">
                 对比并同步两个数据库之间的表数据（Navicat 风格多表对比）
             </p>
@@ -37,7 +37,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60">📂 源数据库</label>
+                    <label class="text-xs font-medium opacity-60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  源数据库</label>
                     <select
                         v-model="sourceDb"
                         @change="loadSourceTables"
@@ -51,7 +51,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60">📂 目标数据库</label>
+                    <label class="text-xs font-medium opacity-60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  目标数据库</label>
                     <select
                         v-model="targetDb"
                         @change="loadTargetTables"
@@ -98,7 +98,7 @@
         <!-- Step 2: Multi-Table Selection -->
         <div v-if="step === 2" class="bg-base-100 rounded-lg p-4">
             <div class="flex items-center justify-between mb-3">
-                <h4 class="text-sm font-semibold m-0">📋 选择要对比数据的表</h4>
+                <h4 class="text-sm font-semibold m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  选择要对比数据的表</h4>
                 <div class="flex gap-1.5">
                     <button @click="selectAllTables" class="btn btn-ghost btn-xs">全选</button>
                     <button @click="selectCommonTables" class="btn btn-ghost btn-xs">
@@ -185,7 +185,7 @@
                 class="bg-base-200 border border-base-300 rounded-lg p-3 mb-3"
             >
                 <h4 class="text-sm font-semibold m-0 mb-2">
-                    🔑 对比字段
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>  对比字段
                     <span class="font-normal text-xs opacity-60"
                         >（默认主键，可切换为其他业务字段）</span
                     >
@@ -268,7 +268,7 @@
                         </div>
                     </div>
                     <!-- Loading state -->
-                    <span v-else class="text-[11px] opacity-60">⏳ 加载中...</span>
+                    <span v-else class="text-[11px] opacity-60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  加载中...</span>
                 </div>
             </div>
 
@@ -626,7 +626,7 @@
                 </div>
 
                 <div v-if="filteredDiffs.length === 0" class="text-center p-8 opacity-60 text-sm">
-                    所选表数据完全一致 ✅
+                    所选表数据完全一致 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 
                 </div>
             </div>
 
@@ -642,7 +642,7 @@
                         :disabled="filteredDiffs.length === 0"
                         class="btn btn-ghost"
                     >
-                        📄 查看SQL
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  查看SQL
                     </button>
                     <button
                         @click="executeSync"
@@ -670,11 +670,11 @@
                         class="flex items-center justify-between px-5 py-4 border-b border-base-300"
                     >
                         <h3 class="m-0 text-base font-semibold">
-                            📄 待执行 SQL ({{ generatedSqlList.length }} 条)
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  待执行 SQL ({{ generatedSqlList.length }} 条)
                         </h3>
                         <div class="flex items-center gap-2">
                             <button @click="copyAllSql" class="btn btn-ghost btn-sm">
-                                📋 复制全部
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  复制全部
                             </button>
                             <button
                                 @click="showSqlDialog = false"
@@ -703,7 +703,7 @@
                                 class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10"
                                 title="复制"
                             >
-                                📋
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 
                             </button>
                         </div>
                     </div>
@@ -720,7 +720,7 @@
                 'border border-error': !execResult.success,
             }"
         >
-            <h4 class="m-0 mb-2">{{ execResult.success ? "✅ 同步成功" : "❌ 同步失败" }}</h4>
+            <h4 class="m-0 mb-2">{{ execResult.success ? '✅ 同步成功' : '❌ 同步失败' }}</h4>
             <div class="flex gap-4 justify-center text-sm mb-3">
                 <span>新增: {{ execResult.inserted }}</span>
                 <span>更新: {{ execResult.updated }}</span>
