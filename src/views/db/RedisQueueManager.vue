@@ -12,7 +12,7 @@
           'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mr-1',
           connectionStatus === 'connected' ? 'bg-success/10' : connectionStatus === 'connecting' ? 'bg-warning/10' : 'bg-error/10'
         ]">
-          <span class="text-[10px] leading-none">{{ connectionStatus === 'connected' ? '🟢' : connectionStatus === 'connecting' ? '🟡' : '🔴' }}</span>
+          <span class="text-[10px] leading-none">{{ connectionStatus === 'connected' ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>' : connectionStatus === 'connecting' ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>' }}</span>
           <span :class="[
             'whitespace-nowrap',
             connectionStatus === 'connected' ? 'text-success' : connectionStatus === 'connecting' ? 'text-warning' : 'text-error'
@@ -137,7 +137,7 @@
             </div>
             <div class="flex gap-1.5 shrink-0">
               <button @click="refreshDelayQueue" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  刷新</button>
-              <button @click="selectedDelayQueue = ''" class="btn btn-ghost btn-sm">✕ 关闭</button>
+              <button @click="selectedDelayQueue = ''" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> 关闭</button>
             </div>
           </div>
           <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-base-200">
@@ -157,7 +157,7 @@
                 <pre class="m-0 text-xs font-mono text-success whitespace-pre-wrap break-all max-h-[120px] overflow-y-auto leading-relaxed">{{ formatJsonPreview(dm.messageJson) }}</pre>
               </div>
               <div class="flex gap-1.5 mt-2 pt-2 border-t border-base-content/10">
-                <button v-if="dm.remainingMs <= 0" @click="fireDelayMessage(dm)" class="btn btn-ghost btn-xs">🔥 立即投递</button>
+                <button v-if="dm.remainingMs <= 0" @click="fireDelayMessage(dm)" class="btn btn-ghost btn-xs"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> 立即投递</button>
                 <button @click="deleteDelayMessage(dm)" class="btn btn-ghost btn-xs text-error"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除</button>
               </div>
             </div>
@@ -181,7 +181,7 @@
             <div class="flex gap-1.5 shrink-0">
               <button @click="openAddMessage" class="btn btn-primary btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>  投递消息</button>
               <button @click="showGroupModal = true" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>  创建消费组</button>
-              <button @click="showTrimModal = true" class="btn btn-ghost btn-sm">✂️ 清理</button>
+              <button @click="showTrimModal = true" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> 清理</button>
               <button @click="deleteStream" class="btn btn-error btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除</button>
             </div>
           </div>
@@ -218,7 +218,7 @@
               </div>
               <!-- Search -->
               <div class="min-w-[150px]">
-                <input v-model="messageSearchQuery" class="input input-sm bg-base-100 w-full" placeholder="🔍 搜索消息内容..." />
+                <input v-model="messageSearchQuery" class="input input-sm bg-base-100 w-full" placeholder="搜索消息内容..." />
               </div>
               <button @click="loadMessages" class="btn btn-ghost btn-xs">加载</button>
             </div>
@@ -265,7 +265,7 @@
                     <div class="flex items-center gap-1 text-xs text-base-content/60 mb-2 flex-wrap">
                       <span v-if="msg.envelope.messageId">ID: <code class="font-mono bg-base-200 px-1 rounded text-[10px]">{{ shortId(msg.envelope.messageId) }}</code></span>
                       <span class="mx-1">|</span>
-                      <span v-if="msg.envelope.createdAt">🕐 {{ formatTime(msg.envelope.createdAt) }}</span>
+                      <span v-if="msg.envelope.createdAt"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> {{ formatTime(msg.envelope.createdAt) }}</span>
                       <span class="mx-1" v-if="msg.envelope.traceId">|</span>
                       <span v-if="msg.envelope.traceId">Trace: <code class="font-mono bg-base-200 px-1 rounded text-[10px]">{{ shortId(msg.envelope.traceId) }}</code></span>
                       <span class="mx-1" v-if="msg.envelope.tenantId">|</span>
@@ -458,7 +458,7 @@
             <label class="text-[11px] text-base-content/60 whitespace-nowrap">Claim 消费者:</label>
             <input v-model="claimConsumerName" class="input input-xs w-20 font-mono bg-base-200" placeholder="admin" title="Claim 目标消费者名称" />
           </div>
-          <button @click="selectedGroup = ''" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
+          <button @click="selectedGroup = ''" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       </div>
       <div class="flex border-b border-base-content/10 px-4">
@@ -512,7 +512,7 @@
       <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="m-0 text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>  投递消息 (XADD)</h3>
-          <button @click="showAddModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
+          <button @click="showAddModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="p-5">
           <div class="flex gap-4">
@@ -547,7 +547,7 @@
       <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="m-0 text-sm font-semibold text-base-content">创建消费组 (XGROUP CREATE)</h3>
-          <button @click="showGroupModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
+          <button @click="showGroupModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="p-5">
           <div class="flex gap-4">
@@ -572,11 +572,11 @@
     <div v-if="showTrimModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showTrimModal = false">
       <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-          <h3 class="m-0 text-sm font-semibold text-base-content">✂️ 清理队列 (XTRIM)</h3>
-          <button @click="showTrimModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
+          <h3 class="m-0 text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> 清理队列 (XTRIM)</h3>
+          <button @click="showTrimModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
         <div class="p-5">
-          <div class="p-3 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning mb-4">⚠️ 此操作将保留最近 N 条消息，其余全部删除。此操作不可恢复！</div>
+          <div class="p-3 bg-warning/10 border border-warning/30 rounded-lg text-xs text-warning mb-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 此操作将保留最近 N 条消息，其余全部删除。此操作不可恢复！</div>
           <div class="mb-4">
             <label class="block text-xs font-semibold text-base-content/60 mb-1.5">当前消息数: {{ streamInfo?.length || 0 }}</label>
           </div>

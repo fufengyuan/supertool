@@ -12,7 +12,7 @@
       <div v-if="enabled" class="flex gap-1.5 items-center">
         <button @click="addCondition" class="btn btn-ghost btn-xs">+ 添加条件</button>
         <button @click="clearAll" class="btn btn-ghost btn-xs" :disabled="conditions.length === 0">清除全部</button>
-        <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0">🔍 应用筛选</button>
+        <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 应用筛选</button>
       </div>
     </div>
 

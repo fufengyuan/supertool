@@ -4,7 +4,7 @@
       <h2 class="m-0 text-2xl font-semibold text-base-content">Git 仓库</h2>
       <div class="flex gap-2">
         <UiButton @click="showScanSection = !showScanSection">
-          🔍 扫描本地目录
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描本地目录
         </UiButton>
         <UiButton @click="openAddModal">+ 添加仓库</UiButton>
       </div>
@@ -13,8 +13,8 @@
     <!-- 扫描本地目录面板 -->
     <div v-if="showScanSection" class="mb-5 border border-base-content/20 rounded-xl bg-base-100 overflow-hidden">
       <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
-        <span class="text-sm font-semibold text-base-content">📂 扫描本地目录</span>
-        <button class="btn btn-ghost btn-xs" @click="showScanSection = false">✕</button>
+        <span class="text-sm font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 扫描本地目录</span>
+        <button class="btn btn-ghost btn-xs" @click="showScanSection = false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="p-4">
         <p class="m-0 mb-3 text-xs text-base-content/60">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
@@ -26,7 +26,7 @@
         ></textarea>
         <div class="flex items-center gap-3 mt-3">
           <UiButton variant="primary" @click="doScan" :loading="scanning">
-            {{ scanning ? '扫描中...' : '🔍 扫描' }}
+            {{ scanning ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描' }}
           </UiButton>
           <span v-if="scanResult !== null" class="text-xs text-base-content/70">
             {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}

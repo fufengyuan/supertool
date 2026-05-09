@@ -9,7 +9,7 @@
       <div v-if="visible" class="fixed inset-0 z-[1000] flex items-center justify-center" @click="close">
         <div class="w-[90%] max-w-[680px] overflow-hidden rounded-2xl bg-base-100 shadow-2xl" @click.stop>
           <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
-            <h3 class="m-0 text-base font-semibold text-base-content">⌨️ 快捷键</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h12"/></svg> 快捷键</h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60 hover:text-base-content" @click="close" title="关闭">×</button>
           </div>
           <div class="p-6">

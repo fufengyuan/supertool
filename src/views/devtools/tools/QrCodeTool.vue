@@ -37,7 +37,7 @@
 
       <div v-if="qrDataUrl" class="mt-4 flex flex-col items-center gap-3">
         <img :src="qrDataUrl" alt="QR Code" class="border border-base-content/10 rounded-box max-w-[300px] bg-white p-2" />
-        <button class="btn btn-ghost" @click="downloadQR">⬇️ 下载 PNG</button>
+        <button class="btn btn-ghost" @click="downloadQR"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> 下载 PNG</button>
       </div>
     </div>
 
@@ -62,7 +62,7 @@
       <div v-if="parseResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2">
         {{ parseResult }}
         <div class="flex flex-wrap gap-2.5 mb-3 mt-2">
-          <button class="btn btn-ghost" @click="doCopy(parseResult)">📋 复制</button>
+          <button class="btn btn-ghost" @click="doCopy(parseResult)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 复制</button>
         </div>
       </div>
       <div v-if="parseError" class="bg-base-200 border border-error/30 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all max-h-72 overflow-y-auto mt-2 text-error">{{ parseError }}</div>

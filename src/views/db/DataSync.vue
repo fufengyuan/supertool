@@ -11,7 +11,7 @@
         <div v-if="step === 1" class="bg-base-100 rounded-lg p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60">🟢 源连接</label>
+                    <label class="text-xs font-medium opacity-60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 源连接</label>
                     <select
                         v-model="sourceId"
                         @change="onSourceChange"
@@ -24,7 +24,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60">🔴 目标连接</label>
+                    <label class="text-xs font-medium opacity-60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 目标连接</label>
                     <select
                         v-model="targetId"
                         @change="onTargetChange"

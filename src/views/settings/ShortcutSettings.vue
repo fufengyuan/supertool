@@ -1,6 +1,6 @@
 <template>
   <div class="p-6 max-w-2xl mx-auto text-base-content">
-    <h2 class="m-0 mb-2 text-xl font-bold">⌨️ 快捷键设置</h2>
+    <h2 class="m-0 mb-2 text-xl font-bold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M6 16h12"/></svg> 快捷键设置</h2>
     <p class="text-sm text-base-content/60 mb-5">自定义功能快捷键，点击输入框后按下新快捷键即可修改。</p>
     <div class="flex flex-col gap-0.5">
       <div v-for="item in shortcutItems" :key="item.key" class="flex items-center justify-between p-3 px-4 bg-base-100 rounded-lg transition-colors duration-200 hover:bg-base-200" :class="{ 'bg-primary/10 border border-primary': editingKey === item.key }">
@@ -19,7 +19,7 @@
               <span v-else class="text-base-content/60 italic">未设置</span>
             </template>
           </div>
-          <button v-if="item.shortcut && item.defaultShortcut && item.shortcut !== item.defaultShortcut" @click="resetShortcut(item.key)" class="bg-transparent border-none text-lg cursor-pointer opacity-50 p-1 transition-opacity duration-200 hover:opacity-100" title="恢复默认">↩️</button>
+          <button v-if="item.shortcut && item.defaultShortcut && item.shortcut !== item.defaultShortcut" @click="resetShortcut(item.key)" class="bg-transparent border-none text-lg cursor-pointer opacity-50 p-1 transition-opacity duration-200 hover:opacity-100" title="恢复默认"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg></button>
         </div>
       </div>
     </div>

@@ -159,7 +159,7 @@
 
       <!-- 任务分配消息 -->
       <div v-else-if="message.type === 'task_assigned'" class="flex items-start gap-2.5 py-1">
-        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg">📋</div>
+        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
         <div class="flex-1 min-w-0">
           <div class="text-[13px] font-medium mb-1 leading-[1.4]">已分配任务：<strong class="font-semibold">{{ parsedTaskContent.taskText }}</strong></div>
           <div v-if="parsedTaskContent.priority" class="text-[11px] opacity-70 mb-0.5">

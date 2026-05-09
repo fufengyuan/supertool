@@ -4,27 +4,27 @@
     <div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 mb-5">
       <div v-if="project.repoPath" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs font-semibold text-base-content">📂 本地仓库 1</span>
+          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 本地仓库 1</span>
           <span v-if="project.branch" class="badge badge-sm badge-primary">{{ project.branch }}</span>
         </div>
         <div class="text-xs text-base-content/60 font-mono break-all">{{ project.repoPath }}</div>
       </div>
       <div v-if="project.repoPath2" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
         <div class="flex items-center justify-between mb-1.5">
-          <span class="text-xs font-semibold text-base-content">📂 本地仓库 2</span>
+          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 本地仓库 2</span>
           <span v-if="project.branch2" class="badge badge-sm badge-primary">{{ project.branch2 }}</span>
         </div>
         <div class="text-xs text-base-content/60 font-mono break-all">{{ project.repoPath2 }}</div>
       </div>
       <div v-if="project.gitUrl1" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
         <div class="flex items-center mb-1.5">
-          <span class="text-xs font-semibold text-base-content">🌐 远程仓库 1</span>
+          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> 远程仓库 1</span>
         </div>
         <div class="text-xs text-base-content/60 font-mono break-all">{{ project.gitUrl1 }}</div>
       </div>
       <div v-if="project.gitUrl2" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
         <div class="flex items-center mb-1.5">
-          <span class="text-xs font-semibold text-base-content">🌐 远程仓库 2</span>
+          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> 远程仓库 2</span>
         </div>
         <div class="text-xs text-base-content/60 font-mono break-all">{{ project.gitUrl2 }}</div>
       </div>
@@ -36,14 +36,14 @@
         <h3 class="m-0 text-base-content text-lg">📜 提交记录</h3>
         <div class="commits-filter">
           <select v-model="repoFilter" class="select select-bordered select-sm">
-            <option value="all">🔀 全部仓库</option>
+            <option value="all"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> 全部仓库</option>
             <option v-for="repo in repos" :key="repo.key" :value="repo.key">{{ repo.label }}</option>
           </select>
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-6 text-base-content/60 text-sm">⏳ 加载中...</div>
-      <div v-else-if="filteredCommits.length === 0" class="text-center py-6 text-base-content/60 text-sm">📝 暂无提交记录</div>
+      <div v-if="loading" class="text-center py-6 text-base-content/60 text-sm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 加载中...</div>
+      <div v-else-if="filteredCommits.length === 0" class="text-center py-6 text-base-content/60 text-sm"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 暂无提交记录</div>
       <div v-else class="max-h-[400px] overflow-y-auto">
         <div
           v-for="commit in filteredCommits"

@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🔒 加密/解密</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 加密/解密</h3>
 
     <!-- Algorithm & Mode Selection -->
     <div class="flex gap-2.5 mb-3 flex-wrap items-center">
@@ -87,7 +87,7 @@
             :placeholder="mode === 'decrypt' ? '输入或生成私钥...' : '留空（加密不需要私钥）'"
             rows="4"
           ></textarea>
-          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey">📋 复制密钥对</button>
+          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 复制密钥对</button>
         </div>
       </div>
     </template>

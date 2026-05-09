@@ -218,7 +218,7 @@
     <div v-if="selectedCommit" class="border-t border-base-content/10 bg-base-100 max-h-[40%] overflow-y-auto shrink-0">
       <div class="flex items-center justify-between px-2.5 py-1.5 border-b border-base-content/10">
         <span class="font-semibold text-xs">提交详情</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedCommit', null)" title="关闭">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedCommit', null)" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="p-2 px-2.5">
         <div class="flex gap-2 mb-1 text-xs">

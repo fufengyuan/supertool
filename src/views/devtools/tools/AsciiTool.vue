@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🅰️ ASCII 编码转换</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" fill="currentColor" font-size="12" font-weight="bold">A</text></svg> ASCII 编码转换</h3>
 
     <div class="mb-5">
       <label class="label-text text-xs text-base-content/60 mb-1 block">输入文本</label>
@@ -38,22 +38,22 @@
         <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
           <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">十进制</span>
           <span class="flex-1 font-mono text-xs text-base-content break-all">{{ decStr }}</span>
-          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(decStr)">📋</button>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(decStr)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
         <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
           <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">十六进制</span>
           <span class="flex-1 font-mono text-xs text-base-content break-all">{{ hexStr }}</span>
-          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(hexStr)">📋</button>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(hexStr)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
         <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
           <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">八进制</span>
           <span class="flex-1 font-mono text-xs text-base-content break-all">{{ octStr }}</span>
-          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(octStr)">📋</button>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(octStr)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
         <div class="flex items-center gap-2.5 p-2 bg-base-200 border border-base-content/10 rounded-box">
           <span class="text-xs font-semibold text-primary min-w-[90px] flex-shrink-0">二进制</span>
           <span class="flex-1 font-mono text-xs text-base-content break-all">{{ binStr }}</span>
-          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(binStr)">📋</button>
+          <button class="btn btn-ghost btn-xs flex-shrink-0" @click="doCopy(binStr)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
       </div>
     </div>

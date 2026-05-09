@@ -68,7 +68,7 @@
                   @click="selectItem(item, 'project')"
                   @mouseenter="activeIndex = getGlobalIndex('project', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(99,102,241,0.1)]" :style="{ color: item.color || '#6c63ff' }">📁</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(99,102,241,0.1)]" :style="{ color: item.color || '#6c63ff' }"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.description || '暂无描述' }}</span>
@@ -87,7 +87,7 @@
                   @click="selectItem(item, 'server')"
                   @mouseenter="activeIndex = getGlobalIndex('server', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(251,146,60,0.1)]">🖥️</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(251,146,60,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.host }}:{{ item.port }}</span>
@@ -106,7 +106,7 @@
                   @click="selectItem(item, 'note')"
                   @mouseenter="activeIndex = getGlobalIndex('note', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(168,85,247,0.1)]">📓</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(168,85,247,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.title, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.group || '未分组' }}</span>
@@ -125,7 +125,7 @@
                   @click="selectItem(item, 'cicd')"
                   @mouseenter="activeIndex = getGlobalIndex('cicd', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(245,158,11,0.1)]">🚀</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(245,158,11,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.groupName || '未分组' }} · {{ item.deployBranch }}</span>
@@ -144,7 +144,7 @@
                   @click="selectItem(item, 'mfa')"
                   @mouseenter="activeIndex = getGlobalIndex('mfa', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(239,68,68,0.1)]">🔐</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(239,68,68,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.account || item.issuer || '' }}</span>
@@ -163,7 +163,7 @@
                   @click="selectItem(item, 'git')"
                   @mouseenter="activeIndex = getGlobalIndex('git', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(59,130,246,0.1)]">🔀</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(59,130,246,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.path || item.url || '' }}</span>
@@ -182,7 +182,7 @@
                   @click="selectItem(item, 'vpn')"
                   @mouseenter="activeIndex = getGlobalIndex('vpn', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(20,184,166,0.1)]">🌐</span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(20,184,166,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                   </div>
@@ -250,20 +250,20 @@ const todoStore = useTodoStore()
 const router = useRouter()
 
 const freqNavInfo: Record<string, { icon: string; label: string; route: string }> = {
-  'todo': { icon: '📝', label: '任务', route: '/' },
-  'weekly-report': { icon: '📊', label: '周报', route: '/weekly' },
-  'projects': { icon: '📁', label: '项目', route: '/projects' },
-  'accounting': { icon: '💰', label: '记账本', route: '/accounting' },
-  'servers': { icon: '🖥️', label: '服务器', route: '/servers' },
-  'cicd': { icon: '🚀', label: 'CI/CD', route: '/cicd' },
-  'log-aggregator': { icon: '📋', label: '日志聚合', route: '/logs' },
-  'database': { icon: '🗄️', label: '数据库', route: '/database' },
-  'devtools': { icon: '🛠️', label: '开发工具', route: '/devtools' },
-  'notes': { icon: '📓', label: '笔记', route: '/notes' },
-  'git': { icon: '🔀', label: 'Git 仓库', route: '/git' },
-  'mfa': { icon: '🔐', label: 'MFA', route: '/mfa' },
-  'vpn': { icon: '🌐', label: 'VPN', route: '/vpn' },
-  'data-backup': { icon: '💾', label: '备份', route: '/backup' },
+  'todo': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', label: '任务', route: '/' },
+  'weekly-report': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', label: '周报', route: '/weekly' },
+  'projects': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>', label: '项目', route: '/projects' },
+  'accounting': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>', label: '记账本', route: '/accounting' },
+  'servers': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', label: '服务器', route: '/servers' },
+  'cicd': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>', label: 'CI/CD', route: '/cicd' },
+  'log-aggregator': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>', label: '日志聚合', route: '/logs' },
+  'database': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>', label: '数据库', route: '/database' },
+  'devtools': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', label: '开发工具', route: '/devtools' },
+  'notes': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>', label: '笔记', route: '/notes' },
+  'git': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>', label: 'Git 仓库', route: '/git' },
+  'mfa': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>', label: 'MFA', route: '/mfa' },
+  'vpn': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>', label: 'VPN', route: '/vpn' },
+  'data-backup': { icon: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>', label: '备份', route: '/backup' },
 }
 
 const frequentNavs = computed(() => {

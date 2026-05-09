@@ -31,7 +31,7 @@
     <!-- 扫描目录配置 -->
     <div class="mt-1.5 px-3">
       <button type="button" class="text-[11px] text-base-content/60 bg-none border-none p-0.5 cursor-pointer hover:text-primary" @click="showScanDirs = !showScanDirs">
-        📂 {{ showScanDirs ? '收起' : '设置扫描目录' }}
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ showScanDirs ? '收起' : '设置扫描目录' }}
       </button>
       <div v-if="showScanDirs" class="mt-1 flex gap-1.5 items-start">
         <textarea
@@ -41,7 +41,7 @@
           rows="3"
           @blur="saveScanDirs(scanDirsText)"
         ></textarea>
-        <button type="button" class="text-[11px] px-2.5 py-1.5 rounded-md bg-primary text-primary-content border-none whitespace-nowrap" @click="scanWithCustomDirs">🔍 扫描</button>
+        <button type="button" class="text-[11px] px-2.5 py-1.5 rounded-md bg-primary text-primary-content border-none whitespace-nowrap" @click="scanWithCustomDirs"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描</button>
       </div>
     </div>
 
@@ -64,7 +64,7 @@
         @click="clearManualPath"
         class="w-[22px] h-[22px] border-none rounded-full bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center text-[11px] transition-all duration-150 ease shrink-0 hover:bg-error hover:text-white"
         title="清除"
-      >✕</button>
+      ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
     <div v-if="manualPathValid" class="flex items-center gap-1 mt-1.5 px-2.5 py-1 text-xs text-[#22c55e]">
       <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">

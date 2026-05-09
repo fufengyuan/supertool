@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🔐 哈希计算</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 哈希计算</h3>
 
     <!-- Single Input -->
     <div class="mb-5">
@@ -21,7 +21,7 @@
         <div class="hash-result-item" v-for="(hash, algo) in singleResults" :key="algo">
           <span class="hash-algo">{{ algo }}</span>
           <div class="hash-value">{{ hash }}</div>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
       </div>
     </div>
@@ -49,7 +49,7 @@
           <span class="batch-input">{{ row.input }}</span>
           <span class="batch-hash sha256">{{ row.sha256 }}</span>
           <span class="batch-hash sm3">{{ row.sm3 }}</span>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(row.sha256 + '\\n' + row.sm3)" title="复制两个哈希">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(row.sha256 + '\\n' + row.sm3)" title="复制两个哈希"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
       </div>
     </div>
@@ -64,7 +64,7 @@
         <div class="hash-result-item" v-for="(hash, algo) in fileHashResults" :key="algo">
           <span class="hash-algo">{{ algo }}</span>
           <div class="hash-value">{{ hash }}</div>
-          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制">📋</button>
+          <button class="btn btn-ghost btn-sm" @click="copyHash(hash)" title="复制"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
         </div>
       </div>
       <div v-if="fileHashing" class="loading-text">正在计算文件哈希...</div>

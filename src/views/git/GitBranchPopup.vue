@@ -4,7 +4,7 @@
     <div class="branches-popup" @click.stop>
       <div class="popup-header">
         <span class="popup-title">分支管理</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:showBranchesPopup', false)">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:showBranchesPopup', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
 
       <div class="popup-actions">
@@ -38,7 +38,7 @@
               <div class="branch-actions" v-if="!b.current">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('open-branch-rename', b.name)" title="重命名分支">Rename</button>
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('show-merge-dialog', b.name)" title="合并到此分支">Merge</button>
-                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-branch', b.name)" title="删除分支">✕</button>
+                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-branch', b.name)" title="删除分支"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
               </div>
             </div>
           </div>
@@ -59,7 +59,7 @@
               <span class="branch-label">{{ b.name }}</span>
               <div class="branch-actions">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('checkout-remote-branch', b.name)" title="Checkout as new local branch">Checkout</button>
-                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-remote-branch', b.name)" title="删除远程分支">✕</button>
+                <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-remote-branch', b.name)" title="删除远程分支"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
               </div>
             </div>
             <div v-if="remoteBranches.length === 0" class="branch-empty">没有远程分支</div>

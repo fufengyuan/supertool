@@ -35,7 +35,7 @@
     <div v-if="selectedStash" class="stash-preview">
       <div class="detail-header">
         <span class="detail-title">Stash 预览</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedStash', null)" title="关闭">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedStash', null)" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <pre class="diff-content">{{ stashShowContent || '加载中...' }}</pre>
     </div>

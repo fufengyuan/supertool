@@ -360,7 +360,7 @@
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> 测试连接
                     </button>
                     <div v-if="srv.testResult" class="mt-2 px-2.5 py-1.5 rounded-md text-xs font-medium" :class="srv.testResult.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'">
-                      {{ srv.testResult.success ? '✅ 连接成功' : '❌ ' + srv.testResult.error }}
+                      {{ srv.testResult.success ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 连接成功' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ' + srv.testResult.error }}
                     </div>
                   </div>
                 </div>
@@ -375,7 +375,7 @@
 
               <!-- Global test result -->
               <div v-if="testResult" class="flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-sm mt-3" :class="testResult.success ? 'bg-green-500/10 text-success border border-green-500/20' : 'bg-red-500/10 text-error border border-red-500/20'">
-                <span>{{ testResult.success ? '✅' : '❌' }}</span>
+                <span>{{ testResult.success ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>' }}</span>
                 <span>{{ testResult.success ? '连接成功' : testResult.error }}</span>
               </div>
             </div>
@@ -631,7 +631,7 @@
                   <svg :class="{ 'animate-spin': scanningModules }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                     <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
                   </svg>
-                  {{ scanningModules ? '扫描中...' : '🔍 自动识别模块' }}
+                  {{ scanningModules ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 自动识别模块' }}
                 </button>
                 <button @click="addModule" class="btn btn-ghost btn-sm">+ 手动添加</button>
               </div>
