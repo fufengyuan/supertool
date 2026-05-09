@@ -4,7 +4,7 @@
     <div class="max-w-xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">文件历史: {{ fileHistoryFile }}</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-file-history-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-file-history-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex-1 overflow-y-auto p-2">
         <div v-for="commit in fileHistoryData" :key="commit.hash" class="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-base-content/5 transition-colors duration-100">
@@ -23,7 +23,7 @@
     <div class="max-w-2xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">Blame: {{ blameFile }}</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-blame-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-blame-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex-1 overflow-auto p-2.5">
         <pre class="font-mono text-[11px] leading-relaxed whitespace-pre text-base-content">{{ blameData }}</pre>
@@ -36,7 +36,7 @@
     <div class="max-w-xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">交互式 Rebase</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-interactive-rebase-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-interactive-rebase-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">Rebase 起点</label>
@@ -90,13 +90,11 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">远程仓库管理</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-remotes-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-remotes-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="px-4 py-2 border-b border-base-content/10">
         <button class="btn btn-primary btn-sm" @click="$emit('update:show-add-remote-form', true)">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <SvgIcon name="plus" size="14" />
           添加远程
         </button>
       </div>
@@ -112,14 +110,11 @@
       </div>
       <div class="flex-1 overflow-y-auto p-2">
         <div v-for="r in remotesList" :key="r" class="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-base-content/5 transition-colors duration-100">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-base-content/60">
-            <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
+          <SvgIcon name="globe" size="14" class="shrink-0 text-base-content/60" />
           <span class="font-mono font-semibold text-primary min-w-[60px]">{{ r }}</span>
           <span class="flex-1 text-[11px] text-base-content/60 truncate font-mono" :title="remoteUrls[r]">{{ remoteUrls[r] }}</span>
           <button class="btn btn-ghost btn-xs" @click.stop="$emit('fetch-remote', r)" title="Fetch">Fetch</button>
-          <button class="btn btn-ghost btn-xs text-red-500 hover:bg-red-500/10" @click.stop="$emit('delete-remote', r)" title="删除"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button class="btn btn-ghost btn-xs text-red-500 hover:bg-red-500/10" @click.stop="$emit('delete-remote', r)" title="删除"><SvgIcon name="x" size="14" class="inline-block" /></button>
         </div>
         <div v-if="remotesList.length === 0 && !loading" class="p-5 text-center text-base-content/60 text-xs">没有远程仓库</div>
       </div>
@@ -131,7 +126,7 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">Submodules</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-submodules-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-submodules-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="px-4 py-2 border-b border-base-content/10 flex gap-2">
         <button class="btn btn-primary btn-sm" @click="$emit('submodule-init-all')" :disabled="smLoading">Init All</button>
@@ -144,10 +139,7 @@
           :key="sm.name"
           class="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-base-content/5 transition-colors duration-100"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-base-content/60">
-            <rect x="2" y="2" width="9" height="9" rx="1" /><rect x="13" y="2" width="9" height="9" rx="1" />
-            <rect x="2" y="13" width="9" height="9" rx="1" /><rect x="13" y="13" width="9" height="9" rx="1" />
-          </svg>
+          <SvgIcon name="grid" size="14" class="shrink-0 text-base-content/60" />
           <span class="font-medium truncate max-w-[120px]" :title="sm.name">{{ sm.name }}</span>
           <span class="text-[11px] text-base-content/60 truncate max-w-[140px] cursor-pointer hover:text-primary" @click="$emit('open-submodule-path', sm.path)" :title="sm.path">{{ sm.path }}</span>
           <span class="font-mono text-[11px] text-base-content/60 shrink-0" :title="sm.hash">{{ sm.hash ? sm.hash.substring(0, 7) : '-' }}</span>
@@ -173,7 +165,7 @@
     <div class="max-w-xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">比较两个提交</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-commits-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-commits-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">From Commit</label>
@@ -196,7 +188,7 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">获取指定版本的文件</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-get-file-revision-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-get-file-revision-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">Commit</label>
@@ -218,12 +210,10 @@
         <span class="font-semibold text-sm">文件预览: {{ getFilePath }}</span>
         <div class="flex gap-1">
           <button class="btn btn-ghost btn-xs" @click="$emit('copy-file-content')" title="复制">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
+            <SvgIcon name="clipboard" size="14" />
             复制
           </button>
-          <button class="btn btn-ghost btn-xs" @click="$emit('update:show-get-file-preview-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button class="btn btn-ghost btn-xs" @click="$emit('update:show-get-file-preview-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
         </div>
       </div>
       <pre class="flex-1 overflow-auto p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all text-base-content bg-base-200 m-0">{{ getFileContent }}</pre>
@@ -235,7 +225,7 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">创建 Patch</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-create-patch-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-create-patch-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">From (exclusive)</label>
@@ -257,16 +247,14 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">应用 Patch</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-apply-patch-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-apply-patch-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">Patch File</label>
         <div class="flex gap-2">
           <input :value="applyPatchFile" @input="$emit('update:apply-patch-file', ($event.target as HTMLInputElement).value)" class="flex-1 p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="选择或输入 patch 文件路径" spellcheck="false" />
           <button class="btn btn-ghost btn-xs" @click="$emit('select-patch-file')" title="选择文件">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
-            </svg>
+            <SvgIcon name="file" size="14" />
           </button>
         </div>
         <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
@@ -297,7 +285,7 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">Cherry-pick 多个提交 ({{ selectedLogCommits.size }})</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-cherry-pick-multi-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-cherry-pick-multi-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex-1 overflow-y-auto p-2">
         <div v-for="hash in Array.from(selectedLogCommits)" :key="hash" class="flex items-center gap-2 px-2 py-1.5 rounded text-xs">
@@ -323,7 +311,7 @@
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">Clean Working Tree</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-git-clean-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-git-clean-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="flex items-center gap-1.5 text-xs text-base-content cursor-pointer [&_input[type=checkbox]]:accent-primary">
@@ -339,9 +327,7 @@
       <div v-if="gitCleanFiles.length > 0" class="border-t border-base-content/10">
         <div class="px-4 py-2 text-xs font-semibold text-base-content/60 bg-base-200/50">将删除以下 {{ gitCleanFiles.length }} 个文件/目录:</div>
         <div v-for="f in gitCleanFiles" :key="f" class="flex items-center gap-2 px-4 py-1.5 text-xs hover:bg-base-content/5 transition-colors duration-100">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-base-content/60">
-            <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
+          <SvgIcon name="trash" size="12" class="shrink-0 text-base-content/60" />
           <span class="truncate">{{ f }}</span>
         </div>
       </div>
