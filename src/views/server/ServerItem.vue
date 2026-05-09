@@ -11,7 +11,7 @@
         <div class="flex justify-between items-center">
           <div class="flex items-center gap-1 min-w-0">
             <span class="font-semibold text-xs text-base-content truncate">{{ server.name }}</span>
-            <span v-if="server.requiresApproval" class="flex-shrink-0" title="执行审核已开启"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="opacity-80"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+            <span v-if="server.requiresApproval" class="flex-shrink-0" title="执行审核已开启"><SvgIcon name="lock" size="12" class="opacity-80" /></span>
           </div>
           <div class="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium whitespace-nowrap flex-shrink-0"
             :class="{
@@ -34,11 +34,7 @@
 
       <div class="flex flex-col gap-0.5 mb-1.5">
         <div class="flex items-center gap-1 text-[11px] text-base-content/60">
-          <svg class="opacity-50 flex-shrink-0 w-3 h-3" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>
+          <SvgIcon name="server" size="14" class="opacity-50 flex-shrink-0" />
           <span class="truncate">{{ server.host }}<span class="text-base-content/40">:{{ server.port }}</span></span>
         </div>
         <div class="flex items-center gap-1 text-[11px] text-base-content/60">
@@ -84,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { computed } from 'vue';
 
 const props = defineProps({

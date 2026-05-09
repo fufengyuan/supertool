@@ -4,19 +4,15 @@
 
     <div class="flex gap-1.5 mb-3 items-center flex-wrap">
       <button @click="showAddServer = true" class="btn btn-primary btn-sm gap-1">+ 添加服务器</button>
-      <button @click="refreshServers" class="btn btn-ghost btn-sm gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 刷新</button>
-      <button @click="showGroupManager = true" class="btn btn-ghost btn-sm gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 管理分组</button>
+      <button @click="refreshServers" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="refresh" size="14" /> 刷新</button>
+      <button @click="showGroupManager = true" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 管理分组</button>
       <div class="w-px h-7 bg-base-content/10 mx-1"></div>
       <button @click="expandAllGroups" class="btn btn-ghost btn-sm gap-1" title="全部展开">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
+        <SvgIcon name="chevronDown" size="14" stroke-width="2.5" />
         全部展开
       </button>
       <button @click="collapseAllGroups" class="btn btn-ghost btn-sm gap-1" title="全部折叠">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="6 15 12 9 18 15"/>
-        </svg>
+        <SvgIcon name="chevronUp" size="14" stroke-width="2.5" />
         全部折叠
       </button>
     </div>
@@ -24,10 +20,7 @@
     <!-- 搜索和分组筛选 -->
     <div class="flex gap-3 mb-5 items-center">
       <div class="flex-1 relative flex items-center">
-        <svg class="absolute left-3 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="m21 21-4.35-4.35"/>
-        </svg>
+        <SvgIcon name="search" size="16" class="absolute left-3 text-base-content/60 pointer-events-none" />
         <input
           v-model="searchQuery"
           placeholder="搜索服务器名称或地址..."
@@ -53,9 +46,7 @@
         <div class="flex items-center justify-between p-[7px_12px] rounded-xl cursor-pointer select-none bg-base-100 border border-base-content/10 relative overflow-hidden transition-all hover:border-primary hover:shadow-[0_2px_12px_rgba(108,99,255,0.1)] hover:-translate-y-px" @click="toggleGroup(null)">
           <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-[3px]" style="background: linear-gradient(180deg, #6c63ff, #4834d4)"></div>
           <div class="flex items-center gap-2 relative z-[1]">
-            <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            <SvgIcon name="chevronDown" size="14" stroke-width="2.5" class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" />
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
             <span class="font-semibold text-xs text-base-content">未分组</span>
             <span class="text-[11px] font-semibold px-1.5 py-px rounded-full bg-primary/15 text-primary leading-tight">{{ getServersByGroup(null).length }}</span>
@@ -164,8 +155,8 @@
             <span class="flex-1 font-medium text-sm">{{ group.name }}</span>
             <span class="text-xs text-base-content/60">{{ getServersByGroup(group.id).length }} 台</span>
             <button @click="addGroupAsChild(group.id)" class="btn btn-ghost btn-xs" title="添加子分组">+</button>
-            <button @click="editGroup(group.id)" class="btn btn-ghost btn-xs px-1" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-            <button @click="deleteGroup(group.id)" class="btn btn-error btn-xs px-1" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            <button @click="editGroup(group.id)" class="btn btn-ghost btn-xs px-1" title="编辑"><SvgIcon name="pencil" size="12" /></button>
+            <button @click="deleteGroup(group.id)" class="btn btn-error btn-xs px-1" title="删除"><SvgIcon name="trash" size="12" /></button>
           </div>
           <div v-if="groups.length === 0" class="text-center p-5 text-base-content/60">暂无分组</div>
         </div>
@@ -207,6 +198,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import ServerItem from '@/views/server/ServerItem.vue';
 import ServerForm from '@/views/server/ServerForm.vue';
