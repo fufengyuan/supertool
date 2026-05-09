@@ -29,7 +29,7 @@
 
         <div class="bg-base-200 rounded-xl p-4 mb-4 border border-base-content/10">
           <div class="flex items-center gap-2 text-sm font-semibold text-base-content mb-4">
-            <span class="text-base">🔑</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
             <span>认证方式</span>
           </div>
 
@@ -107,12 +107,12 @@
 
         <div class="bg-base-200 rounded-xl p-4 mb-4 border border-warning/30 bg-warning/5">
           <div class="flex items-center gap-2 text-sm font-semibold text-base-content mb-4">
-            <span class="text-base">🛡️</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             <span>安全管控</span>
           </div>
           <div class="flex items-center justify-between gap-3">
             <div class="flex-1">
-              <div class="text-sm font-semibold text-warning mb-1">🔒 执行审核</div>
+              <div class="text-sm font-semibold text-warning mb-1 flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 执行审核</div>
               <div class="text-xs text-base-content/60 leading-relaxed">开启后，CLI 无法在此服务器执行命令，GUI 执行需人工确认</div>
             </div>
             <input type="checkbox" class="toggle" v-model="localForm.requiresApproval" />

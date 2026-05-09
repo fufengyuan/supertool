@@ -45,7 +45,7 @@
       <button @click="loadDir" class="btn btn-ghost btn-sm">刷新</button>
       <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/'">↑ 上级</button>
       <button @click="uploadFile" class="btn btn-ghost btn-sm">↑ 上传文件</button>
-      <button @click="uploadFolder" class="btn btn-ghost btn-sm">📁 上传文件夹</button>
+      <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 上传文件夹</button>
     </div>
 
     <!-- 文件列表头部 -->
@@ -130,7 +130,7 @@
       <span class="min-w-[40px] text-right font-semibold text-primary">{{ uploadProgress.percent }}%</span>
       <!-- 操作按钮 -->
       <div class="flex shrink-0 gap-1">
-        <button v-if="isUploading" @click="cancelUpload" class="btn btn-outline btn-error btn-xs" title="取消上传">✕ 取消</button>
+        <button v-if="isUploading" @click="cancelUpload" class="btn btn-outline btn-error btn-xs gap-1" title="取消上传"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 取消</button>
         <button v-if="uploadFailed" @click="retryUpload" class="btn btn-outline btn-primary btn-xs" title="重试上传">↻ 重试</button>
       </div>
     </div>

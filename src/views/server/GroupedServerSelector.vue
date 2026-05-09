@@ -6,7 +6,7 @@
         <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-90': expandedGroups.has(null) }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
-        <span class="text-xs font-semibold text-base-content flex-1">🖥️ 未分组</span>
+        <span class="text-xs font-semibold text-base-content flex-1 flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg> 未分组</span>
         <span class="text-[10px] font-semibold px-1.5 py-px rounded-full bg-primary/15 text-primary">{{ ungroupedServers.length }}</span>
       </div>
       <Transition
