@@ -124,14 +124,31 @@
         {{ project.archived ? '取消归档' : '归档项目' }}
       </UiButton>
     </div>
+
+    <!-- 编辑项目模态框 -->
+    <UiModal
+      v-model="showEditModal"
+      title="✏️ 编辑项目"
+      @close="resetEditModal"
+      width="640px"
+    >
+      <ProjectForm ref="projectFormRef" :project="project" @save="saveProject" />
+      <template #footer>
+        <UiButton variant="ghost" @click="resetEditModal">取消</UiButton>
+        <UiButton variant="primary" @click="projectFormRef?.submit()">保存修改</UiButton>
+      </template>
+    </UiModal>
   </div>
 </template>
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import ProjectGitPanel from '@/views/projects/ProjectGitPanel.vue'
 import ProjectTodoList from '@/views/projects/ProjectTodoList.vue'
+import ProjectForm from '@/views/projects/ProjectForm.vue'
 import UiButton from '@/components/ui/Button.vue'
+import UiModal from '@/components/ui/Modal.vue'
 import { useTodoStore } from '../../stores/todoStore'
 import { useProjectStore } from '../../stores/projectStore'
 import { useProjects } from '../../composables/useProjects'
@@ -142,12 +159,14 @@ const props = defineProps({
   id: { type: String, required: true }
 })
 
-const emit = defineEmits(['goBackToList', 'editProject', 'projectUpdated'])
-
+const router = useRouter()
 const todoStore = useTodoStore()
 const projectStore = useProjectStore()
 const projectsApi = useProjects()
 const { handleError } = useErrorHandler()
+
+const showEditModal = ref(false)
+const projectFormRef = ref<InstanceType<typeof ProjectForm> | null>(null)
 
 const project = ref<Project | null>(null)
 
@@ -215,8 +234,21 @@ const handleDeleteTask = async (task: any) => {
   } catch (error) { handleError(error, { context: 'handleDeleteTask' }) }
 }
 
-const goBack = () => { emit('goBackToList') }
-const editProject = () => { emit('editProject', project.value) }
+const goBack = () => { router.push('/projects') }
+const editProject = () => { showEditModal.value = true }
+const resetEditModal = () => {
+  showEditModal.value = false
+  projectFormRef.value?.reset()
+}
+const saveProject = async (formData: any) => {
+  if (!project.value) return
+  try {
+    const updated = { ...project.value, ...formData, updatedAt: new Date().toISOString() }
+    await projectsApi.updateProject(updated as unknown as Project)
+    project.value = updated as unknown as Project
+    resetEditModal()
+  } catch (error) { handleError(error, { context: 'saveProject' }) }
+}
 
 const toggleArchive = async () => {
   if (!project.value) return
@@ -224,7 +256,7 @@ const toggleArchive = async () => {
     console.log("[toggleArchive] called");
     const updated = { ...project.value, archived: !project.value.archived, updatedAt: new Date().toISOString() }
     await projectsApi.updateProject(updated as unknown as Project)
-    emit('projectUpdated', updated)
+    project.value = updated as unknown as Project
   } catch (error) { handleError(error, { context: 'toggleArchive' }) }
 }
 
