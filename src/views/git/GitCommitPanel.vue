@@ -17,9 +17,7 @@
       <!-- Modified -->
       <div class="file-group" v-if="statusData.modified.length">
         <div class="group-header" @click="$emit('toggle-group', 'modified')">
-          <svg class="group-arrow" :class="{ collapsed: collapsedGroups.has('modified') }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('modified') }" />
           <span class="group-icon modified">M</span>
           <span class="group-label">Modified</span>
           <span class="group-count">{{ statusData.modified.length }}</span>
@@ -43,9 +41,7 @@
       <!-- Added -->
       <div class="file-group" v-if="statusData.added.length">
         <div class="group-header" @click="$emit('toggle-group', 'added')">
-          <svg class="group-arrow" :class="{ collapsed: collapsedGroups.has('added') }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('added') }" />
           <span class="group-icon added">A</span>
           <span class="group-label">Added</span>
           <span class="group-count">{{ statusData.added.length }}</span>
@@ -69,9 +65,7 @@
       <!-- Deleted -->
       <div class="file-group" v-if="statusData.deleted.length">
         <div class="group-header" @click="$emit('toggle-group', 'deleted')">
-          <svg class="group-arrow" :class="{ collapsed: collapsedGroups.has('deleted') }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('deleted') }" />
           <span class="group-icon deleted">D</span>
           <span class="group-label">Deleted</span>
           <span class="group-count">{{ statusData.deleted.length }}</span>
@@ -95,9 +89,7 @@
       <!-- Untracked -->
       <div class="file-group" v-if="statusData.untracked.length">
         <div class="group-header" @click="$emit('toggle-group', 'untracked')">
-          <svg class="group-arrow" :class="{ collapsed: collapsedGroups.has('untracked') }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('untracked') }" />
           <span class="group-icon untracked">U</span>
           <span class="group-label">Unversioned</span>
           <span class="group-count">{{ statusData.untracked.length }}</span>
@@ -121,9 +113,7 @@
       <!-- Conflicted -->
       <div class="file-group" v-if="statusData.conflicted.length">
         <div class="group-header" @click="$emit('toggle-group', 'conflicted')">
-          <svg class="group-arrow" :class="{ collapsed: collapsedGroups.has('conflicted') }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('conflicted') }" />
           <span class="group-icon conflicted">C</span>
           <span class="group-label">Conflicted</span>
           <span class="group-count">{{ statusData.conflicted.length }}</span>
@@ -197,6 +187,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 defineProps<{
   statusData: any | null
   loading: boolean
