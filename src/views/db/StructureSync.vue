@@ -208,7 +208,7 @@
         </div>
 
         <div v-if="filteredDiffs.length === 0" class="text-center p-8 text-base-content/60 text-sm">
-          所选表结构完全一致 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 
+所选表结构完全一致 <SvgIcon name="check" size="14" />
         </div>
       </div>
 
@@ -218,7 +218,7 @@
         <div class="flex gap-2">
           <button @click="selectAll" class="btn btn-ghost">全选</button>
           <button @click="reset" class="btn btn-ghost">重新对比</button>
-          <button @click="showSqlDialog = true" :disabled="selectedSqls.size === 0" class="btn btn-ghost"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  查看SQL</button>
+          <button @click="showSqlDialog = true" :disabled="selectedSqls.size === 0" class="btn btn-ghost"><SvgIcon name="file" size="14" />  查看SQL</button>
           <button @click="executeSync" :disabled="selectedSqls.size === 0 || executing" class="btn btn-primary">
             {{ executing ? '执行中...' : '🚀 执行同步' }}
           </button>
@@ -231,9 +231,9 @@
       <div v-if="showSqlDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[2000]" @click="showSqlDialog = false">
         <div class="bg-base-100 rounded-xl w-[720px] max-w-[90vw] max-h-[80vh] flex flex-col shadow-2xl" @click.stop>
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  待执行 SQL ({{ selectedSqls.size }} 条)</h3>
+            <h3 class="m-0 text-base font-semibold"><SvgIcon name="file" size="14" />  待执行 SQL ({{ selectedSqls.size }} 条)</h3>
             <div class="flex items-center gap-2">
-              <button @click="copyAllSql" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  复制全部</button>
+              <button @click="copyAllSql" class="btn btn-ghost btn-sm"><SvgIcon name="file" size="14" />  复制全部</button>
               <button @click="showSqlDialog = false" class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:text-base-content">×</button>
             </div>
           </div>
@@ -241,7 +241,7 @@
             <div v-for="(sql, idx) in selectedSqlArray" :key="idx" class="flex items-start gap-2.5 px-3 py-2.5 bg-base-200 rounded-lg mb-2 text-xs">
               <span class="shrink-0 w-[22px] h-[22px] rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold mt-0.5">{{ idx + 1 }}</span>
               <pre class="flex-1 m-0 p-0 whitespace-pre-wrap break-all font-mono text-xs text-base-content bg-transparent">{{ sql }}</pre>
-              <button @click="copySingleSql(idx)" class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10" title="复制"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> </button>
+              <button @click="copySingleSql(idx)" class="shrink-0 px-2 py-1 border-none rounded bg-transparent cursor-pointer text-xs hover:bg-base-content/10" title="复制"><SvgIcon name="file" size="14" /> </button>
             </div>
           </div>
         </div>
