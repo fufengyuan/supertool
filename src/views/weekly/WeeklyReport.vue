@@ -1,7 +1,7 @@
 <template>
   <div class="p-5 w-full max-w-full">
     <div class="flex justify-between items-center mb-7 flex-wrap gap-5">
-      <h2 class="text-2xl text-base-content m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>  {{ $t('report.title') }}</h2>
+      <h2 class="text-2xl text-base-content m-0"><SvgIcon name="barChart" size="14" class="inline-block align-text-bottom" />  {{ $t('report.title') }}</h2>
       <div class="flex gap-4 items-end flex-wrap">
         <ReportConfig
           ref="reportConfigRef"
@@ -72,6 +72,7 @@ import ReportConfig from './ReportConfig.vue'
 import ReportContent from './ReportContent.vue'
 import ReportActions from './ReportActions.vue';
 import type { Project } from '../../types'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const { t } = useI18n()
 const toast = useToast()

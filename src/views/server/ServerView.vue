@@ -47,7 +47,7 @@
           <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-[3px]" style="background: linear-gradient(180deg, #6c63ff, #4834d4)"></div>
           <div class="flex items-center gap-2 relative z-[1]">
             <SvgIcon name="chevronDown" size="14" stroke-width="2.5" class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" />
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+            <SvgIcon name="serverRack" size="14" class="shrink-0" />
             <span class="font-semibold text-xs text-base-content">未分组</span>
             <span class="text-[11px] font-semibold px-1.5 py-px rounded-full bg-primary/15 text-primary leading-tight">{{ getServersByGroup(null).length }}</span>
           </div>
@@ -117,12 +117,7 @@
 
     <div v-if="allFilteredServers.length === 0" class="text-center p-10 text-base-content/60 bg-base-100 rounded-xl">
       <template v-if="servers.length === 0 && !searchQuery">
-        <svg class="opacity-20 mb-4 mx-auto" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
-          <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
-          <line x1="6" y1="6" x2="6.01" y2="6" />
-          <line x1="6" y1="18" x2="6.01" y2="18" />
-        </svg>
+        <SvgIcon class="opacity-20 mb-4 mx-auto" name="serverRack" size="48" stroke-width="1.5" />
         <p class="text-base font-semibold text-base-content m-0 mb-2">暂无服务器</p>
         <p class="text-sm m-0 mb-4">点击上方「添加服务器」按钮，管理你的远程服务器</p>
         <button @click="showAddServer = true" class="btn btn-primary">+ 添加第一个服务器</button>

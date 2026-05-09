@@ -187,6 +187,10 @@ const paths: Record<string, string> = {
 
   // === Clipboard with check ===
   clipboardCheck: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M9 11l3 3L22 4"/>',
+
+  // === Window controls ===
+  maximize: '<rect x="3" y="3" width="18" height="18" rx="2"/>',
+  minimize: '<rect x="5" y="5" width="14" height="14" rx="1"/>',
 }
 
 const iconPath = computed(() => {

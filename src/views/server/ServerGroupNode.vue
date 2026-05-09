@@ -2,9 +2,7 @@
   <div class="rounded-lg overflow-hidden">
     <div class="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer select-none bg-base-200 border border-base-content/10 transition-all hover:border-primary"
       @click="toggleGroup" :style="{ '--group-color': group.color || '#6c63ff' }">
-      <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-90': expanded }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
-        <polyline points="6 9 12 15 18 9"/>
-      </svg>
+      <SvgIcon name="chevronDown" size="12" :strokeWidth="2.5" class="text-base-content/60 transition-transform shrink-0" :class="{ 'rotate-90': expanded }" />
       <span class="text-xs font-semibold text-base-content flex-1">{{ group.name }}</span>
       <span class="text-[10px] font-semibold px-1.5 py-px rounded-full" :style="{ background: (group.color || '#6c63ff') + '22', color: group.color || '#6c63ff' }">
         {{ directServers.length }}
@@ -54,6 +52,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { Server } from '../../types'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 // Vue 3 <script setup> auto-registers recursive components by filename.
 // The component references itself in the template as <ServerGroupNode>.

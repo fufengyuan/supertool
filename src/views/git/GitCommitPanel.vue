@@ -136,10 +136,7 @@
     </div>
 
     <div v-else-if="!loading" class="empty-files">
-      <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-      </svg>
+      <SvgIcon name="checkCircle" size="36" :strokeWidth="1.5" />
       <p>没有文件变更</p>
     </div>
 

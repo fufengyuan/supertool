@@ -80,10 +80,7 @@
 
         <!-- Remove button -->
         <button @click="removeCondition(idx)" class="flex items-center justify-center w-6 h-6 border-none bg-transparent rounded cursor-pointer text-base-content/60 shrink-0 transition-all duration-100 hover:bg-red-100 hover:text-red-500" title="删除条件">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18" />
-            <line x1="6" y1="6" x2="18" y2="18" />
-          </svg>
+          <SvgIcon name="x" size="14" />
         </button>
       </div>
     </div>
