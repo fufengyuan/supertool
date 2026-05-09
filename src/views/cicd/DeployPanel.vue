@@ -87,7 +87,7 @@
           <!-- Deploy Actions -->
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 flex gap-2.5">
             <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
-              🔍 部署预检
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 部署预检
             </button>
             <button @click="startDeploy" :disabled="deploying || !selectedConfigId" class="btn flex-1 justify-center"
               :class="config?.requiresApproval ? 'bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90' : 'btn-primary'">
@@ -126,7 +126,7 @@
         <!-- Real-time Log -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl overflow-hidden" v-if="deploying || realtimeLogs.length > 0">
           <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
-            <span class="text-sm font-semibold text-base-content">📋 实时日志</span>
+            <span class="text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 实时日志</span>
             <button @click="clearRealtimeLogs" class="px-2 py-0.5 bg-transparent text-base-content/60 border border-base-content/10 rounded cursor-pointer text-xs hover:bg-base-100 hover:text-base-content transition-colors">清空</button>
           </div>
           <div ref="logContainer" class="max-h-[500px] overflow-y-auto px-4 py-3 font-mono text-xs leading-relaxed">
@@ -182,7 +182,7 @@
                 <span class="text-xs text-base-content/60 opacity-70" v-if="log.projectName">({{ log.projectName }})</span>
                 <span class="text-xs text-base-content/60">{{ formatDate(log.createdAt) }}</span>
                 <span class="text-xs text-base-content/60">触发: {{ log.triggeredBy }}</span>
-                <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded" v-if="log.deployBranch">🔀 {{ log.deployBranch }}</span>
+                <span class="text-xs text-base-content/60 bg-base-content/10 px-1.5 py-0.5 rounded inline-flex items-center gap-1" v-if="log.deployBranch"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> {{ log.deployBranch }}</span>
                 <button
                   v-if="log.status === 'success'"
                   @click="rollbackDeploy(log)"
@@ -206,8 +206,8 @@
                 <!-- Full log file viewer -->
                 <div v-if="fullLogContent !== null" class="mb-2.5">
                   <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
-                    <span>📋 完整日志</span>
-                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors">✕ 关闭</button>
+                    <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 完整日志</span>
+                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors inline-flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 关闭</button>
                   </div>
                   <pre class="m-0 p-2.5 max-h-[500px] overflow-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
                 </div>
@@ -248,20 +248,20 @@
 
                 <!-- Raw log output (fallback when no step logs but logOutput exists) -->
                 <div v-else-if="!fullLogContent && log.logOutput" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5">📋 部署日志</div>
+                  <div class="text-sm font-semibold text-base-content mb-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 部署日志</div>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ log.logOutput }}</pre>
                 </div>
 
                 <!-- Auto-load log file when step logs are empty -->
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5">📋 部署日志</div>
+                  <div class="text-sm font-semibold text-base-content mb-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0 inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 部署日志</div>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]">⏳ 读取日志中...</pre>
                   <button
                     v-else
                     @click="loadLogContent(log)"
                     class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
-                  >📄 点击加载日志</button>
+                  ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 点击加载日志</button>
                 </div>
 
                 <!-- No details available -->
@@ -290,7 +290,7 @@
 
     <!-- Empty State -->
     <div v-else class="p-16 text-center bg-base-100 rounded-xl border border-base-content/10">
-      <div class="text-5xl mb-4">📦</div>
+      <div class="mb-4"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="text-base-content/30"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
       <h3 class="m-0 mb-2 text-lg text-base-content">暂无 CI/CD 配置</h3>
       <p class="m-0 mb-5 text-sm text-base-content/60">请先在 CI/CD 配置页面创建部署配置</p>
       <button @click="goToConfig" class="btn btn-primary">前往配置页面</button>
