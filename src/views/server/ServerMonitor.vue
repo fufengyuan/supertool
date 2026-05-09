@@ -1,7 +1,7 @@
 <template>
   <div class="w-[260px] min-w-[260px] bg-[#181825] border-l border-[#313244] flex flex-col overflow-y-auto overflow-x-hidden">
     <div class="flex justify-between items-center px-3 py-2 bg-[#11111b] border-b border-[#313244] text-[12px] font-semibold text-[#cdd6f4] flex-shrink-0">
-      <span>📊 系统监控</span>
+      <span class="flex items-center gap-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> 系统监控</span>
       <button @click="$emit('toggle')" class="bg-transparent border-none text-[#6c7086] cursor-pointer p-0.5 rounded flex items-center hover:bg-[rgba(205,214,244,0.1)] hover:text-[#cdd6f4]" title="隐藏">
         <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
           <polyline points="9 18 15 12 9 6"/>

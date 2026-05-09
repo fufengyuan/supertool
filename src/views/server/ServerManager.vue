@@ -4,8 +4,8 @@
 
     <div class="flex gap-1.5 mb-3 items-center flex-wrap">
       <button @click="showAddServer = true" class="btn btn-primary">+ 添加服务器</button>
-      <button @click="refreshServers" class="btn btn-ghost">🔄 刷新</button>
-      <button @click="showGroupManager = true" class="btn btn-ghost">📁 管理分组</button>
+      <button @click="refreshServers" class="btn btn-ghost gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 刷新</button>
+      <button @click="showGroupManager = true" class="btn btn-ghost gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 管理分组</button>
       <div class="w-px h-7 bg-base-content/10 mx-1"></div>
       <button @click="expandAllGroups" class="btn btn-ghost btn-xs" title="全部展开">
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -160,7 +160,7 @@
             <span class="flex-1 font-medium">{{ group.name }}</span>
             <span class="text-xs text-base-content/60">{{ getServersByGroup(group.id).length }} 台</span>
             <button @click="addGroupAsChild(group.id)" class="btn btn-ghost btn-xs" title="添加子分组">+</button>
-            <button @click="editGroup(group.id)" class="btn btn-ghost btn-xs" title="编辑">✎</button>
+            <button @click="editGroup(group.id)" class="btn btn-ghost btn-xs px-1" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
             <button @click="deleteGroup(group.id)" class="btn btn-error btn-xs" title="删除">✕</button>
           </div>
           <div v-if="groups.length === 0" class="text-center py-5 text-base-content/60">暂无分组</div>
