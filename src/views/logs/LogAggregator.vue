@@ -42,7 +42,7 @@
           <div v-if="presets.length === 0" class="text-center text-base-content/60 text-xs p-3">
             <template v-if="allServers.length === 0">
               <div class="text-center">
-                <p><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline"><path d="M6 15V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M10 2v4"/><path d="M14 2v4"/></svg> 尚未配置服务器</p>
+                <p><SvgIcon name="monitor" size="14" class="inline" /> 尚未配置服务器</p>
                 <p class="text-xs opacity-70 mt-1">日志聚合需要先添加 SSH 服务器：</p>
                 <button @click="goToServers" class="btn btn-primary btn-sm mt-2">前往配置服务器 <SvgIcon name="arrowRight" size="14" class="inline" /></button>
               </div>
@@ -109,7 +109,7 @@
               :disabled="!selectedPreset || !searchKeyword.trim() || isSearching"
               class="btn btn-primary btn-sm whitespace-nowrap"
             >
-              <template v-if="isSearching"><svg :class="{ 'animate-spin': isSearching }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 搜索中...</template><template v-else><SvgIcon name="search" size="14" /> 搜索</template>
+              <template v-if="isSearching"><SvgIcon name="refresh" size="14" :class="{ 'animate-spin': isSearching }" /> 搜索中...</template><template v-else><SvgIcon name="search" size="14" /> 搜索</template>
             </button>
           </div>
         </div>
@@ -127,7 +127,7 @@
               class="btn btn-error btn-sm animate-pulse"
               title="终止当前日志查询"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> 终止
+              <SvgIcon name="stopSquare" size="14" /> 终止
             </button>
             <button
               v-if="queryMode === 'stream'"
@@ -135,9 +135,7 @@
               :class="['btn btn-sm gap-1 rounded-md transition-all', followMode ? 'btn-primary animate-pulse' : 'btn-ghost border border-base-content/10 text-base-content/60']"
               :title="followMode ? '关闭跟踪（自由滚动）' : '开启跟踪（始终显示最新日志）'"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
-              </svg>
+              <SvgIcon name="crosshair" size="14" />
               <template v-if="followMode"><SvgIcon name="mapPin" size="14" /> 跟踪中</template><template v-else><SvgIcon name="mapPin" size="14" /> 跟踪</template>
             </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>

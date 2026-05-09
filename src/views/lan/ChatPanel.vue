@@ -16,9 +16,7 @@
     <!-- 拖拽遮罩 -->
     <div v-if="isDragOver" class="absolute inset-0 bg-[rgba(102,126,234,0.15)] z-[9999] flex items-center justify-center pointer-events-none border-3 border-dashed border-[rgba(102,126,234,0.6)] rounded-xl">
       <div class="flex flex-col items-center gap-3 text-primary text-lg font-semibold">
-        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-        </svg>
+        <SvgIcon name="upload" size="48" stroke-width="1.5" />
         <p>松开发送文件</p>
       </div>
     </div>
@@ -31,7 +29,7 @@
         <button class="bg-none border-none text-white text-sm cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="toggleMaximize" :title="isMaximized ? '还原' : '最大化'">
           {{ isMaximized ? '❐' : '⬚' }}
         </button>
-        <button class="bg-none border-none text-white text-base cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="$emit('close')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="bg-none border-none text-white text-base cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="$emit('close')"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
     </div>
 
@@ -90,6 +88,7 @@ import { ref, shallowRef, computed, onMounted, onUnmounted, nextTick, watch, tri
 import ChatMessage from './ChatMessage.vue';
 import ChatInput from './ChatInput.vue';
 import TaskAssign from './TaskAssign.vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useErrorHandler } from '../../composables/useErrorHandler';
 
 const { handleError } = useErrorHandler();
