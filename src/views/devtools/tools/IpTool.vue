@@ -12,7 +12,7 @@
           @keyup.enter="query"
         />
         <button class="btn btn-ghost btn-sm" @click="queryCurrentIp" style="margin-left: 8px">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg> 查询本机 IP
+          <SvgIcon name="wifi" size="14" class="inline-block align-text-bottom" /> 查询本机 IP
         </button>
       </div>
 
@@ -35,19 +35,19 @@
           <button class="mini-copy-btn" @click="doCopy(result.ip)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> 国家</div>
+          <div class="result-label"><SvgIcon name="globe" size="14" class="inline-block align-text-bottom" /> 国家</div>
           <div class="result-value">{{ result.country }}</div>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="9" y1="6" x2="9" y2="10"/><line x1="15" y1="6" x2="15" y2="10"/><line x1="9" y1="14" x2="9" y2="18"/><line x1="15" y1="14" x2="15" y2="18"/></svg> 城市</div>
+          <div class="result-label"><SvgIcon name="monitor" size="14" class="inline-block align-text-bottom" /> 城市</div>
           <div class="result-value">{{ result.city }}</div>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 省份/地区</div>
+          <div class="result-label"><SvgIcon name="mapPin" size="14" class="inline-block align-text-bottom" /> 省份/地区</div>
           <div class="result-value">{{ result.region }}</div>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg> ISP / 运营商</div>
+          <div class="result-label"><SvgIcon name="wifi" size="14" class="inline-block align-text-bottom" /> ISP / 运营商</div>
           <div class="result-value">{{ result.isp }}</div>
         </div>
         <div class="result-card">

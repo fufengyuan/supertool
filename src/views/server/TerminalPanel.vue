@@ -26,23 +26,15 @@
           class="btn btn-ghost btn-xs h-7 w-7 min-h-0 rounded-md p-0 text-[#a6e3a1]"
           title="在当前路径打开 SFTP"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            <line x1="12" y1="11" x2="12" y2="19"/>
-            <polyline points="9 14 12 11 15 14"/>
-          </svg>
+          <SvgIcon name="folder" size="14" />
         </button>
         <button
           @click.stop="maximizeToggle"
           class="btn btn-ghost btn-xs h-7 w-7 min-h-0 rounded-md p-0"
           :title="isMaximized ? '还原' : '最大化'"
         >
-          <svg v-if="!isMaximized" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="5" y="5" width="14" height="14" rx="1"/>
-          </svg>
+          <SvgIcon v-if="!isMaximized" name="stopSquare" size="14" />
+          <SvgIcon v-else name="stopSquare" size="14" />
         </button>
         <button
           @click.stop="$emit('close')"
@@ -77,10 +69,7 @@
           class="bg-transparent border-none text-[#6c7086] w-4 h-4 rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:text-[#a6e3a1] hover:bg-[rgba(166,227,161,0.15)] transition-all duration-150 shrink-0 p-0"
           title="复制标签"
         >
-          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2"/>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-          </svg>
+          <SvgIcon name="file" size="10" />
         </button>
         <button
           @click.stop="reconnectTab(tab)"
