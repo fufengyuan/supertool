@@ -26,7 +26,8 @@
         ></textarea>
         <div class="flex items-center gap-3 mt-3">
           <UiButton variant="primary" @click="doScan" :loading="scanning">
-            {{ scanning ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描' }}
+            <template v-if="scanning">扫描中...</template>
+            <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描</template>
           </UiButton>
           <span v-if="scanResult !== null" class="text-xs text-base-content/70">
             {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}

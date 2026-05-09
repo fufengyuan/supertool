@@ -2,7 +2,7 @@
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" @click="$emit('close')">
     <div class="bg-base-100 rounded-2xl w-[90%] max-w-[640px] max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
       <div class="flex items-center justify-between px-6 py-5 border-b border-base-content/10">
-        <h3 class="m-0 text-lg font-semibold text-base-content">{{ isEditing ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑服务器' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 添加服务器' }}</h3>
+        <h3 class="m-0 text-lg font-semibold text-base-content"><template v-if="isEditing"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑服务器</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 添加服务器</template></h3>
         <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square text-xl text-base-content/60 hover:text-base-content">×</button>
       </div>
       <div class="p-6">
@@ -144,7 +144,7 @@
         class="mx-6 mb-5 p-3 rounded-lg text-sm"
         :class="testResult.success ? 'bg-success/15 text-success' : 'bg-error/15 text-error'"
       >
-        {{ testResult.success ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 连接成功！' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 连接失败: ' + testResult.error }}
+        <template v-if="testResult.success"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 连接成功！</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 连接失败: {{ testResult.error }}</template>
       </div>
     </div>
   </div>
