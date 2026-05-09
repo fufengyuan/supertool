@@ -38,10 +38,7 @@
           <span class="truncate">{{ server.host }}<span class="text-base-content/40">:{{ server.port }}</span></span>
         </div>
         <div class="flex items-center gap-1 text-[11px] text-base-content/60">
-          <svg class="opacity-50 flex-shrink-0 w-3 h-3" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-            <circle cx="12" cy="7" r="4"/>
-          </svg>
+          <SvgIcon name="user" size="14" class="opacity-50 flex-shrink-0" />
           <span class="truncate">{{ server.username }}</span>
         </div>
       </div>
@@ -52,27 +49,17 @@
 
       <div class="flex items-center gap-px">
         <button @click="$emit('terminal', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content hover:bg-primary/15 hover:text-primary" title="终端">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>
-          </svg>
+          <SvgIcon name="terminal" size="13" />
         </button>
         <button @click="$emit('sftp', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content hover:bg-primary/15 hover:text-primary" title="SFTP">
-          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
+          <SvgIcon name="download" size="13" />
         </button>
         <div class="w-px h-3.5 bg-base-content/10 mx-0.5"></div>
         <button @click="$emit('edit', server)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-base-200 hover:text-base-content" title="编辑">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-          </svg>
+          <SvgIcon name="pencil" size="12" />
         </button>
         <button @click="$emit('delete', server.id)" class="flex items-center justify-center w-7 h-7 border-none rounded-lg cursor-pointer bg-transparent text-base-content/60 transition-all hover:bg-error/15 hover:text-error" title="删除">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6"/>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-          </svg>
+          <SvgIcon name="trash" size="12" />
         </button>
       </div>
     </div>

@@ -77,7 +77,7 @@
           :title="isSaved ? '已保存 (Ctrl+S)' : '保存当前请求 (Ctrl+S)'"
           @click="saveCurrentRequest"
         >
-          <template v-if="isSaved">✓ 已保存</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存</template>
+          <template v-if="isSaved">✓ 已保存</template><template v-else><SvgIcon name="save" size="14" class="inline-block align-text-bottom" /> 保存</template>
         </button>
         <button
           class="btn btn-primary btn-sm min-h-0 h-auto px-[18px] py-2 text-xs font-semibold"
@@ -184,7 +184,7 @@
           />
           <div v-if="request.contentType === 'json'" class="flex gap-2 mt-2">
             <button class="btn btn-ghost btn-xs" @click="formatJsonBody">📐 格式化</button>
-            <button class="btn btn-ghost btn-xs" @click="compressJsonBody"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> 压缩</button>
+            <button class="btn btn-ghost btn-xs" @click="compressJsonBody"><SvgIcon name="package" size="14" class="inline-block align-text-bottom" /> 压缩</button>
           </div>
         </div>
       </div>
@@ -197,8 +197,8 @@
             <span class="badge" :class="responseStatusClass">
               {{ response.status }} {{ response.statusText }}
             </span>
-            <span class="text-xs text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> {{ response.time }}ms</span>
-            <span class="text-xs text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> {{ formatSize(response.size) }}</span>
+            <span class="text-xs text-base-content/60"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom" /> {{ response.time }}ms</span>
+            <span class="text-xs text-base-content/60"><SvgIcon name="package" size="14" class="inline-block align-text-bottom" /> {{ formatSize(response.size) }}</span>
           </div>
         </div>
         <div class="tabs tabs-bordered border-b-0 px-3 pt-1">
@@ -221,7 +221,7 @@
 
       <!-- Empty State -->
       <div v-else class="flex flex-col items-center justify-center py-16 text-base-content/60">
-        <div class="text-5xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
+        <div class="text-5xl mb-4"><SvgIcon name="rocket" size="14" class="inline-block align-text-bottom" /></div>
         <h3 class="text-lg font-semibold text-base-content mb-2">准备发送请求</h3>
         <p class="text-sm">输入 URL 或粘贴报文后点击"发送"</p>
       </div>

@@ -70,15 +70,11 @@
       >
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1.5">
-            <svg class="text-primary shrink-0" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-            </svg>
+            <SvgIcon name="gitBranch" :size="20" class="text-primary shrink-0" />
             <span class="text-base font-semibold text-base-content truncate">{{ repo.name }}</span>
           </div>
           <div class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.path">
-            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
-            </svg>
+            <SvgIcon name="folder" :size="14" class="shrink-0 opacity-60" />
             <span>{{ repo.path }}</span>
           </div>
         </div>
@@ -100,9 +96,7 @@
 
         <div class="flex gap-2 shrink-0">
           <UiButton variant="success" size="sm" @click="openRepo(repo)" title="打开仓库">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-            </svg>
+            <SvgIcon name="externalLink" :size="14" />
             打开
           </UiButton>
           <UiButton variant="ghost" size="sm" @click="openEditModal(repo)" title="编辑">
@@ -118,9 +112,7 @@
     <!-- 空状态 -->
     <UiEmptyState v-else :text="searchQuery ? '没有找到匹配的仓库' : '暂无 Git 仓库'" :subtext="searchQuery ? '尝试其他搜索词' : '点击下方按钮添加第一个仓库'">
       <template #icon>
-        <svg viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-        </svg>
+        <SvgIcon name="gitBranch" :size="64" stroke-width="1.5" />
       </template>
       <template #action v-if="!searchQuery">
         <UiButton @click="openAddModal">+ 添加仓库</UiButton>
@@ -136,9 +128,7 @@
     >
       <div class="mb-4">
         <label for="repo-path" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
-          </svg>
+          <SvgIcon name="folder" :size="14" />
           本地路径 <span class="text-error">*</span>
         </label>
         <div class="flex gap-2">

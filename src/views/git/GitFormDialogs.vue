@@ -217,9 +217,7 @@
       <div class="flex justify-end gap-2 px-4 py-3">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:show-push-dialog', false)">取消</button>
         <button class="btn btn-primary btn-sm" @click="$emit('push-with-options')" :disabled="pushing">
-          <svg v-if="pushing" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
+          <SvgIcon v-if="pushing" name="refresh" :size="14" class="animate-spin h-3.5 w-3.5" />
           {{ pushForce ? 'Force Push' : 'Push' }}
         </button>
       </div>
@@ -274,9 +272,7 @@
       <div class="flex justify-end gap-2 px-4 py-3">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:show-pull-dialog', false)">取消</button>
         <button class="btn btn-primary btn-sm" @click="$emit('pull-with-options')" :disabled="pulling">
-          <svg v-if="pulling" class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-          </svg>
+          <SvgIcon v-if="pulling" name="refresh" :size="14" class="animate-spin h-3.5 w-3.5" />
           Pull
         </button>
       </div>

@@ -157,12 +157,7 @@
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('gitignore')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="12" y1="18" x2="12" y2="12" />
-          <line x1="9" y1="15" x2="15" y2="15" />
-        </svg>
+        <SvgIcon name="file" :size="14" />
         Add to .gitignore
       </div>
     </div>
@@ -175,10 +170,7 @@
       @click.stop
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="18" r="3" /><circle cx="12" cy="6" r="3" />
-          <path d="m17 11-5 5-5-5" />
-        </svg>
+        <SvgIcon name="arrowDown" :size="14" />
         Cherry-pick
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('revert')">
@@ -195,20 +187,12 @@
         Compare with Another Commit...
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('get-file')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <polyline points="12 18 12 12 16 12" />
-        </svg>
+        <SvgIcon name="download" :size="14" />
         Get File at Revision...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick-multi')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="18" r="3" /><circle cx="12" cy="6" r="3" />
-          <path d="m17 11-5 5-5-5" />
-          <circle cx="18" cy="18" r="3" /><circle cx="18" cy="6" r="3" />
-        </svg>
+        <SvgIcon name="arrowDown" :size="14" />
         Cherry-pick Multiple...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
@@ -226,9 +210,7 @@
       @click.stop
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('apply')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="15 10 20 15 15 20" /><path d="M4 4v7a4 4 0 0 0 4 4h12" />
-        </svg>
+        <SvgIcon name="arrowRight" :size="14" />
         Apply
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('pop')">
