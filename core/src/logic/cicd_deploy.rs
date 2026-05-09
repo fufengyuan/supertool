@@ -669,12 +669,16 @@ async fn build_single_module(
         child_cmd.arg("-c").arg(cmd).current_dir(&build_path)
             .stdout(Stdio::piped()).stderr(Stdio::piped());
 
-        // 注入配置的 JAVA_HOME 和工具路径，确保自定义命令也能用到
-        if let Some(ref java_home) = config.java_home {
-            emit("build", "info", &format!("JAVA_HOME: {}", java_home));
-            child_cmd.env("JAVA_HOME", java_home);
+        // 注入配置的工具路径，确保自定义命令能找到 mvn/npm/node
+        // 只在命令包含 mvn 时设置 JAVA_HOME，避免前端项目污染
+        if cmd.contains("mvn") {
+            if let Some(ref java_home) = config.java_home {
+                emit("build", "info", &format!("JAVA_HOME: {}", java_home));
+                child_cmd.env("JAVA_HOME", java_home);
+            }
         }
         extend_path(&mut child_cmd, &config.java_home, &config.maven_home);
+        extend_path_npm(&mut child_cmd, &config.node_home, &config.npm_home);
 
         let mut child = child_cmd.spawn()
             .map_err(|e| format!("构建命令启动失败: {}", e))?;
