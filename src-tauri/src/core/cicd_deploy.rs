@@ -662,7 +662,7 @@ async fn build_single_module(
     };
 
     // Custom build command (stream output for real-time logs)
-    if let Some(ref cmd) = module.build_command {
+    if let Some(ref cmd) = module.build_command.as_ref().filter(|s| !s.is_empty()) {
         emit("build", "starting", &format!("执行构建命令: {}", cmd));
 
         let mut child = user_shell_cmd("sh")
