@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">📅 时间计算器</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> 时间计算器</h3>
 
     <!-- Date Math -->
     <div class="mb-5">
@@ -18,7 +18,7 @@
           <option value="sub">减</option>
         </select>
         <button class="btn btn-primary" @click="calcDateMath">计算</button>
-        <button class="btn btn-ghost" @click="copyText(dateMathResult, toast)">📋</button>
+        <button class="btn btn-ghost" @click="copyText(dateMathResult, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
       </div>
       <div v-if="dateMathResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ dateMathResult }}</div>
     </div>
@@ -38,7 +38,7 @@
           <input v-model="diffEnd" type="date" class="input input-bordered" />
         </div>
         <button class="btn btn-primary self-end" @click="calcDateDiff">计算</button>
-        <button class="btn btn-ghost self-end" @click="copyText(diffResult, toast)">📋</button>
+        <button class="btn btn-ghost self-end" @click="copyText(diffResult, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
       </div>
       <div v-if="diffResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ diffResult }}</div>
     </div>
@@ -62,7 +62,7 @@
           <option value="sub">减</option>
         </select>
         <button class="btn btn-primary self-end" @click="calcWorkday">计算</button>
-        <button class="btn btn-ghost self-end" @click="copyText(workdayResult, toast)">📋</button>
+        <button class="btn btn-ghost self-end" @click="copyText(workdayResult, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
       </div>
       <div v-if="workdayResult" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ workdayResult }}</div>
     </div>

@@ -20,7 +20,7 @@
         class="absolute right-4 top-1/2 -translate-y-1/2 btn btn-ghost btn-xs btn-square text-base-content/50 hover:text-base-content min-h-0 h-5 w-5"
         @click="searchQuery = ''"
         title="清除"
-      >✕</button>
+      ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
 
     <div v-if="sortedConnections.length === 0" class="flex flex-col items-center justify-center gap-2 py-8 px-4 text-base-content/50">
@@ -44,18 +44,18 @@
         <span class="w-4 text-center text-[10px] text-base-content/40 flex-shrink-0 leading-none">{{ isConnectionExpanded(conn.id) ? '▼' : '▶' }}</span>
         <span class="flex-shrink-0 text-sm leading-none w-[18px] text-center">{{ dbTypeIcon(conn.type) }}</span>
         <span class="flex-1 truncate text-sm leading-tight min-w-0">{{ conn.name }}</span>
-        <span v-if="conn.requiresApproval" class="flex-shrink-0 text-xs" title="SQL 执行审核已开启">🔒</span>
+        <span v-if="conn.requiresApproval" class="flex-shrink-0 text-xs" title="SQL 执行审核已开启"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
         <span class="badge badge-xs badge-ghost uppercase text-[10px] flex-shrink-0 leading-none">{{ conn.type }}</span>
         <button
           class="btn btn-ghost btn-xs px-1 min-h-0 h-5 w-5 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-base-300 transition-all"
           @click.stop="$emit('edit', conn)"
           title="编辑"
-        >✏️</button>
+        ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         <button
           class="btn btn-ghost btn-xs px-1 min-h-0 h-5 w-5 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:!bg-red-50 dark:hover:!bg-red-900/20 hover:!text-red-500 transition-all"
           @click.stop="$emit('delete', conn.id)"
           title="删除"
-        >🗑️</button>
+        ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
       </div>
 
       <Transition
@@ -82,7 +82,7 @@
                   @contextmenu.prevent="onRedisDatabaseContext($event, conn, redisDb.db)"
                 >
                   <span class="w-4 text-center text-[10px] text-base-content/40 flex-shrink-0 leading-none">{{ isRedisDatabaseExpanded(conn.id, redisDb.db) ? '▼' : '▶' }}</span>
-                  <span class="flex-shrink-0 text-sm leading-none w-[18px] text-center">🗃️</span>
+                  <span class="flex-shrink-0 text-sm leading-none w-[18px] text-center"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg></span>
                   <span class="flex-1 truncate text-sm leading-tight min-w-0">db{{ redisDb.db }}</span>
                   <span class="text-xs text-base-content/40 tabular-nums flex-shrink-0">{{ redisDb.keys }} keys</span>
                 </div>

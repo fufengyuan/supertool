@@ -209,7 +209,7 @@
       <div class="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         <div class="flex items-center justify-between px-6 pt-5 pb-3">
           <h3 class="text-lg font-semibold text-base-content">添加任务</h3>
-          <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false">✕</button>
+          <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
         <div class="px-6 space-y-4">
           <div class="flex flex-col gap-1.5">

@@ -3,7 +3,7 @@
     <!-- 页面头部 -->
     <div class="flex items-center justify-between px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
       <div class="flex items-center gap-3">
-        <span class="text-2xl">🔐</span>
+        <span class="text-2xl"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
         <div class="flex flex-col gap-0.5">
           <h2 class="m-0 text-lg font-bold text-base-content">MFA 验证码</h2>
           <p class="m-0 text-xs text-base-content/60">双因素身份验证令牌管理器</p>
@@ -111,7 +111,7 @@
       <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="closeDialogs">
         <div class="w-[90%] max-w-[520px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
-            <h3 class="m-0 text-base font-semibold text-base-content">{{ editingTarget ? '✏️ 编辑账户' : '🔑 添加 MFA 账户' }}</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content">{{ editingTarget ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑账户' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> 添加 MFA 账户' }}</h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="closeDialogs">×</button>
           </div>
           <div class="px-5 py-5">
@@ -188,7 +188,7 @@
       <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="deleteTarget = null">
         <div class="w-[90%] max-w-[400px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
-            <h3 class="m-0 text-base font-semibold text-base-content">⚠️ 确认删除</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 确认删除</h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="deleteTarget = null">×</button>
           </div>
           <div class="px-5 py-5">

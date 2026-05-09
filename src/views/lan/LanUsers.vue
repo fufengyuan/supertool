@@ -72,7 +72,7 @@
     <div v-if="permissionWarning" class="my-2 rounded-xl p-3 flex items-center justify-between gap-2.5 animate-[fadeIn_0.3s_ease]"
          :class="permissionWarning.type === 'error' ? 'bg-red-500/12 border border-red-500/30' : 'bg-amber-500/12 border border-amber-500/30'">
       <div class="flex items-start gap-2.5 flex-1 min-w-0">
-        <span class="text-xl shrink-0">{{ permissionWarning.type === 'error' ? '🚫' : '⚠️' }}</span>
+        <span class="text-xl shrink-0">{{ permissionWarning.type === 'error' ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' }}</span>
         <div class="min-w-0">
           <div class="text-sm font-semibold text-base-content">{{ permissionWarning.title }}</div>
           <div class="text-xs text-base-content/60 mt-0.5 leading-relaxed">{{ permissionWarning.message }}</div>
@@ -88,7 +88,7 @@
     <!-- 头部 -->
     <div class="flex items-center justify-between px-1 py-2">
       <div class="flex items-center gap-2">
-        <span class="text-base">🌐</span>
+        <span class="text-base"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
         <span class="text-sm font-semibold text-base-content">局域网用户</span>
         <span class="badge badge-sm" :class="peers.length > 0 ? 'badge-success' : 'badge-ghost'">
           <span v-if="peers.length > 0" class="size-1.5 rounded-full bg-green-500 animate-pulse mr-1"></span>
@@ -189,7 +189,7 @@
 
     <!-- 文件接收路径设置 -->
     <div class="px-3.5 py-3 bg-white/3 rounded-xl border border-base-content/10">
-      <div class="text-xs font-semibold text-base-content/60 mb-2">📂 文件保存路径</div>
+      <div class="text-xs font-semibold text-base-content/60 mb-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 文件保存路径</div>
       <div class="flex items-center gap-2">
         <span class="flex-1 text-xs text-base-content font-mono truncate opacity-80" :title="receivePath">{{ receivePath || '默认' }}</span>
         <button class="btn btn-outline btn-sm" @click="chooseReceivePath">选择目录</button>

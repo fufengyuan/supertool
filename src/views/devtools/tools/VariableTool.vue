@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5">🔀 变量名格式转换</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> 变量名格式转换</h3>
 
     <div class="mb-5">
       <label class="text-xs font-medium text-base-content/60 mb-1 block">输入变量名</label>

@@ -95,7 +95,7 @@
           <div class="flex items-center gap-2.5 shrink-0">
             <span v-if="task.completedAt" class="text-xs text-emerald-500 whitespace-nowrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  {{ formatDate(task.completedAt) }}</span>
             <span v-if="task.priority" class="badge badge-sm" :class="{ 'badge-error': task.priority === 'high', 'badge-warning': task.priority === 'medium', 'badge-info': task.priority === 'low' }">{{ priorityLabel(task.priority) }}</span>
-            <button class="btn btn-ghost btn-xs" @click="handleToggleTask(task)" title="恢复为未完成">↩️ 恢复</button>
+            <button class="btn btn-ghost btn-xs" @click="handleToggleTask(task)" title="恢复为未完成"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> 恢复</button>
           </div>
         </div>
       </div>
@@ -128,7 +128,7 @@
     <!-- 编辑项目模态框 -->
     <UiModal
       v-model="showEditModal"
-      title="✏️ 编辑项目"
+title="✏️ 编辑项目"
       @close="resetEditModal"
       width="640px"
     >

@@ -24,7 +24,7 @@
     </div>
     <div class="w-px h-5 bg-base-content/10 shrink-0"></div>
     <div class="flex items-baseline gap-1 whitespace-nowrap">
-      <span class="text-xs text-base-content/60">🔥 Streak</span>
+      <span class="text-xs text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2L9.09 9.09L2 12l7.09 2.91L12 22l2.91-7.09L22 12l-7.09-2.91L12 2z"/></svg> Streak</span>
       <span class="text-[15px] font-bold text-warning">{{ streak }}天</span>
     </div>
     <div class="w-px h-5 bg-base-content/10 shrink-0"></div>

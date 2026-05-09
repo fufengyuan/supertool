@@ -14,7 +14,7 @@
         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
       </span>
       <span class="text-sm flex-1">{{ message }}</span>
-      <button class="btn btn-xs btn-ghost btn-circle opacity-60 hover:opacity-100" @click="$emit('close')" title="关闭">✕</button>
+      <button class="btn btn-xs btn-ghost btn-circle opacity-60 hover:opacity-100" @click="$emit('close')" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
     </div>
     <div v-if="duration > 0" class="absolute bottom-0 left-0 right-0 h-0.5 bg-base-300/50">
       <div class="h-full rounded-full transition-all duration-100 ease-linear" :class="progressBarVariant" :style="{ width: `${progress}%` }"></div>

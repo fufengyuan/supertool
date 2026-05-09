@@ -2,7 +2,7 @@
   <div class="flex flex-col h-full gap-4">
     <!-- Header -->
     <div class="flex items-center justify-between shrink-0">
-      <h2 class="text-xl font-bold text-base-content">📒 企业记账</h2>
+      <h2 class="text-xl font-bold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> 企业记账</h2>
       <div class="flex gap-2">
         <button @click="showTemplates = true" class="btn btn-ghost btn-sm" title="快捷模板">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  快捷记账
@@ -25,7 +25,7 @@
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>  预算
         </button>
         <button @click="showCategoryManager = true" class="btn btn-ghost btn-sm">
-          ⚙️ 分类管理
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 分类管理
         </button>
       </div>
     </div>
@@ -98,7 +98,7 @@
     <!-- Budget Alerts -->
     <div v-if="budgetAlerts.length > 0" class="bg-base-100 border border-warning rounded-xl p-3 shrink-0">
       <div class="flex justify-between items-center mb-2">
-        <span class="text-xs font-semibold text-warning">⚠️ 预算预警</span>
+        <span class="text-xs font-semibold text-warning"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 预算预警</span>
         <button @click="loadBudgetAlerts" class="btn btn-ghost btn-xs" title="刷新"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> </button>
       </div>
       <div class="flex flex-col gap-1.5">
@@ -116,7 +116,7 @@
     <!-- Monthly Trend Chart -->
     <div v-if="trendData.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-3 shrink-0">
       <div class="text-xs font-semibold text-base-content/60 mb-2">
-        <span>📈 月度趋势（12个月）</span>
+        <span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> 月度趋势（12个月）</span>
       </div>
       <div class="w-full overflow-x-auto" ref="trendChartRef">
         <svg :width="trendChartWidth" :height="200" class="block min-w-[500px]">
@@ -286,7 +286,7 @@
               <button @click="editRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/10" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
               <button v-if="canApprove(record)" @click="approveRecord(record, 'approved')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-success/15" title="审批通过"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
               <button v-if="canApprove(record)" @click="approveRecord(record, 'rejected')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="驳回"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> </button>
-              <button v-if="canReimburse(record)" @click="approveRecord(record, 'reimbursed')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/15" title="标记报销">💰</button>
+              <button v-if="canReimburse(record)" @click="approveRecord(record, 'reimbursed')" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-primary/15" title="标记报销"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>
               <button @click="deleteRecord(record)" class="border-none bg-transparent cursor-pointer text-sm px-1 py-0.5 rounded transition-colors duration-100 hover:bg-error/15" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
             </td>
           </tr>
@@ -499,7 +499,7 @@
           <div class="px-5 py-4 overflow-y-auto flex-1">
             <div class="flex flex-col gap-4">
               <div>
-                <h4 class="text-sm font-semibold text-base-content m-0 mb-2">📈 收入分类</h4>
+                <h4 class="text-sm font-semibold text-base-content m-0 mb-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg> 收入分类</h4>
                 <div class="flex flex-wrap gap-1.5">
                   <div v-for="cat in incomeCategories" :key="cat.id" class="flex items-center gap-1.5 px-2.5 py-1.5 border border-base-content/10 rounded-lg bg-base-200 text-sm text-base-content">
                     <span class="text-base">{{ cat.icon }}</span>
@@ -509,7 +509,7 @@
                 </div>
               </div>
               <div>
-                <h4 class="text-sm font-semibold text-base-content m-0 mb-2">📉 支出分类</h4>
+                <h4 class="text-sm font-semibold text-base-content m-0 mb-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg> 支出分类</h4>
                 <div class="flex flex-wrap gap-1.5">
                   <div v-for="cat in expenseCategories" :key="cat.id" class="flex items-center gap-1.5 px-2.5 py-1.5 border border-base-content/10 rounded-lg bg-base-200 text-sm text-base-content">
                     <span class="text-base">{{ cat.icon }}</span>

@@ -85,7 +85,7 @@
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">标签管理</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-tags-dialog', false)">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-tags-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="px-4 py-2 border-b border-base-content/10 flex gap-2">
         <button class="btn btn-primary btn-sm" @click="$emit('create-tag-open')">
@@ -116,7 +116,7 @@
           </svg>
           <span class="flex-1 font-mono">{{ tag.name }}</span>
           <span class="text-[11px] text-base-content/60 font-mono" :title="tag.commit">{{ tag.commit?.substring(0, 7) || '' }}</span>
-          <button class="btn btn-ghost btn-xs text-red-500 hover:text-red-600" @click.stop="$emit('delete-tag', tag.name)" title="删除">✕</button>
+          <button class="btn btn-ghost btn-xs text-red-500 hover:text-red-600" @click.stop="$emit('delete-tag', tag.name)" title="删除"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
         </div>
         <div v-if="tagsList.length === 0 && !loading" class="p-5 text-center text-base-content/60">没有标签</div>
       </div>
@@ -132,7 +132,7 @@
     <div class="max-w-sm w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">比较分支</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-branches-dialog', false)">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-branches-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <div class="flex items-center gap-2 mb-2">
@@ -180,7 +180,7 @@
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">推送到远程</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-push-dialog', false)">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-push-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
@@ -243,7 +243,7 @@
     <div class="max-w-sm w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">从远程拉取</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-pull-dialog', false)">✕</button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-pull-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
@@ -355,7 +355,7 @@
           <option value="hard">Hard — 丢弃所有变更</option>
         </select>
         <div v-if="resetMode === 'hard'" class="mt-2 p-2.5 bg-red-500/10 border border-red-500/30 rounded text-red-500 text-xs">
-          ⚠️ Hard Reset 将丢弃所有未提交的变更，此操作不可撤销！
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Hard Reset 将丢弃所有未提交的变更，此操作不可撤销！
         </div>
       </div>
       <div class="flex justify-end gap-2">

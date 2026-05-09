@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-1 flex-col overflow-y-auto p-5 px-6 min-h-0">
     <div class="mb-4 shrink-0">
-      <h3 class="m-0 mb-1 text-lg font-semibold">🗂️ 数据库备份</h3>
+      <h3 class="m-0 mb-1 text-lg font-semibold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 数据库备份</h3>
       <p class="m-0 text-xs text-base-content/60">备份和还原数据库结构和数据（.nb3 格式）</p>
     </div>
 
@@ -27,7 +27,7 @@
           </div>
           <div class="flex shrink-0 flex-col items-center gap-1">
             <button @click="createBackup" :disabled="!canBackup || creating" class="btn btn-primary whitespace-nowrap">
-              {{ creating ? '备份中...' : '💾 新建备份' }}
+              {{ creating ? '备份中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 新建备份' }}
             </button>
             <span v-if="selectedCount > 0" class="text-[11px] text-base-content/60">已选 {{ selectedCount }} 项</span>
           </div>
@@ -133,7 +133,7 @@
     <Teleport to="body">
       <div v-if="restoreConfirm" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" @click="restoreConfirm = null">
         <div class="w-[400px] max-w-[90vw] rounded-xl bg-base-100 p-6 shadow-2xl" @click.stop>
-          <h3 class="m-0 mb-3 text-base font-semibold">⚠️ 确认还原</h3>
+          <h3 class="m-0 mb-3 text-base font-semibold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 确认还原</h3>
           <p class="m-0 mb-2 text-sm">将 <strong>{{ restoreConfirm.name }}</strong> 还原到当前连接？</p>
           <p class="m-0 mb-2 text-sm font-medium text-error">此操作将覆盖现有数据，请谨慎操作！</p>
           <div class="mt-5 flex justify-end gap-2">

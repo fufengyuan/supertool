@@ -3,7 +3,7 @@
     <!-- Left Sidebar: Saved Requests -->
     <aside class="w-[260px] min-w-[220px] max-w-[320px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
       <div class="flex items-center justify-between p-[14px_16px_10px]">
-        <h3 class="m-0 text-sm font-bold text-base-content">📁 已保存接口</h3>
+        <h3 class="m-0 text-sm font-bold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 已保存接口</h3>
         <button class="btn btn-outline btn-primary btn-xs" @click="createNewRequest">+ 新建</button>
       </div>
       <div class="px-3 pb-2.5">
@@ -32,7 +32,7 @@
       <!-- Smart Paste Area -->
       <div class="border border-dashed border-base-content/10 rounded-lg bg-base-100 transition-colors duration-200" :class="{ 'border-primary': !pasteCollapsed }">
         <div class="flex items-center justify-between px-3.5 py-2 cursor-pointer select-none" @click="pasteCollapsed = !pasteCollapsed">
-          <span class="text-xs font-semibold text-base-content">📋 智能粘贴报文</span>
+          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 智能粘贴报文</span>
           <span class="text-[10px] text-base-content/60">{{ pasteCollapsed ? '▼' : '▲' }}</span>
         </div>
         <div v-show="!pasteCollapsed" class="px-3.5 pb-3">
@@ -43,11 +43,11 @@
             rows="6"
           />
           <div class="flex gap-2 mt-2">
-            <button class="btn btn-outline btn-primary btn-xs" @click="parseSmartPaste">🔍 智能解析</button>
+            <button class="btn btn-outline btn-primary btn-xs" @click="parseSmartPaste"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 智能解析</button>
             <button class="btn btn-ghost btn-xs" @click="pasteText = ''">清空</button>
           </div>
           <div v-if="parseResult" class="mt-2 px-2.5 py-1.5 text-xs bg-green-100 text-green-800 rounded">
-            ✅ 已解析: <strong>{{ parseResult.method }}</strong> {{ parseResult.url }}
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 已解析: <strong>{{ parseResult.method }}</strong> {{ parseResult.url }}
             <span v-if="parseResult.headersCount"> ({{ parseResult.headersCount }} 个请求头)</span>
             <span v-if="parseResult.bodyType"> 报文: {{ parseResult.bodyType }}</span>
           </div>
@@ -77,7 +77,7 @@
           :title="isSaved ? '已保存 (Ctrl+S)' : '保存当前请求 (Ctrl+S)'"
           @click="saveCurrentRequest"
         >
-          {{ isSaved ? '✓ 已保存' : '💾 保存' }}
+          {{ isSaved ? '✓ 已保存' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 保存' }}
         </button>
         <button
           class="btn btn-primary btn-sm min-h-0 h-auto px-[18px] py-2 text-xs font-semibold"
@@ -184,7 +184,7 @@
           />
           <div v-if="request.contentType === 'json'" class="flex gap-2 mt-2">
             <button class="btn btn-ghost btn-xs" @click="formatJsonBody">📐 格式化</button>
-            <button class="btn btn-ghost btn-xs" @click="compressJsonBody">📦 压缩</button>
+            <button class="btn btn-ghost btn-xs" @click="compressJsonBody"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> 压缩</button>
           </div>
         </div>
       </div>
@@ -197,8 +197,8 @@
             <span class="badge" :class="responseStatusClass">
               {{ response.status }} {{ response.statusText }}
             </span>
-            <span class="text-xs text-base-content/60">⏱️ {{ response.time }}ms</span>
-            <span class="text-xs text-base-content/60">📦 {{ formatSize(response.size) }}</span>
+            <span class="text-xs text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> {{ response.time }}ms</span>
+            <span class="text-xs text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> {{ formatSize(response.size) }}</span>
           </div>
         </div>
         <div class="tabs tabs-bordered border-b-0 px-3 pt-1">
@@ -221,7 +221,7 @@
 
       <!-- Empty State -->
       <div v-else class="flex flex-col items-center justify-center py-16 text-base-content/60">
-        <div class="text-5xl mb-4">🚀</div>
+        <div class="text-5xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></div>
         <h3 class="text-lg font-semibold text-base-content mb-2">准备发送请求</h3>
         <p class="text-sm">输入 URL 或粘贴报文后点击"发送"</p>
       </div>

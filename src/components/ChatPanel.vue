@@ -32,7 +32,7 @@
         <button class="bg-none border-none text-white text-sm cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="toggleMaximize" :title="isMaximized ? '还原' : '最大化'">
           {{ isMaximized ? '❐' : '⬚' }}
         </button>
-        <button class="bg-none border-none text-white text-base cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="$emit('close')">✕</button>
+        <button class="bg-none border-none text-white text-base cursor-pointer opacity-80 w-7 h-7 flex items-center justify-center rounded transition-all duration-200 hover:opacity-100 hover:bg-white/15" @click="$emit('close')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
       </div>
     </div>
 
