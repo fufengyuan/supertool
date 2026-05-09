@@ -1,16 +1,7 @@
 use crate::types::*;
 use crate::runtime::CliRuntime;
-use crate::transport::ApiClient;
 use crate::output::*;
 use anyhow::Result;
-
-/// Check UDS connection for non-refactored commands (cicd, db, git)
-pub fn check_connection(client: &ApiClient) -> Result<()> {
-    if !client.health_check() {
-        anyhow::bail!("无法连接到 SuperTool (UDS socket)\n请确保 GUI 已启动，~/.supertool/supertool.sock 存在。\n设置 SUPERTOOL_SOCKET 环境变量可指定 socket 路径。");
-    }
-    Ok(())
-}
 
 pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result<()> {
     match action {
