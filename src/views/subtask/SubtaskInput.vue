@@ -10,12 +10,13 @@
       @blur="cancel"
     />
     <button @click="confirm" class="btn btn-success">✓</button>
-    <button @click="cancel" class="btn btn-error"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+    <button @click="cancel" class="btn btn-error"><SvgIcon name="x" size="14" /></button>
   </div>
 </template>
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, onMounted } from 'vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const emit = defineEmits(['add', 'cancel']);
 const text = ref('');

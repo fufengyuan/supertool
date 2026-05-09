@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><text x="12" y="16" text-anchor="middle" fill="currentColor" font-size="12" font-weight="bold">A</text></svg> ASCII 编码转换</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="terminal" size="14" class="inline-block align-text-bottom" /> ASCII 编码转换</h3>
 
     <div class="mb-5">
       <label class="label-text text-xs text-base-content/60 mb-1 block">输入文本</label>

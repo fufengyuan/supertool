@@ -20,12 +20,8 @@
       </div>
       <div class="flex items-center gap-2">
         <button @click.stop="toggleSize" class="btn btn-ghost btn-xs btn-square" :title="isMaximized ? '还原' : '最大化'">
-          <svg v-if="!isMaximized" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="5" y="5" width="14" height="14" rx="1"/>
-          </svg>
+          <SvgIcon v-if="!isMaximized" name="maximize" size="14" />
+          <SvgIcon v-else name="minimize" size="14" />
         </button>
         <button @click.stop="$emit('close')" class="btn btn-circle btn-error btn-sm text-white hover:scale-110" title="关闭">
           <SvgIcon name="x" size="20" />

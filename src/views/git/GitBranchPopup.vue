@@ -45,10 +45,7 @@
               :key="b.name"
               class="branch-item remote"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="18" r="3" /><circle cx="12" cy="6" r="3" />
-                <line x1="12" y1="9" x2="12" y2="15" />
-              </svg>
+              <SvgIcon name="gitBranch" size="14" />
               <span class="branch-label">{{ b.name }}</span>
               <div class="branch-actions">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('checkout-remote-branch', b.name)" title="Checkout as new local branch">Checkout</button>

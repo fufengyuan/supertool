@@ -66,7 +66,7 @@
                   @click="selectItem(item, 'project')"
                   @mouseenter="activeIndex = getGlobalIndex('project', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(99,102,241,0.1)]" :style="{ color: item.color || '#6c63ff' }"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(99,102,241,0.1)]" :style="{ color: item.color || '#6c63ff' }"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.description || '暂无描述' }}</span>
@@ -85,7 +85,7 @@
                   @click="selectItem(item, 'server')"
                   @mouseenter="activeIndex = getGlobalIndex('server', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(251,146,60,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(251,146,60,0.1)]"><SvgIcon name="server" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.host }}:{{ item.port }}</span>
@@ -104,7 +104,7 @@
                   @click="selectItem(item, 'note')"
                   @mouseenter="activeIndex = getGlobalIndex('note', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(168,85,247,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(168,85,247,0.1)]"><SvgIcon name="book" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.title, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.group || '未分组' }}</span>
@@ -123,7 +123,7 @@
                   @click="selectItem(item, 'cicd')"
                   @mouseenter="activeIndex = getGlobalIndex('cicd', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(245,158,11,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(245,158,11,0.1)]"><SvgIcon name="rocket" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.groupName || '未分组' }} · {{ item.deployBranch }}</span>
@@ -142,7 +142,7 @@
                   @click="selectItem(item, 'mfa')"
                   @mouseenter="activeIndex = getGlobalIndex('mfa', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(239,68,68,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(239,68,68,0.1)]"><SvgIcon name="lock" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.account || item.issuer || '' }}</span>
@@ -161,7 +161,7 @@
                   @click="selectItem(item, 'git')"
                   @mouseenter="activeIndex = getGlobalIndex('git', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(59,130,246,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(59,130,246,0.1)]"><SvgIcon name="gitBranch" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                     <span class="block text-xs text-base-content/60 mt-0.5">{{ item.path || item.url || '' }}</span>
@@ -180,7 +180,7 @@
                   @click="selectItem(item, 'vpn')"
                   @mouseenter="activeIndex = getGlobalIndex('vpn', idx)"
                 >
-                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(20,184,166,0.1)]"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                  <span class="w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 bg-[rgba(20,184,166,0.1)]"><SvgIcon name="globe" size="14" class="inline-block align-text-bottom" /></span>
                   <div class="flex-1 min-w-0">
                     <span class="block text-sm font-medium text-base-content truncate" v-html="highlightMatch(item.name, query)"></span>
                   </div>
@@ -503,61 +503,55 @@ const close = () => {
   activeIndex.value = 0
 }
 
-// 高亮匹配文本
-const highlightMatch = (text: string, pattern: string): string => {
-  if (!text || !pattern) return text || ''
-  const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${escaped})`, 'gi')
-  return (text || '').replace(regex, '<mark class="bg-[rgba(99,102,241,0.2)] text-inherit rounded-sm px-[1px]">$1</mark>')
+// 打开全局搜索快捷键
+const handleKeydown = (e: KeyboardEvent) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault()
+    open()
+  }
+  if (e.key === 'Escape' && isOpen.value) {
+    close()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
+
+// 暴露 open 方法给父组件
+defineExpose({ open })
+
+// 计算优先级的显示标签
+const priorityLabel = (priority: string): string => {
+  const labels: Record<string, string> = {
+    high: '高',
+    medium: '中',
+    low: '低',
+  }
+  return labels[priority] || priority
 }
 
 // 格式化日期
 const formatDate = (dateStr: string): string => {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
+  const date = new Date(dateStr)
   const now = new Date()
-  const diff = now.getTime() - d.getTime()
+  const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
   if (days === 0) return '今天'
   if (days === 1) return '昨天'
   if (days < 7) return `${days}天前`
-  return d.toLocaleDateString('zh-CN')
+  return date.toLocaleDateString('zh-CN')
 }
 
-const priorityLabel = (p: string): string => {
-  const map: Record<string, string> = { high: '高', medium: '中', low: '低' }
-  return map[p] || ''
+// 高亮匹配文本
+const highlightMatch = (text: string, query: string): string => {
+  if (!text || !query) return text || ''
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  return text.replace(regex, '<mark style="background: rgba(108,99,255,0.2); color: inherit; padding: 0 2px; border-radius: 2px;">$1</mark>')
 }
-
-// 暴露给外部
-defineExpose({ open, close })
-
-// 快捷键监听
-const handleKeydown = (e: KeyboardEvent) => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-    e.preventDefault()
-    e.stopPropagation()
-    if (isOpen.value) close()
-    else open()
-    return
-  }
-  if (e.key === 'Escape' && isOpen.value) {
-    e.preventDefault()
-    e.stopPropagation()
-    close()
-    return
-  }
-}
-
-let cleanup: (() => void) | null = null
-
-import { onMounted, onUnmounted } from 'vue'
-onMounted(() => {
-    console.log("[components/GlobalSearch.vue] mounted")
-  window.addEventListener('keydown', handleKeydown)
-  cleanup = () => window.removeEventListener('keydown', handleKeydown)
-})
-onUnmounted(() => {
-  cleanup?.()
-})
 </script>

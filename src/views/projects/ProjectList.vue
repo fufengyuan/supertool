@@ -44,9 +44,7 @@
     <!-- 空状态 -->
     <UiEmptyState v-else :text="searchQuery || categoryFilter !== 'all' ? '没有找到匹配的项目' : $t('project.noProjects')" :subtext="searchQuery ? '尝试其他搜索词' : $t('project.noProjectsSub')">
       <template #icon>
-        <svg v-if="!searchQuery && categoryFilter === 'all'" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-        </svg>
+        <SvgIcon v-if="!searchQuery && categoryFilter === 'all'" name="folder" size="64" stroke-width="1.5" />
       </template>
       <template #action>
         <div class="flex gap-2 justify-center mb-3" v-if="!searchQuery && categoryFilter === 'all'">

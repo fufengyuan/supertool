@@ -87,7 +87,7 @@
             :placeholder="mode === 'decrypt' ? '输入或生成私钥...' : '留空（加密不需要私钥）'"
             rows="4"
           ></textarea>
-          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> 复制密钥对</button>
+          <button class="btn btn-ghost btn-sm" @click="copyAsymmetricKeys" style="margin-top: 6px" v-if="asymmetricPublicKey && asymmetricPrivateKey"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 复制密钥对</button>
         </div>
       </div>
     </template>

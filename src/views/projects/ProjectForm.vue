@@ -48,9 +48,7 @@
 
       <!-- 已选仓库标签 -->
       <div v-if="formData.repoPath" class="flex items-center gap-2 px-3.5 py-2 mt-3 bg-primary/10 border border-primary rounded-xl text-sm">
-        <svg class="text-primary flex-shrink-0" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-        </svg>
+        <SvgIcon name="github" size="14" class="text-primary flex-shrink-0" />
         <span class="flex-1 font-medium text-primary overflow-hidden text-ellipsis whitespace-nowrap">{{ getRepoNameByPath(formData.repoPath) }}</span>
         <button type="button" @click="clearRepoSelection" class="btn btn-ghost btn-xs btn-square text-base-content/60 hover:bg-error hover:text-white" title="移除">
           <SvgIcon name="x" :size="14" />
@@ -68,9 +66,7 @@
       <GitRepoSelector v-model="formData.repoPath2" @select="onRepoSelect2" />
 
       <div v-if="formData.repoPath2" class="flex items-center gap-2 px-3.5 py-2 mt-3 bg-primary/10 border border-primary rounded-xl text-sm">
-        <svg class="text-primary flex-shrink-0" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-        </svg>
+        <SvgIcon name="github" size="14" class="text-primary flex-shrink-0" />
         <span class="flex-1 font-medium text-primary overflow-hidden text-ellipsis whitespace-nowrap">{{ getRepoNameByPath(formData.repoPath2) }}</span>
         <button type="button" @click="clearRepoSelection2" class="btn btn-ghost btn-xs btn-square text-base-content/60 hover:bg-error hover:text-white" title="移除">
           <SvgIcon name="x" :size="14" />

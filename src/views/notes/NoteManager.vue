@@ -94,7 +94,7 @@
           <div v-else class="editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content" v-html="renderedContent"></div>
         </template>
         <div v-else class="flex-1 flex flex-col items-center justify-center text-base-content/60 opacity-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <SvgIcon name="file" size="48" :strokeWidth="1.5" class="mb-3" />
           <p class="text-sm">选择或创建一个笔记</p>
         </div>
       </main>
