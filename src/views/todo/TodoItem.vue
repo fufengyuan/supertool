@@ -51,10 +51,10 @@
     <!-- 行内操作（hover显示） -->
     <div class="flex items-center shrink-0 ml-2 opacity-0 transition-opacity duration-100 group-hover:opacity-100" @click.stop>
       <button class="w-7 h-7 border-0 rounded-lg bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center transition-all duration-100 hover:bg-error/10 hover:text-error" @click="$emit('start-edit', todo)" title="编辑">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        <SvgIcon name="pencil" size="14" />
       </button>
       <button class="w-7 h-7 border-0 rounded-lg bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center transition-all duration-100 hover:bg-error/10 hover:text-error" @click="$emit('delete', todo.id)" title="删除">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        <SvgIcon name="trash" size="14" />
       </button>
     </div>
   </li>
@@ -114,6 +114,7 @@ import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
 import SubtaskList from '@/views/subtask/SubtaskList.vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 defineOptions({ inheritAttrs: false })
 

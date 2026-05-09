@@ -3,10 +3,7 @@
     <div class="flex flex-col gap-5">
       <!-- 页面标题 -->
       <div class="flex items-center gap-2.5 px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
-        <svg class="w-5 h-5 text-primary shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
+        <SvgIcon name="settings" size="20" class="text-primary shrink-0" />
         <div class="flex flex-col gap-0.5">
           <h1 class="text-lg font-bold text-base-content m-0">{{ t("settings.title") }}</h1>
           <p class="text-xs text-base-content/60 m-0">{{ t("settings.description") }}</p>
@@ -17,9 +14,7 @@
         <!-- Theme Settings -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
           <h2 class="flex items-center gap-2 text-base font-semibold text-base-content m-0 mb-4">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
-            </svg>
+            <SvgIcon name="sun" size="16" />
             {{ t("settings.theme") }}
           </h2>
           <div class="flex flex-col gap-3">
@@ -41,9 +36,7 @@
         <!-- Language Settings -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl p-5">
           <h2 class="flex items-center gap-2 text-base font-semibold text-base-content m-0 mb-4">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
-            </svg>
+            <SvgIcon name="globe" size="16" />
             {{ t("settings.language") }}
           </h2>
           <div class="flex items-center justify-between">
@@ -59,9 +52,7 @@
       <!-- Status Section -->
       <div class="flex gap-6 px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
         <div class="flex items-center gap-2.5">
-          <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-          </svg>
+          <SvgIcon name="checkCircle" size="20" class="text-primary" />
           <div class="flex flex-col gap-0.5">
             <span class="text-xs text-base-content/60">{{ t("settings.status") }}</span>
             <span class="text-sm font-semibold text-base-content">{{ t("settings.active") }}</span>
@@ -81,9 +72,7 @@
 
       <!-- Auto-save info -->
       <div class="flex items-center gap-2 px-5 py-3 bg-base-100 border border-base-content/10 rounded-xl text-sm text-base-content/70">
-        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
+        <SvgIcon name="info" size="16" class="shrink-0" />
         <span>{{ t("settings.autoSave") }}</span>
       </div>
     </div>

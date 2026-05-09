@@ -14,11 +14,7 @@
           />
         </div>
         <button @click="loadKeys" class="btn btn-ghost btn-sm" :disabled="loading" title="刷新">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
+          <SvgIcon name="refresh" size="14" />
           刷新
         </button>
         <button @click="showAddKeyDialog = true" class="btn btn-primary btn-sm" title="添加键">
@@ -36,9 +32,7 @@
     <div class="flex-1 flex flex-col overflow-hidden bg-base-200">
         <template v-if="!selectedKey">
           <div class="flex flex-col items-center justify-center flex-1 text-base-content/60 gap-3">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-            </svg>
+            <SvgIcon name="key" size="48" stroke-width="1.5" />
             <p>输入键名搜索，或从左侧树形结构中选择</p>
           </div>
         </template>

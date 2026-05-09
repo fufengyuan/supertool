@@ -6,14 +6,12 @@
       @click="toggleTreeNode"
     >
       <!-- Expand arrow -->
-      <svg v-if="node.children && node.children.length > 0" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-90': isExpanded }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-        <polyline points="6 9 12 15 18 9" />
-      </svg>
+      <SvgIcon v-if="node.children && node.children.length > 0" name="chevronDown" size="14" class="transition-transform duration-200 text-base-content/60 flex-shrink-0" :class="{ 'rotate-90': isExpanded }" />
       <span v-else class="w-[14px] flex-shrink-0"></span>
 
       <!-- Type badge -->
       <span class="text-xs flex-shrink-0">
-        <template v-if="node.type === 'maven'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5" fill="currentColor"/></svg></template><template v-else-if="node.type === 'npm'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></template>
+        <template v-if="node.type === 'maven'"><SvgIcon name="layers" size="14" class="inline-block align-text-bottom" /></template><template v-else-if="node.type === 'npm'"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /></template><template v-else><SvgIcon name="package" size="14" class="inline-block align-text-bottom" /></template>
       </span>
 
       <!-- Name & path -->
@@ -48,6 +46,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const props = defineProps<{
   node: any

@@ -4,12 +4,7 @@
       <!-- 表情按钮 -->
       <div class="relative" ref="emojiWrapperRef">
         <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="toggleEmojiPicker" title="表情">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M8 14s1.5 2 4 2 4-2 4-2"/>
-            <line x1="9" y1="9" x2="9.01" y2="9"/>
-            <line x1="15" y1="9" x2="15.01" y2="9"/>
-          </svg>
+          <SvgIcon name="smile" size="18" />
         </button>
         <!-- 表情面板 -->
         <Transition name="emoji-fade">
@@ -29,23 +24,15 @@
       </div>
       <!-- 截图按钮 -->
       <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('screenshot')" title="截图">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2"/>
-          <circle cx="12" cy="13" r="4"/>
-        </svg>
+        <SvgIcon name="camera" size="18" />
       </button>
       <!-- 任务分配按钮 -->
       <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('assign-task')" title="分配任务">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-          <polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
+        <SvgIcon name="checkCircle" size="18" />
       </button>
       <!-- 文件按钮 -->
       <button class="inline-flex items-center justify-center w-[34px] h-[34px] rounded-lg bg-transparent border-none text-base-content/60 cursor-pointer transition-all duration-150 p-0 hover:bg-white/8 hover:text-base-content" @click="$emit('file-select-click')" title="发送文件（最大 500MB）">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-        </svg>
+        <SvgIcon name="paperclip" size="18" />
       </button>
     </div>
     <textarea

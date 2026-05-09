@@ -181,10 +181,7 @@
 
       <!-- 空状态提示 -->
       <div v-if="activeTodos.length === 0 && completedTodos.length === 0 && todoStore.todos.length === 0 && !searchQueryValue" class="flex flex-col items-center justify-center py-16 text-base-content/40">
-        <svg class="mb-4 opacity-30" viewBox="0 0 24 24" width="64" height="64" fill="none" stroke="currentColor" stroke-width="1">
-          <path d="M9 11l3 3L22 4" />
-          <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-        </svg>
+        <SvgIcon name="check" size="64" class="mb-4 opacity-30" stroke-width="1" />
         <p class="text-lg font-medium text-base-content/60">还没有任务</p>
         <p class="text-sm text-base-content/40 mt-1">在上方输入框添加你的第一个任务</p>
       </div>
