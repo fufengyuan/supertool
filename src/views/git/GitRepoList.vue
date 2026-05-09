@@ -4,7 +4,7 @@
       <h2 class="m-0 text-2xl font-semibold text-base-content">Git 仓库</h2>
       <div class="flex gap-2">
         <UiButton @click="showScanSection = !showScanSection">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描本地目录
+          <SvgIcon name="search" :size="14" class="inline-block align-text-bottom" /> 扫描本地目录
         </UiButton>
         <UiButton @click="openAddModal">+ 添加仓库</UiButton>
       </div>
@@ -13,8 +13,8 @@
     <!-- 扫描本地目录面板 -->
     <div v-if="showScanSection" class="mb-5 border border-base-content/20 rounded-xl bg-base-100 overflow-hidden">
       <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
-        <span class="text-sm font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 扫描本地目录</span>
-        <button class="btn btn-ghost btn-xs" @click="showScanSection = false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <span class="text-sm font-semibold text-base-content"><SvgIcon name="folder" :size="14" class="inline-block align-text-bottom" /> 扫描本地目录</span>
+        <button class="btn btn-ghost btn-xs" @click="showScanSection = false"><SvgIcon name="x" :size="14" class="inline-block" /></button>
       </div>
       <div class="p-4">
         <p class="m-0 mb-3 text-xs text-base-content/60">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
@@ -27,7 +27,7 @@
         <div class="flex items-center gap-3 mt-3">
           <UiButton variant="primary" @click="doScan" :loading="scanning">
             <template v-if="scanning">扫描中...</template>
-            <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描</template>
+            <template v-else><SvgIcon name="search" :size="14" class="inline-block align-text-bottom" /> 扫描</template>
           </UiButton>
           <span v-if="scanResult !== null" class="text-xs text-base-content/70">
             {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}
@@ -56,12 +56,9 @@
     <!-- 搜索栏 -->
     <div class="flex gap-3 mb-5 flex-wrap items-center">
       <div class="relative flex-1 min-w-[200px]">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-        </svg>
+        <SvgIcon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none w-4 h-4" />
         <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9" placeholder="搜索仓库名称、路径或远程地址..." />
       </div>
-    </div>
 
     <!-- 仓库列表 - 卡片形式 -->
     <div v-if="filteredRepos.length > 0" class="flex flex-col gap-3">
@@ -88,26 +85,15 @@
 
         <div class="flex flex-col gap-1.5 min-w-[180px] max-w-[280px]">
           <div v-if="repo.remote" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.remote">
-            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
+            <SvgIcon name="link" :size="14" class="opacity-60" />
             <span class="truncate">{{ repo.remote }}</span>
           </div>
           <div v-if="repo.branch" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
-            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M18 9a9 9 0 0 1-9 9" />
-            </svg>
+            <SvgIcon name="gitBranch" :size="14" class="opacity-60" />
             <span class="badge badge-sm">{{ repo.branch }}</span>
           </div>
           <div v-if="repo.lastOpened" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
-            <svg class="shrink-0 opacity-60" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <polyline points="12 6 12 12 16 14" />
-            </svg>
+            <SvgIcon name="clock" :size="14" class="opacity-60" />
             <span class="truncate">{{ formatTime(repo.lastOpened) }}</span>
           </div>
         </div>
@@ -120,16 +106,10 @@
             打开
           </UiButton>
           <UiButton variant="ghost" size="sm" @click="openEditModal(repo)" title="编辑">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-            </svg>
+            <SvgIcon name="pencil" :size="14" />
           </UiButton>
           <UiButton variant="danger" size="sm" @click="deleteRepo(repo)" title="删除">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
+            <SvgIcon name="trash" :size="14" />
           </UiButton>
         </div>
       </div>
@@ -171,9 +151,7 @@
             @input="onPathChange"
           />
           <UiButton variant="ghost" size="sm" @click="selectDirectory" :disabled="validating">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-            </svg>
+            <SvgIcon name="folder" :size="16" />
             选择
           </UiButton>
         </div>
@@ -191,10 +169,7 @@
 
       <div class="mb-4">
         <label for="repo-name" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+          <SvgIcon name="user" :size="14" />
           仓库名称
         </label>
         <input id="repo-name" v-model="formData.name" type="text" class="input input-bordered w-full" placeholder="仓库名称（留空将自动从路径提取）" />
@@ -203,23 +178,14 @@
       <div class="flex gap-4">
         <div class="flex-1 mb-4">
           <label for="repo-remote" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
+            <SvgIcon name="globe" :size="14" />
             远程 URL
           </label>
           <input id="repo-remote" v-model="formData.remote" type="text" class="input input-bordered w-full" placeholder="https://github.com/user/repo.git" />
         </div>
         <div class="flex-1 mb-4">
           <label for="repo-branch" class="flex items-center gap-1.5 mb-2 text-xs font-medium text-base-content">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M18 9a9 9 0 0 1-9 9" />
-            </svg>
+            <SvgIcon name="gitBranch" :size="14" />
             当前分支
           </label>
           <input id="repo-branch" v-model="formData.branch" type="text" class="input input-bordered w-full" placeholder="main" />
@@ -241,6 +207,7 @@ import { ref, computed, onMounted } from 'vue';
 import UiButton from '@/components/ui/Button.vue';
 import UiModal from '@/components/ui/Modal.vue';
 import UiEmptyState from '@/components/ui/EmptyState.vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { useToast } from '../../composables/useToast'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
