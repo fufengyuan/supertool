@@ -8,7 +8,7 @@
         <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': isExpanded }" :style="{ color: isExpanded ? (group.color || '#6c63ff') : undefined }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="6 9 12 15 18 9"/>
         </svg>
-        <span class="text-sm leading-none">{{ getGroupIcon(depth) }}</span>
+        <span class="text-sm leading-none" v-html="getGroupIcon(depth)"></span>
         <span class="font-semibold text-xs text-base-content">{{ group.name }}</span>
         <span class="text-[11px] font-semibold px-1.5 py-px rounded-full leading-tight" :style="{ background: (group.color || '#6c63ff') + '22', color: group.color || '#6c63ff' }">
           {{ serversInGroup.length }}
@@ -107,7 +107,13 @@ const isExpanded = computed(() => {
 });
 
 function getGroupIcon(depth: number): string {
-  const icons = ['📂', '📁', '🗂️', '📦', '🏷️'];
+  const icons = [
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>',
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>',
+  ];
   return icons[depth % icons.length];
 }
 
