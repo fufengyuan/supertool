@@ -1,19 +1,19 @@
 <template>
   <div class="w-full flex flex-col gap-3 h-full p-3">
-    <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-br from-base-100 to-[rgba(66,133,244,0.05)] rounded-xl border border-base-content/10 shrink-0">
+    <div class="flex items-center justify-between px-4 py-3 bg-base-100 border border-base-content/10 rounded-xl shrink-0">
       <div class="flex items-center gap-3">
-        <div class="w-10 h-10 flex items-center justify-center text-xl bg-gradient-to-br from-[#fbbc04] to-[#ff6d01] rounded-xl shadow-[0_3px_10px_rgba(251,188,4,0.25)]">📝</div>
+        <div class="w-8 h-8 flex items-center justify-center text-base bg-base-200 rounded-lg">📝</div>
         <div class="flex flex-col gap-0.5">
-          <h2 class="text-lg font-bold text-base-content m-0">笔记</h2>
-          <p class="text-xs text-base-content/60 m-0 opacity-80">记录工作与生活的灵感</p>
+          <h2 class="text-base font-bold text-base-content m-0">笔记</h2>
+          <p class="text-xs text-base-content/60 m-0">记录工作与生活的灵感</p>
         </div>
       </div>
       <div class="flex items-center gap-2">
         <div class="relative flex items-center text-base-content/60">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-2.5 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input v-model="searchQuery" class="input input-bordered rounded-full px-3 py-1.5 pl-8 text-xs w-[180px] transition-all duration-200 focus:w-[220px] focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="搜索笔记..." @input="onSearch"/>
+          <input v-model="searchQuery" class="input input-bordered rounded-full px-3 py-1.5 pl-8 text-xs w-[180px] transition-all duration-200 focus:w-[220px]" placeholder="搜索笔记..." @input="onSearch"/>
         </div>
-        <button class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border-none rounded-full bg-gradient-to-br from-primary to-[#34a853] text-white cursor-pointer transition-all duration-200 shadow-[0_2px_6px_rgba(66,133,244,0.25)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(66,133,244,0.35)]" @click="createNewNote">
+        <button class="btn btn-primary btn-sm gap-1.5" @click="createNewNote">
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           新建笔记
         </button>
@@ -27,13 +27,13 @@
             <svg :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-show="!groupsCollapsed" class="px-2 pb-2 pt-1">
-            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
+            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
               <span class="text-sm shrink-0">📋</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">全部</span>
             </div>
-            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
+            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
               <span class="text-sm shrink-0">📄</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">未分组</span>
             </div>
-            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
+            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
               <span class="text-sm shrink-0">{{ group.icon || '📁' }}</span>
               <span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ group.name }}</span>
               <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150" @click.stop>
@@ -51,7 +51,7 @@
           <p>{{ searchQuery ? '没有匹配的笔记' : '暂无笔记' }}</p>
         </div>
         <div v-else class="flex flex-col overflow-y-auto flex-1">
-          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3 py-2.5 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.08)] border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-[rgba(251,188,4,0.05)]': note.pinned }]" @click="selectNote(note)">
+          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3 py-2.5 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-primary/10 border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-warning/5': note.pinned }]" @click="selectNote(note)">
             <div class="flex items-center justify-between mb-0.5">
               <div class="flex items-center gap-1 min-w-0 flex-1">
                 <span v-if="note.pinned" class="text-xs shrink-0">📌</span>
@@ -77,9 +77,9 @@
               <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': selectedNote.pinned }]" @click="togglePin" title="置顶">📌 置顶</button>
               <div class="relative">
                 <button class="px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'">📁 {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
-                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.15)] z-[100] min-w-[160px] max-h-60 overflow-y-auto p-1">
-                  <div :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span>📄 未分组</span></div>
-                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === group.id }]" @click="assignGroup(group.id)"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
+                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-lg shadow-lg z-[100] min-w-[160px] max-h-60 overflow-y-auto p-1">
+                  <div :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span>📄 未分组</span></div>
+                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': selectedNote.groupId === group.id }]"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
                 </div>
               </div>
             </div>

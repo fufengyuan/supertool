@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-[calc(100vh-68px)] min-h-0 max-w-full overflow-hidden">
+  <div class="flex flex-col h-full min-h-0 max-w-full overflow-hidden">
     <div class="flex items-center justify-between px-5 py-3 border-b border-base-content/10 min-h-0 gap-3">
       <h2 class="text-base font-semibold text-base-content m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">🗄️ 数据库管理</h2>
       <div class="flex gap-2 shrink-0" v-if="db.activeConnection.value">

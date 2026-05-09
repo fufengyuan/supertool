@@ -1,12 +1,12 @@
 <template>
-  <div class="min-h-screen">
+  <div>
     <div class="flex gap-4">
       <!-- 左侧：预设列表 -->
       <div class="w-80 shrink-0">
-        <div class="card bg-base-200">
-          <div class="card-body p-4">
-            <div class="card-title flex justify-between items-center">
-              <h3 class="text-lg">🔧 Nginx 配置</h3>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl">
+          <div class="p-4">
+            <div class="flex justify-between items-center mb-3">
+              <h3 class="text-base font-semibold m-0">🔧 Nginx 配置</h3>
               <button @click="openNewPresetForm" class="btn btn-primary btn-sm">+ 新增预设</button>
             </div>
 
@@ -16,24 +16,24 @@
               :key="groupEntry.groupName"
             >
               <div
-                class="flex items-center gap-2 cursor-pointer px-3 py-2 hover:bg-base-300 rounded-box"
+                class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg hover:bg-base-200"
                 @click="toggleGroup(groupEntry.groupName)"
               >
-                <span>{{ collapsedGroups.has(groupEntry.groupName) ? '▶' : '▼' }}</span>
-                <span class="font-medium">{{ groupEntry.groupName }}</span>
-                <span class="badge badge-sm">{{ groupEntry.presets.length }}</span>
+                <span class="text-xs text-base-content/60">{{ collapsedGroups.has(groupEntry.groupName) ? '▶' : '▼' }}</span>
+                <span class="text-sm font-medium text-base-content/80">{{ groupEntry.groupName }}</span>
+                <span class="badge badge-sm badge-ghost">{{ groupEntry.presets.length }}</span>
               </div>
-              <div v-show="!collapsedGroups.has(groupEntry.groupName)">
+              <div v-show="!collapsedGroups.has(groupEntry.groupName)" class="ml-1 flex flex-col">
                 <div
                   v-for="preset in groupEntry.presets"
                   :key="preset.id"
-                  class="flex items-center justify-between px-3 py-2 hover:bg-base-300 cursor-pointer rounded-box"
+                  class="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors duration-100 hover:bg-base-200"
                   :class="{ 'bg-primary/10': currentPreset?.id === preset.id }"
                   @click="onSelectPreset(preset)"
                 >
                   <div class="flex flex-col min-w-0">
-                    <span class="font-medium truncate">{{ preset.name }}</span>
-                    <span class="text-xs opacity-60 truncate">{{ preset.configPath || '未设置路径' }}</span>
+                    <span class="text-sm font-medium text-base-content truncate">{{ preset.name }}</span>
+                    <span class="text-xs text-base-content/50 truncate">{{ preset.configPath || '未设置路径' }}</span>
                   </div>
                   <div class="flex gap-1 shrink-0">
                     <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑">✏️</button>
@@ -43,10 +43,10 @@
               </div>
             </div>
 
-            <div v-if="presets.length === 0" class="p-4 text-center opacity-60">
+            <div v-if="presets.length === 0" class="p-4 text-center text-base-content/60 text-sm">
               <template v-if="servers.length === 0">
-                <p>🔌 尚未配置服务器</p>
-                <p class="text-sm">Nginx 管理需要先添加 SSH 服务器</p>
+                <p class="m-0">🔌 尚未配置服务器</p>
+                <p class="text-xs mt-1">Nginx 管理需要先添加 SSH 服务器</p>
               </template>
               <template v-else>
                 暂无预设，点击上方按钮添加
@@ -59,36 +59,34 @@
       <!-- 右侧：配置编辑 -->
       <div class="flex-1 flex flex-col gap-4 min-w-0">
         <!-- 工具栏 -->
-        <div class="card bg-base-200">
-          <div class="card-body p-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <span v-if="currentPreset" class="font-bold text-lg">{{ currentPreset.name }}</span>
-                <span v-else class="opacity-50 italic">请先选择预设</span>
-              </div>
-              <div class="flex gap-2">
-                <button
-                  @click="onFetchConfig"
-                  :disabled="!currentPreset || loading"
-                  class="btn"
-                >
-                  {{ loading ? '⏳ 加载中...' : '📥 获取配置' }}
-                </button>
-                <button
-                  @click="onTestConfig"
-                  :disabled="!currentPreset || loading"
-                  class="btn btn-outline"
-                >
-                  🧪 预检测试
-                </button>
-                <button
-                  @click="showDeployDialog = true"
-                  :disabled="!currentPreset || !configContent || loading"
-                  class="btn btn-primary"
-                >
-                  🚀 发布
-                </button>
-              </div>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span v-if="currentPreset" class="font-semibold text-base text-base-content">{{ currentPreset.name }}</span>
+              <span v-else class="text-sm text-base-content/50">请先选择预设</span>
+            </div>
+            <div class="flex gap-2">
+              <button
+                @click="onFetchConfig"
+                :disabled="!currentPreset || loading"
+                class="btn btn-ghost btn-sm"
+              >
+                {{ loading ? '⏳ 加载中...' : '📥 获取配置' }}
+              </button>
+              <button
+                @click="onTestConfig"
+                :disabled="!currentPreset || loading"
+                class="btn btn-outline btn-sm"
+              >
+                🧪 预检测试
+              </button>
+              <button
+                @click="showDeployDialog = true"
+                :disabled="!currentPreset || !configContent || loading"
+                class="btn btn-primary btn-sm"
+              >
+                🚀 发布
+              </button>
             </div>
           </div>
         </div>
@@ -104,55 +102,51 @@
         <!-- 测试结果提示 -->
         <div
           v-if="testResult"
-          class="alert"
-          :class="testResult.passed ? 'alert-success' : 'alert-error'"
+          class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm"
+          :class="testResult.passed ? 'bg-success/10 text-success' : 'bg-error/10 text-error'"
         >
           <span>{{ testResult.passed ? '✅ 配置检测通过' : '❌ 配置检测失败' }}</span>
-          <span v-if="testResult.message">{{ testResult.message }}</span>
-          <button @click="testResult = null" class="btn btn-ghost btn-xs">×</button>
+          <span v-if="testResult.message" class="text-xs opacity-70">{{ testResult.message }}</span>
+          <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto">✕</button>
         </div>
 
         <!-- 配置编辑器 -->
-        <div class="card bg-base-200 flex-1">
-          <div class="card-body p-0">
-            <textarea
-              v-if="viewMode === 'raw'"
-              v-model="configContent"
-              :disabled="!currentPreset"
-              placeholder="选择预设后点击「获取配置」加载远程 Nginx 配置..."
-              class="textarea textarea-bordered font-mono min-h-[400px] rounded-box p-4"
-              spellcheck="false"
-            ></textarea>
-            <div v-else class="p-4">
-              <pre v-if="configContent" class="overflow-x-auto whitespace-pre-wrap">{{ configContent }}</pre>
-              <div v-else class="opacity-50">暂无配置内容</div>
-            </div>
+        <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1">
+          <textarea
+            v-if="viewMode === 'raw'"
+            v-model="configContent"
+            :disabled="!currentPreset"
+            placeholder="选择预设后点击「获取配置」加载远程 Nginx 配置..."
+            class="textarea textarea-bordered font-mono min-h-[400px] w-full border-0 focus:outline-none rounded-xl p-4 resize-y"
+            spellcheck="false"
+          ></textarea>
+          <div v-else class="p-4">
+            <pre v-if="configContent" class="overflow-x-auto whitespace-pre-wrap text-sm">{{ configContent }}</pre>
+            <div v-else class="text-sm text-base-content/50">暂无配置内容</div>
           </div>
         </div>
 
         <!-- 版本历史 -->
-        <div v-if="versions.length > 0" class="card bg-base-200">
-          <div class="card-body p-4">
-            <h4 class="card-title">📜 版本历史</h4>
-            <div class="divide-y">
-              <div
-                v-for="version in versions"
-                :key="version.id"
-                class="flex items-center justify-between p-3"
-              >
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium">{{ version.comment || '无备注' }}</span>
-                  <span v-if="version.isCurrent" class="badge badge-success badge-sm">当前生效</span>
-                  <span class="text-xs opacity-60">{{ formatDate(version.createdAt) }}</span>
-                  <span v-if="version.checksum" class="text-xs opacity-40 font-mono">{{ version.checksum }}</span>
-                </div>
-                <button
-                  @click="onRollback(version.id)"
-                  :disabled="loading"
-                  class="btn btn-ghost btn-xs"
-                  title="回滚到此版本"
-                >🔄 回滚</button>
+        <div v-if="versions.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+          <h4 class="text-sm font-semibold text-base-content m-0 mb-3">📜 版本历史</h4>
+          <div class="flex flex-col">
+            <div
+              v-for="version in versions"
+              :key="version.id"
+              class="flex items-center justify-between py-2.5 border-b border-base-content/5 last:border-b-0"
+            >
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm text-base-content">{{ version.comment || '无备注' }}</span>
+                <span v-if="version.isCurrent" class="badge badge-success badge-sm">当前生效</span>
+                <span class="text-xs text-base-content/50">{{ formatDate(version.createdAt) }}</span>
+                <span v-if="version.checksum" class="text-xs text-base-content/30 font-mono">{{ version.checksum }}</span>
               </div>
+              <button
+                @click="onRollback(version.id)"
+                :disabled="loading"
+                class="btn btn-ghost btn-xs"
+                title="回滚到此版本"
+              >🔄 回滚</button>
             </div>
           </div>
         </div>
@@ -234,8 +228,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
-// @ts-nocheck
+<script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'

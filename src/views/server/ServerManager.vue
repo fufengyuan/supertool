@@ -51,14 +51,14 @@
     <template v-if="selectedGroup === ''">
       <div v-if="getServersByGroup(null).length > 0" class="rounded-xl mb-1" :class="{ 'mb-2': expandedGroups.has(null) }">
         <div @click="toggleGroup(null)"
-          class="flex items-center justify-between px-3 py-[7px] rounded-lg cursor-pointer select-none transition-all bg-base-100 border border-base-content/10 relative overflow-hidden hover:border-primary hover:shadow-[0_2px_12px_rgba(108,99,255,0.1)] hover:-translate-y-px before:content-[''] before:absolute before:left-0 before:top-0 before:bottom-0 before:w-[3px] before:rounded-r-[3px] before:bg-gradient-to-b before:from-[#6c63ff] before:to-[#4834d4]">
+          class="flex items-center justify-between px-3 py-[7px] rounded-lg cursor-pointer select-none transition-all duration-150 bg-base-100 border border-base-content/10 hover:border-primary hover:bg-base-200">
           <div class="flex items-center gap-2 relative z-[1]">
-            <svg class="text-base-content/60 transition-transform duration-250 ease-[cubic-bezier(0.4,0,0.2,1)] shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg class="text-base-content/60 transition-transform duration-200 shrink-0" :class="{ 'rotate-180': expandedGroups.has(null) }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="6 9 12 15 18 9"/>
             </svg>
             <span class="text-sm leading-none">🖥️</span>
             <span class="text-[13px] font-semibold text-base-content">未分组</span>
-            <span class="text-[11px] font-semibold px-[7px] py-0.5 rounded-full bg-[#6c63ff]/[0.13] text-[#6c63ff]">{{ getServersByGroup(null).length }}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{{ getServersByGroup(null).length }}</span>
           </div>
           <div class="flex items-center gap-2 relative z-[1]">
             <span class="flex items-center gap-1 text-[11px] text-success font-medium" v-if="getOnlineCount(null) > 0">

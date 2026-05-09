@@ -87,8 +87,8 @@
       <div class="flex flex-col gap-1.5">
         <div v-for="cat in topCategories" :key="cat.category" class="flex items-center gap-2 text-xs">
           <span class="w-[70px] shrink-0 text-base-content truncate">{{ cat.category }}</span>
-          <div class="flex-1 h-2 bg-base-200 rounded overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-error to-orange-400 rounded transition-all duration-300" :style="{ width: cat.percent + '%' }"></div>
+          <div class="h-2 bg-base-200 rounded overflow-hidden">
+            <div class="h-full bg-error/70 rounded transition-all duration-300" :style="{ width: cat.percent + '%' }"></div>
           </div>
           <span class="w-20 text-right text-base-content/60 font-mono text-[11px]">¥{{ formatMoney(cat.amount) }}</span>
         </div>
