@@ -53,9 +53,7 @@
               <div v-else-if="message.status === 'error'" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-lg bg-red-800/70">
                 <span class="text-xs text-red-300 font-semibold">{{ message.fromUserId === myUserId ? '发送失败' : '接收失败' }}</span>
                 <button @click.stop="$emit('retry', message)" class="inline-flex items-center justify-center w-7 h-7 border-none rounded-full bg-white/20 text-white cursor-pointer transition-all duration-150 hover:bg-white/35 hover:scale-110" title="重试">
-                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-                  </svg>
+                  <SvgIcon name="refresh" size="14" />
                 </button>
               </div>
               <!-- 已取消遮罩 -->
@@ -77,9 +75,7 @@
                 class="inline-flex items-center justify-center w-[30px] h-[30px] border-none rounded-lg cursor-pointer transition-all duration-150 text-[11px] font-medium p-0 bg-white/15 text-white/90 hover:bg-white/25 hover:scale-110"
                 title="打开文件夹"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                </svg>
+                <SvgIcon name="folder" size="14" />
               </button>
               <button
                 v-if="message.status === 'error' && message.fromUserId === myUserId"
@@ -87,9 +83,7 @@
                 class="inline-flex items-center justify-center w-[30px] h-[30px] border-none rounded-lg cursor-pointer transition-all duration-150 text-[11px] font-medium p-0 bg-amber-500/30 text-white/90 hover:bg-amber-500/50 hover:scale-110"
                 title="重试"
               >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-                </svg>
+                <SvgIcon name="refresh" size="14" />
               </button>
             </div>
           </div>
@@ -136,9 +130,7 @@
               class="inline-flex items-center justify-center w-[30px] h-[30px] border-none rounded-lg cursor-pointer transition-all duration-150 text-[11px] font-medium p-0 bg-white/15 text-white/90 hover:bg-white/25 hover:scale-110"
               title="打开文件夹"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-              </svg>
+              <SvgIcon name="folder" size="14" />
             </button>
             <button
               v-else-if="message.status === 'error' && message.fromUserId === myUserId"
@@ -146,9 +138,7 @@
               class="inline-flex items-center justify-center w-[30px] h-[30px] border-none rounded-lg cursor-pointer transition-all duration-150 text-[11px] font-medium p-0 bg-amber-500/30 text-white/90 hover:bg-amber-500/50 hover:scale-110"
               title="重试"
             >
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 2v6h-6M3 12a9 9 0 0 1 15-6.7L21 8M3 22v-6h6M21 12a9 9 0 0 1-15 6.7L3 16"/>
-              </svg>
+              <SvgIcon name="refresh" size="14" />
             </button>
             <div v-else-if="message.status === 'sending' || message.status === 'receiving'" class="inline-flex items-center justify-center w-[30px] h-[30px] border-none rounded-lg cursor-default text-[11px] font-medium p-0 bg-white/8 text-white/50">
               {{ message.progress }}%
@@ -159,7 +149,7 @@
 
       <!-- 任务分配消息 -->
       <div v-else-if="message.type === 'task_assigned'" class="flex items-start gap-2.5 py-1">
-        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg"><SvgIcon name="file" size="20" /></div>
         <div class="flex-1 min-w-0">
           <div class="text-[13px] font-medium mb-1 leading-[1.4]">已分配任务：<strong class="font-semibold">{{ parsedTaskContent.taskText }}</strong></div>
           <div v-if="parsedTaskContent.priority" class="text-[11px] opacity-70 mb-0.5">
@@ -196,21 +186,13 @@
       <span class="text-xs text-white/50 shrink-0">{{ formatFileSize(message.fileSize) }}</span>
       <div class="flex gap-1.5 shrink-0">
         <button class="flex items-center justify-center w-9 h-9 border-none rounded-lg bg-white/10 text-white/85 cursor-pointer transition-all duration-150 hover:bg-white/20 hover:text-white hover:scale-105" @click.stop="openFileInSystem" title="系统打开">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-            <polyline points="15 3 21 3 21 9"/>
-            <line x1="10" y1="14" x2="21" y2="3"/>
-          </svg>
+          <SvgIcon name="externalLink" size="18" />
         </button>
         <button class="flex items-center justify-center w-9 h-9 border-none rounded-lg bg-white/10 text-white/85 cursor-pointer transition-all duration-150 hover:bg-white/20 hover:text-white hover:scale-105" @click.stop="$emit('open-folder', message)" title="打开文件夹">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
+          <SvgIcon name="folder" size="18" />
         </button>
         <button class="flex items-center justify-center w-9 h-9 border-none rounded-lg bg-white/10 text-white/85 cursor-pointer transition-all duration-150 hover:bg-red-500/50 hover:text-white hover:scale-105" @click.stop="closeLightbox" title="关闭 (Esc)">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <SvgIcon name="x" size="18" />
         </button>
       </div>
     </div>
@@ -223,6 +205,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue';
 import { getTauriAPI } from '@/utils/tauri-api';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const props = defineProps<{
   message: Record<string, any>;

@@ -1,6 +1,6 @@
 <template>
   <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 加密/解密</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="lock" size="14" class="align-text-bottom" /> 加密/解密</h3>
 
     <!-- Algorithm & Mode Selection -->
     <div class="flex gap-2.5 mb-3 flex-wrap items-center">
@@ -119,7 +119,8 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
 import { ref, computed } from 'vue'
 import CryptoJS from 'crypto-js'
 import { SM4 } from 'gm-crypto'

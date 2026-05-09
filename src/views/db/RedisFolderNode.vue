@@ -9,7 +9,7 @@
         @contextmenu.prevent="onFolderCtx"
       >
         <span class="w-[14px] h-[14px] inline-flex items-center justify-center text-[8px] shrink-0 text-base-content/60 transition-[transform,color] duration-150 ease-in-out hover:text-base-content">{{ isExpanded ? '▼' : '▶' }}</span>
-        <span class="text-[13px] w-4 h-4 inline-flex items-center justify-center shrink-0 leading-none"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></span>
+        <span class="text-[13px] w-4 h-4 inline-flex items-center justify-center shrink-0 leading-none"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /></span>
         <span class="flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{ node.segment }}</span>
         <span class="text-[10px] px-1.5 py-[1px] rounded-full bg-base-200 text-base-content/60 shrink-0 leading-[1.4] transition-[background,color] duration-100 ease-in-out max-w-[50px] overflow-hidden text-ellipsis whitespace-nowrap text-center hover:bg-base-content/10">{{ node.totalCount }}</span>
       </div>
@@ -64,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue'
 import type { DBConnection } from '../../composables/useDBManager'
 

@@ -1,6 +1,6 @@
 <template>
   <div class="barcode-tool">
-    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> 条形码生成</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="barChart" size="14" class="align-text-bottom" /> 条形码生成</h3>
 
     <div class="mb-5">
       <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">条形码设置</h4>
@@ -39,7 +39,7 @@
           显示文字
         </label>
         <button class="btn btn-primary btn-sm" @click="generateBarcode">生成</button>
-        <button class="btn btn-ghost btn-sm" @click="downloadBarcode"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> 下载 PNG</button>
+        <button class="btn btn-ghost btn-sm" @click="downloadBarcode"><SvgIcon name="arrowDown" size="14" class="align-text-bottom" /> 下载 PNG</button>
       </div>
 
       <!-- Barcode Canvas -->
@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, nextTick } from 'vue'
 import JsBarcode from 'jsbarcode'
 import { copyText, downloadFile } from '../toolUtils'

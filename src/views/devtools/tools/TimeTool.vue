@@ -10,7 +10,7 @@
         <span class="text-xs opacity-60">毫秒</span>
         <span class="font-mono text-base opacity-60">{{ currentTsSec }}</span>
         <span class="text-xs opacity-60">秒</span>
-        <button class="btn btn-ghost" @click="copyText(currentTsMs, toast, '已复制毫秒时间戳')"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 复制</button>
+        <button class="btn btn-ghost" @click="copyText(currentTsMs, toast, '已复制毫秒时间戳')"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
       </div>
       <div class="mt-1.5 text-sm text-base-content">{{ currentFormatted }}</div>
     </div>
@@ -31,7 +31,7 @@
         <select v-model="inputTimezone" class="select select-bordered" @change="convertTsToDate">
           <option v-for="tz in timezones" :key="tz" :value="tz">{{ tz }}</option>
         </select>
-        <button class="btn btn-ghost" @click="copyText(dateOutput, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 复制</button>
+        <button class="btn btn-ghost" @click="copyText(dateOutput, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
       </div>
       <div v-if="dateOutput" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ dateOutput }}</div>
     </div>
@@ -54,13 +54,14 @@
       </div>
       <div v-if="tsOutput" class="bg-base-200 border border-base-content/10 rounded-box p-3 font-mono text-sm whitespace-pre-wrap break-all">{{ tsOutput }}</div>
       <div v-if="tsOutput" class="flex flex-wrap gap-2.5 mb-3 mt-2">
-        <button class="btn btn-ghost" @click="copyText(tsOutput, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 复制</button>
+        <button class="btn btn-ghost" @click="copyText(tsOutput, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'

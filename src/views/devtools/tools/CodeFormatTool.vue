@@ -38,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue'
 import { format as formatSql } from 'sql-formatter'
 import { copyText } from '../toolUtils'

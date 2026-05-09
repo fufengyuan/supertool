@@ -11,9 +11,7 @@
           :disabled="executing"
           title="执行 (Ctrl+Enter)"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="5 3 19 12 5 21 5 3" />
-          </svg>
+          <SvgIcon name="send" size="14" />
           {{ executing ? '执行中...' : '执行' }}
         </button>
         <button
@@ -21,19 +19,11 @@
           class="btn btn-ghost btn-sm"
           title="格式化 (Ctrl+Shift+F)"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="21" y1="10" x2="3" y2="10" />
-            <line x1="21" y1="6" x2="3" y2="6" />
-            <line x1="21" y1="14" x2="3" y2="14" />
-            <line x1="21" y1="18" x2="3" y2="18" />
-          </svg>
+          <SvgIcon name="menu" size="14" />
           格式化
         </button>
         <button @click="$emit('clear')" class="btn btn-ghost btn-sm" title="清空">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          </svg>
+          <SvgIcon name="trash" size="14" />
         </button>
       </div>
     </div>
@@ -62,17 +52,11 @@
     <div class="flex items-center justify-between px-2 py-1 text-[11px] text-base-content/60 bg-base-200 rounded-md border border-base-content/10">
       <div class="flex items-center gap-3">
         <span v-if="lastExecutionTime != null" class="flex items-center gap-1 text-primary font-medium">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10" />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
+          <SvgIcon name="clock" size="12" />
           {{ lastExecutionTime }}ms
         </span>
         <span v-if="lastRowCount != null" class="flex items-center gap-1 text-success">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-          </svg>
+          <SvgIcon name="barChart" size="12" />
           {{ lastRowCount }} 行
         </span>
         <span v-if="executedSql" class="flex items-center gap-1 max-w-[200px] overflow-hidden text-ellipsis whitespace-nowrap" :title="executedSql">
@@ -88,11 +72,7 @@
 
     <!-- Error display -->
     <div v-if="error" class="flex items-start gap-2 p-[10px_12px] rounded-lg bg-red-900/10 text-error text-[13px] leading-5">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 mt-0.5">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
+      <SvgIcon name="alertCircle" size="16" class="mt-0.5" />
       <span>{{ error }}</span>
     </div>
 
@@ -121,6 +101,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { format } from 'sql-formatter'
 import hljs from 'highlight.js/lib/core'

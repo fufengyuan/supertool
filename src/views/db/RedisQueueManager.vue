@@ -12,7 +12,7 @@
           'inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full mr-1',
           connectionStatus === 'connected' ? 'bg-success/10' : connectionStatus === 'connecting' ? 'bg-warning/10' : 'bg-error/10'
         ]">
-          <span class="text-[10px] leading-none"><template v-if="connectionStatus === 'connected'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else-if="connectionStatus === 'connecting'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template></span>
+          <span class="text-[10px] leading-none"><template v-if="connectionStatus === 'connected'"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /></template><template v-else-if="connectionStatus === 'connecting'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template></span>
           <span :class="[
             'whitespace-nowrap',
             connectionStatus === 'connected' ? 'text-success' : connectionStatus === 'connecting' ? 'text-warning' : 'text-error'
@@ -595,6 +595,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useRedisQueue, type DBConnection } from '@/composables/useRedisQueue'
 
 const props = defineProps<{

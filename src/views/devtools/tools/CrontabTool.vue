@@ -1,6 +1,6 @@
 <template>
   <div class="crontab-tool">
-    <h3 class="text-lg font-bold text-base-content mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Crontab 校验</h3>
+    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="clock" size="14" class="align-text-bottom" /> Crontab 校验</h3>
 
     <!-- Input -->
     <div class="mb-5">
@@ -14,7 +14,7 @@
           @input="validateCron"
         />
         <button class="btn btn-primary btn-sm" @click="validateCron">校验</button>
-        <button class="btn btn-ghost btn-sm" @click="copyText(cronDescription, toast)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 复制</button>
+        <button class="btn btn-ghost btn-sm" @click="copyText(cronDescription, toast)"><SvgIcon name="file" size="14" class="align-text-bottom" /> 复制</button>
       </div>
 
       <!-- Description -->
@@ -75,6 +75,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref } from 'vue'
 import cronstrue from 'cronstrue'
 import { copyText } from '../toolUtils'

@@ -58,15 +58,14 @@
       ref="inputRef"
     />
     <button @click="$emit('send')" :class="[inputText.trim() ? '' : 'opacity-30 cursor-default']" class="flex items-center justify-center w-[34px] h-[34px] rounded-lg border-none bg-gradient-to-br from-[#667eea] to-[#764ba2] text-white cursor-pointer transition-all duration-150 shrink-0 hover:scale-105 hover:shadow-[0_4px_12px_rgba(102,126,234,0.4)]">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
-      </svg>
+      <SvgIcon name="send" size="16" />
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const props = defineProps({
   placeholder: { type: String, default: '输入消息...' },

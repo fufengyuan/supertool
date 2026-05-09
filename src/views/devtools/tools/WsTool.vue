@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col gap-0 p-0">
-    <h3 class="text-lg font-bold text-base-content m-0 mb-5"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2v8"/><path d="M4.93 10.93a8 8 0 1 1 14.14 0"/><path d="M16 16l-1.5-1.5"/></svg> WebSocket 调试</h3>
+    <h3 class="text-lg font-bold text-base-content m-0 mb-5"><SvgIcon name="plug" size="14" class="align-text-bottom" /> WebSocket 调试</h3>
 
     <div class="mb-5">
       <label class="text-xs font-medium text-base-content/60 mb-1 block">WebSocket URL</label>
@@ -73,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, nextTick, watch } from 'vue'
 import { useToast } from '@/composables/useToast'
 

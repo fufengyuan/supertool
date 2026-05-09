@@ -3,7 +3,7 @@
     <!-- 顶部工具栏 -->
     <div class="flex items-center justify-between px-4 py-[10px] border-b border-base-content/10 bg-base-200 shrink-0">
       <div class="flex items-center gap-2">
-        <span class="text-lg"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+        <span class="text-lg"><SvgIcon name="file" size="14" class="align-text-bottom" /></span>
         <span class="text-[15px] font-semibold">{{ tableName }}</span>
         <span v-if="dbType" class="text-[11px] px-[6px] py-[2px] rounded bg-primary/10 text-primary font-medium">{{ dbTypeLabel }}</span>
       </div>
@@ -14,9 +14,7 @@
           @click="showCreateSql"
           title="查看建表 SQL"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
-          </svg>
+          <SvgIcon name="code" size="14" />
           建表 SQL
         </button>
         <button
@@ -60,19 +58,13 @@
 
     <!-- 加载状态 -->
     <div v-if="loading && !columns.length" class="flex items-center justify-center gap-2 p-12 text-base-content/60 text-sm">
-      <svg class="animate-spin" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M21 12a9 9 0 11-6.219-8.56" />
-      </svg>
+      <SvgIcon name="refresh" size="24" class="animate-spin" />
       <span>加载表结构中...</span>
     </div>
 
     <!-- 错误状态 -->
     <div v-else-if="error" class="flex items-center gap-2 p-4 m-4 rounded-lg bg-error/10 text-error text-sm">
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="12" cy="12" r="10" />
-        <line x1="12" y1="8" x2="12" y2="12" />
-        <line x1="12" y1="16" x2="12.01" y2="16" />
-      </svg>
+      <SvgIcon name="alertCircle" size="16" />
       <span>{{ error }}</span>
       <button class="btn btn-ghost btn-xs hover:border-error hover:text-error" @click="refreshWithOriginals">重试</button>
     </div>
@@ -86,11 +78,7 @@
           :class="{ 'tab-active': activeTab === 'columns' }"
           @click="activeTab = 'columns'"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" />
-            <line x1="9" y1="21" x2="9" y2="9" />
-          </svg>
+          <SvgIcon name="barChart" size="14" />
           字段 ({{ columns.length }})
           <span v-if="columnChangeCount > 0" class="badge badge-primary badge-sm">{{ columnChangeCount }}</span>
         </div>
@@ -100,10 +88,7 @@
           :class="{ 'tab-active': activeTab === 'indexes' }"
           @click="activeTab = 'indexes'"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-            <polyline points="14 2 14 8 20 8" />
-          </svg>
+          <SvgIcon name="file" size="14" />
           索引 ({{ groupedIndexes.length }})
           <span v-if="indexChangeCount > 0" class="badge badge-primary badge-sm">{{ indexChangeCount }}</span>
         </div>
@@ -113,9 +98,7 @@
       <div v-show="activeTab === 'columns'" class="flex-1 flex flex-col overflow-hidden">
         <div class="flex items-center gap-1.5 px-3 py-2 border-b border-base-content/10 shrink-0">
           <button class="btn btn-ghost btn-xs" @click="addColumn" title="添加列">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <SvgIcon name="plus" size="14" />
             添加列
           </button>
           <button
@@ -124,9 +107,7 @@
             @click="deleteSelectedColumn"
             title="删除选中列"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
+            <SvgIcon name="trash" size="14" />
             删除列
           </button>
           <span class="text-[11px] text-base-content/60 ml-auto">拖拽左侧手柄可调整列顺序</span>
@@ -440,6 +421,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useTableStructure } from '@/composables/useTableStructure'
 import { ref, watch, nextTick } from 'vue'
 

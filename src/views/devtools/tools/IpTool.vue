@@ -30,9 +30,9 @@
 
       <div v-if="result" class="result-grid">
         <div class="result-card">
-          <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> IP 地址</div>
+          <div class="result-label"><SvgIcon name="globe" size="14" class="align-text-bottom" /> IP 地址</div>
           <div class="result-value">{{ result.ip }}</div>
-          <button class="mini-copy-btn" @click="doCopy(result.ip)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>
+          <button class="mini-copy-btn" @click="doCopy(result.ip)"><SvgIcon name="file" size="14" class="align-text-bottom" /></button>
         </div>
         <div class="result-card">
           <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg> 国家</div>
@@ -55,11 +55,11 @@
           <div class="result-value">{{ result.org }}</div>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 时区</div>
+          <div class="result-label"><SvgIcon name="clock" size="14" class="align-text-bottom" /> 时区</div>
           <div class="result-value">{{ result.timezone }}</div>
         </div>
         <div class="result-card">
-          <div class="result-label"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> ASN</div>
+          <div class="result-label"><SvgIcon name="globe" size="14" class="align-text-bottom" /> ASN</div>
           <div class="result-value">{{ result.as }}</div>
         </div>
         <div class="result-card">
@@ -74,7 +74,7 @@
 
       <div v-if="result" class="map-link" style="margin-top: 12px">
         <a :href="result.mapUrl" target="_blank" rel="noopener" class="map-link-btn">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> 在地图上查看
+          <SvgIcon name="globe" size="14" class="align-text-bottom" /> 在地图上查看
         </a>
       </div>
     </div>
@@ -82,6 +82,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
