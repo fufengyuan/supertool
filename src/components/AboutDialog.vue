@@ -35,7 +35,7 @@
               <!-- Update Section -->
               <div class="mt-6 w-full">
                 <button class="btn btn-outline btn-sm inline-flex items-center gap-2" @click="checkForUpdates" :disabled="checkingUpdate">
-                  <svg v-if="!checkingUpdate" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <SvgIcon name="upload" size="16" />
                   <span v-if="checkingUpdate" class="loading loading-spinner loading-xs"></span>
                   {{ checkingUpdate ? $t('about.checking') : $t('about.checkUpdate') }}
                 </button>
@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
