@@ -257,8 +257,8 @@
                     <option value="master">master</option>
                     <option v-for="branch in availableBranches" :key="branch" :value="branch">{{ branch }}</option>
                   </select>
-                  <button 
-                    @click="loadBranches" 
+                  <button
+                    @click="loadBranches"
                     class="btn btn-ghost btn-sm p-1.5 min-w-[32px] h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                     :disabled="!config.repoUrl && !config.localPath"
                     title="刷新分支列表"
@@ -589,7 +589,7 @@
 
           <!-- Deploy Modules Section -->
           <!-- 父子模块构建模式 -->
-          <div class="px-6 pb-3 border-l-3 border-transparent transition-[border-color,background] duration-300" :class="{ 
+          <div class="px-6 pb-3 border-l-3 border-transparent transition-[border-color,background] duration-300" :class="{
             'border-l-primary bg-primary/[0.05] mx-3 p-3 rounded-lg': config.parentBuildMode,
             'border-l-success bg-success/[0.05]': parentBuildAutoDetected
           }">
@@ -628,10 +628,18 @@
               </div>
               <div class="flex gap-2">
                 <button @click="scanModules" class="btn btn-ghost btn-sm" :disabled="scanningModules || !selectedProject?.repoPath" :title="!selectedProject?.repoPath ? '请先选择有本地路径的项目' : ''">
-                  <svg :class="{ 'animate-spin': scanningModules }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-                  </svg>
-                  {{ scanningModules ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 自动识别模块' }}
+                  <template v-if="scanningModules">
+                    <svg class="animate-spin" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+                    </svg>
+                    扫描中...
+                  </template>
+                  <template v-else>
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom">
+                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                    自动识别模块
+                  </template>
                 </button>
                 <button @click="addModule" class="btn btn-ghost btn-sm">+ 手动添加</button>
               </div>
