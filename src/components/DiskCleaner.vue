@@ -6,17 +6,17 @@
         <h2 class="text-lg font-bold flex items-center gap-2">
           🧹 磁盘清理
         </h2>
-        <div class="flex gap-2">
-          <button class="btn btn-sm btn-outline gap-1" @click="activeTab = 'directory'" :class="{ 'btn-primary': activeTab === 'directory' }">
+        <div class="flex gap-1 bg-base-200 p-0.5 rounded-lg">
+          <button class="btn btn-sm" :class="activeTab === 'directory' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'directory'">
             📂 目录浏览
           </button>
-          <button class="btn btn-sm btn-outline gap-1" @click="activeTab = 'category'" :class="{ 'btn-primary': activeTab === 'category' }">
+          <button class="btn btn-sm" :class="activeTab === 'category' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'category'">
             📊 文件分类
           </button>
-          <button class="btn btn-sm btn-outline gap-1" @click="activeTab = 'cache'" :class="{ 'btn-primary': activeTab === 'cache' }">
+          <button class="btn btn-sm" :class="activeTab === 'cache' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'cache'">
           🗑️ 缓存清理
           </button>
-          <button class="btn btn-sm btn-outline gap-1" @click="activeTab = 'duplicate'" :class="{ 'btn-primary': activeTab === 'duplicate' }">
+          <button class="btn btn-sm" :class="activeTab === 'duplicate' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'duplicate'">
             🔍 重复文件
           </button>
         </div>

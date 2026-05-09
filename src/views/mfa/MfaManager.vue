@@ -1,85 +1,85 @@
 <template>
-  <div class="mx-auto flex w-full max-w-[1400px] flex-col gap-6 px-8">
+  <div class="flex flex-col gap-5 p-5">
     <!-- 页面头部 -->
-    <div class="flex items-center justify-between overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-purple-600 p-7 px-8 shadow-lg shadow-purple-500/20 before:pointer-events-none before:absolute before:-right-[10%] before:-top-1/2 before:h-[300px] before:w-[300px] before:rounded-full before:bg-white/8">
-      <div class="relative z-10 flex items-center gap-4">
-        <div class="text-4xl leading-none drop-shadow-[0_2px_4px_rgba(0,0,0,0.15)]">🔐</div>
+    <div class="flex items-center justify-between px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl">🔐</span>
         <div class="flex flex-col gap-0.5">
-          <h2 class="m-0 text-2xl font-bold tracking-tight text-white">MFA 验证码</h2>
-          <p class="m-0 text-[13px] font-normal text-white/80">双因素身份验证令牌管理器</p>
+          <h2 class="m-0 text-lg font-bold text-base-content">MFA 验证码</h2>
+          <p class="m-0 text-xs text-base-content/60">双因素身份验证令牌管理器</p>
         </div>
       </div>
-      <button class="btn btn-ghost z-10 gap-1.5 border-white/35 bg-white/15 text-white hover:border-white hover:bg-white hover:text-primary" @click="showAddDialog = true">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <button class="btn btn-primary btn-sm gap-1.5" @click="showAddDialog = true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         添加账户
       </button>
     </div>
 
     <!-- 统计信息栏 -->
-    <div v-if="secrets.length > 0" class="flex items-center rounded-xl border border-base-content/10 bg-base-100 p-[18px_24px] shadow-sm">
-      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
-        <span class="text-2xl font-bold leading-tight text-primary">{{ secrets.length }}</span>
-        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">账户总数</span>
+    <div v-if="secrets.length > 0" class="flex items-center rounded-xl border border-base-content/10 bg-base-100 px-6 py-4">
+      <div class="flex flex-1 flex-col items-center gap-0.5">
+        <span class="text-xl font-bold text-primary">{{ secrets.length }}</span>
+        <span class="text-xs text-base-content/60">账户总数</span>
       </div>
-      <div class="h-8 w-px flex-shrink-0 bg-base-content/10"></div>
-      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
-        <span class="text-2xl font-bold leading-tight text-primary">{{ activeCodes }}</span>
-        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">活跃令牌</span>
+      <div class="h-8 w-px bg-base-content/10"></div>
+      <div class="flex flex-1 flex-col items-center gap-0.5">
+        <span class="text-xl font-bold text-primary">{{ activeCodes }}</span>
+        <span class="text-xs text-base-content/60">活跃令牌</span>
       </div>
-      <div class="h-8 w-px flex-shrink-0 bg-base-content/10"></div>
-      <div class="flex flex-1 flex-col items-center gap-0.5 px-4">
-        <span class="text-2xl font-bold leading-tight text-primary">{{ nextRefresh }}s</span>
-        <span class="text-xs font-medium uppercase tracking-wider text-base-content/60">下次刷新</span>
+      <div class="h-8 w-px bg-base-content/10"></div>
+      <div class="flex flex-1 flex-col items-center gap-0.5">
+        <span class="text-xl font-bold text-primary">{{ nextRefresh }}s</span>
+        <span class="text-xs text-base-content/60">下次刷新</span>
       </div>
     </div>
 
     <!-- 空状态 -->
     <div v-if="secrets.length === 0" class="flex flex-col items-center justify-center gap-4 py-20 text-center text-base-content/60">
-      <div class="mb-1 flex h-[120px] w-[120px] items-center justify-center rounded-full bg-gradient-to-br from-primary/10 to-base-200 shadow-lg shadow-purple-500/10">
-        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-primary opacity-40">
+      <div class="flex h-20 w-20 items-center justify-center rounded-full bg-base-200">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-base-content/30">
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
         </svg>
       </div>
-      <p class="m-0 text-lg font-semibold text-base-content">暂无 MFA 账户</p>
+      <p class="m-0 text-base font-semibold text-base-content">暂无 MFA 账户</p>
       <p class="m-0 text-sm opacity-70">点击「添加账户」录入你的第一个 MFA 密钥</p>
-      <button class="btn btn-primary mt-1 rounded-xl hover:-translate-y-0.5" @click="showAddDialog = true">
+      <button class="btn btn-primary btn-sm" @click="showAddDialog = true">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         添加第一个账户
       </button>
     </div>
 
     <!-- MFA 列表 -->
-    <div v-else class="grid w-full grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-5 p-1">
+    <div v-else class="grid w-full grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-4">
       <div
         v-for="(entry, idx) in secrets"
         :key="entry.id"
-        class="group relative flex cursor-pointer select-none flex-col gap-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100 shadow-sm transition-all duration-[250ms] ease-out hover:-translate-y-1 hover:border-transparent hover:shadow-lg"
+        class="group relative flex cursor-pointer select-none flex-col gap-0 overflow-hidden rounded-xl border border-base-content/10 bg-base-100 transition-all duration-200 hover:border-primary"
         :class="{ 'animate-[cardPulse_0.5s_ease_infinite_alternate]': remainingFor(entry) <= 5 }"
         :style="{ '--card-color': cardColor(idx) }"
         @click="copyCode(entry)"
       >
         <div class="h-1 flex-shrink-0" :style="{ background: `linear-gradient(90deg, var(--card-color), color-mix(in oklab, var(--color-primary) 80%, transparent))` }"></div>
-        <div class="flex items-start justify-between px-[18px] pt-4">
+        <div class="flex items-start justify-between px-4 pt-3.5">
           <div class="flex min-w-0 flex-col gap-0.5">
-            <div class="truncate text-[15px] font-semibold text-base-content">{{ displayIssuer(entry) }}</div>
+            <div class="truncate text-sm font-semibold text-base-content">{{ displayIssuer(entry) }}</div>
             <div v-if="entry.account" class="truncate text-xs text-base-content/60">{{ entry.account }}</div>
           </div>
           <div class="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-            <button class="btn btn-ghost btn-square h-7 w-7 text-base-content/60 hover:bg-primary/10 hover:text-primary" @click.stop="editEntry(entry)" title="编辑">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <button class="btn btn-ghost btn-square h-6 w-6 text-base-content/60 hover:bg-primary/10 hover:text-primary min-h-0" @click.stop="editEntry(entry)" title="编辑">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
-            <button class="btn btn-ghost btn-square h-7 w-7 text-base-content/60 hover:bg-error/10 hover:text-error" @click.stop="confirmDelete(entry)" title="删除">
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            <button class="btn btn-ghost btn-square h-6 w-6 text-base-content/60 hover:bg-error/10 hover:text-error min-h-0" @click.stop="confirmDelete(entry)" title="删除">
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="flex items-center justify-between gap-4 px-[18px] pb-[18px] pt-[14px]">
+        <div class="flex items-center justify-between gap-4 px-4 pb-4 pt-3">
           <div class="min-w-0 flex-1">
-            <span v-if="codes[entry.id]" class="block text-center font-mono text-[28px] font-bold tracking-widest text-base-content">{{ codes[entry.id] }}</span>
-            <span v-else class="block text-center font-mono text-[28px] font-bold tracking-wider text-base-content opacity-30">------</span>
+            <span v-if="codes[entry.id]" class="block text-center font-mono text-2xl font-bold tracking-widest text-base-content">{{ codes[entry.id] }}</span>
+            <span v-else class="block text-center font-mono text-2xl font-bold tracking-wider text-base-content opacity-30">------</span>
           </div>
-          <div class="relative h-[52px] w-[52px] flex-shrink-0">
+          <div class="relative h-12 w-12 flex-shrink-0">
             <svg viewBox="0 0 36 36" class="h-full w-full [transform:rotate(-90deg)]">
               <circle class="[fill:none] [stroke:color-mix(in_oklab,var(--color-base-content)_10%,transparent)] [stroke-width:3]" cx="18" cy="18" r="15.5" />
               <circle
@@ -92,7 +92,7 @@
                 }"
               />
             </svg>
-            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-sm font-bold text-base-content/60">{{ remainingFor(entry) }}</span>
+            <span class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-xs font-bold text-base-content/60">{{ remainingFor(entry) }}</span>
           </div>
         </div>
       </div>
@@ -100,7 +100,7 @@
 
     <!-- 复制成功提示 -->
     <Transition name="copy-toast">
-      <div v-if="showCopyToast" class="fixed bottom-8 left-1/2 z-[10001] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-base-content px-5 py-2.5 text-sm font-medium text-base-100 shadow-lg">
+      <div v-if="showCopyToast" class="fixed bottom-8 left-1/2 z-[10001] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-base-content px-5 py-2.5 text-sm font-medium text-base-100">
         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
         已复制
       </div>
@@ -108,18 +108,18 @@
 
     <!-- 添加/编辑对话框 -->
     <Teleport to="body">
-      <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex animate-[overlayIn_0.25s_ease] items-center justify-center bg-black/45" @click.self="closeDialogs">
-        <div class="w-[90%] max-w-[520px] animate-[dialogIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] overflow-y-auto rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl" @click.stop>
-          <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
-            <h3 class="m-0 text-[17px] font-semibold text-base-content">{{ editingTarget ? '✏️ 编辑账户' : '🔑 添加 MFA 账户' }}</h3>
-            <button class="btn btn-ghost btn-square btn-sm text-xl text-base-content/60 hover:bg-primary/10 hover:text-primary" @click="closeDialogs">×</button>
+      <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="closeDialogs">
+        <div class="w-[90%] max-w-[520px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
+          <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
+            <h3 class="m-0 text-base font-semibold text-base-content">{{ editingTarget ? '✏️ 编辑账户' : '🔑 添加 MFA 账户' }}</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="closeDialogs">×</button>
           </div>
-          <div class="px-6 py-6">
+          <div class="px-5 py-5">
             <div class="mb-4">
               <label class="mb-1.5 block text-sm font-medium text-base-content/70">otpauth:// 链接 或 Base32 密钥</label>
               <textarea
                 v-model="uriInput"
-                class="textarea textarea-bordered w-full resize-y rounded-xl font-mono text-xs"
+                class="textarea textarea-bordered w-full resize-y rounded-lg font-mono text-xs"
                 placeholder="otpauth://totp/... 或 Base32 密钥"
                 rows="3"
                 spellcheck="false"
@@ -130,34 +130,34 @@
             <div class="mb-4 grid grid-cols-2 gap-3">
               <div>
                 <label class="mb-1.5 block text-sm font-medium text-base-content/70">名称 <span class="text-error">*</span></label>
-                <input v-model="form.name" class="input input-bordered w-full rounded-xl" placeholder="GitHub、AWS..." />
+                <input v-model="form.name" class="input input-bordered w-full rounded-lg" placeholder="GitHub、AWS..." />
               </div>
               <div>
                 <label class="mb-1.5 block text-sm font-medium text-base-content/70">账户</label>
-                <input v-model="form.account" class="input input-bordered w-full rounded-xl" placeholder="user@example.com" />
+                <input v-model="form.account" class="input input-bordered w-full rounded-lg" placeholder="user@example.com" />
               </div>
             </div>
 
-            <details class="mb-4 overflow-hidden rounded-xl border border-base-content/10 transition-colors duration-150 hover:border-primary">
-              <summary class="cursor-pointer select-none px-4 py-3 text-[13px] font-medium text-base-content/60 transition-colors duration-150 hover:bg-base-200">高级选项</summary>
-              <div class="grid grid-cols-3 gap-3 border-t border-base-content/10 px-4 py-[14px]">
+            <details class="mb-4 overflow-hidden rounded-lg border border-base-content/10">
+              <summary class="cursor-pointer select-none px-4 py-2.5 text-xs font-medium text-base-content/60 transition-colors hover:bg-base-200">高级选项</summary>
+              <div class="grid grid-cols-3 gap-3 border-t border-base-content/10 px-4 py-3">
                 <div>
-                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">位数</label>
-                  <select v-model.number="form.digits" class="select select-bordered w-full rounded-xl">
+                  <label class="mb-1.5 block text-xs font-medium text-base-content/70">位数</label>
+                  <select v-model.number="form.digits" class="select select-bordered w-full rounded-lg select-sm">
                     <option :value="6">6 位</option>
                     <option :value="8">8 位</option>
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">周期</label>
-                  <select v-model.number="form.period" class="select select-bordered w-full rounded-xl">
+                  <label class="mb-1.5 block text-xs font-medium text-base-content/70">周期</label>
+                  <select v-model.number="form.period" class="select select-bordered w-full rounded-lg select-sm">
                     <option :value="30">30 秒</option>
                     <option :value="60">60 秒</option>
                   </select>
                 </div>
                 <div>
-                  <label class="mb-1.5 block text-sm font-medium text-base-content/70">算法</label>
-                  <select v-model="form.algorithm" class="select select-bordered w-full rounded-xl">
+                  <label class="mb-1.5 block text-xs font-medium text-base-content/70">算法</label>
+                  <select v-model="form.algorithm" class="select select-bordered w-full rounded-lg select-sm">
                     <option value="sha1">SHA1</option>
                     <option value="sha256">SHA256</option>
                     <option value="sha512">SHA512</option>
@@ -166,16 +166,16 @@
               </div>
             </details>
 
-            <div v-if="previewCode" class="mb-4 flex items-center gap-2.5 rounded-xl border border-base-content/10 bg-base-200 px-4 py-[14px]">
-              <span class="text-xs font-medium text-base-content/60">预览验证码：</span>
-              <span class="font-mono text-2xl font-bold tracking-widest text-primary">{{ previewCode }}</span>
+            <div v-if="previewCode" class="mb-4 flex items-center gap-2.5 rounded-lg border border-base-content/10 bg-base-200 px-4 py-3">
+              <span class="text-xs text-base-content/60">预览验证码：</span>
+              <span class="font-mono text-xl font-bold tracking-widest text-primary">{{ previewCode }}</span>
             </div>
 
-            <p v-if="formError" class="m-0 mb-4 rounded-xl border border-error/15 bg-error/8 px-[14px] py-2.5 text-[13px] text-error">{{ formError }}</p>
+            <p v-if="formError" class="m-0 mb-4 rounded-lg border border-error/15 bg-error/8 px-3 py-2 text-xs text-error">{{ formError }}</p>
           </div>
-          <div class="flex justify-end gap-3 border-t border-base-content/10 px-6 py-4">
-            <button class="btn btn-ghost rounded-xl" @click="closeDialogs">取消</button>
-            <button class="btn btn-primary rounded-xl" @click="submitForm" :disabled="submitting">
+          <div class="flex justify-end gap-3 border-t border-base-content/10 px-5 py-4">
+            <button class="btn btn-ghost btn-sm" @click="closeDialogs">取消</button>
+            <button class="btn btn-primary btn-sm" @click="submitForm" :disabled="submitting">
               {{ submitting ? '处理中...' : (editingTarget ? '保存' : '添加') }}
             </button>
           </div>
@@ -185,18 +185,18 @@
 
     <!-- 删除确认对话框 -->
     <Teleport to="body">
-      <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex animate-[overlayIn_0.25s_ease] items-center justify-center bg-black/45" @click.self="deleteTarget = null">
-        <div class="w-[90%] max-w-[400px] animate-[dialogIn_0.35s_cubic-bezier(0.34,1.56,0.64,1)] overflow-y-auto rounded-2xl border border-base-content/10 bg-base-100 shadow-2xl" @click.stop>
-          <div class="flex items-center justify-between border-b border-base-content/10 px-6 py-5">
-            <h3 class="m-0 text-[17px] font-semibold text-base-content">⚠️ 确认删除</h3>
-            <button class="btn btn-ghost btn-square btn-sm text-xl text-base-content/60 hover:bg-primary/10 hover:text-primary" @click="deleteTarget = null">×</button>
+      <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="deleteTarget = null">
+        <div class="w-[90%] max-w-[400px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
+          <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
+            <h3 class="m-0 text-base font-semibold text-base-content">⚠️ 确认删除</h3>
+            <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="deleteTarget = null">×</button>
           </div>
-          <div class="px-6 py-6">
-            <p>确定要删除 <strong>{{ deleteTarget.name }}</strong> 吗？此操作不可撤销。</p>
+          <div class="px-5 py-5">
+            <p class="text-sm m-0">确定要删除 <strong>{{ deleteTarget.name }}</strong> 吗？此操作不可撤销。</p>
           </div>
-          <div class="flex justify-end gap-3 border-t border-base-content/10 px-6 py-4">
-            <button class="btn btn-ghost rounded-xl" @click="deleteTarget = null">取消</button>
-            <button class="btn btn-error rounded-xl" @click="executeDelete">删除</button>
+          <div class="flex justify-end gap-3 border-t border-base-content/10 px-5 py-4">
+            <button class="btn btn-ghost btn-sm" @click="deleteTarget = null">取消</button>
+            <button class="btn btn-error btn-sm" @click="executeDelete">删除</button>
           </div>
         </div>
       </div>
@@ -480,38 +480,25 @@ onUnmounted(() => {
 </script>
 
 <style>
-/* ======================== Keyframes ======================== */
+/* cardPulse animation for cards with ≤5s remaining */
 @keyframes cardPulse {
   from { opacity: 1; }
   to { opacity: 0.65; }
 }
 
-@keyframes overlayIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes dialogIn {
-  from { opacity: 0; transform: scale(0.92) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* ======================== Vue Transition: copy-toast ======================== */
+/* copy-toast transition */
 .copy-toast-enter-active {
-  animation: toastIn 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-
 .copy-toast-leave-active {
-  animation: toastOut 0.2s ease;
+  transition: all 0.2s ease-in;
 }
-
-@keyframes toastIn {
-  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+.copy-toast-enter-from {
+  opacity: 0;
+  transform: translate(-50%, 100%);
 }
-
-@keyframes toastOut {
-  from { opacity: 1; transform: translateX(-50%) translateY(0); }
-  to { opacity: 0; transform: translateX(-50%) translateY(10px); }
+.copy-toast-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 50%);
 }
 </style>

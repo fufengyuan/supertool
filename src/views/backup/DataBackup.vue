@@ -4,7 +4,7 @@
 
     <div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-4">
       <!-- 导出 -->
-      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
         <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
           <span class="text-lg">📤</span>
           <span>数据导出</span>
@@ -20,7 +20,7 @@
       </div>
 
       <!-- 导入 -->
-      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
         <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
           <span class="text-lg">📥</span>
           <span>数据导入</span>
@@ -48,7 +48,7 @@
       </div>
 
       <!-- 自动备份 -->
-      <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3 col-span-full">
+      <div class="bg-base-100 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3 col-span-full">
         <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
           <span class="text-lg">⏰</span>
           <span>自动备份</span>

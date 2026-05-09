@@ -1,6 +1,6 @@
 <template>
-  <div class="w-full px-4 py-3">
-    <div class="flex items-center justify-between mb-4">
+  <div class="w-full p-5">
+    <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold text-base-content m-0">工作报表</h2>
       <div class="flex items-center gap-2 shrink-0">
         <button @click="previousWeek" class="btn btn-primary btn-sm">← 上一周</button>
@@ -10,9 +10,9 @@
     </div>
 
     <!-- 本周统计 + 标签分布 -->
-    <div class="grid grid-cols-[2fr_1fr] gap-3 mb-3">
-      <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10">
-        <h3 class="text-sm font-semibold text-primary mb-2.5">本周工作内容</h3>
+    <div class="grid grid-cols-[2fr_1fr] gap-4 mb-4">
+      <div class="p-4 bg-base-100 border border-base-content/10 rounded-xl">
+        <h3 class="text-sm font-semibold text-base-content mb-3">本周工作内容</h3>
         <StatsSummary
           :stats="currentWeekStats"
           :tasks="currentWeekTasks"
@@ -23,14 +23,14 @@
         />
       </div>
 
-      <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10">
+      <div class="p-4 bg-base-100 border border-base-content/10 rounded-xl">
         <TagAnalysis :stats="currentWeekStats" title="标签分布" />
       </div>
     </div>
 
     <!-- 上周对比 -->
-    <div class="mb-3 p-3.5 bg-base-100 rounded-lg border border-base-content/10 bg-gradient-to-br from-success/10 to-base-200">
-      <h3 class="text-sm font-semibold text-primary mb-2.5">与上周对比</h3>
+    <div class="mb-4 p-4 bg-base-100 border border-base-content/10 rounded-xl">
+      <h3 class="text-sm font-semibold text-base-content mb-3">与上周对比</h3>
       <ProjectAnalysis
         :current-stats="currentWeekStats"
         :previous-stats="lastWeekStats"
