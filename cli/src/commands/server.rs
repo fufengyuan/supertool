@@ -305,7 +305,8 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Ls { id, path, json } => {
-            let resp: serde_json::Value = runtime.core.sftp_list_dir(id, path).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let path_ref = path.as_deref().unwrap_or("/");
+            let resp: serde_json::Value = runtime.core.sftp_list_dir(id, path_ref).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             if let Some(error) = resp.get("error").and_then(|v| v.as_str()) {
                 anyhow::bail!("{}", error);
             }
@@ -313,7 +314,7 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             if *json {
                 print_json(&files);
             } else {
-                println!("\n  📁 {} ({} 项):", path, files.len());
+                println!("\n  📁 {} ({} 项):", path.as_deref().unwrap_or("/"), files.len());
                 println!("  {}", "─".repeat(60));
                 for f in &files {
                     let name = f.get("name").and_then(|v| v.as_str()).unwrap_or("");

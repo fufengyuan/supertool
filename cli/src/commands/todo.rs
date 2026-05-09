@@ -11,13 +11,14 @@ pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result
             due,
             tag,
             description,
-        } => cmd_add(runtime, text, priority, due, tag, &description.as_deref().unwrap_or("")).await,
+            project_id,
+        } => cmd_add(runtime, text, &priority.as_deref().unwrap_or("medium"), due, tag.as_deref().unwrap_or(""), &description.as_deref().unwrap_or(""), project_id).await,
         TodoCommands::List {
             completed,
             tag,
             limit,
             json,
-        } => cmd_list(runtime, *completed, tag, *limit, *json).await,
+        } => cmd_list(runtime, completed.as_ref().and_then(|s| match s.as_str() { "true" => Some(true), "false" => Some(false), _ => None }), tag, *limit, *json).await,
         TodoCommands::Complete { id } => cmd_complete(runtime, id).await,
         TodoCommands::Delete { id } => cmd_delete(runtime, id).await,
         TodoCommands::Show { id, json } => cmd_show(runtime, id, *json).await,
@@ -144,6 +145,7 @@ pub async fn cmd_add(
     due: &Option<String>,
     tag: &str,
     description: &str,
+    project_id: &Option<String>,
 ) -> Result<()> {
     let todo = serde_json::json!({
         "text": text,
@@ -151,6 +153,7 @@ pub async fn cmd_add(
         "dueDate": due.as_deref().unwrap_or(""),
         "tag": tag,
         "description": description,
+        "projectId": project_id.as_deref().unwrap_or(""),
         "completed": false
     });
     let resp: serde_json::Value = runtime.core.add_todo(todo).await.map_err(|e| anyhow::anyhow!("{}", e))?;

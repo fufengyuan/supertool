@@ -120,17 +120,19 @@ pub async fn cmd_git(runtime: &mut CliRuntime, action: &GitCommands) -> Result<(
             }
         }
         GitCommands::Commit { path, message, files } => {
-            let file_refs: Vec<&str> = files.iter().map(|s| s.as_str()).collect();
-            let resp = if files.is_empty() {
+            let file_refs: Vec<String> = files.as_ref().cloned().unwrap_or_default();
+            let resp = if file_refs.is_empty() {
                 runtime.core.git_commit(path, message, None).await
             } else {
-                runtime.core.git_commit(path, message, Some(&file_refs)).await
-            }.map_err(|e| anyhow::anyhow!("提交失败: {}", e))?;
-            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
-                let hash = resp.get("hash").and_then(|v| v.as_str()).unwrap_or("");
+                let refs: Vec<&str> = file_refs.iter().map(|s| s.as_str()).collect();
+                runtime.core.git_commit(path, message, Some(&refs)).await
+            }.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let resp_val: serde_json::Value = resp;
+            if resp_val.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                let hash = resp_val.get("hash").and_then(|v| v.as_str()).unwrap_or("");
                 print_success(&format!("提交成功: {} ({})", message, hash));
             } else {
-                anyhow::bail!("提交失败: {}", resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误"));
+                anyhow::bail!("提交失败: {}", resp_val.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误"));
             }
         }
         GitCommands::Checkout { path, branch } => {
