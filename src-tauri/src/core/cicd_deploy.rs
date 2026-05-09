@@ -744,7 +744,10 @@ async fn run_maven_build(
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
     if let Some(ref java_home) = config.java_home {
+        emit("maven", "info", &format!("JAVA_HOME: {}", java_home));
         cmd.env("JAVA_HOME", java_home);
+    } else {
+        emit("maven", "warning", "未配置 JAVA_HOME，将使用系统默认 JDK");
     }
     extend_path(&mut cmd, &config.java_home, &config.maven_home);
 
@@ -938,16 +941,20 @@ fn extend_path(cmd: &mut Command, java_home: &Option<String>, maven_home: &Optio
         extra_paths.push(format!("{}/bin", jh));
     }
     if let Some(mh) = maven_home {
-        extra_paths.push(format!("{}/bin", mh));
+        let p = PathBuf::from(mh);
+        if p.is_file() {
+            extra_paths.push(p.parent().unwrap_or(&p).to_string_lossy().to_string());
+        } else if p.join("bin").exists() {
+            extra_paths.push(format!("{}/bin", mh));
+        }
     }
-    extra_paths.push("/usr/local/bin".to_string());
-    extra_paths.push("/usr/bin".to_string());
-    extra_paths.push("/bin".to_string());
-
-    if let Ok(current_path) = std::env::var("PATH") {
+    // 优先使用 shell 环境的 PATH（含 sdkman/NVM），而不是 Tauri 自己的 PATH
+    let shell_env = get_user_shell_env();
+    if let Some(shell_path) = shell_env.get("PATH") {
+        extra_paths.push(shell_path.clone());
+    } else if let Ok(current_path) = std::env::var("PATH") {
         extra_paths.push(current_path);
     }
-
     cmd.env("PATH", extra_paths.join(":"));
 }
 
