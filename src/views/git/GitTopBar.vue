@@ -3,9 +3,7 @@
   <div class="git-topbar">
     <div class="topbar-left">
       <button class="btn btn-ghost btn-sm back-btn" @click="$emit('close')" title="返回仓库列表">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="15 18 9 12 15 6" />
-        </svg>
+        <SvgIcon name="chevronLeft" width="16" height="16" />
       </button>
       <div class="repo-info">
         <span class="repo-name">{{ repo.name }}</span>
@@ -15,16 +13,9 @@
 
     <div class="topbar-center">
       <div class="branch-selector" @click="$emit('open-branches')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="6" y1="3" x2="6" y2="15" />
-          <circle cx="18" cy="6" r="3" />
-          <circle cx="6" cy="18" r="3" />
-          <path d="M18 9a9 9 0 0 1-9 9" />
-        </svg>
+        <SvgIcon name="gitBranch" width="14" height="14" />
         <span class="branch-name">{{ currentBranch || '...' }}</span>
-        <svg class="dropdown-arrow" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
+        <SvgIcon name="chevronDown" width="12" height="12" />
       </div>
       <span v-if="statusData" class="ahead-behind">
         <span v-if="statusData.ahead > 0" class="ahead" title="Ahead of remote">↑{{ statusData.ahead }}</span>
@@ -42,21 +33,15 @@
             <line x1="9" y1="21" x2="9" y2="9" />
           </svg>
           Stash
-          <svg class="dropdown-arrow" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon class="dropdown-arrow" name="chevronDown" width="10" height="10" />
         </button>
         <div v-if="showStashMenu" class="dropdown-menu" @click.stop>
           <div class="dropdown-menu-item" @click="$emit('stash-save')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <SvgIcon name="plus" width="14" height="14" />
             Save Stash...
           </div>
           <div class="dropdown-menu-item" @click="$emit('stash-save-untracked')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <SvgIcon name="plus" width="14" height="14" />
             Stash All (incl. untracked)
           </div>
           <div class="dropdown-menu-separator"></div>
@@ -77,9 +62,7 @@
             <path d="M6 21V9a9 9 0 0 0 9 9" />
           </svg>
           Git
-          <svg class="dropdown-arrow" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
+          <SvgIcon class="dropdown-arrow" name="chevronDown" width="10" height="10" />
         </button>
         <div v-if="showGitMenu" class="dropdown-menu" @click.stop>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'rebase')">
@@ -90,17 +73,11 @@
             Rebase...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'compare-branches')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-              <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
+            <SvgIcon name="barChart" width="14" height="14" />
             Compare Branches...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'tags')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-              <line x1="7" y1="7" x2="7.01" y2="7" />
-            </svg>
+            <SvgIcon name="tag" width="14" height="14" />
             Tags...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'submodules')">
@@ -120,11 +97,7 @@
             Push...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'pull-dialog')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
+            <SvgIcon name="download" width="14" height="14" />
             Pull...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'fetch')">
@@ -145,22 +118,16 @@
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'undo-last-commit')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
+            <SvgIcon name="undo" width="14" height="14" />
             Undo Last Commit
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'amend')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
+            <SvgIcon name="pencil" width="14" height="14" />
             Amend Last Commit...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'reset')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-            </svg>
+            <SvgIcon name="undo" width="14" height="14" />
             Reset to Commit...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'interactive-rebase')">
@@ -171,10 +138,7 @@
             Interactive Rebase...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'remotes')">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-            </svg>
+            <SvgIcon name="globe" width="14" height="14" />
             Remotes...
           </div>
           <div class="dropdown-menu-separator"></div>
@@ -258,6 +222,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 defineProps<{
   repo: { name: string; path: string }
   currentBranch: string
