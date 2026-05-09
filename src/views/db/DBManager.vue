@@ -19,12 +19,7 @@
             class="btn btn-ghost btn-sm"
             title="新建查询"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="12" y1="11" x2="12" y2="17" />
-              <line x1="9" y1="14" x2="15" y2="14" />
-            </svg>
+            <SvgIcon name="file" size="14" />
             新建查询
           </button>
           <button
@@ -32,21 +27,21 @@
             class="btn btn-ghost btn-sm"
             title="结构同步"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  结构同步
+            <SvgIcon name="tool" size="14" />  结构同步
           </button>
           <button
             @click="db.openDataSyncTab()"
             class="btn btn-ghost btn-sm"
             title="数据同步"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>  数据同步
+            <SvgIcon name="package" size="14" />  数据同步
           </button>
           <button
             @click="openBackupTab"
             class="btn btn-ghost btn-sm"
             title="数据库备份"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 数据库备份
+            <SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 数据库备份
           </button>
         </template>
       </div>
@@ -96,11 +91,7 @@
       <main class="flex-1 flex flex-col overflow-hidden min-w-0">
         <!-- No connection selected -->
         <div v-if="!db.activeConnection.value" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
-            <ellipse cx="12" cy="5" rx="9" ry="3" />
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-          </svg>
+          <SvgIcon name="database" size="48" stroke-width="1.5" class="opacity-30" />
           <p class="text-base font-semibold text-base-content m-0">选择或添加数据库连接</p>
           <p class="text-xs m-0">从左侧选择已有连接，或添加新的数据库连接</p>
           <button @click="db.openAddForm()" class="btn btn-primary">添加连接</button>
@@ -109,25 +100,18 @@
         <!-- No tabs open -->
         <div v-else-if="db.tabs.value.length === 0" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
           <template v-if="db.activeConnection.value?.type === 'redis'">
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
-              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-            </svg>
+            <SvgIcon name="key" size="48" stroke-width="1.5" class="opacity-30" />
             <p class="text-base font-semibold text-base-content m-0">Redis 连接已就绪</p>
             <p class="text-xs m-0">浏览和管理 Redis 键值数据</p>
             <button
               @click="openRedisManager"
               class="btn btn-primary"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>  打开 Redis 管理器
+              <SvgIcon name="key" size="14" />  打开 Redis 管理器
             </button>
           </template>
           <template v-else>
-            <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" class="opacity-30">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-            </svg>
+            <SvgIcon name="file" size="48" stroke-width="1.5" class="opacity-30" />
             <p class="text-base font-semibold text-base-content m-0">打开一个工作区</p>
             <p class="text-xs m-0">从左侧树中选择一个表，或点击&quot;新建查询&quot;开始</p>
             <button
@@ -150,13 +134,13 @@
               :class="[db.activeTabIndex.value === idx ? 'bg-base-200 text-base-content border-base-content/10 font-medium' : '']"
               @click="db.setActiveTab(idx)"
             >
-              <span class="text-xs shrink-0">{{ getTabIcon(tab) }}</span>
+              <span class="text-xs shrink-0">
+                <template v-if="['🏗️','🔴','🗂️'].includes(getTabIcon(tab))">{{ getTabIcon(tab) }}</template>
+                <SvgIcon v-else :name="getTabIcon(tab)" size="14" />
+              </span>
               <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="tab.title">{{ tab.title }}</span>
               <button class="flex items-center justify-center w-4 h-4 border-0 bg-transparent rounded-sm cursor-pointer text-base-content/60 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-primary/10 hover:text-primary transition-all duration-100" @click.stop="db.closeTab(tab.id)" title="关闭">
-                <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <SvgIcon name="x" size="10" stroke-width="2.5" />
               </button>
             </div>
           </div>
@@ -206,7 +190,7 @@
               <div class="flex flex-col h-full p-4 gap-3 overflow-hidden max-w-full box-border">
                 <div class="flex items-center justify-between pb-2 border-b border-base-content/10">
                   <span class="text-sm font-semibold text-base-content">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>  {{ activeTab.tableName }}
+                    <SvgIcon name="barChart" size="14" />  {{ activeTab.tableName }}
                     <span class="text-xs font-normal text-base-content/60 ml-2">- {{ activeTab.connectionName }}</span>
                   </span>
                   <div class="flex gap-2 shrink-0">
@@ -215,7 +199,7 @@
                       class="btn btn-ghost btn-sm"
                       :disabled="tableLoading"
                     >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  刷新
+                      <SvgIcon name="refresh" size="14" />  刷新
                     </button>
                   </div>
                 </div>
@@ -345,7 +329,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useDBManager, type DBConnection, type WorkspaceTab } from '../../composables/useDBManager'
@@ -430,17 +414,17 @@ const redisMessages = ref<Array<{ type: string; prefix: string; content: string 
 const activeTab = computed(() => db.activeTab.value)
 
 function getTabIcon(tab: WorkspaceTab | null): string {
-  if (!tab) return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> '
+  if (!tab) return 'file'
   switch (tab.type) {
-    case 'sql': return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> '
-    case 'tableData': return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> '
+    case 'sql': return 'pencil'
+    case 'tableData': return 'barChart'
     case 'tableStructure': return '🏗️'
     case 'redisConsole': return '🔴'
-    case 'redisManager': return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> '
-    case 'structureSync': return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> '
-    case 'dataSync': return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> '
+    case 'redisManager': return 'key'
+    case 'structureSync': return 'tool'
+    case 'dataSync': return 'package'
     case 'backup': return '🗂️'
-    default: return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> '
+    default: return 'file'
   }
 }
 
