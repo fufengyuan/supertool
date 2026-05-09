@@ -662,16 +662,21 @@ async fn build_single_module(
     };
 
     // Custom build command (stream output for real-time logs)
-    if let Some(ref cmd) = module.build_command {
+    if let Some(ref cmd) = module.build_command.as_ref().filter(|s| !s.is_empty()) {
         emit("build", "starting", &format!("执行构建命令: {}", cmd));
 
-        let mut child = user_shell_cmd("sh")
-            .arg("-c")
-            .arg(cmd)
-            .current_dir(&build_path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
+        let mut child_cmd = user_shell_cmd("sh");
+        child_cmd.arg("-c").arg(cmd).current_dir(&build_path)
+            .stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        // 注入配置的 JAVA_HOME 和工具路径，确保自定义命令也能用到
+        if let Some(ref java_home) = config.java_home {
+            emit("build", "info", &format!("JAVA_HOME: {}", java_home));
+            child_cmd.env("JAVA_HOME", java_home);
+        }
+        extend_path(&mut child_cmd, &config.java_home, &config.maven_home);
+
+        let mut child = child_cmd.spawn()
             .map_err(|e| format!("构建命令启动失败: {}", e))?;
 
         let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
