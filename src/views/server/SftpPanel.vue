@@ -28,24 +28,18 @@
           </svg>
         </button>
         <button @click.stop="$emit('close')" class="btn btn-circle btn-error btn-sm text-white hover:scale-110" title="关闭">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <SvgIcon name="x" size="20" />
         </button>
       </div>
     </div>
 
     <div class="flex items-center gap-2 bg-base-content/10 p-2.5">
-      <svg class="shrink-0 opacity-50" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-        <polyline points="9 22 9 12 15 12 15 22"/>
-      </svg>
+      <SvgIcon name="home" size="16" class="shrink-0 opacity-50" />
       <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user" class="input input-bordered input-sm flex-1 text-xs" />
       <button @click="loadDir" class="btn btn-ghost btn-sm">刷新</button>
       <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/'">↑ 上级</button>
       <button @click="uploadFile" class="btn btn-ghost btn-sm">↑ 上传文件</button>
-      <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 上传文件夹</button>
+      <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 上传文件夹</button>
     </div>
 
     <!-- 文件列表头部 -->
@@ -65,9 +59,7 @@
       >
         <!-- 拖拽提示层 -->
         <div v-if="isDragOver" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[#89b4fa] rounded-lg bg-[rgba(30,30,46,0.9)] text-[#89b4fa] pointer-events-none">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
+          <SvgIcon name="upload" size="48" stroke-width="1.5" />
           <p class="text-sm font-semibold">释放以上传文件</p>
         </div>
 
@@ -80,38 +72,24 @@
           @dblclick="handleDoubleClick(file)"
         >
           <span class="flex items-center shrink-0">
-            <svg v-if="file.type === 'directory'" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="text-[#f9a825]">
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-            </svg>
-            <svg v-else viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" class="text-base-content/60">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
+            <SvgIcon v-if="file.type === 'directory'" name="folder" size="20" class="text-[#f9a825]" />
+            <SvgIcon v-else name="file" size="20" class="text-base-content/60" />
           </span>
           <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-xs">{{ file.name }}</span>
           <span class="w-[70px] shrink-0 text-right text-xs text-base-content/60">{{ formatSize(file.size) }}</span>
           <span class="w-[130px] shrink-0 text-xs text-base-content/60">{{ formatDate(file.modifyTime) }}</span>
           <div class="flex shrink-0 gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             <button v-if="file.type === 'file'" @click.stop="downloadFile(file)" class="btn btn-ghost btn-xs btn-square" title="下载">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
+              <SvgIcon name="download" size="14" />
             </button>
             <button @click.stop="deleteFile(file)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="3 6 5 6 21 6"/>
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-              </svg>
+              <SvgIcon name="trash" size="14" />
             </button>
           </div>
         </div>
 
         <div v-if="files.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
-          <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
+          <SvgIcon name="folder" size="48" stroke-width="1.5" />
           <p>空目录</p>
         </div>
       </div>
@@ -130,7 +108,7 @@
       <span class="min-w-[40px] text-right font-semibold text-primary">{{ uploadProgress.percent }}%</span>
       <!-- 操作按钮 -->
       <div class="flex shrink-0 gap-1">
-        <button v-if="isUploading" @click="cancelUpload" class="btn btn-outline btn-error btn-xs gap-1" title="取消上传"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 取消</button>
+        <button v-if="isUploading" @click="cancelUpload" class="btn btn-outline btn-error btn-xs gap-1" title="取消上传"><SvgIcon name="x" size="12" /> 取消</button>
         <button v-if="uploadFailed" @click="retryUpload" class="btn btn-outline btn-primary btn-xs" title="重试上传">↻ 重试</button>
       </div>
     </div>
@@ -146,6 +124,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue';

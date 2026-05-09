@@ -9,10 +9,7 @@
       @mousedown="startDrag"
     >
       <div class="flex items-center gap-2 text-[#cdd6f4] min-w-0">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="4 17 10 11 4 5"/>
-          <line x1="12" y1="19" x2="20" y2="19"/>
-        </svg>
+        <SvgIcon name="terminal" size="16" />
         <span class="font-semibold text-sm">终端</span>
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
@@ -22,11 +19,7 @@
           :class="{ 'text-[#89b4fa] bg-[rgba(137,180,250,0.15)]': showMonitor }"
           :title="showMonitor ? '隐藏监控' : '显示监控'"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="2" y="3" width="20" height="14" rx="2"/>
-            <line x1="8" y1="21" x2="16" y2="21"/>
-            <line x1="12" y1="17" x2="12" y2="21"/>
-          </svg>
+          <SvgIcon name="monitor" size="14" />
         </button>
         <button
           @click.stop="quickOpenSftp"
@@ -56,10 +49,7 @@
           class="btn btn-xs h-7 w-7 min-h-0 rounded-full bg-[#f38ba8] text-white hover:bg-[#e04560] hover:scale-110 border-none p-0"
           title="关闭终端"
         >
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <SvgIcon name="x" size="18" />
         </button>
       </div>
     </div>
@@ -97,20 +87,14 @@
           class="bg-transparent border-none text-[#6c7086] w-[18px] h-[18px] rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-100 hover:text-[#89b4fa] hover:bg-[rgba(137,180,250,0.15)] transition-all duration-150 shrink-0 p-0"
           title="重连"
         >
-          <svg :class="{ 'animate-spin': tab.status === 'connecting' }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="23 4 23 10 17 10"/>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-          </svg>
+          <SvgIcon :class="{ 'animate-spin': tab.status === 'connecting' }" name="refresh" size="12" stroke-width="2.5" />
         </button>
         <button
           @click.stop="closeTab(tab.id)"
           class="bg-transparent border-none text-[#6c7086] w-4 h-4 rounded flex items-center justify-center cursor-pointer opacity-0 group-hover:opacity-70 hover:!opacity-100 hover:text-[#f38ba8] hover:bg-[rgba(243,139,168,0.15)] transition-all duration-150 shrink-0 p-0"
           title="关闭"
         >
-          <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="3">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+          <SvgIcon name="x" size="10" stroke-width="3" />
         </button>
         <!-- Active tab bottom indicator -->
         <span v-if="activeTabId === tab.id" class="absolute bottom-0 left-0 right-0 h-0.5 bg-[#89b4fa]"></span>
@@ -118,10 +102,7 @@
       <!-- 添加标签：服务器选择器 -->
       <div class="flex items-center w-9 min-w-9 bg-transparent text-[#6c7086] text-xs font-medium cursor-pointer border-r-0 transition-all duration-150 relative hover:bg-[#1e1e2e] hover:text-[#89b4fa]">
         <button @click="onAddTab" class="flex items-center justify-center w-9 h-full border-none bg-transparent text-[#6c7086] cursor-pointer transition-all duration-150 hover:text-[#89b4fa] p-0" title="添加标签 / 选择服务器">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19"/>
-            <line x1="5" y1="12" x2="19" y2="12"/>
-          </svg>
+          <SvgIcon name="plus" size="14" />
         </button>
       </div>
     </div>
@@ -159,6 +140,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { ref, onMounted, onUnmounted, nextTick, watch, computed } from 'vue'
