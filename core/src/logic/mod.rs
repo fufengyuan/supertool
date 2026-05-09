@@ -2743,6 +2743,73 @@ impl CoreService {
             .map_err(|e| format!("SSH 操作失败: {}", e))?
     }
 
+    /// 带重试的 SSH 操作（连接断开时自动重连一次）
+    async fn run_ssh_with_retry<F, T>(&self, server_id: &str, f: F) -> Result<T, String>
+    where
+        F: Fn(&crate::logic::ssh::SshService) -> Result<T, String> + Send + Sync + 'static,
+        T: Send + 'static,
+    {
+        let sid = server_id.to_string();
+        let ssh = self.ssh.clone();
+        let f = std::sync::Arc::new(f);
+        let f2 = f.clone();
+        let result = tokio::task::spawn_blocking(move || f(&ssh))
+            .await
+            .map_err(|e| format!("SSH 操作失败: {}", e))?;
+
+        match result {
+            Ok(v) => Ok(v),
+            Err(e) if e.contains("连接") || e.contains("未连接") || e.contains("通道") => {
+                log::warn!("[SSH] Operation failed for {}, retrying: {}", server_id, e);
+                let ssh2 = self.ssh.clone();
+                let sid2 = sid.clone();
+                let server = self.with_db(|db| {
+                    db.conn()
+                        .query_row(
+                            "SELECT * FROM servers WHERE id = ?1",
+                            rusqlite::params![sid2],
+                            |row| {
+                                Ok(serde_json::json!({
+                                    "id": row.get::<_, String>("id")?,
+                                    "name": row.get::<_, String>("name")?,
+                                    "host": row.get::<_, String>("host")?,
+                                    "port": row.get::<_, i64>("port")?,
+                                    "username": row.get::<_, String>("username")?,
+                                    "password": row.get::<_, Option<String>>("password")?,
+                                    "sshKeyPath": row.get::<_, Option<String>>("sshKeyPath")?,
+                                }))
+                            },
+                        )
+                        .map_err(|e| e.to_string())
+                });
+                if let Ok(s) = server {
+                    let raw_password = s.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
+                    let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
+                    let ssh_config = crate::logic::ssh::SshServerConfig {
+                        id: sid.clone(),
+                        name: s["name"].as_str().unwrap_or("").to_string(),
+                        host: s["host"].as_str().unwrap_or("").to_string(),
+                        port: s["port"].as_u64().unwrap_or(22) as u32,
+                        username: s["username"].as_str().unwrap_or("").to_string(),
+                        password,
+                        ssh_key_path: s.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    };
+                    ssh2.disconnect(&sid);
+                    if let Err(re) = ssh2.connect(&ssh_config) {
+                        return Err(format!("重连失败: {}", re));
+                    }
+                    let ssh3 = self.ssh.clone();
+                    tokio::task::spawn_blocking(move || f2(&ssh3))
+                        .await
+                        .map_err(|e| format!("SSH 操作失败: {}", e))?
+                } else {
+                    Err(e)
+                }
+            }
+            Err(e) => Err(e),
+        }
+    }
+
     pub async fn ssh_connect(&self, params: Value) -> Result<Value, String> {
         let server_id = params["id"].as_str().unwrap_or("").to_string();
         let param_pw = params
@@ -2868,14 +2935,14 @@ impl CoreService {
     pub async fn exec_ssh_command(&self, server_id: &str, command: &str) -> Result<Value, String> {
         let sid = server_id.to_string();
         let cmd = command.to_string();
-        let result = self.run_ssh_blocking(move |ssh| ssh.exec_command(&sid, &cmd)).await?;
+        let result = self.run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &cmd)).await?;
         Ok(json!(result))
     }
 
     pub async fn sftp_list_dir(&self, server_id: &str, remote_path: &str) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        let files = self.run_ssh_blocking(move |ssh| ssh.list_remote_dir(&sid, &rp)).await?;
+        let files = self.run_ssh_with_retry(server_id, move |ssh| ssh.list_remote_dir(&sid, &rp)).await?;
         Ok(json!({"success": true, "files": files}))
     }
 
@@ -2886,7 +2953,7 @@ impl CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        let content = self.run_ssh_blocking(move |ssh| ssh.download_file_base64(&sid, &rp)).await?;
+        let content = self.run_ssh_with_retry(server_id, move |ssh| ssh.download_file_base64(&sid, &rp)).await?;
         Ok(json!({"content": content}))
     }
 
@@ -2897,7 +2964,7 @@ impl CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.create_remote_dir(&sid, &rp)).await?;
+        self.run_ssh_with_retry(server_id, move |ssh| ssh.create_remote_dir(&sid, &rp)).await?;
         Ok(json!({"success": true}))
     }
 
@@ -2908,7 +2975,7 @@ impl CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.delete_remote_file(&sid, &rp)).await?;
+        self.run_ssh_with_retry(server_id, move |ssh| ssh.delete_remote_file(&sid, &rp)).await?;
         Ok(json!({"success": true}))
     }
 
@@ -2922,7 +2989,7 @@ impl CoreService {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
         let lp = local_path.to_string();
-        let size = self.run_ssh_blocking(move |ssh| ssh.download_file(&sid, &rp, &lp)).await?;
+        let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.download_file(&sid, &rp, &lp)).await?;
         Ok(json!({"success": true, "data": {"bytesDownloaded": size, "localPath": local_path}}))
     }
 
@@ -2941,14 +3008,14 @@ impl CoreService {
             let sid = server_id.to_string();
             let lp = local_path.to_string();
             let rp = remote_path.to_string();
-            let size = self.run_ssh_blocking(move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
+            let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
             Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
         } else {
             // 文件 → 单文件上传
             let sid = server_id.to_string();
             let lp = local_path.to_string();
             let rp = remote_path.to_string();
-            let size = self.run_ssh_blocking(move |ssh| ssh.upload_file(&sid, &lp, &rp)).await?;
+            let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_file(&sid, &lp, &rp)).await?;
             Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
         }
     }
@@ -2963,7 +3030,7 @@ impl CoreService {
         let sid = server_id.to_string();
         let lp = local_path.to_string();
         let rp = remote_path.to_string();
-        let size = self.run_ssh_blocking(move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
+        let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
         Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
     }
 
