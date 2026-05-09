@@ -16,14 +16,14 @@
 
         <button @click="exportFullBackup" class="btn btn-primary" :disabled="isExporting">
           <template v-if="isExporting">导出中...</template>
-          <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 完整备份 (.stbackup)</template>
+          <template v-else><SvgIcon name="save" size="14" /> 完整备份 (.stbackup)</template>
         </button>
       </div>
 
       <!-- 导入 -->
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
         <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
-          <span class="text-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> </span>
+          <span class="text-lg"><SvgIcon name="download" size="14" /> </span>
           <span>数据导入</span>
         </div>
 
@@ -45,14 +45,14 @@
           :disabled="isImporting"
         >
           <template v-if="isImporting">导入中...</template>
-          <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 导入备份</template>
+          <template v-else><SvgIcon name="folder" size="14" /> 导入备份</template>
         </button>
       </div>
 
       <!-- 自动备份 -->
       <div class="bg-base-100 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3 col-span-full">
         <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
-          <span class="text-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </span>
+          <span class="text-lg"><SvgIcon name="clock" size="14" /> </span>
           <span>自动备份</span>
         </div>
 
@@ -134,7 +134,7 @@
     <!-- 数据目录 -->
     <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
       <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
-        <span class="text-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> </span>
+        <span class="text-lg"><SvgIcon name="folder" size="14" /> </span>
         <span>数据目录</span>
         <span v-if="dataDir.isCustom" class="badge badge-info badge-sm">自定义</span>
         <span v-else class="badge badge-ghost badge-sm">默认</span>
@@ -177,7 +177,7 @@
     <!-- Git 同步 -->
     <div class="bg-base-200 border border-base-content/10 rounded-xl p-5 flex flex-col gap-3">
       <div class="flex items-center gap-2 font-semibold text-sm text-base-content">
-        <span class="text-lg"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> </span>
+        <span class="text-lg"><SvgIcon name="refresh" size="14" /> </span>
         <span>Git 数据同步</span>
         <span
           v-if="gitSyncStatus.enabled"
@@ -344,7 +344,7 @@ const exportFullBackup = async () => {
     const result = await getTauriAPI().exportData({}) as any;
 
     if (result.success) {
-      message.value = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  完整备份已导出: ${result.path}（${result.tableCount || 1} 个表，${result.totalItems || 0} 条记录）`;
+      message.value = `<SvgIcon name="check" size="14" />  完整备份已导出: ${result.path}（${result.tableCount || 1} 个表，${result.totalItems || 0} 条记录）`;
       messageType.value = 'success';
     } else {
       message.value = `导出失败: ${result.error || result.message || '未知错误'}`;
