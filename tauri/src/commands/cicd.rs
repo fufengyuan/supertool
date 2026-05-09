@@ -464,8 +464,11 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
             }
             if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
                 if let Some(cap) = re.captures(&pom) {
-                    let module_re = regex::Regex::new(r"<module>([^<]+)</module>").unwrap();
-                    let modules: Vec<String> = module_re.captures_iter(&cap[1]).map(|c| c[1].to_string()).collect();
+                    let module_re = regex::Regex::new(r"<module>\s*([^<]+?)\s*</module>").unwrap();
+                    let modules: Vec<String> = module_re.captures_iter(&cap[1])
+                        .map(|c| c[1].trim().to_string())
+                        .filter(|m| !m.is_empty())
+                        .collect();
                     if modules.len() > 1 {
                         result.is_multi_module = Some(true);
                         result.module_names = Some(modules);
@@ -1227,63 +1230,155 @@ pub async fn scan_project_modules(
         return Ok(serde_json::json!({ "success": false, "modules": [], "error": "路径不存在" }));
     }
 
+    let modules = scan_maven_modules_recursive(path, path, 0);
+
+    // If no Maven modules found, scan Node.js packages
+    let modules = if modules.is_empty() {
+        scan_npm_modules(path)
+    } else {
+        modules
+    };
+
+    // If still empty, try top-level package.json
+    let modules = if modules.is_empty() && path.join("package.json").exists() {
+        if let Ok(content) = fs::read_to_string(path.join("package.json")) {
+            if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(name) = pkg.get("name").and_then(|n| n.as_str()) {
+                    vec![serde_json::json!({
+                        "name": name,
+                        "path": ".",
+                        "type": "npm",
+                        "children": []
+                    })]
+                } else {
+                    vec![]
+                }
+            } else {
+                vec![]
+            }
+        } else {
+            vec![]
+        }
+    } else {
+        modules
+    };
+
+    Ok(serde_json::json!({ "success": true, "modules": modules }))
+}
+
+/// Recursively scan Maven modules from a pom.xml, up to 3 levels deep
+fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -> Vec<serde_json::Value> {
+    if depth > 3 {
+        return vec![];
+    }
+
+    let pom_path = base_path.join("pom.xml");
+    if !pom_path.exists() {
+        return vec![];
+    }
+
+    let pom = match fs::read_to_string(&pom_path) {
+        Ok(content) => content,
+        Err(_) => return vec![],
+    };
+
     let mut modules: Vec<serde_json::Value> = Vec::new();
 
-    // Scan Maven modules
-    if path.join("pom.xml").exists() {
-        if let Ok(pom) = fs::read_to_string(path.join("pom.xml")) {
-            // Check if it has <modules> section
-            if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
-                if let Some(cap) = re.captures(&pom) {
-                    let module_re = regex::Regex::new(r"<module>([^<]+)</module>").unwrap();
-                    let child_modules: Vec<String> = module_re.captures_iter(&cap[1]).map(|c| c[1].to_string()).collect();
-                    for mod_name in &child_modules {
-                        let mod_path = if mod_name.starts_with("./") || mod_name.starts_with("../") {
-                            mod_name.clone()
-                        } else {
-                            format!("./{}", mod_name)
-                        };
-                        modules.push(serde_json::json!({
-                            "name": mod_name,
-                            "path": mod_path,
-                            "type": "maven",
-                            "children": []
-                        }));
+    // Extract <modules> section
+    if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
+        if let Some(cap) = re.captures(&pom) {
+            let module_re = regex::Regex::new(r"<module>\s*([^<]+?)\s*</module>").unwrap();
+            let child_names: Vec<String> = module_re.captures_iter(&cap[1])
+                .map(|c| c[1].trim().to_string())
+                .filter(|m| !m.is_empty())
+                .collect();
+
+            for mod_name in &child_names {
+                // Resolve module path relative to base_path
+                let mod_rel_path = if mod_name.starts_with("./") || mod_name.starts_with("../") {
+                    mod_name.clone()
+                } else {
+                    format!("./{}", mod_name)
+                };
+
+                // Compute absolute path for recursive scanning
+                let mod_abs_path = base_path.join(mod_name);
+
+                // Extract artifactId from child pom.xml
+                let artifact_id = if mod_abs_path.join("pom.xml").exists() {
+                    if let Ok(child_pom) = fs::read_to_string(mod_abs_path.join("pom.xml")) {
+                        regex::Regex::new(r"<artifactId>\s*([^<]+?)\s*</artifactId>")
+                            .ok()
+                            .and_then(|re| re.captures(&child_pom))
+                            .map(|c| c[1].trim().to_string())
+                    } else {
+                        None
                     }
-                }
-            }
-            // If no explicit modules section, treat the project itself as a single module
-            if modules.is_empty() {
-                if let Some(cap) = regex::Regex::new(r"<artifactId>([^<]+)</artifactId>")
-                    .ok().and_then(|re| re.captures(&pom)) {
-                    modules.push(serde_json::json!({
-                        "name": &cap[1],
-                        "path": ".",
-                        "type": "maven",
-                        "artifactId": &cap[1],
-                        "children": []
-                    }));
-                }
+                } else {
+                    None
+                };
+
+                // Recursively scan for nested sub-modules
+                let children = scan_maven_modules_recursive(root_path, &mod_abs_path, depth + 1);
+
+                modules.push(serde_json::json!({
+                    "name": artifact_id.as_ref().unwrap_or(mod_name),
+                    "path": mod_rel_path,
+                    "type": "maven",
+                    "artifactId": artifact_id,
+                    "children": children
+                }));
             }
         }
     }
 
-    // Scan Node.js packages (sub-directories with package.json)
-    if let Ok(entries) = fs::read_dir(path) {
+    // If no <modules> section, treat this pom as a single module (only at depth 0)
+    if modules.is_empty() && depth == 0 {
+        if let Some(cap) = regex::Regex::new(r"<artifactId>\s*([^<]+?)\s*</artifactId>")
+            .ok().and_then(|re| re.captures(&pom)) {
+            modules.push(serde_json::json!({
+                "name": &cap[1],
+                "path": ".",
+                "type": "maven",
+                "artifactId": &cap[1],
+                "children": []
+            }));
+        }
+    }
+
+    modules
+}
+
+/// Scan sub-directories for Node.js packages with package.json
+fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
+    let mut modules: Vec<serde_json::Value> = Vec::new();
+    let skip_dirs = ["node_modules", "target", "dist", ".git", "coverage"];
+
+    if let Ok(entries) = fs::read_dir(base_path) {
         for entry in entries.flatten() {
             if let Ok(ft) = entry.file_type() {
                 if ft.is_dir() {
+                    let name = match entry.file_name().into_string() {
+                        Ok(n) => n,
+                        Err(_) => continue,
+                    };
+                    if skip_dirs.contains(&name.as_str()) || name.starts_with('.') {
+                        continue;
+                    }
                     let pkg_json = entry.path().join("package.json");
                     if pkg_json.exists() {
-                        if let Ok(name) = entry.file_name().into_string() {
-                            // Avoid duplicates
-                            if !modules.iter().any(|m| m.get("path").and_then(|p| p.as_str()) == Some(&format!("./{}", name))) {
-                                modules.push(serde_json::json!({
-                                    "name": name,
-                                    "path": format!("./{}", name),
-                                    "type": "npm",
-                                    "children": []
-                                }));
+                        let mod_path = format!("./{}", name);
+                        if !modules.iter().any(|m| m.get("path").and_then(|p| p.as_str()) == Some(&mod_path)) {
+                            if let Ok(content) = fs::read_to_string(&pkg_json) {
+                                if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
+                                    let pkg_name = pkg.get("name").and_then(|n| n.as_str()).unwrap_or(&name);
+                                    modules.push(serde_json::json!({
+                                        "name": pkg_name,
+                                        "path": mod_path,
+                                        "type": "npm",
+                                        "children": []
+                                    }));
+                                }
                             }
                         }
                     }
@@ -1291,24 +1386,7 @@ pub async fn scan_project_modules(
             }
         }
     }
-
-    // If still empty, try top-level package.json
-    if modules.is_empty() && path.join("package.json").exists() {
-        if let Ok(content) = fs::read_to_string(path.join("package.json")) {
-            if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(name) = pkg.get("name").and_then(|n| n.as_str()) {
-                    modules.push(serde_json::json!({
-                        "name": name,
-                        "path": ".",
-                        "type": "npm",
-                        "children": []
-                    }));
-                }
-            }
-        }
-    }
-
-    Ok(serde_json::json!({ "success": true, "modules": modules }))
+    modules
 }
 
 // =================== Missing Tauri Commands ===================
