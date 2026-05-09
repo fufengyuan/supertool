@@ -139,7 +139,7 @@ import { useErrorHandler } from '../../composables/useErrorHandler'
 import type { Project } from '../../types'
 
 const props = defineProps({
-  projectId: { type: String, required: true }
+  id: { type: String, required: true }
 })
 
 const emit = defineEmits(['goBackToList', 'editProject', 'projectUpdated'])
@@ -229,7 +229,7 @@ const toggleArchive = async () => {
 }
 
 const resolveProject = () => {
-  const found = projectStore.projects.find(p => p.id === props.projectId)
+  const found = projectStore.projects.find(p => p.id === props.id)
   if (found) {
     project.value = found as unknown as Project
   }
