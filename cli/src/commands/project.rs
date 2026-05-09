@@ -1,13 +1,13 @@
 use crate::types::*;
-use crate::transport::ApiClient;
+use crate::runtime::CliRuntime;
 use crate::output::*;
 use anyhow::Result;
 
-pub fn cmd_project(client: &ApiClient, action: &ProjectCommands) -> Result<()> {
-    crate::commands::todo::check_connection(client)?;
+pub async fn cmd_project(runtime: &mut CliRuntime, action: &ProjectCommands) -> Result<()> {
     match action {
         ProjectCommands::List { json } => {
-            let projects: Vec<serde_json::Value> = client.request("projects:get-all", None)?;
+            let projects: serde_json::Value = runtime.core.get_all_projects(false).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let projects = projects.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&projects);
             } else {
@@ -34,14 +34,16 @@ pub fn cmd_project(client: &ApiClient, action: &ProjectCommands) -> Result<()> {
             }
         }
         ProjectCommands::Add { name, description } => {
-            let _ = client.request::<serde_json::Value>(
-                "projects:add",
-                Some(&serde_json::json!({"name": name, "description": description, "active": true})),
-            )?;
+            let _ = runtime.core.add_project(serde_json::json!({
+                "name": name,
+                "description": description.as_deref().unwrap_or(""),
+                "active": true
+            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("项目已添加: {}", name));
         }
         ProjectCommands::Show { id, json: _ } => {
-            let projects: Vec<serde_json::Value> = client.request("projects:get-all", None)?;
+            let projects: serde_json::Value = runtime.core.get_all_projects(false).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let projects = projects.as_array().cloned().unwrap_or_default();
             if let Some(p) = projects
                 .iter()
                 .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
@@ -56,32 +58,51 @@ pub fn cmd_project(client: &ApiClient, action: &ProjectCommands) -> Result<()> {
             name,
             description,
         } => {
+            // Get current project to fill in missing fields
+            let projects: serde_json::Value = runtime.core.get_all_projects(false).await.unwrap_or(serde_json::json!([]));
+            let current = projects.as_array().cloned().unwrap_or_default()
+                .into_iter()
+                .find(|p| p.get("id").and_then(|v| v.as_str()) == Some(id.as_str()));
+
             let mut update = serde_json::Map::new();
             update.insert("id".into(), serde_json::Value::String(id.clone()));
+
             if let Some(n) = name {
                 update.insert("name".into(), serde_json::Value::String(n.clone()));
+            } else if let Some(cur) = &current {
+                update.insert("name".into(), cur.get("name").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+            } else {
+                update.insert("name".into(), serde_json::Value::String("".to_string()));
             }
+
             if let Some(d) = description {
-                update.insert(
-                    "description".into(),
-                    serde_json::Value::String(d.clone()),
-                );
+                update.insert("description".into(), serde_json::Value::String(d.clone()));
+            } else if let Some(cur) = &current {
+                update.insert("description".into(), cur.get("description").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+            } else {
+                update.insert("description".into(), serde_json::Value::String("".to_string()));
             }
-            let _ = client.request::<serde_json::Value>("projects:update", Some(&serde_json::Value::Object(update)))?;
+
+            // Fill in required fields for Project deserialization
+            if let Some(cur) = &current {
+                update.insert("active".into(), cur.get("active").cloned().unwrap_or(serde_json::Value::Bool(true)));
+                if let Some(cat) = cur.get("category") {
+                    update.insert("category".into(), cat.clone());
+                }
+            } else {
+                update.insert("active".into(), serde_json::Value::Bool(true));
+                update.insert("category".into(), serde_json::Value::String("".to_string()));
+            }
+
+            let _ = runtime.core.update_project(serde_json::Value::Object(update)).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("项目 {} 已更新", id));
         }
         ProjectCommands::Delete { id } => {
-            let _ = client.request::<serde_json::Value>(
-                "projects:delete",
-                Some(&serde_json::json!({"id": id})),
-            )?;
+            let _ = runtime.core.delete_project(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("项目 {} 已删除", id));
         }
         ProjectCommands::Stats { id, json } => {
-            let stats: serde_json::Value = client.request(
-                "projects:stats",
-                Some(&serde_json::json!({"id": id})),
-            )?;
+            let stats: serde_json::Value = runtime.core.get_project_stats(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             if *json {
                 print_json(&stats);
             } else {
@@ -102,8 +123,8 @@ pub fn cmd_project(client: &ApiClient, action: &ProjectCommands) -> Result<()> {
             }
         }
         ProjectCommands::Todos { id, json } => {
-            let todos: Vec<serde_json::Value> =
-                client.request("projects:get-todos", Some(&serde_json::json!({"id": id})))?;
+            let todos: serde_json::Value = runtime.core.get_project_todos(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let todos = todos.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&todos);
             } else {

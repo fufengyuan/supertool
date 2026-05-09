@@ -1,9 +1,18 @@
 use crate::types::*;
+use crate::runtime::CliRuntime;
 use crate::transport::ApiClient;
 use crate::output::*;
 use anyhow::Result;
 
-pub fn cmd_todo(client: &ApiClient, action: &TodoCommands) -> Result<()> {
+/// Check UDS connection for non-refactored commands (cicd, db, git)
+pub fn check_connection(client: &ApiClient) -> Result<()> {
+    if !client.health_check() {
+        anyhow::bail!("无法连接到 SuperTool (UDS socket)\n请确保 GUI 已启动，~/.supertool/supertool.sock 存在。\n设置 SUPERTOOL_SOCKET 环境变量可指定 socket 路径。");
+    }
+    Ok(())
+}
+
+pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result<()> {
     match action {
         TodoCommands::Add {
             text,
@@ -11,19 +20,19 @@ pub fn cmd_todo(client: &ApiClient, action: &TodoCommands) -> Result<()> {
             due,
             tag,
             description,
-        } => cmd_add(client, text, priority, due, tag, &description.as_deref().unwrap_or(""), false),
+        } => cmd_add(runtime, text, priority, due, tag, &description.as_deref().unwrap_or("")).await,
         TodoCommands::List {
             completed,
             tag,
             limit,
             json,
-        } => cmd_list(client, *completed, tag, *limit, *json),
-        TodoCommands::Complete { id } => cmd_complete(client, id),
-        TodoCommands::Delete { id } => cmd_delete(client, id),
-        TodoCommands::Show { id, json } => cmd_show(client, id, *json),
-        TodoCommands::Stats { json } => cmd_stats(client, *json),
-        TodoCommands::Clear => cmd_clear(client),
-        TodoCommands::Search { keyword, json } => cmd_search(client, keyword, *json),
+        } => cmd_list(runtime, *completed, tag, *limit, *json).await,
+        TodoCommands::Complete { id } => cmd_complete(runtime, id).await,
+        TodoCommands::Delete { id } => cmd_delete(runtime, id).await,
+        TodoCommands::Show { id, json } => cmd_show(runtime, id, *json).await,
+        TodoCommands::Stats { json } => cmd_stats(runtime, *json).await,
+        TodoCommands::Clear => cmd_clear(runtime).await,
+        TodoCommands::Search { keyword, json } => cmd_search(runtime, keyword, *json).await,
         TodoCommands::Edit {
             id,
             text,
@@ -31,17 +40,17 @@ pub fn cmd_todo(client: &ApiClient, action: &TodoCommands) -> Result<()> {
             due,
             tag,
             description,
-        } => cmd_edit(client, id, text, priority, due, tag, description),
-        TodoCommands::Uncomplete { id } => cmd_uncomplete(client, id),
+        } => cmd_edit(runtime, id, text, priority, due, tag, description).await,
+        TodoCommands::Uncomplete { id } => cmd_uncomplete(runtime, id).await,
     }
 }
 
-pub fn cmd_subtask(client: &ApiClient, action: &SubtaskCommands) -> Result<()> {
-    check_connection(client)?;
+pub async fn cmd_subtask(runtime: &mut CliRuntime, action: &SubtaskCommands) -> Result<()> {
     match action {
         SubtaskCommands::List { todo_id, json } => {
-            let subtasks: Vec<serde_json::Value> =
-                client.request("subtasks:get-for-todo", Some(&serde_json::json!({"todoId": todo_id})))?;
+            let subtasks: serde_json::Value =
+                runtime.core.get_subtasks_for_todo(todo_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let subtasks = subtasks.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&subtasks);
             } else {
@@ -63,35 +72,28 @@ pub fn cmd_subtask(client: &ApiClient, action: &SubtaskCommands) -> Result<()> {
             text,
             description,
         } => {
-            let _ = client.request::<serde_json::Value>(
-                "subtasks:add",
-                Some(&serde_json::json!({"todoId": todo_id, "text": text, "description": description, "completed": false})),
-            )?;
+            let _ = runtime.core.add_subtask(serde_json::json!({
+                "todoId": todo_id,
+                "text": text,
+                "description": description.as_deref().unwrap_or("")
+            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务已添加: {}", text));
         }
         SubtaskCommands::Complete { id } => {
-            let text = find_subtask_text(client, id);
-            let _ = client.request::<serde_json::Value>(
-                "subtasks:update",
-                Some(&serde_json::json!({"id": id, "completed": true})),
-            )?;
+            let text = find_subtask_text(runtime, id).await;
+            let _ = runtime.core.update_subtask(serde_json::json!({
+                "id": id,
+                "text": "",
+                "description": "",
+                "completed": true
+            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务「{}」已完成", text));
         }
         SubtaskCommands::Delete { id } => {
-            let text = find_subtask_text(client, id);
-            let _ = client.request::<serde_json::Value>(
-                "subtasks:delete",
-                Some(&serde_json::json!({"id": id})),
-            )?;
+            let text = find_subtask_text(runtime, id).await;
+            let _ = runtime.core.delete_subtask(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务「{}」已删除", text));
         }
-    }
-    Ok(())
-}
-
-pub fn check_connection(client: &ApiClient) -> Result<()> {
-    if !client.health_check() {
-        anyhow::bail!("无法连接到 SuperTool (UDS socket)\n请确保 GUI 已启动，~/.supertool/supertool.sock 存在。\n设置 SUPERTOOL_SOCKET 环境变量可指定 socket 路径。");
     }
     Ok(())
 }
@@ -105,33 +107,38 @@ fn print_todo(t: &Todo) {
     println!("  {} {} {}", t.id, status, t.text);
 }
 
-fn resolve_todo_text(client: &ApiClient, id: &str) -> String {
-    let todos: Vec<Todo> = match client.request("todos:get-all", None) {
+async fn resolve_todo_text(runtime: &mut CliRuntime, id: &str) -> String {
+    let todos: serde_json::Value = match runtime.core.get_all_todos().await {
         Ok(t) => t,
         Err(_) => return id.to_string(),
     };
+    let todos = todos.as_array().cloned().unwrap_or_default();
     todos
         .iter()
-        .find(|t| t.id == id)
-        .map(|t| t.text.clone())
+        .find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))
+        .and_then(|t| t.get("text").and_then(|v| v.as_str()))
+        .map(|s| s.to_string())
         .unwrap_or_else(|| id.to_string())
 }
 
-fn find_subtask_text(client: &ApiClient, id: &str) -> String {
-    let todos: Vec<Todo> = match client.request("todos:get-all", None) {
+async fn find_subtask_text(runtime: &mut CliRuntime, id: &str) -> String {
+    let todos: serde_json::Value = match runtime.core.get_all_todos().await {
         Ok(t) => t,
         Err(_) => return id.to_string(),
     };
+    let todos = todos.as_array().cloned().unwrap_or_default();
     for todo in &todos {
-        if let Ok(subtasks) =
-            client.request::<Vec<serde_json::Value>>("subtasks:get-for-todo", Some(&serde_json::json!({"todoId": todo.id})))
-        {
-            if let Some(st) = subtasks
-                .iter()
-                .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id))
-            {
-                if let Some(text) = st.get("text").and_then(|v| v.as_str()) {
-                    return text.to_string();
+        if let Some(todo_id) = todo.get("id").and_then(|v| v.as_str()) {
+            if let Ok(subtasks) = runtime.core.get_subtasks_for_todo(todo_id).await {
+                if let Some(arr) = subtasks.as_array() {
+                    if let Some(st) = arr
+                        .iter()
+                        .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id))
+                    {
+                        if let Some(text) = st.get("text").and_then(|v| v.as_str()) {
+                            return text.to_string();
+                        }
+                    }
                 }
             }
         }
@@ -139,16 +146,14 @@ fn find_subtask_text(client: &ApiClient, id: &str) -> String {
     id.to_string()
 }
 
-pub fn cmd_add(
-    client: &ApiClient,
+pub async fn cmd_add(
+    runtime: &mut CliRuntime,
     text: &str,
     priority: &str,
     due: &Option<String>,
     tag: &str,
     description: &str,
-    json: bool,
 ) -> Result<()> {
-    check_connection(client)?;
     let todo = serde_json::json!({
         "text": text,
         "priority": priority,
@@ -157,25 +162,28 @@ pub fn cmd_add(
         "description": description,
         "completed": false
     });
-    let resp: serde_json::Value = client.request("todos:add", Some(&todo))?;
-    if json {
-        print_json(&resp);
-    } else {
-        print_success(&format!("任务已添加: {}", text));
-    }
+    let resp: serde_json::Value = runtime.core.add_todo(todo).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    print_success(&format!("任务已添加: {}", resp.get("text").and_then(|v| v.as_str()).unwrap_or(text)));
     Ok(())
 }
 
-pub fn cmd_list(
-    client: &ApiClient,
+pub async fn cmd_list(
+    runtime: &mut CliRuntime,
     completed: Option<bool>,
     tag: &Option<String>,
     limit: usize,
     json: bool,
 ) -> Result<()> {
-    check_connection(client)?;
-    let todos: Vec<Todo> = client.request("todos:get-all", None)?;
-    let mut filtered: Vec<&Todo> = todos.iter().collect();
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: Vec<serde_json::Value> = todos.as_array().cloned().unwrap_or_default();
+
+    // Deserialize to Todo structs for filtering
+    let todo_structs: Vec<Todo> = todos
+        .iter()
+        .filter_map(|v| serde_json::from_value::<Todo>(v.clone()).ok())
+        .collect();
+
+    let mut filtered: Vec<&Todo> = todo_structs.iter().collect();
     if let Some(c) = completed {
         filtered.retain(|t| t.completed == c);
     }
@@ -184,6 +192,7 @@ pub fn cmd_list(
     }
     filtered.sort_by(|a, b| a.created_at.cmp(&b.created_at).reverse());
     filtered.truncate(limit);
+
     if json {
         print_json(&filtered);
     } else {
@@ -191,8 +200,11 @@ pub fn cmd_list(
             println!("  暂无任务");
         } else {
             // 获取项目名称
-            let projects: Vec<serde_json::Value> = client.request("projects:get-all", None).unwrap_or_default();
+            let projects: serde_json::Value = runtime.core.get_all_projects(false).await.unwrap_or(serde_json::json!([]));
             let project_map: std::collections::HashMap<String, String> = projects
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
                 .iter()
                 .filter_map(|p| {
                     let id = p.get("id").and_then(|v| v.as_str())?;
@@ -226,37 +238,40 @@ pub fn cmd_list(
     Ok(())
 }
 
-pub fn cmd_complete(client: &ApiClient, id: &str) -> Result<()> {
-    check_connection(client)?;
-    let text = resolve_todo_text(client, id);
-    let _ = client.request::<serde_json::Value>(
-        "todos:update",
-        Some(&serde_json::json!({"id": id, "completed": true})),
-    )?;
+pub async fn cmd_complete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
+    let text = resolve_todo_text(runtime, id).await;
+    let _ = runtime.core.update_todo(serde_json::json!({
+        "id": id,
+        "text": "",
+        "completed": true,
+        "priority": "medium",
+        "dueDate": "",
+        "description": "",
+        "tag": ""
+    })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已标记为完成", text));
     Ok(())
 }
 
-pub fn cmd_delete(client: &ApiClient, id: &str) -> Result<()> {
-    check_connection(client)?;
-    let text = resolve_todo_text(client, id);
-    let _ = client.request::<serde_json::Value>(
-        "todos:delete",
-        Some(&serde_json::json!({"id": id})),
-    )?;
+pub async fn cmd_delete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
+    let text = resolve_todo_text(runtime, id).await;
+    let _ = runtime.core.delete_todo(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已删除", text));
     Ok(())
 }
 
-pub fn cmd_show(client: &ApiClient, id: &str, json: bool) -> Result<()> {
-    check_connection(client)?;
-    let todos: Vec<Todo> = client.request("todos:get-all", None)?;
-    if let Some(todo) = todos.iter().find(|t| t.id == id) {
+pub async fn cmd_show(runtime: &mut CliRuntime, id: &str, json: bool) -> Result<()> {
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos = todos.as_array().cloned().unwrap_or_default();
+
+    if let Some(todo_json) = todos.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id)) {
+        let todo: Todo = serde_json::from_value(todo_json.clone())
+            .map_err(|e| anyhow::anyhow!("解析任务数据失败: {}", e))?;
         if json {
-            print_json(todo);
+            print_json(&todo);
         } else {
             println!("\n  任务详情:");
-            print_todo(todo);
+            print_todo(&todo);
             if !todo.description.is_empty() {
                 println!("\n  描述: {}", todo.description);
             }
@@ -274,15 +289,15 @@ pub fn cmd_show(client: &ApiClient, id: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd_stats(client: &ApiClient, json: bool) -> Result<()> {
-    check_connection(client)?;
-    let todos: Vec<Todo> = client.request("todos:get-all", None)?;
+pub async fn cmd_stats(runtime: &mut CliRuntime, json: bool) -> Result<()> {
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos = todos.as_array().cloned().unwrap_or_default();
     let total = todos.len();
-    let completed = todos.iter().filter(|t| t.completed).count();
+    let completed = todos.iter().filter(|t| t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false)).count();
     let pending = total - completed;
     let high = todos
         .iter()
-        .filter(|t| t.priority == "high" && !t.completed)
+        .filter(|t| t.get("priority").and_then(|v| v.as_str()) == Some("high") && !t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false))
         .count();
     if json {
         print_json(&serde_json::json!({
@@ -300,32 +315,35 @@ pub fn cmd_stats(client: &ApiClient, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd_clear(client: &ApiClient) -> Result<()> {
-    check_connection(client)?;
-    let todos: Vec<Todo> = client.request("todos:get-all", None)?;
-    let completed: Vec<_> = todos.iter().filter(|t| t.completed).collect();
+pub async fn cmd_clear(runtime: &mut CliRuntime) -> Result<()> {
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos = todos.as_array().cloned().unwrap_or_default();
+    let completed: Vec<_> = todos
+        .iter()
+        .filter(|t| t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false))
+        .collect();
     let count = completed.len();
     for t in &completed {
-        let _ = client.request::<serde_json::Value>(
-            "todos:delete",
-            Some(&serde_json::json!({"id": t.id})),
-        );
+        if let Some(id) = t.get("id").and_then(|v| v.as_str()) {
+            let _ = runtime.core.delete_todo(id).await;
+        }
     }
     print_success(&format!("已清空 {} 个已完成任务", count));
     Ok(())
 }
 
-pub fn cmd_search(client: &ApiClient, keyword: &str, json: bool) -> Result<()> {
-    check_connection(client)?;
-    let todos: Vec<Todo> = client.request("todos:get-all", None)?;
+pub async fn cmd_search(runtime: &mut CliRuntime, keyword: &str, json: bool) -> Result<()> {
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos = todos.as_array().cloned().unwrap_or_default();
     let kw = keyword.to_lowercase();
     let matched: Vec<_> = todos
         .iter()
         .filter(|t| {
-            t.text.to_lowercase().contains(&kw)
-                || t.description.to_lowercase().contains(&kw)
-                || t.tag.to_lowercase().contains(&kw)
+            t.get("text").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
+                || t.get("description").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
+                || t.get("tag").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
         })
+        .filter_map(|v| serde_json::from_value::<Todo>(v.clone()).ok())
         .collect();
     if json {
         print_json(&matched);
@@ -342,8 +360,8 @@ pub fn cmd_search(client: &ApiClient, keyword: &str, json: bool) -> Result<()> {
     Ok(())
 }
 
-pub fn cmd_edit(
-    client: &ApiClient,
+pub async fn cmd_edit(
+    runtime: &mut CliRuntime,
     id: &str,
     text: &Option<String>,
     priority: &Option<String>,
@@ -351,40 +369,71 @@ pub fn cmd_edit(
     tag: &Option<String>,
     description: &Option<String>,
 ) -> Result<()> {
-    check_connection(client)?;
+    // First get current todo to fill in missing fields
+    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos = todos.as_array().cloned().unwrap_or_default();
+    let current = todos.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id));
+
     let mut update = serde_json::Map::new();
     update.insert("id".into(), serde_json::Value::String(id.to_string()));
+
     if let Some(t) = text {
         update.insert("text".into(), serde_json::Value::String(t.clone()));
+    } else if let Some(cur) = current {
+        update.insert("text".into(), cur.get("text").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+    } else {
+        update.insert("text".into(), serde_json::Value::String("".to_string()));
     }
+
     if let Some(p) = priority {
         update.insert("priority".into(), serde_json::Value::String(p.clone()));
+    } else if let Some(cur) = current {
+        update.insert("priority".into(), cur.get("priority").cloned().unwrap_or(serde_json::Value::String("medium".to_string())));
+    } else {
+        update.insert("priority".into(), serde_json::Value::String("medium".to_string()));
     }
+
     if let Some(d) = due {
         update.insert("dueDate".into(), serde_json::Value::String(d.clone()));
+    } else if let Some(cur) = current {
+        update.insert("dueDate".into(), cur.get("dueDate").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+    } else {
+        update.insert("dueDate".into(), serde_json::Value::String("".to_string()));
     }
+
+    if let Some(d) = description {
+        update.insert("description".into(), serde_json::Value::String(d.clone()));
+    } else if let Some(cur) = current {
+        update.insert("description".into(), cur.get("description").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+    } else {
+        update.insert("description".into(), serde_json::Value::String("".to_string()));
+    }
+
     if let Some(t) = tag {
         update.insert("tag".into(), serde_json::Value::String(t.clone()));
+    } else if let Some(cur) = current {
+        update.insert("tag".into(), cur.get("tag").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+    } else {
+        update.insert("tag".into(), serde_json::Value::String("".to_string()));
     }
-    if let Some(d) = description {
-        update.insert(
-            "description".into(),
-            serde_json::Value::String(d.clone()),
-        );
-    }
-    let _ = client.request::<serde_json::Value>("todos:update", Some(&serde_json::Value::Object(update)))?;
-    let text = resolve_todo_text(client, id);
-    print_success(&format!("任务「{}」已更新", text));
+
+    let _ = runtime.core.update_todo(serde_json::Value::Object(update)).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let text_display = resolve_todo_text(runtime, id).await;
+    print_success(&format!("任务「{}」已更新", text_display));
     Ok(())
 }
 
-pub fn cmd_uncomplete(client: &ApiClient, id: &str) -> Result<()> {
-    check_connection(client)?;
-    let text = resolve_todo_text(client, id);
-    let _ = client.request::<serde_json::Value>(
-        "todos:update",
-        Some(&serde_json::json!({"id": id, "completed": false})),
-    )?;
+pub async fn cmd_uncomplete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
+    let text = resolve_todo_text(runtime, id).await;
+    let _ = runtime.core.update_todo(serde_json::json!({
+        "id": id,
+        "text": "",
+        "completed": false,
+        "priority": "medium",
+        "dueDate": "",
+        "description": "",
+        "tag": ""
+    })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已恢复为未完成", text));
     Ok(())
 }

@@ -6,11 +6,9 @@ use crate::core::wireguard;
 mod core;
 mod db;
 mod encryption;
-mod uds;
 
 use crate::core::CoreService;
 use crate::db::Database;
-use crate::uds::{resolve_socket_path, UdsServer};
 use std::sync::Arc;
 use std::sync::OnceLock;
 use tauri::Manager;
@@ -274,26 +272,6 @@ fn main() {
                     log::info!("[MENU] Emitting 'menu:{}'", action);
                     let _ = handle_clone.emit(&format!("menu:{}", action), ());
                 }
-            });
-
-            // Start UDS Server for CLI (stool)
-            let socket_path = resolve_socket_path();
-            log::info!(
-                "[Main] Starting UDS server on unix://{}",
-                socket_path.display()
-            );
-
-            let uds_server = UdsServer::new(socket_path.clone(), uds_core);
-            log::info!("[Main] UDS Server initialized");
-
-            // Run UDS server in background thread
-            std::thread::spawn(move || {
-                let rt = tokio::runtime::Runtime::new().expect("Failed to create tokio runtime");
-                rt.block_on(async {
-                    if let Err(e) = uds_server.start().await {
-                        log::error!("[UDS] Server failed: {}", e);
-                    }
-                });
             });
 
             log::info!("[Main] === SuperTool Tauri ready ===");
