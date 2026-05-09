@@ -3,14 +3,14 @@
     <!-- 页面头部 -->
     <div class="flex items-center justify-between px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl">
       <div class="flex items-center gap-3">
-        <span class="text-2xl"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+        <span class="text-2xl"><SvgIcon name="lock" size="14" /></span>
         <div class="flex flex-col gap-0.5">
           <h2 class="m-0 text-lg font-bold text-base-content">MFA 验证码</h2>
           <p class="m-0 text-xs text-base-content/60">双因素身份验证令牌管理器</p>
         </div>
       </div>
       <button class="btn btn-primary btn-sm gap-1.5" @click="showAddDialog = true">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <SvgIcon name="plus" size="14" />
         添加账户
       </button>
     </div>
@@ -36,14 +36,12 @@
     <!-- 空状态 -->
     <div v-if="secrets.length === 0" class="flex flex-col items-center justify-center gap-4 py-20 text-center text-base-content/60">
       <div class="flex h-20 w-20 items-center justify-center rounded-full bg-base-200">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="text-base-content/30">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-        </svg>
+        <SvgIcon name="lock" size="48" stroke-width="1.5" class="text-base-content/30" />
       </div>
       <p class="m-0 text-base font-semibold text-base-content">暂无 MFA 账户</p>
       <p class="m-0 text-sm opacity-70">点击「添加账户」录入你的第一个 MFA 密钥</p>
       <button class="btn btn-primary btn-sm" @click="showAddDialog = true">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <SvgIcon name="plus" size="14" />
         添加第一个账户
       </button>
     </div>
@@ -66,10 +64,10 @@
           </div>
           <div class="flex gap-1 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             <button class="btn btn-ghost btn-square h-6 w-6 text-base-content/60 hover:bg-primary/10 hover:text-primary min-h-0" @click.stop="editEntry(entry)" title="编辑">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              <SvgIcon name="pencil" size="12" />
             </button>
             <button class="btn btn-ghost btn-square h-6 w-6 text-base-content/60 hover:bg-error/10 hover:text-error min-h-0" @click.stop="confirmDelete(entry)" title="删除">
-              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <SvgIcon name="trash" size="12" />
             </button>
           </div>
         </div>
@@ -101,7 +99,7 @@
     <!-- 复制成功提示 -->
     <Transition name="copy-toast">
       <div v-if="showCopyToast" class="fixed bottom-8 left-1/2 z-[10001] flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-base-content px-5 py-2.5 text-sm font-medium text-base-100">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+        <SvgIcon name="check" size="14" />
         已复制
       </div>
     </Transition>
@@ -111,7 +109,7 @@
       <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="closeDialogs">
         <div class="w-[90%] max-w-[520px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
-            <h3 class="m-0 text-base font-semibold text-base-content"><template v-if="editingTarget"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑账户</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg> 添加 MFA 账户</template></h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><template v-if="editingTarget"><SvgIcon name="pencil" size="14" /> 编辑账户</template><template v-else><SvgIcon name="key" size="14" /> 添加 MFA 账户</template></h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="closeDialogs">×</button>
           </div>
           <div class="px-5 py-5">
@@ -188,7 +186,7 @@
       <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="deleteTarget = null">
         <div class="w-[90%] max-w-[400px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
-            <h3 class="m-0 text-base font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 确认删除</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><SvgIcon name="alertTriangle" size="14" /> 确认删除</h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="deleteTarget = null">×</button>
           </div>
           <div class="px-5 py-5">

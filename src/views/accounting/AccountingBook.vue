@@ -2,10 +2,10 @@
   <div class="flex flex-col h-full gap-4">
     <!-- Header -->
     <div class="flex items-center justify-between shrink-0">
-      <h2 class="text-xl font-bold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg> 企业记账</h2>
+      <h2 class="text-xl font-bold text-base-content"><SvgIcon name="book" :size="14" class="inline-block align-text-bottom" /> 企业记账</h2>
       <div class="flex gap-2">
         <button @click="showTemplates = true" class="btn btn-ghost btn-sm" title="快捷模板">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  快捷记账
+          <SvgIcon name="zap" :size="14" class="inline-block align-text-bottom" />  快捷记账
         </button>
         <button @click="openAddRecord" class="btn btn-primary btn-sm">
           <SvgIcon name="plus" :size="14" />
@@ -16,7 +16,7 @@
           导出账本
         </button>
         <button @click="showBudgetManager = true" class="btn btn-ghost btn-sm" title="预算管理">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>  预算
+          <SvgIcon name="cd" :size="14" class="inline-block align-text-bottom" />  预算
         </button>
         <button @click="showCategoryManager = true" class="btn btn-ghost btn-sm">
           <SvgIcon name="settings" :size="14" class="inline-block align-text-bottom" /> 分类管理
@@ -93,7 +93,7 @@
     <div v-if="budgetAlerts.length > 0" class="bg-base-100 border border-warning rounded-xl p-3 shrink-0">
       <div class="flex justify-between items-center mb-2">
         <span class="text-xs font-semibold text-warning"><SvgIcon name="alertTriangle" :size="14" class="inline-block align-text-bottom" /> 预算预警</span>
-        <button @click="loadBudgetAlerts" class="btn btn-ghost btn-xs" title="刷新"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> </button>
+        <button @click="loadBudgetAlerts" class="btn btn-ghost btn-xs" title="刷新"><SvgIcon name="refresh" :size="14" /> </button>
       </div>
       <div class="flex flex-col gap-1.5">
         <div v-for="alert in budgetAlerts" :key="alert.category" class="flex items-center gap-2 text-xs" :class="{ 'bg-error/5 rounded-sm p-1 -mx-1 -my-1': alert.over }">
@@ -238,10 +238,7 @@
                 >
                   <img v-if="isImage(att.name)" :src="getFileUrl(att.path)" :alt="att.name" class="w-full h-full object-cover" />
                   <div v-else class="w-full h-full flex items-center justify-center text-error">
-                    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
+                    <SvgIcon name="file" :size="20" />
                   </div>
                 </div>
                 <span v-if="record.attachments_json.length > 3" class="text-[10px] text-base-content/60 px-1">+{{ record.attachments_json.length - 3 }}</span>
@@ -414,11 +411,7 @@
                 style="display: none"
               />
               <div v-if="!form.attachments.length" class="flex flex-col items-center gap-2">
-                <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" class="text-base-content/60 opacity-50">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
+                <SvgIcon name="upload" :size="40" stroke-width="1.5" class="text-base-content/60 opacity-50" />
                 <p class="text-sm text-base-content m-0">拖拽文件到此处，或点击选择</p>
                 <p class="text-xs text-base-content/60 m-0">支持 PDF、PNG、JPG、GIF 格式</p>
               </div>
@@ -530,7 +523,7 @@
       <div v-if="showTemplates" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showTemplates = false">
         <div class="bg-base-100 border border-base-content/10 rounded-xl w-[560px] max-h-[80vh] flex flex-col shadow-2xl max-sm:!w-[95vw]">
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  快捷记账模板</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><SvgIcon name="zap" :size="14" class="inline-block align-text-bottom" />  快捷记账模板</h3>
             <button @click="showTemplates = false" class="w-7 h-7 border-none bg-transparent text-base-content/60 text-xl cursor-pointer rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary">×</button>
           </div>
           <div class="px-5 py-4 overflow-y-auto flex-1">
@@ -561,7 +554,7 @@
       <div v-if="showBudgetManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showBudgetManager = false">
         <div class="bg-base-100 border border-base-content/10 rounded-xl w-[560px] max-h-[80vh] flex flex-col shadow-2xl max-sm:!w-[95vw]">
           <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-            <h3 class="m-0 text-base font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>  预算管理</h3>
+            <h3 class="m-0 text-base font-semibold text-base-content"><SvgIcon name="cd" :size="14" class="inline-block align-text-bottom" />  预算管理</h3>
             <button @click="showBudgetManager = false" class="w-7 h-7 border-none bg-transparent text-base-content/60 text-xl cursor-pointer rounded-lg flex items-center justify-center hover:bg-primary/10 hover:text-primary">×</button>
           </div>
           <div class="px-5 py-4 overflow-y-auto flex-1">
