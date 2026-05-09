@@ -2206,6 +2206,19 @@ impl CoreService {
             }
 
             let output = self.ssh.exec_command(server_id, &cmd);
+            let output = match output {
+                Ok(r) => Ok(r),
+                Err(e) => {
+                    // 连接可能已断开，重连一次
+                    log::warn!("[log_search] exec_command failed for {}, retrying: {}", server_id, e);
+                    self.ssh.disconnect(server_id);
+                    if let Err(re) = self.ssh.connect(&config) {
+                        Err(format!("重连失败: {}", re))
+                    } else {
+                        self.ssh.exec_command(server_id, &cmd)
+                    }
+                }
+            };
             match output {
                 Ok(exec_result) => {
                     let lines = parse_grep_output(&exec_result.output, keyword);
