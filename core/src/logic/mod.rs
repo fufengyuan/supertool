@@ -2235,10 +2235,431 @@ impl CoreService {
     // ============ CI/CD ============
 
     pub async fn cicd_deploy(&self, config_id: &str) -> Result<Value, String> {
+        // Get CICD config from DB
+        let cicd_config = self.db_read(|conn| {
+            crate::db::cicd::get_cicd_config_by_config_id(conn, config_id)
+                .map_err(|e| e.to_string())
+        })??
+        .ok_or("CI/CD 配置不存在")?;
+
+        // Check approval requirement
+        if cicd_config.requires_approval {
+            return Ok(json!({
+                "success": false,
+                "requiresApproval": true,
+                "configName": cicd_config.name
+            }));
+        }
+
+        // Get deploy modules
+        let modules = self.db_read(|conn| {
+            crate::db::cicd::get_deploy_modules(conn, config_id).expect("db error")
+        })?;
+
+        // Parse server references from config JSON
+        let servers: Vec<crate::logic::cicd_deploy::DeployServerConfig> = if let Some(ref servers_str) = cicd_config.servers {
+            #[derive(serde::Deserialize)]
+            struct ServerRef {
+                #[serde(rename = "serverId")]
+                server_id: String,
+                #[serde(rename = "deployDir")]
+                deploy_dir: String,
+            }
+            let refs: Vec<ServerRef> =
+                serde_json::from_str(servers_str).map_err(|e| format!("解析服务器引用失败: {}", e))?;
+
+            refs.into_iter()
+                .map(|r| {
+                    let server = self.db_read(|conn| {
+                        conn.query_row(
+                            "SELECT * FROM servers WHERE id = ?",
+                            rusqlite::params![r.server_id],
+                            crate::db::servers::row_to_server,
+                        )
+                        .map_err(|e| e.to_string())
+                    })??;
+                    let password = server.password.map(|pw| crate::encryption::try_decrypt_password(&pw));
+                    let base_deploy_dir = if r.deploy_dir.is_empty() {
+                        cicd_config.deploy_path.clone()
+                    } else {
+                        r.deploy_dir
+                    };
+                    Ok(crate::logic::cicd_deploy::DeployServerConfig {
+                        host: server.host,
+                        port: server.port as u16,
+                        username: server.username,
+                        password,
+                        private_key: server.ssh_key_path,
+                        deploy_dir: base_deploy_dir.clone(),
+                        lib_dir: if cicd_config.lib_separate {
+                            Some(format!("{}/lib", base_deploy_dir))
+                        } else {
+                            None
+                        },
+                        label: Some(server.name),
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?
+        } else {
+            vec![]
+        };
+
+        // Build module configs
+        let module_configs: Vec<crate::logic::cicd_deploy::DeployModuleConfig> = modules
+            .iter()
+            .map(|m| crate::logic::cicd_deploy::DeployModuleConfig {
+                name: Some(m.module_name.clone()),
+                path: Some(m.module_path.clone()),
+                build_path: m.build_path.clone(),
+                build_command: m.build_command.clone(),
+                build_tool: m.build_tool.clone(),
+                output_path: m.output_path.clone(),
+                artifact_name: Some(m.artifact_name.clone()),
+                artifact_type: m.artifact_type.clone(),
+                lib_filter_rules: m.lib_filter_rules.clone(),
+                deploy_order: m.deploy_order,
+                deploy_path: m.deploy_path.clone(),
+                enabled: m.enabled,
+            })
+            .collect();
+
+        let deploy_config = crate::logic::cicd_deploy::DeployConfig {
+            repo_url: cicd_config.repo_url.clone().unwrap_or_default(),
+            branch: cicd_config.deploy_branch.clone(),
+            local_path: cicd_config.local_path.clone(),
+            build_tool: cicd_config.build_tool.clone(),
+            build_command: cicd_config.build_command.clone(),
+            build_path: cicd_config.build_path.clone(),
+            npm_script: cicd_config.npm_script.clone(),
+            npm_custom_script: cicd_config.npm_custom_script.clone(),
+            maven_home: cicd_config.maven_home.clone(),
+            java_home: cicd_config.java_home.clone(),
+            npm_home: cicd_config.npm_home.clone(),
+            node_home: cicd_config.node_home.clone(),
+            maven_profile: Some(cicd_config.maven_profile.clone()),
+            maven_settings: cicd_config.maven_settings.clone(),
+            modules: module_configs,
+            skip_tests: true,
+            parent_build_mode: cicd_config.parent_build_mode,
+            parent_build_path: if cicd_config.parent_build_path.is_empty() {
+                None
+            } else {
+                Some(cicd_config.parent_build_path.clone())
+            },
+            servers,
+            deploy_dir: cicd_config.deploy_path.clone(),
+            lib_dir: if cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven") {
+                Some(format!("{}/lib", cicd_config.deploy_path))
+            } else {
+                None
+            },
+            restart_script: if cicd_config.restart_script.is_empty() {
+                None
+            } else {
+                Some(cicd_config.restart_script.clone())
+            },
+            lib_separate: cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven"),
+        };
+
+        // Create deploy_id and deploy log
+        let deploy_id = uuid::Uuid::new_v4().to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let deploy_log = crate::db::cicd::DeployLog {
+            id: deploy_id.clone(),
+            project_id: cicd_config.project_id.clone(),
+            config_id: config_id.to_string(),
+            status: "running".to_string(),
+            start_time: now.clone(),
+            end_time: None,
+            error_message: None,
+            progress: 0,
+            triggered_by: "user".to_string(),
+            created_at: now.clone(),
+            log_file_path: None,
+            artifact_paths: None,
+        };
+
+        // Save deploy log
+        self.db_write(|conn| {
+            crate::db::cicd::add_deploy_log(conn, &deploy_log).expect("db error");
+            crate::db::cicd::touch_cicd_config_deploy(conn, config_id).expect("db error");
+        })?;
+
+        // Collect step logs in memory during deploy
+        let step_logs_arc = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+
+        // Execute deploy (async)
+        let data_dir_str = self.app_dir.to_string_lossy().to_string();
+        let deploy_id_for_cb = deploy_id.clone();
+        let step_logs_for_cb = step_logs_arc.clone();
+
+        let result = crate::logic::cicd_deploy::execute_deploy(
+            &deploy_config,
+            &data_dir_str,
+            &deploy_id,
+            move |event: crate::logic::cicd_deploy::ProgressEvent| {
+                let mut logs = step_logs_for_cb.lock().unwrap();
+                logs.push(crate::db::cicd::DeployStepLog {
+                    id: 0, // auto-increment
+                    deploy_log_id: deploy_id_for_cb.clone(),
+                    stage: event.stage,
+                    status: event.status,
+                    message: Some(event.message),
+                    timestamp: chrono::Utc::now().to_rfc3339(),
+                });
+            },
+        )
+        .await;
+
+        // Write accumulated step logs to DB
+        {
+            let logs = step_logs_arc.lock().unwrap();
+            let _ = self.db_write(|conn| {
+                for step in logs.iter() {
+                    let _ = crate::db::cicd::add_deploy_step_log(conn, step);
+                }
+            });
+        }
+
+        // Update deploy log with result
+        let (final_status, final_error, final_progress, final_log_path, final_artifact_paths) = match &result {
+            Ok(r) => {
+                let status = if r.success { "success".to_string() } else { "failed".to_string() };
+                (
+                    status,
+                    r.error.clone(),
+                    if r.success { 100 } else { 0 },
+                    Some(r.log_file_path.clone()),
+                    Some(serde_json::to_string(&r.artifact_paths).unwrap_or_default()),
+                )
+            }
+            Err(e) => ("failed".to_string(), Some(e.clone()), 0, None, None),
+        };
+
+        let end_time = chrono::Utc::now().to_rfc3339();
+        let updated_log = crate::db::cicd::DeployLog {
+            id: deploy_id.clone(),
+            project_id: cicd_config.project_id.clone(),
+            config_id: config_id.to_string(),
+            status: final_status.clone(),
+            start_time: now.clone(),
+            end_time: Some(end_time.clone()),
+            error_message: final_error,
+            progress: final_progress,
+            triggered_by: "user".to_string(),
+            created_at: now.clone(),
+            log_file_path: final_log_path.clone(),
+            artifact_paths: final_artifact_paths,
+        };
+        let _ = self.db_write(|conn| crate::db::cicd::update_deploy_log(conn, &updated_log));
+
+        // Add to deploy history
+        let history = crate::db::cicd::DeployHistory {
+            id: uuid::Uuid::new_v4().to_string(),
+            config_id: config_id.to_string(),
+            project_id: cicd_config.project_id.clone(),
+            status: final_status,
+            deployed_at: end_time,
+            rolled_back: false,
+            rolled_back_at: None,
+        };
+        let _ = self.db_write(|conn| crate::db::cicd::add_deploy_history(conn, &history));
+
+        match result {
+            Ok(r) => Ok(json!({
+                "success": true,
+                "deployId": r.deploy_id,
+                "logFilePath": r.log_file_path,
+            })),
+            Err(e) => Ok(json!({
+                "success": false,
+                "error": e,
+            })),
+        }
+    }
+
+    pub async fn cicd_cancel_deploy(&self, deploy_log_id: &str) -> Result<Value, String> {
+        let deploy_log = self.db_read(|conn| {
+            crate::db::cicd::get_deploy_log_by_id(conn, deploy_log_id)
+                .map_err(|e| e.to_string())
+        })??
+        .ok_or("部署记录不存在")?;
+
+        if deploy_log.status != "running" && deploy_log.status != "pending" {
+            return Ok(json!({
+                "success": false,
+                "error": format!("当前状态 ({}) 不允许取消", deploy_log.status)
+            }));
+        }
+
+        let end_time = chrono::Utc::now().to_rfc3339();
+        let updated_log = crate::db::cicd::DeployLog {
+            id: deploy_log.id.clone(),
+            project_id: deploy_log.project_id.clone(),
+            config_id: deploy_log.config_id.clone(),
+            status: "cancelled".to_string(),
+            start_time: deploy_log.start_time.clone(),
+            end_time: Some(end_time),
+            error_message: deploy_log.error_message,
+            progress: deploy_log.progress,
+            triggered_by: deploy_log.triggered_by.clone(),
+            created_at: deploy_log.created_at.clone(),
+            log_file_path: deploy_log.log_file_path,
+            artifact_paths: deploy_log.artifact_paths,
+        };
+
+        self.db_write(|conn| {
+            crate::db::cicd::update_deploy_log(conn, &updated_log).expect("db error");
+        })?;
+
         Ok(json!({
-            "configId": config_id,
-            "note": "CI/CD deploy 尚未实现"
+            "success": true,
+            "message": "部署已取消"
         }))
+    }
+
+    pub async fn cicd_rollback(&self, config_id: &str, log_id: &str) -> Result<Value, String> {
+        let deploy_log = self.db_read(|conn| {
+            crate::db::cicd::get_deploy_log_by_id(conn, log_id)
+                .map_err(|e| e.to_string())
+        })??
+        .ok_or("部署记录不存在")?;
+
+        let cicd_config = self.db_read(|conn| {
+            crate::db::cicd::get_cicd_config_by_config_id(conn, config_id)
+                .map_err(|e| e.to_string())
+        })??
+        .ok_or("CI/CD 配置不存在")?;
+
+        let rollback_id = uuid::Uuid::new_v4().to_string();
+
+        // Parse servers from config JSON
+        let mut rollback_errors: Vec<String> = Vec::new();
+        if let Some(ref servers_str) = cicd_config.servers {
+            if let Ok(servers) = serde_json::from_str::<Vec<serde_json::Value>>(servers_str) {
+                for server_val in &servers {
+                    let host = server_val.get("host")
+                        .or_else(|| server_val.get("serverId"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if host.is_empty() {
+                        continue;
+                    }
+
+                    // Query full server config from servers table
+                    let server = match self.db_read(|conn| {
+                        conn.query_row(
+                            "SELECT * FROM servers WHERE id = ? OR host = ?",
+                            rusqlite::params![host, host],
+                            crate::db::servers::row_to_server,
+                        )
+                    }) {
+                        Ok(Ok(s)) => s,
+                        _ => {
+                            rollback_errors.push(format!("{}: 服务器不存在", host));
+                            continue;
+                        }
+                    };
+
+                    let port = server.port as u16;
+                    let username = server.username.clone();
+                    let password = server.password.clone()
+                        .map(|pw| crate::encryption::try_decrypt_password(&pw));
+                    let private_key = server.ssh_key_path.clone();
+
+                    // Execute restart script via SSH
+                    if let Err(e) = self.cicd_execute_remote_restart(
+                        &host, port, &username, password.as_deref(), private_key.as_deref(),
+                        &cicd_config.restart_script,
+                    ) {
+                        log::error!("[rollback] {}:{} restart failed: {}", host, port, e);
+                        rollback_errors.push(format!("{}:{} → {}", host, port, e));
+                    } else {
+                        log::info!("[rollback] {}:{} restart successful", host, port);
+                    }
+                }
+            } else {
+                rollback_errors.push("服务器配置解析失败".to_string());
+            }
+        } else {
+            rollback_errors.push("未配置部署服务器".to_string());
+        }
+
+        // Record rollback in deploy history
+        let now = chrono::Utc::now().to_rfc3339();
+        let history = crate::db::cicd::DeployHistory {
+            id: rollback_id,
+            config_id: config_id.to_string(),
+            project_id: deploy_log.project_id,
+            status: if rollback_errors.is_empty() {
+                "rollback-success".to_string()
+            } else {
+                "rollback-partial".to_string()
+            },
+            deployed_at: now.clone(),
+            rolled_back: true,
+            rolled_back_at: Some(now.clone()),
+        };
+        self.db_write(|conn| {
+            crate::db::cicd::add_deploy_history(conn, &history).expect("db error");
+        })?;
+
+        Ok(json!({
+            "success": rollback_errors.is_empty(),
+            "status": if rollback_errors.is_empty() { "rollback-success" } else { "rollback-partial" },
+            "errors": rollback_errors,
+        }))
+    }
+
+    /// Execute a restart command on a remote server via SSH (used by rollback)
+    fn cicd_execute_remote_restart(
+        &self,
+        host: &str,
+        port: u16,
+        username: &str,
+        password: Option<&str>,
+        private_key: Option<&str>,
+        restart_script: &str,
+    ) -> Result<(), String> {
+        use ssh2::Session;
+        use std::net::TcpStream;
+
+        let addr = format!("{}:{}", host, port);
+        let tcp = TcpStream::connect(&addr)
+            .map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
+
+        let mut sess = Session::new()
+            .map_err(|e| format!("创建 SSH session 失败: {}", e))?;
+        sess.set_tcp_stream(tcp);
+        sess.handshake()
+            .map_err(|e| format!("SSH 握手失败: {}", e))?;
+
+        if let Some(key_path) = private_key {
+            sess.userauth_pubkey_file(
+                username,
+                None,
+                std::path::Path::new(key_path),
+                password,
+            )
+            .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
+        } else if let Some(pw) = password {
+            sess.userauth_password(username, pw)
+                .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
+        } else {
+            return Err("缺少认证信息".to_string());
+        }
+
+        let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", restart_script);
+        let mut channel = sess
+            .channel_session()
+            .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
+        channel
+            .exec(&cmd)
+            .map_err(|e| format!("执行重启命令失败: {}", e))?;
+        channel.wait_close().ok();
+
+        Ok(())
     }
 
     pub fn get_cicd_configs(&self) -> Result<Vec<crate::db::cicd::CicdConfig>, String> {
