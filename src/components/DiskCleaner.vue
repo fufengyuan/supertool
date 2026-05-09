@@ -97,7 +97,7 @@
           <input type="text" v-model="categoryScanPath" placeholder="扫描路径（如 /Users）" class="input input-bordered input-sm flex-1" />
           <button class="btn btn-sm btn-primary gap-1" @click="scanCategories" :disabled="catScanning">
             <span v-if="catScanning" class="loading loading-spinner loading-xs"></span>
-            {{ catScanning ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描分类' }}
+            <template v-if="catScanning">扫描中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描分类</template>
           </button>
         </div>
 
@@ -155,7 +155,7 @@
         <div v-else class="space-y-1">
           <div v-for="cache in cachePaths" :key="cache.path" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-300/50">
             <input type="checkbox" class="checkbox checkbox-sm" :checked="selectedPaths.has(cache.path)" @change="toggleSelect(cache.path, cache.size)" @click.stop />
-            <span class="text-lg">{{ cache.safeToClean ? '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg>' }}</span>
+            <span class="text-lg"><template v-if="cache.safeToClean"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template></span>
             <div class="flex-1 min-w-0">
               <div class="font-semibold text-sm">{{ cache.name }}</div>
               <div class="text-xs text-base-content/40 truncate font-mono">{{ cache.path }}</div>
@@ -174,7 +174,7 @@
           <input type="number" v-model.number="dupMinSize" placeholder="最小大小(KB)" class="input input-bordered input-sm w-32" />
           <button class="btn btn-sm btn-primary gap-1" @click="scanDuplicates" :disabled="dupScanning">
             <span v-if="dupScanning" class="loading loading-spinner loading-xs"></span>
-            {{ dupScanning ? '扫描中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 查找重复' }}
+            <template v-if="dupScanning">扫描中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 查找重复</template>
           </button>
         </div>
 

@@ -27,7 +27,8 @@
           </div>
           <div class="flex shrink-0 flex-col items-center gap-1">
             <button @click="createBackup" :disabled="!canBackup || creating" class="btn btn-primary whitespace-nowrap">
-              {{ creating ? '备份中...' : '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 新建备份' }}
+              <template v-if="creating">备份中...</template>
+              <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 新建备份</template>
             </button>
             <span v-if="selectedCount > 0" class="text-[11px] text-base-content/60">已选 {{ selectedCount }} 项</span>
           </div>
