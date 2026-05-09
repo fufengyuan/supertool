@@ -59,6 +59,7 @@
         <SvgIcon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none w-4 h-4" />
         <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9" placeholder="搜索仓库名称、路径或远程地址..." />
       </div>
+    </div>
 
     <!-- 仓库列表 - 卡片形式 -->
     <div v-if="filteredRepos.length > 0" class="flex flex-col gap-3">
