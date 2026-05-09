@@ -4679,6 +4679,7 @@ name = "stool"
 version = "4.0.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "dirs 5.0.1",
  "rusqlite",

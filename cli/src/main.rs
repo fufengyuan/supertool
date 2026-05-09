@@ -79,6 +79,48 @@ async fn main() {
             };
             if let Err(e) = cmd_git(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
         }
+        types::Commands::Mfa { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_mfa(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
+        types::Commands::Note { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_note(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
+        types::Commands::Accounting { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_accounting(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
+        types::Commands::Weekly { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_weekly(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
+        types::Commands::Nginx { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_nginx(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
+        types::Commands::Backup { action } => {
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_backup(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
+        }
     }
 }
 
