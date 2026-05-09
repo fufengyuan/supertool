@@ -273,6 +273,7 @@
 <script setup lang="ts">// @ts-nocheck
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 

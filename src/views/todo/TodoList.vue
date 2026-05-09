@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-3 p-5 w-full outline-none" ref="containerRef" tabindex="0" @keydown="handleKeyboardNav">
     <!-- 快速输入框 -->
     <div class="flex items-center gap-2.5 px-4 py-3 bg-base-100 border-2 border-primary rounded-xl shadow-sm flex-shrink-0 transition-all duration-200 focus-within:border-primary/80 focus-within:shadow-[0_4px_20px_rgba(136,57,239,0.2)]">
-      <svg class="text-primary shrink-0 opacity-70" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <SvgIcon name="plus" size="18" class="text-primary shrink-0 opacity-70" />
       <input
         ref="quickAddInput"
         v-model="quickAddText"
@@ -46,7 +46,7 @@
       <div class="flex items-center gap-3 shrink-0">
         <span class="badge badge-ghost text-[13px] font-medium">{{ todoStore.activeCount }} 进行中</span>
         <button class="btn btn-outline btn-sm gap-1.5" @click="showAddModal = true" title="添加任务 (Ctrl+N)">
-          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <SvgIcon name="plus" size="14" :stroke-width="2.5" />
           更多
         </button>
       </div>
@@ -127,7 +127,7 @@
         <!-- 已完成折叠区（按项目分组） -->
         <div v-if="groupedCompletedTodos.length > 0 && filterValue === 'all' && !searchQueryValue" class="mt-4">
           <button class="btn btn-ghost btn-sm gap-1.5 text-base-content/60 w-full justify-start" @click="showCompleted = !showCompleted">
-            <svg :class="{ 'rotate-180': showCompleted }" class="transition-transform duration-200" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+            <SvgIcon name="chevronDown" size="14" :class="{ 'rotate-180': showCompleted }" class="transition-transform duration-200" />
             已完成 ({{ completedTodos.length }})
           </button>
           <Transition name="slide">
@@ -209,7 +209,7 @@
       <div class="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
         <div class="flex items-center justify-between px-6 pt-5 pb-3">
           <h3 class="text-lg font-semibold text-base-content">添加任务</h3>
-          <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false"><SvgIcon name="x" size="14" /></button>
         </div>
         <div class="px-6 space-y-4">
           <div class="flex flex-col gap-1.5">
@@ -285,6 +285,7 @@
 // @ts-nocheck
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import TodoItem from './TodoItem.vue'
 import VirtualList from './VirtualList.vue'
 import draggable from 'vuedraggable'

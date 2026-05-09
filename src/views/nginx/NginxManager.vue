@@ -232,6 +232,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const {
   loading, presets, currentPreset, configContent, versions, testResult,

@@ -4,10 +4,7 @@
     <div class="flex flex-col gap-1.5 px-4 py-2.5 border-b border-base-content/10 bg-base-100">
       <div class="flex items-center gap-2">
         <div class="relative flex-1">
-          <svg class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <SvgIcon name="search" size="14" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" />
           <input
             v-model="searchPattern"
             @keydown.enter="loadKeys"
@@ -25,10 +22,7 @@
           刷新
         </button>
         <button @click="showAddKeyDialog = true" class="btn btn-primary btn-sm" title="添加键">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <SvgIcon name="plus" size="14" />
           添加键
         </button>
       </div>
@@ -60,10 +54,10 @@
             <span class="text-xs text-base-content/60">长度: {{ keyInfo.length }}</span>
             <div class="ml-auto flex gap-1.5">
               <button @click="saveKey" class="btn btn-primary btn-sm" :disabled="saving">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  保存
+                <SvgIcon name="download" size="14" />  保存
               </button>
               <button @click="deleteSelectedKey" class="btn btn-error btn-sm" :disabled="deleting">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除
+                <SvgIcon name="trash" size="14" />  删除
               </button>
             </div>
           </div>
@@ -100,10 +94,7 @@
                 </td>
                 <td class="px-2 py-1 border-b border-base-content/10">
                   <button @click="removeHashRow(idx)" class="btn btn-ghost btn-xs btn-square" title="删除行">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                      <line x1="18" y1="6" x2="6" y2="18" />
-                      <line x1="6" y1="6" x2="18" y2="18" />
-                    </svg>
+                    <SvgIcon name="x" size="14" />
                   </button>
                 </td>
               </tr>
@@ -126,10 +117,7 @@
             </div>
             <div class="flex items-center justify-center">
               <button @click="removeListItem(idx)" class="btn btn-ghost btn-xs btn-square" title="删除">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <SvgIcon name="x" size="14" />
               </button>
             </div>
           </template>
@@ -150,10 +138,7 @@
             </div>
             <div class="flex items-center justify-center">
               <button @click="removeSetItem(idx)" class="btn btn-ghost btn-xs btn-square" title="删除">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <SvgIcon name="x" size="14" />
               </button>
             </div>
           </template>
@@ -178,10 +163,7 @@
             </div>
             <div class="flex items-center justify-center">
               <button @click="removeZSetItem(idx)" class="btn btn-ghost btn-xs btn-square" title="删除">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <SvgIcon name="x" size="14" />
               </button>
             </div>
           </template>
@@ -296,6 +278,7 @@
 <script setup lang="ts">// @ts-nocheck
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useToast } from '../../composables/useToast'
 
