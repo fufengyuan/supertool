@@ -126,48 +126,33 @@
       @click.stop
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('diff')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-        </svg>
+        <SvgIcon name="pencil" size="14" />
         Diff
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('history')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
-        </svg>
+        <SvgIcon name="clock" size="14" />
         Show History
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('blame')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-        </svg>
+        <SvgIcon name="user" size="14" />
         Blame
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('compareBranch')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
+        <SvgIcon name="barChart" size="14" />
         Compare with Branch...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('discard')" v-if="contextMenu.fileType !== 'untracked'">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-        </svg>
+        <SvgIcon name="undo" size="14" />
         Discard Changes
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('add')" v-if="contextMenu.fileType === 'untracked'">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
+        <SvgIcon name="plus" size="14" />
         Add to VCS
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('reset')" v-if="contextMenu.fileType !== 'untracked'">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-        </svg>
+        <SvgIcon name="x" size="14" />
         Remove from VCS
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
@@ -197,24 +182,16 @@
         Cherry-pick
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('revert')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-        </svg>
+        <SvgIcon name="undo" size="14" />
         Revert Commit
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('create-tag')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-          <line x1="7" y1="7" x2="7.01" y2="7" />
-        </svg>
+        <SvgIcon name="tag" size="14" />
         Create Tag...
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-commits')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
+        <SvgIcon name="barChart" size="14" />
         Compare with Another Commit...
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('get-file')">
@@ -236,10 +213,7 @@
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-with')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
+        <SvgIcon name="barChart" size="14" />
         Compare with...
       </div>
     </div>
@@ -258,18 +232,12 @@
         Apply
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('pop')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-          <polyline points="17 8 12 3 7 8" />
-          <line x1="12" y1="3" x2="12" y2="15" />
-        </svg>
+        <SvgIcon name="upload" size="14" />
         Pop
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)] hover:text-red-500 hover:bg-red-500/10" @click="stashContextAction('drop')">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-        </svg>
+        <SvgIcon name="trash" size="14" />
         Drop
       </div>
     </div>
@@ -542,6 +510,7 @@
 <script setup lang="ts">
 // @ts-nocheck — TODO: 需要修复 useGitManager composable 的类型系统
 import { ref } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import type { GitRepo } from '../../types'
 import { useGitManager } from '../../composables/useGitManager'
 import GitTopBar from './GitTopBar.vue'

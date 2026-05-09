@@ -1,10 +1,7 @@
 <template>
   <div class="mt-1">
     <div class="flex items-center gap-2 px-3 bg-base-100 border-[1.5px] border-base-content/20 rounded-xl transition-all duration-150 ease focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.1)]">
-      <svg class="text-base-content/60 shrink-0" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
+      <SvgIcon name="search" size="16" class="text-base-content/60" />
       <input
         v-model="searchQuery"
         type="text"
@@ -19,19 +16,14 @@
         :class="{ '[&_svg]:animate-spin': loading }"
         title="刷新仓库列表"
       >
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 2v6h-6" />
-          <path d="M3 12a9 9 0 0 1 15-6.7L21 8" />
-          <path d="M3 22v-6h6" />
-          <path d="M21 12a9 9 0 0 1-15 6.7L3 16" />
-        </svg>
+        <SvgIcon name="refresh" size="16" />
       </button>
     </div>
 
     <!-- 扫描目录配置 -->
     <div class="mt-1.5 px-3">
       <button type="button" class="text-[11px] text-base-content/60 bg-none border-none p-0.5 cursor-pointer hover:text-primary" @click="showScanDirs = !showScanDirs">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> {{ showScanDirs ? '收起' : '设置扫描目录' }}
+        <SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> {{ showScanDirs ? '收起' : '设置扫描目录' }}
       </button>
       <div v-if="showScanDirs" class="mt-1 flex gap-1.5 items-start">
         <textarea
@@ -41,15 +33,13 @@
           rows="3"
           @blur="saveScanDirs(scanDirsText)"
         ></textarea>
-        <button type="button" class="text-[11px] px-2.5 py-1.5 rounded-md bg-primary text-primary-content border-none whitespace-nowrap" @click="scanWithCustomDirs"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描</button>
+        <button type="button" class="text-[11px] px-2.5 py-1.5 rounded-md bg-primary text-primary-content border-none whitespace-nowrap" @click="scanWithCustomDirs"><SvgIcon name="search" size="14" class="inline-block align-text-bottom" /> 扫描</button>
       </div>
     </div>
 
     <!-- 手动输入路径 -->
     <div class="flex items-center gap-2 mt-2 px-3 bg-base-200 border-[1.5px] border-base-content/10 rounded-xl transition-all duration-150 ease focus-within:border-primary focus-within:shadow-[0_0_0_3px_rgba(99,102,241,0.1)]">
-      <svg class="text-base-content/60 shrink-0" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-      </svg>
+      <SvgIcon name="folder" size="14" class="text-base-content/60" />
       <input
         v-model="manualPath"
         type="text"
@@ -64,12 +54,10 @@
         @click="clearManualPath"
         class="w-[22px] h-[22px] border-none rounded-full bg-transparent text-base-content/60 cursor-pointer flex items-center justify-center text-[11px] transition-all duration-150 ease shrink-0 hover:bg-error hover:text-white"
         title="清除"
-      ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      ><SvgIcon name="x" size="14" class="inline-block" /></button>
     </div>
     <div v-if="manualPathValid" class="flex items-center gap-1 mt-1.5 px-2.5 py-1 text-xs text-[#22c55e]">
-      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0">
-        <polyline points="20 6 9 17 4 12" />
-      </svg>
+      <SvgIcon name="check" size="12" />
       <span>✓ 有效路径</span>
     </div>
     <div v-else-if="manualPathInvalid" class="flex items-center gap-1 mt-1.5 px-2.5 py-1 text-xs text-error">
@@ -95,9 +83,7 @@
       >
         <div class="w-5 h-5 rounded-md border-2 border-base-content/10 flex items-center justify-center shrink-0 transition-all duration-150 ease"
           :class="{ 'bg-primary border-primary text-white': modelValue === repo.path }">
-          <svg v-if="modelValue === repo.path" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          <SvgIcon v-if="modelValue === repo.path" name="check" size="16" strokeWidth="2.5" />
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 font-semibold text-[13px] text-base-content">
@@ -131,6 +117,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed } from 'vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useErrorHandler } from '@/composables/useErrorHandler';
 

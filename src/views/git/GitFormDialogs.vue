@@ -85,20 +85,15 @@
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">标签管理</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-tags-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-tags-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="px-4 py-2 border-b border-base-content/10 flex gap-2">
         <button class="btn btn-primary btn-sm" @click="$emit('create-tag-open')">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
+          <SvgIcon name="plus" size="14" />
           新建 Tag
         </button>
         <button class="btn btn-ghost btn-sm" @click="$emit('create-branch-from-tag')" :disabled="!selectedTagForBranch">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="6" y1="3" x2="6" y2="15" /><circle cx="18" cy="6" r="3" /><circle cx="6" cy="18" r="3" />
-            <path d="M18 9a9 9 0 0 1-9 9" />
-          </svg>
+          <SvgIcon name="gitBranch" size="14" />
           从 Tag 创建分支
         </button>
       </div>
@@ -110,13 +105,10 @@
           :class="{ 'bg-primary/10': selectedTagForBranch === tag.name }"
           @click="$emit('update:selected-tag-for-branch', tag.name)"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="shrink-0 text-base-content/60">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
-            <line x1="7" y1="7" x2="7.01" y2="7" />
-          </svg>
+          <SvgIcon name="tag" size="14" class="text-base-content/60" />
           <span class="flex-1 font-mono">{{ tag.name }}</span>
           <span class="text-[11px] text-base-content/60 font-mono" :title="tag.commit">{{ tag.commit?.substring(0, 7) || '' }}</span>
-          <button class="btn btn-ghost btn-xs text-red-500 hover:text-red-600" @click.stop="$emit('delete-tag', tag.name)" title="删除"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button class="btn btn-ghost btn-xs text-red-500 hover:text-red-600" @click.stop="$emit('delete-tag', tag.name)" title="删除"><SvgIcon name="x" size="14" class="inline-block" /></button>
         </div>
         <div v-if="tagsList.length === 0 && !loading" class="p-5 text-center text-base-content/60">没有标签</div>
       </div>
@@ -132,7 +124,7 @@
     <div class="max-w-sm w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">比较分支</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-branches-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-branches-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <div class="flex items-center gap-2 mb-2">
@@ -180,7 +172,7 @@
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">推送到远程</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-push-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-push-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
@@ -243,7 +235,7 @@
     <div class="max-w-sm w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
         <span class="font-semibold text-sm">从远程拉取</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-pull-dialog', false)"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:show-pull-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 mb-4 px-4 pt-3">
         <label class="text-xs font-semibold text-base-content/60">远程仓库</label>
@@ -355,7 +347,7 @@
           <option value="hard">Hard — 丢弃所有变更</option>
         </select>
         <div v-if="resetMode === 'hard'" class="mt-2 p-2.5 bg-red-500/10 border border-red-500/30 rounded text-red-500 text-xs">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Hard Reset 将丢弃所有未提交的变更，此操作不可撤销！
+          <SvgIcon name="alertTriangle" size="14" class="inline-block align-text-bottom" /> Hard Reset 将丢弃所有未提交的变更，此操作不可撤销！
         </div>
       </div>
       <div class="flex justify-end gap-2">
@@ -401,6 +393,8 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
+
 interface CompareResult {
   changedFiles: number
   insertions: number
