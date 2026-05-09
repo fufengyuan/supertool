@@ -104,7 +104,6 @@ export function useGitManager(_repo: any, _onClose: () => void) {
     showGitCleanDialog: ref(false), gitCleanIncludeIgnored: ref(false), gitCleanForceDirectories: ref(false),
     gitCleanFiles: ref([]), gcLoading: ref(false), selectedTagForBranch: ref(''),
     deleteRemoteBranchTarget: ref(''), deletingBranch: ref(false),
-    showStashMenu: noop, showGitMenu: noop,
     localBranches: ref([]), remoteBranches: ref([]),
     loadBranches: asyncNoop, loadCurrentBranch: asyncNoop, checkoutBranch: async (_branch: string) => {},
     doCreateBranch: asyncNoop, confirmDeleteBranch: asyncNoop, doDeleteBranch: asyncNoop,

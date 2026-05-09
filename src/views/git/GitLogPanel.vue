@@ -1,6 +1,6 @@
 <template>
   <div class="flex flex-col flex-1 min-w-[300px] overflow-hidden">
-    <div class="panel-header flex items-center justify-between px-2.5 py-1.5 border-b border-base-content/10 bg-base-100 shrink-0">
+    <div class="flex items-center justify-between px-2.5 py-1.5 border-b border-base-content/10 bg-base-100 shrink-0">
       <span class="font-semibold text-[13px]">日志</span>
       <div class="flex items-center gap-1.5">
         <!-- View mode toggle: Table / Graph / Console -->
@@ -92,7 +92,7 @@
       <table class="w-full border-collapse text-xs">
         <thead>
           <tr>
-            <th class="w-[30px] text-center"><input type="checkbox" :checked="(selectedLogCommits as Set<string>).size > 0 && (selectedLogCommits as Set<string>).size === filteredLog.length" @click="$emit('toggle-select-all-log-commits')" class="file-checkbox accent-primary shrink-0 w-3.5 h-3.5 cursor-pointer" title="Select all" /></th>
+            <th class="w-[30px] text-center"><input type="checkbox" :checked="(selectedLogCommits as Set<string>).size > 0 && (selectedLogCommits as Set<string>).size === filteredLog.length" @click="$emit('toggle-select-all-log-commits')" class="accent-primary shrink-0 w-3.5 h-3.5 cursor-pointer" title="Select all" /></th>
             <th class="w-[70px]">Hash</th>
             <th class="w-[120px]">Author</th>
             <th class="w-[100px]">Date</th>
@@ -111,7 +111,7 @@
             @contextmenu.prevent="$emit('log-context-menu', { event: $event, commit })"
           >
             <td class="w-[30px] text-center">
-              <input type="checkbox" :checked="(selectedLogCommits as Set<string>).has(commit.hash)" @click.stop="$emit('toggle-log-commit-select', commit.hash)" class="file-checkbox accent-primary shrink-0 w-3.5 h-3.5 cursor-pointer" />
+              <input type="checkbox" :checked="(selectedLogCommits as Set<string>).has(commit.hash)" @click.stop="$emit('toggle-log-commit-select', commit.hash)" class="accent-primary shrink-0 w-3.5 h-3.5 cursor-pointer" />
             </td>
             <td class="w-[70px]">
               <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ commit.hash.substring(0, 7) }}</code>
@@ -327,6 +327,3 @@ defineExpose({
 })
 </script>
 
-<style>
-/* Keep keyframe animation for spin - converted to use animate-spin from Tailwind */
-</style>
