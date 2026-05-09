@@ -159,9 +159,6 @@ fn main() {
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
 
-            // UDS server needs Arc<CoreService>
-            let uds_core = Arc::new(core.clone());
-
             // Build custom application menu (mirrors Electron version)
             let handle = app.handle();
             let nav_item = |id: &str, title: &str, accel: Option<&str>| -> Result<MenuItem<Wry>, tauri::Error> {
