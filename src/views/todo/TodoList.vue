@@ -863,13 +863,6 @@ setupMenuListeners()
 </script>
 
 <style scoped>
-/* Drag and drop styles for vuedraggable — must stay in scoped CSS */
-.draggable-list { min-height: 10px; }
-.virtual-todo-list { border-radius: 8px; }
-.virtual-todo-list > .virtual-list { height: 100% !important; }
-.drag-ghost { opacity: 0.4; background: color-mix(in oklab, var(--color-primary) 10%, transparent); }
-.drag-chosen { box-shadow: 0 0 0 2px var(--color-primary); }
-
 /* Keyboard focus on TodoItem (applied via :deep) — cannot be expressed in Tailwind */
 :deep(.todo-item.keyboard-focused) {
   outline: 2px solid var(--color-primary);
