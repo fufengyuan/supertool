@@ -23,6 +23,7 @@
               @keydown.up.prevent="navigateResults(-1)"
               @keydown.enter.prevent="selectResult"
               @keydown.esc.prevent="close"
+              @keydown.space.stop
             />
             <kbd class="text-[11px] px-2 py-0.5 rounded bg-base-200 text-base-content/60 border border-base-content/10">ESC</kbd>
           </div>
@@ -538,11 +539,16 @@ defineExpose({ open, close })
 const handleKeydown = (e: KeyboardEvent) => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault()
+    e.stopPropagation()
     if (isOpen.value) close()
     else open()
+    return
   }
   if (e.key === 'Escape' && isOpen.value) {
+    e.preventDefault()
+    e.stopPropagation()
     close()
+    return
   }
 }
 
