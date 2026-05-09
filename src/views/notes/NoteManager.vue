@@ -1,39 +1,39 @@
 <template>
-  <div class="w-full max-w-[1400px] mx-auto flex flex-col gap-5 h-[calc(100vh-40px)] p-2">
-    <div class="flex items-center justify-between px-5 py-3.5 bg-gradient-to-br from-base-100 to-[rgba(66,133,244,0.05)] rounded-xl border border-base-content/10 shrink-0">
-      <div class="flex items-center gap-3.5">
-        <div class="w-12 h-12 flex items-center justify-center text-2xl bg-gradient-to-br from-[#fbbc04] to-[#ff6d01] rounded-xl shadow-[0_3px_10px_rgba(251,188,4,0.25)]">📝</div>
+  <div class="w-full flex flex-col gap-3 h-full p-3">
+    <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-br from-base-100 to-[rgba(66,133,244,0.05)] rounded-xl border border-base-content/10 shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 flex items-center justify-center text-xl bg-gradient-to-br from-[#fbbc04] to-[#ff6d01] rounded-xl shadow-[0_3px_10px_rgba(251,188,4,0.25)]">📝</div>
         <div class="flex flex-col gap-0.5">
-          <h2 class="text-xl font-bold text-base-content m-0">笔记</h2>
+          <h2 class="text-lg font-bold text-base-content m-0">笔记</h2>
           <p class="text-xs text-base-content/60 m-0 opacity-80">记录工作与生活的灵感</p>
         </div>
       </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2">
         <div class="relative flex items-center text-base-content/60">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-2.5 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input v-model="searchQuery" class="input input-bordered rounded-full px-3 py-2 pl-9 text-xs w-[200px] transition-all duration-200 focus:w-[260px] focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="搜索笔记..." @input="onSearch"/>
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-2.5 pointer-events-none"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input v-model="searchQuery" class="input input-bordered rounded-full px-3 py-1.5 pl-8 text-xs w-[180px] transition-all duration-200 focus:w-[220px] focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="搜索笔记..." @input="onSearch"/>
         </div>
-        <button class="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-none rounded-full bg-gradient-to-br from-primary to-[#34a853] text-white cursor-pointer transition-all duration-200 shadow-[0_2px_6px_rgba(66,133,244,0.25)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(66,133,244,0.35)]" @click="createNewNote">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <button class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border-none rounded-full bg-gradient-to-br from-primary to-[#34a853] text-white cursor-pointer transition-all duration-200 shadow-[0_2px_6px_rgba(66,133,244,0.25)] hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(66,133,244,0.35)]" @click="createNewNote">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           新建笔记
         </button>
       </div>
     </div>
-    <div class="flex gap-4 flex-1 min-h-0">
-      <aside class="w-72 min-w-[280px] bg-base-100 rounded-xl border border-base-content/10 overflow-y-auto shrink-0 flex flex-col">
+    <div class="flex gap-3 flex-1 min-h-0">
+      <aside class="w-64 min-w-[220px] bg-base-100 rounded-xl border border-base-content/10 overflow-y-auto shrink-0 flex flex-col">
         <div class="border-b border-base-content/10 shrink-0">
-          <div class="flex items-center justify-between px-3.5 py-2.5 cursor-pointer select-none transition-colors duration-150 hover:bg-base-200" @click="groupsCollapsed = !groupsCollapsed">
+          <div class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors duration-150 hover:bg-base-200" @click="groupsCollapsed = !groupsCollapsed">
             <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider">📁 分组</span>
             <svg :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
           </div>
           <div v-show="!groupsCollapsed" class="px-2 pb-2 pt-1">
-            <div :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
+            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
               <span class="text-sm shrink-0">📋</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">全部</span>
             </div>
-            <div :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
+            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
               <span class="text-sm shrink-0">📄</span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">未分组</span>
             </div>
-            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[7px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
+            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.12)]': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
               <span class="text-sm shrink-0">{{ group.icon || '📁' }}</span>
               <span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ group.name }}</span>
               <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150" @click.stop>
@@ -41,27 +41,27 @@
                 <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-[rgba(210,15,57,0.15)]" @click="confirmDeleteGroup(group)" title="删除">🗑️</button>
               </div>
             </div>
-            <div class="flex items-center gap-1.5 px-2.5 py-[7px] rounded-lg cursor-pointer text-base-content/60 text-xs transition-all duration-150 mt-0.5 hover:bg-base-200 hover:text-primary" @click="showCreateGroup = true">
+            <div class="flex items-center gap-1.5 px-2.5 py-[6px] rounded-lg cursor-pointer text-base-content/60 text-xs transition-all duration-150 mt-0.5 hover:bg-base-200 hover:text-primary" @click="showCreateGroup = true">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               <span>新建分组</span>
             </div>
           </div>
         </div>
-        <div v-if="filteredNotes.length === 0" class="px-5 py-10 text-center text-base-content/60 text-sm">
+        <div v-if="filteredNotes.length === 0" class="px-4 py-8 text-center text-base-content/60 text-sm">
           <p>{{ searchQuery ? '没有匹配的笔记' : '暂无笔记' }}</p>
         </div>
         <div v-else class="flex flex-col overflow-y-auto flex-1">
-          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3.5 py-3 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.08)] border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-[rgba(251,188,4,0.05)]': note.pinned }]" @click="selectNote(note)">
-            <div class="flex items-center justify-between mb-1">
+          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3 py-2.5 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-[rgba(66,133,244,0.08)] border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-[rgba(251,188,4,0.05)]': note.pinned }]" @click="selectNote(note)">
+            <div class="flex items-center justify-between mb-0.5">
               <div class="flex items-center gap-1 min-w-0 flex-1">
                 <span v-if="note.pinned" class="text-xs shrink-0">📌</span>
                 <span class="text-sm font-semibold text-base-content overflow-hidden text-ellipsis whitespace-nowrap" v-html="highlightText(note.title || '无标题')"></span>
               </div>
-              <button class="w-6 h-6 flex items-center justify-center border-none rounded-lg bg-transparent text-base-content/60 cursor-pointer opacity-0 transition-all duration-150 shrink-0 group-hover/item:opacity-100 hover:bg-[rgba(210,15,57,0.1)] hover:text-error" @click.stop="confirmDelete(note)" title="删除">
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <button class="w-5 h-5 flex items-center justify-center border-none rounded-lg bg-transparent text-base-content/60 cursor-pointer opacity-0 transition-all duration-150 shrink-0 group-hover/item:opacity-100 hover:bg-[rgba(210,15,57,0.1)] hover:text-error" @click.stop="confirmDelete(note)" title="删除">
+                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
               </button>
             </div>
-            <div class="text-xs text-base-content/60 opacity-80 overflow-hidden text-ellipsis whitespace-nowrap mb-1" v-html="highlightText(getPreview(note.content))"></div>
+            <div class="text-xs text-base-content/60 opacity-80 overflow-hidden text-ellipsis whitespace-nowrap mb-0.5" v-html="highlightText(getPreview(note.content))"></div>
             <div class="flex items-center justify-between text-[11px] text-base-content/60 opacity-60">
               <span>{{ formatDate(note.updatedAt) }}</span>
               <span v-if="getGroupName(note.groupId)" class="badge badge-sm badge-ghost text-primary bg-[rgba(66,133,244,0.1)] border-none text-[10px]">{{ getGroupName(note.groupId) }}</span>
@@ -71,40 +71,40 @@
       </aside>
       <main class="flex-1 min-w-0 bg-base-100 rounded-xl border border-base-content/10 flex flex-col overflow-hidden">
         <template v-if="selectedNote">
-          <div class="flex items-center justify-between px-4 py-2.5 border-b border-base-content/10 shrink-0">
+          <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 shrink-0">
             <div class="flex items-center gap-2">
-              <button :class="['px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': editMode }]" @click="editMode = !editMode" :title="editMode ? '预览' : '编辑'">{{ editMode ? '👁️ 预览' : '✏️ 编辑' }}</button>
-              <button :class="['px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': selectedNote.pinned }]" @click="togglePin" title="置顶">📌 置顶</button>
+              <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': editMode }]" @click="editMode = !editMode" :title="editMode ? '预览' : '编辑'">{{ editMode ? '👁️ 预览' : '✏️ 编辑' }}</button>
+              <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': selectedNote.pinned }]" @click="togglePin" title="置顶">📌 置顶</button>
               <div class="relative">
-                <button class="px-3 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'">📁 {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
-                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.15)] z-[100] min-w-[180px] max-h-60 overflow-y-auto p-1">
-                  <div :class="['px-3 py-2 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span>📄 未分组</span></div>
-                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-2 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === group.id }]" @click="assignGroup(group.id)"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
+                <button class="px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'">📁 {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
+                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.15)] z-[100] min-w-[160px] max-h-60 overflow-y-auto p-1">
+                  <div :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span>📄 未分组</span></div>
+                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-[rgba(66,133,244,0.12)] text-primary font-medium': selectedNote.groupId === group.id }]" @click="assignGroup(group.id)"><span>{{ group.icon || '📁' }} {{ group.name }}</span></div>
                 </div>
               </div>
             </div>
             <div class="flex items-center gap-2"><span class="text-xs text-base-content/60">{{ saveStatus }}</span></div>
           </div>
-          <div class="px-5 pt-4 pb-2 shrink-0">
-            <input v-model="editorTitle" class="input w-full text-[22px] font-bold text-base-content border-none bg-transparent px-0 focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="输入标题..." @input="onTitleChange"/>
+          <div class="px-4 pt-3 pb-1 shrink-0">
+            <input v-model="editorTitle" class="input w-full text-xl font-bold text-base-content border-none bg-transparent px-0 focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="输入标题..." @input="onTitleChange"/>
           </div>
-          <div v-if="editMode" class="flex-1 min-h-0 px-5 pb-5 pt-2">
+          <div v-if="editMode" class="flex-1 min-h-0 px-4 pb-4 pt-2">
             <textarea v-model="editorContent" class="w-full h-full min-h-[300px] text-sm leading-relaxed text-base-content bg-transparent border-none resize-none font-mono focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="开始用 Markdown 编写笔记..." @input="onContentChange" spellcheck="false"></textarea>
           </div>
-          <div v-else class="editor-preview flex-1 min-h-0 px-5 pb-5 pt-2 overflow-y-auto leading-relaxed text-base-content" v-html="renderedContent"></div>
+          <div v-else class="editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content" v-html="renderedContent"></div>
         </template>
         <div v-else class="flex-1 flex flex-col items-center justify-center text-base-content/60 opacity-50">
-          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mb-3"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <p class="text-sm">选择或创建一个笔记</p>
         </div>
       </main>
     </div>
     <Teleport to="body">
       <div v-if="deleteTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteTarget = null">
-        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
-          <h3 class="text-lg font-bold m-0 mb-3 text-base-content">⚠️ 确认删除</h3>
-          <p class="text-sm text-base-content/60 m-0 mb-5">确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</p>
-          <div class="flex justify-end gap-2.5">
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+          <h3 class="text-lg font-bold m-0 mb-2 text-base-content">⚠️ 确认删除</h3>
+          <p class="text-sm text-base-content/60 m-0 mb-4">确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</p>
+          <div class="flex justify-end gap-2">
             <button class="btn btn-ghost" @click="deleteTarget = null">取消</button>
             <button class="btn btn-error" @click="executeDelete">删除</button>
           </div>
@@ -113,13 +113,13 @@
     </Teleport>
     <Teleport to="body">
       <div v-if="showCreateGroup || editingGroup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="cancelGroupEdit">
-        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
           <h3 class="text-lg font-bold m-0 mb-3 text-base-content">{{ editingGroup ? '✏️ 重命名分组' : '📁 新建分组' }}</h3>
-          <div class="mb-5">
-            <div class="mb-3.5"><label class="block text-xs font-semibold text-base-content/60 mb-1.5">名称</label><input v-model="groupForm.name" class="input input-bordered w-full px-3 py-2 text-sm rounded-lg bg-base-200 text-base-content focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="分组名称" @keyup.enter="saveGroup" ref="groupInputRef"/></div>
-            <div class="mb-3.5"><label class="block text-xs font-semibold text-base-content/60 mb-1.5">图标</label><div class="flex flex-wrap gap-1"><button v-for="icon in iconOptions" :key="icon" :class="['w-8 h-8 flex items-center justify-center text-base border-2 border-transparent rounded-lg bg-transparent cursor-pointer transition-all duration-150 hover:bg-base-200', { 'border-primary bg-[rgba(66,133,244,0.1)]': groupForm.icon === icon }]" @click="groupForm.icon = icon">{{ icon }}</button></div></div>
+          <div class="mb-4">
+            <div class="mb-3"><label class="block text-xs font-semibold text-base-content/60 mb-1">名称</label><input v-model="groupForm.name" class="input input-bordered w-full px-3 py-2 text-sm rounded-lg bg-base-200 text-base-content focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="分组名称" @keyup.enter="saveGroup" ref="groupInputRef"/></div>
+            <div><label class="block text-xs font-semibold text-base-content/60 mb-1">图标</label><div class="flex flex-wrap gap-1"><button v-for="icon in iconOptions" :key="icon" :class="['w-7 h-7 flex items-center justify-center text-sm border-2 border-transparent rounded-lg bg-transparent cursor-pointer transition-all duration-150 hover:bg-base-200', { 'border-primary bg-[rgba(66,133,244,0.1)]': groupForm.icon === icon }]" @click="groupForm.icon = icon">{{ icon }}</button></div></div>
           </div>
-          <div class="flex justify-end gap-2.5">
+          <div class="flex justify-end gap-2">
             <button class="btn btn-ghost" @click="cancelGroupEdit">取消</button>
             <button class="btn btn-primary" @click="saveGroup" :disabled="!groupForm.name.trim()">保存</button>
           </div>
@@ -128,10 +128,10 @@
     </Teleport>
     <Teleport to="body">
       <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteGroupTarget = null">
-        <div class="bg-base-100 rounded-2xl p-6 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
-          <h3 class="text-lg font-bold m-0 mb-3 text-base-content">⚠️ 删除分组</h3>
-          <p class="text-sm text-base-content/60 m-0 mb-5">确定要删除分组「{{ deleteGroupTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</p>
-          <div class="flex justify-end gap-2.5">
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+          <h3 class="text-lg font-bold m-0 mb-2 text-base-content">⚠️ 删除分组</h3>
+          <p class="text-sm text-base-content/60 m-0 mb-4">确定要删除分组「{{ deleteGroupTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</p>
+          <div class="flex justify-end gap-2">
             <button class="btn btn-ghost" @click="deleteGroupTarget = null">取消</button>
             <button class="btn btn-error" @click="executeDeleteGroup">删除</button>
           </div>
@@ -212,10 +212,6 @@ function highlightText(text: string): string {
   return text.replace(regex, '<mark>$1</mark>')
 }
 
-function getTagCount(tagsJson: string): number {
-  try { const tags = JSON.parse(tagsJson); return Array.isArray(tags) ? tags.length : 0 } catch { return 0 }
-}
-
 function formatDate(iso: string): string {
   if (!iso) return ''
   const d = new Date(iso), now = new Date(), diff = now.getTime() - d.getTime(), mins = Math.floor(diff / 60000)
@@ -234,7 +230,6 @@ function getGroupName(groupId: string | null | undefined): string {
 
 async function loadNotes() {
   try {
-    console.log("[loadNotes] called");
     const gid = selectedGroupId.value === '__all__' ? undefined : selectedGroupId.value
     notes.value = await getTauriAPI().getAllNotes(searchQuery.value || undefined, gid)
   } catch { toast.error('加载笔记失败') }
@@ -242,26 +237,21 @@ async function loadNotes() {
 
 async function loadGroups() {
   try {
-    console.log("[loadGroups] called");
     noteGroups.value = await getTauriAPI().getNoteGroups() } catch { toast.error('加载分组失败') }
 }
 
 function onSearch() { loadNotes() }
 
 function selectGroup(groupId: string) {
-    console.log("[onSearch] called");
     selectedGroupId.value = groupId; loadNotes() }
 
 function selectNote(note: Note) {
-    console.log("[selectGroup] called");
     selectedNote.value = note; editorTitle.value = note.title; editorContent.value = note.content
   editMode.value = false; saveStatus.value = ''; showGroupSelector.value = false
 }
 
 async function createNewNote() {
-    console.log("[selectNote] called");
     try {
-    console.log("[createNewNote] called");
     const gid = selectedGroupId.value !== '__all__' && selectedGroupId.value !== '__ungrouped__' ? selectedGroupId.value : null
     const note = await getTauriAPI().addNote({ title: '', content: '', pinned: false, groupId: gid })
     notes.value.unshift(note); selectNote(note); toast.success('已创建新笔记')
@@ -275,17 +265,14 @@ function onTitleChange() {
 }
 
 function onContentChange() {
-    console.log("[onTitleChange] called");
     if (!selectedNote.value) return
   saveStatus.value = '保存中...'; if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => saveNote(), 500)
 }
 
 async function saveNote() {
-    console.log("[onContentChange] called");
     if (!selectedNote.value) return
   try {
-    console.log("[saveNote] called");
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { title: editorTitle.value, content: editorContent.value })
     if (updated) {
       selectedNote.value = updated
@@ -299,7 +286,6 @@ async function saveNote() {
 async function togglePin() {
   if (!selectedNote.value) return
   try {
-    console.log("[togglePin] called");
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { pinned: !selectedNote.value.pinned })
     if (updated) {
       selectedNote.value = updated
@@ -312,7 +298,6 @@ async function togglePin() {
 async function assignGroup(groupId: string | null) {
   if (!selectedNote.value) return
   try {
-    console.log("[assignGroup] called");
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { groupId })
     if (updated) {
       selectedNote.value = updated
@@ -326,10 +311,8 @@ async function assignGroup(groupId: string | null) {
 function confirmDelete(note: Note) { deleteTarget.value = note }
 
 async function executeDelete() {
-    console.log("[confirmDelete] called");
     if (!deleteTarget.value) return
   try {
-    console.log("[executeDelete] called");
     await getTauriAPI().deleteNote(deleteTarget.value.id)
     notes.value = notes.value.filter(n => n.id !== deleteTarget.value!.id)
     if (selectedNote.value?.id === deleteTarget.value.id) selectedNote.value = null
@@ -347,10 +330,8 @@ function startRenameGroup(group: NoteGroup) {
 function confirmDeleteGroup(group: NoteGroup) { deleteGroupTarget.value = group }
 
 async function executeDeleteGroup() {
-    console.log("[confirmDeleteGroup] called");
     if (!deleteGroupTarget.value) return
   try {
-    console.log("[executeDeleteGroup] called");
     await getTauriAPI().deleteNoteGroup(deleteGroupTarget.value.id)
     const notesToUpdate = notes.value.filter(n => n.groupId === deleteGroupTarget.value!.id)
     for (const note of notesToUpdate) {
@@ -370,7 +351,6 @@ function cancelGroupEdit() { showCreateGroup.value = false; editingGroup.value =
 async function saveGroup() {
   if (!groupForm.value.name.trim()) return
   try {
-    console.log("[saveGroup] called");
     if (editingGroup.value) {
       const updated = await getTauriAPI().updateNoteGroup(editingGroup.value.id, { name: groupForm.value.name.trim(), icon: groupForm.value.icon })
       if (updated) { const idx = noteGroups.value.findIndex(g => g.id === updated.id); if (idx !== -1) noteGroups.value[idx] = updated }
@@ -385,12 +365,10 @@ async function saveGroup() {
 }
 
 onMounted(() => {
-    console.log("[components/NoteManager.vue] mounted");
     loadGroups(); loadNotes() })
 </script>
 
 <style>
-/* Markdown 预览内容样式 — 无法使用 Tailwind 实用类，因为由 marked 动态渲染（v-html） */
 .editor-preview h1 { font-size: 28px; font-weight: 700; margin: 24px 0 12px; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-bottom: 8px; }
 .editor-preview h2 { font-size: 22px; font-weight: 600; margin: 20px 0 10px; }
 .editor-preview h3 { font-size: 18px; font-weight: 600; margin: 16px 0 8px; }
@@ -408,7 +386,5 @@ onMounted(() => {
 .editor-preview th { background: var(--color-base-200); font-weight: 600; }
 .editor-preview .search-highlight { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
 .editor-preview .preview-empty { color: color-mix(in oklab, var(--color-base-content) 60%, transparent); opacity: 0.5; }
-
-/* 搜索高亮 — 由 highlightText() 注入的 <mark> 元素 */
 .note-list-item mark { background: rgba(251, 191, 36, 0.35); color: var(--color-base-content); border-radius: 2px; padding: 0 2px; }
 </style>
