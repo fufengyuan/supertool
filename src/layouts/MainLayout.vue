@@ -32,7 +32,7 @@
         </button>
         <!-- 局域网 -->
         <button class="btn btn-ghost btn-sm gap-1" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-          🌐
+          <IconNetwork size="16" stroke-width="1.5" />
         </button>
         <!-- 主题切换 -->
         <label class="swap swap-rotate btn btn-ghost btn-circle btn-sm">
@@ -58,7 +58,7 @@
           </div>
           <li v-for="item in navGroups.business" :key="item.path" class="w-full">
             <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
-              <span class="text-lg">{{ item.icon }}</span>
+              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
           </li>
@@ -69,7 +69,7 @@
           </div>
           <li v-for="item in navGroups.ops" :key="item.path" class="w-full">
             <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
-              <span class="text-lg">{{ item.icon }}</span>
+              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
           </li>
@@ -80,7 +80,7 @@
           </div>
           <li v-for="item in navGroups.dev" :key="item.path" class="w-full">
             <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
-              <span class="text-lg">{{ item.icon }}</span>
+              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
           </li>
@@ -91,7 +91,7 @@
           </div>
           <li v-for="item in navGroups.security" :key="item.path" class="w-full">
             <router-link :to="item.path" class="gap-3 w-full" active-class="active" @click="onNavClick(item.viewId, item.path)">
-              <span class="text-lg">{{ item.icon }}</span>
+              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
               <span v-show="!sidebarCollapsed">{{ item.label }}</span>
             </router-link>
           </li>
@@ -128,6 +128,45 @@ import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+
+import {
+  IconChecklist,
+  IconCalendarWeek,
+  IconFolder,
+  IconCoin,
+  IconServer,
+  IconRocket,
+  IconFileText,
+  IconWorld,
+  IconDatabase,
+  IconTool,
+  IconNotebook,
+  IconGitBranch,
+  IconLock,
+  IconShieldLock,
+  IconCloudDownload,
+  IconTrash,
+  IconNetwork,
+} from '@tabler/icons-vue'
+
+const iconMap: Record<string, any> = {
+  'todo': IconChecklist,
+  'weekly-report': IconCalendarWeek,
+  'projects': IconFolder,
+  'accounting': IconCoin,
+  'servers': IconServer,
+  'cicd': IconRocket,
+  'log-aggregator': IconFileText,
+  'nginx': IconWorld,
+  'database': IconDatabase,
+  'devtools': IconTool,
+  'notes': IconNotebook,
+  'git': IconGitBranch,
+  'mfa': IconLock,
+  'vpn': IconShieldLock,
+  'data-backup': IconCloudDownload,
+  'disk-cleaner': IconTrash,
+}
 
 const router = useRouter()
 const appStore = useAppStore()
