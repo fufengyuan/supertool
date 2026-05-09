@@ -11,10 +11,7 @@
     <div class="flex items-center justify-between px-3 py-1.5 border-b border-base-content/10 bg-base-100 shrink-0 gap-2 min-h-10">
       <div class="flex gap-0.5">
         <button class="btn btn-xs" :class="viewMode === 'table' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'table'">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-            <line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" />
-          </svg>
+          <SvgIcon name="grid" size="14" />
           表格
         </button>
         <button class="btn btn-xs" :class="viewMode === 'json' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'json'">
@@ -40,10 +37,7 @@
 
     <!-- Empty state -->
     <div v-if="rows.length === 0 && !loading" class="flex flex-col items-center justify-center p-12 text-base-content/60 gap-3">
-      <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5">
-        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-        <line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="21" x2="9" y2="9" />
-      </svg>
+      <SvgIcon name="grid" size="40" />
       <p>暂无数据</p>
       <button class="btn btn-primary btn-sm" @click="addNewRow">新增第一行</button>
     </div>
@@ -576,9 +570,9 @@ function onRowContext(event: MouseEvent, row: Record<string, unknown>, idx: numb
     x: event.clientX,
     y: event.clientY,
     items: [
-      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ', label: '查看完整值', action: () => { toast.info(String(displayRow)); closeContextMenu() } },
-      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ', label: '复制行 JSON', action: () => { navigator.clipboard?.writeText(JSON.stringify(displayRow)); toast.info('已复制'); closeContextMenu() } },
-      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ', label: '删除此行', action: () => { confirmDeleteRow(displayRow, idx); closeContextMenu() } },
+      { icon: '<SvgIcon name="eye" size="14" /> ', label: '查看完整值', action: () => { toast.info(String(displayRow)); closeContextMenu() } },
+      { icon: '<SvgIcon name="file" size="14" /> ', label: '复制行 JSON', action: () => { navigator.clipboard?.writeText(JSON.stringify(displayRow)); toast.info('已复制'); closeContextMenu() } },
+      { icon: '<SvgIcon name="trash" size="14" /> ', label: '删除此行', action: () => { confirmDeleteRow(displayRow, idx); closeContextMenu() } },
     ]
   }
 }
@@ -589,8 +583,8 @@ function onTableContext(event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     items: [
-      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ', label: '新增行', action: () => { addNewRow(); closeContextMenu() } },
-      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> ', label: '刷新数据', action: () => { emit('refresh'); closeContextMenu() } },
+      { icon: '<SvgIcon name="plus" size="14" /> ', label: '新增行', action: () => { addNewRow(); closeContextMenu() } },
+      { icon: '<SvgIcon name="refresh" size="14" /> ', label: '刷新数据', action: () => { emit('refresh'); closeContextMenu() } },
     ]
   }
 }

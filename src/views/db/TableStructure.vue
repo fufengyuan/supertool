@@ -23,9 +23,7 @@
           @click="discardChanges"
           title="放弃修改"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="1 4 1 10 7 10" /><path d="M3.51 15a9 9 0 1 0 2.12-9.36L1 10" />
-          </svg>
+          <SvgIcon name="undo" size="14" />
           放弃修改
         </button>
         <button
@@ -34,10 +32,7 @@
           @click="refreshWithOriginals"
           title="刷新"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
+          <SvgIcon name="refresh" size="14" />
           刷新
         </button>
         <button
@@ -46,11 +41,7 @@
           @click="showSqlPreview"
           title="保存结构"
         >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-            <polyline points="17 21 17 13 7 13 7 21" />
-            <polyline points="7 3 7 8 15 8" />
-          </svg>
+          <SvgIcon name="save" size="14" />
           保存 ({{ changeCount }})
         </button>
       </div>
@@ -238,9 +229,7 @@
       <div v-show="activeTab === 'indexes'" class="flex-1 flex flex-col overflow-hidden">
         <div class="flex items-center gap-1.5 px-3 py-2 border-b border-base-content/10 shrink-0">
           <button class="btn btn-ghost btn-xs" @click="addIndex" title="添加索引">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <SvgIcon name="plus" size="14" />
             添加索引
           </button>
           <button
@@ -249,9 +238,7 @@
             @click="deleteSelectedIndexes"
             title="删除选中索引"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            </svg>
+            <SvgIcon name="trash" size="14" />
             删除索引
           </button>
         </div>
@@ -314,9 +301,7 @@
                         @click="removeIndexColumn(idx, ci)"
                         title="移除列"
                       >
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                        </svg>
+                        <SvgIcon name="x" size="12" />
                       </button>
                     </div>
                     <button class="btn btn-ghost btn-xs" @click="addIndexColumn(idx)">
@@ -331,9 +316,7 @@
                     @click="deleteIndexAt(i)"
                     title="删除"
                   >
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-                      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    </svg>
+                    <SvgIcon name="trash" size="14" />
                   </button>
                   <span v-else-if="idx._deleted" class="badge badge-error badge-sm">已删除</span>
                 </td>
@@ -352,15 +335,11 @@
       <div class="w-[720px] max-w-[90vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out]">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
-            </svg>
+            <SvgIcon name="code" size="18" />
             SQL 预览
           </h3>
           <button class="btn btn-ghost btn-xs btn-square" @click="showPreview = false">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <SvgIcon name="x" size="16" />
           </button>
         </div>
         <div class="px-5 py-4 overflow-y-auto flex-1">
@@ -380,9 +359,7 @@
             :disabled="executing"
             @click="executeSqls"
           >
-            <svg v-if="executing" class="animate-spin" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 11-6.219-8.56" />
-            </svg>
+            <SvgIcon v-if="executing" name="refresh" size="14" class="animate-spin" />
             {{ executing ? '执行中...' : '确认执行' }}
           </button>
         </div>
@@ -394,15 +371,11 @@
       <div class="w-[900px] max-w-[95vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out]">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
-            </svg>
+            <SvgIcon name="code" size="18" />
             建表 SQL — {{ tableName }}
           </h3>
           <button class="btn btn-ghost btn-xs btn-square" @click="showCreateSqlModal = false">
-            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <SvgIcon name="x" size="16" />
           </button>
         </div>
         <div class="px-5 py-4 overflow-y-auto flex-1">

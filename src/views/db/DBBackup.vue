@@ -28,7 +28,7 @@
           <div class="flex shrink-0 flex-col items-center gap-1">
             <button @click="createBackup" :disabled="!canBackup || creating" class="btn btn-primary whitespace-nowrap">
               <template v-if="creating">备份中...</template>
-              <template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> 新建备份</template>
+              <template v-else><SvgIcon name="save" size="14" /> 新建备份</template>
             </button>
             <span v-if="selectedCount > 0" class="text-[11px] text-base-content/60">已选 {{ selectedCount }} 项</span>
           </div>
@@ -46,7 +46,7 @@
           <div class="flex flex-1 flex-col overflow-y-auto py-1">
             <!-- Tables -->
             <div v-if="tables.length > 0" class="border-t border-base-content/10 first:border-t-0">
-              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>  表 ({{ tables.length }})</div>
+              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60"><SvgIcon name="barChart" size="14" />  表 ({{ tables.length }})</div>
               <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-0.5 p-1 px-2">
                 <label v-for="table in tables" :key="'t-' + table"
                   class="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors duration-100 hover:bg-base-200"
@@ -63,7 +63,7 @@
 
             <!-- Views -->
             <div v-if="views.length > 0" class="border-t border-base-content/10 first:border-t-0">
-              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>  视图 ({{ views.length }})</div>
+              <div class="sticky top-0 z-[1] bg-base-100 px-3.5 py-1.5 text-[11px] font-semibold text-base-content/60"><SvgIcon name="eye" size="14" />  视图 ({{ views.length }})</div>
               <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-0.5 p-1 px-2">
                 <label v-for="view in views" :key="'v-' + view"
                   class="flex cursor-pointer items-center gap-1.5 rounded px-2 py-1 text-xs transition-colors duration-100 hover:bg-base-200"
@@ -84,7 +84,7 @@
       <!-- Right: Backup History -->
       <div class="flex shrink-0 flex-col border-l border-base-content/10 ps-6 w-[340px]">
         <div class="mb-3 flex shrink-0 items-center justify-between text-sm font-semibold">
-          <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  备份历史</span>
+          <span><SvgIcon name="folder" size="14" />  备份历史</span>
           <span class="text-[11px] font-normal text-base-content/60" v-if="backups.length">{{ backups.length }} 个备份</span>
         </div>
         <div v-if="loadingHistory" class="px-2.5 py-[30px] text-center text-xs text-base-content/60">加载中...</div>
@@ -100,7 +100,7 @@
           >
             <div class="mb-1.5">
               <div class="mb-0.5 flex items-center gap-1.5 text-xs font-semibold">
-                <span class="shrink-0 text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> </span>
+                <span class="shrink-0 text-sm"><SvgIcon name="database" size="14" /> </span>
                 <span class="text-base-content">{{ backup.databaseName }}</span>
                 <span class="max-w-[140px] truncate rounded-sm bg-base-100 px-1.5 py-0.5 text-[10px] text-base-content/60">{{ backup.connectionName }}</span>
               </div>
@@ -125,8 +125,8 @@
     <!-- Context Menu -->
     <Teleport to="body">
       <div v-if="contextMenu.visible" class="fixed z-[3000] min-w-[160px] rounded-lg border border-base-content/10 bg-base-100 p-1 shadow-xl" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click="contextMenu.visible = false">
-        <div class="cursor-pointer rounded px-3 py-2 text-sm transition-colors duration-100 hover:bg-base-200" @click="restoreBackup(contextMenu.backup)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  还原此备份</div>
-        <div class="cursor-pointer rounded px-3 py-2 text-sm text-error transition-colors duration-100 hover:bg-base-200" @click="deleteBackup(contextMenu.backup)"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除备份</div>
+        <div class="cursor-pointer rounded px-3 py-2 text-sm transition-colors duration-100 hover:bg-base-200" @click="restoreBackup(contextMenu.backup)"><SvgIcon name="refresh" size="14" />  还原此备份</div>
+        <div class="cursor-pointer rounded px-3 py-2 text-sm text-error transition-colors duration-100 hover:bg-base-200" @click="deleteBackup(contextMenu.backup)"><SvgIcon name="trash" size="14" />  删除备份</div>
       </div>
     </Teleport>
 
@@ -134,7 +134,7 @@
     <Teleport to="body">
       <div v-if="restoreConfirm" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/50" @click="restoreConfirm = null">
         <div class="w-[400px] max-w-[90vw] rounded-xl bg-base-100 p-6 shadow-2xl" @click.stop>
-          <h3 class="m-0 mb-3 text-base font-semibold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 确认还原</h3>
+          <h3 class="m-0 mb-3 text-base font-semibold"><SvgIcon name="alertTriangle" size="14" /> 确认还原</h3>
           <p class="m-0 mb-2 text-sm">将 <strong>{{ restoreConfirm.name }}</strong> 还原到当前连接？</p>
           <p class="m-0 mb-2 text-sm font-medium text-error">此操作将覆盖现有数据，请谨慎操作！</p>
           <div class="mt-5 flex justify-end gap-2">
