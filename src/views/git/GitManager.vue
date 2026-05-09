@@ -519,7 +519,7 @@
 
     <!-- ===== Compare with (commit) 对话框 ===== -->
     <div v-if="showCompareWithDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="showCompareWithDialog = false">
-      <div class="compare-with-dialog" @click.stop>
+      <div class="max-w-lg w-full bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-6" @click.stop>
         <h3 class="text-lg font-semibold m-0 mb-4">比较提交</h3>
         <div class="flex flex-col gap-2.5 mb-4">
           <label class="text-xs font-semibold text-base-content/60">对比分支</label>
