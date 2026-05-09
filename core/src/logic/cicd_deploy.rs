@@ -943,7 +943,16 @@ fn extend_path(cmd: &mut Command, java_home: &Option<String>, maven_home: &Optio
         extra_paths.push(format!("{}/bin", jh));
     }
     if let Some(mh) = maven_home {
-        extra_paths.push(format!("{}/bin", mh));
+        let p = PathBuf::from(mh);
+        if p.is_file() {
+            // maven_home 指向二进制文件如 /opt/homebrew/bin/mvn，加其父目录
+            if let Some(parent) = p.parent() {
+                extra_paths.push(parent.to_string_lossy().to_string());
+            }
+        } else {
+            // maven_home 指向安装目录如 /opt/apache-maven-3.9，加 bin 子目录
+            extra_paths.push(format!("{}/bin", mh));
+        }
     }
     extra_paths.push("/usr/local/bin".to_string());
     extra_paths.push("/usr/bin".to_string());
@@ -959,7 +968,14 @@ fn extend_path(cmd: &mut Command, java_home: &Option<String>, maven_home: &Optio
 fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Option<String>) {
     let mut extra_paths = Vec::new();
     if let Some(nh) = node_home {
-        extra_paths.push(format!("{}/bin", nh));
+        let p = PathBuf::from(nh);
+        if p.is_file() {
+            if let Some(parent) = p.parent() {
+                extra_paths.push(parent.to_string_lossy().to_string());
+            }
+        } else {
+            extra_paths.push(format!("{}/bin", nh));
+        }
     }
     if let Some(nh) = npm_home {
         let npm_path = PathBuf::from(nh);
