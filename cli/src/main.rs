@@ -70,7 +70,11 @@ async fn main() {
             if let Err(e) = cmd_log(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
         }
         types::Commands::Git { action } => {
-            if let Err(e) = cmd_git(&client, action) { print_error(&e.to_string()); process::exit(1); }
+            let mut rt = match init_runtime() {
+                Ok(r) => r,
+                Err(e) => { print_error(&format!("初始化失败: {}", e)); process::exit(1); }
+            };
+            if let Err(e) = cmd_git(&mut rt, action).await { print_error(&e.to_string()); process::exit(1); }
         }
     }
 }
