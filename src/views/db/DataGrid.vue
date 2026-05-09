@@ -18,9 +18,7 @@
           表格
         </button>
         <button class="btn btn-xs" :class="viewMode === 'json' ? 'btn-primary' : 'btn-ghost'" @click="viewMode = 'json'">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="16 18 22 12 16 6" /><polyline points="8 6 2 12 8 18" />
-          </svg>
+          <SvgIcon name="code" size="14" />
           JSON
         </button>
       </div>
@@ -30,12 +28,12 @@
         </span>
         <template v-if="dirtyRows.size > 0">
           <button class="btn btn-success btn-xs" @click="saveAllDirty">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  保存 ({{ dirtyRows.size }} 行)
+            <SvgIcon name="download" size="14" />  保存 ({{ dirtyRows.size }} 行)
           </button>
           <button class="btn btn-ghost btn-xs" @click="discardAllDirty">取消修改</button>
         </template>
         <button class="btn btn-ghost btn-xs" @click="addNewRow">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>  新增行
+          <SvgIcon name="plus" size="14" />  新增行
         </button>
       </div>
     </div>
@@ -117,7 +115,7 @@
               </template>
             </td>
             <td v-if="dirtyRows.size > 0 || newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
-              <button class="btn btn-ghost btn-xs" @click.stop="confirmDeleteRow(row, idx)" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
+              <button class="btn btn-ghost btn-xs" @click.stop="confirmDeleteRow(row, idx)" title="删除行"><SvgIcon name="trash" size="14" /> </button>
             </td>
           </tr>
 
@@ -145,7 +143,7 @@
               </template>
             </td>
             <td v-if="newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
-              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> </button>
+              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行"><SvgIcon name="download" size="14" /> </button>
               <button class="btn btn-ghost btn-xs" @click.stop="cancelNewRow" title="取消新增">✖</button>
             </td>
           </tr>
@@ -190,6 +188,7 @@
 import { ref, computed, nextTick } from 'vue'
 import { useToast } from '../../composables/useToast'
 import FilterBar, { type FilterCondition } from './FilterBar.vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const props = defineProps<{
   rows: Record<string, unknown>[]
