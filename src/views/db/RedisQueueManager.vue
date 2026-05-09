@@ -21,7 +21,7 @@
         <!-- Auto Refresh -->
         <div class="flex items-center gap-1">
           <button @click="toggleAutoRefresh" class="btn btn-ghost btn-square btn-sm" :class="{ 'bg-primary/10 text-primary': autoRefreshEnabled }" :title="autoRefreshEnabled ? '停止自动刷新' : '开启自动刷新'">
-            🔄
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> 
           </button>
           <select v-if="autoRefreshEnabled" v-model="autoRefreshInterval" class="select select-xs" @change="restartAutoRefresh">
             <option value="3000">3s</option>
@@ -95,7 +95,7 @@
           <div v-if="delayQueues.length > 0" class="mt-2 border-t border-base-content/10 pt-2">
             <div class="flex items-center gap-1.5 px-3 py-2 cursor-pointer rounded-md hover:bg-base-200 transition-colors" @click="delaySectionCollapsed = !delaySectionCollapsed">
               <span class="text-[10px] text-base-content/60">{{ delaySectionCollapsed ? '▶' : '▼' }}</span>
-              <span class="text-xs font-semibold text-base-content">⏰ 延迟队列</span>
+              <span class="text-xs font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  延迟队列</span>
               <span class="badge badge-primary badge-xs">{{ delayQueues.length }}</span>
             </div>
             <div v-show="!delaySectionCollapsed" class="p-1 space-y-0.5">
@@ -108,7 +108,7 @@
                 ]"
                 @click="selectDelayQueue(dq.name)"
               >
-                <span class="text-sm">⏰</span>
+                <span class="text-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </span>
                 <span class="text-xs text-base-content flex-1 truncate" :title="dq.name">{{ dq.name.replace('delay:', '') }}</span>
                 <span class="badge badge-success badge-xs">{{ dq.count }}</span>
               </div>
@@ -130,20 +130,20 @@
         <template v-if="selectedDelayQueue">
           <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10 bg-base-100 gap-3 shrink-0">
             <div class="min-w-0">
-              <h3 class="m-0 text-sm font-semibold text-base-content truncate" :title="selectedDelayQueue">⏰ {{ selectedDelayQueue }}</h3>
+              <h3 class="m-0 text-sm font-semibold text-base-content truncate" :title="selectedDelayQueue"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  {{ selectedDelayQueue }}</h3>
               <div class="text-xs text-base-content/60">
                 <span>{{ delayMessages.length }} 条待到期消息</span>
               </div>
             </div>
             <div class="flex gap-1.5 shrink-0">
-              <button @click="refreshDelayQueue" class="btn btn-ghost btn-sm">🔄 刷新</button>
+              <button @click="refreshDelayQueue" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  刷新</button>
               <button @click="selectedDelayQueue = ''" class="btn btn-ghost btn-sm">✕ 关闭</button>
             </div>
           </div>
           <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-base-200">
             <div v-if="delayLoading" class="py-5 text-center text-base-content/60">加载中...</div>
             <div v-else-if="delayMessages.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
-              <div class="text-5xl mb-3 opacity-50">⏰</div>
+              <div class="text-5xl mb-3 opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </div>
               <div class="text-sm font-medium mb-1">暂无延迟消息</div>
             </div>
             <div v-for="dm in delayMessages" :key="dm.value + dm.score" class="bg-base-100 rounded-xl p-3 mb-2.5 shadow-sm border border-base-content/10 transition-all hover:shadow-md border-l-4 border-l-warning">
@@ -158,7 +158,7 @@
               </div>
               <div class="flex gap-1.5 mt-2 pt-2 border-t border-base-content/10">
                 <button v-if="dm.remainingMs <= 0" @click="fireDelayMessage(dm)" class="btn btn-ghost btn-xs">🔥 立即投递</button>
-                <button @click="deleteDelayMessage(dm)" class="btn btn-ghost btn-xs text-error">🗑️ 删除</button>
+                <button @click="deleteDelayMessage(dm)" class="btn btn-ghost btn-xs text-error"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除</button>
               </div>
             </div>
           </div>
@@ -179,10 +179,10 @@
               </div>
             </div>
             <div class="flex gap-1.5 shrink-0">
-              <button @click="openAddMessage" class="btn btn-primary btn-sm">📤 投递消息</button>
-              <button @click="showGroupModal = true" class="btn btn-ghost btn-sm">👥 创建消费组</button>
+              <button @click="openAddMessage" class="btn btn-primary btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>  投递消息</button>
+              <button @click="showGroupModal = true" class="btn btn-ghost btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>  创建消费组</button>
               <button @click="showTrimModal = true" class="btn btn-ghost btn-sm">✂️ 清理</button>
-              <button @click="deleteStream" class="btn btn-error btn-sm">🗑️ 删除</button>
+              <button @click="deleteStream" class="btn btn-error btn-sm"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>  删除</button>
             </div>
           </div>
 
@@ -198,7 +198,7 @@
               'px-4 py-2.5 border-none bg-transparent cursor-pointer text-xs text-base-content/60 transition-colors relative hover:text-base-content',
               detailTab === 'stats' ? 'text-primary font-medium after:absolute after:bottom-0 after:inset-x-0 after:h-0.5 after:bg-primary after:rounded-t-sm' : ''
             ]" @click="detailTab = 'stats'; loadStats()">
-              📊 统计
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>  统计
             </button>
             <button :class="[
               'px-4 py-2.5 border-none bg-transparent cursor-pointer text-xs text-base-content/60 transition-colors relative hover:text-base-content',
@@ -258,8 +258,8 @@
                         </span>
                       </div>
                       <div class="flex gap-1">
-                        <button @click="copyText(msg.envelope.messageId || '')" class="btn btn-ghost btn-xs px-1" title="复制 Message ID">📋</button>
-                        <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息">🗑️</button>
+                        <button @click="copyText(msg.envelope.messageId || '')" class="btn btn-ghost btn-xs px-1" title="复制 Message ID"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> </button>
+                        <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
                       </div>
                     </div>
                     <div class="flex items-center gap-1 text-xs text-base-content/60 mb-2 flex-wrap">
@@ -301,8 +301,8 @@
                       </span>
                     </div>
                     <div class="flex gap-1">
-                      <button @click="copyText(msg.id)" class="btn btn-ghost btn-xs px-1" title="复制 ID">📋</button>
-                      <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息">🗑️</button>
+                      <button @click="copyText(msg.id)" class="btn btn-ghost btn-xs px-1" title="复制 ID"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> </button>
+                      <button @click="deleteMessage(msg.id)" class="btn btn-ghost btn-xs px-1" title="删除消息"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
                     </div>
                   </div>
                   <div class="flex flex-col gap-1">
@@ -323,7 +323,7 @@
               <div v-if="statsLoading" class="py-5 text-center text-base-content/60">加载中...</div>
               <template v-else>
                 <!-- Section Title -->
-                <div class="text-xs font-semibold text-base-content mt-0 mb-2.5 pb-1.5 border-b border-base-content/10 first:mt-0">📊 Stream 概览</div>
+                <div class="text-xs font-semibold text-base-content mt-0 mb-2.5 pb-1.5 border-b border-base-content/10 first:mt-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>  Stream 概览</div>
                 <div class="grid grid-cols-4 gap-3 mb-5">
                   <div class="bg-base-100 border border-base-content/10 rounded-xl p-4 text-center">
                     <div class="text-xs text-base-content/60 mb-1">消息总数</div>
@@ -369,7 +369,7 @@
                 <div v-for="g in groupStats" :key="g.name" class="bg-base-100 border border-base-content/10 rounded-xl mb-3 overflow-hidden">
                   <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10 bg-base-200">
                     <div class="flex flex-col gap-1">
-                      <span class="text-xs font-semibold text-base-content">👥 {{ g.name }}</span>
+                      <span class="text-xs font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>  {{ g.name }}</span>
                       <div class="flex gap-1.5">
                         <span class="badge badge-xs font-medium badge-success">{{ g.healthyConsumers }} 活跃</span>
                         <span class="badge badge-xs font-medium badge-warning">{{ g.idleConsumers }} 空闲</span>
@@ -419,14 +419,14 @@
             <div class="flex-1 overflow-y-auto px-4 py-3 bg-base-200 space-y-2.5">
               <div v-if="groupLoading" class="py-5 text-center text-base-content/60">加载中...</div>
               <div v-else-if="groups.length === 0" class="flex flex-col items-center justify-center h-full text-base-content/60 text-center px-5 py-10">
-                <div class="text-5xl mb-3 opacity-50">👥</div>
+                <div class="text-5xl mb-3 opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> </div>
                 <div class="text-sm font-medium mb-1">暂无消费组</div>
                 <div class="text-xs opacity-70">点击 "创建消费组" 添加</div>
               </div>
               <div v-for="g in groups" :key="g.name" class="bg-base-100 rounded-xl p-3 border border-base-content/10">
                 <div class="flex items-center justify-between">
                   <div class="min-w-0">
-                    <span class="font-semibold text-xs text-base-content">👥 {{ g.name }}</span>
+                    <span class="font-semibold text-xs text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>  {{ g.name }}</span>
                     <div class="text-[11px] text-base-content/60 flex gap-2 mt-1">
                       <span v-if="g.pending !== undefined">pending: {{ g.pending }}</span>
                       <span v-if="g.consumers !== undefined">consumers: {{ g.consumers }}</span>
@@ -435,7 +435,7 @@
                   </div>
                   <div class="flex gap-1">
                     <button @click="selectGroup(g.name)" class="btn btn-ghost btn-xs">详情</button>
-                    <button @click="destroyGroup(g.name)" class="btn btn-ghost btn-xs px-1" title="删除消费组">🗑️</button>
+                    <button @click="destroyGroup(g.name)" class="btn btn-ghost btn-xs px-1" title="删除消费组"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
                   </div>
                 </div>
               </div>
@@ -449,7 +449,7 @@
     <div v-if="selectedGroup" class="border-t-2 border-primary bg-base-100 max-h-72 flex flex-col shrink-0">
       <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
         <div class="font-semibold text-xs text-base-content flex items-center gap-2">
-          <span>👥</span>
+          <span><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> </span>
           <span>{{ selectedGroup }}</span>
           <span class="font-normal text-base-content/60 text-xs">@ {{ selectedStream }}</span>
         </div>
@@ -499,8 +499,8 @@
             </div>
             <div class="flex gap-1 shrink-0">
               <button @click="retryPending(p.id)" class="btn btn-ghost btn-xs text-warning" title="重试（重新投递）">🔁 重试</button>
-              <button @click="claimPending(p.id)" class="btn btn-ghost btn-xs" title="Claim">📌 Claim</button>
-              <button @click="ackPending(p.id)" class="btn btn-ghost btn-xs" title="Ack">✅ Ack</button>
+              <button @click="claimPending(p.id)" class="btn btn-ghost btn-xs" title="Claim"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>  Claim</button>
+              <button @click="ackPending(p.id)" class="btn btn-ghost btn-xs" title="Ack"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  Ack</button>
             </div>
           </div>
         </div>
@@ -511,7 +511,7 @@
     <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showAddModal = false">
       <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-          <h3 class="m-0 text-sm font-semibold text-base-content">📤 投递消息 (XADD)</h3>
+          <h3 class="m-0 text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>  投递消息 (XADD)</h3>
           <button @click="showAddModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors">✕</button>
         </div>
         <div class="p-5">

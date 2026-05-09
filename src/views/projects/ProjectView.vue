@@ -24,7 +24,7 @@
           <option value="frontend">🎨 前端</option>
           <option value="backend">⚙️ 后端</option>
           <option value="infrastructure">🏗️ 基础设施</option>
-          <option value="other">📌 其他</option>
+          <option value="other"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>  其他</option>
           <option value="">未分类</option>
         </select>
       </div>
@@ -49,10 +49,10 @@
         <!-- Git 信息 -->
         <div v-if="project.repoPath || project.gitUrl1" class="flex gap-1.5 mb-3 flex-wrap">
           <span v-if="project.repoPath" class="badge badge-ghost badge-sm gap-1 max-w-[200px] truncate" :title="project.repoPath">
-            📁 {{ repoName(project.repoPath) }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  {{ repoName(project.repoPath) }}
           </span>
           <span v-if="project.gitUrl1" class="badge badge-ghost badge-sm gap-1 max-w-[200px] truncate" :title="project.gitUrl1">
-            🔗 {{ repoName(project.gitUrl1) }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>  {{ repoName(project.gitUrl1) }}
           </span>
         </div>
 
@@ -120,7 +120,7 @@
     <!-- 添加/编辑项目模态框 -->
     <UiModal
       v-model="showModal"
-      :title="editingProject ? '✏️ 编辑项目' : '✨ 新建项目'"
+      :title="editingProject ? '✏️ ' + $t('project.edit') : '✨ ' + $t('project.add')"
       @close="resetModal"
       width="640px"
     >
@@ -162,7 +162,7 @@ const categoryLabel = (cat: string) => {
     frontend: '🎨 前端',
     backend: '⚙️ 后端',
     infrastructure: '🏗️ 基础设施',
-    other: '📌 其他',
+    other: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="17" x2="12" y2="22"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>  其他',
   };
   return map[cat] || cat;
 };

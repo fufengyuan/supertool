@@ -8,10 +8,10 @@
       </div>
       <div class="flex gap-2">
         <button class="btn btn-sm btn-ghost" @click="checkOpenVPN" :disabled="checking">
-          {{ checking ? '检测中...' : '🔍 检测 OpenVPN' }}
+          {{ checking ? '检测中...' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>  检测 OpenVPN' }}
         </button>
         <button class="btn btn-sm btn-primary" @click="importConfig" :disabled="!openvpnAvailable">
-          📥 导入 .ovpn
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  导入 .ovpn
         </button>
       </div>
     </div>
@@ -51,15 +51,15 @@
             🔌 正在连接 {{ status.configName }}...
           </template>
           <template v-else-if="status.state === 'connected'">
-            ✅ 已连接 — {{ status.configName }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  已连接 — {{ status.configName }}
             <span v-if="status.remote" class="font-normal opacity-70 ml-1">({{ status.remote }})</span>
             <span class="text-[13px] font-medium opacity-70 ml-2 font-mono">{{ connectionDuration }}</span>
           </template>
           <template v-else-if="status.state === 'disconnecting'">
-            ⏳ 正在断开连接...
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  正在断开连接...
           </template>
           <template v-else-if="status.state === 'error'">
-            ❌ 连接错误 — {{ status.configName }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>  连接错误 — {{ status.configName }}
           </template>
         </span>
       </div>
@@ -72,7 +72,7 @@
             ⏏️ 断开连接
           </button>
           <button v-if="status.state === 'error'" class="btn btn-sm btn-primary" @click="reconnect">
-            🔄 重新连接
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  重新连接
           </button>
         </div>
       </div>
@@ -105,19 +105,19 @@
                 v-if="status.configId === cfg.id && status.connected"
                 class="btn btn-ghost btn-xs px-1"
                 title="已连接"
-              >✅</button>
+              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
               <button
                 v-else-if="status.state === 'connecting' && status.configId === cfg.id"
                 class="btn btn-ghost btn-xs px-1"
                 title="连接中"
-              >⏳</button>
+              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </button>
               <button
                 v-else
                 class="btn btn-ghost btn-xs px-1"
                 @click.stop="connectConfig(cfg)"
                 title="连接"
               >▶️</button>
-              <button class="btn btn-ghost btn-xs px-1" @click.stop="deleteConfig(cfg)" title="删除">🗑️</button>
+              <button class="btn btn-ghost btn-xs px-1" @click.stop="deleteConfig(cfg)" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
             </div>
           </div>
           <div v-if="configs.length === 0" class="flex flex-col items-center justify-center py-10 px-5 text-center text-base-content/60">
@@ -457,9 +457,9 @@ async function deleteConfig(cfg: Config) {
 }
 
 function getLogClass(line: string): string {
-  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ') || line.includes('连接中')) return 'text-[#f9e2af]'
   return ''
 }
 </script>

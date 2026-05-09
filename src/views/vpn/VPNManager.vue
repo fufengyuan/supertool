@@ -11,7 +11,7 @@
           🔐 OpenVPN
         </button>
         <button role="tab" class="tab" :class="{ 'tab-active': activeProtocol === 'wireguard' }" @click="activeProtocol = 'wireguard'">
-          ⚡ WireGuard
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  WireGuard
         </button>
       </div>
     </div>
@@ -51,12 +51,12 @@
           <span class="font-medium">
             <template v-if="ovpnStatus.state === 'connecting'">🔌 正在连接 {{ ovpnStatus.configName }}...</template>
             <template v-else-if="ovpnStatus.state === 'connected'">
-              ✅ 已连接 — {{ ovpnStatus.configName }}
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  已连接 — {{ ovpnStatus.configName }}
               <span v-if="ovpnStatus.remote" class="font-normal opacity-70 ml-1">({{ ovpnStatus.remote }})</span>
               <span class="text-[13px] font-medium opacity-70 ml-2 font-mono">{{ ovpnDuration }}</span>
             </template>
-            <template v-else-if="ovpnStatus.state === 'disconnecting'">⏳ 正在断开连接...</template>
-            <template v-else-if="ovpnStatus.state === 'error'">❌ 连接错误 — {{ ovpnStatus.configName }}</template>
+            <template v-else-if="ovpnStatus.state === 'disconnecting'"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>  正在断开连接...</template>
+            <template v-else-if="ovpnStatus.state === 'error'"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>  连接错误 — {{ ovpnStatus.configName }}</template>
           </span>
         </div>
         <div class="flex items-center gap-4">
@@ -65,7 +65,7 @@
           </span>
           <div class="flex gap-2">
             <button v-if="ovpnStatus.connected" class="btn btn-sm btn-error" @click="ovpnDisconnect">⏏️ 断开连接</button>
-            <button v-if="ovpnStatus.state === 'error'" class="btn btn-sm btn-primary" @click="ovpnReconnect">🔄 重新连接</button>
+            <button v-if="ovpnStatus.state === 'error'" class="btn btn-sm btn-primary" @click="ovpnReconnect"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  重新连接</button>
           </div>
         </div>
       </div>
@@ -76,8 +76,8 @@
           <div class="flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-base-content/60 border-b border-base-200">
             <span>OpenVPN 配置文件 ({{ ovpnConfigs.length }})</span>
             <div class="flex gap-1">
-              <button class="btn btn-xs btn-ghost" @click="checkOpenVPN" :disabled="checking">{{ checking ? '检测中...' : '🔍 检测' }}</button>
-              <button class="btn btn-xs btn-primary" @click="importOvpn" :disabled="!openvpnAvailable">📥 导入</button>
+              <button class="btn btn-xs btn-ghost" @click="checkOpenVPN" :disabled="checking">{{ checking ? '检测中...' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>  检测' }}</button>
+              <button class="btn btn-xs btn-primary" @click="importOvpn" :disabled="!openvpnAvailable"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  导入</button>
             </div>
           </div>
           <div class="flex-1 overflow-y-auto p-2">
@@ -93,10 +93,10 @@
                 <span class="block text-[11px] text-base-content/60 truncate mt-0.5" :title="cfg.filePath">{{ cfg.filePath }}</span>
               </div>
               <div class="flex gap-1 shrink-0">
-                <button v-if="ovpnStatus.configId === cfg.id && ovpnStatus.connected" class="btn btn-ghost btn-xs px-1" title="已连接">✅</button>
-                <button v-else-if="ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id" class="btn btn-ghost btn-xs px-1" title="连接中">⏳</button>
+                <button v-if="ovpnStatus.configId === cfg.id && ovpnStatus.connected" class="btn btn-ghost btn-xs px-1" title="已连接"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
+                <button v-else-if="ovpnStatus.state === 'connecting' && ovpnStatus.configId === cfg.id" class="btn btn-ghost btn-xs px-1" title="连接中"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </button>
                 <button v-else class="btn btn-ghost btn-xs px-1" @click.stop="ovpnConnect(cfg)" title="连接">▶️</button>
-                <button class="btn btn-ghost btn-xs px-1" @click.stop="ovpnDelete(cfg)" title="删除">🗑️</button>
+                <button class="btn btn-ghost btn-xs px-1" @click.stop="ovpnDelete(cfg)" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
               </div>
             </div>
             <div v-if="ovpnConfigs.length === 0" class="flex flex-col items-center justify-center py-10 px-5 text-center text-base-content/60">
@@ -143,7 +143,7 @@
       <div v-if="wgStatus.connected" class="flex items-center justify-between px-5 py-2.5 mx-5 mt-3 rounded-box text-sm bg-success/10 border border-success/30 text-success">
         <div class="flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-success"></span>
-          <span class="font-medium">✅ 已连接 — {{ wgStatus.configName }}</span>
+          <span class="font-medium"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  已连接 — {{ wgStatus.configName }}</span>
           <span class="text-[13px] font-medium opacity-70 font-mono">{{ wgDuration }}</span>
         </div>
         <div class="flex items-center gap-4">
@@ -160,7 +160,7 @@
       <div v-if="wgStatus.state === 'error'" class="flex items-center px-5 py-2.5 mx-5 mt-3 rounded-box text-sm bg-error/10 border border-error/30 text-error">
         <div class="flex items-center gap-2">
           <span class="w-2.5 h-2.5 rounded-full bg-error"></span>
-          <span class="font-medium">❌ 连接错误 — {{ wgStatus.configName }}</span>
+          <span class="font-medium"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>  连接错误 — {{ wgStatus.configName }}</span>
         </div>
       </div>
 
@@ -170,7 +170,7 @@
           <div class="flex items-center justify-between px-4 py-2.5 text-xs font-semibold text-base-content/60 border-b border-base-200">
             <span>WireGuard 配置 ({{ wgConfigs.length }})</span>
             <div class="flex gap-1">
-              <button class="btn btn-xs btn-primary" @click="showWgForm = true; editingWg = null">📥 添加</button>
+              <button class="btn btn-xs btn-primary" @click="showWgForm = true; editingWg = null"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  添加</button>
             </div>
           </div>
           <div class="flex-1 overflow-y-auto p-2">
@@ -186,11 +186,11 @@
                 <span class="block text-[11px] text-base-content/60 truncate mt-0.5">{{ cfg.peerEndpoint }}</span>
               </div>
               <div class="flex gap-1 shrink-0">
-                <button v-if="wgStatus.configId === cfg.id && wgStatus.connected" class="btn btn-ghost btn-xs px-1" title="已连接">✅</button>
-                <button v-else-if="wgStatus.state === 'connecting' && wgStatus.configId === cfg.id" class="btn btn-ghost btn-xs px-1" title="连接中">⏳</button>
+                <button v-if="wgStatus.configId === cfg.id && wgStatus.connected" class="btn btn-ghost btn-xs px-1" title="已连接"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> </button>
+                <button v-else-if="wgStatus.state === 'connecting' && wgStatus.configId === cfg.id" class="btn btn-ghost btn-xs px-1" title="连接中"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> </button>
                 <button v-else class="btn btn-ghost btn-xs px-1" @click.stop="wgConnect(cfg)" title="连接">▶️</button>
-                <button class="btn btn-ghost btn-xs px-1" @click.stop="editWgConfig(cfg)" title="编辑">✏️</button>
-                <button class="btn btn-ghost btn-xs px-1" @click.stop="wgDelete(cfg)" title="删除">🗑️</button>
+                <button class="btn btn-ghost btn-xs px-1" @click.stop="editWgConfig(cfg)" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
+                <button class="btn btn-ghost btn-xs px-1" @click.stop="wgDelete(cfg)" title="删除"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
               </div>
             </div>
             <div v-if="wgConfigs.length === 0" class="flex flex-col items-center justify-center py-10 px-5 text-center text-base-content/60">
@@ -216,7 +216,7 @@
     <!-- WireGuard Add/Edit Dialog -->
     <div v-if="showWgForm" class="modal modal-open" @click.self="showWgForm = false">
       <div class="modal-box max-w-[600px] max-h-[90vh] overflow-y-auto">
-        <div class="text-lg font-semibold text-base-content mb-3">⚡ {{ editingWg ? '编辑' : '添加' }} WireGuard 配置</div>
+        <div class="text-lg font-semibold text-base-content mb-3"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>  {{ editingWg ? '编辑' : '添加' }} WireGuard 配置</div>
         <div class="flex flex-col gap-2.5 text-sm text-base-content mb-4">
           <div class="flex flex-col gap-1">
             <label class="text-xs font-semibold text-base-content/60">名称</label>
@@ -226,7 +226,7 @@
             <label class="text-xs font-semibold text-base-content/60">私钥</label>
             <div class="flex gap-1">
               <input v-model="wgForm.privateKey" class="input input-bordered flex-1" placeholder="Base64 私钥" />
-              <button class="btn btn-xs btn-ghost" @click="generateKeypair" :disabled="generatingKeys">{{ generatingKeys ? '生成中...' : '🔑 生成' }}</button>
+              <button class="btn btn-xs btn-ghost" @click="generateKeypair" :disabled="generatingKeys">{{ generatingKeys ? '生成中...' : '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>  生成' }}</button>
             </div>
           </div>
           <div class="flex flex-col gap-1">
@@ -392,9 +392,9 @@ async function wgDelete(cfg: WgConfig) { if (!confirm(`确定要删除 "${cfg.na
 function formatBytes(bytes: number): string { if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / 1048576).toFixed(1) + ' MB' }
 
 function getLogClass(line: string): string {
-  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('❌') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
+  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ') || line.includes('连接中')) return 'text-[#f9e2af]'
   return ''
 }
 </script>

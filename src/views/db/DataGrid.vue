@@ -30,12 +30,12 @@
         </span>
         <template v-if="dirtyRows.size > 0">
           <button class="btn btn-success btn-xs" @click="saveAllDirty">
-            💾 保存 ({{ dirtyRows.size }} 行)
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>  保存 ({{ dirtyRows.size }} 行)
           </button>
           <button class="btn btn-ghost btn-xs" @click="discardAllDirty">取消修改</button>
         </template>
         <button class="btn btn-ghost btn-xs" @click="addNewRow">
-          ➕ 新增行
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>  新增行
         </button>
       </div>
     </div>
@@ -117,7 +117,7 @@
               </template>
             </td>
             <td v-if="dirtyRows.size > 0 || newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
-              <button class="btn btn-ghost btn-xs" @click.stop="confirmDeleteRow(row, idx)" title="删除行">🗑️</button>
+              <button class="btn btn-ghost btn-xs" @click.stop="confirmDeleteRow(row, idx)" title="删除行"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> </button>
             </td>
           </tr>
 
@@ -145,7 +145,7 @@
               </template>
             </td>
             <td v-if="newRowData" class="w-15 text-center bg-base-200 border-r border-b border-base-content/10 px-3.5 py-2 align-middle whitespace-nowrap">
-              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行">💾</button>
+              <button class="btn btn-ghost btn-xs" @click.stop="saveNewRow" title="保存新行"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> </button>
               <button class="btn btn-ghost btn-xs" @click.stop="cancelNewRow" title="取消新增">✖</button>
             </td>
           </tr>
@@ -577,9 +577,9 @@ function onRowContext(event: MouseEvent, row: Record<string, unknown>, idx: numb
     x: event.clientX,
     y: event.clientY,
     items: [
-      { icon: '👁️', label: '查看完整值', action: () => { toast.info(String(displayRow)); closeContextMenu() } },
-      { icon: '📋', label: '复制行 JSON', action: () => { navigator.clipboard?.writeText(JSON.stringify(displayRow)); toast.info('已复制'); closeContextMenu() } },
-      { icon: '🗑️', label: '删除此行', action: () => { confirmDeleteRow(displayRow, idx); closeContextMenu() } },
+      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ', label: '查看完整值', action: () => { toast.info(String(displayRow)); closeContextMenu() } },
+      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ', label: '复制行 JSON', action: () => { navigator.clipboard?.writeText(JSON.stringify(displayRow)); toast.info('已复制'); closeContextMenu() } },
+      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> ', label: '删除此行', action: () => { confirmDeleteRow(displayRow, idx); closeContextMenu() } },
     ]
   }
 }
@@ -590,8 +590,8 @@ function onTableContext(event: MouseEvent) {
     x: event.clientX,
     y: event.clientY,
     items: [
-      { icon: '➕', label: '新增行', action: () => { addNewRow(); closeContextMenu() } },
-      { icon: '🔄', label: '刷新数据', action: () => { emit('refresh'); closeContextMenu() } },
+      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> ', label: '新增行', action: () => { addNewRow(); closeContextMenu() } },
+      { icon: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> ', label: '刷新数据', action: () => { emit('refresh'); closeContextMenu() } },
     ]
   }
 }

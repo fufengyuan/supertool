@@ -21,7 +21,7 @@
           <p v-if="project.description" class="text-sm text-base-content/60 leading-relaxed m-0 mb-2">{{ project.description }}</p>
           <div class="flex items-center gap-3">
             <span v-if="project.category" class="badge badge-ghost badge-sm">{{ categoryLabel(project.category) }}</span>
-            <span v-if="project.createdAt" class="text-xs text-base-content/60">📅 {{ formatDate(project.createdAt) }}</span>
+            <span v-if="project.createdAt" class="text-xs text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>  {{ formatDate(project.createdAt) }}</span>
           </div>
         </div>
       </div>
@@ -56,10 +56,10 @@
     <!-- 标签页切换 -->
     <div role="tablist" class="tabs tabs-boxed mb-4">
       <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'active' }" @click="activeTab = 'active'">
-        📋 进行中 ({{ activeTasks.length }})
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  进行中 ({{ activeTasks.length }})
       </button>
       <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'completed' }" @click="activeTab = 'completed'">
-        ✅ 已完成 ({{ completedTasks.length }})
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  已完成 ({{ completedTasks.length }})
       </button>
       <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'git' }" @click="activeTab = 'git'">
         📜 Git 提交
@@ -83,7 +83,7 @@
     <!-- 已完成任务 -->
     <div v-if="activeTab === 'completed'">
       <div v-if="completedTasks.length === 0" class="text-center px-5 py-10 text-base-content/60">
-        <span class="text-5xl block mb-3 opacity-50">🔍</span>
+        <span class="text-5xl block mb-3 opacity-50"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> </span>
         <p class="text-sm m-0 mb-4">暂无已完成任务</p>
       </div>
       <div v-else class="flex flex-col gap-2">
@@ -93,7 +93,7 @@
             <span class="text-sm text-base-content/60 line-through">{{ task.text }}</span>
           </div>
           <div class="flex items-center gap-2.5 shrink-0">
-            <span v-if="task.completedAt" class="text-xs text-emerald-500 whitespace-nowrap">✅ {{ formatDate(task.completedAt) }}</span>
+            <span v-if="task.completedAt" class="text-xs text-emerald-500 whitespace-nowrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>  {{ formatDate(task.completedAt) }}</span>
             <span v-if="task.priority" class="badge badge-sm" :class="{ 'badge-error': task.priority === 'high', 'badge-warning': task.priority === 'medium', 'badge-info': task.priority === 'low' }">{{ priorityLabel(task.priority) }}</span>
             <button class="btn btn-ghost btn-xs" @click="handleToggleTask(task)" title="恢复为未完成">↩️ 恢复</button>
           </div>
@@ -107,7 +107,7 @@
       <div v-else class="text-center px-5 py-10 text-base-content/60">
         <span class="text-5xl block mb-3 opacity-50">📜</span>
         <p class="text-sm m-0 mb-4">此项目未配置 Git 仓库</p>
-        <button class="btn btn-outline btn-primary btn-sm" @click="editProject">✏️ 编辑项目配置</button>
+        <button class="btn btn-outline btn-primary btn-sm" @click="editProject"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>  编辑项目配置</button>
       </div>
     </div>
 

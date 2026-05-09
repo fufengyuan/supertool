@@ -6,7 +6,7 @@
         <div class="bg-base-100 border border-base-content/10 rounded-xl">
           <div class="p-4">
             <div class="flex justify-between items-center mb-3">
-              <h3 class="text-base font-semibold m-0">🔧 Nginx 配置</h3>
+              <h3 class="text-base font-semibold m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  Nginx 配置</h3>
               <button @click="openNewPresetForm" class="btn btn-primary btn-sm">+ 新增预设</button>
             </div>
 
@@ -36,7 +36,7 @@
                     <span class="text-xs text-base-content/50 truncate">{{ preset.configPath || '未设置路径' }}</span>
                   </div>
                   <div class="flex gap-1 shrink-0">
-                    <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑">✏️</button>
+                    <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
                     <button @click.stop="onDeletePreset(preset.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">×</button>
                   </div>
                 </div>
@@ -78,7 +78,7 @@
                 :disabled="!currentPreset || loading"
                 class="btn btn-outline btn-sm"
               >
-                🧪 预检测试
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5a5 5 0 0 0 4.38 4.97l.62.03A2 2 0 0 1 20 17.86V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.14a2 2 0 0 1 1-1.86l.62-.03A5 5 0 0 0 9 8V3z"/><line x1="6" y1="9" x2="18" y2="9"/></svg>  预检测试
               </button>
               <button
                 @click="showDeployDialog = true"
@@ -96,7 +96,7 @@
           <button
             :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'raw' }]"
             @click="viewMode = 'raw'"
-          >📝 原始编辑</button>
+          ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>  原始编辑</button>
         </div>
 
         <!-- 测试结果提示 -->
@@ -146,7 +146,7 @@
                 :disabled="loading"
                 class="btn btn-ghost btn-xs"
                 title="回滚到此版本"
-              >🔄 回滚</button>
+              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  回滚</button>
             </div>
           </div>
         </div>

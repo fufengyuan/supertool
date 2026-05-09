@@ -3,7 +3,7 @@
     <!-- Left Sidebar: Tool Navigation -->
     <aside class="w-[260px] min-w-[220px] max-w-[300px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
       <div class="px-4 pt-4 pb-3">
-        <h3 class="m-0 mb-3 text-base font-bold text-base-content">🛠️ 开发工具</h3>
+        <h3 class="m-0 mb-3 text-base font-bold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  开发工具</h3>
         <div class="relative">
           <svg
             viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
@@ -47,7 +47,7 @@
         :key="activeTool"
       />
       <div v-else class="flex flex-col items-center justify-center h-full text-base-content/60 text-center gap-3">
-        <div class="text-[64px] opacity-30">🛠️</div>
+        <div class="text-[64px] opacity-30"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> </div>
         <h3 class="text-lg font-semibold text-base-content m-0">选择左侧工具开始使用</h3>
         <p class="text-sm m-0">{{ tools.length }} 个开发工具，全部支持离线使用</p>
       </div>
