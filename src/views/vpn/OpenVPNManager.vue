@@ -44,7 +44,7 @@
               }"></span>
         <span class="font-medium">
           <template v-if="status.state === 'connecting'">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2v8"/><path d="M4.93 10.93a8 8 0 1 1 14.14 0"/><path d="M16 16l-1.5-1.5"/></svg> 正在连接 {{ status.configName }}...
+            <SvgIcon name="plug" size="14" class="inline-block align-text-bottom" /> 正在连接 {{ status.configName }}...
           </template>
           <template v-else-if="status.state === 'connected'">
             <SvgIcon name="check" size="14" />  已连接 — {{ status.configName }}
@@ -65,10 +65,10 @@
         </span>
         <div class="flex gap-2">
           <button v-if="status.connected" class="btn btn-sm btn-error" @click="disconnect">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><polygon points="6 9 12 3 18 9 6 9"/><path d="M6 20h12"/></svg> 断开连接
+            <SvgIcon name="power" size="14" class="inline-block" /> 断开连接
           </button>
           <button v-if="status.state === 'error'" class="btn btn-sm btn-primary" @click="reconnect">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  重新连接
+<SvgIcon name="refresh" size="14" />  重新连接
           </button>
         </div>
       </div>
@@ -112,8 +112,12 @@
                 class="btn btn-ghost btn-xs px-1"
                 @click.stop="connectConfig(cfg)"
                 title="连接"
-              ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><polygon points="5 3 19 12 5 21 5 3"/></svg></button>
-              ><SvgIcon name="trash" size="14" /> </button>
+              ><SvgIcon name="play" size="14" /></button>
+              <button
+                class="btn btn-ghost btn-xs px-1"
+                @click.stop="deleteConfig(cfg)"
+                title="删除"
+              ><SvgIcon name="trash" size="14" /></button>
             </div>
           </div>
           <div v-if="configs.length === 0" class="flex flex-col items-center justify-center py-10 px-5 text-center text-base-content/60">

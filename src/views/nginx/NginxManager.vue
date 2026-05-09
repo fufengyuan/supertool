@@ -36,7 +36,7 @@
                     <span class="text-xs text-base-content/50 truncate">{{ preset.configPath || '未设置路径' }}</span>
                   </div>
                   <div class="flex gap-1 shrink-0">
-                    <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> </button>
+                    <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑"><SvgIcon name="pencil" size="14" /> </button>
                     <button @click.stop="onDeletePreset(preset.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">×</button>
                   </div>
                 </div>
@@ -45,7 +45,7 @@
 
             <div v-if="presets.length === 0" class="p-4 text-center text-base-content/60 text-sm">
               <template v-if="servers.length === 0">
-                <p class="m-0"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2v8"/><path d="M4.93 10.93a8 8 0 1 1 14.14 0"/><path d="M16 16l-1.5-1.5"/></svg> 尚未配置服务器</p>
+                <p class="m-0"><SvgIcon name="plug" size="14" /> 尚未配置服务器</p>
                 <p class="text-xs mt-1">Nginx 管理需要先添加 SSH 服务器</p>
               </template>
               <template v-else>
@@ -71,21 +71,20 @@
                 :disabled="!currentPreset || loading"
                 class="btn btn-ghost btn-sm"
               >
-                <template v-if="loading"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> 加载中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg> 获取配置</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 加载中...</template><template v-else><SvgIcon name="inbox" size="14" /> 获取配置</template>
               </button>
               <button
                 @click="onTestConfig"
                 :disabled="!currentPreset || loading"
                 class="btn btn-outline btn-sm"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v5a5 5 0 0 0 4.38 4.97l.62.03A2 2 0 0 1 20 17.86V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-1.14a2 2 0 0 1 1-1.86l.62-.03A5 5 0 0 0 9 8V3z"/><line x1="6" y1="9" x2="18" y2="9"/></svg>  预检测试
+                <SvgIcon name="lightbulb" size="14" />  预检测试
               </button>
               <button
                 @click="showDeployDialog = true"
                 :disabled="!currentPreset || !configContent || loading"
-                class="btn btn-primary btn-sm"
-              >
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 发布
+                class="btn btn-primary btn-sm">
+                <SvgIcon name="rocket" size="14" /> 发布
               </button>
             </div>
           </div>
@@ -96,7 +95,7 @@
           <button
             :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'raw' }]"
             @click="viewMode = 'raw'"
-          ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>  原始编辑</button>
+          ><SvgIcon name="pencil" size="14" />  原始编辑</button>
         </div>
 
         <!-- 测试结果提示 -->
@@ -105,9 +104,9 @@
           class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm"
           :class="testResult.passed ? 'bg-success/10 text-success' : 'bg-error/10 text-error'"
         >
-          <span><template v-if="testResult.passed"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 配置检测通过</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 配置检测失败</template></span>
+          <span><template v-if="testResult.passed"><SvgIcon name="check" size="14" /> 配置检测通过</template><template v-else><SvgIcon name="x" size="14" /> 配置检测失败</template></span>
           <span v-if="testResult.message" class="text-xs opacity-70">{{ testResult.message }}</span>
-          <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto"><SvgIcon name="x" size="14" /></button>
         </div>
 
         <!-- 配置编辑器 -->
@@ -128,7 +127,7 @@
 
         <!-- 版本历史 -->
         <div v-if="versions.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-          <h4 class="text-sm font-semibold text-base-content m-0 mb-3"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 版本历史</h4>
+          <h4 class="text-sm font-semibold text-base-content m-0 mb-3"><SvgIcon name="file" size="14" /> 版本历史</h4>
           <div class="flex flex-col">
             <div
               v-for="version in versions"
@@ -146,7 +145,7 @@
                 :disabled="loading"
                 class="btn btn-ghost btn-xs"
                 title="回滚到此版本"
-              ><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>  回滚</button>
+              ><SvgIcon name="refresh" size="14" />  回滚</button>
             </div>
           </div>
         </div>
@@ -207,7 +206,7 @@
     <!-- 发布弹窗 -->
     <div v-if="showDeployDialog" class="modal modal-open" @click.self="showDeployDialog = false">
       <div class="modal-box">
-        <h3 class="font-bold text-lg"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg> 发布配置</h3>
+        <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
         <div class="flex flex-col gap-1 mt-4">
           <label class="text-sm font-medium">备注</label>
           <input

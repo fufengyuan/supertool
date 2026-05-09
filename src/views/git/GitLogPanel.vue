@@ -11,12 +11,7 @@
             @click="$emit('update:logViewMode', 'table')"
             title="表格视图"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="3" y1="9" x2="21" y2="9" />
-              <line x1="3" y1="15" x2="21" y2="15" />
-              <line x1="9" y1="3" x2="9" y2="21" />
-            </svg>
+            <SvgIcon name="grid" :size="14" />
           </button>
           <button
             class="flex items-center justify-center w-7 h-6 p-0 border-0 bg-transparent text-base-content/60 rounded cursor-pointer hover:text-base-content hover:bg-[var(--hover-bg)]"
@@ -24,14 +19,7 @@
             @click="$emit('switch-to-graph-view')"
             title="图形视图 (Git Graph)"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="6" y1="3" x2="6" y2="21" />
-              <circle cx="6" cy="6" r="2" fill="currentColor" />
-              <circle cx="6" cy="12" r="2" fill="currentColor" />
-              <path d="M6 8 Q12 8 12 12" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path d="M12 14 Q12 18 6 18" />
-            </svg>
+            <SvgIcon name="gitCommit" :size="14" />
           </button>
           <button
             class="flex items-center justify-center w-7 h-6 p-0 border-0 bg-transparent text-base-content/60 rounded cursor-pointer hover:text-base-content hover:bg-[var(--hover-bg)]"
@@ -39,17 +27,11 @@
             @click="$emit('update:logViewMode', 'console')"
             title="Git Console"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="4 17 10 11 4 5" />
-              <line x1="12" y1="19" x2="20" y2="19" />
-            </svg>
+            <SvgIcon name="terminal" :size="14" />
           </button>
         </div>
         <div class="relative">
-          <svg class="absolute left-2 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <SvgIcon name="search" :size="12" class="absolute left-2 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" />
           <input
             :value="logSearch"
             @input="$emit('update:logSearch', ($event.target as HTMLInputElement).value)"
@@ -65,9 +47,7 @@
         <input :value="logDateFrom" @input="$emit('update:logDateFrom', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[11px] outline-none w-[130px]" title="From date" />
         <input :value="logDateTo" @input="$emit('update:logDateTo', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[11px] outline-none w-[130px]" title="To date" />
         <button class="btn btn-ghost btn-xs" @click="$emit('update:showAuthorFilter', !showAuthorFilter)" :class="{ '!text-primary !bg-primary/10': (selectedAuthors as Set<string>).size > 0 }" title="Filter by author">
-          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-          </svg>
+          <SvgIcon name="user" :size="12" />
           Authors
         </button>
         <div v-if="showAuthorFilter" class="absolute top-full right-0 z-[100] bg-base-100 border border-base-content/10 rounded-btn shadow-lg min-w-[180px] max-h-[200px] overflow-y-auto p-1 mt-1" @click.stop>
@@ -78,11 +58,7 @@
           <div v-if="logAuthors.length === 0" class="p-2.5 text-center text-xs text-base-content/60">No authors loaded</div>
         </div>
         <button class="btn btn-ghost btn-xs" @click="$emit('load-log')" :disabled="loading" title="刷新日志">
-          <svg :class="{ 'animate-spin': loading }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="23 4 23 10 17 10" />
-            <polyline points="1 20 1 14 7 14" />
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-          </svg>
+          <SvgIcon name="refresh" :size="12" :class="{ 'animate-spin': loading }" />
         </button>
       </div>
     </div>
@@ -166,11 +142,7 @@
         @click="$emit('on-graph-click', $event)"
       ></canvas>
       <div v-if="graphLoading" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-3 text-base-content/60">
-        <svg class="animate-spin" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="23 4 23 10 17 10" />
-          <polyline points="1 20 1 14 7 14" />
-          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-        </svg>
+        <SvgIcon name="refresh" :size="24" class="animate-spin" />
         <span>加载中...</span>
       </div>
       <div v-if="!graphLoading && graphLog.length === 0" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-3 text-base-content/60">
@@ -218,7 +190,7 @@
     <div v-if="selectedCommit" class="border-t border-base-content/10 bg-base-100 max-h-[40%] overflow-y-auto shrink-0">
       <div class="flex items-center justify-between px-2.5 py-1.5 border-b border-base-content/10">
         <span class="font-semibold text-xs">提交详情</span>
-        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedCommit', null)" title="关闭"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-ghost btn-xs" @click="$emit('update:selectedCommit', null)" title="关闭"><SvgIcon name="x" :size="14" class="inline-block" /></button>
       </div>
       <div class="p-2 px-2.5">
         <div class="flex gap-2 mb-1 text-xs">
