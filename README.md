@@ -102,7 +102,7 @@ tauri-vue-app/
 │   │   └── main.css       # Global styles
 │   ├── App.vue            # Root component
 │   └── main.ts            # Vue app entry point
-├── src-tauri/             # Rust backend source code
+├── tauri/             # Rust backend source code
 │   ├── src/
 │   │   ├── main.rs        # Tauri app entry point
 │   │   └── lib.rs         # Main Rust library
@@ -190,7 +190,7 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
-Build outputs are generated in `src-tauri/target/release/bundle/`:
+Build outputs are generated in `tauri/target/release/bundle/`:
 
 - **Windows**: `.msi` installer and `.exe` executable
 - **macOS**: `.dmg` installer and `.app` bundle
@@ -198,8 +198,8 @@ Build outputs are generated in `src-tauri/target/release/bundle/`:
 
 ### Customization
 
-1. **App Identity**: Update `src-tauri/tauri.conf.json`
-2. **Icons**: Replace files in `src-tauri/icons/`
+1. **App Identity**: Update `tauri/tauri.conf.json`
+2. **Icons**: Replace files in `tauri/icons/`
 3. **Window Settings**: Modify window configuration in `tauri.conf.json`
 4. **Branding**: Update app name, description, and metadata
 

@@ -10,5 +10,5 @@
         "prefer-const": "error",
         "no-var": "error"
     },
-    "ignorePatterns": ["dist/", "node_modules/", "public/", "src-tauri/target/"]
+    "ignorePatterns": ["dist/", "node_modules/", "public/", "tauri/target/"]
 }

@@ -102,7 +102,7 @@ tauri-vue-app/
 │   │   └── main.css       # 全局样式
 │   ├── App.vue            # 根组件
 │   └── main.ts            # Vue 应用入口点
-├── src-tauri/             # Rust 后端源代码
+├── tauri/             # Rust 后端源代码
 │   ├── src/
 │   │   ├── main.rs        # Tauri 应用入口点
 │   │   └── lib.rs         # 主 Rust 库
@@ -190,7 +190,7 @@ pnpm tauri dev
 pnpm tauri build
 ```
 
-构建输出生成在 `src-tauri/target/release/bundle/`:
+构建输出生成在 `tauri/target/release/bundle/`:
 
 - **Windows**: `.msi` 安装程序和 `.exe` 可执行文件
 - **macOS**: `.dmg` 安装程序和 `.app` 应用包
@@ -198,8 +198,8 @@ pnpm tauri build
 
 ### 自定义设置
 
-1. **应用标识**: 更新 `src-tauri/tauri.conf.json`
-2. **图标**: 替换 `src-tauri/icons/` 中的文件
+1. **应用标识**: 更新 `tauri/tauri.conf.json`
+2. **图标**: 替换 `tauri/icons/` 中的文件
 3. **窗口设置**: 修改 `tauri.conf.json` 中的窗口配置
 4. **品牌**: 更新应用名称、描述和元数据
 
