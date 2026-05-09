@@ -822,6 +822,7 @@ function navigateToTodo(todoId) {
 
 onMounted(async () => {
   await todoStore.loadTodos()
+  await projectStore.loadProjects()
   window.addEventListener('navigate-to-todo', (event: Event) => {
     const ce = event as CustomEvent
     if (ce.detail && ce.detail.todoId) {
