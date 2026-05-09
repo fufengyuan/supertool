@@ -4681,6 +4681,7 @@ dependencies = [
  "anyhow",
  "clap",
  "dirs 5.0.1",
+ "rusqlite",
  "serde",
  "serde_json",
  "supertool-core",
