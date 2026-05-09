@@ -95,22 +95,34 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 eprintln!("  ⚠️ --stream 和 --watch 互斥，同时指定时 --stream 优先");
             }
             if *stream {
-                // Stream mode not yet supported via CoreService
-                println!("  ⚠️ 流式部署 (--stream) 尚未通过 CLI 实现，请使用 --watch 模式");
-            } else {
+                // Stream mode: deploy blocks until complete, output progress inline
                 let resp = rt.core.cicd_deploy(config_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-                // Check if it's the placeholder response
-                if resp.get("note").and_then(|v| v.as_str()) == Some("CI/CD deploy 尚未实现") {
-                    println!("  ⚠️ CI/CD 部署功能尚未通过 CLI 实现，请在 GUI 中操作");
-                    return Ok(());
+                if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {
+                    if resp.get("requiresApproval").and_then(|v| v.as_bool()) == Some(true) {
+                        let name = resolve_cicd_name(rt, config_id);
+                        anyhow::bail!("⚠️ 配置「{}」已开启部署审核，请在 GUI 中手动确认部署。", name);
+                    }
+                    anyhow::bail!("部署失败: {}", resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误"));
                 }
                 let name = resolve_cicd_name(rt, config_id);
+                let deploy_id = resp.get("deployId").and_then(|v| v.as_str()).unwrap_or("");
+                let log_path = resp.get("logFilePath").and_then(|v| v.as_str()).unwrap_or("");
+                print_success(&format!("部署完成: {} (ID: {})\n日志: {}", name, deploy_id, log_path));
+            } else {
+                let resp = rt.core.cicd_deploy(config_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+                if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {
+                    if resp.get("requiresApproval").and_then(|v| v.as_bool()) == Some(true) {
+                        let name = resolve_cicd_name(rt, config_id);
+                        anyhow::bail!("⚠️ 配置「{}」已开启部署审核，请在 GUI 中手动确认部署。", name);
+                    }
+                    anyhow::bail!("部署失败: {}", resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误"));
+                }
+                let name = resolve_cicd_name(rt, config_id);
+                let deploy_id = resp.get("deployId").and_then(|v| v.as_str()).unwrap_or("");
+                let log_path = resp.get("logFilePath").and_then(|v| v.as_str()).unwrap_or("");
                 if *watch {
                     // Poll deploy status until complete
-                    println!(
-                        "  🚀 部署已启动: {} ({}), 等待完成...",
-                        name, config_id
-                    );
+                    println!("  🚀 部署已启动: {} ({}), 等待完成...", name, config_id);
                     let mut attempts = 0;
                     loop {
                         std::thread::sleep(std::time::Duration::from_secs(5));
@@ -127,7 +139,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                                 deployed.get(..16).unwrap_or(""),
                                 status
                             );
-                            if status == "success" {
+                            if status == "success" || status.contains("success") {
                                 print_success(&format!("部署完成: {}", name));
                                 break;
                             }
@@ -148,8 +160,8 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                     }
                 } else {
                     print_success(&format!(
-                        "部署已启动: {} ({})\n使用 --watch 查看进度",
-                        name, config_id
+                        "部署完成: {} (ID: {})\n日志: {}",
+                        name, deploy_id, log_path
                     ));
                 }
             }
@@ -206,29 +218,39 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             config_id,
             deploy_log_id,
         } => {
-            let resp = rt.core.cicd_deploy(config_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            // Check if it's the placeholder response
-            if resp.get("note").and_then(|v| v.as_str()) == Some("CI/CD deploy 尚未实现") {
-                println!("  ⚠️ 回滚功能尚未通过 CLI 实现，请在 GUI 中操作");
-                return Ok(());
+            let resp = rt.core.cicd_rollback(config_id, deploy_log_id).await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp.get("success").and_then(|v| v.as_bool()) == Some(true) {
+                let name = resolve_cicd_name(rt, config_id);
+                print_success(&format!("回滚成功: {} → 版本 {}", name, deploy_log_id));
+            } else {
+                let errors = resp.get("errors").and_then(|v| v.as_array()).cloned().unwrap_or_default();
+                let error_msgs: Vec<String> = errors.iter()
+                    .filter_map(|e| e.as_str().map(|s| s.to_string()))
+                    .collect();
+                if error_msgs.is_empty() {
+                    anyhow::bail!("回滚失败: 未知错误");
+                } else {
+                    anyhow::bail!("回滚部分失败: {}", error_msgs.join("; "));
+                }
             }
-            // Normal path (if stub is implemented in the future)
-            let name = resolve_cicd_name(rt, config_id);
-            print_success(&format!(
-                "回滚已启动: {} → 版本 {}",
-                name, deploy_log_id
-            ));
         }
         CicdCommands::Cancel { config_id } => {
-            let resp = rt.core.cicd_deploy(config_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            // Check if it's the placeholder response
-            if resp.get("note").and_then(|v| v.as_str()) == Some("CI/CD deploy 尚未实现") {
-                println!("  ⚠️ 取消部署功能尚未通过 CLI 实现，请在 GUI 中操作");
-                return Ok(());
+            // Get latest running deploy for this config
+            let history = rt.core.get_deploy_history(config_id, 1)
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let deploy_log_id = history.first()
+                .filter(|h| h.status == "running" || h.status == "pending")
+                .map(|h| h.id.clone())
+                .ok_or_else(|| anyhow::anyhow!("未找到正在进行的部署"))?;
+            let resp = rt.core.cicd_cancel_deploy(&deploy_log_id).await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp.get("success").and_then(|v| v.as_bool()) == Some(true) {
+                let name = resolve_cicd_name(rt, config_id);
+                print_success(&format!("部署已取消: {} ({})", name, config_id));
+            } else {
+                anyhow::bail!("取消失败: {}", resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误"));
             }
-            // Normal path (if stub is implemented in the future)
-            let name = resolve_cicd_name(rt, config_id);
-            print_success(&format!("部署已取消: {} ({})", name, config_id));
         }
         CicdCommands::Modules { config_id, json } => {
             let modules = rt
