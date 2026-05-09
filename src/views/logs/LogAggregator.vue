@@ -13,7 +13,10 @@
             class="mb-1"
           >
             <div class="flex items-center gap-1.5 px-2 py-1 cursor-pointer select-none rounded transition-colors duration-200 hover:bg-primary/10" @click="togglePresetGroup(groupEntry.presetGroup)">
-              <span class="text-[10px] text-base-content/60 min-w-[10px]">{{ collapsedPresetGroups.has(groupEntry.presetGroup) ? '▶' : '▼' }}</span>
+              <span class="text-[10px] text-base-content/60 min-w-[10px] inline-flex items-center">
+                <svg v-if="collapsedPresetGroups.has(groupEntry.presetGroup)" viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                <svg v-else viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+              </span>
               <span class="font-semibold text-xs text-base-content/60 flex-1">{{ groupEntry.presetGroup }}</span>
               <span class="text-[11px] text-base-content/60 opacity-60">{{ groupEntry.presets.length }}</span>
             </div>
@@ -29,8 +32,8 @@
                   <span class="font-medium">{{ preset.name }}</span>
                   <span class="text-xs opacity-70">{{ preset.serverIds.length }} 节点 · {{ preset.logType }}</span>
                 </div>
-                <button @click.stop="editPreset(preset)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100" title="编辑">✏️</button>
-                <button @click.stop="deletePreset(preset.id)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100 hover:text-error" title="删除">×</button>
+                <button @click.stop="editPreset(preset)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100" title="编辑"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+                <button @click.stop="deletePreset(preset.id)" class="btn btn-ghost btn-xs opacity-50 hover:opacity-100 hover:text-error" title="删除"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 <span v-if="isStreaming && selectedPreset?.id === preset.id" class="absolute right-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
               </div>
             </div>
@@ -39,9 +42,9 @@
           <div v-if="presets.length === 0" class="text-center text-base-content/60 text-xs p-3">
             <template v-if="allServers.length === 0">
               <div class="text-center">
-                <p>🔌 尚未配置服务器</p>
+                <p><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline"><path d="M6 15V8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M10 2v4"/><path d="M14 2v4"/></svg> 尚未配置服务器</p>
                 <p class="text-xs opacity-70 mt-1">日志聚合需要先添加 SSH 服务器：</p>
-                <button @click="goToServers" class="btn btn-primary btn-sm mt-2">前往配置服务器 →</button>
+                <button @click="goToServers" class="btn btn-primary btn-sm mt-2">前往配置服务器 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline"><path d="M5 12h14"/><polyline points="12 5 19 12 12 19"/></svg></button>
               </div>
             </template>
             <template v-else>
@@ -59,11 +62,11 @@
             <button
               :class="['btn btn-sm rounded text-xs transition-all', queryMode === 'stream' ? 'btn-primary' : 'btn-ghost text-base-content/60']"
               @click="switchQueryMode('stream')"
-            >📡 流式查询</button>
+            ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg> 流式查询</button>
             <button
               :class="['btn btn-sm rounded text-xs transition-all', queryMode === 'search' ? 'btn-primary' : 'btn-ghost text-base-content/60']"
               @click="switchQueryMode('search')"
-            >🔍 日志搜索</button>
+            ><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 日志搜索</button>
           </div>
           <button @click="openNewPresetForm" class="btn btn-primary btn-sm">+ 新增预设</button>
 
@@ -106,7 +109,7 @@
               :disabled="!selectedPreset || !searchKeyword.trim() || isSearching"
               class="btn btn-primary btn-sm whitespace-nowrap"
             >
-              {{ isSearching ? '🔄 搜索中...' : '🔍 搜索' }}
+              <template v-if="isSearching"><svg :class="{ 'animate-spin': isSearching }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> 搜索中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 搜索</template>
             </button>
           </div>
         </div>
@@ -124,7 +127,7 @@
               class="btn btn-error btn-sm animate-pulse"
               title="终止当前日志查询"
             >
-              ⏹ 终止
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> 终止
             </button>
             <button
               v-if="queryMode === 'stream'"
@@ -135,10 +138,10 @@
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/>
               </svg>
-              {{ followMode ? '📌 跟踪中' : '📍 跟踪' }}
+              <template v-if="followMode"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 跟踪中</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> 跟踪</template>
             </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
-            <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10">📋 导出</button>
+            <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> 导出</button>
           </div>
         </div>
 
@@ -175,7 +178,7 @@
           class="btn btn-primary btn-sm rounded-full absolute bottom-4 right-4 z-10 shadow-lg animate-pulse hover:scale-105 hover:shadow-xl transition-all"
           title="点击后进入跟踪模式"
         >
-          ↓ 回到底部并跟踪
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> 回到底部并跟踪
         </button>
       </div>
     </div>
