@@ -59,13 +59,14 @@
 
     <div class="tool-section" v-if="diffResult.length === 0 && hasRun">
       <div class="tool-result result-equal">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 两段文本完全相同
+        <SvgIcon name="check" size="14" class="align-text-bottom" /> 两段文本完全相同
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue'
 import { diffLines, diffWords, type Change } from 'diff'
 // styles in <style scoped>

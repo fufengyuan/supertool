@@ -3,14 +3,9 @@
     <!-- Left Sidebar: Tool Navigation -->
     <aside class="w-[260px] min-w-[220px] max-w-[300px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
       <div class="px-4 pt-4 pb-3">
-        <h3 class="m-0 mb-3 text-base font-bold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  开发工具</h3>
+        <h3 class="m-0 mb-3 text-base font-bold text-base-content"><SvgIcon name="tool" size="14" />  开发工具</h3>
         <div class="relative">
-          <svg
-            viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
-            class="absolute left-[10px] top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none"
-          >
-            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
+          <SvgIcon name="search" size="14" class="absolute left-[10px] top-1/2 -translate-y-1/2 text-base-content/60" />
           <input
             v-model="searchQuery"
             placeholder="搜索工具..."
@@ -32,7 +27,7 @@
             >
               <span class="text-[15px] shrink-0 w-5 text-center">{{ tool.icon }}</span>
               <span class="flex-1 truncate">{{ tool.name }}</span>
-              <span v-if="!tool.offline" class="text-[10px] shrink-0" title="需要联网"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+              <span v-if="!tool.offline" class="text-[10px] shrink-0" title="需要联网"><SvgIcon name="globe" size="14" class="align-text-bottom" /></span>
             </div>
           </div>
         </div>
@@ -47,7 +42,7 @@
         :key="activeTool"
       />
       <div v-else class="flex flex-col items-center justify-center h-full text-base-content/60 text-center gap-3">
-        <div class="text-[64px] opacity-30"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> </div>
+        <div class="text-[64px] opacity-30"><SvgIcon name="tool" size="14" /> </div>
         <h3 class="text-lg font-semibold text-base-content m-0">选择左侧工具开始使用</h3>
         <p class="text-sm m-0">{{ tools.length }} 个开发工具，全部支持离线使用</p>
       </div>
@@ -56,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, defineAsyncComponent } from 'vue'
 import { DEV_TOOL_REGISTRY, getToolById, type DevTool } from './DevToolRegistry'
 

@@ -3,16 +3,14 @@
     <!-- Filter toggle & controls -->
     <div class="flex items-center justify-between py-1.5">
       <button @click="toggleFilter" :class="[enabled ? 'bg-primary text-white border-primary' : 'bg-transparent text-base-content/60 border-base-content/10']" class="flex items-center gap-1.5 px-3 py-1.25 border rounded-md text-xs cursor-pointer transition-all duration-150 hover:bg-primary/10 hover:text-primary">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-        </svg>
+        <SvgIcon name="filter" size="14" />
         <span>筛选</span>
         <span v-if="activeCount > 0" :class="enabled ? 'bg-white/30 text-white' : 'bg-primary text-white'" class="px-1.5 py-0.5 rounded-full text-[11px] font-semibold">{{ activeCount }}</span>
       </button>
       <div v-if="enabled" class="flex gap-1.5 items-center">
         <button @click="addCondition" class="btn btn-ghost btn-xs">+ 添加条件</button>
         <button @click="clearAll" class="btn btn-ghost btn-xs" :disabled="conditions.length === 0">清除全部</button>
-        <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 应用筛选</button>
+        <button @click="apply" class="btn btn-primary btn-xs" :disabled="conditions.length === 0"><SvgIcon name="search" size="14" class="align-text-bottom" /> 应用筛选</button>
       </div>
     </div>
 
@@ -93,6 +91,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue'
 
 export interface FilterCondition {

@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full p-4 overflow-auto">
     <div class="mb-4">
-      <h3 class="text-base font-semibold m-0 mb-1"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>  结构同步</h3>
+      <h3 class="text-base font-semibold m-0 mb-1"><SvgIcon name="tool" size="14" />  结构同步</h3>
       <p class="text-sm text-base-content/60 m-0">对比并同步两个数据库之间的表结构（Navicat 风格多表对比）</p>
     </div>
 
@@ -9,7 +9,7 @@
     <div v-if="step === 1" class="bg-base-100 rounded-lg p-4">
       <div class="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 mb-4">
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 源连接</label>
+          <label class="text-xs font-medium text-base-content/60"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> 源连接</label>
           <select v-model="sourceId" @change="onSourceChange" class="select select-bordered select-sm w-full">
             <option value="">选择源连接</option>
             <option v-for="conn in connections" :key="conn.id" :value="conn.id">
@@ -18,7 +18,7 @@
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 目标连接</label>
+          <label class="text-xs font-medium text-base-content/60"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> 目标连接</label>
           <select v-model="targetId" @change="onTargetChange" class="select select-bordered select-sm w-full">
             <option value="">选择目标连接</option>
             <option v-for="conn in connections" :key="conn.id" :value="conn.id">
@@ -27,14 +27,14 @@
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  源数据库</label>
+          <label class="text-xs font-medium text-base-content/60"><SvgIcon name="folder" size="14" />  源数据库</label>
           <select v-model="sourceDb" @change="loadSourceTables" :disabled="!sourceId || loadingSourceDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingSourceDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in sourceDatabases" :key="db" :value="db">{{ db }}</option>
           </select>
         </div>
         <div class="flex flex-col gap-1">
-          <label class="text-xs font-medium text-base-content/60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  目标数据库</label>
+          <label class="text-xs font-medium text-base-content/60"><SvgIcon name="folder" size="14" />  目标数据库</label>
           <select v-model="targetDb" @change="loadTargetTables" :disabled="!targetId || loadingTargetDb" class="select select-bordered select-sm w-full">
             <option value="">{{ loadingTargetDb ? '加载中...' : '选择数据库' }}</option>
             <option v-for="db in targetDatabases" :key="db" :value="db">{{ db }}</option>
@@ -52,7 +52,7 @@
     <!-- Step 2: Multi-Table Selection -->
     <div v-if="step === 2" class="bg-base-100 rounded-lg p-4">
       <div class="flex items-center justify-between mb-3">
-        <h4 class="text-sm font-semibold m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  选择要对比的表</h4>
+        <h4 class="text-sm font-semibold m-0"><SvgIcon name="file" size="14" />  选择要对比的表</h4>
         <div class="flex gap-1.5">
           <button @click="selectAllTables" class="btn btn-ghost btn-xs">全选</button>
           <button @click="selectCommonTables" class="btn btn-ghost btn-xs">仅共有表</button>
@@ -264,6 +264,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useDBManager } from '../../composables/useDBManager'

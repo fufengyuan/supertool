@@ -3,7 +3,7 @@
     <dialog ref="dialogRef" class="modal" :class="{ 'modal-open': modelValue }" @close="handleClose">
       <div class="modal-box w-full" :style="{ maxWidth: width, maxHeight: maxHeight }">
         <form method="dialog">
-          <button v-if="showClose" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-base-content/60 hover:text-base-content" @click="close"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          <button v-if="showClose" class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2 text-base-content/60 hover:text-base-content" @click="close"><SvgIcon name="x" size="14" /></button>
         </form>
         <h3 v-if="title" class="text-lg font-bold mb-2">{{ title }}</h3>
         <slot name="header" />
@@ -23,6 +23,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const props = defineProps({
   modelValue: {

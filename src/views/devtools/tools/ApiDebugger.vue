@@ -3,7 +3,7 @@
     <!-- Left Sidebar: Saved Requests -->
     <aside class="w-[260px] min-w-[220px] max-w-[320px] border-r border-base-content/10 bg-base-100 flex flex-col shrink-0">
       <div class="flex items-center justify-between p-[14px_16px_10px]">
-        <h3 class="m-0 text-sm font-bold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 已保存接口</h3>
+        <h3 class="m-0 text-sm font-bold text-base-content"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 已保存接口</h3>
         <button class="btn btn-outline btn-primary btn-xs" @click="createNewRequest">+ 新建</button>
       </div>
       <div class="px-3 pb-2.5">
@@ -32,7 +32,7 @@
       <!-- Smart Paste Area -->
       <div class="border border-dashed border-base-content/10 rounded-lg bg-base-100 transition-colors duration-200" :class="{ 'border-primary': !pasteCollapsed }">
         <div class="flex items-center justify-between px-3.5 py-2 cursor-pointer select-none" @click="pasteCollapsed = !pasteCollapsed">
-          <span class="text-xs font-semibold text-base-content"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> 智能粘贴报文</span>
+          <span class="text-xs font-semibold text-base-content"><SvgIcon name="file" size="14" class="align-text-bottom" /> 智能粘贴报文</span>
           <span class="text-[10px] text-base-content/60">{{ pasteCollapsed ? '▼' : '▲' }}</span>
         </div>
         <div v-show="!pasteCollapsed" class="px-3.5 pb-3">
@@ -43,11 +43,11 @@
             rows="6"
           />
           <div class="flex gap-2 mt-2">
-            <button class="btn btn-outline btn-primary btn-xs" @click="parseSmartPaste"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 智能解析</button>
+            <button class="btn btn-outline btn-primary btn-xs" @click="parseSmartPaste"><SvgIcon name="search" size="14" class="align-text-bottom" /> 智能解析</button>
             <button class="btn btn-ghost btn-xs" @click="pasteText = ''">清空</button>
           </div>
           <div v-if="parseResult" class="mt-2 px-2.5 py-1.5 text-xs bg-green-100 text-green-800 rounded">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 已解析: <strong>{{ parseResult.method }}</strong> {{ parseResult.url }}
+            <SvgIcon name="check" size="14" class="align-text-bottom" /> 已解析: <strong>{{ parseResult.method }}</strong> {{ parseResult.url }}
             <span v-if="parseResult.headersCount"> ({{ parseResult.headersCount }} 个请求头)</span>
             <span v-if="parseResult.bodyType"> 报文: {{ parseResult.bodyType }}</span>
           </div>
@@ -230,6 +230,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted } from 'vue'
 import { getTauriAPI } from '../../../utils/tauri-api'
 

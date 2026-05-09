@@ -8,9 +8,7 @@
     <!-- 搜索和筛选 -->
     <div class="flex gap-3 mb-5 flex-wrap items-center">
       <div class="relative flex-1 min-w-[200px]">
-        <svg class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-        </svg>
+        <SvgIcon class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none" name="search" :size="16" />
         <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9 text-sm placeholder:text-base-content/60 placeholder:opacity-70" :placeholder="$t('projectList.searchPlaceholder')" />
       </div>
       <div class="flex gap-2">
@@ -21,10 +19,10 @@
         </select>
         <select v-model="categoryFilter" class="select select-bordered text-sm">
           <option value="all">{{ $t('projectList.category.all') }}</option>
-          <option value="frontend"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="13.5" cy="6.5" r="0.5" fill="currentColor"/><circle cx="17.5" cy="10.5" r="0.5" fill="currentColor"/><circle cx="8.5" cy="7.5" r="0.5" fill="currentColor"/><circle cx="6.5" cy="12.5" r="0.5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-1 0-.83.67-1.5 1.5-1.5H16c3.31 0 6-2.69 6-6 0-4.5-4.22-8-10-8z"/></svg> {{ $t('projectForm.frontend') }}</option>
-          <option value="backend"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> {{ $t('projectForm.backend') }}</option>
-          <option value="infrastructure"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg> {{ $t('projectForm.infrastructure') }}</option>
-          <option value="other"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2z"/></svg> {{ $t('projectForm.other') }}</option>
+          <option value="frontend"><SvgIcon name="palette" :size="14" class="inline-block align-text-bottom" /> {{ $t('projectForm.frontend') }}</option>
+          <option value="backend"><SvgIcon name="settings" :size="14" class="inline-block align-text-bottom" /> {{ $t('projectForm.backend') }}</option>
+          <option value="infrastructure"><SvgIcon name="build" :size="14" class="inline-block align-text-bottom" /> {{ $t('projectForm.infrastructure') }}</option>
+          <option value="other"><SvgIcon name="star" :size="14" class="inline-block align-text-bottom" /> {{ $t('projectForm.other') }}</option>
           <option value="">{{ $t('projectForm.uncategorized') }}</option>
         </select>
       </div>
@@ -79,6 +77,7 @@
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ProjectItem from '@/views/projects/ProjectItem.vue';
 import ProjectForm from '@/views/projects/ProjectForm.vue';
 import UiButton from '@/components/ui/Button.vue';

@@ -2,7 +2,7 @@
   <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" @click="$emit('close')">
     <div class="bg-base-100 rounded-2xl w-[90%] max-w-[640px] max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
       <div class="flex items-center justify-between px-6 py-5 border-b border-base-content/10">
-        <h3 class="m-0 text-lg font-semibold text-base-content"><template v-if="isEditing"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑服务器</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> 添加服务器</template></h3>
+        <h3 class="m-0 text-lg font-semibold text-base-content"><template v-if="isEditing"><SvgIcon name="pencil" :size="14" class="inline-block" /> 编辑服务器</template><template v-else><SvgIcon name="server" :size="14" class="inline-block align-text-bottom" /> 添加服务器</template></h3>
         <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square text-xl text-base-content/60 hover:text-base-content">×</button>
       </div>
       <div class="p-6">
@@ -29,7 +29,7 @@
 
         <div class="bg-base-200 rounded-xl p-4 mb-4 border border-base-content/10">
           <div class="flex items-center gap-2 text-sm font-semibold text-base-content mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+            <SvgIcon name="key" :size="16" class="shrink-0" />
             <span>认证方式</span>
           </div>
 
@@ -60,9 +60,7 @@
                 {{ selectedGroupName }}
               </span>
               <span v-else class="text-base-content/60 text-sm opacity-60">选择分组...</span>
-              <svg class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': showTreeSelect }" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5">
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
+              <SvgIcon name="chevronDown" :size="14" :stroke-width="2.5" class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180': showTreeSelect }" />
             </div>
             <Transition
               enter-active-class="transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
@@ -107,12 +105,12 @@
 
         <div class="bg-base-200 rounded-xl p-4 mb-4 border border-warning/30 bg-warning/5">
           <div class="flex items-center gap-2 text-sm font-semibold text-base-content mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            <SvgIcon name="shield" :size="16" class="shrink-0" />
             <span>安全管控</span>
           </div>
           <div class="flex items-center justify-between gap-3">
             <div class="flex-1">
-              <div class="text-sm font-semibold text-warning mb-1 flex items-center gap-1.5"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> 执行审核</div>
+              <div class="text-sm font-semibold text-warning mb-1 flex items-center gap-1.5"><SvgIcon name="lock" :size="14" /> 执行审核</div>
               <div class="text-xs text-base-content/60 leading-relaxed">开启后，CLI 无法在此服务器执行命令，GUI 执行需人工确认</div>
             </div>
             <input type="checkbox" class="toggle" v-model="localForm.requiresApproval" />
@@ -144,13 +142,14 @@
         class="mx-6 mb-5 p-3 rounded-lg text-sm"
         :class="testResult.success ? 'bg-success/15 text-success' : 'bg-error/15 text-error'"
       >
-        <template v-if="testResult.success"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg> 连接成功！</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> 连接失败: {{ testResult.error }}</template>
+        <template v-if="testResult.success"><SvgIcon name="check" :size="14" class="inline-block align-text-bottom" /> 连接成功！</template><template v-else><SvgIcon name="x" :size="14" class="inline-block align-text-bottom" /> 连接失败: {{ testResult.error }}</template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 
 interface ServerGroup {

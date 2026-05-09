@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-col h-full min-h-0 max-w-full overflow-hidden">
     <div class="flex items-center justify-between px-5 py-3 border-b border-base-content/10 min-h-0 gap-3">
-      <h2 class="text-base font-semibold text-base-content m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>  数据库管理</h2>
+      <h2 class="text-base font-semibold text-base-content m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"><SvgIcon name="database" size="14" />  数据库管理</h2>
       <div class="flex gap-2 shrink-0" v-if="db.activeConnection.value">
         <template v-if="db.activeConnection.value.type === 'redis'">
           <button
@@ -9,9 +9,7 @@
             class="btn btn-primary btn-sm"
             title="Redis 管理器"
           >
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
-            </svg>
+            <SvgIcon name="key" size="14" />
             Redis 管理器
           </button>
         </template>
@@ -346,7 +344,8 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
 import * as logger from '../../services/logger'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useDBManager, type DBConnection, type WorkspaceTab } from '../../composables/useDBManager'

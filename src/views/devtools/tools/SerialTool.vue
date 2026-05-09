@@ -25,7 +25,8 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
 import { ref } from 'vue'
 import yaml from 'js-yaml'
 import { copyText } from '../toolUtils'

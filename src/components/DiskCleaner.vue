@@ -4,20 +4,20 @@
     <div class="flex-none bg-base-100 border-b border-base-300 p-4">
       <div class="flex items-center justify-between mb-3">
         <h2 class="text-lg font-bold flex items-center gap-2">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M20 20L4 4"/><path d="M16 8L8 16"/><path d="M12 4L4 12"/><path d="M8 20L20 8"/></svg> 磁盘清理
+          <SvgIcon name="broom" size="14" /> 磁盘清理
         </h2>
         <div class="flex gap-1 bg-base-200 p-0.5 rounded-lg">
           <button class="btn btn-sm" :class="activeTab === 'directory' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'directory'">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 目录浏览
+            <SvgIcon name="folder" size="14" /> 目录浏览
           </button>
           <button class="btn btn-sm" :class="activeTab === 'category' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'category'">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> 文件分类
+            <SvgIcon name="barChart" size="14" /> 文件分类
           </button>
           <button class="btn btn-sm" :class="activeTab === 'cache' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'cache'">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 缓存清理
+            <SvgIcon name="trash" size="14" /> 缓存清理
           </button>
           <button class="btn btn-sm" :class="activeTab === 'duplicate' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'duplicate'">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 重复文件
+            <SvgIcon name="search" size="14" /> 重复文件
           </button>
         </div>
       </div>
@@ -38,7 +38,7 @@
       <span class="text-sm">已选择 <strong>{{ selectedPaths.size }}</strong> 项，可释放 <strong>{{ formatSize(selectedTotalSize) }}</strong></span>
       <div class="flex gap-2">
         <button class="btn btn-sm btn-warning gap-1" @click="deleteSelected">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> 删除选中
+          <SvgIcon name="trash" size="14" /> 删除选中
         </button>
         <button class="btn btn-sm btn-ghost" @click="clearSelection">取消</button>
       </div>
@@ -49,13 +49,13 @@
       <!-- Shared error display -->
       <div v-if="errorMessage" class="alert alert-error mb-3">
         <span>{{ errorMessage }}</span>
-        <button class="btn btn-sm btn-ghost" @click="errorMessage = ''"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+        <button class="btn btn-sm btn-ghost" @click="errorMessage = ''"><SvgIcon name="x" size="14" /></button>
       </div>
       <!-- 目录浏览 -->
       <div v-if="activeTab === 'directory'">
         <div class="flex items-center gap-2 mb-4">
           <button class="btn btn-sm btn-ghost" @click="goUp" :disabled="!currentPath || currentPath === '/'">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg> 上一级
+            <SvgIcon name="arrowUp" size="14" /> 上一级
           </button>
           <div class="breadcrumbs text-sm flex-1">
             <ul>
@@ -67,12 +67,12 @@
           <button class="btn btn-sm btn-primary gap-1" @click="scanCurrentDir" :disabled="dirScanning">
             <span v-if="dirScanning" class="loading loading-spinner loading-xs"></span>
             <span v-if="dirScanning">扫描中...</span>
-            <span v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描</span>
+            <span v-else><SvgIcon name="search" size="14" /> 扫描</span>
           </button>
         </div>
 
         <div v-if="dirEntries.length === 0 && !dirScanning" class="text-center py-20 text-base-content/40">
-          <div class="text-6xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="text-6xl mb-4"><SvgIcon name="folder" size="14" /></div>
           <p class="text-lg">点击"扫描"开始分析目录</p>
           <p class="text-sm mt-2">默认从当前用户目录开始</p>
         </div>
@@ -80,7 +80,7 @@
         <div v-else class="space-y-1">
           <div v-for="entry in dirEntries" :key="entry.path" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-300/50 cursor-pointer group" @dblclick="onEntryDblClick(entry)">
             <input type="checkbox" class="checkbox checkbox-sm" :checked="selectedPaths.has(entry.path)" @change="toggleSelect(entry.path, entry.size)" @click.stop />
-            <span class="text-lg"><template v-if="entry.fileType === 'directory'"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></template><template v-else>{{ getFileIcon(entry.name) }}</template></span>
+            <span class="text-lg"><template v-if="entry.fileType === 'directory'"><SvgIcon name="folder" size="14" /></template><template v-else>{{ getFileIcon(entry.name) }}</template></span>
             <span class="flex-1 truncate text-sm">{{ entry.name }}</span>
             <span class="text-xs text-base-content/50 font-mono">{{ formatSize(entry.size) }}</span>
             <span v-if="entry.fileType === 'directory'" class="text-xs text-base-content/40">
@@ -97,12 +97,12 @@
           <input type="text" v-model="categoryScanPath" placeholder="扫描路径（如 /Users）" class="input input-bordered input-sm flex-1" />
           <button class="btn btn-sm btn-primary gap-1" @click="scanCategories" :disabled="catScanning">
             <span v-if="catScanning" class="loading loading-spinner loading-xs"></span>
-            <template v-if="catScanning">扫描中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 扫描分类</template>
+            <template v-if="catScanning">扫描中...</template><template v-else><SvgIcon name="search" size="14" /> 扫描分类</template>
           </button>
         </div>
 
         <div v-if="categories.length === 0 && !catScanning" class="text-center py-20 text-base-content/40">
-          <div class="text-6xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>
+          <div class="text-6xl mb-4"><SvgIcon name="barChart" size="14" /></div>
           <p class="text-lg">按文件类型分类查看大文件</p>
         </div>
 
@@ -137,13 +137,13 @@
           <p class="text-sm text-base-content/60">自动识别的系统缓存路径，已按大小排序</p>
           <div class="flex gap-2">
             <button class="btn btn-sm btn-warning gap-1" @click="cleanAllSafe">
-              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M20 20L4 4"/><path d="M16 8L8 16"/><path d="M12 4L4 12"/><path d="M8 20L20 8"/></svg> 一键清理安全缓存
+              <SvgIcon name="broom" size="14" /> 一键清理安全缓存
             </button>
           </div>
         </div>
 
         <div v-if="cachePaths.length === 0 && !cacheScanning" class="text-center py-20 text-base-content/40">
-          <div class="text-6xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></div>
+          <div class="text-6xl mb-4"><SvgIcon name="trash" size="14" /></div>
           <p class="text-lg">正在检测缓存路径...</p>
         </div>
 
@@ -155,7 +155,7 @@
         <div v-else class="space-y-1">
           <div v-for="cache in cachePaths" :key="cache.path" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-base-300/50">
             <input type="checkbox" class="checkbox checkbox-sm" :checked="selectedPaths.has(cache.path)" @change="toggleSelect(cache.path, cache.size)" @click.stop />
-            <span class="text-lg"><template v-if="cache.safeToClean"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></template></span>
+            <span class="text-lg"><template v-if="cache.safeToClean"><SvgIcon name="dot" size="14" /></template><template v-else><SvgIcon name="dot" size="14" /></template></span>
             <div class="flex-1 min-w-0">
               <div class="font-semibold text-sm">{{ cache.name }}</div>
               <div class="text-xs text-base-content/40 truncate font-mono">{{ cache.path }}</div>
@@ -174,12 +174,12 @@
           <input type="number" v-model.number="dupMinSize" placeholder="最小大小(KB)" class="input input-bordered input-sm w-32" />
           <button class="btn btn-sm btn-primary gap-1" @click="scanDuplicates" :disabled="dupScanning">
             <span v-if="dupScanning" class="loading loading-spinner loading-xs"></span>
-            <template v-if="dupScanning">扫描中...</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> 查找重复</template>
+            <template v-if="dupScanning">扫描中...</template><template v-else><SvgIcon name="search" size="14" /> 查找重复</template>
           </button>
         </div>
 
         <div v-if="duplicateGroups.length === 0 && !dupScanning" class="text-center py-20 text-base-content/40">
-          <div class="text-6xl mb-4"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div>
+          <div class="text-6xl mb-4"><SvgIcon name="search" size="14" /></div>
           <p class="text-lg">点击"查找重复"开始扫描</p>
         </div>
 
@@ -189,7 +189,7 @@
         </div>
 
         <div v-else-if="duplicateGroups.length === 0" class="text-center py-10 text-success">
-          <div class="text-4xl mb-2"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="text-4xl mb-2"><SvgIcon name="check" size="14" /></div>
           <p>未找到重复文件</p>
         </div>
 
@@ -214,7 +214,7 @@
     <!-- 删除确认对话框 -->
     <dialog ref="deleteDialog" class="modal">
       <div class="modal-box">
-        <h3 class="text-lg font-bold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> 确认删除</h3>
+        <h3 class="text-lg font-bold"><SvgIcon name="alertTriangle" size="14" /> 确认删除</h3>
         <p class="py-4">即将删除 <strong>{{ selectedPaths.size }}</strong> 项，释放 <strong>{{ formatSize(selectedTotalSize) }}</strong> 空间。</p>
         <p class="text-sm text-error">删除后无法恢复！</p>
         <div class="modal-action">
@@ -230,6 +230,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 interface DirEntry { path: string; name: string; size: number; fileType: string; modified?: number; childrenCount?: number }
 interface FileCategory { extension: string; icon: string; label: string; count: number; totalSize: number; files: DirEntry[] }

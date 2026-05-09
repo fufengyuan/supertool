@@ -2,7 +2,7 @@
   <div class="fixed inset-0 flex items-center justify-center z-50 bg-black/40" @click="$emit('close')">
     <div class="bg-base-100 rounded-2xl w-[520px] max-h-[85vh] overflow-y-auto shadow-2xl" @click.stop>
       <div class="flex items-center justify-between p-5 border-b border-base-content/10 sticky top-0 bg-base-100 z-10 rounded-t-2xl">
-        <h3 class="m-0 text-lg font-semibold"><template v-if="isEditing"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑连接</template><template v-else><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg> 添加数据库连接</template></h3>
+        <h3 class="m-0 text-lg font-semibold"><template v-if="isEditing"><SvgIcon name="pencil" size="14" class="inline-block" /> 编辑连接</template><template v-else><SvgIcon name="archive" size="14" class="inline-block align-text-bottom" /> 添加数据库连接</template></h3>
         <button @click="$emit('close')" class="btn btn-ghost btn-sm btn-square">×</button>
       </div>
       <div class="p-6">
@@ -77,10 +77,7 @@
 
       <div class="flex justify-end gap-3 p-4 border-t border-base-content/10">
         <button @click="$emit('test', localForm)" class="btn btn-ghost" :disabled="testing">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-            <polyline points="22 4 12 14.01 9 11.01" />
-          </svg>
+          <SvgIcon name="checkCircle" size="14" />
           {{ testing ? '测试中...' : '测试连接' }}
         </button>
         <button @click="$emit('close')" class="btn btn-ghost">取消</button>
@@ -96,6 +93,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, onUnmounted, nextTick, onMounted } from 'vue'
 
 interface TestResult {

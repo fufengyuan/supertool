@@ -1,7 +1,7 @@
 <template>
   <div class="flex flex-1 flex-col overflow-y-auto p-5 px-6 min-h-0">
     <div class="mb-4 shrink-0">
-      <h3 class="m-0 mb-1 text-lg font-semibold"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg> 数据库备份</h3>
+      <h3 class="m-0 mb-1 text-lg font-semibold"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 数据库备份</h3>
       <p class="m-0 text-xs text-base-content/60">备份和还原数据库结构和数据（.nb3 格式）</p>
     </div>
 
@@ -147,7 +147,8 @@
   </div>
 </template>
 
-<script setup lang="ts">// @ts-nocheck
+<script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
 import { ref, computed, onMounted, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useDBManager } from '../../composables/useDBManager'

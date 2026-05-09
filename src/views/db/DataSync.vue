@@ -11,7 +11,7 @@
         <div v-if="step === 1" class="bg-base-100 rounded-lg p-4">
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 源连接</label>
+                    <label class="text-xs font-medium opacity-60"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> 源连接</label>
                     <select
                         v-model="sourceId"
                         @change="onSourceChange"
@@ -24,7 +24,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" class="inline-block align-text-bottom"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg> 目标连接</label>
+                    <label class="text-xs font-medium opacity-60"><SvgIcon name="dot" size="14" class="inline-block align-text-bottom" /> 目标连接</label>
                     <select
                         v-model="targetId"
                         @change="onTargetChange"
@@ -37,7 +37,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  源数据库</label>
+                    <label class="text-xs font-medium opacity-60"><SvgIcon name="folder" size="14" />  源数据库</label>
                     <select
                         v-model="sourceDb"
                         @change="loadSourceTables"
@@ -51,7 +51,7 @@
                     </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                    <label class="text-xs font-medium opacity-60"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>  目标数据库</label>
+                    <label class="text-xs font-medium opacity-60"><SvgIcon name="folder" size="14" />  目标数据库</label>
                     <select
                         v-model="targetDb"
                         @change="loadTargetTables"
@@ -98,7 +98,7 @@
         <!-- Step 2: Multi-Table Selection -->
         <div v-if="step === 2" class="bg-base-100 rounded-lg p-4">
             <div class="flex items-center justify-between mb-3">
-                <h4 class="text-sm font-semibold m-0"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>  选择要对比数据的表</h4>
+                <h4 class="text-sm font-semibold m-0"><SvgIcon name="file" size="14" />  选择要对比数据的表</h4>
                 <div class="flex gap-1.5">
                     <button @click="selectAllTables" class="btn btn-ghost btn-xs">全选</button>
                     <button @click="selectCommonTables" class="btn btn-ghost btn-xs">
@@ -745,6 +745,7 @@
 </template>
 
 <script setup lang="ts">
+import SvgIcon from '@/components/ui/SvgIcon.vue'
     import { ref, computed, watch } from "vue";
     import { getTauriAPI } from "../../utils/tauri-api";
     import { useDBManager } from "../../composables/useDBManager";
