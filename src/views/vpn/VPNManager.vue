@@ -222,7 +222,7 @@
             <label class="text-xs font-semibold text-base-content/60">私钥</label>
             <div class="flex gap-1">
               <input v-model="wgForm.privateKey" class="input input-bordered flex-1" placeholder="Base64 私钥" />
-              <button class="btn btn-xs btn-ghost" @click="generateKeypair" :disabled="generatingKeys"><template v-if="generatingKeys">生成中...</template><template v-else><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>  生成</template></button>
+              <button class="btn btn-xs btn-ghost" @click="generateKeypair" :disabled="generatingKeys"><template v-if="generatingKeys">生成中...</template><template v-else><SvgIcon name="key" size="14" />  生成</template></button>
             </div>
           </div>
           <div class="flex flex-col gap-1">
