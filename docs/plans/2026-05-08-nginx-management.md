@@ -53,9 +53,9 @@ CREATE TABLE IF NOT EXISTS nginx_config_versions (
 **Objective:** 创建 nginx 相关的 SQLite 表和 CRUD 函数
 
 **Files:**
-- Create: `src-tauri/src/db/nginx.rs`
-- Modify: `src-tauri/src/db/mod.rs` (init_db 添加表创建)
-- Modify: `src-tauri/src/db/mod.rs` (添加 `pub mod nginx;`)
+- Create: `tauri/src/db/nginx.rs`
+- Modify: `tauri/src/db/mod.rs` (init_db 添加表创建)
+- Modify: `tauri/src/db/mod.rs` (添加 `pub mod nginx;`)
 
 **实现:**
 
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS nginx_config_versions (
 **Objective:** 通过 SSH 读取/写入/测试远程 nginx 配置
 
 **Files:**
-- Create: `src-tauri/src/core/nginx.rs`
-- Modify: `src-tauri/src/core/mod.rs` (添加 nginx 方法)
+- Create: `tauri/src/core/nginx.rs`
+- Modify: `tauri/src/core/mod.rs` (添加 nginx 方法)
 
 **核心方法:**
 
@@ -118,9 +118,9 @@ async fn rollback_nginx_config(&self, server_id: &str, config_path: &str) -> Res
 **Objective:** 注册 nginx 相关的 Tauri IPC 命令
 
 **Files:**
-- Create: `src-tauri/src/commands/nginx.rs`
-- Modify: `src-tauri/src/commands/mod.rs` (添加 `pub mod nginx;`)
-- Modify: `src-tauri/src/main.rs` (注册命令到 generate_handler!)
+- Create: `tauri/src/commands/nginx.rs`
+- Modify: `tauri/src/commands/mod.rs` (添加 `pub mod nginx;`)
+- Modify: `tauri/src/main.rs` (注册命令到 generate_handler!)
 
 **命令列表:**
 ```rust

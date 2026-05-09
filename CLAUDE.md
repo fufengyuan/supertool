@@ -60,7 +60,7 @@ This is a **Tauri v2 application** combining a Vue 3 frontend with a Rust backen
     - `assets/` - Static assets (CSS, images)
     - `utils/` - Utility functions (i18n, settings, theme)
     - `locales/` - Internationalization files (zh-CN, en-US)
-- `src-tauri/` - Rust backend source code
+- `tauri/` - Rust backend source code
     - `src/main.rs` - Tauri app entry point
     - `src/lib.rs` - Main Rust library with Tauri commands
     - `Cargo.toml` - Rust dependencies
@@ -70,14 +70,14 @@ This is a **Tauri v2 application** combining a Vue 3 frontend with a Rust backen
 ### Key Configuration
 
 - **Vite config** (`vite.config.ts`): Configured for Tauri development with fixed port (1420) and HMR
-- **Tauri config** (`src-tauri/tauri.conf.json`): App metadata, window settings, build commands
+- **Tauri config** (`tauri/tauri.conf.json`): App metadata, window settings, build commands
 - **TypeScript**: Strict mode enabled with modern ES2020 target
 - **Tailwind**: v4 configuration with daisyUI components and prettier plugin
 - **Package manager**: pnpm with proper lockfile management
 
 ### Frontend-Backend Communication
 
-- Tauri commands defined in `src-tauri/src/lib.rs` (e.g., `greet` command)
+- Tauri commands defined in `tauri/src/lib.rs` (e.g., `greet` command)
 - Frontend calls Rust functions using Tauri API
 - Available Tauri plugins: store (persistent data), fs (file system), opener (URLs/files), log (logging)
 
