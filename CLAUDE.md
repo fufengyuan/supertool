@@ -12,13 +12,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pnpm dev                    # Vue dev server (port 1420)
+pnpm build                  # Build Vue frontend (vue-tsc + vite)
 pnpm tauri dev              # Tauri dev environment (frontend + backend)
-pnpm tauri build            # Production build (.deb/.AppImage/.dmg)
-pnpm build                  # Build Vue frontend for production
 pnpm lint                   # Run oxlint
 pnpm lint:fix               # oxlint with auto-fix
 pnpm format                 # Prettier
 vue-tsc --noEmit            # TypeScript type checking
+
+# 打包构建（使用 build.sh）
+pnpm build:app              # CLI + Tauri 构建（不打包，native arch）
+pnpm build:app:arm64        # CLI + Tauri 构建（arm64）
+pnpm build:app:x64          # CLI + Tauri 构建（x64）
+pnpm build:app:universal    # CLI + Tauri 构建（macOS universal）
+pnpm build:pkg              # CLI + Tauri + 平台打包（自动检测 OS 生成 dmg/pkg/deb/exe）
+pnpm build:pkg:arm64        # 同上，arm64
+pnpm build:pkg:x64          # 同上，x64
+pnpm build:pkg:universal    # 同上，macOS universal
 ```
 
 ### Rust / CLI
