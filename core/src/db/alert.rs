@@ -15,14 +15,19 @@ pub struct AlertEmailConfig {
     pub smtp_username: Option<String>,
     #[serde(rename = "smtpPassword")]
     pub smtp_password: Option<String>,
-    #[serde(rename = "smtpUseTls")]
-    pub smtp_use_tls: bool,
+    /// "none" | "starttls" | "ssl"
+    #[serde(rename = "smtpEncryption", default = "default_encryption")]
+    pub smtp_encryption: String,
     #[serde(rename = "fromEmail")]
     pub from_email: Option<String>,
     #[serde(rename = "toEmail")]
     pub to_email: Option<String>,
     #[serde(rename = "updatedAt")]
     pub updated_at: String,
+}
+
+fn default_encryption() -> String {
+    "starttls".to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -85,21 +90,20 @@ pub struct AlertHistory {
 pub fn get_email_config(db: &mut Database) -> ApiResponse<Option<AlertEmailConfig>> {
     let mut stmt = match db
         .conn()
-        .prepare("SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_use_tls, from_email, to_email, updated_at FROM alert_email_config WHERE id = 1")
+        .prepare("SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at FROM alert_email_config WHERE id = 1")
     {
         Ok(s) => s,
         Err(e) => return ApiResponse::err(format!("Prepare failed: {}", e)),
     };
 
     match stmt.query_row([], |row| {
-        let smtp_use_tls: i64 = row.get("smtp_use_tls")?;
         Ok(AlertEmailConfig {
             id: row.get("id")?,
             smtp_host: row.get("smtp_host").ok(),
             smtp_port: row.get("smtp_port")?,
             smtp_username: row.get("smtp_username").ok(),
             smtp_password: row.get("smtp_password").ok(),
-            smtp_use_tls: smtp_use_tls == 1,
+            smtp_encryption: row.get::<_, Option<String>>("smtp_encryption").ok().flatten().unwrap_or_else(|| "starttls".to_string()),
             from_email: row.get("from_email").ok(),
             to_email: row.get("to_email").ok(),
             updated_at: row.get("updated_at")?,
@@ -113,14 +117,14 @@ pub fn get_email_config(db: &mut Database) -> ApiResponse<Option<AlertEmailConfi
 
 pub fn upsert_email_config(db: &mut Database, config: AlertEmailConfig) -> ApiResponse<()> {
     let result = db.conn_mut().execute(
-        "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_use_tls, from_email, to_email, updated_at)
+        "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
          VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
         params![
             config.smtp_host,
             config.smtp_port,
             config.smtp_username,
             config.smtp_password,
-            if config.smtp_use_tls { 1 } else { 0 },
+            config.smtp_encryption,
             config.from_email,
             config.to_email,
         ],

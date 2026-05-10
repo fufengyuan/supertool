@@ -242,14 +242,21 @@
               <label class="label py-1">
                 <span class="label-text text-xs">接收邮箱</span>
               </label>
-              <input v-model="emailConfig.to_email" type="text" placeholder="admin@example.com" class="input input-bordered input-sm" />
+              <input v-model="emailConfig.to_email" type="text" placeholder="admin@example.com, admin2@example.com" class="input input-bordered input-sm" />
+              <label class="label py-0">
+                <span class="label-text-alt text-[10px] text-base-content/40">多个邮箱用逗号分隔</span>
+              </label>
             </div>
 
             <div class="form-control">
-              <label class="label cursor-pointer justify-start gap-2 py-1">
-                <input v-model="emailConfig.use_tls" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
-                <span class="label-text text-xs">使用TLS</span>
+              <label class="label py-1">
+                <span class="label-text text-xs">加密方式</span>
               </label>
+              <select v-model="emailConfig.smtp_encryption" class="select select-bordered select-sm">
+                <option value="starttls">STARTTLS（端口 587）</option>
+                <option value="ssl">SSL/TLS（端口 465）</option>
+                <option value="none">无加密（端口 25）</option>
+              </select>
             </div>
 
             <div class="flex gap-2 pt-2">
@@ -716,7 +723,7 @@ const emailConfig = reactive({
   password: '',
   from_email: '',
   to_email: '',
-  use_tls: true,
+  smtp_encryption: 'starttls',
 })
 const emailTesting = ref(false)
 const emailSaving = ref(false)
@@ -736,7 +743,7 @@ async function testEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpUseTls: emailConfig.use_tls,
+      smtpEncryption: emailConfig.smtp_encryption,
     })
     toast.success('测试邮件发送成功')
   } catch (e: any) {
@@ -756,7 +763,7 @@ async function saveEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpUseTls: emailConfig.use_tls,
+      smtpEncryption: emailConfig.smtp_encryption,
     })
     toast.success('邮件配置已保存')
   } catch (e: any) {
@@ -921,7 +928,7 @@ async function loadEmailConfig() {
       emailConfig.password = data.smtpPassword ?? data.password ?? ''
       emailConfig.from_email = data.fromEmail ?? data.from_email ?? ''
       emailConfig.to_email = data.toEmail ?? data.to_email ?? ''
-      emailConfig.use_tls = data.smtpUseTls ?? data.use_tls ?? true
+      emailConfig.smtp_encryption = data.smtpEncryption ?? data.smtp_encryption ?? 'starttls'
     }
   } catch (e: any) {
     console.error('加载邮件配置失败:', e)
