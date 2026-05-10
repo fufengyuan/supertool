@@ -74,7 +74,7 @@
           <div v-if="queryMode === 'search'" class="flex items-center gap-2 flex-1">
             <input
               v-model="searchKeyword"
-              placeholder="搜索关键字"
+              :placeholder="searchPlaceholder"
               class="input input-bordered flex-1 h-8 min-h-0 text-xs"
               @keyup.enter="doSearch"
             />
@@ -241,6 +241,22 @@
       </div>
     </div>
   </div>
+
+    <!-- 确认删除对话框 -->
+    <dialog ref="deleteConfirmDialog" class="modal">
+      <div class="modal-box max-w-sm">
+        <h3 class="text-lg font-bold flex items-center gap-2">
+          <SvgIcon name="alertTriangle" size="18" class="text-warning" />
+          <span>确认删除</span>
+        </h3>
+        <p class="py-3 text-sm">{{ deleteConfirmMessage }}</p>
+        <div class="modal-action">
+          <button class="btn btn-error btn-sm" @click="executeDeletePreset"><SvgIcon name="trash" size="14" /> 确认删除</button>
+          <button class="btn btn-sm" @click="cancelDeletePreset">取消</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button @click="cancelDeletePreset">close</button></form>
+    </dialog>
 </template>
 
 <script setup lang="ts">// @ts-nocheck
@@ -286,6 +302,33 @@ const collapsedPresetGroups = ref(new Set<string>())
 // 预设表单
 const showPresetForm = ref(false)
 const editingPreset = ref<string | null>(null)
+
+// 确认删除
+const deleteConfirmDialog = ref<HTMLDialogElement | null>(null)
+const deleteConfirmMessage = ref('')
+let pendingDeletePresetId: string | null = null
+
+function deletePreset(id: string) {
+  const preset = presets.value.find(p => p.id === id)
+  if (!preset) return
+  pendingDeletePresetId = id
+  deleteConfirmMessage.value = `确定删除预设"${preset.name}"？`
+  deleteConfirmDialog.value?.showModal()
+}
+
+function executeDeletePreset() {
+  if (!pendingDeletePresetId) return
+  const id = pendingDeletePresetId
+  pendingDeletePresetId = null
+  deleteConfirmDialog.value?.close()
+  doDeletePreset(id)
+}
+
+function cancelDeletePreset() {
+  pendingDeletePresetId = null
+  deleteConfirmDialog.value?.close()
+}
+
 const presetForm = ref({
   name: '',
   presetGroup: '未分组',
@@ -391,6 +434,14 @@ function highlightSearchResult(content: string): string {
   result = result.replace(regex, '<mark>$1</mark>')
   return result
 }
+
+// 搜索模式输入框占位提示
+const searchPlaceholder = computed(() => {
+  const preset = selectedPreset.value
+  const kw = preset?.keywords?.length ? preset.keywords.join(', ') : ''
+  if (kw) return `搜索日志... 预设关键字：${kw}`
+  return '搜索关键字'
+})
 
 // 显示的行（过滤）
 const displayLines = computed(() => {
@@ -528,6 +579,7 @@ async function doSearch() {
   isSearching.value = true
   hasSearched.value = true
   logLines.value = []
+  toast.info('正在搜索...')
 
   try {
     const result = await getTauriAPI().logSearch({
@@ -659,6 +711,11 @@ function toggleFollowMode() {
 // 切换查询模式
 async function switchQueryMode(mode: 'stream' | 'search') {
   queryMode.value = mode
+
+  // 清理缓冲和定时器，避免旧流残留
+  if (logFlushTimer) { clearTimeout(logFlushTimer); logFlushTimer = null }
+  logBuffer.length = 0
+  pendingScroll = false
   logLines.value = []
   hasSearched.value = false
 
@@ -746,8 +803,7 @@ async function savePreset() {
   }
 }
 
-async function deletePreset(id: string) {
-  if (!confirm('确定删除此预设？')) return
+async function doDeletePreset(id: string) {
   try {
     console.log("[deletePreset] called")
     await getTauriAPI().logPresetsDelete(id)
@@ -817,10 +873,10 @@ onMounted(async () => {
   cleanupLogsError = await getTauriAPI().onLogsError(onErrorHandler);
   cleanupStreamStopped = await getTauriAPI().onLogsStreamStopped(onStreamStoppedHandler);
 
-  /* TODO(tauri-events): _cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => {
+  _cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }: { type: string }) => {
     if (type === 'servers') loadServers()
   })
-  */})
+})
 
 onUnmounted(async () => {
   if (logFlushTimer) { clearTimeout(logFlushTimer); logFlushTimer = null }
