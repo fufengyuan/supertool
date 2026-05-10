@@ -281,9 +281,13 @@ impl SshService {
         let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
             .map_err(|e| format!("TCP 连接失败: {}", e))?;
 
+        // 设置 TCP 读写超时，防止阻塞读卡死
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(30)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(15)));
+
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
-        session.set_timeout(30_000); // 30秒超时，防止阻塞读卡死
+        session.set_timeout(30_000); // SSH 层超时：握手+认证+操作
         session
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
@@ -304,6 +308,9 @@ impl SshService {
         if !session.authenticated() {
             return Err("认证失败".to_string());
         }
+
+        // 启用 SSH keepalive（每30秒发一次心跳，防止防火墙断开连接）
+        let _ = session.set_keepalive(true, 30);
 
         {
             let mut conns = self.connections.lock().map_err(|e| e.to_string())?;
@@ -330,8 +337,12 @@ impl SshService {
         let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
             .map_err(|e| format!("TCP 连接失败: {}", e))?;
 
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(15)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)));
+
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
+        session.set_timeout(15_000);
         session
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
@@ -380,7 +391,7 @@ impl SshService {
         }
     }
 
-    /// 执行命令
+    /// 执行命令（带超时和输出限制，防止卡死）
     pub fn exec_command(&self, server_id: &str, command: &str) -> Result<ExecResult, String> {
         let mut channel = {
             let conns = self.connections.lock().map_err(|e| e.to_string())?;
@@ -405,12 +416,40 @@ impl SshService {
             }
         };
 
+        // 分块读取 + 大小限制 + TCP 超时保护（30s read_timeout 已设）
         let mut output = String::new();
-        let _ = channel.read_to_string(&mut output);
+        let mut buf = [0u8; 8192];
+        const MAX_OUTPUT: usize = 1_000_000; // 1MB 上限
+
+        loop {
+            if output.len() >= MAX_OUTPUT {
+                output.push_str("\n--- [输出超过 1MB, 截断] ---");
+                break;
+            }
+            match channel.read(&mut buf) {
+                Ok(0) => break,     // EOF
+                Ok(n) => {
+                    output.push_str(&String::from_utf8_lossy(&buf[..n]));
+                }
+                Err(e) => {
+                    // TCP 超时或断开 — 有部分输出也比卡死好
+                    if output.is_empty() {
+                        return Err(format!("读取命令输出失败: {}", e));
+                    }
+                    // 已有部分输出，返回它而不是报错
+                    log::warn!(
+                        "[SSH] exec_command read error (returning partial output): {}",
+                        e
+                    );
+                    break;
+                }
+            }
+        }
 
         let exit_code = channel.exit_status().ok();
         let success = exit_code.map(|c| c == 0).unwrap_or(false);
 
+        // 关闭通道
         let _ = channel.close();
         let _ = channel.wait_close();
 
