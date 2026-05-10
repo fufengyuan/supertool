@@ -105,6 +105,9 @@ build_macos_all() {
 
     mkdir -p "$PKG_OUTPUT"
 
+    # 清理上次打包残留的临时 DMG 文件（rw.*.dmg 是 create-dmg 的临时文件）
+    rm -f target/release/bundle/macos/rw.*.dmg
+
     # ── 1. 复制原生 .dmg ──
     local DMG_SRC=""
     for d in target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg; do
