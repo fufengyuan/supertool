@@ -67,8 +67,8 @@
                   @click="selectConfig(cfg.id)"
                 >
                   <div class="flex items-center gap-1.5 mb-1.5">
-                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getProjectName(cfg.projectId) }}</span>
-                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ getProjectName(cfg.projectId) }}</span>
+                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
+                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ cfg.name }}{{ getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
                     <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
                     <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><SvgIcon name="lock" :size="12" class="inline-block align-text-bottom" /></span>
                   </div>
@@ -118,10 +118,10 @@
             </div>
 
             <!-- Pipeline Visualization -->
-            <div class="flex items-center gap-1 py-3" v-if="selectedProject">
-              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.projectId }">
+            <div class="flex items-center gap-1 py-3" v-if="selectedGitRepo || selectedProject">
+              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.gitRepoId || config.projectId }">
                 <SvgIcon name="folder" :size="18" />
-                <span class="text-xs font-medium text-base-content">{{ selectedProject.name }}</span>
+                <span class="text-xs font-medium text-base-content">{{ selectedGitRepo?.name || selectedProject?.name || '仓库' }}</span>
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.buildTool }">
@@ -156,11 +156,11 @@
               </div>
 
               <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">关联项目 <span class="text-error normal-case tracking-normal">*</span></label>
-                <select v-model="config.projectId" @change="onProjectChange" class="select select-bordered w-full bg-base-200 text-sm">
-                  <option value="">选择项目...</option>
-                  <option v-for="proj in projects" :key="proj.id" :value="proj.id">
-                    {{ proj.name }}
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+                <select v-model="config.gitRepoId" @change="onGitRepoChange" class="select select-bordered w-full bg-base-200 text-sm">
+                  <option value="">选择 Git 仓库...</option>
+                  <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">
+                    {{ repo.name }} — {{ repo.path }}
                   </option>
                 </select>
               </div>
@@ -766,9 +766,16 @@ if (typeof window !== 'undefined') {
 
 const cicd = useCicdConfig();
 
+// Git 仓库名称查找函数（供模板使用）
+function getGitRepoName(id?: string) {
+  if (!id) return '';
+  const repo = cicd.gitRepos.value.find((r: any) => r.id === id);
+  return repo ? repo.name : '';
+}
+
 // Destructure all refs, computed, and functions for template access
 const {
-  configs, projects, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
+  configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
   selectedServerId, deployServers, activeServerIdx, groups, expandedGroups,
   showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
   showGroupEditor, newGroupName,
@@ -777,18 +784,17 @@ const {
   defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
   filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
   projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
-  parentBuildAutoDetected, parentBuildDetectedPath,
+  parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
   openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
   makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
   testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
-  addModuleFromScan, addAllDetectedModules, autoDetectParentBuild,
   getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
   toggleGroup, renameGroup, addGroup, getServerLabel,
-  loadConfigs, createNewConfig, selectConfig, onProjectChange, selectLocalDir,
+  loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
   selectServer, copyGitUrl, loadBranches, testConnection,
   addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
-  flattenModuleTree, deleteModule,
-  saveConfig, deleteConfig, loadConfig, loadServers, loadProjects,
+  addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
+  saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
   defaultConfig,
 } = cicd;
 

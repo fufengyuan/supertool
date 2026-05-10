@@ -10,6 +10,7 @@ export interface CicdConfigEntry {
   id: string;
   name?: string;
   projectId: string;
+  gitRepoId?: string;
   deployBranch?: string;
   buildTool?: string;
   updatedAt?: string;
@@ -70,6 +71,7 @@ export interface ConfigForm {
   name: string;
   localPath: string;
   projectId: string;
+  gitRepoId: string;
   repoUrl: string;
   deployBranch: string;
   buildTool: string;
