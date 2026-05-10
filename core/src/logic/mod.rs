@@ -134,7 +134,16 @@ impl CoreService {
 
         match result {
             Ok(v) => Ok(v),
-            Err(e) if e.contains("连接") || e.contains("未连接") || e.contains("通道") => {
+            Err(e) if e.contains("连接") || e.contains("未连接") || e.contains("通道")
+                || e.contains("broken") || e.contains("Broken")
+                || e.contains("reset") || e.contains("Reset")
+                || e.contains("socket") || e.contains("Socket")
+                || e.contains("timeout") || e.contains("Timed")
+                || e.contains("refused") || e.contains("eof")
+                || e.contains("EOF") || e.contains("write")
+                || e.contains("Write") || e.contains("closed")
+                || e.contains("Closed") || e.contains("dead")
+                || e.contains("Dead") => {
                 log::warn!("[SSH] Operation failed for {}, retrying: {}", server_id, e);
                 let ssh2 = self.ssh.clone();
                 let sid2 = sid.clone();
