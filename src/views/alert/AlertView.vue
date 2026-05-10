@@ -203,18 +203,19 @@
               邮件发送配置
             </h4>
 
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text text-xs">SMTP 服务器</span>
-              </label>
-              <input v-model="emailConfig.smtp_host" type="text" placeholder="smtp.example.com" class="input input-bordered input-sm" />
-            </div>
-
-            <div class="form-control">
-              <label class="label py-1">
-                <span class="label-text text-xs">端口</span>
-              </label>
-              <input v-model.number="emailConfig.smtp_port" type="number" placeholder="465" min="1" max="65535" class="input input-bordered input-sm" />
+            <div class="grid grid-cols-3 gap-3">
+              <div class="form-control col-span-2">
+                <label class="label py-1">
+                  <span class="label-text text-xs">SMTP 服务器</span>
+                </label>
+                <input v-model="emailConfig.smtp_host" type="text" placeholder="smtp.example.com" class="input input-bordered input-sm" />
+              </div>
+              <div class="form-control">
+                <label class="label py-1">
+                  <span class="label-text text-xs">端口</span>
+                </label>
+                <input v-model.number="emailConfig.smtp_port" type="number" placeholder="465" min="1" max="65535" class="input input-bordered input-sm" />
+              </div>
             </div>
 
             <div class="form-control">
@@ -252,19 +253,11 @@
               <label class="label py-1">
                 <span class="label-text text-xs">加密方式</span>
               </label>
-              <div class="flex gap-4">
-                <label class="label cursor-pointer justify-start gap-2 py-1">
-                  <input v-model="emailConfig.use_ssl" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
-                  <span class="label-text text-xs">启用 SSL</span>
-                </label>
-                <label class="label cursor-pointer justify-start gap-2 py-1">
-                  <input v-model="emailConfig.use_starttls" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
-                  <span class="label-text text-xs">启用 STARTTLS</span>
-                </label>
-              </div>
-              <label class="label py-0">
-                <span class="label-text-alt text-[10px] text-base-content/40">通常 SSL 端口 465，STARTTLS 端口 587，两个都开则自动协商</span>
-              </label>
+              <select v-model="emailConfig.encryption" class="select select-bordered select-sm" @change="onEncryptionChange">
+                <option value="ssl">SSL/TLS（端口 465）</option>
+                <option value="starttls">STARTTLS（端口 587）</option>
+                <option value="none">不加密（端口 25）</option>
+              </select>
             </div>
 
             <div class="flex gap-2 pt-2">
@@ -731,14 +724,17 @@ const emailConfig = reactive({
   password: '',
   from_email: '',
   to_email: '',
-  use_ssl: true,
-  use_starttls: true,
+  encryption: 'ssl' as 'ssl' | 'starttls' | 'none',
 })
 
-function getSmtpEncryption() {
-  if (!emailConfig.use_ssl && !emailConfig.use_starttls) return 'none'
-  if (emailConfig.use_ssl && !emailConfig.use_starttls) return 'ssl'
-  return 'starttls' // STARTTLS-only or both → starttls
+const PORT_MAP = { ssl: 465, starttls: 587, none: 25 } as const
+
+function onEncryptionChange() {
+  // Auto-set port if it matches a known default
+  const current = emailConfig.smtp_port
+  if (current === 465 || current === 587 || current === 25) {
+    emailConfig.smtp_port = PORT_MAP[emailConfig.encryption]
+  }
 }
 const emailTesting = ref(false)
 const emailSaving = ref(false)
@@ -758,7 +754,7 @@ async function testEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpEncryption: getSmtpEncryption(),
+      smtpEncryption: emailConfig.encryption,
     })
     toast.success('测试邮件发送成功')
   } catch (e: any) {
@@ -778,7 +774,7 @@ async function saveEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpEncryption: getSmtpEncryption(),
+      smtpEncryption: emailConfig.encryption,
     })
     toast.success('邮件配置已保存')
   } catch (e: any) {
@@ -943,9 +939,7 @@ async function loadEmailConfig() {
       emailConfig.password = data.smtpPassword ?? data.password ?? ''
       emailConfig.from_email = data.fromEmail ?? data.from_email ?? ''
       emailConfig.to_email = data.toEmail ?? data.to_email ?? ''
-      const enc = data.smtpEncryption ?? data.smtp_encryption ?? 'starttls'
-      emailConfig.use_ssl = enc === 'ssl'
-      emailConfig.use_starttls = enc === 'starttls'
+      emailConfig.encryption = (data.smtpEncryption ?? data.smtp_encryption ?? 'ssl') as any
     }
   } catch (e: any) {
     console.error('加载邮件配置失败:', e)
