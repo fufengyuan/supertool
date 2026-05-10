@@ -252,11 +252,19 @@
               <label class="label py-1">
                 <span class="label-text text-xs">加密方式</span>
               </label>
-              <select v-model="emailConfig.smtp_encryption" class="select select-bordered select-sm">
-                <option value="starttls">STARTTLS（端口 587）</option>
-                <option value="ssl">SSL/TLS（端口 465）</option>
-                <option value="none">无加密（端口 25）</option>
-              </select>
+              <div class="flex gap-4">
+                <label class="label cursor-pointer justify-start gap-2 py-1">
+                  <input v-model="emailConfig.use_ssl" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
+                  <span class="label-text text-xs">启用 SSL</span>
+                </label>
+                <label class="label cursor-pointer justify-start gap-2 py-1">
+                  <input v-model="emailConfig.use_starttls" type="checkbox" class="checkbox checkbox-sm checkbox-primary" />
+                  <span class="label-text text-xs">启用 STARTTLS</span>
+                </label>
+              </div>
+              <label class="label py-0">
+                <span class="label-text-alt text-[10px] text-base-content/40">通常 SSL 端口 465，STARTTLS 端口 587，两个都开则自动协商</span>
+              </label>
             </div>
 
             <div class="flex gap-2 pt-2">
@@ -723,8 +731,15 @@ const emailConfig = reactive({
   password: '',
   from_email: '',
   to_email: '',
-  smtp_encryption: 'starttls',
+  use_ssl: true,
+  use_starttls: true,
 })
+
+function getSmtpEncryption() {
+  if (!emailConfig.use_ssl && !emailConfig.use_starttls) return 'none'
+  if (emailConfig.use_ssl && !emailConfig.use_starttls) return 'ssl'
+  return 'starttls' // STARTTLS-only or both → starttls
+}
 const emailTesting = ref(false)
 const emailSaving = ref(false)
 const loadingEmail = ref(false)
@@ -743,7 +758,7 @@ async function testEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpEncryption: emailConfig.smtp_encryption,
+      smtpEncryption: getSmtpEncryption(),
     })
     toast.success('测试邮件发送成功')
   } catch (e: any) {
@@ -763,7 +778,7 @@ async function saveEmailConfig() {
       smtpPassword: emailConfig.password,
       fromEmail: emailConfig.from_email,
       toEmail: emailConfig.to_email,
-      smtpEncryption: emailConfig.smtp_encryption,
+      smtpEncryption: getSmtpEncryption(),
     })
     toast.success('邮件配置已保存')
   } catch (e: any) {
@@ -928,7 +943,9 @@ async function loadEmailConfig() {
       emailConfig.password = data.smtpPassword ?? data.password ?? ''
       emailConfig.from_email = data.fromEmail ?? data.from_email ?? ''
       emailConfig.to_email = data.toEmail ?? data.to_email ?? ''
-      emailConfig.smtp_encryption = data.smtpEncryption ?? data.smtp_encryption ?? 'starttls'
+      const enc = data.smtpEncryption ?? data.smtp_encryption ?? 'starttls'
+      emailConfig.use_ssl = enc !== 'none'
+      emailConfig.use_starttls = enc !== 'none'
     }
   } catch (e: any) {
     console.error('加载邮件配置失败:', e)

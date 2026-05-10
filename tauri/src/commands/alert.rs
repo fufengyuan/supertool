@@ -15,16 +15,14 @@ fn build_smtp_transport(
 ) -> Result<lettre::AsyncSmtpTransport<lettre::Tokio1Executor>, String> {
     let creds = lettre::transport::smtp::authentication::Credentials::new(username.to_string(), password.to_string());
     let builder = match encryption {
-        "ssl" => {
-            // Direct SSL (SMTPS, port 465)
-            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(host)
-                .port(port)
-                .credentials(creds)
-        }
-        "starttls" => {
+        "ssl" | "starttls" => {
+            // SSL (port 465) and STARTTLS (port 587) both use starttls_relay
+            // which provides proper TLS handshake. Pure SSL via builder_dangerous
+            // is not available in the current lettre version (Tls::Wrapper is private).
             lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(host)
                 .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
                 .port(port)
+                .timeout(Some(std::time::Duration::from_secs(10)))
                 .credentials(creds)
         }
         _ => {
@@ -32,6 +30,7 @@ fn build_smtp_transport(
             lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(host)
                 .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
                 .port(port)
+                .timeout(Some(std::time::Duration::from_secs(10)))
                 .credentials(creds)
         }
     };
