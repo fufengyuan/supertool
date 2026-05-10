@@ -386,6 +386,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE log_presets ADD COLUMN keywords TEXT NOT NULL DEFAULT '[]'",
         [],
     );
+    // Migration: add smtp_encryption column for databases created before v4.1
+    let _ = conn.execute(
+        "ALTER TABLE alert_email_config ADD COLUMN smtp_encryption TEXT NOT NULL DEFAULT 'starttls'",
+        [],
+    );
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
