@@ -448,13 +448,13 @@ async function saveService() {
       name: serviceForm.name,
       host: serviceForm.host,
       port: serviceForm.port,
-      check_interval: serviceForm.check_interval,
-      timeout: serviceForm.timeout,
-      retry_threshold: serviceForm.retry_threshold,
+      checkInterval: serviceForm.check_interval,
+      timeoutSeconds: serviceForm.timeout,
+      maxRetries: serviceForm.retry_threshold,
       enabled: serviceForm.enabled,
     }
     if (editingService.value) {
-      await api.updateAlertService(editingService.value.id, data)
+      await api.updateAlertService({ id: editingService.value.id, ...data })
       toast.success('服务已更新')
     } else {
       await api.addAlertService(data)
@@ -567,11 +567,11 @@ async function saveResource() {
     const data = {
       name: resourceForm.name,
       category: getCategory(resourceForm),
-      expire_at: resourceForm.expire_at,
-      alert_advance_days: resourceForm.alert_advance_days,
+      expireAt: resourceForm.expire_at,
+      alertAdvanceDays: resourceForm.alert_advance_days,
     }
     if (editingResource.value) {
-      await api.updateAlertResource(editingResource.value.id, data)
+      await api.updateAlertResource({ id: editingResource.value.id, ...data })
       toast.success('资源已更新')
     } else {
       await api.addAlertResource(data)
@@ -603,13 +603,13 @@ async function testEmailConfig() {
   emailTesting.value = true
   try {
     await api.testEmailConfig({
-      smtp_host: emailConfig.smtp_host,
-      smtp_port: emailConfig.smtp_port,
-      username: emailConfig.username,
-      password: emailConfig.password,
-      from_email: emailConfig.from_email,
-      to_email: emailConfig.to_email,
-      use_tls: emailConfig.use_tls,
+      smtpHost: emailConfig.smtp_host,
+      smtpPort: emailConfig.smtp_port,
+      smtpUsername: emailConfig.username,
+      smtpPassword: emailConfig.password,
+      fromEmail: emailConfig.from_email,
+      toEmail: emailConfig.to_email,
+      smtpUseTls: emailConfig.use_tls,
     })
     toast.success('测试邮件发送成功')
   } catch (e: any) {
@@ -623,13 +623,13 @@ async function saveEmailConfig() {
   emailSaving.value = true
   try {
     await api.saveEmailConfig({
-      smtp_host: emailConfig.smtp_host,
-      smtp_port: emailConfig.smtp_port,
-      username: emailConfig.username,
-      password: emailConfig.password,
-      from_email: emailConfig.from_email,
-      to_email: emailConfig.to_email,
-      use_tls: emailConfig.use_tls,
+      smtpHost: emailConfig.smtp_host,
+      smtpPort: emailConfig.smtp_port,
+      smtpUsername: emailConfig.username,
+      smtpPassword: emailConfig.password,
+      fromEmail: emailConfig.from_email,
+      toEmail: emailConfig.to_email,
+      smtpUseTls: emailConfig.use_tls,
     })
     toast.success('邮件配置已保存')
   } catch (e: any) {

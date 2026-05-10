@@ -578,6 +578,7 @@ fn main() {
             commands::cli_installer::check_cli_installed,
             // Alert commands
             commands::alert::get_email_config,
+            commands::alert::test_email_config,
             commands::alert::save_email_config,
             commands::alert::get_alert_services,
             commands::alert::add_alert_service,
