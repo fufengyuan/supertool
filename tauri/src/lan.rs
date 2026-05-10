@@ -1,6 +1,6 @@
-/// LAN 协作服务 — mDNS-SD 发现 + UDP 消息 + TCP 可靠文件传输 + SQLite 持久化
+/// LAN 协作服务 — UDP 广播发现 + UDP 消息 + TCP 可靠文件传输 + SQLite 持久化
 ///
-/// - 发现: mdns-sd (mDNS 服务发现，替代手动 UDP 广播)
+/// - 发现: UDP 广播心跳 (端口 49152)
 /// - 消息: std::net::UdpSocket (端口 49152)
 /// - 文件传输: std::net::TcpListener (端口 49154)
 /// - 消息/文件记录: SQLite (db/lan.rs)
@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
-use mdns_sd::{ServiceDaemon, ServiceEvent, ServiceInfo, TxtProperty};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -124,10 +123,6 @@ pub struct LanService {
 
     /// SQLite connection for message/transfer persistence
     db_conn: Arc<Mutex<Connection>>,
-
-    // mdns-sd fields
-    mdns_daemon: Mutex<Option<ServiceDaemon>>,
-    mdns_browse_handle: Mutex<Option<mdns_sd::ServiceDaemon>>,
 }
 
 impl LanService {
@@ -138,7 +133,7 @@ impl LanService {
             nick_name: Mutex::new(String::new()),
             avatar: Mutex::new("😀".to_string()),
             my_status: Mutex::new("online".to_string()),
-            version: "2.0".to_string(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
             udp_socket: Mutex::new(None),
             tcp_port: Mutex::new(FILE_TRANSFER_PORT),
             peers: Arc::new(Mutex::new(HashMap::new())),
@@ -151,8 +146,6 @@ impl LanService {
             local_ip: Mutex::new(String::new()),
             app_handle: Mutex::new(None),
             db_conn,
-            mdns_daemon: Mutex::new(None),
-            mdns_browse_handle: Mutex::new(None),
         }
     }
 
@@ -199,166 +192,10 @@ impl LanService {
         self.stop_flag.store(false, Ordering::SeqCst);
 
         // Detect and set local IP
-        let local_ip = Self::detect_local_ip_for_mdns()
+        let local_ip = Self::detect_local_ip()
             .unwrap_or_else(|| "127.0.0.1".to_string());
         *self.local_ip.lock().unwrap() = local_ip.clone();
         log::info!("[LAN] Detected local IP: {}", local_ip);
-
-        // ===== mDNS service registration =====
-        {
-            let mdns_daemon =
-                ServiceDaemon::new().map_err(|e| format!("mDNS daemon 创建失败: {}", e))?;
-            let instance_name = format!("supertool-{}", self.user_id.replace('_', "-"));
-            let ip_addr: IpAddr = local_ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
-            let host_name = format!("{}.local.", self.user_name.replace(' ', "-").replace('_', "-"));
-            log::info!("[LAN] mDNS registering: {} @ {}:{} (host={})", instance_name, ip_addr, DISCOVERY_PORT, host_name);
-            let service = ServiceInfo::new(
-                "_supertool._tcp.local.",
-                &instance_name,
-                &host_name,
-                ip_addr,
-                DISCOVERY_PORT,
-                vec![
-                    TxtProperty::from(("userId", self.user_id.as_str())),
-                    TxtProperty::from(("userName", self.user_name.as_str())),
-                    TxtProperty::from(("version", self.version.as_str())),
-                    TxtProperty::from(("messagePort", DISCOVERY_PORT.to_string().as_str())),
-                ],
-            )
-            .map_err(|e| format!("mDNS ServiceInfo 创建失败: {}", e))?;
-            mdns_daemon
-                .register(service)
-                .map_err(|e| format!("mDNS 服务注册失败: {}", e))?;
-            *self.mdns_daemon.lock().unwrap() = Some(mdns_daemon);
-            log::info!("[LAN] mDNS service registered");
-        }
-
-        // ===== mDNS browse thread =====
-        {
-            let browse_daemon =
-                ServiceDaemon::new().map_err(|e| format!("mDNS browse daemon 创建失败: {}", e))?;
-            let browse_rx = browse_daemon
-                .browse("_supertool._tcp.local.")
-                .map_err(|e| format!("mDNS 浏览启动失败: {}", e))?;
-            *self.mdns_browse_handle.lock().unwrap() = Some(browse_daemon);
-
-            let peers = Arc::clone(&self.peers);
-            let log = Arc::clone(&self.log_buffer);
-            let stop = Arc::clone(&self.stop_flag);
-            let my_user_id = self.user_id.clone();
-            let my_version = self.version.clone();
-            let app_handle = self.app_handle.lock().unwrap().clone();
-
-            thread::spawn(move || {
-                while !stop.load(Ordering::SeqCst) {
-                    match browse_rx.recv_timeout(Duration::from_secs(1)) {
-                        Ok(ServiceEvent::ServiceResolved(info)) => {
-                            let peer_id = match info.get_property_val_str("userId") {
-                                Some(id) => id.to_string(),
-                                None => continue,
-                            };
-                            if peer_id == my_user_id {
-                                continue;
-                            }
-                            let peer_name = info
-                                .get_property_val_str("userName")
-                                .unwrap_or(&peer_id)
-                                .to_string();
-                            let peer_version = info
-                                .get_property_val_str("version")
-                                .map(|v| v.to_string());
-                            let message_port = info
-                                .get_property_val_str("messagePort")
-                                .and_then(|p| p.parse::<u16>().ok())
-                                .unwrap_or(DISCOVERY_PORT);
-
-                            // Version compatibility check
-                            if let Some(ref v) = peer_version {
-                                if let Some(major) = v.split('.').next() {
-                                    if let Some(my_major) = my_version.split('.').next() {
-                                        if major != my_major {
-                                            continue;
-                                        }
-                                    }
-                                }
-                            }
-
-                            let addr = match info.get_addresses().iter().next() {
-                                Some(a) => a.to_string(),
-                                None => continue,
-                            };
-                            let now = chrono::Utc::now().timestamp_millis();
-                            let mut peers_map = peers.lock().unwrap();
-                            let is_new = !peers_map.contains_key(&peer_id);
-
-                            let peer = Peer {
-                                id: peer_id.clone(),
-                                name: peer_name.clone(),
-                                avatar: None,
-                                address: addr.clone(),
-                                message_port,
-                                version: peer_version,
-                                last_seen: now,
-                                online: true,
-                                status: None,
-                            };
-                            peers_map.insert(peer_id.clone(), peer);
-
-                            if is_new {
-                                Self::add_log_static(
-                                    &log,
-                                    "info",
-                                    &format!("mDNS peer discovered: {} ({})", peer_id, addr),
-                                );
-                                if let Some(app) = &app_handle {
-                                    let _ = app.emit(
-                                        "lan-peer-discovered",
-                                        serde_json::json!({
-                                            "peerId": peer_id,
-                                            "address": addr,
-                                            "name": peer_name,
-                                        }),
-                                    );
-                                }
-                            }
-                        }
-                        Ok(ServiceEvent::ServiceRemoved(_, full_name)) => {
-                            // Extract userId from full_name like "supertool-xxx._supertool._tcp.local."
-                            // We'll just mark all peers as potentially offline and rely on TTL
-                            Self::add_log_static(
-                                &log,
-                                "info",
-                                &format!("mDNS service removed: {}", full_name),
-                            );
-                            // Scan peers and mark those whose mDNS name matches
-                            let mut peers_map = peers.lock().unwrap();
-                            for peer in peers_map.values_mut() {
-                                if full_name.starts_with(&format!("supertool-{}", peer.id)) {
-                                    peer.online = false;
-                                    Self::add_log_static(
-                                        &log,
-                                        "info",
-                                        &format!("mDNS peer offline: {}", peer.id),
-                                    );
-                                    if let Some(app) = &app_handle {
-                                        let _ = app.emit(
-                                            "lan-peer-lost",
-                                            serde_json::json!({
-                                                "id": peer.id,
-                                                "name": peer.name,
-                                                "address": peer.address,
-                                            }),
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        Err(_) => {} // timeout or channel closed
-                        _ => {}
-                    }
-                }
-            });
-        }
 
         // ===== UDP receive thread =====
         let peers = Arc::clone(&self.peers);
@@ -397,8 +234,6 @@ impl LanService {
                                 ),
                             );
                         }
-                        // Allow loopback traffic for same-machine dual-instance testing
-                        // Self-filtering is done by checking user_id in handle_udp_message
                         if let Ok(text) = std::str::from_utf8(&buf[..len]) {
                             if let Ok(data) = serde_json::from_str::<serde_json::Value>(text) {
                                 Self::handle_udp_message(
@@ -429,7 +264,7 @@ impl LanService {
             }
         });
 
-        // ===== UDP broadcast heartbeat thread (mDNS fallback) =====
+        // ===== UDP broadcast heartbeat thread =====
         {
             let hb_udp = Arc::clone(&udp);
             let hb_stop = Arc::clone(&self.stop_flag);
@@ -438,14 +273,17 @@ impl LanService {
             let hb_avatar = self.avatar.lock().unwrap().clone();
             let hb_status = self.my_status.lock().unwrap().clone();
             let hb_version = self.version.clone();
+            log::info!("[LAN] My version for heartbeat: {}", hb_version);
 
             thread::spawn(move || {
                 let broadcast_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                let mut hb_count = 0u64;
                 loop {
                     if hb_stop.load(Ordering::SeqCst) {
                         break;
                     }
                     thread::sleep(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
+                    hb_count += 1;
 
                     let hb = serde_json::json!({
                         "type": "heartbeat",
@@ -457,7 +295,10 @@ impl LanService {
                         "messagePort": DISCOVERY_PORT,
                     });
                     if let Ok(msg) = serde_json::to_string(&hb) {
-                        let _ = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
+                        let sent = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
+                        if hb_count <= 3 || hb_count % 10 == 0 {
+                            log::info!("[LAN] HB#{} sent={} bytes -> {}", hb_count, sent.unwrap_or(0), broadcast_addr);
+                        }
                     }
                 }
             });
@@ -537,15 +378,6 @@ impl LanService {
     pub fn stop(&self) {
         self.is_running.store(false, Ordering::SeqCst);
         self.stop_flag.store(true, Ordering::SeqCst);
-
-        // Shutdown mDNS browse daemon first
-        if let Some(browse_daemon) = self.mdns_browse_handle.lock().unwrap().take() {
-            let _ = browse_daemon.shutdown();
-        }
-        // Shutdown mDNS registration daemon
-        if let Some(reg_daemon) = self.mdns_daemon.lock().unwrap().take() {
-            let _ = reg_daemon.shutdown();
-        }
 
         // Close UDP socket to unblock recv thread
         if let Some(udp) = self.udp_socket.lock().unwrap().take() {
@@ -1063,9 +895,9 @@ impl LanService {
         Self::add_log_static(&self.log_buffer, level, message);
     }
 
-    /// Detect local IP for mDNS registration by enumerating interfaces,
+    /// Detect local IP by enumerating interfaces,
     /// filtering out loopback and virtual/VPN interfaces.
-    fn detect_local_ip_for_mdns() -> Option<String> {
+    fn detect_local_ip() -> Option<String> {
         if let Ok(interfaces) = if_addrs::get_if_addrs() {
             for iface in interfaces {
                 if iface.is_loopback() {
@@ -1189,8 +1021,6 @@ impl LanService {
 
     pub fn set_nickname(&self, name: String) {
         *self.nick_name.lock().unwrap() = name;
-        // mDNS service info is set at registration time; peers will get updated info
-        // on next service resolution or TTL refresh.
     }
 
     pub fn set_avatar(&self, emoji: String) {
@@ -1209,140 +1039,24 @@ impl LanService {
         if !self.is_running.load(Ordering::SeqCst) {
             return;
         }
-        self.add_log("info", "Refreshing mDNS discovery...");
+        self.add_log("info", "Refreshing LAN discovery...");
 
-        // Shutdown existing browse daemon and restart
-        if let Some(old_daemon) = self.mdns_browse_handle.lock().unwrap().take() {
-            let _ = old_daemon.shutdown();
+        // Clear offline peers and send a broadcast to re-discover
+        if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
+            let hb = serde_json::json!({
+                "type": "heartbeat",
+                "userId": self.user_id,
+                "userName": self.user_name,
+                "avatar": self.avatar.lock().unwrap().clone(),
+                "status": self.my_status.lock().unwrap().clone(),
+                "version": self.version,
+                "messagePort": DISCOVERY_PORT,
+            });
+            if let Ok(msg) = serde_json::to_string(&hb) {
+                let broadcast_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                let _ = udp.send_to(msg.as_bytes(), broadcast_addr);
+            }
         }
-
-        let browse_daemon = match ServiceDaemon::new() {
-            Ok(d) => d,
-            Err(e) => {
-                self.add_log("error", &format!("mDNS browse restart failed: {}", e));
-                return;
-            }
-        };
-        let browse_rx = match browse_daemon.browse("_supertool._tcp.local.") {
-            Ok(rx) => rx,
-            Err(e) => {
-                self.add_log("error", &format!("mDNS browse restart failed: {}", e));
-                return;
-            }
-        };
-        *self.mdns_browse_handle.lock().unwrap() = Some(browse_daemon);
-
-        let peers = Arc::clone(&self.peers);
-        let log = Arc::clone(&self.log_buffer);
-        let stop = Arc::clone(&self.stop_flag);
-        let my_user_id = self.user_id.clone();
-        let my_version = self.version.clone();
-        let app_handle = self.app_handle.lock().unwrap().clone();
-
-        thread::spawn(move || {
-            while !stop.load(Ordering::SeqCst) {
-                match browse_rx.recv_timeout(Duration::from_secs(1)) {
-                    Ok(ServiceEvent::ServiceResolved(info)) => {
-                        let peer_id = match info.get_property_val_str("userId") {
-                            Some(id) => id.to_string(),
-                            None => continue,
-                        };
-                        if peer_id == my_user_id {
-                            continue;
-                        }
-                        let peer_name = info
-                            .get_property_val_str("userName")
-                            .unwrap_or(&peer_id)
-                            .to_string();
-                        let peer_version =
-                            info.get_property_val_str("version").map(|v| v.to_string());
-                        let message_port = info
-                            .get_property_val_str("messagePort")
-                            .and_then(|p| p.parse::<u16>().ok())
-                            .unwrap_or(DISCOVERY_PORT);
-
-                        if let Some(ref v) = peer_version {
-                            if let Some(major) = v.split('.').next() {
-                                if let Some(my_major) = my_version.split('.').next() {
-                                    if major != my_major {
-                                        continue;
-                                    }
-                                }
-                            }
-                        }
-
-                        let addr = match info.get_addresses().iter().next() {
-                            Some(a) => a.to_string(),
-                            None => continue,
-                        };
-                        let now = chrono::Utc::now().timestamp_millis();
-                        let mut peers_map = peers.lock().unwrap();
-                        let is_new = !peers_map.contains_key(&peer_id);
-
-                        let peer = Peer {
-                            id: peer_id.clone(),
-                            name: peer_name.clone(),
-                            avatar: None,
-                            address: addr.clone(),
-                            message_port,
-                            version: peer_version,
-                            last_seen: now,
-                            online: true,
-                            status: None,
-                        };
-                        peers_map.insert(peer_id.clone(), peer);
-
-                        if is_new {
-                            Self::add_log_static(
-                                &log,
-                                "info",
-                                &format!("mDNS peer discovered: {} ({})", peer_id, addr),
-                            );
-                            if let Some(app) = &app_handle {
-                                let _ = app.emit(
-                                    "lan-peer-discovered",
-                                    serde_json::json!({
-                                        "peerId": peer_id,
-                                        "address": addr,
-                                        "name": peer_name,
-                                    }),
-                                );
-                            }
-                        }
-                    }
-                    Ok(ServiceEvent::ServiceRemoved(_, full_name)) => {
-                        Self::add_log_static(
-                            &log,
-                            "info",
-                            &format!("mDNS service removed: {}", full_name),
-                        );
-                        let mut peers_map = peers.lock().unwrap();
-                        for peer in peers_map.values_mut() {
-                            if full_name.starts_with(&format!("supertool-{}", peer.id)) {
-                                peer.online = false;
-                                Self::add_log_static(
-                                    &log,
-                                    "info",
-                                    &format!("mDNS peer offline: {}", peer.id),
-                                );
-                                if let Some(app) = &app_handle {
-                                    let _ = app.emit(
-                                        "lan-peer-lost",
-                                        serde_json::json!({
-                                            "id": peer.id,
-                                            "name": peer.name,
-                                            "address": peer.address,
-                                        }),
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    Err(_) => {}
-                    _ => {}
-                }
-            }
-        });
     }
 
     pub fn get_receive_path(&self) -> String {
