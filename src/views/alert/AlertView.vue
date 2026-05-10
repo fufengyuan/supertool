@@ -9,6 +9,7 @@
         :class="{ 'tab-active': activeTab === tab.key }"
         @click="activeTab = tab.key"
       >
+        <SvgIcon :name="tab.icon" size="14" class="inline-block align-text-bottom mr-1" />
         {{ tab.label }}
       </a>
     </div>
@@ -357,9 +358,9 @@ const toast = useToast()
 
 // ============ Tabs ============
 const tabs = [
-  { key: 'services', label: '🔍 服务探测' },
-  { key: 'resources', label: '⏰ 资源到期' },
-  { key: 'email', label: '📧 邮件配置' },
+  { key: 'services', label: '服务探测', icon: 'search' },
+  { key: 'resources', label: '资源到期', icon: 'clock' },
+  { key: 'email', label: '邮件配置', icon: 'mail' },
 ]
 const activeTab = ref('services')
 

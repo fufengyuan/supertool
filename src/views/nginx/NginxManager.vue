@@ -37,7 +37,7 @@
                   </div>
                   <div class="flex gap-1 shrink-0">
                     <button @click.stop="openEditPresetForm(preset)" class="btn btn-ghost btn-xs btn-square" title="编辑"><SvgIcon name="pencil" size="14" /> </button>
-                    <button @click.stop="onDeletePreset(preset.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">×</button>
+                    <button @click.stop="onDeletePreset(preset.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="trash" size="14" /></button>
                   </div>
                 </div>
               </div>
@@ -229,6 +229,34 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div v-if="showDeleteConfirm" class="modal modal-open" @click.self="showDeleteConfirm = false">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg"><SvgIcon name="alertTriangle" size="14" /> 确认删除</h3>
+        <p class="text-sm text-base-content/70 mt-2">确定删除此预设？关联的版本历史也会一并删除。</p>
+        <div class="modal-action">
+          <button @click="showDeleteConfirm = false" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="executeDeletePreset" class="btn btn-error btn-sm" :disabled="deleting">
+            {{ deleting ? '删除中…' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 回滚确认弹窗 -->
+    <div v-if="showRollbackConfirm" class="modal modal-open" @click.self="showRollbackConfirm = false">
+      <div class="modal-box">
+        <h3 class="font-bold text-lg"><SvgIcon name="refresh" size="14" /> 确认回滚</h3>
+        <p class="text-sm text-base-content/70 mt-2">确定回滚到此版本？当前配置将被替换。</p>
+        <div class="modal-action">
+          <button @click="showRollbackConfirm = false" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="executeRollback" class="btn btn-warning btn-sm" :disabled="deleting">
+            {{ deleting ? '回滚中…' : '确认回滚' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -254,6 +282,11 @@ const editingPreset = ref<any>(null)
 const viewMode = ref<'raw' | 'visual'>('visual')
 const collapsedGroups = ref(new Set<string>())
 const deployComment = ref('')
+const showDeleteConfirm = ref(false)
+const showRollbackConfirm = ref(false)
+const confirmDeleteId = ref('')
+const confirmRollbackId = ref('')
+const deleting = ref(false)
 
 const presetForm = ref({
   id: '',
@@ -314,8 +347,18 @@ async function onSavePreset() {
 }
 
 async function onDeletePreset(id: string) {
-  if (!confirm('确定删除此预设？关联的版本历史也会一并删除。')) return
+  confirmDeleteId.value = id
+  showDeleteConfirm.value = true
+}
+
+async function executeDeletePreset() {
+  const id = confirmDeleteId.value
+  if (!id) return
+  deleting.value = true
   await deletePreset(id)
+  showDeleteConfirm.value = false
+  confirmDeleteId.value = ''
+  deleting.value = false
 }
 
 async function onSelectPreset(preset: any) {
@@ -356,8 +399,19 @@ async function onDeploy() {
 }
 
 async function onRollback(versionId: string) {
+  confirmRollbackId.value = versionId
+  showRollbackConfirm.value = true
+}
+
+async function executeRollback() {
+  const versionId = confirmRollbackId.value
+  if (!versionId) return
   if (!confirm('确定回滚到此版本？当前配置将被替换。')) return
+  deleting.value = true
   await rollbackToVersion(versionId)
+  showRollbackConfirm.value = false
+  confirmRollbackId.value = ''
+  deleting.value = false
   if (configContent.value) {
     viewMode.value = 'visual'
   }
