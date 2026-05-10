@@ -116,7 +116,14 @@
 
         <div class="flex justify-between items-center px-3 py-2 border-b border-base-content/10 text-xs flex-wrap gap-2">
           <div class="text-base-content/60 flex gap-1 flex-wrap">
-            <span>{{ displayLines.length }} 行</span>
+            <template v-if="queryMode === 'stream' && selectedPreset?.keywords?.length">
+              <span>{{ displayLines.length }} 行</span>
+              <span class="text-base-content/30">/</span>
+              <span class="text-base-content/40">{{ logLines.length }} 行(全部)</span>
+            </template>
+            <template v-else>
+              <span>{{ displayLines.length }} 行</span>
+            </template>
             <span v-if="activeServers.size > 0">· {{ activeServers.size }} 个节点在线</span>
             <span v-if="selectedPreset" class="text-primary font-medium">· 当前：{{ selectedPreset.name }}</span>
           </div>
@@ -274,7 +281,7 @@ const presets = ref<any[]>([])
 const allServers = ref<Server[]>([])
 const allGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([])
 const selectedPreset = ref<any | null>(null)
-const logLines = ref<Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; isMatch?: boolean; lineNum?: string }>>([])
+const logLines = ref<Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; isMatch?: boolean; matched?: boolean; lineNum?: string }>>([])
 const isStreaming = ref(false)
 const followMode = ref(true)
 const activeServers = ref(new Set<string>())
@@ -444,16 +451,13 @@ const searchPlaceholder = computed(() => {
 })
 
 // 显示的行（过滤）
+// 流式模式：使用 flush 时预计算的 matched 标记，避免每次重扫 5000 行
 const displayLines = computed(() => {
   if (queryMode.value === 'search') {
     return logLines.value
   }
-  // 流式模式：按预设关键字过滤
-  const keywords = getKeywordsFromPreset().split(',').map(k => k.trim()).filter(k => k)
-  if (keywords.length === 0) return logLines.value
-  return logLines.value.filter(line =>
-    keywords.some(kw => line.content.toLowerCase().includes(kw.toLowerCase()))
-  )
+  // 流式模式：无关键字直接显示全部
+  return logLines.value.filter(line => line.matched !== false)
 })
 
 // 预设分组折叠
@@ -486,6 +490,16 @@ function editPreset(preset: any) {
   showPresetForm.value = true
 }
 
+// 当预设切换时，重新计算存量行的 matched 标记
+function recalculateMatched() {
+  const keywords = queryMode.value === 'stream' && selectedPreset.value?.keywords?.length
+    ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
+    : []
+  for (const line of logLines.value) {
+    line.matched = keywords.length === 0 || keywords.some(kw => line.content.toLowerCase().includes(kw))
+  }
+}
+
 // 选择预设并查询
 async function selectAndQuery(preset: any) {
   // 搜索模式下只选中预设
@@ -501,6 +515,7 @@ async function selectAndQuery(preset: any) {
   }
 
   selectedPreset.value = preset
+  recalculateMatched()
   if (isStreaming.value) {
     await stopQuery()
   }
@@ -626,17 +641,23 @@ function scheduleFlush() {
     logFlushTimer = null
     if (logBuffer.length === 0) return
     const batch = logBuffer.splice(0, logBuffer.length)
-    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string }> = []
+    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean }> = []
     const now = Date.now()
+    // 预计算当前预设关键字（流式模式下只需计算一次）
+    const presetKeywords = queryMode.value === 'stream' && selectedPreset.value?.keywords?.length
+      ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
+      : []
     for (const data of batch) {
       if (!data?.line || typeof data.line !== 'string' || !data?.serverId) continue
+      const content = data.line
       newLines.push({
         id: `${data.serverId}-${now}-${Math.random()}`,
         serverId: data.serverId,
         serverName: data.serverName,
         timestamp: now,
-        content: data.line,
-        level: detectLevel(data.line)
+        content,
+        level: detectLevel(content),
+        matched: presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw))
       })
       activeServers.value.add(data.serverId)
     }
@@ -726,6 +747,7 @@ async function switchQueryMode(mode: 'stream' | 'search') {
       await stopQuery()
     }
     followMode.value = true
+    recalculateMatched()
     if (selectedPreset.value) {
       await startQueryFromPreset(selectedPreset.value)
     }
@@ -747,9 +769,16 @@ function clearLogs() {
 
 // 导出日志
 function exportLogs() {
-  const text = displayLines.value.map(l =>
-    `[${l.serverName}] ${l.content}`
-  ).join('\n')
+  const lines = logLines.value
+  if (lines.length === 0) {
+    toast.warning('没有可导出的日志')
+    return
+  }
+  const text = lines.map(l => {
+    const ts = l.timestamp ? new Date(l.timestamp).toISOString().slice(11, 19) : ''
+    const shown = l.matched !== false
+    return `[${ts}][${l.serverName}]${shown ? '' : ' [已过滤]'} ${l.content}`
+  }).join('\n')
 
   const blob = new Blob([text], { type: 'text/plain' })
   const url = URL.createObjectURL(blob)
@@ -758,6 +787,7 @@ function exportLogs() {
   a.download = `logs_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
   a.click()
   URL.revokeObjectURL(url)
+  toast.success(`已导出 ${lines.length} 行日志`)
 }
 
 // 预设管理
@@ -820,7 +850,7 @@ async function doDeletePreset(id: string) {
 }
 
 async function goToServers() {
-const { useAppStore } = await import("../../stores/appStore");
+  const { useAppStore } = await import("../../stores/appStore");
   const appStore = useAppStore()
   appStore.setViewMode('servers')
 }
