@@ -944,8 +944,8 @@ async function loadEmailConfig() {
       emailConfig.from_email = data.fromEmail ?? data.from_email ?? ''
       emailConfig.to_email = data.toEmail ?? data.to_email ?? ''
       const enc = data.smtpEncryption ?? data.smtp_encryption ?? 'starttls'
-      emailConfig.use_ssl = enc !== 'none'
-      emailConfig.use_starttls = enc !== 'none'
+      emailConfig.use_ssl = enc === 'ssl'
+      emailConfig.use_starttls = enc === 'starttls'
     }
   } catch (e: any) {
     console.error('加载邮件配置失败:', e)
