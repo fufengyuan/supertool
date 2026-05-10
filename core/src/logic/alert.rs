@@ -78,7 +78,22 @@ impl super::CoreService {
         let now = chrono::Utc::now();
 
         for service in services {
-            let port_up = check_tcp_port(&service.host, service.port as u16, service.timeout_seconds as u64);
+            // Skip if not enough time has passed since last check
+            if let Some(ref last_check) = service.last_check_at {
+                if let Ok(last) = chrono::DateTime::parse_from_rfc3339(last_check) {
+                    let elapsed = now.signed_duration_since(last).num_seconds();
+                    if elapsed < service.check_interval {
+                        continue;
+                    }
+                }
+            }
+
+            let host_clone = service.host.clone();
+            let port_val = service.port as u16;
+            let timeout_val = service.timeout_seconds as u64;
+            let port_up = tokio::task::spawn_blocking(move || {
+                check_tcp_port(&host_clone, port_val, timeout_val)
+            }).await.unwrap_or(false);
             let current_failures = if port_up { 0 } else { service.consecutive_failures + 1 };
 
             // Update last_status and consecutive_failures in DB
