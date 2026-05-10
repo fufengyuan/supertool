@@ -161,7 +161,7 @@
           <SvgIcon name="gitMerge" size="14" class="text-accent" />
           <span>{{ up.block.name }}</span>
           <span class="badge badge-sm badge-ghost">{{ up.servers.length }} 后端</span>
-          <button @click="removeUpstream(ui)" class="ml-auto btn btn-ghost btn-xs text-error" @click.stop>
+          <button @click.stop="removeUpstream(ui)" class="ml-auto btn btn-ghost btn-xs text-error">
             <SvgIcon name="x" size="12" />
           </button>
         </div>
@@ -203,8 +203,6 @@
           </div>
         </div>
       </div>
-      </div>
-
       <!-- ===== Other blocks (events, map, geo, types, stream, etc.) ===== -->
       <div v-for="(block, bi) in otherDisplayBlocks" :key="'blk-' + bi"
         :class="searchDimClass(blockMatchesSearch(block, searchQuery.toLowerCase().trim()))"
@@ -216,7 +214,7 @@
           <span v-if="block.directives.length > 0" class="badge badge-sm badge-ghost">{{ block.directives.length }} 指令</span>
           <span v-if="block.blocks.length > 0" class="badge badge-sm badge-ghost">{{ block.blocks.length }} 子块</span>
           <span class="ml-auto text-xs text-base-content/30">{{ collapsedOther.has(bi) ? '展开' : '收起' }}</span>
-          <button @click="removeOtherBlock(bi)" class="btn btn-ghost btn-xs text-error" @click.stop>
+          <button @click.stop="removeOtherBlock(bi)" class="btn btn-ghost btn-xs text-error">
             <SvgIcon name="x" size="12" />
           </button>
         </div>
