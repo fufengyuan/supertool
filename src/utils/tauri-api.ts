@@ -568,7 +568,7 @@ export function useLanAPI() {
       return listen('lan-file-received', (event) => handler(event.payload))
     },
     lanOnTaskAssigned: async (handler: (data: any) => void) => {
-      return listen('lan:task-assigned', (event) => handler(event.payload))
+      return listen('lan-task-assigned', (event) => handler(event.payload))
     },
     lanAssignTask: async (peerId: string, task: string): Promise<void> => {
       await tauriInvoke('lan_assign_task', { peerId, task })
