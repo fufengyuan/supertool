@@ -84,12 +84,14 @@ impl super::CoreService {
             // Update last_status and consecutive_failures in DB
             let last_status_val: i64 = if port_up { 1 } else { 0 };
             let now_str = now.to_rfc3339();
-            let _ = self.db_write(|conn| {
-                let _ = conn.execute(
+            if let Err(e) = self.db_write(|conn| {
+                conn.execute(
                     "UPDATE alert_services SET last_status=?1, consecutive_failures=?2, last_check_at=?3 WHERE id=?4",
                     rusqlite::params![last_status_val, current_failures, now_str, service.id],
-                );
-            });
+                ).map(|_| ()).map_err(|e| format!("{}", e))
+            }) {
+                log::warn!("[Alert] Failed to update service status {}: {}", service.id, e);
+            }
 
             if port_up {
                 if service.last_status == Some(0) {
@@ -118,12 +120,14 @@ impl super::CoreService {
                         });
                     }
                 }
-                let _ = self.db_write(|conn| {
-                    let _ = conn.execute(
+                if let Err(e) = self.db_write(|conn| {
+                    conn.execute(
                         "UPDATE alert_services SET alert_sent_at=NULL WHERE id=?1",
                         rusqlite::params![service.id],
-                    );
-                });
+                    ).map(|_| ()).map_err(|e| format!("{}", e))
+                }) {
+                    log::warn!("[Alert] Failed to clear alert_sent_at {}: {}", service.id, e);
+                }
             } else {
                 let should_alert = current_failures >= service.max_retries;
                 if should_alert {
@@ -149,12 +153,14 @@ impl super::CoreService {
                             category: None,
                             message: format!("服务 {} ({}:{}) 无法连接（连续 {} 次失败）", service.name, service.host, service.port, current_failures),
                         });
-                        let _ = self.db_write(|conn| {
-                            let _ = conn.execute(
+                        if let Err(e) = self.db_write(|conn| {
+                            conn.execute(
                                 "UPDATE alert_services SET alert_sent_at=?1 WHERE id=?2",
                                 rusqlite::params![now_str, service.id],
-                            );
-                        });
+                            ).map(|_| ()).map_err(|e| format!("{}", e))
+                        }) {
+                            log::warn!("[Alert] Failed to update alert_sent_at {}: {}", service.id, e);
+                        }
                     }
                 }
             }
@@ -253,12 +259,14 @@ impl super::CoreService {
                     });
 
                     let now_str = now.to_rfc3339();
-                    let _ = self.db_write(|conn| {
-                        let _ = conn.execute(
+                    if let Err(e) = self.db_write(|conn| {
+                        conn.execute(
                             "UPDATE alert_resources SET last_alert_sent_at=?1 WHERE id=?2",
                             rusqlite::params![now_str, resource.id],
-                        );
-                    });
+                        ).map(|_| ()).map_err(|e| format!("{}", e))
+                    }) {
+                        log::warn!("[Alert] Failed to update resource last_alert {}: {}", resource.id, e);
+                    }
                 }
             }
         }
@@ -297,7 +305,7 @@ impl super::CoreService {
     /// Upsert email config
     pub async fn save_email_config(&self, config: alert::AlertEmailConfig) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
                  VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
                 rusqlite::params![
@@ -309,8 +317,8 @@ impl super::CoreService {
                     config.from_email,
                     config.to_email,
                 ],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("保存邮件配置失败: {}", e))
+        })?
     }
 
     /// Get all alert services
@@ -354,7 +362,7 @@ impl super::CoreService {
     /// Add alert service
     pub async fn add_alert_service(&self, service: alert::AlertService) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "INSERT INTO alert_services (id, name, host, port, check_interval, timeout_seconds, max_retries, enabled, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'))",
                 rusqlite::params![
@@ -362,29 +370,30 @@ impl super::CoreService {
                     service.check_interval, service.timeout_seconds, service.max_retries,
                     if service.enabled { 1 } else { 0 },
                 ],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("添加服务失败: {}", e))
+        })?
     }
 
     /// Update alert service
     pub async fn update_alert_service(&self, service: alert::AlertService) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "UPDATE alert_services SET name=?2, host=?3, port=?4, check_interval=?5, timeout_seconds=?6, max_retries=?7, enabled=?8 WHERE id=?1",
                 rusqlite::params![
                     service.id, service.name, service.host, service.port,
                     service.check_interval, service.timeout_seconds, service.max_retries,
                     if service.enabled { 1 } else { 0 },
                 ],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("更新服务失败: {}", e))
+        })?
     }
 
     /// Delete alert service
     pub async fn delete_alert_service(&self, id: &str) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute("DELETE FROM alert_services WHERE id = ?1", rusqlite::params![id]);
-        })
+            conn.execute("DELETE FROM alert_services WHERE id = ?1", rusqlite::params![id])
+                .map(|_| ()).map_err(|e| format!("删除服务失败: {}", e))
+        })?
     }
 
     /// Get all alert resources
@@ -423,35 +432,36 @@ impl super::CoreService {
     /// Add alert resource
     pub async fn add_alert_resource(&self, resource: alert::AlertResource) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "INSERT INTO alert_resources (id, name, category, expire_at, alert_advance_days, enabled, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
                 rusqlite::params![
                     resource.id, resource.name, resource.category, resource.expire_at,
                     resource.alert_advance_days, if resource.enabled { 1 } else { 0 },
                 ],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("添加资源失败: {}", e))
+        })?
     }
 
     /// Update alert resource
     pub async fn update_alert_resource(&self, resource: alert::AlertResource) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "UPDATE alert_resources SET name=?2, category=?3, expire_at=?4, alert_advance_days=?5, enabled=?6 WHERE id=?1",
                 rusqlite::params![
                     resource.id, resource.name, resource.category, resource.expire_at,
                     resource.alert_advance_days, if resource.enabled { 1 } else { 0 },
                 ],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("更新资源失败: {}", e))
+        })?
     }
 
     /// Delete alert resource
     pub async fn delete_alert_resource(&self, id: &str) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute("DELETE FROM alert_resources WHERE id = ?1", rusqlite::params![id]);
-        })
+            conn.execute("DELETE FROM alert_resources WHERE id = ?1", rusqlite::params![id])
+                .map(|_| ()).map_err(|e| format!("删除资源失败: {}", e))
+        })?
     }
 
     /// Get alert history (last 100)
@@ -487,10 +497,10 @@ impl super::CoreService {
     /// Insert alert history
     pub async fn insert_alert_history(&self, h: alert::AlertHistory) -> Result<(), String> {
         self.db_write(|conn| {
-            let _ = conn.execute(
+            conn.execute(
                 "INSERT INTO alert_history (id, type, ref_id, ref_name, message, sent_at) VALUES (?1, ?2, ?3, ?4, ?5, datetime('now'))",
                 rusqlite::params![h.id, h.alert_type, h.ref_id, h.ref_name, h.message],
-            );
-        })
+            ).map(|_| ()).map_err(|e| format!("插入告警历史失败: {}", e))
+        })?
     }
 }
