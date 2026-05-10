@@ -1276,7 +1276,39 @@ pub async fn scan_project_modules(
         return Ok(serde_json::json!({ "success": false, "modules": [], "error": "路径不存在" }));
     }
 
-    let modules = scan_maven_modules_recursive(path, path, 0);
+    let mut modules = scan_maven_modules_recursive(path, path, 0);
+
+    // If no Maven modules at root, scan one level deeper for pom.xml
+    // (e.g., pre-pay-service/SRC/yudao/pom.xml)
+    if modules.is_empty() {
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                if let Ok(ft) = entry.file_type() {
+                    if ft.is_dir() {
+                        let dir_name = entry.file_name().to_string_lossy().to_string();
+                        if dir_name.starts_with('.') || dir_name == "node_modules" || dir_name == "target" || dir_name == "dist" {
+                            continue;
+                        }
+                        let sub_path = entry.path();
+                        if sub_path.join("pom.xml").exists() {
+                            let sub_modules = scan_maven_modules_recursive(path, &sub_path, 0);
+                            if !sub_modules.is_empty() {
+                                // Add relative path prefix for nested projects
+                                let prefixed: Vec<serde_json::Value> = sub_modules.into_iter().map(|mut m| {
+                                    if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
+                                        let full_path = format!("./{}/{}", dir_name, p.trim_start_matches("./"));
+                                        m["path"] = serde_json::json!(full_path);
+                                    }
+                                    m
+                                }).collect();
+                                modules.extend(prefixed);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // If no Maven modules found, scan Node.js packages
     let modules = if modules.is_empty() {
