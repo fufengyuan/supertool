@@ -30,35 +30,45 @@
       </div>
     </div>
 
-    <!-- 提交记录 - 分仓库显示 -->
+    <!-- 提交记录 - 仅支持本地仓库 -->
     <div class="p-5 bg-base-100 rounded-xl shadow-sm">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="m-0 text-base-content text-lg">📜 提交记录</h3>
-        <div class="commits-filter">
-          <select v-model="repoFilter" class="select select-bordered select-sm">
-            <option value="all"><SvgIcon name="gitBranch" :size="14" class="inline-block align-text-bottom" /> 全部仓库</option>
-            <option v-for="repo in repos" :key="repo.key" :value="repo.key">{{ repo.label }}</option>
+        <h3 class="m-0 text-base-content text-lg"><SvgIcon name="gitCommit" :size="18" class="inline-block align-text-bottom" /> 提交记录</h3>
+        <div class="flex items-center gap-2">
+          <select v-if="localRepos.length > 1" v-model="repoFilter" class="select select-bordered select-sm">
+            <option value="all">全部仓库</option>
+            <option v-for="repo in localRepos" :key="repo.key" :value="repo.key">{{ repo.label }}</option>
           </select>
+          <button class="btn btn-ghost btn-sm" @click="loadGitCommits" title="刷新"><SvgIcon name="refresh" :size="14" /></button>
         </div>
       </div>
 
-      <div v-if="loading" class="text-center py-6 text-base-content/60 text-sm"><SvgIcon name="clock" :size="14" class="inline-block align-text-bottom" /> 加载中...</div>
-      <div v-else-if="filteredCommits.length === 0" class="text-center py-6 text-base-content/60 text-sm"><SvgIcon name="file" :size="14" class="inline-block align-text-bottom" /> 暂无提交记录</div>
-      <div v-else class="max-h-[400px] overflow-y-auto">
+      <div v-if="localRepos.length === 0" class="text-center py-6 text-base-content/60 text-sm">
+        <SvgIcon name="folder" :size="24" class="mx-auto mb-2 opacity-50" />
+        <p class="m-0">项目未配置本地仓库路径，无法拉取 Git 提交记录</p>
+      </div>
+      <div v-else-if="loading" class="text-center py-6 text-base-content/60 text-sm">
+        <SvgIcon name="clock" :size="14" class="inline-block align-text-bottom" /> 加载中...
+      </div>
+      <div v-else-if="filteredCommits.length === 0" class="text-center py-6 text-base-content/60 text-sm">
+        <SvgIcon name="gitCommit" :size="24" class="mx-auto mb-2 opacity-50" />
+        <p class="m-0">暂无提交记录</p>
+      </div>
+      <div v-else class="max-h-[500px] overflow-y-auto space-y-2">
         <div
           v-for="commit in filteredCommits"
           :key="commit.repo + commit.hash"
-          class="p-3 mb-2.5 bg-base-200 rounded-lg border-l-4 border-primary"
+          class="p-3 bg-base-200 rounded-lg border-l-4 border-primary"
         >
           <div class="flex justify-between items-center mb-1">
-            <div class="flex items-center gap-2">
-              <span v-if="commit.repo" class="text-[11px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold">{{ commit.repo }}</span>
-              <span class="font-mono text-xs text-base-content/60">{{ commit.hash }}</span>
+            <div class="flex items-center gap-2 min-w-0">
+              <span v-if="commit.repo" class="text-[11px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold shrink-0">{{ commit.repo }}</span>
+              <span class="font-mono text-xs text-base-content/50 truncate" :title="commit.hash">{{ commit.hash.substring(0, 8) }}</span>
             </div>
-            <span class="text-xs text-base-content/60 whitespace-nowrap">{{ formatDate(commit.date) }}</span>
+            <span class="text-xs text-base-content/60 whitespace-nowrap shrink-0 ml-2">{{ formatDate(commit.date) }}</span>
           </div>
-          <div class="text-xs text-primary mb-1">{{ commit.author }}</div>
-          <div class="text-sm text-base-content break-words">{{ commit.message }}</div>
+          <div class="text-xs text-primary mb-0.5">{{ commit.author }}</div>
+          <div class="text-sm text-base-content">{{ commit.message }}</div>
         </div>
       </div>
     </div>
@@ -82,18 +92,16 @@ const commits = ref<any[]>([])
 const loading = ref(false)
 const repoFilter = ref('all')
 
-// 仓库列表
-const repos = computed(() => {
+// 仅本地仓库支持拉取 Git 记录
+const localRepos = computed(() => {
   const r: { key: string; label: string; path: string; branch?: string }[] = []
   if (props.project.repoPath) r.push({ key: 'repo1', label: '本地仓库 1', path: props.project.repoPath, branch: props.project.branch })
   if (props.project.repoPath2) r.push({ key: 'repo2', label: '本地仓库 2', path: props.project.repoPath2, branch: props.project.branch2 })
-  if (props.project.gitUrl1) r.push({ key: 'remote1', label: '远程仓库 1', path: props.project.gitUrl1 })
-  if (props.project.gitUrl2) r.push({ key: 'remote2', label: '远程仓库 2', path: props.project.gitUrl2 })
   return r
 })
 
 const filteredCommits = computed(() => {
-  if (repoFilter.value === 'all') return commits.value
+  if (repoFilter.value === 'all' || localRepos.value.length <= 1) return commits.value
   return commits.value.filter(c => c.repoKey === repoFilter.value)
 })
 
@@ -103,36 +111,29 @@ const formatDate = (dateString: string) => {
 }
 
 const loadGitCommits = async () => {
-  if (repos.value.length === 0) {
+  if (localRepos.value.length === 0) {
     commits.value = []
     return
   }
 
   loading.value = true
   try {
-    const today = new Date()
-    const firstDayOfWeek = new Date(today)
-    firstDayOfWeek.setDate(today.getDate() - today.getDay())
-    firstDayOfWeek.setHours(0, 0, 0, 0)
-    const sinceDate = firstDayOfWeek.toISOString().split('T')[0]
-
     const allCommits: any[] = []
 
-    for (const repo of repos.value) {
+    for (const repo of localRepos.value) {
       try {
-        const c = await getTauriAPI().getGitCommits(repo.path, sinceDate) || []
+        const c = await getTauriAPI().getGitCommits(repo.path) || []
         allCommits.push(...c.map((item: any) => ({
           ...item,
-          repo: repo.label.split(' ')[0], // 取 emoji
+          repo: repo.label,
           repoKey: repo.key,
         })))
       } catch (e) {
-        // 单个仓库失败不影响其他
         console.warn(`Failed to load commits for ${repo.label}:`, e)
       }
     }
 
-    // 按日期排序
+    // 按日期排序（最新的在前）
     commits.value = allCommits.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   } catch (error) {
     handleError(error, { context: '加载Git提交记录', showToast: true })

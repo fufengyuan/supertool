@@ -40,7 +40,8 @@ pub struct RepoValidationResult {
 pub fn get_git_branches(repo_path: String) -> Result<Vec<GitBranch>, String> {
     log::info!("[Tauri CMD] get_git_branches() called");
     let output = Command::new(supertool_core::logic::git::find_git())
-        .args(["-C", &repo_path, "branch", "-a"])
+        .args(["branch", "-a"])
+        .current_dir(&repo_path)
         .output()
         .map_err(|e| format!("Failed to run git branch: {}", e))?;
 
@@ -77,23 +78,26 @@ pub fn get_git_branches(repo_path: String) -> Result<Vec<GitBranch>, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_git_commits(
     repo_path: String,
+    since: Option<String>,
     limit: Option<usize>,
 ) -> Result<Vec<GitCommit>, String> {
     log::info!("[Tauri CMD] get_git_commits() called");
-    let n = limit.unwrap_or(50).to_string();
 
-    // Use a custom format that we can parse reliably
-    let format = "%H|||%s|||%an|||%ai";
-    let output = Command::new(supertool_core::logic::git::find_git())
-        .args([
-            "-C",
-            &repo_path,
-            "log",
-            "--format",
-            &format,
-            "-n",
-            &n,
-        ])
+    let n = limit.unwrap_or(50);
+    let fmt = "%H|||%s|||%an|||%ai";
+
+    let mut cmd = Command::new(supertool_core::logic::git::find_git());
+    cmd.current_dir(&repo_path);
+    cmd.arg("log");
+    cmd.arg(format!("--format={}", fmt));
+    cmd.arg(format!("-n{}", n));
+    if let Some(since_date) = since {
+        if !since_date.is_empty() {
+            cmd.arg(format!("--after={}", since_date));
+        }
+    }
+
+    let output = cmd
         .output()
         .map_err(|e| format!("Failed to run git log: {}", e))?;
 

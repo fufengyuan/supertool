@@ -1460,7 +1460,7 @@ export interface TauriAPI {
   validateGitRepoPath: (path: string) => Promise<any>
   showOpenDialogForDirs: () => Promise<any>
   showOpenDialog: (options?: Record<string, unknown>) => Promise<any>
-  getGitCommits: (path: string, since?: string) => Promise<any>
+  getGitCommits: (path: string, since?: string) => Promise<any>,
   scanLocalGitRepos: (directories: string[]) => Promise<any>
   getGitBranches: (path: string) => Promise<any>
   // Calculator
