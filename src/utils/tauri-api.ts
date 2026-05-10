@@ -1681,6 +1681,7 @@ export function getTauriAPI(): TauriAPI {
   const wireguard = useWireGuardAPI()
   const nginx = useNginxAPI()
   const alert = useAlertAPI()
+  const lan = useLanAPI()
 
   cachedAPI = {
     // Projects
@@ -2230,12 +2231,11 @@ export function getTauriAPI(): TauriAPI {
     getTodos: async () => tauriCall("get_todos"),
     getTags: async () => tauriCall("get_all_tags"),
     syncTaskStatus: async (todoId: string, completed: boolean) => tauriCall("sync_task_status", { todoId, completed }),
-    // Git
-    // Accounting
-    // Tools check
     // Misc
     screenshot: async () => tauriCall("screenshot"),
     exportWordReport: async (params: Record<string, unknown>) => tauriCall("export_word_report", { params }),
+    // LAN
+    ...lan,
 
   }
 

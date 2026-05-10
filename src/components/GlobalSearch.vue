@@ -231,7 +231,7 @@
 <script setup lang="ts">// @ts-nocheck
 import { getTauriAPI } from '../utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useAppStore } from '../stores/appStore'
 import { useTodoStore } from '../stores/todoStore'
 import { useRouter } from 'vue-router'
