@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 // ==================== Data Types ====================
 
+fn default_true() -> bool { true }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlertEmailConfig {
     pub id: i32,
@@ -57,6 +59,7 @@ pub struct AlertService {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlertResource {
+    #[serde(default)]
     pub id: String,
     pub name: String,
     pub category: Option<String>,
@@ -64,10 +67,11 @@ pub struct AlertResource {
     pub expire_at: Option<String>,
     #[serde(rename = "alertAdvanceDays")]
     pub alert_advance_days: i64,
+    #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(rename = "lastAlertSentAt")]
     pub last_alert_sent_at: Option<String>,
-    #[serde(rename = "createdAt")]
+    #[serde(rename = "createdAt", default)]
     pub created_at: String,
 }
 
