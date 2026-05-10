@@ -194,26 +194,29 @@ impl LanService {
         let tcp_port = *self.tcp_port.lock().unwrap();
         self.add_log("info", &format!("TCP file transfer on port {}", tcp_port));
 
-        // Detect local IP for mDNS registration
-        let local_ip = Self::detect_local_ip_for_mdns()
-            .unwrap_or_else(|| Ipv4Addr::UNSPECIFIED.to_string());
-        *self.local_ip.lock().unwrap() = local_ip.clone();
-        eprintln!("[LAN] Detected local IP for mDNS: {}", local_ip);
-        self.add_log("info", &format!("Local IP: {}", local_ip));
-
         self.is_running.store(true, Ordering::SeqCst);
         self.stop_flag.store(false, Ordering::SeqCst);
+
+        // Set local_ip for get_local_ip() API
+        if let Some(ip) = Self::detect_local_ip_for_mdns() {
+            *self.local_ip.lock().unwrap() = ip;
+        }
 
         // ===== mDNS service registration =====
         {
             let mdns_daemon =
                 ServiceDaemon::new().map_err(|e| format!("mDNS daemon 创建失败: {}", e))?;
-            let instance_name = format!("supertool-{}", self.user_id);
-            let ip_addr: IpAddr = local_ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+            let instance_name = format!("supertool-{}", self.user_id.replace('_', "-"));
+            let local_ip = Self::detect_local_ip_for_mdns();
+            let ip_addr: IpAddr = match &local_ip {
+                Some(ip) => ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                None => IpAddr::V4(Ipv4Addr::LOCALHOST),
+            };
+            let host_name = format!("{}.local.", self.user_name.replace(' ', "-").replace('_', "-"));
             let service = ServiceInfo::new(
                 "_supertool._tcp.local.",
                 &instance_name,
-                "",
+                &host_name,
                 ip_addr,
                 DISCOVERY_PORT,
                 vec![
@@ -228,7 +231,7 @@ impl LanService {
                 .register(service)
                 .map_err(|e| format!("mDNS 服务注册失败: {}", e))?;
             *self.mdns_daemon.lock().unwrap() = Some(mdns_daemon);
-            self.add_log("info", "mDNS service registered: _supertool._tcp.local.");
+            self.add_log("info", &format!("mDNS service registered: {} @ {}:{}", instance_name, ip_addr, DISCOVERY_PORT));
         }
 
         // ===== mDNS browse thread =====
