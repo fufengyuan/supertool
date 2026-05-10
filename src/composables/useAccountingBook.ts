@@ -146,10 +146,70 @@ const editingTemplate = ref<{ id: string } | null>(null)
 const templates = ref<Array<{ id: string; name: string; type: string; category: string; amount: number; description: string; entity: string; project: string; supplier: string; payment_method: string; tax_rate: number; useCount: number; createdAt: string }>>([])
 const templateForm = ref({ name: '', type: 'expense' as string, category: '', amount: 0, description: '', entity: '', project: '', supplier: '', payment_method: '', tax_rate: 0 })
 
+// Confirm dialog
+const confirmDialog = ref<HTMLDialogElement | null>(null)
+const confirmMessage = ref('')
+let confirmCallback: (() => void) | null = null
+
+function showConfirm(message: string, callback: () => void) {
+  confirmMessage.value = message
+  confirmCallback = callback
+  confirmDialog.value?.showModal()
+}
+function executeConfirm() {
+  confirmCallback?.()
+  confirmCallback = null
+  confirmDialog.value?.close()
+}
+function cancelConfirm() {
+  confirmCallback = null
+  confirmDialog.value?.close()
+}
+
 // Trend chart
 const trendData = ref<Array<{ month: string; income: number; expense: number; count: number }>>([])
+const trendLoading = ref(false)
 const trendChartRef = ref<HTMLDivElement | null>(null)
 const trendChartWidth = ref(700)
+let trendResizeObserver: ResizeObserver | null = null
+
+async function loadTrend() {
+  trendLoading.value = true
+  try {
+    const result = await getTauriAPI().getAccountingTrend(12)
+    if (result && Array.isArray(result)) {
+      // Backend returns rows as { month, type, total } — need to merge by month
+      const map = new Map<string, { income: number; expense: number; count: number }>()
+      for (const row of result) {
+        const month = row.month as string
+        if (!map.has(month)) map.set(month, { income: 0, expense: 0, count: 0 })
+        const entry = map.get(month)!
+        if (row.type === 'income') entry.income = row.total as number
+        else if (row.type === 'expense') entry.expense = row.total as number
+        entry.count++
+      }
+      // Convert Map to sorted array (ascending by month)
+      trendData.value = Array.from(map.entries())
+        .map(([month, data]) => ({ month, ...data }))
+        .sort((a, b) => a.month.localeCompare(b.month))
+    } else {
+      trendData.value = []
+    }
+  } catch (_e) { console.error('加载趋势失败:', _e) }
+  finally { trendLoading.value = false }
+}
+
+// Track container width for responsive chart
+function initTrendResizeObserver() {
+  if (!trendChartRef.value) return
+  trendResizeObserver = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const w = entry.contentRect.width
+      if (w > 0) trendChartWidth.value = Math.max(w, 500)
+    }
+  })
+  trendResizeObserver.observe(trendChartRef.value)
+}
 
 // Computed
 const formCategories = computed(() => {
@@ -465,12 +525,13 @@ async function addNewBudget() {
 }
 
 async function deleteBudgetConfirm(b: { id: string; category: string }) {
-  if (!confirm(`删除 ${b.category} 的预算？`)) return
-  try {
-    await getTauriAPI().deleteBudget(b.id)
-    toast.success('预算已删除')
-    await Promise.all([loadBudgets(), loadBudgetAlerts()])
-  } catch (e: unknown) { toast.error('删除失败: ' + getErrorMessage(e)) }
+  showConfirm(`确定删除 ${b.category} 的预算？`, async () => {
+    try {
+      await getTauriAPI().deleteBudget(b.id)
+      toast.success('预算已删除')
+      await Promise.all([loadBudgets(), loadBudgetAlerts()])
+    } catch (e: unknown) { toast.error('删除失败: ' + getErrorMessage(e)) }
+  })
 }
 
 // Templates
@@ -509,12 +570,13 @@ function editTemplate(tpl: { id: string; name: string; type: string; category: s
 }
 
 async function deleteTemplateConfirm(tpl: { id: string; name: string }) {
-  if (!confirm(`删除模板"${tpl.name}"？`)) return
-  try {
-    await getTauriAPI().deleteTemplate(tpl.id)
-    toast.success('模板已删除')
-    await loadTemplates()
-  } catch (e: unknown) { toast.error('删除失败: ' + getErrorMessage(e)) }
+  showConfirm(`确定删除模板"${tpl.name}"？`, async () => {
+    try {
+      await getTauriAPI().deleteTemplate(tpl.id)
+      toast.success('模板已删除')
+      await loadTemplates()
+    } catch (e: unknown) { toast.error('删除失败: ' + getErrorMessage(e)) }
+  })
 }
 
 async function saveTemplate() {
@@ -673,15 +735,16 @@ async function saveRecord() {
 }
 
 async function deleteRecord(record: AccountingRecord) {
-  if (!confirm(`确定删除 ${record.date} 的 ${record.category} ¥${record.amount} 记录？`)) return
-  try {
-    await getTauriAPI().deleteAccountingRecord(record.id)
-    toast.success('记录已删除')
-    loadData()
-    loadStats()
-  } catch (e: unknown) {
-    toast.error('删除失败: ' + getErrorMessage(e))
-  }
+  showConfirm(`确定删除 ${record.date} 的 ${record.category} ¥${formatMoney(record.amount)} 记录？`, async () => {
+    try {
+      await getTauriAPI().deleteAccountingRecord(record.id)
+      toast.success('记录已删除')
+      loadData()
+      loadStats()
+    } catch (e: unknown) {
+      toast.error('删除失败: ' + getErrorMessage(e))
+    }
+  })
 }
 
 async function approveRecord(record: AccountingRecord, newStatus: string) {
@@ -861,18 +924,19 @@ async function addNewCategory() {
 }
 
 async function deleteCategory(id: string) {
-  if (!confirm('确定删除此分类？')) return
-  try {
-    const result = await getTauriAPI().deleteAccountingCategory(id)
-    if (result?.success) {
-      toast.success('分类已删除')
-      await loadCategories()
-    } else {
-      toast.warning(result?.error || '删除失败')
+  showConfirm('确定删除此分类？', async () => {
+    try {
+      const result = await getTauriAPI().deleteAccountingCategory(id)
+      if (result?.success) {
+        toast.success('分类已删除')
+        await loadCategories()
+      } else {
+        toast.warning(result?.error || '删除失败')
+      }
+    } catch (e: unknown) {
+      toast.error('删除失败: ' + getErrorMessage(e))
     }
-  } catch (e: unknown) {
-    toast.error('删除失败: ' + getErrorMessage(e))
-  }
+  })
 }
 
 // Utils
@@ -889,11 +953,13 @@ function formatDate(date: string): string {
 onMounted(async () => {
   await getTauriAPI().getAccountingCategories?.()
   await Promise.all([loadCategories(), loadData(), loadStats(), loadTrend(), loadBudgets(), loadBudgetAlerts(), loadTemplates()])
+  initTrendResizeObserver()
 })
 
 // Cleanup
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer)
+  if (trendResizeObserver) trendResizeObserver.disconnect()
 })
 
   return {
@@ -905,7 +971,7 @@ onBeforeUnmount(() => {
     previewLoading, previewGallery, previewIndex, showCategoryManager,
     newCategory, showBudgetManager, budgets, newBudget, budgetAlerts,
     showTemplates, showTemplateEditor, editingTemplate, templates, templateForm,
-    trendData, trendChartRef, trendChartWidth,
+    trendData, trendChartRef, trendChartWidth, trendLoading,
     formCategories, filteredCategories, incomeCategories, expenseCategories,
     topCategories, totalPages, formValid,
     loadData, loadStats, loadBudgets, loadCategories, loadTemplates, loadTrend,
@@ -920,6 +986,7 @@ onBeforeUnmount(() => {
     debounceSearch, isImage, getFileUrl, statusLabel,
     canApprove, canReimburse, goToPage, closeRecordForm, handleDrop, triggerFileInput,
     fileToBase64, getEnterpriseCategories, getDateRange, getPreviousPeriodRange,
-    addNewCategory, addNewBudget,
+    addNewCategory, addNewBudget, initTrendResizeObserver,
+    confirmDialog, confirmMessage, executeConfirm, cancelConfirm, showConfirm,
   }
 }
