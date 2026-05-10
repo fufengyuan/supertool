@@ -16,8 +16,11 @@
     "build:pkg:arm64": "./build.sh pkg arm64",
     "build:pkg:x64": "./build.sh pkg x64",
     "build:pkg:universal": "./build.sh pkg all",
+    "build:dmg": "./build.sh pkg native",
+    "build:exe": "./build.sh pkg native",
+    "build:msi": "./build.sh pkg native",
     "build:deb": "./build.sh pkg native",
-    "build:msi": "./build.sh pkg native"
+    "build:appimage": "./build.sh pkg native"
   },
   "dependencies": {
     "@heroicons/vue": "^2.2.0",
