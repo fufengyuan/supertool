@@ -510,8 +510,19 @@ fn run_command(cmd: &str, cwd: Option<&str>) -> CommandOutput {
     let mut parts = cmd.split_whitespace();
     let program = parts.next().unwrap_or("");
     let args: Vec<&str> = parts.collect();
-    let mut command = Command::new(program);
-    command.args(&args);
+    // 使用 user_shell_cmd 获取用户完整 PATH（含 Homebrew/sdkman/nvm 等）
+    let mut command = std::process::Command::new("sh");
+    let full_cmd = if args.is_empty() {
+        program.to_string()
+    } else {
+        format!("{} {}", program, args.join(" "))
+    };
+    command.arg("-c").arg(&full_cmd);
+    // 注入用户 shell 环境变量
+    let shell_env = supertool_core::logic::cicd_deploy::get_shell_env_for_command();
+    for (key, value) in &shell_env {
+        command.env(key, value);
+    }
     command.stdout(std::process::Stdio::piped());
     command.stderr(std::process::Stdio::piped());
     if let Some(dir) = cwd {
@@ -1278,36 +1289,12 @@ pub async fn scan_project_modules(
 
     let mut modules = scan_maven_modules_recursive(path, path, 0);
 
-    // If no Maven modules at root, scan one level deeper for pom.xml
-    // (e.g., pre-pay-service/SRC/mall/pom.xml)
+    // If no Maven modules at root, scan up to 2 levels deeper for pom.xml
+    // (e.g., pre-pay-service/SRC/mall/pom.xml is 2 levels deep)
     if modules.is_empty() {
-        if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries.flatten() {
-                if let Ok(ft) = entry.file_type() {
-                    if ft.is_dir() {
-                        let dir_name = entry.file_name().to_string_lossy().to_string();
-                        if dir_name.starts_with('.') || dir_name == "node_modules" || dir_name == "target" || dir_name == "dist" {
-                            continue;
-                        }
-                        let sub_path = entry.path();
-                        if sub_path.join("pom.xml").exists() {
-                            let sub_modules = scan_maven_modules_recursive(path, &sub_path, 0);
-                            if !sub_modules.is_empty() {
-                                // Add relative path prefix for nested projects
-                                let prefixed: Vec<serde_json::Value> = sub_modules.into_iter().map(|mut m| {
-                                    if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
-                                        let full_path = format!("./{}/{}", dir_name, p.trim_start_matches("./"));
-                                        m["path"] = serde_json::json!(full_path);
-                                    }
-                                    m
-                                }).collect();
-                                modules.extend(prefixed);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        log::info!("[scan_project_modules] No pom.xml at root, scanning subdirectories...");
+        modules = scan_subdirs_for_maven(path, path, 2);
+        log::info!("[scan_project_modules] Found {} modules in subdirectories", modules.len());
     }
 
     // If no Maven modules found, scan Node.js packages
@@ -1342,6 +1329,55 @@ pub async fn scan_project_modules(
     };
 
     Ok(serde_json::json!({ "success": true, "modules": modules }))
+}
+
+/// Scan subdirectories for pom.xml files (up to `max_depth` levels)
+/// Returns modules with correct relative paths from the original root
+fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) -> Vec<serde_json::Value> {
+    if max_depth == 0 {
+        return vec![];
+    }
+    let mut modules = Vec::new();
+    let skip_dirs = ["node_modules", "target", "dist", ".git", ".idea", "doc", "docs"];
+    if let Ok(entries) = fs::read_dir(current_path) {
+        for entry in entries.flatten() {
+            if let Ok(ft) = entry.file_type() {
+                if !ft.is_dir() { continue; }
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.starts_with('.') || skip_dirs.contains(&name.as_str()) {
+                    continue;
+                }
+                let sub_path = entry.path();
+                if sub_path.join("pom.xml").exists() {
+                    log::info!("[scan_subdirs] Found pom.xml at {}", sub_path.display());
+                    let sub_modules = scan_maven_modules_recursive(root_path, &sub_path, 0);
+                    if !sub_modules.is_empty() {
+                        // Compute relative prefix from root to this subdirectory
+                        let rel_prefix = sub_path.strip_prefix(root_path)
+                            .map(|p| format!("./{}", p.to_string_lossy()))
+                            .unwrap_or_else(|_| format!("./{}", name));
+                        let prefixed: Vec<serde_json::Value> = sub_modules.into_iter().map(|mut m| {
+                            if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
+                                let full_path = if p == "." {
+                                    rel_prefix.clone()
+                                } else {
+                                    format!("{}/{}", rel_prefix, p.trim_start_matches("./"))
+                                };
+                                m["path"] = serde_json::json!(full_path);
+                            }
+                            m
+                        }).collect();
+                        modules.extend(prefixed);
+                    }
+                } else {
+                    // Go deeper
+                    let deeper = scan_subdirs_for_maven(root_path, &sub_path, max_depth - 1);
+                    modules.extend(deeper);
+                }
+            }
+        }
+    }
+    modules
 }
 
 /// Recursively scan Maven modules from a pom.xml, up to 3 levels deep

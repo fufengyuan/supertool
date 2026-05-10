@@ -131,6 +131,11 @@ fn get_user_shell_env() -> &'static HashMap<String, String> {
     &SHELL_ENV_CACHE
 }
 
+/// 获取 shell 环境变量的副本（供外部模块使用，如 tauri commands 的 run_command）
+pub fn get_shell_env_for_command() -> HashMap<String, String> {
+    SHELL_ENV_CACHE.clone()
+}
+
 /// 创建继承用户 shell 环境变量的本地 Command（替代 Command::new）
 /// 自动加载 NVM、Homebrew、nvm、rvm 等所有 shell 初始化的环境变量
 pub fn user_shell_cmd(program: &str) -> Command {
