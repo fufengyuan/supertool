@@ -1,5 +1,5 @@
 use crate::runtime::CliRuntime;
-use crate::output::{print_json, print_error, print_success};
+use crate::output::{print_error, print_success};
 use anyhow::{Result, anyhow};
 use std::fs;
 

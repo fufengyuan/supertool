@@ -1,9 +1,4 @@
-/// Backup module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use rusqlite::params;
 
 impl super::CoreService {
     pub async fn export_all_data(&self) -> Result<Value, String> {

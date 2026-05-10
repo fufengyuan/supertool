@@ -144,6 +144,7 @@ pub fn user_shell_cmd(program: &str) -> Command {
 }
 
 /// 同步版本（用于 collect_artifacts 等非异步场景）
+#[allow(dead_code)]
 fn user_shell_cmd_sync(program: &str) -> std::process::Command {
     let mut cmd = std::process::Command::new(program);
     let shell_env = get_user_shell_env();
@@ -1078,6 +1079,7 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
     cmd.env("PATH", extra_paths.join(":"));
 }
 
+#[allow(dead_code)]
 fn get_last_lines(s: &str, n: usize) -> String {
     let lines: Vec<&str> = s.lines().collect();
     let start = if lines.len() > n { lines.len() - n } else { 0 };

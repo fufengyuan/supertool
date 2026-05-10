@@ -1,11 +1,4 @@
-/// File Ops module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use rusqlite::params;
-use std::fs;
-use std::io::Read;
 
 impl super::CoreService {
     pub async fn get_app_path(&self) -> Result<Value, String> {

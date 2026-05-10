@@ -9,7 +9,6 @@ use supertool_core::logic::wireguard;
 
 use supertool_core::logic::CoreService;
 use supertool_core::db::Database;
-use std::sync::Arc;
 use std::sync::OnceLock;
 use tauri::Manager;
 use tauri::Emitter;

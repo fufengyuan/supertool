@@ -29,14 +29,8 @@ pub mod cicd_sync;
 pub mod file_ops;
 pub mod ssh_ops;
 
-use crate::db::{Database, Project, Server, ServerGroup};
-use crate::db::projects;
-use crate::db::servers;
-use crate::encryption::encrypt_password;
-use hmac::{KeyInit, Mac};
-use rusqlite::params;
+use crate::db::Database;
 use serde_json::{json, Value};
-use sha1::Sha1;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 

@@ -1,8 +1,4 @@
-/// Server module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use crate::db::servers;
 use crate::db::Server;
 use crate::db::ServerGroup;

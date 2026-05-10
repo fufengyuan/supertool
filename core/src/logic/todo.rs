@@ -1,8 +1,4 @@
-/// Todo module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
-use std::path::PathBuf;
 use rusqlite::params;
 
 /// Todo module — extracted from mod.rs

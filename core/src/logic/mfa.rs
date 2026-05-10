@@ -1,11 +1,6 @@
-/// Mfa module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
 use rusqlite::params;
-use sha1::Sha1;
 use hmac::{KeyInit, Mac};
-use std::path::PathBuf;
 
 /// Mfa module — extracted from mod.rs
 ///
@@ -97,7 +92,6 @@ impl super::CoreService {
         algorithm: &str,
     ) -> Result<Value, String> {
         use std::time::{SystemTime, UNIX_EPOCH};
-use rusqlite::params;
 use sha1::Sha1;
 
         let epoch = SystemTime::now()
