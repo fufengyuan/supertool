@@ -140,23 +140,32 @@ fn main() {
             // Initialize file logger (also under ~/.supertool/logs/)
             crate::system_logger::SystemLogger::init(&supertool_dir);
 
-            log::info!("[Main] === SuperTool Tauri v{} starting ===", env!("CARGO_PKG_VERSION"));
+            log::info!("[Main] ================================");
+            log::info!("[Main] SuperTool Tauri v{} 启动", env!("CARGO_PKG_VERSION"));
+            log::info!("[Main] ================================");
 
-            // Initialize SQLite database in unified directory
+            // Initialize SQLite database
             let db_path = supertool_dir.join("supertool.db");
+            let database = Database::new(&db_path).expect("[Database] Failed to initialize database");
+            log::info!("[Database] 初始化完成: {}", db_path.display());
 
-            let database = Database::new(&db_path).expect("Failed to initialize database");
-            log::info!("[Main] Database initialized at: {}", db_path.display());
-
-            // Create shared CoreService (use supertool_dir for logs, backups, etc.)
+            // CoreService
             let core = CoreService::new(database, supertool_dir.clone());
             app.manage(core.clone());
-            app.manage(openvpn::OpenVPNManager::new());
-            app.manage(wireguard::WireGuardManager::new());
+            log::info!("[CoreService] 初始化完成");
 
-            // Initialize LAN service state with DB connection
+            // OpenVPN
+            app.manage(openvpn::OpenVPNManager::new());
+            log::info!("[OpenVPN] 管理器初始化完成");
+
+            // WireGuard
+            app.manage(wireguard::WireGuardManager::new());
+            log::info!("[WireGuard] 管理器初始化完成");
+
+            // LAN
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
+            log::info!("[LAN] 服务状态初始化完成（等待前端触发启动）");
 
             // Build custom application menu (mirrors Electron version)
             // Note: accelerators removed — on Linux GTK they produce
