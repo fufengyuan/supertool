@@ -10,7 +10,7 @@
       </button>
     </div>
 
-    <div v-if="cicdTab === 'deploy'" class="flex-1 overflow-hidden">
+    <div v-if="cicdTab === 'deploy'" class="flex-1 overflow-y-auto">
       <DeployPanel />
     </div>
 
