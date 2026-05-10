@@ -38,6 +38,7 @@
         @select="selectProject"
         @edit="openEditModal"
         @toggle-archive="toggleArchive"
+        @delete="deleteProject"
       />
     </div>
 
@@ -111,7 +112,12 @@ const filteredProjects = computed(() => {
 
   // 分类筛选
   if (categoryFilter.value !== 'all') {
-    result = result.filter(p => p.category === categoryFilter.value);
+    if (categoryFilter.value === '') {
+      // "未分类"：匹配 null、undefined 和空字符串
+      result = result.filter(p => !p.category);
+    } else {
+      result = result.filter(p => p.category === categoryFilter.value);
+    }
   }
 
   // 搜索
@@ -208,10 +214,20 @@ const toggleArchive = async (project: Project) => {
       archived: !project.archived,
       updatedAt: new Date().toISOString(),
     };
-    await getTauriAPI().updateProject(updated);
+    await projectsApi.updateProject(updated);
     await loadProjects();
   } catch (error) {
     handleError(error, { context: 'toggleArchive' });
+  }
+};
+
+const deleteProject = async (project: Project) => {
+  if (!confirm(`确定要删除项目「${project.name}」吗？此操作不可撤销。`)) return;
+  try {
+    await getTauriAPI().deleteProject(project.id);
+    await loadProjects();
+  } catch (error) {
+    handleError(error, { context: 'deleteProject' });
   }
 };
 
