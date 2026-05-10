@@ -1,10 +1,5 @@
-/// Log Presets module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
-use crate::db::servers;
 use serde_json::{json, Value};
 use rusqlite::params;
-use std::collections::HashMap;
 use super::ssh;
 
 impl super::CoreService {

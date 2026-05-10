@@ -1,9 +1,4 @@
-/// Lan module — extracted from mod.rs
-use super::CoreService;
-use crate::db::Database;
 use serde_json::{json, Value};
-use std::path::PathBuf;
-use crate::db::lan;
 
 impl super::CoreService {
     pub async fn get_all_lan_users(&self) -> Result<Value, String> {

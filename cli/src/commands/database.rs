@@ -33,10 +33,10 @@ pub async fn cmd_db(rt: &mut CliRuntime, action: &DbCommands) -> Result<()> {
                 }
             }
         }
-        DbCommands::Disconnect { id } => {
+        DbCommands::Disconnect { id: _ } => {
             anyhow::bail!("⚠️ CLI 暂不支持数据库断开连接，请使用 GUI 操作。")
         }
-        DbCommands::Query { db_id, sql, .. } => {
+        DbCommands::Query { db_id, sql: _, .. } => {
             anyhow::bail!("⚠️ CLI 暂不支持外部数据库查询 ({}), 请使用 GUI 或直连数据库。", db_id)
         }
         DbCommands::Tables { db_id, .. } => {

@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
-use std::sync::{Arc, Mutex, LazyLock};
+use std::sync::{Mutex, LazyLock};
 use tauri::{State, Emitter};
 
 // 部署取消状态管理：cancel_deploy 将 deploy_id 加入此集合，deploy 任务检查后提前退出

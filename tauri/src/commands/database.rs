@@ -1856,37 +1856,4 @@ pub async fn db_test(config: DbConnectionConfig) -> Result<serde_json::Value, St
     }
 }
 
-// Legacy aliases for UDS router compatibility
-pub async fn test_mysql(config: &DbConnectionConfig) -> Result<serde_json::Value, String> {
-    connect_mysql(config).await?;
-    Ok(serde_json::json!({ "success": true }))
-}
-
-pub async fn test_postgres(config: &DbConnectionConfig) -> Result<serde_json::Value, String> {
-    connect_postgres(config).await?;
-    Ok(serde_json::json!({ "success": true }))
-}
-
-pub async fn test_redis(config: &DbConnectionConfig) -> Result<serde_json::Value, String> {
-    connect_redis(config).await?;
-    Ok(serde_json::json!({ "success": true }))
-}
-
-#[allow(unused_variables)]
-pub async fn db_redis_scan(id: String, pattern: String, count: usize) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
-    if let DbConnection::Redis(c) = conn {
-        let keys: Vec<String> = redis::cmd("KEYS").arg(&pattern).query_async(&mut c.clone()).await.map_err(|e| format!("Redis KEYS failed: {}", e))?;
-        Ok(serde_json::json!({ "success": true, "keys": keys }))
-    } else { Err("Not a Redis connection".to_string()) }
-}
-
-pub async fn db_redis_get(id: String, key: String) -> Result<serde_json::Value, String> {
-    let pool = CONNECTION_POOL.lock().await;
-    let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
-    if let DbConnection::Redis(c) = conn {
-        let val: String = redis::cmd("GET").arg(&key).query_async(&mut c.clone()).await.map_err(|e| format!("Redis GET failed: {}", e))?;
-        Ok(serde_json::json!({ "success": true, "value": val }))
-    } else { Err("Not a Redis connection".to_string()) }
-}
+// (Legacy UDS router compatibility aliases removed — CLI uses HTTP API directly)

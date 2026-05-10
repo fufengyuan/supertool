@@ -4,6 +4,7 @@ use std::path::PathBuf;
 /// Initialize the CLI runtime: data directory, database, and CoreService
 pub struct CliRuntime {
     pub core: CoreService,
+    #[allow(dead_code)]
     pub data_dir: PathBuf,
 }
 
