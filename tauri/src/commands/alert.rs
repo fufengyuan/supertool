@@ -109,20 +109,34 @@ pub async fn test_email_config(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn save_email_config(
     core: State<'_, CoreService>,
-    config: AlertEmailConfig,
+    smtp_host: Option<String>,
+    smtp_port: i64,
+    smtp_username: Option<String>,
+    smtp_password: Option<String>,
+    from_email: Option<String>,
+    to_email: Option<String>,
+    smtp_use_tls: bool,
 ) -> Result<(), String> {
     log::info!("[Tauri CMD] save_email_config() called");
-    let mut config = config;
+    let mut password = smtp_password.unwrap_or_default();
     // Encrypt password if it's plaintext
-    if let Some(ref pwd) = config.smtp_password.clone() {
-        if !pwd.is_empty() && !pwd.starts_with("enc:") && !pwd.starts_with("$argon") {
-            // Check if it's base64-looking (already encrypted) — skip if so
-            let maybe_encrypted = pwd.len() > 20 && pwd.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=');
-            if !maybe_encrypted {
-                config.smtp_password = Some(encrypt_password(pwd).map_err(|e| e.to_string())?);
-            }
+    if !password.is_empty() && !password.starts_with("enc:") && !password.starts_with("$argon") {
+        let maybe_encrypted = password.len() > 20 && password.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=');
+        if !maybe_encrypted {
+            password = encrypt_password(&password).map_err(|e| e.to_string())?;
         }
     }
+    let config = AlertEmailConfig {
+        id: 1,
+        smtp_host,
+        smtp_port,
+        smtp_username,
+        smtp_password: Some(password),
+        smtp_use_tls: smtp_use_tls,
+        from_email,
+        to_email,
+        updated_at: String::new(),
+    };
     core.save_email_config(config).await
 }
 
