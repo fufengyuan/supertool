@@ -76,6 +76,7 @@
         <button class="btn btn-ghost btn-sm" @click.stop="$emit('toggle-archive', project)" :title="project.archived ? '取消归档' : '归档'">
           <template v-if="project.archived"><SvgIcon name="undo" :size="14" class="inline-block align-text-bottom" /></template><template v-else><SvgIcon name="folder" :size="14" /></template>
         </button>
+        <button class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-white" @click.stop="$emit('delete', project)" title="删除"><SvgIcon name="trash" :size="14" /></button>
         <button class="btn btn-primary btn-sm" @click.stop="$emit('edit', project)" title="编辑"><SvgIcon name="pencil" :size="14" /> </button>
       </div>
     </div>
@@ -91,7 +92,7 @@ const props = defineProps({
   stats: { type: Object, default: () => ({ total: 0, completed: 0, progress: 0 }) },
 });
 
-defineEmits(['select', 'edit', 'toggle-archive']);
+defineEmits(['select', 'edit', 'toggle-archive', 'delete']);
 
 const categoryMap: Record<string, string> = {
   'frontend': '前端',

@@ -117,12 +117,14 @@ import UiInput from '../../components/ui/Input.vue';
 import ColorPicker from './ColorPicker.vue';
 import GitRepoSelector from '../git/GitRepoSelector.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
+import { useToast } from '../../composables/useToast';
 import { getTauriAPI } from '../../utils/tauri-api';
 
 const props = defineProps({ project: { type: Object, default: null } });
 const emit = defineEmits(['save', 'cancel']);
 
 const { handleError } = useErrorHandler();
+const toast = useToast();
 
 const formData = reactive({
   name: '',
@@ -240,7 +242,13 @@ const initForm = () => {
   availableBranches2.value = [];
 };
 
-const handleSave = () => emit('save', { ...formData });
+const handleSave = () => {
+  if (!formData.name.trim()) {
+    toast.error('项目名称不能为空');
+    return;
+  }
+  emit('save', { ...formData });
+};
 
 watch(() => props.project, initForm, { immediate: true });
 defineExpose({ reset: initForm, submit: handleSave });

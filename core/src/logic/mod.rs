@@ -399,9 +399,14 @@ impl CoreService {
                         "text": row.get::<_, String>("text")?,
                         "completed": completed == 1,
                         "priority": row.get::<_, String>("priority")?,
-                        "tag": row.get::<_, String>("tag")?,
+                        "tag": row.get::<_, Option<String>>("tag")?,
                         "projectId": row.get::<_, Option<String>>("projectId")?,
                         "createdAt": row.get::<_, String>("createdAt")?,
+                        "updatedAt": row.get::<_, String>("updatedAt")?,
+                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                        "dueDate": row.get::<_, Option<String>>("dueDate")?,
+                        "description": row.get::<_, String>("description").unwrap_or_default(),
+                        "orderNum": row.get::<_, i64>("orderNum").unwrap_or(0),
                     }))
                 })
                 .map_err(|e| e.to_string())?;
