@@ -420,7 +420,7 @@ async function deleteBackup(backup: BackupFile | null) {
   try {
     console.log("[deleteBackup] called")
     const result = await getTauriAPI().dbBackupDelete(backup.file)
-    if (result?.success) {
+    if (result) {
       toast.success('已删除备份')
       loadBackupHistory()
     } else {

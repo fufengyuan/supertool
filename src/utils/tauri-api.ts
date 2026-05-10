@@ -1302,6 +1302,12 @@ export interface TauriAPI {
   dbRedisAddKey: (id: string, dbIndex: number, keyType: string, key: string, value: any) => Promise<boolean>
   dbRedisDeleteKey: (id: string, dbIndex: number, key: string) => Promise<boolean>
   dbRedisExec: (id: string, dbIndex: number, command: string) => Promise<any>
+  dbTest: (config: Record<string, unknown>) => Promise<any>
+  dbGetTableDataFiltered: (filter: Record<string, unknown>) => Promise<any>
+  dbGetTablesFiltered: (filter: Record<string, unknown>) => Promise<any>
+  dbUpdateTableRow: (connId: string, table: string, oldRow: Record<string, unknown>, newRow: Record<string, unknown>, dbName?: string) => Promise<any>
+  dbInsertTableRow: (connId: string, table: string, row: Record<string, unknown>, dbName?: string) => Promise<any>
+  dbDeleteTableRow: (connId: string, table: string, row: Record<string, unknown>, dbName?: string) => Promise<any>
   detectToolPaths: () => Promise<Record<string, string>>
   detectBuildTools: () => Promise<any[]>
   detectSdkVersions: () => Promise<Record<string, any>>

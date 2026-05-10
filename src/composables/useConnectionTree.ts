@@ -6,11 +6,10 @@ import { getTauriAPI } from '../utils/tauri-api'
 
 // ============ Emit Events Type ============
 type ConnectionTreeEmit = (
-  event: 'toggle' | 'toggle-database' | 'toggle-db-tables' | 'toggle-db-views' |
-    'toggle-redis-database' | 'select-table' | 'open-redis-key' | 'open-sql' |
-    'open-redis-queue' | 'refresh-tables' | 'edit' | 'delete' |
-    'open-table-data' | 'open-table-structure',
-  ...args: unknown[]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  event: any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ...args: any[]
 ) => void
 
 export function useConnectionTree(
