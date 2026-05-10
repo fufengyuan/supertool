@@ -397,6 +397,20 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE git_repos ADD COLUMN name TEXT NOT NULL DEFAULT ''",
         [],
     );
+    // Migration: add gitRepoId columns to projects
+    let _ = conn.execute(
+        "ALTER TABLE projects ADD COLUMN gitRepoId TEXT DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE projects ADD COLUMN gitRepoId2 TEXT DEFAULT ''",
+        [],
+    );
+    // Migration: add gitRepoId column to cicd_configs
+    let _ = conn.execute(
+        "ALTER TABLE cicd_configs ADD COLUMN gitRepoId TEXT DEFAULT ''",
+        [],
+    );
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
@@ -447,6 +461,10 @@ pub struct Project {
     pub git_url1: Option<String>,
     #[serde(rename = "gitUrl2")]
     pub git_url2: Option<String>,
+    #[serde(rename = "gitRepoId")]
+    pub git_repo_id: Option<String>,
+    #[serde(rename = "gitRepoId2")]
+    pub git_repo_id2: Option<String>,
     pub category: Option<String>,
     #[serde(rename = "createdAt")]
     pub created_at: String,
