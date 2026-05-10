@@ -1,4 +1,5 @@
 use crate::db::alert;
+#[allow(unused_imports)]
 use crate::logic::CoreService;
 use serde::{Deserialize, Serialize};
 use std::net::{TcpStream, ToSocketAddrs};

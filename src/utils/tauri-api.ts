@@ -1081,6 +1081,26 @@ export function useNginxAPI() {
   };
 }
 
+// ============ 告警 ============
+
+export function useAlertAPI() {
+  return {
+    getEmailConfig: async (): Promise<any> => tauriCall('get_email_config'),
+    saveEmailConfig: async (config: any): Promise<any> => tauriCall('save_email_config', { config }),
+    testEmailConfig: async (config: any): Promise<any> => tauriCall('test_email_config', { config }),
+    getAlertServices: async (): Promise<any> => tauriCall('get_alert_services'),
+    addAlertService: async (service: any): Promise<any> => tauriCall('add_alert_service', { service }),
+    updateAlertService: async (service: any): Promise<any> => tauriCall('update_alert_service', { service }),
+    deleteAlertService: async (id: string): Promise<any> => tauriCall('delete_alert_service', { id }),
+    getAlertResources: async (): Promise<any> => tauriCall('get_alert_resources'),
+    addAlertResource: async (resource: any): Promise<any> => tauriCall('add_alert_resource', { resource }),
+    updateAlertResource: async (resource: any): Promise<any> => tauriCall('update_alert_resource', { resource }),
+    deleteAlertResource: async (id: string): Promise<any> => tauriCall('delete_alert_resource', { id }),
+    getAlertHistory: async (): Promise<any> => tauriCall('get_alert_history'),
+    triggerAlertCheck: async (): Promise<any> => tauriCall('trigger_alert_check'),
+  };
+}
+
 // ============ 设置 ============
 
 export function useSettingsAPI() {
@@ -1617,6 +1637,20 @@ export interface TauriAPI {
   getNginxConfigVersions: (presetId: string) => Promise<any>
   saveNginxConfigVersion: (version: any) => Promise<any>
   setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
+  // Alert
+  getEmailConfig: () => Promise<any>
+  saveEmailConfig: (config: any) => Promise<any>
+  testEmailConfig: (config: any) => Promise<any>
+  getAlertServices: () => Promise<any>
+  addAlertService: (service: any) => Promise<any>
+  updateAlertService: (service: any) => Promise<any>
+  deleteAlertService: (id: string) => Promise<any>
+  getAlertResources: () => Promise<any>
+  addAlertResource: (resource: any) => Promise<any>
+  updateAlertResource: (resource: any) => Promise<any>
+  deleteAlertResource: (id: string) => Promise<any>
+  getAlertHistory: () => Promise<any>
+  triggerAlertCheck: () => Promise<any>
 
 }
 
@@ -1639,6 +1673,7 @@ export function getTauriAPI(): TauriAPI {
   const openvpn = useOpenVPNAPI()
   const wireguard = useWireGuardAPI()
   const nginx = useNginxAPI()
+  const alert = useAlertAPI()
 
   cachedAPI = {
     // Projects
@@ -1856,6 +1891,20 @@ export function getTauriAPI(): TauriAPI {
     getNginxConfigVersions: nginx.getNginxConfigVersions,
     saveNginxConfigVersion: nginx.saveNginxConfigVersion,
     setActiveNginxVersion: nginx.setActiveNginxVersion,
+    // Alert
+    getEmailConfig: alert.getEmailConfig,
+    saveEmailConfig: alert.saveEmailConfig,
+    testEmailConfig: alert.testEmailConfig,
+    getAlertServices: alert.getAlertServices,
+    addAlertService: alert.addAlertService,
+    updateAlertService: alert.updateAlertService,
+    deleteAlertService: alert.deleteAlertService,
+    getAlertResources: alert.getAlertResources,
+    addAlertResource: alert.addAlertResource,
+    updateAlertResource: alert.updateAlertResource,
+    deleteAlertResource: alert.deleteAlertResource,
+    getAlertHistory: alert.getAlertHistory,
+    triggerAlertCheck: alert.triggerAlertCheck,
     // Events
     onTaskUpdated: (callback: (data: any) => void) => { return () => {} },
     onTaskStatusChanged: (_callback: (data: any) => void) => { return () => {} },
