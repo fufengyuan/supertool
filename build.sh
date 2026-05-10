@@ -4,85 +4,122 @@ set -e
 MODE="${1:-pre-build}"
 ARCH="${2:-native}"
 
+# ─── 版本 ───
+VERSION="4.1.0"
+PKG_OUTPUT="target/release"
+
+# ═══════════════════════════════════════════
+# CLI 编译（跨平台）
+# ═══════════════════════════════════════════
 build_cli() {
     local arch="$1"
-    echo "🔨 Building CLI (stool) for: $arch"
+    local target
+    local os
+    os="$(uname)"
+
+    echo "🔨 Building CLI (stool)..."
     cd cli
 
     case "$arch" in
       arm64|aarch64)
-        cargo build --release --target aarch64-apple-darwin
-        mkdir -p ../target/release
-        cp target/aarch64-apple-darwin/release/stool ../target/release/stool
+        case "$os" in
+          Darwin)  target="aarch64-apple-darwin" ;;
+          Linux)   target="aarch64-unknown-linux-gnu" ;;
+          *)       target="" ;;
+        esac
         ;;
       x64|x86_64)
-        cargo build --release --target x86_64-apple-darwin
-        mkdir -p ../target/release
-        cp target/x86_64-apple-darwin/release/stool ../target/release/stool
+        case "$os" in
+          Darwin)  target="x86_64-apple-darwin" ;;
+          Linux)   target="x86_64-unknown-linux-gnu" ;;
+          MINGW*|MSYS*|CYGWIN*|Windows_NT) target="x86_64-pc-windows-msvc" ;;
+        esac
         ;;
       native)
-        cargo build --release
-        for dir in target/*/release; do
-            if [ -f "$dir/stool" ]; then
-                mkdir -p ../target/release
-                cp "$dir/stool" ../target/release/stool
-                break
-            fi
-        done
+        target=""
         ;;
       all)
-        cargo build --release --target aarch64-apple-darwin
-        cargo build --release --target x86_64-apple-darwin
-        mkdir -p ../target/release
-        lipo -create -output ../target/release/stool \
-          target/aarch64-apple-darwin/release/stool \
-          target/x86_64-apple-darwin/release/stool
+        # macOS universal
+        if [[ "$os" == "Darwin" ]]; then
+            cargo build --release --target aarch64-apple-darwin
+            cargo build --release --target x86_64-apple-darwin
+            mkdir -p ../target/release
+            lipo -create -output ../target/release/stool \
+              target/aarch64-apple-darwin/release/stool \
+              target/x86_64-apple-darwin/release/stool
+            cd ..
+            echo "✅ CLI universal built → target/release/stool"
+            return
+        fi
+        target=""
         ;;
     esac
 
+    if [ -n "$target" ]; then
+        cargo build --release --target "$target"
+    else
+        cargo build --release
+    fi
+
+    # Copy to workspace target/release
+    mkdir -p ../target/release
+    for dir in target/release target/*/release; do
+        if [ -f "$dir/stool" ] || [ -f "$dir/stool.exe" ]; then
+            cp "$dir/stool"* ../target/release/ 2>/dev/null || true
+            break
+        fi
+    done
+
     cd ..
-    echo "✅ CLI built → cli/target/release/stool"
+    echo "✅ CLI built → target/release/"
+}
+
+# ─── 通用：Tauri 构建 ───
+tauri_build() {
+    echo "🔨 Building Tauri app (all formats)..."
+    pnpm tauri build
+    echo "✅ Tauri build complete"
 }
 
 # ═══════════════════════════════════════════
-# macOS → .pkg (pkgbuild + productbuild)
+# macOS: 生成 .dmg (原生) + .pkg (增强)
 # ═══════════════════════════════════════════
-build_macos_pkg() {
+build_macos_all() {
     local arch="$1"
-    echo "📦 Building Tauri app + macOS pkg installer..."
-
     build_cli "$arch"
-    echo "🔨 Building Tauri app..."
-    pnpm tauri build
+    tauri_build
 
-    local VERSION="4.1.0"
-    local PKG_DIR="pkg-build"
-    local PKG_OUTPUT="target/release"
+    mkdir -p "$PKG_OUTPUT"
 
+    # ── 1. 复制原生 .dmg ──
+    local DMG_SRC=""
+    for d in target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg; do
+        if [ -f "$d" ]; then DMG_SRC="$d"; break; fi
+    done
+    if [ -n "$DMG_SRC" ]; then
+        cp -f "$DMG_SRC" "$PKG_OUTPUT/"
+        echo "✅ dmg → $PKG_OUTPUT/$(basename "$DMG_SRC")"
+    fi
+
+    # ── 2. 生成增强 .pkg（CLI + Skills 分发到系统路径）──
     local APP_PATH=""
     for d in target/release/bundle/macos/*.app target/release/bundle/osx/*.app; do
         if [ -d "$d" ]; then APP_PATH="$d"; break; fi
     done
     if [ -z "$APP_PATH" ]; then
-        echo "❌ .app bundle not found"; exit 1
+        echo "❌ .app bundle not found"; return
     fi
     echo "📱 Found app: $APP_PATH"
 
+    local PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
-    mkdir -p "$PKG_DIR/app" "$PKG_DIR/scripts" "$PKG_DIR/resources" "$PKG_OUTPUT"
+    mkdir -p "$PKG_DIR/app" "$PKG_DIR/cli/usr/local/bin" "$PKG_DIR/skills/usr/local/share/supertool/skills" "$PKG_DIR/scripts" "$PKG_DIR/resources"
+
     cp -R "$APP_PATH" "$PKG_DIR/app/"
-
-    # CLI component
-    local CLI_DIR="$PKG_DIR/cli/usr/local/bin"
-    mkdir -p "$CLI_DIR"
-    cp -f cli/target/release/stool "$CLI_DIR/"
-    chmod 755 "$CLI_DIR/stool"
-
-    # Skills component
-    local SKILLS_DIR="$PKG_DIR/skills/usr/local/share/supertool/skills"
-    mkdir -p "$SKILLS_DIR"
+    cp -f target/release/stool "$PKG_DIR/cli/usr/local/bin/"
+    chmod 755 "$PKG_DIR/cli/usr/local/bin/stool"
     if [ -d "skills" ]; then
-        cp -R skills/* "$SKILLS_DIR/" 2>/dev/null || true
+        cp -R skills/* "$PKG_DIR/skills/usr/local/share/supertool/skills/" 2>/dev/null || true
     fi
 
     # postinstall
@@ -118,7 +155,7 @@ exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
 
-    # Build component packages
+    # 组件 pkg
     pkgbuild --root "$PKG_DIR/app" \
         --identifier "com.fufengyuan.supertool.tauri" \
         --version "$VERSION" \
@@ -184,7 +221,6 @@ EOF
 </body></html>
 EOF
 
-    echo "🎁 Building distribution package..."
     productbuild --distribution "$PKG_DIR/distribution.xml" \
         --resources "$PKG_DIR/resources" \
         --package-path "$PKG_DIR" \
@@ -195,75 +231,47 @@ EOF
 }
 
 # ═══════════════════════════════════════════
-# Linux → .deb (dpkg-deb with postinst)
+# Linux: 生成 .AppImage (原生) + .deb (增强)
 # ═══════════════════════════════════════════
-build_linux_deb() {
+build_linux_all() {
     local arch="$1"
-    echo "📦 Building Tauri app + Linux deb installer..."
+    build_cli "$arch"
+    tauri_build
 
-    # Build CLI for Linux
-    echo "🔨 Building CLI for Linux..."
-    cd cli
-    if [[ "$arch" == "arm64" || "$arch" == "aarch64" ]]; then
-        cargo build --release --target aarch64-unknown-linux-gnu
-    elif [[ "$arch" == "x64" || "$arch" == "x86_64" ]]; then
-        cargo build --release --target x86_64-unknown-linux-gnu
-    else
-        cargo build --release
-    fi
-    cd ..
-    mkdir -p target/release
-    for dir in cli/target/*/release cli/target/release; do
-        if [ -f "$dir/stool" ]; then cp -f "$dir/stool" target/release/stool; break; fi
+    mkdir -p "$PKG_OUTPUT"
+
+    # ── 1. 复制原生 .AppImage ──
+    local APPIMAGE=""
+    for d in target/release/bundle/appimage/*.AppImage; do
+        if [ -f "$d" ]; then APPIMAGE="$d"; break; fi
     done
-    echo "✅ CLI built"
+    if [ -n "$APPIMAGE" ]; then
+        cp -f "$APPIMAGE" "$PKG_OUTPUT/"
+        echo "✅ AppImage → $PKG_OUTPUT/$(basename "$APPIMAGE")"
+    fi
 
-    echo "🔨 Building Tauri app..."
-    pnpm tauri build
-
-    local VERSION="4.1.0"
-    local DEB_DIR="deb-build"
-    local PKG_OUTPUT="target/release"
-
-    # Find .deb from Tauri build
+    # ── 2. 生成增强 .deb ──
     local TAURI_DEB=""
     for d in target/release/bundle/deb/*.deb target/release/bundle/app/*.deb; do
         if [ -f "$d" ]; then TAURI_DEB="$d"; break; fi
     done
 
-    # Find .appimage as fallback
-    local APPIMAGE=""
-    for d in target/release/bundle/appimage/*.AppImage; do
-        if [ -f "$d" ]; then APPIMAGE="$d"; break; fi
-    done
-
-    if [ -z "$TAURI_DEB" ] && [ -z "$APPIMAGE" ]; then
-        echo "❌ No .deb or .AppImage found from Tauri build"; exit 1
-    fi
-
     if [ -n "$TAURI_DEB" ]; then
-        echo "📱 Found Tauri deb: $TAURI_DEB"
-        # Repack with CLI + skills
+        local DEB_DIR="deb-build"
         rm -rf "$DEB_DIR"
         mkdir -p "$DEB_DIR"
-
-        # Extract original deb
         dpkg-deb -R "$TAURI_DEB" "$DEB_DIR/root"
 
-        # Add CLI
         mkdir -p "$DEB_DIR/root/usr/local/bin"
         cp -f target/release/stool "$DEB_DIR/root/usr/local/bin/"
         chmod 755 "$DEB_DIR/root/usr/local/bin/stool"
 
-        # Add skills
         mkdir -p "$DEB_DIR/root/usr/local/share/supertool/skills"
         if [ -d "skills" ]; then
             cp -R skills/* "$DEB_DIR/root/usr/local/share/supertool/skills/" 2>/dev/null || true
         fi
 
-        # Add/merge postinst
-        local POSTINST="$DEB_DIR/root/DEBIAN/postinst"
-        cat > "$POSTINST" << 'POSTINST'
+        cat > "$DEB_DIR/root/DEBIAN/postinst" << 'POSTINST'
 #!/bin/bash
 set -e
 chmod 755 /usr/local/bin/stool 2>/dev/null || true
@@ -284,60 +292,8 @@ fi
 echo "✅ SuperTool installed successfully"
 exit 0
 POSTINST
-        chmod 755 "$POSTINST"
-
-        # Rebuild deb
-        mkdir -p "$PKG_OUTPUT"
-        dpkg-deb -b "$DEB_DIR/root" "$PKG_OUTPUT/SuperTool-${VERSION}-linux-amd64.deb"
-        rm -rf "$DEB_DIR"
-        echo "✅ deb → $PKG_OUTPUT/SuperTool-${VERSION}-linux-amd64.deb"
-    else
-        echo "⚠️  No .deb from Tauri, building custom deb from AppImage..."
-        rm -rf "$DEB_DIR"
-        mkdir -p "$DEB_DIR/root/opt/supertool"
-        cp "$APPIMAGE" "$DEB_DIR/root/opt/supertool/SuperTool.AppImage"
-        chmod 755 "$DEB_DIR/root/opt/supertool/SuperTool.AppImage"
-
-        mkdir -p "$DEB_DIR/root/usr/local/bin"
-        cp -f target/release/stool "$DEB_DIR/root/usr/local/bin/"
-        chmod 755 "$DEB_DIR/root/usr/local/bin/stool"
-
-        mkdir -p "$DEB_DIR/root/usr/local/share/supertool/skills"
-        if [ -d "skills" ]; then
-            cp -R skills/* "$DEB_DIR/root/usr/local/share/supertool/skills/" 2>/dev/null || true
-        fi
-
-        mkdir -p "$DEB_DIR/root/usr/share/applications"
-        cat > "$DEB_DIR/root/usr/share/applications/supertool.desktop" << 'DESKTOP'
-[Desktop Entry]
-Name=SuperTool
-Exec=/opt/supertool/SuperTool.AppImage
-Icon=supertool
-Type=Application
-Categories=Utility;
-DESKTOP
-
-        mkdir -p "$DEB_DIR/root/DEBIAN"
-        cat > "$DEB_DIR/root/DEBIAN/control" << EOF
-Package: supertool
-Version: ${VERSION}
-Section: utility
-Priority: optional
-Architecture: amd64
-Maintainer: fufengyuan
-Description: SuperTool - Cross-platform desktop operations management tool
-EOF
-
-        cat > "$DEB_DIR/root/DEBIAN/postinst" << 'POSTINST'
-#!/bin/bash
-set -e
-chmod 755 /usr/local/bin/stool 2>/dev/null || true
-echo "✅ SuperTool installed"
-exit 0
-POSTINST
         chmod 755 "$DEB_DIR/root/DEBIAN/postinst"
 
-        mkdir -p "$PKG_OUTPUT"
         dpkg-deb -b "$DEB_DIR/root" "$PKG_OUTPUT/SuperTool-${VERSION}-linux-amd64.deb"
         rm -rf "$DEB_DIR"
         echo "✅ deb → $PKG_OUTPUT/SuperTool-${VERSION}-linux-amd64.deb"
@@ -345,46 +301,40 @@ POSTINST
 }
 
 # ═══════════════════════════════════════════
-# Windows → .msi (WiX via Tauri + CLI injection)
+# Windows: 生成 .exe (NSIS) + .msi (WiX)
 # ═══════════════════════════════════════════
-build_windows_msi() {
+build_windows_all() {
     local arch="$1"
-    echo "📦 Building Tauri app + Windows MSI installer..."
+    build_cli "$arch"
+    tauri_build
 
-    # Build CLI for Windows
-    echo "🔨 Building CLI for Windows..."
-    cd cli
-    cargo build --release --target x86_64-pc-windows-msvc
-    cd ..
-    mkdir -p target/release
-    cp -f cli/target/x86_64-pc-windows-msvc/release/stool.exe target/release/stool.exe 2>/dev/null || \
-    cp -f cli/target/release/stool.exe target/release/stool.exe 2>/dev/null || true
-    echo "✅ CLI built"
+    mkdir -p "$PKG_OUTPUT"
 
-    echo "🔨 Building Tauri app (MSI via WiX)..."
-    pnpm tauri build
+    # ── 1. 复制原生 .exe (NSIS) ──
+    local EXE_FILE=""
+    for d in target/release/bundle/nsis/*.exe target/release/bundle/*.exe; do
+        if [ -f "$d" ]; then EXE_FILE="$d"; break; fi
+    done
+    if [ -n "$EXE_FILE" ]; then
+        cp -f "$EXE_FILE" "$PKG_OUTPUT/"
+        echo "✅ exe → $PKG_OUTPUT/$(basename "$EXE_FILE")"
+    fi
 
-    local VERSION="4.1.0"
-    local PKG_OUTPUT="target/release"
-
-    # Find MSI from Tauri build
+    # ── 2. 复制原生 .msi (WiX) ──
     local MSI_FILE=""
     for d in target/release/bundle/msi/*.msi; do
         if [ -f "$d" ]; then MSI_FILE="$d"; break; fi
     done
-
     if [ -n "$MSI_FILE" ]; then
-        cp -f "$MSI_FILE" "$PKG_OUTPUT/SuperTool-${VERSION}-windows-x64.msi"
-        echo "✅ msi → $PKG_OUTPUT/SuperTool-${VERSION}-windows-x64.msi"
-        echo "⚠️  Note: CLI (stool.exe) bundled in app resources. Manual PATH setup may be needed."
-    else
-        echo "❌ No .msi found from Tauri build"
-        exit 1
+        cp -f "$MSI_FILE" "$PKG_OUTPUT/"
+        echo "✅ msi → $PKG_OUTPUT/$(basename "$MSI_FILE")"
     fi
+
+    echo "💡 Windows: CLI 已通过 tauri.conf.json resources 打包进应用"
 }
 
 # ═══════════════════════════════════════════
-# Dispatch by OS
+# 分发到各平台
 # ═══════════════════════════════════════════
 dispatch_build() {
     local arch="$1"
@@ -393,16 +343,16 @@ dispatch_build() {
 
     case "$os" in
         Darwin)
-            build_macos_pkg "$arch"
+            build_macos_all "$arch"
             ;;
         Linux)
-            build_linux_deb "$arch"
+            build_linux_all "$arch"
             ;;
         MINGW*|MSYS*|CYGWIN*|Windows_NT)
-            build_windows_msi "$arch"
+            build_windows_all "$arch"
             ;;
         *)
-            echo "❌ Unsupported OS: $os"
+            echo "❌ 不支持的操作系统: $os"
             exit 1
             ;;
     esac
@@ -422,7 +372,7 @@ case "$MODE" in
     dispatch_build "$ARCH"
     ;;
   *)
-    echo "Usage: $0 {pre-build|full|pkg} [native|arm64|x64|all]"
+    echo "用法: $0 {pre-build|full|pkg} [native|arm64|x64|all]"
     exit 1
     ;;
 esac
