@@ -291,10 +291,10 @@ pub fn lan_get_network_info() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_get_receive_path() -> Result<serde_json::Value, String> {
+pub fn lan_get_receive_path() -> Result<String, String> {
     log::info!("[Tauri CMD] lan_get_receive_path() called");
-    let result = with_lan(|lan| lan.get_receive_path());
-    Ok(serde_json::json!({ "success": true, "data": result.unwrap_or_default() }))
+    with_lan(|lan| lan.get_receive_path())
+        .ok_or("LAN 服务未启动".to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
