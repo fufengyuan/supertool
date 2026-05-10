@@ -382,6 +382,7 @@ const progress = ref(0);
 const currentStep = ref('');
 const realtimeLogs = ref<{ time: string; stage: string; message: string }[]>([]);
 const activeDeployLogId = ref<string | null>(null);
+const activeDeployConfigId = ref<string | null>(null);
 const lastLoggedProgress = ref(-1);
 
 const rollingBack = ref(false);
@@ -396,6 +397,7 @@ function resetDeployState() {
   currentStep.value = '';
   realtimeLogs.value = [];
   activeDeployLogId.value = null;
+  activeDeployConfigId.value = null;
   lastLoggedProgress.value = -1;
 }
 
@@ -496,8 +498,8 @@ function goToConfig() {
 }
 
 const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string }) => {
-  const cfgId = data.configId || selectedConfigId.value;
-  if (!cfgId || cfgId !== selectedConfigId.value) return;
+  const cfgId = data.configId || activeDeployConfigId.value;
+  if (!cfgId || cfgId !== activeDeployConfigId.value) return;
   const pct = data.progress || 0;
   const isUploadProgress = data.stage === 'ssh' && data.status === 'uploading' && pct > 0;
   const shouldThrottle = isUploadProgress && (pct - lastLoggedProgress.value < 5) && pct < 100;
@@ -547,8 +549,9 @@ onMounted(async () => {
     // Enable deploy progress events from Tauri backend
     cleanupDeployProgress = await getTauriAPI().onDeployProgress?.(progressHandler);
     cleanupDeployNotification = await getTauriAPI().onDeployNotification?.((data) => {
-      const cfgId = (data as any).configId || selectedConfigId.value;
-      if (!cfgId || cfgId !== selectedConfigId.value) return;
+      const cfgId = (data as any).configId;
+      // 使用 activeDeployConfigId 匹配，这样即使用户切换了配置也能正确处理通知
+      if (!cfgId || cfgId !== activeDeployConfigId.value) return;
       if (data.success) {
         deploying.value = false;
         progress.value = 100;
@@ -660,6 +663,7 @@ async function startDeploy() {
 
   resetDeployState();
   deploying.value = true;
+  activeDeployConfigId.value = selectedConfigId.value;
   currentStep.value = '开始部署...';
   realtimeLogs.value = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }];
 
