@@ -2,11 +2,19 @@ use supertool_core::logic::CoreService;
 use supertool_core::logic::cicd_deploy::{self, DeployConfig, DeployModuleConfig, DeployServerConfig};
 use supertool_core::db::cicd::*;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
+use std::sync::{Arc, Mutex, LazyLock};
 use tauri::{State, Emitter};
+
+// 部署取消状态管理：cancel_deploy 将 deploy_id 加入此集合，deploy 任务检查后提前退出
+static CANCELLED_DEPLOYS: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn is_deploy_cancelled(deploy_id: &str) -> bool {
+    CANCELLED_DEPLOYS.lock().map(|set| set.contains(deploy_id)).unwrap_or(false)
+}
 
 // =================== Types ===================
 
@@ -717,6 +725,8 @@ pub async fn deploy(
 
     // Spawn background task for deploy
     tokio::spawn(async move {
+        let did_for_cancel = deploy_id_arc.clone();
+
         let deploy_result = cicd_deploy::execute_deploy(
             &deploy_config,
             &app_dir,
@@ -732,6 +742,7 @@ pub async fn deploy(
                 });
                 let _ = app_for_closure.emit("deploy-progress", &payload);
             },
+            move || is_deploy_cancelled(&did_for_cancel),
         ).await;
 
         // Update deploy log with result
@@ -743,7 +754,13 @@ pub async fn deploy(
 
         match &deploy_result {
             Ok(result) => {
-                final_status = if result.success { "success".to_string() } else { "failed".to_string() };
+                final_status = if result.cancelled == Some(true) {
+                    "cancelled".to_string()
+                } else if result.success {
+                    "success".to_string()
+                } else {
+                    "failed".to_string()
+                };
                 final_error = result.error.clone();
                 final_progress = if result.success { 100 } else { 0 };
                 final_log_path = Some(result.log_file_path.clone());
@@ -774,30 +791,42 @@ pub async fn deploy(
         };
         let _ = core_clone.db_write(|conn| cicd_update_deploy_log(conn, &new_log));
 
-        // 写入 deploy_history 记录（供前端部署历史展示使用）
-        if deploy_result.is_ok() && deploy_result.as_ref().map(|r| r.success).unwrap_or(false) {
-            let history = crate::commands::cicd::DeployHistory {
-                id: (*deploy_id_arc).clone(),
-                config_id: (*config_id_arc).clone(),
-                project_id: cicd_config.project_id.clone(),
-                status: "success".to_string(),
-                deployed_at: chrono::Utc::now().to_rfc3339(),
-                rolled_back: false,
-                rolled_back_at: None,
-            };
-            let _ = core_clone.db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
+        // 写入 deploy_history 记录（供前端部署历史展示使用，成功和失败都记录）
+        let history_status = match &deploy_result {
+            Ok(result) => if result.cancelled == Some(true) { "cancelled" } else if result.success { "success" } else { "failed" },
+            Err(_) => "failed",
+        };
+        let history = crate::commands::cicd::DeployHistory {
+            id: (*deploy_id_arc).clone(),
+            config_id: (*config_id_arc).clone(),
+            project_id: cicd_config.project_id.clone(),
+            status: history_status.to_string(),
+            deployed_at: chrono::Utc::now().to_rfc3339(),
+            rolled_back: false,
+            rolled_back_at: None,
+        };
+        let _ = core_clone.db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
+
+        // 清理取消标记
+        if let Ok(mut set) = CANCELLED_DEPLOYS.lock() {
+            set.remove(&*deploy_id_arc);
         }
 
         // Emit final notification (native system notification + event to frontend)
+        let is_cancelled = match &deploy_result {
+            Ok(result) => result.cancelled == Some(true),
+            Err(_) => false,
+        };
         match &deploy_result {
             Ok(result) => {
                 crate::tray_notification::show_deploy_notification(
-                    result.success,
+                    result.success && !is_cancelled,
                     &cicd_config.name,
                     result.error.as_deref(),
                 );
                 let _ = app_arc.emit("deploy-notification", serde_json::json!({
                     "success": result.success,
+                    "cancelled": is_cancelled,
                     "configId": *config_id_arc,
                     "deployLogId": *deploy_id_arc,
                     "error": result.error,
@@ -829,7 +858,13 @@ pub async fn cancel_deploy(
     core: State<'_, CoreService>,
     deploy_log_id: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] cancel_deploy() called");
+    log::info!("[Tauri CMD] cancel_deploy() called, deploy_log_id={}", deploy_log_id);
+
+    // 标记为已取消，deploy 任务会在下一个检查点退出
+    if let Ok(mut set) = CANCELLED_DEPLOYS.lock() {
+        set.insert(deploy_log_id.clone());
+    }
+
     let result = core.db_write(|conn| {
         let log = cicd_get_deploy_log_by_id(conn, &deploy_log_id);
         match log {
@@ -885,7 +920,7 @@ pub async fn rollback(
                 let private_key = server_val.get("privateKey").and_then(|v| v.as_str()).map(|s| s.to_string());
 
                 // Attempt SSH connection and execute restart
-                match execute_remote_restart(host, port, username, password.as_deref(), private_key.as_deref(), &cicd_config.restart_script) {
+                match execute_remote_restart(host.to_string(), port, username.to_string(), password.map(|s| s.to_string()), private_key.map(|s| s.to_string()), cicd_config.restart_script.clone()).await {
                     Ok(_) => log::info!("[rollback] {}:{} restart successful", host, port),
                     Err(e) => {
                         log::error!("[rollback] {}:{} restart failed: {}", host, port, e);
@@ -925,44 +960,55 @@ pub async fn rollback(
 }
 
 /// Execute a restart command on a remote server via SSH
-fn execute_remote_restart(
-    host: &str,
+/// 使用 spawn_blocking 避免阻塞 tokio async 运行时
+async fn execute_remote_restart(
+    host: String,
     port: u16,
-    username: &str,
-    password: Option<&str>,
-    private_key: Option<&str>,
-    restart_script: &str,
+    username: String,
+    password: Option<String>,
+    private_key: Option<String>,
+    restart_script: String,
 ) -> Result<(), String> {
-    use ssh2::Session;
-    use std::net::TcpStream;
+    tokio::task::spawn_blocking(move || {
+        use ssh2::Session;
+        use std::net::TcpStream;
 
-    let addr = format!("{}:{}", host, port);
-    let tcp = TcpStream::connect(&addr)
-        .map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
+        let addr = format!("{}:{}", host, port);
+        let tcp = TcpStream::connect(&addr)
+            .map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
 
-    let mut sess = Session::new().map_err(|e| format!("创建 SSH session 失败: {}", e))?;
-    sess.set_tcp_stream(tcp);
-    sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+        let mut sess = Session::new().map_err(|e| format!("创建 SSH session 失败: {}", e))?;
+        sess.set_tcp_stream(tcp);
+        sess.set_timeout(30_000);
+        sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-    if let Some(key_path) = private_key {
-        sess.userauth_pubkey_file(username, None, std::path::Path::new(key_path), password)
-            .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
-    } else if let Some(pw) = password {
-        sess.userauth_password(username, pw)
-            .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
-    } else {
-        return Err("缺少认证信息".to_string());
-    }
+        if let Some(key_path) = private_key {
+            sess.userauth_pubkey_file(&username, None, std::path::Path::new(&key_path), password.as_deref())
+                .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
+        } else if let Some(ref pw) = password {
+            sess.userauth_password(&username, pw)
+                .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
+        } else {
+            return Err("缺少认证信息".to_string());
+        }
 
-    let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", restart_script);
-    let mut channel = sess.channel_session()
-        .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-    channel.exec(&cmd)
-        .map_err(|e| format!("执行重启命令失败: {}", e))?;
+        if !sess.authenticated() {
+            return Err("SSH 认证失败".to_string());
+        }
 
-    channel.wait_close().ok();
+        let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", restart_script);
+        let mut channel = sess.channel_session()
+            .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
+        channel.exec(&cmd)
+            .map_err(|e| format!("执行重启命令失败: {}", e))?;
 
-    Ok(())
+        channel.wait_close().ok();
+        sess.disconnect(None, "", None).ok();
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("spawn_blocking 失败: {}", e))?
 }
 
 // =================== Log Commands ===================

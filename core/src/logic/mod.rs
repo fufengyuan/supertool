@@ -2421,6 +2421,7 @@ impl CoreService {
                     timestamp: chrono::Utc::now().to_rfc3339(),
                 });
             },
+            || false, // CLI 部署不支持取消
         )
         .await;
 

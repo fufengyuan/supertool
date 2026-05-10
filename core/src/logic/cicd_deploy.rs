@@ -185,8 +185,11 @@ pub struct DeployModuleConfig {
     pub deploy_order: i64,
     #[serde(rename = "deployPath")]
     pub deploy_path: Option<String>,
+    #[serde(default = "default_true")]
     pub enabled: bool,
 }
+
+fn default_true() -> bool { true }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeployConfig {
@@ -277,6 +280,7 @@ pub async fn execute_deploy(
     data_dir: &str,
     deploy_id: &str,
     on_progress: impl Fn(ProgressEvent) + Send + Sync,
+    is_cancelled: impl Fn() -> bool,
 ) -> Result<DeployResult, String> {
     // Load user shell environment (zsh login shell gets NVM, Homebrew, etc.)
     let shell_env = get_user_shell_env();
@@ -327,6 +331,19 @@ pub async fn execute_deploy(
 
     emit("git", "success", "代码同步完成");
 
+    // 检查是否已取消
+    if is_cancelled() {
+        emit("deploy", "cancelled", "部署已被用户取消");
+        return Ok(DeployResult {
+            deploy_id: deploy_id.to_string(),
+            success: false,
+            log_file_path: log_file.to_string_lossy().to_string(),
+            artifact_paths: vec![],
+            error: Some("用户取消部署".to_string()),
+            cancelled: Some(true),
+        });
+    }
+
     // Step 2: Build
     if let Err(e) = do_build(config, &project_path, &emit).await {
         emit("build", "failed", &e);
@@ -341,6 +358,19 @@ pub async fn execute_deploy(
     }
 
     emit("build", "success", "构建完成");
+
+    // 检查是否已取消
+    if is_cancelled() {
+        emit("deploy", "cancelled", "部署已被用户取消");
+        return Ok(DeployResult {
+            deploy_id: deploy_id.to_string(),
+            success: false,
+            log_file_path: log_file.to_string_lossy().to_string(),
+            artifact_paths: vec![],
+            error: Some("用户取消部署".to_string()),
+            cancelled: Some(true),
+        });
+    }
 
     // Step 3: Collect artifacts
     let artifacts = match collect_artifacts(&project_path, config) {
@@ -877,15 +907,40 @@ async fn run_gradle_build(
     cmd.current_dir(build_path);
     cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
-    let output = cmd
-        .output()
-        .await
+    let mut child = cmd
+        .spawn()
         .map_err(|e| format!("Gradle 构建启动失败: {}", e))?;
 
-    if !output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let last_lines = get_last_lines(&stdout, 10);
-        return Err(format!("Gradle 构建失败 (exit {})\n最近 10 行输出:\n{}", output.status.code().unwrap_or(-1), last_lines));
+    let stdout = child.stdout.take()
+        .ok_or("无法获取 Gradle stdout")?;
+    let stderr = child.stderr.take()
+        .ok_or("无法获取 Gradle stderr")?;
+
+    // Stream stdout + stderr concurrently（对齐 Maven/npm 的实时日志模式）
+    let stdout_fut = async {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() { emit("gradle", "building", trimmed); }
+            line.clear();
+        }
+    };
+    let stderr_fut = async {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() { emit("gradle", "building", trimmed); }
+            line.clear();
+        }
+    };
+    let status_fut = child.wait();
+    let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, status_fut);
+    let status = status.map_err(|e| format!("等待 Gradle 进程失败: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("Gradle 构建失败 (exit {})", status.code().unwrap_or(-1)));
     }
 
     emit("gradle", "success", "Gradle 构建成功");
@@ -962,9 +1017,13 @@ fn extend_path(cmd: &mut Command, java_home: &Option<String>, maven_home: &Optio
     extra_paths.push("/usr/bin".to_string());
     extra_paths.push("/bin".to_string());
 
-    if let Ok(current_path) = std::env::var("PATH") {
-        extra_paths.push(current_path);
-    }
+    // 优先从用户登录 shell 获取 PATH（含 sdkman/nvm 等），而非 Tauri 进程的 PATH
+    let shell_env = get_user_shell_env();
+    let current_path = shell_env.get("PATH")
+        .cloned()
+        .or_else(|| std::env::var("PATH").ok())
+        .unwrap_or_default();
+    extra_paths.push(current_path);
 
     cmd.env("PATH", extra_paths.join(":"));
 }
@@ -991,9 +1050,13 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
     extra_paths.push("/usr/bin".to_string());
     extra_paths.push("/bin".to_string());
 
-    if let Ok(current_path) = std::env::var("PATH") {
-        extra_paths.push(current_path);
-    }
+    // 优先从用户登录 shell 获取 PATH（含 sdkman/nvm 等），而非 Tauri 进程的 PATH
+    let shell_env = get_user_shell_env();
+    let current_path = shell_env.get("PATH")
+        .cloned()
+        .or_else(|| std::env::var("PATH").ok())
+        .unwrap_or_default();
+    extra_paths.push(current_path);
 
     cmd.env("PATH", extra_paths.join(":"));
 }
@@ -1193,11 +1256,13 @@ fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths:
     // Use shell: cd src_dir && find . -name "filter" | zip dest_zip -@
     let zip_flag = if junk_paths { "-j" } else { "" };
     let output = if let Some(pattern) = filter {
+        // 转义 filter 参数中的单引号，防止 shell 注入
+        let safe_pattern = pattern.replace('\'', "'\\''");
         std::process::Command::new("sh")
             .args(["-c", &format!(
                 "cd '{}' && find . -name '{}' -type f -maxdepth 1 | zip {} '{}' -@",
                 src_dir.display(),
-                pattern,
+                safe_pattern,
                 zip_flag,
                 dest_zip.display()
             )])
@@ -1350,9 +1415,8 @@ fn upload_file(
 
 fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
     let mut channel = sess.channel_session().map_err(|e| format!("SSH channel 创建失败: {}", e))?;
-    // 使用 bash -l -c 加载用户环境变量（对齐 Electron 版）
-    let login_cmd = format!("bash -l -c {}", shell_escape(cmd));
-    channel.exec(&login_cmd).map_err(|e| format!("SSH exec 失败: {}", e))?;
+    // 直接执行命令，避免 bash -l -c 包装破坏管道/重定向等 shell 特性
+    channel.exec(cmd).map_err(|e| format!("SSH exec 失败: {}", e))?;
 
     let mut output = String::new();
     channel.read_to_string(&mut output).ok();
@@ -1392,11 +1456,16 @@ async fn execute_restart(
     } else if let Some(ref pw) = srv.password {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("认证失败: {}", e))?;
+    } else {
+        return Err("缺少认证信息".to_string());
+    }
+
+    if !sess.authenticated() {
+        return Err("SSH 认证失败（密钥或密码不正确）".to_string());
     }
 
     ssh_exec(&sess, script)?;
     emit("restart", "success", &format!("{} 重启完成", label));
-
     sess.disconnect(None, "", None).ok();
     Ok(())
 }
