@@ -249,6 +249,7 @@
         </div>
       </div>
     </div>
+    </div> <!-- close Blocks list -->
 
     <!-- ===== Unparsed blocks (parse warnings) ===== -->
     <div v-if="unparsedBlocks.length > 0" class="border border-warning/20 rounded-xl bg-warning/5 p-3">
