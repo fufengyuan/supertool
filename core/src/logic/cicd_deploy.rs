@@ -282,9 +282,6 @@ pub async fn execute_deploy(
     on_progress: impl Fn(ProgressEvent) + Send + Sync,
     is_cancelled: impl Fn() -> bool,
 ) -> Result<DeployResult, String> {
-    // Load user shell environment (zsh login shell gets NVM, Homebrew, etc.)
-    let shell_env = get_user_shell_env();
-
     let log_dir = PathBuf::from(data_dir).join("deploy-logs");
     fs::create_dir_all(&log_dir).map_err(|e| format!("创建日志目录失败: {}", e))?;
 
@@ -426,6 +423,19 @@ pub async fn execute_deploy(
             artifact_paths,
             error: Some(err),
             cancelled: None,
+        });
+    }
+
+    // 检查是否已取消（构建完成后、上传前）
+    if is_cancelled() {
+        emit("deploy", "cancelled", "部署已被用户取消");
+        return Ok(DeployResult {
+            deploy_id: deploy_id.to_string(),
+            success: false,
+            log_file_path: log_file.to_string_lossy().to_string(),
+            artifact_paths,
+            error: Some("用户取消部署".to_string()),
+            cancelled: Some(true),
         });
     }
 
