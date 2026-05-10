@@ -472,7 +472,7 @@ impl LanService {
                     Self::add_log_static(log, "info", &format!("Peer discovered: {} ({})", peer_id, addr.ip()));
                     if let Some(app) = app_handle {
                         let payload = serde_json::json!({
-                            "peerId": peer_id,
+                            "id": peer_id,
                             "address": addr.ip().to_string(),
                             "name": peer_name,
                         });

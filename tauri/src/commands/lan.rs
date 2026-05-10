@@ -280,13 +280,13 @@ pub fn lan_get_network_info() -> Result<serde_json::Value, String> {
         serde_json::json!({
             "address": lan.get_local_ip(),
             "ports": "49152/49154",
-            "version": "2.0",
+            "version": env!("CARGO_PKG_VERSION"),
         })
     });
     Ok(result.unwrap_or(serde_json::json!({
         "address": "",
         "ports": "49152/49154",
-        "version": "2.0",
+        "version": env!("CARGO_PKG_VERSION"),
     })))
 }
 
