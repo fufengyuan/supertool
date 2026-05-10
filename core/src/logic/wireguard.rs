@@ -103,6 +103,8 @@ impl WireGuardManager {
         peer_public_key_b64: &str,
         peer_endpoint: &str,
         preshared_key_b64: Option<&str>,
+        address: Option<&str>,
+        mtu: Option<i64>,
     ) -> Result<bool, String> {
         // Disconnect if already connected
         let needs_disconnect = {
@@ -174,11 +176,14 @@ impl WireGuardManager {
         ));
 
         // --- Create TUN device (utun on macOS) ---
+        let tun_addr = address.unwrap_or("10.0.0.2/32");
+        let tun_ip = tun_addr.split('/').next().unwrap_or("10.0.0.2");
+        let tun_mtu = mtu.unwrap_or(1420) as u16;
         let mut tun_config = Configuration::default();
         tun_config
-            .address("10.0.0.2")
+            .address(tun_ip)
             .netmask("255.255.255.0")
-            .mtu(1420)
+            .mtu(tun_mtu)
             .up();
 
         let tun_device = tun2::create_as_async(&tun_config)

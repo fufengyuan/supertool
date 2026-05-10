@@ -455,9 +455,9 @@ async function deleteConfig(cfg: Config) {
 }
 
 function getLogClass(line: string): string {
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
+  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
+  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
   return ''
 }
 </script>

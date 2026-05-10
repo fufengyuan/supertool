@@ -377,9 +377,9 @@ async function generateKeypair() { generatingKeys.value = true; try { const r = 
 
 function editWgConfig(cfg: WgConfig) { editingWg.value = cfg; wgForm.value = { name: cfg.name, privateKey: cfg.privateKey || '', publicKey: cfg.publicKey || '', address: cfg.address || '10.0.0.2/32', dns: cfg.dns || '', mtu: cfg.mtu, peerPublicKey: cfg.peerPublicKey, peerEndpoint: cfg.peerEndpoint, peerAllowedIPs: cfg.peerAllowedIPs || '0.0.0.0/0', peerPersistentKeepalive: cfg.peerPersistentKeepalive, presharedKey: cfg.presharedKey || '' }; showWgForm.value = true }
 
-async function saveWgConfig() { try { const data = { ...wgForm.value, mtu: wgForm.value.mtu ? Number(wgForm.value.mtu) : null, peerPersistentKeepalive: wgForm.value.peerPersistentKeepalive ? Number(wgForm.value.peerPersistentKeepalive) : null }; if (editingWg.value) { await getTauriAPI().wireguardUpdate({ ...data, id: editingWg.value.id }) } else { await getTauriAPI().wireguardAdd(data) }; showWgForm.value = false; editingWg.value = null; await loadWgAll(); toast.success(editingWg.value ? '已更新' : '已添加') } catch(e:any) { toast.error('保存失败: ' + e.message) } }
+async function saveWgConfig() { try { const data = { ...wgForm.value, mtu: wgForm.value.mtu !== '' && wgForm.value.mtu != null ? Number(wgForm.value.mtu) : null, peerPersistentKeepalive: wgForm.value.peerPersistentKeepalive !== '' && wgForm.value.peerPersistentKeepalive != null ? Number(wgForm.value.peerPersistentKeepalive) : null }; if (editingWg.value) { await getTauriAPI().wireguardUpdate({ ...data, id: editingWg.value.id }) } else { await getTauriAPI().wireguardAdd(data)    }; const wasEditing = !!editingWg.value; showWgForm.value = false; editingWg.value = null; await loadWgAll(); toast.success(wasEditing ? '已更新' : '已添加')} catch(e:any) { toast.error('保存失败: ' + e.message) } }
 
-async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined); if (!r?.success) toast.error('连接失败: ' + (r?.error || '未知错误')); await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
+async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu); if (!r?.success) toast.error('连接失败: ' + (r?.error || '未知错误')); await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
 
 async function wgDisconnect() { try { await getTauriAPI().wireguardDisconnect(); await loadWgStatus(); toast.info('已断开') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
 function selectWgConfig(_cfg: WgConfig) {}
@@ -389,9 +389,9 @@ async function wgDelete(cfg: WgConfig) { if (!confirm(`确定要删除 "${cfg.na
 function formatBytes(bytes: number): string { if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / 1048576).toFixed(1) + ' MB' }
 
 function getLogClass(line: string): string {
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg> ') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> ') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
+  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
+  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
   return ''
 }
 </script>

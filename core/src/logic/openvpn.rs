@@ -111,7 +111,9 @@ impl OpenVPNManager {
     }
 
     pub fn get_status(&self) -> OpenVPNStatus {
-        self.status.lock().unwrap().clone()
+        let mut status = self.status.lock().unwrap().clone();
+        status.log = self.log_buffer.lock().unwrap().clone();
+        status
     }
 
     pub fn get_traffic_stats(&self) -> Option<TrafficStats> {
@@ -190,20 +192,11 @@ impl OpenVPNManager {
     }
 
     fn add_log(&self, line: &str) {
-        let line = line.to_string();
-        {
-            let mut buf = self.log_buffer.lock().unwrap();
-            buf.push(line.clone());
-            if buf.len() > self.max_log_lines {
-                let drain_to = buf.len() - self.max_log_lines; buf.drain(0..drain_to);
-            }
-        }
-        {
-            let mut status = self.status.lock().unwrap();
-            status.log.push(line);
-            if status.log.len() > self.max_log_lines {
-                let drain_to = status.log.len() - self.max_log_lines; status.log.drain(0..drain_to);
-            }
+        let mut buf = self.log_buffer.lock().unwrap();
+        buf.push(line.to_string());
+        if buf.len() > self.max_log_lines {
+            let drain_to = buf.len() - self.max_log_lines;
+            buf.drain(0..drain_to);
         }
     }
 
@@ -386,14 +379,8 @@ impl OpenVPNManager {
                         let mut buf = log_arc.lock().unwrap();
                         buf.push(trimmed.to_string());
                         if buf.len() > max_log {
-                            let drain_to = buf.len() - max_log; buf.drain(0..drain_to);
-                        }
-                    }
-                    {
-                        let mut status = status_arc.lock().unwrap();
-                        status.log.push(trimmed.to_string());
-                        if status.log.len() > max_log {
-                            let drain_to = status.log.len() - max_log; status.log.drain(0..drain_to);
+                            let drain_to = buf.len() - max_log;
+                            buf.drain(0..drain_to);
                         }
                     }
                     if trimmed.contains("Initialization Sequence Completed") {
@@ -406,7 +393,7 @@ impl OpenVPNManager {
                         let mut status = status_arc.lock().unwrap();
                         status.state = "error".to_string();
                     }
-                    if let Some(remote) = extract_remote(&trimmed) {
+                    if let Some(remote) = extract_remote(trimmed) {
                         let mut status = status_arc.lock().unwrap();
                         if status.remote.is_none() {
                             status.remote = Some(remote);
@@ -416,29 +403,7 @@ impl OpenVPNManager {
             });
         }
 
-        let start = std::time::Instant::now();
-        let timeout = Duration::from_secs(30);
-        while start.elapsed() < timeout {
-            std::thread::sleep(Duration::from_millis(200));
-            let state = self.status.lock().unwrap().state.clone();
-            if state == "connected" {
-                self.add_log("✅ 连接成功");
-                return Ok(true);
-            }
-            if state == "error" {
-                return Err("连接失败".to_string());
-            }
-            if let Some(ref mut child) = self.process.lock().unwrap().as_mut() {
-                if let Ok(Some(status)) = child.try_wait() {
-                    self.add_log(&format!("⚠️ 进程退出: {}", status));
-                    return Err(format!("OpenVPN 异常退出 ({})", status));
-                }
-            }
-        }
-
-        self.add_log("⏳ 连接超时");
-        self.status.lock().unwrap().state = "error".to_string();
-        Err("连接超时".to_string())
+        Ok(true)
     }
 
     pub fn disconnect(&self) -> Result<(), String> {
@@ -487,7 +452,6 @@ impl OpenVPNManager {
             status.config_name = None;
             status.bytes_sent = Some(0);
             status.bytes_received = Some(0);
-            status.log.clear();
         }
         self.log_buffer.lock().unwrap().clear();
         *self.pending_connect.lock().unwrap() = None;
@@ -501,16 +465,15 @@ impl OpenVPNManager {
         if let Some(path) = self.temp_config_path.lock().unwrap().take() {
             let _ = fs::remove_file(path);
         }
-        if let Some(tmp_dir) = Some(crate::logic::data_dir::tmp_dir()) {
-            if tmp_dir.exists() {
-                if let Ok(entries) = fs::read_dir(&tmp_dir) {
-                    for entry in entries.flatten() {
-                        if let Some(name) = entry.file_name().to_str() {
-                            if (name.starts_with("ovpn_") || name.starts_with("supertool_"))
-                                && name.ends_with(".sock")
-                            {
-                                let _ = fs::remove_file(entry.path());
-                            }
+        let tmp_dir = crate::logic::data_dir::tmp_dir();
+        if tmp_dir.exists() {
+            if let Ok(entries) = fs::read_dir(&tmp_dir) {
+                for entry in entries.flatten() {
+                    if let Some(name) = entry.file_name().to_str() {
+                        if (name.starts_with("ovpn_") || name.starts_with("supertool_"))
+                            && name.ends_with(".sock")
+                        {
+                            let _ = fs::remove_file(entry.path());
                         }
                     }
                 }
