@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useToast } from './useToast'
 import { getErrorMessage } from '../utils/helpers'
 import { getTauriAPI } from '../utils/tauri-api'
@@ -953,8 +953,15 @@ function formatDate(date: string): string {
 onMounted(async () => {
   await getTauriAPI().getAccountingCategories?.()
   await Promise.all([loadCategories(), loadData(), loadStats(), loadTrend(), loadBudgets(), loadBudgetAlerts(), loadTemplates()])
-  initTrendResizeObserver()
 })
+
+// Watch for trend data to appear before attaching ResizeObserver
+watch(trendData, async (data) => {
+  if (data.length > 0) {
+    await nextTick()
+    initTrendResizeObserver()
+  }
+}, { once: true })
 
 // Cleanup
 onBeforeUnmount(() => {
