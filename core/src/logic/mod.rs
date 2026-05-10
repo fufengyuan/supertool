@@ -446,10 +446,18 @@ impl CoreService {
             })
             .collect();
 
+        // 从 gitRepoId 解析仓库信息
+        let git_repo: Option<crate::db::git_repo::GitRepo> = cicd_config.git_repo_id.as_ref().and_then(|id| {
+            self.db_read(|conn| {
+                crate::db::git_repo::get_by_id(conn, id)
+                    .ok()
+                    .flatten()
+            }).ok().flatten()
+        });
         let deploy_config = crate::logic::cicd_deploy::DeployConfig {
-            repo_url: cicd_config.repo_url.clone().unwrap_or_default(),
+            repo_url: git_repo.as_ref().and_then(|r| r.remote.clone().or(Some(r.path.clone()))).unwrap_or_default(),
             branch: cicd_config.deploy_branch.clone(),
-            local_path: cicd_config.local_path.clone(),
+            local_path: git_repo.as_ref().map(|r| r.path.clone()),
             build_tool: cicd_config.build_tool.clone(),
             build_command: cicd_config.build_command.clone(),
             build_path: cicd_config.build_path.clone(),

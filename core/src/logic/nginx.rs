@@ -33,7 +33,7 @@ impl CoreService {
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(&sid, &format!("cat '{}' 2>&1", safe_path))
             })
             .await?;
@@ -61,7 +61,7 @@ impl CoreService {
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(&sid, &format!("nginx -t -c '{}' 2>&1", safe_path))
             })
             .await?;
@@ -95,7 +95,7 @@ impl CoreService {
         let sp2 = safe_path.clone();
         let sb2 = safe_backup.clone();
         let backup_result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(&sid2, &format!("cp '{}' '{}' 2>&1", sp2, sb2))
             })
             .await?;
@@ -112,7 +112,7 @@ impl CoreService {
         let sid3 = sid.clone();
         let sp3 = safe_path.clone();
         let write_result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(
                     &sid3,
                     &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, sp3),
@@ -140,7 +140,7 @@ impl CoreService {
         let sid4 = sid.clone();
         let sp4 = safe_path.clone();
         let test_result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(&sid4, &format!("nginx -t -c '{}' 2>&1", sp4))
             })
             .await?;
@@ -166,7 +166,7 @@ impl CoreService {
         // 4. Reload nginx (try systemctl first, fallback to nginx -s)
         let sid6 = sid.clone();
         let reload_result = self
-            .run_ssh_blocking(move |ssh| {
+            .run_ssh_with_retry(server_id, move |ssh| {
                 ssh.exec_command(
                     &sid6,
                     "systemctl reload nginx 2>&1 || nginx -s reload 2>&1",
@@ -202,7 +202,7 @@ impl CoreService {
             safe_backup, safe_path, safe_path
         );
         let result = self
-            .run_ssh_blocking(move |ssh| ssh.exec_command(&sid, &cmd))
+            .run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &cmd))
             .await?;
         if result.output.contains("syntax is ok") || result.output.contains("test is successful") {
             Ok(ApiResponse::ok(result.output))

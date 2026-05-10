@@ -191,7 +191,8 @@ function parseDirective(): { directive: NginxDirective | null; commentBefore?: s
 }
 
 function parseBlock(): NginxBlock | null {
-  // Capture leading comment
+  // Save position so we can restore if it turns out to be a directive, not a block
+  const startPos = tokenPos
   const commentBefore = consumeAllComments()
   const headerWords: string[] = []
 
@@ -241,10 +242,20 @@ function parseBlock(): NginxBlock | null {
           const { directive, commentBefore: dirComment } = parseDirective()
           if (directive) {
             directives.push(directive)
+          } else if (tokenPos === savedPos2) {
+            // Nothing consumed at all — eat the current token to avoid infinite loop
+            consume()
           } else {
-            // Discard any captured comment on failed parse
-            if (tokenPos === savedPos2) consume() // advance past unknown token
-            else break
+            // parseDirective consumed some tokens but failed (e.g. encountered '{')
+            // This shouldn't happen if parseBlock is tried first; break to avoid data loss.
+            // Restore position and try once more as directive
+            tokenPos = savedPos2
+            const retryDir = tryParseDirectiveBody()
+            if (retryDir) {
+              directives.push(retryDir)
+            } else {
+              break
+            }
           }
         }
       }
@@ -259,14 +270,49 @@ function parseBlock(): NginxBlock | null {
         isParsed: true,
       }
     }
-    if (tok.type === 'semicolon' || tok.type === 'eof') {
+    if (tok.type === 'semicolon' || tok.type === 'brace_close' || tok.type === 'eof') {
+      // Not a block — restore position so caller can parse as directive
+      tokenPos = startPos
       return null
     }
     if (tok.type === 'comment') {
-      consume()
-      continue
+      tokenPos = startPos
+      return null
     }
     headerWords.push(consume().value)
+  }
+  tokenPos = startPos
+  return null
+}
+
+/**
+ * Parse a single directive body aggressively — consume tokens until ';' is found.
+ * Used as fallback when normal parsing fails within a block body.
+ */
+function tryParseDirectiveBody(): NginxDirective | null {
+  const words: string[] = []
+  while (tokenPos < allTokens.length) {
+    const tok = peek()
+    if (tok.type === 'semicolon') {
+      consume()
+      if (words.length === 0) return null
+      const name = words[0]
+      const params = words.slice(1)
+      return {
+        name,
+        params,
+        raw: name + (params.length > 0 ? ' ' + params.join(' ') : '') + ';',
+      }
+    }
+    if (tok.type === 'brace_open') {
+      // We're inside a block body and found '{' without preceding words
+      // This is a sub-block header — let parseBlock handle it (restore position)
+      return null
+    }
+    if (tok.type === 'brace_close' || tok.type === 'eof') {
+      return null
+    }
+    words.push(consume().value)
   }
   return null
 }
@@ -295,12 +341,68 @@ export function parseNginxConfig(input: string): ParsedNginxConfig {
   return { blocks, errors }
 }
 
+// ============ Quoted-string-aware param helpers ============
+
+/**
+ * Split a string into params, respecting single/double quoted groups.
+ * e.g. 'Access-Control-Allow-Origin "*"' → ['Access-Control-Allow-Origin', '"*"']
+ * e.g. '"GET, POST"' → ['"GET, POST"']
+ */
+function splitParamsSmart(input: string): string[] {
+  const parts: string[] = []
+  let i = 0
+  const len = input.length
+  while (i < len) {
+    // Skip whitespace
+    if (/\s/.test(input[i])) { i++; continue }
+    // Quoted section (single or double)
+    if (input[i] === "'" || input[i] === '"') {
+      const quote = input[i]
+      let chunk = quote
+      i++
+      while (i < len) {
+        chunk += input[i]
+        if (input[i] === quote && input[i - 1] !== '\\') {
+          i++
+          break
+        }
+        i++
+      }
+      parts.push(chunk)
+      continue
+    }
+    // Regular non-whitespace chunk
+    let chunk = ''
+    while (i < len && !/\s/.test(input[i])) {
+      chunk += input[i]
+      i++
+    }
+    if (chunk) parts.push(chunk)
+  }
+  return parts
+}
+
+/**
+ * Join params into a display string, wrapping values with spaces in quotes.
+ * e.g. ['Access-Control-Allow-Origin', '*'] → 'Access-Control-Allow-Origin *'
+ * e.g. ['GET, POST'] → '"GET, POST"'  NOT: just joins with space
+ */
+function joinParamsDisplay(params: string[]): string {
+  return params.map(p => {
+    // If already quoted, return as-is
+    if ((p.startsWith("'") && p.endsWith("'")) || (p.startsWith('"') && p.endsWith('"'))) return p
+    // If contains spaces that aren't part of the param value, wrap in quotes
+    if (/\s/.test(p)) return `"${p}"`
+    return p
+  }).join(' ')
+}
+
 // ============ Serializer ============
 
 function serializeDirective(d: NginxDirective, indent: number): string {
   const ind = '  '.repeat(indent)
   const comment = d.commentBefore ? d.commentBefore + '\n' : ''
-  const params = d.params.length > 0 ? ' ' + d.params.join(' ') : ''
+  const params = d.params.length > 0 ? ' ' + joinParamsDisplay(d.params) : ''
   return `${comment}${ind}${d.name}${params};\n`
 }
 
@@ -480,7 +582,10 @@ export function createDirective(name: string, params: string[] = [], commentBefo
   return {
     name,
     params,
-    raw: name + (params.length > 0 ? ' ' + params.join(' ') : '') + ';',
+    raw: name + (params.length > 0 ? ' ' + joinParamsDisplay(params) : '') + ';',
     commentBefore,
   }
 }
+
+// Export helpers for use in Vue components
+export { splitParamsSmart, joinParamsDisplay }
