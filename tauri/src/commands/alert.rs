@@ -4,6 +4,7 @@ use supertool_core::logic::CoreService;
 use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 use lettre::AsyncTransport;
+use chrono::Timelike;
 
 /// Build SMTP transport based on encryption mode
 fn build_smtp_transport(
@@ -326,9 +327,15 @@ async fn run_alert_check(core: &CoreService) -> Vec<serde_json::Value> {
         results.push(json_result);
     }
 
-    // Check resources
-    let resource_results = core.check_expiring_resources().await;
-    for result in resource_results {
+        // Check resources 3x per day (9:00, 13:00, 20:00)
+        let hour = chrono::Local::now().hour();
+        let should_check_resources = matches!(hour, 9 | 13 | 20);
+        let resource_results = if should_check_resources {
+            core.check_expiring_resources().await
+        } else {
+            Vec::new()
+        };
+        for result in resource_results {
         let json_result = serde_json::json!({
             "alertType": result.alert_type,
             "refId": result.ref_id,
