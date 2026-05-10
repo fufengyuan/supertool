@@ -279,7 +279,7 @@ const getStatusText = (peer: LanPeer): string => {
 async function setStatus(status: 'online' | 'busy' | 'away') {
   currentStatus.value = status;
   try {
-    await getTauriAPI().setStatus(status);
+    await getTauriAPI().lanSetStatus(status);
   } catch (e) {
     console.warn('Failed to change status:', e);
   }
@@ -287,16 +287,14 @@ async function setStatus(status: 'online' | 'busy' | 'away') {
 
 /** 检测 macOS 局域网权限 */
 async function checkNetworkPermission() {
-  if (!getTauriAPI().checkNetworkPermission) return
   checkingPermission.value = true
   try {
-    const result = await getTauriAPI().checkNetworkPermission("0.0.0.0", 0)
+    const result = await getTauriAPI().lanCheckNetworkPermission()
     if (!result.success) {
-      // 判断是否为 macOS TCC 阻止
-      const isTccBlocked = result.error?.includes('EHOSTUNREACH') ||
-        result.error?.includes('Local Network Privacy') ||
-        result.error?.includes('blocked') ||
-        result.error?.includes('Permission')
+      const isTccBlocked = result.error?.includes('EHOSTUNREACH')
+        || result.error?.includes('Local Network Privacy')
+        || result.error?.includes('blocked')
+        || result.error?.includes('Permission')
       permissionWarning.value = {
         type: isTccBlocked ? 'error' : 'warning',
         title: isTccBlocked ? '局域网访问被阻止' : '网络权限检测异常',
@@ -325,7 +323,7 @@ async function recheckPermission() {
 async function refreshDiscovery() {
   scanning.value = true;
   try {
-    await getTauriAPI().refreshDiscovery();
+    await getTauriAPI().lanRefreshDiscovery();
     setTimeout(() => { scanning.value = false }, 3000);
   } catch (e) {
     scanning.value = false;
@@ -336,8 +334,8 @@ async function refreshDiscovery() {
 // 未读消息计数刷新（模块级，供 onMounted / onUnmounted 共用）
 async function loadUnreadCounts() {
   try {
-    const userInfo = await getTauriAPI().getUserInfo('');
-    const counts = await getTauriAPI().getAllUnreadCounts();
+    const userInfo = await getTauriAPI().lanGetUserInfo();
+    const counts = await getTauriAPI().lanGetAllUnreadCounts(userInfo.id);
     unreadCounts.value = counts;
   } catch (e) {
     console.warn('Failed to load unread counts:', e);
@@ -350,17 +348,16 @@ let cleanupIpcListeners: (() => void)[] = [];
 onMounted(async () => {
   await loadMyProfile();
   try {
-    const statusInfo = await getTauriAPI().getStatus('');
+    const statusInfo = await getTauriAPI().lanGetStatus();
     currentStatus.value = (statusInfo.status as 'online' | 'busy' | 'away') || 'online';
   } catch {}
   try {
-    networkInfo.value = await getTauriAPI().getNetworkInfo();
+    networkInfo.value = await getTauriAPI().lanGetNetworkInfo();
   } catch {}
   try {
-    receivePath.value = await getTauriAPI().getReceivePath();
+    receivePath.value = await getTauriAPI().lanGetReceivePath();
   } catch {}
-  peers.value = (await getTauriAPI().getPeers()) as LanPeer[];
-
+  peers.value = (await getTauriAPI().lanGetPeers()) as LanPeer[];
   // Check macOS Local Network Privacy permission
   await checkNetworkPermission()
 
@@ -397,8 +394,7 @@ onMounted(async () => {
       selectedPeer.value = null;
     }
   }));
-
-  cleanupIpcListeners.push(getTauriAPI().onMessage((data: any) => {
+  cleanupIpcListeners.push(getTauriAPI().lanOnMessage((data: any) => {
     if (data && data.from) {
       const senderId = data.from;
       // Only increment unread if this peer's chat is NOT currently open
@@ -428,7 +424,7 @@ onUnmounted(() => {
 // 加载我的资料
 async function loadMyProfile() {
   try {
-    const info = await getTauriAPI().getUserInfo('');
+    const info = await getTauriAPI().lanGetUserInfo();
     myUserId.value = info.id;
     myDisplayName.value = info.name || info.id;
     myAvatar.value = info.avatar || '😀';
@@ -438,12 +434,11 @@ async function loadMyProfile() {
     console.warn('Failed to load profile:', e);
   }
 }
-
 // 保存资料
 async function saveProfile() {
   try {
-    await getTauriAPI().setNickName(editNickName.value);
-    await getTauriAPI().setAvatar(editAvatar.value);
+    await getTauriAPI().lanSetNickName(editNickName.value);
+    await getTauriAPI().lanSetAvatar(editAvatar.value);
     myAvatar.value = editAvatar.value;
     myDisplayName.value = editNickName.value || myUserId.value;
     showProfileEditor.value = false;
@@ -473,9 +468,9 @@ function openAssign() {
 
 async function chooseReceivePath() {
   try {
-    const result = await getTauriAPI().showOpenDialogForDirs?.() as { filePaths?: string[] } | undefined
+    const result = await getTauriAPI().lanShowOpenDialogForDirs() as { filePaths?: string[] } | undefined
     if (result?.filePaths?.[0]) {
-      await getTauriAPI().setReceivePath(result.filePaths[0])
+      await getTauriAPI().lanSetReceivePath(result.filePaths[0])
       receivePath.value = result.filePaths[0]
     }
   } catch (e) {

@@ -599,11 +599,20 @@ impl LanService {
                 Self::add_log_static(log, "info", &format!("file_start_ack received for file: {}", file_id));
             }
             // Collaboration message types — forward to frontend
+            // Map msg_type to hyphen-format event names matching frontend listeners
             "assign_task" | "task_update" | "task_status_change" | "task_comment"
             | "collaboration_started" | "collaboration_ended" => {
                 if let Some(app) = app_handle {
-                    let event_name = format!("lan:{}", msg_type);
-                    let _ = app.emit(&event_name, data.clone());
+                    let event_name = match msg_type {
+                        "assign_task" => "lan-task-assigned",
+                        "task_update" => "lan-task-updated",
+                        "task_status_change" => "lan-task-status-changed",
+                        "task_comment" => "lan-task-comment-added",
+                        "collaboration_started" => "lan-collaboration-started",
+                        "collaboration_ended" => "lan-collaboration-ended",
+                        _ => msg_type,
+                    };
+                    let _ = app.emit(event_name, data.clone());
                 }
             }
             _ => {}
@@ -656,7 +665,30 @@ impl LanService {
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "unnamed_file".to_string());
+
+        // Avoid overwriting existing files — add numbered suffix
         let save_path = PathBuf::from(receive_path).join(&file_name);
+        let save_path = if save_path.exists() {
+            let stem = PathBuf::from(&file_name)
+                .file_stem()
+                .map(|s| s.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let ext = PathBuf::from(&file_name)
+                .extension()
+                .map(|e| format!(".{}", e.to_string_lossy()))
+                .unwrap_or_default();
+            let mut counter = 1;
+            loop {
+                let candidate = PathBuf::from(receive_path)
+                    .join(format!("{}{}{}", stem, counter, ext));
+                if !candidate.exists() {
+                    break candidate;
+                }
+                counter += 1;
+            }
+        } else {
+            save_path
+        };
 
         let mut file = match fs::File::create(&save_path) {
             Ok(f) => f,
@@ -1053,7 +1085,7 @@ impl LanService {
         peer_id: &str,
         file_path: &str,
         file_name: &str,
-        _resume_offset: u64,
+        resume_offset: u64,
         file_id: Option<String>,
     ) -> Result<String, String> {
         if !self.is_running.load(Ordering::SeqCst) {
@@ -1067,7 +1099,8 @@ impl LanService {
             .map(|m| m.len())
             .map_err(|e| format!("读取文件失败: {}", e))?;
 
-        let file_id = file_id.unwrap_or_else(|| format!("file-{}-{}", chrono::Utc::now().timestamp_millis(), peer_id));
+        // Use UUID for unique file_id to avoid timestamp collision
+        let file_id = file_id.unwrap_or_else(|| format!("file-{}", uuid::Uuid::new_v4().to_string()));
 
         let nick = self.nick_name.lock().unwrap().clone();
         let transfer = FileTransfer {
@@ -1170,16 +1203,18 @@ impl LanService {
 
         // Start TCP file transfer in background thread
         let peer_addr = peer.address.clone();
+        let peer_tcp_port = peer.message_port; // Use same port as discovery for simplicity, or FILE_TRANSFER_PORT
         let fp = file_path.to_string();
         let fn_ = file_name.to_string();
         let fid = file_id.clone();
+        let ro = resume_offset;
         let transfers = Arc::clone(&self.file_transfers);
         let log = Arc::clone(&self.log_buffer);
         let send_app_handle = self.app_handle.lock().unwrap().clone();
         let db_conn = Arc::clone(&self.db_conn);
 
         thread::spawn(move || {
-            if let Err(e) = Self::do_send_file(&peer_addr, &fp, &fn_, &fid, &transfers, &log, &send_app_handle, &db_conn) {
+            if let Err(e) = Self::do_send_file(&peer_addr, peer_tcp_port, &fp, &fn_, &fid, ro, &transfers, &log, &send_app_handle, &db_conn) {
                 Self::add_log_static(&log, "error", &format!("File send failed: {}", e));
                 {
                     let mut tf = transfers.lock().unwrap();
@@ -1205,9 +1240,11 @@ impl LanService {
     /// Actually send a file over TCP to the peer
     fn do_send_file(
         peer_addr: &str,
+        _peer_tcp_port: u16,
         file_path: &str,
         file_name: &str,
         file_id: &str,
+        resume_offset: u64,
         transfers: &Arc<Mutex<HashMap<String, FileTransfer>>>,
         log: &Arc<Mutex<Vec<LanLogEntry>>>,
         app_handle: &Option<tauri::AppHandle>,
@@ -1220,22 +1257,29 @@ impl LanService {
         // Wait briefly for the peer to receive the file_start notification
         thread::sleep(Duration::from_millis(300));
 
-        // Connect to peer's TCP file transfer port
+        // Connect to peer's TCP file transfer port with 10-second timeout
         Self::add_log_static(log, "info", &format!("Connecting to {}:{} for file transfer", peer_addr, FILE_TRANSFER_PORT));
-        let mut stream = TcpStream::connect(format!("{}:{}", peer_addr, FILE_TRANSFER_PORT))
-            .map_err(|e| format!("TCP 连接失败: {}", e))?;
+        let mut stream = TcpStream::connect_timeout(
+            &format!("{}:{}", peer_addr, FILE_TRANSFER_PORT).parse().map_err(|e| format!("解析地址失败: {}", e))?,
+            Duration::from_secs(10),
+        ).map_err(|e| format!("TCP 连接超时: {}", e))?;
 
         // Send header: FILE <name> <size> <id>\n
         let header = format!("FILE {} {} {}\n", file_name, file_size, file_id);
-        stream.write_all(header.as_bytes())
+        stream
+            .write_all(header.as_bytes())
             .map_err(|e| format!("发送文件头失败: {}", e))?;
 
-        // Open and send file data
-        let mut file = fs::File::open(file_path)
-            .map_err(|e| format!("打开文件失败: {}", e))?;
+        // Open file and seek to resume_offset for resume support
+        let mut file = fs::File::open(file_path).map_err(|e| format!("打开文件失败: {}", e))?;
+        if resume_offset > 0 {
+            use std::io::Seek;
+            file.seek(std::io::SeekFrom::Start(resume_offset))
+                .map_err(|e| format!("seek 失败: {}", e))?;
+        }
 
         let mut buf = [0u8; 64 * 1024];
-        let mut sent = 0u64;
+        let mut sent = resume_offset;
         let mut last_emit_pct = 0i64;
         loop {
             let n = file.read(&mut buf).map_err(|e| format!("读取失败: {}", e))?;
