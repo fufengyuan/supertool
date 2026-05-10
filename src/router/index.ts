@@ -38,6 +38,11 @@ const routes = [
         component: () => import('../views/db/DBManager.vue'),
       },
       {
+        path: 'alert',
+        name: 'Alert',
+        component: () => import('../views/alert/AlertView.vue'),
+      },
+      {
         path: 'cicd',
         name: 'CICD',
         component: () => import('../views/cicd/CiCdConfig.vue'),

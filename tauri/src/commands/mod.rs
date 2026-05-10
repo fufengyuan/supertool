@@ -20,3 +20,4 @@ pub mod ssh;
 pub mod nginx;
 pub mod disk_cleaner;
 pub mod cli_installer;
+pub mod alert;

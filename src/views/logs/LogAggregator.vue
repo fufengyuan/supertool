@@ -165,6 +165,7 @@
             :key="line.id"
             class="flex gap-2 py-0.5 hover:bg-white/5"
             :class="{ 'bg-warning/10 border-l-4 border-warning': line.isMatch }"
+            style="content-visibility: auto; contain-intrinsic-size: 1.5rem;"
           >
             <span v-if="queryMode === 'search'" class="text-base-content/60 min-w-[50px] text-[11px] opacity-60 text-right">{{ line.lineNum || '' }}</span>
             <span class="min-w-[80px] font-medium" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
@@ -343,7 +344,7 @@ const presetForm = ref({
   logType: 'file' as 'file' | 'journalctl' | 'docker' | 'custom',
   logPath: '',
   keywordsInput: '',
-  maxLines: 500
+  maxLines: 2000
 })
 
 // 颜色映射
@@ -472,7 +473,7 @@ function togglePresetGroup(group: string) {
 // 预设管理
 function openNewPresetForm() {
   editingPreset.value = null
-  presetForm.value = { name: '', presetGroup: '未分组', serverIds: [], logType: 'file', logPath: '', keywordsInput: '', maxLines: 500 }
+  presetForm.value = { name: '', presetGroup: '未分组', serverIds: [], logType: 'file', logPath: '', keywordsInput: '', maxLines: 2000 }
   showPresetForm.value = true
 }
 
@@ -662,8 +663,8 @@ function scheduleFlush() {
       activeServers.value.add(data.serverId)
     }
     logLines.value.push(...newLines)
-    if (logLines.value.length > 5000) {
-      logLines.value = logLines.value.slice(-5000)
+    if (logLines.value.length > 2000) {
+      logLines.value = logLines.value.slice(-2000)
     }
     if (followMode.value) {
       nextTick(() => {
@@ -824,7 +825,7 @@ async function savePreset() {
 
     showPresetForm.value = false
     editingPreset.value = null
-    presetForm.value = { name: '', presetGroup: '未分组', serverIds: [], logType: 'file', logPath: '', keywordsInput: '', maxLines: 500 }
+    presetForm.value = { name: '', presetGroup: '未分组', serverIds: [], logType: 'file', logPath: '', keywordsInput: '', maxLines: 2000 }
     await loadPresets()
     toast.success('预设已保存')
   } catch (e: any) {

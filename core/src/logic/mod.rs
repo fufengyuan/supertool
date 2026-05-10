@@ -28,6 +28,7 @@ pub mod log_presets;
 pub mod cicd_sync;
 pub mod file_ops;
 pub mod ssh_ops;
+pub mod alert;
 
 use crate::db::Database;
 use serde_json::{json, Value};

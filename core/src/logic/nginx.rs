@@ -27,6 +27,9 @@ impl CoreService {
         server_id: &str,
         config_path: &str,
     ) -> Result<ApiResponse<String>, String> {
+        // Ensure SSH connection before operation
+        self.ensure_ssh_connected(server_id).await?;
+
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let result = self
@@ -36,9 +39,12 @@ impl CoreService {
             .await?;
         if !result.success {
             return Ok(ApiResponse::err(format!(
-                "Failed to read config: {}",
+                "读取配置失败: {}",
                 result.output.trim()
             )));
+        }
+        if result.output.trim().is_empty() {
+            return Ok(ApiResponse::err("配置文件为空".to_string()));
         }
         Ok(ApiResponse::ok(result.output))
     }
@@ -49,6 +55,9 @@ impl CoreService {
         server_id: &str,
         config_path: &str,
     ) -> Result<ApiResponse<NginxTestResult>, String> {
+        // Ensure SSH connection before operation
+        self.ensure_ssh_connected(server_id).await?;
+
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let result = self
@@ -72,6 +81,9 @@ impl CoreService {
         config_path: &str,
         content: &str,
     ) -> Result<ApiResponse<NginxDeployResult>, String> {
+        // Ensure SSH connection before operation
+        self.ensure_ssh_connected(server_id).await?;
+
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let ts = chrono::Utc::now().format("%Y%m%d%H%M%S%3f").to_string();
@@ -89,7 +101,7 @@ impl CoreService {
             .await?;
         if !backup_result.success {
             return Ok(ApiResponse::err(format!(
-                "Backup failed: {}",
+                "备份失败: {}",
                 backup_result.output.trim()
             )));
         }
@@ -118,9 +130,9 @@ impl CoreService {
                 })
                 .await?;
             return Ok(ApiResponse::err(format!(
-                "Write failed{}. Rollback: {}",
+                "写入失败: {}. 回滚: {}",
                 write_result.output.trim(),
-                if rb_result.success { "ok" } else { "ALSO FAILED" }
+                if rb_result.success { "成功" } else { "也失败" }
             )));
         }
 
@@ -145,9 +157,9 @@ impl CoreService {
                 })
                 .await?;
             return Ok(ApiResponse::err(format!(
-                "nginx -t failed: {}. Rollback: {}",
+                "nginx -t 检测失败: {}. 回滚: {}",
                 test_result.output.trim(),
-                if rb_result.success { "ok" } else { "ALSO FAILED" }
+                if rb_result.success { "成功" } else { "也失败" }
             )));
         }
 
@@ -166,7 +178,7 @@ impl CoreService {
             success: true,
             backup_path,
             message: format!(
-                "Config deployed. Reload: {}",
+                "配置已部署。重载: {}",
                 reload_result.output.trim()
             ),
         }))
@@ -179,6 +191,9 @@ impl CoreService {
         config_path: &str,
         backup_path: &str,
     ) -> Result<ApiResponse<String>, String> {
+        // Ensure SSH connection before operation
+        self.ensure_ssh_connected(server_id).await?;
+
         let sid = server_id.to_string();
         let safe_path = shell_escape_path(config_path);
         let safe_backup = shell_escape_path(backup_path);
@@ -192,7 +207,7 @@ impl CoreService {
         if result.output.contains("syntax is ok") || result.output.contains("test is successful") {
             Ok(ApiResponse::ok(result.output))
         } else {
-            Ok(ApiResponse::err(format!("Rollback failed: {}", result.output.trim())))
+            Ok(ApiResponse::err(format!("回滚失败: {}", result.output.trim())))
         }
     }
 
