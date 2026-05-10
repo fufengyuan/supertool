@@ -279,7 +279,7 @@
               <RedisManager
                 :connection-id="activeTab.connectionId"
                 :connection-name="activeTab.connectionName"
-                :connection="db.connections.value.find(c => c.id === activeTab.connectionId)"
+                :connection="db.connections.value.find(c => c.id === activeTab!.connectionId)"
                 :initial-key="activeTab.initialKey"
                 :redis-db-index="activeTab.redisDbIndex"
               />
@@ -290,7 +290,7 @@
               <RedisQueueManager
                 :connection-id="activeTab.connectionId"
                 :connection-name="activeTab.connectionName"
-                :connection="db.connections.value.find(c => c.id === activeTab.connectionId)"
+                :connection="db.connections.value.find(c => c.id === activeTab!.connectionId)"
                 :redis-db-index="activeTab.redisDbIndex"
               />
             </template>
@@ -455,7 +455,7 @@ function resetForm() {
 // Watch editing connection changes
 watch(() => db.editingConnection.value, (conn) => {
   if (conn) {
-    connectionForm.value = { ...conn }
+    connectionForm.value = { ...conn, user: conn.user || '' }
   } else {
     resetForm()
   }
@@ -570,7 +570,7 @@ async function handleExecute(sqlText: string) {
       sql: sqlText,
       connectionId: db.activeConnection.value!.id,
       success: false,
-      error: error.value,
+      error: error.value ?? undefined,
       executionTime: execTime
     })
   } finally {
@@ -803,7 +803,7 @@ async function loadTablePrimaryKeys() {
   const tab = activeTab.value
   try {
     console.log("[loadTablePrimaryKeys] called")
-    const res = await getTauriAPI().dbGetTablePrimaryKeys(tab.connectionId, tab.tableName || '', tab.dbName)
+    const res = await getTauriAPI().dbGetTablePrimaryKeys(tab.connectionId, tab.tableName || '', tab.dbName || '')
     if (res?.success && res.primaryKeys) {
       tablePrimaryKeyColumns.value = res.primaryKeys
     } else {
@@ -919,7 +919,7 @@ async function executeRedis() {
   try {
     if (!activeTab.value) return
     const connId = activeTab.value.connectionId
-    const result = await getTauriAPI().dbRedisExec(connId, activeTab.value.dbIndex || 0, cmd)
+    const result = await getTauriAPI().dbRedisExec(connId, activeTab.value.redisDbIndex || 0, cmd)
     if (result?.success) {
       const output = typeof result.result === 'object' ? JSON.stringify(result.result, null, 2) : String(result.result ?? '')
       redisMessages.value.push({ type: 'output', prefix: '', content: output })
