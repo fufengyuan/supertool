@@ -140,7 +140,7 @@ fn main() {
             // Initialize file logger (also under ~/.supertool/logs/)
             crate::system_logger::SystemLogger::init(&supertool_dir);
 
-            log::info!("[Main] === SuperTool Tauri starting ===");
+            log::info!("[Main] === SuperTool Tauri v{} starting ===", env!("CARGO_PKG_VERSION"));
 
             // Initialize SQLite database in unified directory
             let db_path = supertool_dir.join("supertool.db");
