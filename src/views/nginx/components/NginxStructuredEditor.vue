@@ -203,6 +203,8 @@
           </div>
         </div>
       </div>
+      </div>
+
       <!-- ===== Other blocks (events, map, geo, types, stream, etc.) ===== -->
       <div v-for="(block, bi) in otherDisplayBlocks" :key="'blk-' + bi"
         :class="searchDimClass(blockMatchesSearch(block, searchQuery.toLowerCase().trim()))"
