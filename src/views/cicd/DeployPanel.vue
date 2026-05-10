@@ -30,7 +30,7 @@
                     @click="selectDeployConfig(cfg)"
                   >
                     <span class="flex-1 font-medium truncate min-w-0">
-                      {{ cfg.name || getProjectName(cfg.projectId) }}
+                      {{ cfg.name || getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}
                     </span>
                     <span class="flex items-center gap-1 text-[11px] text-base-content/60 shrink-0">
                       <span class="font-mono text-[10px] bg-black/5 px-1.5 py-0.5 rounded-sm">{{ cfg.deployBranch || 'main' }}</span>
@@ -47,7 +47,7 @@
         </div>
 
         <!-- Config Details Card -->
-        <template v-if="config && project">
+        <template v-if="config && (project || selectedGitRepoObj)">
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
             <div class="flex flex-col gap-2.5">
@@ -56,8 +56,8 @@
                 <span class="text-sm text-base-content font-medium text-right">{{ config.name }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
-                <span class="text-xs font-medium text-base-content/60">项目</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ project.name }}</span>
+                <span class="text-xs font-medium text-base-content/60">仓库</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || project?.name || '-' }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">分支</span>
@@ -315,6 +315,7 @@ import type { Project, Server } from '../../types';
 interface CicdConfigEntry {
   id: string;
   projectId: string;
+  gitRepoId?: string;
   deployBranch: string;
   servers?: string;
   lastDeployedAt?: string | null;
@@ -364,6 +365,7 @@ const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const project = ref<Project | null>(null);
 const projects = ref<Project[]>([]);
+const gitRepos = ref<any[]>([]);
 const servers = ref<Server[]>([]);
 const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
 const logs = ref<DeployLog[]>([]);
@@ -449,6 +451,17 @@ function getProjectName(projectId: string) {
   return proj ? proj.name : 'Project ' + projectId;
 }
 
+function getGitRepoName(id?: string) {
+  if (!id) return '';
+  const repo = gitRepos.value.find((r: any) => r.id === id);
+  return repo ? repo.name : '';
+}
+
+const selectedGitRepoObj = computed(() => {
+  if (!config.value?.gitRepoId) return null;
+  return gitRepos.value.find((r: any) => r.id === config.value!.gitRepoId) || null;
+});
+
 function getBuildToolName(tool: unknown) {
   const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle' };
   return names[String(tool || '')] || '未设置';
@@ -520,16 +533,20 @@ let _cleanupDataChanged: (() => void) | undefined;
 onMounted(async () => {
     console.log("[components/cicd/DeployPanel.vue] mounted")
   try {
-    const [allConfigs, allProjects, allServers, allSGroups] = await Promise.all([
+    const [allConfigs, allProjects, allServers, allSGroups, allGitRepos] = await Promise.all([
       getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
       getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
       getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
       getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
+      getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
     ]);
     configs.value = (allConfigs as CicdConfigEntry[]) || [];
     projects.value = (allProjects as Project[]) || [];
     servers.value = (allServers as Server[]) || [];
     serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+    // Load git repos for gitRepoId resolution
+    const repoResult = allGitRepos as any;
+    gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
     // deploy state managed per-config via resetDeployState()
 
     if (configs.value.length > 0) {
@@ -591,8 +608,12 @@ async function loadConfigData(configId: string) {
   try {
     console.log("[loadConfigData] called")
     config.value = await getTauriAPI().getCicdConfigById(configId) as CicdConfigEntry | null;
-    if (config.value && config.value.projectId) {
-      project.value = projects.value.find((p) => p.id === config.value.projectId) || null;
+    if (config.value) {
+      if (config.value.projectId) {
+        project.value = projects.value.find((p) => p.id === config.value.projectId) || null;
+      } else {
+        project.value = null;
+      }
       const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
       const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
       // Enrich logs with project name and per-config info
@@ -600,9 +621,10 @@ async function loadConfigData(configId: string) {
       for (const c of configs.value) configMap.set(c.id, c)
       logs.value = rawLogs.map(log => {
         const logConfig = configMap.get(log.configId)
+        const repoName = logConfig?.gitRepoId ? getGitRepoName(logConfig.gitRepoId) : '';
         return {
           ...log,
-          projectName: project.value?.name || '',
+          projectName: repoName || project.value?.name || '',
           projectCategory: project.value?.category || '',
           configName: logConfig ? String(logConfig.name || '') : String(config.value?.name || ''),
           configGroupName: logConfig ? String(logConfig.groupName || '') : '',
