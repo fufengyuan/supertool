@@ -161,7 +161,7 @@ impl LanService {
             eprintln!("[LAN] Service already running, skipping start");
             return Ok(());
         }
-        eprintln!("[LAN] Starting LAN service...");
+        log::info!("[LAN] Starting LAN service...");
 
         // Setup receive path
         let receive_path = supertool_core::logic::data_dir::received_files_dir()
@@ -169,6 +169,7 @@ impl LanService {
             .to_string();
         *self.receive_path.lock().unwrap() = receive_path.clone();
         fs::create_dir_all(&receive_path).map_err(|e| format!("创建接收目录失败: {}", e))?;
+        log::info!("[LAN] Receive path: {}", receive_path);
 
         // Start UDP socket for message transport (kept for peer-to-peer messaging)
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), DISCOVERY_PORT);
@@ -189,30 +190,28 @@ impl LanService {
         let udp: UdpSocket = sock.into();
         let udp = Arc::new(udp);
         *self.udp_socket.lock().unwrap() = Some(Arc::clone(&udp));
-        self.add_log("info", &format!("UDP message socket on port {}", DISCOVERY_PORT));
+        log::info!("[LAN] UDP socket bound on 0.0.0.0:{}", DISCOVERY_PORT);
 
         let tcp_port = *self.tcp_port.lock().unwrap();
-        self.add_log("info", &format!("TCP file transfer on port {}", tcp_port));
+        log::info!("[LAN] TCP file transfer on port {}", tcp_port);
 
         self.is_running.store(true, Ordering::SeqCst);
         self.stop_flag.store(false, Ordering::SeqCst);
 
-        // Set local_ip for get_local_ip() API
-        if let Some(ip) = Self::detect_local_ip_for_mdns() {
-            *self.local_ip.lock().unwrap() = ip;
-        }
+        // Detect and set local IP
+        let local_ip = Self::detect_local_ip_for_mdns()
+            .unwrap_or_else(|| "127.0.0.1".to_string());
+        *self.local_ip.lock().unwrap() = local_ip.clone();
+        log::info!("[LAN] Detected local IP: {}", local_ip);
 
         // ===== mDNS service registration =====
         {
             let mdns_daemon =
                 ServiceDaemon::new().map_err(|e| format!("mDNS daemon 创建失败: {}", e))?;
             let instance_name = format!("supertool-{}", self.user_id.replace('_', "-"));
-            let local_ip = Self::detect_local_ip_for_mdns();
-            let ip_addr: IpAddr = match &local_ip {
-                Some(ip) => ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST)),
-                None => IpAddr::V4(Ipv4Addr::LOCALHOST),
-            };
+            let ip_addr: IpAddr = local_ip.parse().unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
             let host_name = format!("{}.local.", self.user_name.replace(' ', "-").replace('_', "-"));
+            log::info!("[LAN] mDNS registering: {} @ {}:{} (host={})", instance_name, ip_addr, DISCOVERY_PORT, host_name);
             let service = ServiceInfo::new(
                 "_supertool._tcp.local.",
                 &instance_name,
@@ -231,7 +230,7 @@ impl LanService {
                 .register(service)
                 .map_err(|e| format!("mDNS 服务注册失败: {}", e))?;
             *self.mdns_daemon.lock().unwrap() = Some(mdns_daemon);
-            self.add_log("info", &format!("mDNS service registered: {} @ {}:{}", instance_name, ip_addr, DISCOVERY_PORT));
+            log::info!("[LAN] mDNS service registered");
         }
 
         // ===== mDNS browse thread =====
@@ -429,6 +428,41 @@ impl LanService {
                 }
             }
         });
+
+        // ===== UDP broadcast heartbeat thread (mDNS fallback) =====
+        {
+            let hb_udp = Arc::clone(&udp);
+            let hb_stop = Arc::clone(&self.stop_flag);
+            let hb_user_id = self.user_id.clone();
+            let hb_user_name = self.user_name.clone();
+            let hb_avatar = self.avatar.lock().unwrap().clone();
+            let hb_status = self.my_status.lock().unwrap().clone();
+            let hb_version = self.version.clone();
+
+            thread::spawn(move || {
+                let broadcast_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                loop {
+                    if hb_stop.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    thread::sleep(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
+
+                    let hb = serde_json::json!({
+                        "type": "heartbeat",
+                        "userId": hb_user_id,
+                        "userName": hb_user_name,
+                        "avatar": hb_avatar,
+                        "status": hb_status,
+                        "version": hb_version,
+                        "messagePort": DISCOVERY_PORT,
+                    });
+                    if let Ok(msg) = serde_json::to_string(&hb) {
+                        let _ = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
+                    }
+                }
+            });
+            log::info!("[LAN] UDP heartbeat broadcast started (every {}s)", HEARTBEAT_INTERVAL_SECS);
+        }
 
         // ===== Heartbeat thread (peer timeout check only, no UDP broadcast) =====
         {
