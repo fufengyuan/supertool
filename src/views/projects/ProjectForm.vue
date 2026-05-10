@@ -44,7 +44,12 @@
         <span class="text-lg"><SvgIcon name="folder" :size="14" class="inline-block align-text-bottom" /></span>
         <span>{{ $t('projectForm.localGit') }} <span class="text-xs font-normal text-base-content/60">（仓库 1）</span></span>
       </div>
-      <GitRepoSelector v-model="formData.repoPath" @select="onRepoSelect" />
+      <select v-model="formData.repoPath" @change="onRepoSelect" class="select select-bordered w-full text-sm">
+        <option value="">— 从 Git 仓库管理中选择 —</option>
+        <option v-for="repo in managedRepos" :key="repo.id" :value="repo.path">
+          {{ repo.name }} — {{ repo.path }}
+        </option>
+      </select>
 
       <!-- 已选仓库标签 -->
       <div v-if="formData.repoPath" class="flex items-center gap-2 px-3.5 py-2 mt-3 bg-primary/10 border border-primary rounded-xl text-sm">
@@ -63,7 +68,12 @@
         <span>{{ $t('projectForm.localGit') }} <span class="text-xs font-normal text-base-content/60">（仓库 2 / 后端）</span></span>
       </div>
       <div class="text-xs italic text-base-content/60 mb-3">可选 — 适用于前后端分离项目</div>
-      <GitRepoSelector v-model="formData.repoPath2" @select="onRepoSelect2" />
+      <select v-model="formData.repoPath2" @change="onRepoSelect2" class="select select-bordered w-full text-sm">
+        <option value="">— 从 Git 仓库管理中选择 —</option>
+        <option v-for="repo in managedRepos" :key="repo.id" :value="repo.path">
+          {{ repo.name }} — {{ repo.path }}
+        </option>
+      </select>
 
       <div v-if="formData.repoPath2" class="flex items-center gap-2 px-3.5 py-2 mt-3 bg-primary/10 border border-primary rounded-xl text-sm">
         <SvgIcon name="github" size="14" class="text-primary flex-shrink-0" />
@@ -111,11 +121,10 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, onMounted } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import UiInput from '../../components/ui/Input.vue';
 import ColorPicker from './ColorPicker.vue';
-import GitRepoSelector from '../git/GitRepoSelector.vue';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useToast } from '../../composables/useToast';
 import { getTauriAPI } from '../../utils/tauri-api';
@@ -143,15 +152,38 @@ const branchesLoading = ref(false);
 const availableBranches2 = ref<string[]>([]);
 const branchesLoading2 = ref(false);
 
+// 从 Git 仓库管理功能加载已保存的仓库列表
+const managedRepos = ref<any[]>([]);
+
+const loadManagedRepos = async () => {
+  try {
+    const result = await getTauriAPI().getGitRepos();
+    if (result?.success && result?.data) {
+      managedRepos.value = result.data;
+    }
+  } catch {
+    // Git 仓库管理功能可能不可用，静默失败
+  }
+};
+onMounted(loadManagedRepos);
+
 // 选择仓库后加载分支
-const onRepoSelect = async (repo) => {
+const loadBranches = async (repoPath: string) => {
+  if (!repoPath) return [];
+  try {
+    return ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
+  } catch {
+    return [];
+  }
+};
+
+const onRepoSelect = async () => {
   formData.branch = '';
+  availableBranches.value = [];
+  if (!formData.repoPath) return;
   branchesLoading.value = true;
   try {
-    console.log("[views/projects/ProjectForm.vue] onRepoSelect() called")
-    availableBranches.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
-  } catch (error) {
-    handleError(error, { context: 'onRepoSelect', showToast: false });
+    availableBranches.value = await loadBranches(formData.repoPath);
   } finally {
     branchesLoading.value = false;
   }
@@ -163,14 +195,13 @@ const clearRepoSelection = () => {
   availableBranches.value = [];
 };
 
-const onRepoSelect2 = async (repo) => {
+const onRepoSelect2 = async () => {
   formData.branch2 = '';
+  availableBranches2.value = [];
+  if (!formData.repoPath2) return;
   branchesLoading2.value = true;
   try {
-    console.log("[views/projects/ProjectForm.vue] onRepoSelect2() called")
-    availableBranches2.value = ((await getTauriAPI().getGitBranches(repo.path)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
-  } catch (error) {
-    handleError(error, { context: 'onRepoSelect2', showToast: false });
+    availableBranches2.value = await loadBranches(formData.repoPath2);
   } finally {
     branchesLoading2.value = false;
   }
@@ -185,26 +216,22 @@ const clearRepoSelection2 = () => {
 const getRepoNameByPath = (path) => path.split('/').pop() || path;
 
 const loadBranchesForRepo = async (repoPath, currentBranch) => {
+  if (!repoPath) return;
   branchesLoading.value = true;
   try {
-    console.log("[views/projects/ProjectForm.vue] loadBranchesForRepo() called")
-    availableBranches.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
+    availableBranches.value = await loadBranches(repoPath);
     formData.branch = currentBranch || '';
-  } catch (error) {
-    handleError(error, { context: 'loadBranchesForRepo', showToast: false });
   } finally {
     branchesLoading.value = false;
   }
 };
 
 const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
+  if (!repoPath) return;
   branchesLoading2.value = true;
   try {
-    console.log("[views/projects/ProjectForm.vue] loadBranchesForRepo2() called")
-    availableBranches2.value = ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
+    availableBranches2.value = await loadBranches(repoPath);
     formData.branch2 = currentBranch || '';
-  } catch (error) {
-    handleError(error, { context: 'loadBranchesForRepo2', showToast: false });
   } finally {
     branchesLoading2.value = false;
   }
