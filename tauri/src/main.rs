@@ -165,7 +165,8 @@ fn main() {
             // LAN
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
-            log::info!("[LAN] 服务状态初始化完成（等待前端触发启动）");
+            // Auto-start LAN service for team collaboration
+            crate::commands::lan::auto_start_lan(app.handle());
 
             // Build custom application menu (mirrors Electron version)
             // Note: accelerators removed — on Linux GTK they produce

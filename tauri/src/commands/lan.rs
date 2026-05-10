@@ -19,6 +19,86 @@ pub fn init_lan_service_with_db(db_path: &str) {
     let _ = LAN_SERVICE.get_or_init(|| Arc::new(Mutex::new(None)));
 }
 
+/// Auto-start LAN service on app launch — reads/creates user identity from DB.
+pub fn auto_start_lan(app: &tauri::AppHandle) {
+    let db_path = match LAN_DB_PATH.get() {
+        Some(p) => p.clone(),
+        None => {
+            log::warn!("[LAN] auto_start_lan: DB path not set");
+            return;
+        }
+    };
+
+    // Check if already running
+    if let Some(svc) = get_lan_service() {
+        if let Ok(guard) = svc.lock() {
+            if guard.is_some() {
+                log::info!("[LAN] Already running, skip auto-start");
+                return;
+            }
+        }
+    }
+
+    // Open DB to read/create user identity
+    let conn = match rusqlite::Connection::open(&db_path) {
+        Ok(c) => c,
+        Err(e) => {
+            log::error!("[LAN] auto_start_lan: DB open failed: {}", e);
+            return;
+        }
+    };
+
+    // Read or create user identity
+    let user_id = match lan::get_lan_setting(&conn, "my_user_id") {
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            // Generate new user ID
+            let id = format!("user_{}", uuid::Uuid::new_v4().simple());
+            let _ = lan::save_lan_setting(&conn, "my_user_id", &id);
+            id
+        }
+        Err(e) => {
+            log::error!("[LAN] auto_start_lan: read user_id failed: {}", e);
+            return;
+        }
+    };
+
+    let user_name = match lan::get_lan_setting(&conn, "my_user_name") {
+        Ok(Some(name)) => name,
+        Ok(None) => {
+            // Use hostname as default name
+            let name = hostname::get().map(|h| h.to_string_lossy().to_string()).unwrap_or_else(|_| "User".to_string());
+            let _ = lan::save_lan_setting(&conn, "my_user_name", &name);
+            name
+        }
+        Err(e) => {
+            log::error!("[LAN] auto_start_lan: read user_name failed: {}", e);
+            return;
+        }
+    };
+
+    log::info!("[LAN] auto_start_lan: user_id={}, user_name={}", user_id, user_name);
+
+    // Create and start LAN service
+    let db_conn = Arc::new(Mutex::new(conn));
+    let lan = LanService::new(user_id, user_name, db_conn);
+    lan.set_app_handle(app.clone());
+
+    match lan.start() {
+        Ok(()) => {
+            if let Some(svc) = get_lan_service() {
+                if let Ok(mut guard) = svc.lock() {
+                    *guard = Some(lan);
+                }
+            }
+            log::info!("[LAN] auto_start_lan: success");
+        }
+        Err(e) => {
+            log::error!("[LAN] auto_start_lan: start failed: {}", e);
+        }
+    }
+}
+
 pub fn get_lan_service() -> Option<Arc<Mutex<Option<LanService>>>> {
     LAN_SERVICE.get().cloned()
 }
