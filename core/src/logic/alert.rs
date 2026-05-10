@@ -269,20 +269,19 @@ impl super::CoreService {
     pub async fn get_email_config(&self) -> Result<Option<alert::AlertEmailConfig>, String> {
         self.db_read(|conn| {
             let mut stmt = match conn.prepare(
-                "SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_use_tls, from_email, to_email, updated_at FROM alert_email_config WHERE id = 1"
+                "SELECT id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at FROM alert_email_config WHERE id = 1"
             ) {
                 Ok(s) => s,
                 Err(_) => return None,
             };
             match stmt.query_row([], |row| {
-                let smtp_use_tls: i64 = row.get("smtp_use_tls")?;
                 Ok(alert::AlertEmailConfig {
                     id: row.get("id")?,
                     smtp_host: row.get("smtp_host").ok(),
                     smtp_port: row.get("smtp_port")?,
                     smtp_username: row.get("smtp_username").ok(),
                     smtp_password: row.get("smtp_password").ok(),
-                    smtp_use_tls: smtp_use_tls == 1,
+                    smtp_encryption: row.get::<_, Option<String>>("smtp_encryption").ok().flatten().unwrap_or_else(|| "starttls".to_string()),
                     from_email: row.get("from_email").ok(),
                     to_email: row.get("to_email").ok(),
                     updated_at: row.get("updated_at")?,
@@ -299,14 +298,14 @@ impl super::CoreService {
     pub async fn save_email_config(&self, config: alert::AlertEmailConfig) -> Result<(), String> {
         self.db_write(|conn| {
             let _ = conn.execute(
-                "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_use_tls, from_email, to_email, updated_at)
+                "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
                  VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
                 rusqlite::params![
                     config.smtp_host,
                     config.smtp_port,
                     config.smtp_username,
                     config.smtp_password,
-                    if config.smtp_use_tls { 1 } else { 0 },
+                    config.smtp_encryption,
                     config.from_email,
                     config.to_email,
                 ],

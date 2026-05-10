@@ -5,6 +5,55 @@ use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
 use lettre::AsyncTransport;
 
+/// Build SMTP transport based on encryption mode
+fn build_smtp_transport(
+    host: &str,
+    port: u16,
+    encryption: &str,
+    username: &str,
+    password: &str,
+) -> Result<lettre::AsyncSmtpTransport<lettre::Tokio1Executor>, String> {
+    let creds = lettre::transport::smtp::authentication::Credentials::new(username.to_string(), password.to_string());
+    let builder = match encryption {
+        "ssl" => {
+            // Direct SSL (SMTPS, port 465)
+            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(host)
+                .port(port)
+                .credentials(creds)
+        }
+        "starttls" => {
+            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(host)
+                .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
+                .port(port)
+                .credentials(creds)
+        }
+        _ => {
+            // No encryption
+            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(host)
+                .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
+                .port(port)
+                .credentials(creds)
+        }
+    };
+    Ok(builder.build())
+}
+
+/// Build email message with multiple recipients (comma-separated)
+fn build_email(from: &str, to: &str, subject: &str, body: &str) -> Result<lettre::Message, String> {
+    let mut builder = lettre::message::Message::builder()
+        .from(from.parse().map_err(|e| format!("发件人邮箱格式错误: {}", e))?);
+    for addr in to.split(',') {
+        let addr = addr.trim();
+        if !addr.is_empty() {
+            builder = builder.to(addr.parse().map_err(|e| format!("收件人邮箱格式错误 '{}': {}", addr, e))?);
+        }
+    }
+    builder
+        .subject(subject)
+        .body(body.to_string())
+        .map_err(|e| format!("构建邮件失败: {}", e))
+}
+
 // ==================== Email Sending (Tauri layer) ====================
 
 /// Send an alert email using SMTP config from DB.
@@ -12,36 +61,17 @@ async fn send_alert_email(core: &CoreService, subject: &str, body: &str) -> Resu
     let config = core.get_email_config().await?
         .ok_or_else(|| "邮件配置未设置".to_string())?;
 
-    let smtp_host = config.smtp_host.ok_or_else(|| "SMTP 主机未配置".to_string())?;
-    let smtp_username = config.smtp_username.ok_or_else(|| "SMTP 用户名未配置".to_string())?;
-    let from_email = config.from_email.ok_or_else(|| "发件人邮箱未配置".to_string())?;
-    let to_email = config.to_email.ok_or_else(|| "收件人邮箱未配置".to_string())?;
-    let smtp_port = config.smtp_port as u16;
-    let smtp_use_tls = config.smtp_use_tls;
+    let host = config.smtp_host.ok_or_else(|| "SMTP 主机未配置".to_string())?;
+    let username = config.smtp_username.unwrap_or_default();
+    let from = config.from_email.ok_or_else(|| "发件人邮箱未配置".to_string())?;
+    let to = config.to_email.ok_or_else(|| "收件人邮箱未配置".to_string())?;
+    let port = config.smtp_port as u16;
+    let encryption = &config.smtp_encryption;
     let encrypted_pw = config.smtp_password.unwrap_or_default();
-    let smtp_password = try_decrypt_password(&encrypted_pw);
+    let password = try_decrypt_password(&encrypted_pw);
 
-    // Build email
-    let email = lettre::message::Message::builder()
-        .from(from_email.parse().map_err(|e| format!("发件人邮箱格式错误: {}", e))?)
-        .to(to_email.parse().map_err(|e| format!("收件人邮箱格式错误: {}", e))?)
-        .subject(subject)
-        .body(body.to_string())
-        .map_err(|e| format!("构建邮件失败: {}", e))?;
-
-    let creds = lettre::transport::smtp::authentication::Credentials::new(smtp_username, smtp_password);
-
-    let transport_builder = if smtp_use_tls {
-        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(&smtp_host)
-    } else {
-        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(&smtp_host)
-    };
-
-    let mailer = transport_builder
-        .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
-        .port(smtp_port)
-        .credentials(creds)
-        .build();
+    let email = build_email(&from, &to, subject, body)?;
+    let mailer = build_smtp_transport(&host, port, encryption, &username, &password)?;
 
     mailer.send(email).await
         .map_err(|e| format!("发送邮件失败: {}", e))?;
@@ -67,7 +97,7 @@ pub async fn test_email_config(
     smtp_password: Option<String>,
     from_email: String,
     to_email: String,
-    smtp_use_tls: bool,
+    smtp_encryption: String,
 ) -> Result<String, String> {
     log::info!("[Tauri CMD] test_email_config() called");
 
@@ -78,26 +108,8 @@ pub async fn test_email_config(
         pwd
     };
 
-    let email = lettre::message::Message::builder()
-        .from(from_email.parse().map_err(|e| format!("发件人邮箱格式错误: {}", e))?)
-        .to(to_email.parse().map_err(|e| format!("收件人邮箱格式错误: {}", e))?)
-        .subject("SuperTool 告警测试")
-        .body("这是一封测试邮件，来自 SuperTool 告警系统。".to_string())
-        .map_err(|e| format!("构建邮件失败: {}", e))?;
-
-    let creds = lettre::transport::smtp::authentication::Credentials::new(smtp_username.unwrap_or_default(), password);
-
-    let transport_builder = if smtp_use_tls {
-        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(&smtp_host)
-    } else {
-        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(&smtp_host)
-    };
-
-    let mailer = transport_builder
-        .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
-        .port(smtp_port as u16)
-        .credentials(creds)
-        .build();
+    let email = build_email(&from_email, &to_email, "SuperTool 告警测试", "这是一封测试邮件，来自 SuperTool 告警系统。")?;
+    let mailer = build_smtp_transport(&smtp_host, smtp_port as u16, &smtp_encryption, &smtp_username.unwrap_or_default(), &password)?;
 
     mailer.send(email).await
         .map_err(|e| format!("发送邮件失败: {}", e))?;
@@ -115,7 +127,7 @@ pub async fn save_email_config(
     smtp_password: Option<String>,
     from_email: Option<String>,
     to_email: Option<String>,
-    smtp_use_tls: bool,
+    smtp_encryption: String,
 ) -> Result<(), String> {
     log::info!("[Tauri CMD] save_email_config() called");
     let mut password = smtp_password.unwrap_or_default();
@@ -132,7 +144,7 @@ pub async fn save_email_config(
         smtp_port,
         smtp_username,
         smtp_password: Some(password),
-        smtp_use_tls: smtp_use_tls,
+        smtp_encryption: smtp_encryption,
         from_email,
         to_email,
         updated_at: String::new(),

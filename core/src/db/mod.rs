@@ -337,7 +337,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             smtp_port INTEGER DEFAULT 465,
             smtp_username TEXT,
             smtp_password TEXT,
-            smtp_use_tls INTEGER DEFAULT 1,
+            smtp_encryption TEXT DEFAULT 'starttls',
             from_email TEXT,
             to_email TEXT,
             updated_at TEXT DEFAULT (datetime('now'))
