@@ -68,13 +68,12 @@ export function log(message: string, level: LogLevelValue = LogLevel.INFO, conte
     consoleFn(`${prefix} ${entry.message}`);
   }
 
-  // 生产环境通过 Tauri API 写入文件 (仅 ERROR/WARN)
-  if (!isDev && level >= LogLevel.WARN) {
-    try {
-      getTauriAPI().writeLogFile?.(JSON.stringify(entry));
-    } catch {
-      // 忽略写入失败
-    }
+  // 所有级别都通过 Tauri API 写入日志文件
+  // 使用 writeSystemLog 而非 writeLogFile（后者不存在）
+  try {
+    getTauriAPI().writeSystemLog?.(entry.levelLabels, entry.context || 'FRONTEND', entry.message);
+  } catch {
+    // 忽略写入失败
   }
 
   return entry;
