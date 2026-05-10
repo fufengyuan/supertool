@@ -85,7 +85,7 @@ tauri_build() {
             pnpm tauri build --bundles dmg,app || pnpm tauri build
             ;;
         Linux)
-            # Linux: deb + rpm (appimage 需要 linuxdeploy 可能不存在)
+            # Linux: deb + rpm
             pnpm tauri build --bundles deb,rpm || pnpm tauri build
             ;;
         *)
@@ -254,17 +254,7 @@ build_linux_all() {
 
     mkdir -p "$PKG_OUTPUT"
 
-    # ── 1. 复制原生 .AppImage ──
-    local APPIMAGE=""
-    for d in target/release/bundle/appimage/*.AppImage; do
-        if [ -f "$d" ]; then APPIMAGE="$d"; break; fi
-    done
-    if [ -n "$APPIMAGE" ]; then
-        cp -f "$APPIMAGE" "$PKG_OUTPUT/"
-        echo "✅ AppImage → $PKG_OUTPUT/$(basename "$APPIMAGE")"
-    fi
-
-    # ── 2. 生成增强 .deb ──
+    # ── 生成增强 .deb ──
     local TAURI_DEB=""
     for d in target/release/bundle/deb/*.deb target/release/bundle/app/*.deb; do
         if [ -f "$d" ]; then TAURI_DEB="$d"; break; fi
