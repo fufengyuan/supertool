@@ -93,7 +93,11 @@ pub async fn openvpn_get_logs(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn openvpn_check_available() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_check_available() called");
-    Ok(serde_json::json!({ "available": true }))
+    let mgr = supertool_core::logic::openvpn::OpenVPNManager::new();
+    match mgr.check_available() {
+        Ok(version) => Ok(serde_json::json!({ "available": true, "version": version })),
+        Err(e) => Ok(serde_json::json!({ "available": false, "error": e })),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -102,8 +106,10 @@ pub async fn openvpn_validate_config(
     content: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_validate_config() called");
-    let valid = openvpn.validate_config(&content).is_ok();
-    Ok(serde_json::json!({ "valid": valid }))
+    match openvpn.validate_config(&content) {
+        Ok(()) => Ok(serde_json::json!({ "valid": true })),
+        Err(e) => Ok(serde_json::json!({ "valid": false, "error": e })),
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]

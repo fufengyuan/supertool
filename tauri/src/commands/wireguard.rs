@@ -94,8 +94,10 @@ pub async fn wireguard_connect(
     peer_public_key: String,
     peer_endpoint: String,
     preshared_key: Option<String>,
+    address: Option<String>,
+    mtu: Option<i64>,
 ) -> Result<serde_json::Value, String> {
-    wg.connect(&config_id, &config_name, &private_key, &peer_public_key, &peer_endpoint, preshared_key.as_deref())
+    wg.connect(&config_id, &config_name, &private_key, &peer_public_key, &peer_endpoint, preshared_key.as_deref(), address.as_deref(), mtu)
         .await
         .map(|_| serde_json::json!({ "success": true }))
 }

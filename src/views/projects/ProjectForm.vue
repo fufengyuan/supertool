@@ -226,18 +226,6 @@ const clearRepoSelection = () => {
   availableBranches.value = [];
 };
 
-const onRepoSelect2 = async () => {
-  formData.branch2 = '';
-  availableBranches2.value = [];
-  if (!formData.repoPath2) return;
-  branchesLoading2.value = true;
-  try {
-    availableBranches2.value = await loadBranches(formData.repoPath2);
-  } finally {
-    branchesLoading2.value = false;
-  }
-};
-
 const clearRepoSelection2 = () => {
   formData.repoPath2 = '';
   formData.branch2 = '';
