@@ -67,8 +67,8 @@
                   @click="selectConfig(cfg.id)"
                 >
                   <div class="flex items-center gap-1.5 mb-1.5">
-                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getProjectName(cfg.projectId) }}</span>
-                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ getProjectName(cfg.projectId) }}</span>
+                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
+                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ cfg.name }}{{ getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
                     <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
                     <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><SvgIcon name="lock" :size="12" class="inline-block align-text-bottom" /></span>
                   </div>
@@ -118,10 +118,10 @@
             </div>
 
             <!-- Pipeline Visualization -->
-            <div class="flex items-center gap-1 py-3" v-if="selectedProject">
-              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.projectId }">
+            <div class="flex items-center gap-1 py-3" v-if="selectedGitRepo || selectedProject">
+              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.gitRepoId || config.projectId }">
                 <SvgIcon name="folder" :size="18" />
-                <span class="text-xs font-medium text-base-content">{{ selectedProject.name }}</span>
+                <span class="text-xs font-medium text-base-content">{{ selectedGitRepo?.name || selectedProject?.name || '仓库' }}</span>
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.buildTool }">
@@ -156,11 +156,11 @@
               </div>
 
               <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">关联项目 <span class="text-error normal-case tracking-normal">*</span></label>
-                <select v-model="config.projectId" @change="onProjectChange" class="select select-bordered w-full bg-base-200 text-sm">
-                  <option value="">选择项目...</option>
-                  <option v-for="proj in projects" :key="proj.id" :value="proj.id">
-                    {{ proj.name }}
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">Git 仓库 <span class="text-error normal-case tracking-normal">*</span></label>
+                <select v-model="config.gitRepoId" @change="onGitRepoChange" class="select select-bordered w-full bg-base-200 text-sm">
+                  <option value="">选择 Git 仓库...</option>
+                  <option v-for="repo in gitRepos" :key="repo.id" :value="repo.id">
+                    {{ repo.name }} — {{ repo.path }}
                   </option>
                 </select>
               </div>
@@ -177,59 +177,24 @@
                 </div>
               </div>
 
-              <div class="mb-3.5" v-if="hasAnyGitSource">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署来源</label>
-                <div class="flex flex-col gap-1.5">
-                  <button
-                    v-for="source in gitSources"
-                    :key="source.key"
-                    class="flex items-center gap-2 px-3 py-2 border border-base-content/10 rounded-lg bg-base-200 cursor-pointer transition-all duration-150 text-left text-sm"
-                    :class="{ 'border-primary bg-primary/10': config.repoUrl === source.url }"
-                    @click="config.repoUrl = source.url"
-                  >
-                    <span class="text-base flex-shrink-0">{{ source.icon }}</span>
-                    <span class="font-semibold text-base-content flex-shrink-0 min-w-[70px]">{{ source.label }}</span>
-                    <span class="flex-1 font-mono text-xs text-base-content/60 overflow-hidden text-ellipsis whitespace-nowrap" :class="{ 'text-primary': config.repoUrl === source.url }" :title="source.url">{{ source.path }}</span>
-                  </button>
-                </div>
-                <div class="flex gap-1.5 mt-2">
-                  <input v-model="config.repoUrl" class="input input-bordered w-full bg-base-200 text-sm flex-1" readonly placeholder="选择上方来源后自动填充" />
-                  <button @click="copyGitUrl" class="btn btn-ghost btn-sm" :disabled="!config.repoUrl" title="复制"><SvgIcon name="clipboard" size="14" /></button>
-                </div>
-              </div>
-
               <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地项目目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">(可选，优先使用本地已构建产物)</span></label>
-                <div class="flex gap-1.5">
-                  <input v-model="config.localPath" class="input input-bordered w-full bg-base-200 text-xs flex-1" :placeholder="selectedProject?.repoPath || '选择本地项目目录...'" />
-                  <button @click="selectLocalDir" class="btn btn-ghost btn-sm" title="选择目录"><SvgIcon name="folder" size="14" /></button>
-                  <button v-if="config.localPath" @click="config.localPath = ''" class="btn btn-ghost btn-sm" title="清空"><SvgIcon name="x" size="14" /></button>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地项目目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">（根据所选仓库自动加载）</span></label>
+                <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
+                  <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
+                  <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>
+                  <button @click="openInFileManager(selectedGitRepo.path)" class="btn btn-ghost btn-xs px-1.5" title="打开文件夹"><SvgIcon name="externalLink" size="14" /></button>
                 </div>
-                <div v-if="config.localPath" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                  <SvgIcon name="zap" size="14" />
-                  <span>部署时将跳过 Git 克隆，直接使用本地目录进行构建</span>
+                <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
+                  <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
+                  <span>请先在上方选择 Git 仓库</span>
                 </div>
-                <template v-else>
-                  <div v-if="selectedProject?.repoPath" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                    <SvgIcon name="folder" size="14" />
-                    <span>前端目录：<code class="bg-base-200 px-1 rounded text-xs text-primary break-all">{{ selectedProject.repoPath }}</code>
-                      <button @click="config.localPath = selectedProject.repoPath" class="bg-primary text-white border-none px-1 py-0.5 rounded text-[10px] cursor-pointer ml-1 hover:opacity-90">使用</button>
-                    </span>
-                  </div>
-                  <div v-if="selectedProject?.repoPath2" class="flex items-start gap-1.5 mt-1.5 text-xs text-base-content/60 leading-tight">
-                    <SvgIcon name="folder" size="14" />
-                    <span>后端目录：<code class="bg-base-200 px-1 rounded text-xs text-primary break-all">{{ selectedProject.repoPath2 }}</code>
-                      <button @click="config.localPath = selectedProject.repoPath2" class="bg-primary text-white border-none px-1 py-0.5 rounded text-[10px] cursor-pointer ml-1 hover:opacity-90">使用</button>
-                    </span>
-                  </div>
-                </template>
               </div>
 
               <div class="mb-3.5">
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">部署分支</label>
                 <div class="relative flex items-center gap-1.5">
                   <SvgIcon name="gitBranch" size="14" class="absolute left-2.5 text-base-content/60 pointer-events-none z-[1]" />
-                  <select v-model="config.deployBranch" class="select select-bordered w-full bg-base-200 text-sm pl-8 pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-1" :disabled="!config.repoUrl && !config.localPath">
+                  <select v-model="config.deployBranch" class="select select-bordered w-full bg-base-200 text-sm pl-8 pr-8 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex-1" :disabled="!selectedGitRepo">
                     <option value="main">main</option>
                     <option value="master">master</option>
                     <option v-for="branch in availableBranches" :key="branch" :value="branch">{{ branch }}</option>
@@ -237,27 +202,15 @@
                   <button
                     @click="loadBranches"
                     class="btn btn-ghost btn-sm p-1.5 min-w-[32px] h-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    :disabled="!config.repoUrl && !config.localPath"
+                    :disabled="!selectedGitRepo"
                     title="刷新分支列表"
                   >
                     <SvgIcon name="refresh" size="14" :class="{ 'animate-spin': loadingBranches }" />
                   </button>
                 </div>
-                <div v-if="config.localPath && availableBranches.length === 0 && !loadingBranches" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
+                <div v-if="selectedGitRepo && availableBranches.length === 0 && !loadingBranches" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
                   <SvgIcon name="lightbulb" size="14" />
                   <span>点击右侧刷新按钮加载分支列表</span>
-                </div>
-              </div>
-
-              <!-- Project info card -->
-              <div v-if="selectedProject" class="mt-4 p-3 bg-base-200 rounded-lg border border-base-content/10">
-                <div class="flex gap-2 text-xs mb-1.5 last:mb-0" v-if="selectedProject.description">
-                  <span class="text-base-content/60 flex-shrink-0 min-w-[60px]">描述</span>
-                  <span class="text-base-content break-all">{{ selectedProject.description }}</span>
-                </div>
-                <div class="flex gap-2 text-xs mb-1.5 last:mb-0">
-                  <span class="text-base-content/60 flex-shrink-0 min-w-[60px]">仓库路径</span>
-                  <span class="text-base-content break-all">{{ selectedProject.repoPath || '未设置' }}</span>
                 </div>
               </div>
             </div>
@@ -766,9 +719,16 @@ if (typeof window !== 'undefined') {
 
 const cicd = useCicdConfig();
 
+// Git 仓库名称查找函数（供模板使用）
+function getGitRepoName(id?: string) {
+  if (!id) return '';
+  const repo = cicd.gitRepos.value.find((r: any) => r.id === id);
+  return repo ? repo.name : '';
+}
+
 // Destructure all refs, computed, and functions for template access
 const {
-  configs, projects, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
+  configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
   selectedServerId, deployServers, activeServerIdx, groups, expandedGroups,
   showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
   showGroupEditor, newGroupName,
@@ -777,18 +737,17 @@ const {
   defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
   filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
   projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
-  parentBuildAutoDetected, parentBuildDetectedPath,
+  parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
   openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
   makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
   testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
-  addModuleFromScan, addAllDetectedModules, autoDetectParentBuild,
   getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
   toggleGroup, renameGroup, addGroup, getServerLabel,
-  loadConfigs, createNewConfig, selectConfig, onProjectChange, selectLocalDir,
+  loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
   selectServer, copyGitUrl, loadBranches, testConnection,
   addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
-  flattenModuleTree, deleteModule,
-  saveConfig, deleteConfig, loadConfig, loadServers, loadProjects,
+  addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
+  saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
   defaultConfig,
 } = cicd;
 

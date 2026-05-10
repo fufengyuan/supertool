@@ -452,12 +452,8 @@ const deleteRepo = async (repo: GitRepo) => {
       return;
     }
     await api.deleteGitRepo(repo.id);
-    if (true) {
-      toast.success(`已删除仓库「${repo.name}」`);
-      await loadRepos();
-    } else {
-      toast.error(`删除失败: ${result.error}`);
-    }
+    toast.success(`已删除仓库「${repo.name}」`);
+    await loadRepos();
   } catch (error) {
     handleError(error, { context: 'deleteGitRepo' });
   }

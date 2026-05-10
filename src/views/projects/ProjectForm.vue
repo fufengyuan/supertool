@@ -145,7 +145,9 @@ const formData = reactive({
   repoPath: '',
   branch: '',
   repoPath2: '',
-  branch2: ''
+  branch2: '',
+  gitRepoId: '',
+  gitRepoId2: '',
 });
 const availableBranches = ref<string[]>([]);
 const branchesLoading = ref(false);
@@ -177,15 +179,44 @@ const loadBranches = async (repoPath: string) => {
   }
 };
 
+// 根据 gitRepoId 获取仓库详情
+const getRepoById = (id: string) => {
+  return managedRepos.value.find(r => r.id === id);
+};
+
+// 选择仓库后自动设置路径和加载分支
 const onRepoSelect = async () => {
   formData.branch = '';
   availableBranches.value = [];
-  if (!formData.repoPath) return;
+  if (!formData.repoPath) {
+    formData.gitRepoId = '';
+    return;
+  }
+  // 从 managedRepos 中找到匹配的仓库，设置 gitRepoId
+  const repo = managedRepos.value.find(r => r.path === formData.repoPath);
+  formData.gitRepoId = repo?.id || '';
   branchesLoading.value = true;
   try {
     availableBranches.value = await loadBranches(formData.repoPath);
   } finally {
     branchesLoading.value = false;
+  }
+};
+
+const onRepoSelect2 = async () => {
+  formData.branch2 = '';
+  availableBranches2.value = [];
+  if (!formData.repoPath2) {
+    formData.gitRepoId2 = '';
+    return;
+  }
+  const repo = managedRepos.value.find(r => r.path === formData.repoPath2);
+  formData.gitRepoId2 = repo?.id || '';
+  branchesLoading2.value = true;
+  try {
+    availableBranches2.value = await loadBranches(formData.repoPath2);
+  } finally {
+    branchesLoading2.value = false;
   }
 };
 
@@ -249,6 +280,8 @@ const initForm = () => {
     formData.branch = props.project.branch || '';
     formData.repoPath2 = props.project.repoPath2 || '';
     formData.branch2 = props.project.branch2 || '';
+    formData.gitRepoId = props.project.gitRepoId || '';
+    formData.gitRepoId2 = props.project.gitRepoId2 || '';
     if (props.project.repoPath) loadBranchesForRepo(props.project.repoPath, props.project.branch);
     if (props.project.repoPath2) loadBranchesForRepo2(props.project.repoPath2, props.project.branch2);
   } else {
@@ -262,7 +295,9 @@ const initForm = () => {
       repoPath: '',
       branch: '',
       repoPath2: '',
-      branch2: ''
+      branch2: '',
+      gitRepoId: '',
+      gitRepoId2: ''
     });
   }
   availableBranches.value = [];
