@@ -673,17 +673,33 @@ function openResourceModal(res?: any) {
     resourceForm.category = resourceCategories.includes(cat) ? cat : '__custom__'
     resourceForm.categoryCustom = resourceCategories.includes(cat) ? '' : cat
     resourceForm.name = res.name
-    resourceForm.expire_at = res.expireAt ?? res.expire_at ?? ''
+    resourceForm.expire_at = toDateInputValue(res.expireAt ?? res.expire_at)
     resourceForm.alert_advance_days = res.alertAdvanceDays ?? res.alert_advance_days ?? 30
   } else {
     editingResource.value = null
     resourceForm.name = ''
     resourceForm.category = ''
     resourceForm.categoryCustom = ''
-    resourceForm.expire_at = ''
+    const oneYearLater = new Date()
+    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
+    resourceForm.expire_at = oneYearLater.toISOString().slice(0, 10)
     resourceForm.alert_advance_days = 30
   }
   showResourceModal.value = true
+}
+
+function toDateInputValue(dateStr?: string | null): string {
+  if (!dateStr) return ''
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  // RFC 3339 or other format → extract date part
+  try {
+    const d = new Date(dateStr)
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().slice(0, 10)
+    }
+  } catch {}
+  return ''
 }
 
 function closeResourceModal() {
@@ -697,7 +713,7 @@ async function saveResource() {
     const data = {
       name: resourceForm.name,
       category: getCategory(resourceForm),
-      expireAt: resourceForm.expire_at,
+      expireAt: resourceForm.expire_at ? resourceForm.expire_at + 'T00:00:00+08:00' : null,
       alertAdvanceDays: resourceForm.alert_advance_days,
     }
     if (editingResource.value) {

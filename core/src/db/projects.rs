@@ -14,6 +14,8 @@ pub fn row_to_project(row: &rusqlite::Row<'_>) -> rusqlite::Result<Project> {
         branch2: row.get("branch2").ok(),
         git_url1: row.get("gitUrl1").ok(),
         git_url2: row.get("gitUrl2").ok(),
+        git_repo_id: row.get("gitRepoId").ok(),
+        git_repo_id2: row.get("gitRepoId2").ok(),
         category: row.get("category").ok(),
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
@@ -45,8 +47,8 @@ pub fn get_projects(db: &mut Database, only_active: bool) -> ApiResponse<Vec<Pro
 
 pub fn add_project(db: &mut Database, project: Project) -> ApiResponse<Project> {
     let result = db.conn_mut().execute(
-        "INSERT INTO projects (id, name, description, color, repoPath, branch, repoPath2, branch2, gitUrl1, gitUrl2, category, createdAt, updatedAt, archived)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        "INSERT INTO projects (id, name, description, color, repoPath, branch, repoPath2, branch2, gitUrl1, gitUrl2, gitRepoId, gitRepoId2, category, createdAt, updatedAt, archived)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
         params![
             project.id,
             project.name,
@@ -58,6 +60,8 @@ pub fn add_project(db: &mut Database, project: Project) -> ApiResponse<Project> 
             project.branch2,
             project.git_url1,
             project.git_url2,
+            project.git_repo_id,
+            project.git_repo_id2,
             project.category,
             project.created_at,
             project.updated_at,
@@ -72,7 +76,7 @@ pub fn add_project(db: &mut Database, project: Project) -> ApiResponse<Project> 
 
 pub fn update_project(db: &mut Database, project: Project) -> ApiResponse<Project> {
     let result = db.conn_mut().execute(
-        "UPDATE projects SET name=?2, description=?3, color=?4, repoPath=?5, branch=?6, repoPath2=?7, branch2=?8, gitUrl1=?9, gitUrl2=?10, category=?11, updatedAt=?12, archived=?13 WHERE id=?1",
+        "UPDATE projects SET name=?2, description=?3, color=?4, repoPath=?5, branch=?6, repoPath2=?7, branch2=?8, gitUrl1=?9, gitUrl2=?10, gitRepoId=?11, gitRepoId2=?12, category=?13, updatedAt=?14, archived=?15 WHERE id=?1",
         params![
             project.id,
             project.name,
@@ -84,6 +88,8 @@ pub fn update_project(db: &mut Database, project: Project) -> ApiResponse<Projec
             project.branch2,
             project.git_url1,
             project.git_url2,
+            project.git_repo_id,
+            project.git_repo_id2,
             project.category,
             project.updated_at,
             if project.archived { 1 } else { 0 }
