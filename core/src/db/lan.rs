@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
 // =================== LAN Tables ===================
@@ -13,6 +13,11 @@ pub fn init_lan_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             port INTEGER NOT NULL,
             lastSeen TEXT NOT NULL,
             isOnline INTEGER DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS lan_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS messages (
@@ -484,4 +489,24 @@ pub fn get_file_transfers_for_user(
         },
     )?;
     rows.collect()
+}
+
+// =================== LAN Settings (persist nickname/avatar) ===================
+
+pub fn save_lan_setting(conn: &Connection, key: &str, value: &str) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO lan_settings (key, value) VALUES (?1, ?2) \
+         ON CONFLICT(key) DO UPDATE SET value = ?2",
+        params![key, value],
+    )?;
+    Ok(())
+}
+
+pub fn get_lan_setting(conn: &Connection, key: &str) -> Result<Option<String>, rusqlite::Error> {
+    conn.query_row(
+        "SELECT value FROM lan_settings WHERE key = ?1",
+        params![key],
+        |row| row.get(0),
+    )
+    .optional()
 }
