@@ -227,6 +227,8 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
 import {
   summarizeLocationBlock,
   createDirective,
+  splitParamsSmart,
+  joinParamsDisplay,
   type ServerBlockSummary,
   type NginxDirective,
 } from '../utils/nginxParser'
@@ -430,21 +432,21 @@ function removeDirectiveFromBlock(block: any, dir: NginxDirective) {
 
 function updateOtherDirective(block: any, dir: NginxDirective, e: Event) {
   const val = (e.target as HTMLInputElement).value
-  dir.params = val ? val.split(/\s+/) : []
-  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + dir.params.join(' ') : '') + ';'
+  dir.params = val ? splitParamsSmart(val) : []
+  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + joinParamsDisplay(dir.params) : '') + ';'
   emitUpdate()
 }
 
 function updateOtherDirectiveName(block: any, dir: NginxDirective, e: Event) {
   dir.name = (e.target as HTMLInputElement).value
-  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + dir.params.join(' ') : '') + ';'
+  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + joinParamsDisplay(dir.params) : '') + ';'
   emitUpdate()
 }
 
 function updateOtherDirectiveParams(block: any, dir: NginxDirective, e: Event) {
   const val = (e.target as HTMLInputElement).value
-  dir.params = val ? val.split(/\s+/) : []
-  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + dir.params.join(' ') : '') + ';'
+  dir.params = val ? splitParamsSmart(val) : []
+  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + joinParamsDisplay(dir.params) : '') + ';'
   emitUpdate()
 }
 

@@ -1192,31 +1192,21 @@ fn build_deploy_config(
         })
         .collect();
     Ok(DeployConfig {
-        repo_url: if cicd_config.repo_url.as_deref().unwrap_or("").is_empty() {
-            // 从 gitRepoId 实时查询仓库 remote URL
-            cicd_config.git_repo_id.as_ref().and_then(|id| {
-                core.db_read(|conn| {
-                    supertool_core::db::git_repo::get_by_id(conn, id)
-                        .ok()
-                        .flatten()
-                }).ok().flatten()
-            }).and_then(|r| r.remote.or(Some(r.path))).unwrap_or_default()
-        } else {
-            cicd_config.repo_url.clone().unwrap_or_default()
-        },
+        repo_url: cicd_config.git_repo_id.as_ref().and_then(|id| {
+            core.db_read(|conn| {
+                supertool_core::db::git_repo::get_by_id(conn, id)
+                    .ok()
+                    .flatten()
+            }).ok().flatten()
+        }).and_then(|r| r.remote.or(Some(r.path))).unwrap_or_default(),
         branch: cicd_config.deploy_branch.clone(),
-        local_path: if cicd_config.local_path.as_deref().unwrap_or("").is_empty() {
-            // 从 gitRepoId 实时查询仓库 local path
-            cicd_config.git_repo_id.as_ref().and_then(|id| {
-                core.db_read(|conn| {
-                    supertool_core::db::git_repo::get_by_id(conn, id)
-                        .ok()
-                        .flatten()
-                }).ok().flatten()
-            }).map(|r| r.path)
-        } else {
-            cicd_config.local_path.clone()
-        },
+        local_path: cicd_config.git_repo_id.as_ref().and_then(|id| {
+            core.db_read(|conn| {
+                supertool_core::db::git_repo::get_by_id(conn, id)
+                    .ok()
+                    .flatten()
+            }).ok().flatten()
+        }).map(|r| r.path),
         build_tool: cicd_config.build_tool.clone(),
         build_command: cicd_config.build_command.clone(),
         build_path: cicd_config.build_path.clone(),
