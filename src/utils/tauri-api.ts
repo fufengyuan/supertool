@@ -504,9 +504,15 @@ export function useLanAPI() {
     lanSetAvatar: async (avatar: string): Promise<void> => {
       await tauriInvoke('lan_set_avatar', { avatar })
     },
-    lanShowOpenDialogForDirs: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('lan_show_open_dialog_for_dirs')
-      return res.success ? res.data : null
+    lanShowOpenDialogForDirs: async (): Promise<{ filePaths: string[]; canceled: boolean }> => {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+        title: '选择文件保存目录',
+      })
+      if (!selected) return { filePaths: [], canceled: true }
+      const paths = Array.isArray(selected) ? selected : [selected]
+      return { filePaths: paths, canceled: false }
     },
     lanSetReceivePath: async (path: string): Promise<void> => {
       await tauriInvoke('lan_set_receive_path', { path })
