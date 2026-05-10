@@ -5,12 +5,11 @@ use tauri::State;
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_git_repos(
     core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+) -> Result<Vec<db_git_repo::GitRepo>, String> {
     log::info!("[Tauri CMD] get_git_repos() called");
-    let repos = core.db_read(|conn| {
+    core.db_read(|conn| {
         db_git_repo::get_all(conn).map_err(|e| e.to_string())
-    })?;
-    Ok(serde_json::json!({ "success": true, "data": repos }))
+    })?
 }
 
 #[tauri::command(rename_all = "camelCase")]

@@ -1953,10 +1953,13 @@ export function getTauriAPI(): TauriAPI {
       return res
     },
     // Git Repo Management
-    getGitRepos: async (): Promise<any> => { return tauriCall('get_git_repos'); },
-    addGitRepo: async (repo: Record<string, unknown>): Promise<any> => { return tauriCall('add_git_repo', { data: repo }); },
-    updateGitRepo: async (id: number | string, repo: Record<string, unknown>): Promise<any> => { return tauriCall('update_git_repo', { id, data: repo }); },
-    deleteGitRepo: async (id: number | string): Promise<any> => { return tauriCall('delete_git_repo', { id }); },
+    getGitRepos: async (): Promise<any> => {
+      const res = await tauriInvoke<any>('get_git_repos')
+      return res.success ? (res.data ?? []) : []
+    },
+    addGitRepo: async (repo: Record<string, unknown>): Promise<any> => { return tauriInvoke('add_git_repo', { data: repo }); },
+    updateGitRepo: async (id: number | string, repo: Record<string, unknown>): Promise<any> => { return tauriInvoke('update_git_repo', { id, data: repo }); },
+    deleteGitRepo: async (id: number | string): Promise<any> => { return tauriInvoke('delete_git_repo', { id }); },
     validateGitRepoPath: async (path: string): Promise<any> => { return tauriCall('validate_repo_path', { path }); },
     showOpenDialogForDirs: async (): Promise<{ filePaths?: string[] }> => { 
       const selected = await open({ directory: true, multiple: false })

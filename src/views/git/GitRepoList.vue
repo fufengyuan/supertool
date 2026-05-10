@@ -267,11 +267,7 @@ const loadRepos = async () => {
       return;
     }
     const result = await api.getGitRepos();
-    if (result.success && result.data) {
-      repos.value = result.data;
-    } else if (result.error) {
-      toast.error(`加载仓库列表失败: ${result.error}`);
-    }
+    repos.value = Array.isArray(result) ? result : (result?.data ?? []);
   } catch (error) {
     handleError(error, { context: 'loadGitRepos' });
   }
@@ -428,21 +424,11 @@ const saveRepo = async () => {
     };
 
     if (editingRepo.value) {
-      const result = await api.updateGitRepo(editingRepo.value.id, repoData);
-      if (result.success) {
-        toast.success('仓库信息已更新');
-      } else {
-        toast.error(`更新失败: ${result.error}`);
-        return;
-      }
+      await api.updateGitRepo(editingRepo.value.id, repoData);
+      toast.success('仓库信息已更新');
     } else {
-      const result = await api.addGitRepo({ id: crypto.randomUUID(), ...repoData });
-      if (result.success) {
-        toast.success('仓库已添加');
-      } else {
-        toast.error(`添加失败: ${result.error}`);
-        return;
-      }
+      await api.addGitRepo({ id: crypto.randomUUID(), ...repoData });
+      toast.success('仓库已添加');
     }
 
     resetModal();
@@ -465,8 +451,8 @@ const deleteRepo = async (repo: GitRepo) => {
       toast.error('删除功能在当前环境不可用');
       return;
     }
-    const result = await api.deleteGitRepo(repo.id);
-    if (result.success) {
+    await api.deleteGitRepo(repo.id);
+    if (true) {
       toast.success(`已删除仓库「${repo.name}」`);
       await loadRepos();
     } else {
@@ -526,20 +512,15 @@ const addScannedRepo = async (repo: RepoScanResult) => {
   if (isRepoAlreadyAdded(repo.path)) return;
 
   const api = getTauriAPI();
-  const result = await api.addGitRepo({
+  await api.addGitRepo({
     id: crypto.randomUUID(),
     name: repo.name,
     path: repo.path,
     remote: undefined,
     branch: undefined,
   });
-
-  if (result.success) {
-    toast.success(`已添加仓库「${repo.name}」`);
-    await loadRepos();
-  } else {
-    toast.error(`添加失败: ${result.error}`);
-  }
+  toast.success(`已添加仓库「${repo.name}」`);
+  await loadRepos();
 };
 
 onMounted(async () => {
