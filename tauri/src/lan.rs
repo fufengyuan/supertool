@@ -127,11 +127,23 @@ pub struct LanService {
 
 impl LanService {
     pub fn new(user_id: String, user_name: String, db_conn: Arc<Mutex<Connection>>) -> Self {
+        // Load persisted nickname and avatar from DB
+        let nick_name = if let Ok(conn) = db_conn.lock() {
+            lan::get_lan_setting(&conn, &format!("nick_name:{}", user_id)).ok().flatten().unwrap_or_default()
+        } else {
+            String::new()
+        };
+        let avatar = if let Ok(conn) = db_conn.lock() {
+            lan::get_lan_setting(&conn, &format!("avatar:{}", user_id)).ok().flatten().unwrap_or_else(|| "😀".to_string())
+        } else {
+            "😀".to_string()
+        };
+
         Self {
             user_id: user_id.clone(),
             user_name,
-            nick_name: Mutex::new(String::new()),
-            avatar: Mutex::new("😀".to_string()),
+            nick_name: Mutex::new(nick_name),
+            avatar: Mutex::new(avatar),
             my_status: Mutex::new("online".to_string()),
             version: env!("CARGO_PKG_VERSION").to_string(),
             udp_socket: Mutex::new(None),
@@ -1020,11 +1032,17 @@ impl LanService {
     }
 
     pub fn set_nickname(&self, name: String) {
-        *self.nick_name.lock().unwrap() = name;
+        *self.nick_name.lock().unwrap() = name.clone();
+        if let Ok(conn) = self.db_conn.lock() {
+            let _ = lan::save_lan_setting(&conn, &format!("nick_name:{}", self.user_id), &name);
+        }
     }
 
     pub fn set_avatar(&self, emoji: String) {
-        *self.avatar.lock().unwrap() = emoji;
+        *self.avatar.lock().unwrap() = emoji.clone();
+        if let Ok(conn) = self.db_conn.lock() {
+            let _ = lan::save_lan_setting(&conn, &format!("avatar:{}", self.user_id), &emoji);
+        }
     }
 
     pub fn set_status(&self, status: String) {
