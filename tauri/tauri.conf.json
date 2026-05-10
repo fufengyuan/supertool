@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "./build.sh pre-build && vue-tsc --noEmit && vite build",
+    "beforeBuildCommand": "vue-tsc --noEmit && vite build",
     "frontendDist": "../dist"
   },
   "app": {
@@ -42,7 +42,7 @@
       "../resources/openvpn/linux-x64/openvpn",
       "../resources/openvpn/macos-arm64",
       "../resources/openvpn/macos-x64",
-      "../cli/target/release/stool",
+      "../target/release/stool",
       "../skills/**/*"
     ]
   }

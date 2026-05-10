@@ -368,8 +368,7 @@ case "$MODE" in
     ;;
   full)
     build_cli "$ARCH"
-    echo "📦 Building Tauri app..."
-    pnpm tauri build
+    tauri_build
     echo "✅ Done!"
     ;;
   pkg)
