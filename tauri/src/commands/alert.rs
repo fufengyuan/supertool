@@ -415,3 +415,49 @@ pub fn start_alert_scheduler(app_handle: tauri::AppHandle) {
 
     log::info!("[Alert] Background alert scheduler started (every 60 seconds)");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use supertool_core::encryption::try_decrypt_password;
+
+    #[tokio::test]
+    async fn test_send_real_email() {
+        let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+        let db_path = data_dir.join("supertool.db");
+        let db = supertool_core::db::Database::new(&db_path).expect("Failed to open DB");
+
+        let config = {
+            let mut stmt = db.conn().prepare(
+                "SELECT smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email FROM alert_email_config WHERE id = 1"
+            ).expect("Failed to prepare");
+
+            stmt.query_row([], |row| {
+                Ok((
+                    row.get::<_, String>(0).unwrap_or_default(),
+                    row.get::<_, i64>(1).unwrap_or(465),
+                    row.get::<_, String>(2).unwrap_or_default(),
+                    row.get::<_, String>(3).unwrap_or_default(),
+                    row.get::<_, String>(4).unwrap_or_else(|_| "ssl".to_string()),
+                    row.get::<_, String>(5).unwrap_or_default(),
+                    row.get::<_, String>(6).unwrap_or_default(),
+                ))
+            }).expect("No email config in DB — run the app and save email config first")
+        };
+
+        let (host, port, username, encrypted_pw, encryption, from, to) = config;
+        let password = try_decrypt_password(&encrypted_pw);
+
+        println!("Host: {host}, Port: {port}, Encryption: {encryption}");
+        println!("From: {from} → To: {to}");
+
+        let email = build_email(&from, &to, "SuperTool 单元测试", "这是一封自动化测试邮件，如果你收到说明 SMTP 配置正确。")
+            .expect("build_email failed");
+
+        let mailer = build_smtp_transport(&host, port as u16, &encryption, &username, &password)
+            .expect("build_smtp_transport failed");
+
+        mailer.send(email).await.expect("send email failed");
+        println!("✅ Email sent successfully!");
+    }
+}
