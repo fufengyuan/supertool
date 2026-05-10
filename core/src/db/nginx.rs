@@ -129,16 +129,28 @@ pub fn update_nginx_preset(db: &mut Database, preset: NginxPreset) -> ApiRespons
 }
 
 pub fn delete_nginx_preset(db: &mut Database, id: &str) -> ApiResponse<()> {
-    // Also delete associated config versions
-    let _ = db
-        .conn_mut()
-        .execute("DELETE FROM nginx_config_versions WHERE presetId = ?1", params![id]);
-    match db
-        .conn_mut()
-        .execute("DELETE FROM nginx_presets WHERE id = ?1", params![id])
-    {
-        Ok(_) => ApiResponse::ok(()),
-        Err(e) => ApiResponse::err(format!("Delete failed: {}", e)),
+    let conn = db.conn_mut();
+    let tx = match conn.transaction() {
+        Ok(tx) => tx,
+        Err(e) => return ApiResponse::err(format!("Transaction failed: {}", e)),
+    };
+    if let Err(e) = tx.execute(
+        "DELETE FROM nginx_config_versions WHERE presetId = ?1", params![id]
+    ) {
+        let _ = tx.rollback();
+        return ApiResponse::err(format!("Delete versions failed: {}", e));
+    }
+    match tx.execute("DELETE FROM nginx_presets WHERE id = ?1", params![id]) {
+        Ok(_) => {
+            if let Err(e) = tx.commit() {
+                return ApiResponse::err(format!("Commit failed: {}", e));
+            }
+            ApiResponse::ok(())
+        }
+        Err(e) => {
+            let _ = tx.rollback();
+            ApiResponse::err(format!("Delete failed: {}", e))
+        }
     }
 }
 

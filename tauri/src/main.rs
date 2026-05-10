@@ -278,6 +278,9 @@ fn main() {
             // 启动后台通知检查定时器（每 5 分钟检查到期任务）
             crate::tray_notification::start_notification_timer(app.handle().clone());
 
+            // 启动后台告警检查定时器（每分钟检查服务端口和资源到期）
+            crate::commands::alert::start_alert_scheduler(app.handle().clone());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -573,6 +576,19 @@ fn main() {
             // CLI installer commands
             commands::cli_installer::install_cli_and_skills,
             commands::cli_installer::check_cli_installed,
+            // Alert commands
+            commands::alert::get_email_config,
+            commands::alert::save_email_config,
+            commands::alert::get_alert_services,
+            commands::alert::add_alert_service,
+            commands::alert::update_alert_service,
+            commands::alert::delete_alert_service,
+            commands::alert::get_alert_resources,
+            commands::alert::add_alert_resource,
+            commands::alert::update_alert_resource,
+            commands::alert::delete_alert_resource,
+            commands::alert::get_alert_history,
+            commands::alert::trigger_alert_check,
             update_frequent_menu,
         ])
         .run(tauri::generate_context!())

@@ -179,6 +179,25 @@ export function useNginxConfig() {
     }
   }
 
+  // Load cached config from local DB (latest version)
+  const loadCachedConfig = async (presetId: string): Promise<boolean> => {
+    try {
+      const verResult = await getTauriAPI().getNginxConfigVersions(presetId)
+      versions.value = verResult?.data || verResult || []
+      const latest = versions.value[0]
+      if (latest?.content) {
+        configContent.value = latest.content
+        toast.success('已加载缓存配置')
+        return true
+      }
+      return false
+    } catch {
+      versions.value = []
+      configContent.value = ''
+      return false
+    }
+  }
+
   // Simple checksum
   const computeChecksum = async (content: string): Promise<string> => {
     const encoder = new TextEncoder()
@@ -193,5 +212,6 @@ export function useNginxConfig() {
     servers, serverGroups,
     loadPresets, loadServers, savePreset, deletePreset,
     fetchConfig, testConfig, deployConfig, rollbackToVersion,
+    loadCachedConfig,
   }
 }

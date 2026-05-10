@@ -78,13 +78,13 @@
                 :disabled="!currentPreset || loading"
                 class="btn btn-outline btn-sm"
               >
-                <SvgIcon name="lightbulb" size="14" />  预检测试
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 检测中...</template><template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
               </button>
               <button
                 @click="showDeployDialog = true"
                 :disabled="!currentPreset || !configContent || loading"
                 class="btn btn-primary btn-sm">
-                <SvgIcon name="rocket" size="14" /> 发布
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 发布中...</template><template v-else><SvgIcon name="rocket" size="14" /> 发布</template>
               </button>
             </div>
           </div>
@@ -93,9 +93,13 @@
         <!-- 视图模式切换 -->
         <div class="flex gap-1">
           <button
+            :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'visual' }]"
+            @click="viewMode = 'visual'"
+          ><SvgIcon name="grid" size="14" />  可视化编辑</button>
+          <button
             :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'raw' }]"
             @click="viewMode = 'raw'"
-          ><SvgIcon name="pencil" size="14" />  原始编辑</button>
+          ><SvgIcon name="file" size="14" />  查看原生配置</button>
         </div>
 
         <!-- 测试结果提示 -->
@@ -110,19 +114,20 @@
         </div>
 
         <!-- 配置编辑器 -->
-        <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1 min-h-[300px]">
           <textarea
             v-if="viewMode === 'raw'"
             v-model="configContent"
             :disabled="!currentPreset"
-            placeholder="选择预设后点击「获取配置」加载远程 Nginx 配置..."
+            placeholder="Nginx 原生配置文本..."
             class="textarea textarea-bordered font-mono min-h-[400px] w-full border-0 focus:outline-none rounded-xl p-4 resize-y"
             spellcheck="false"
           ></textarea>
-          <div v-else class="p-4">
-            <pre v-if="configContent" class="overflow-x-auto whitespace-pre-wrap text-sm">{{ configContent }}</pre>
-            <div v-else class="text-sm text-base-content/50">暂无配置内容</div>
-          </div>
+          <NginxStructuredEditor
+            v-else
+            v-model="configContent"
+            :key="currentPreset?.id"
+          />
         </div>
 
         <!-- 版本历史 -->
@@ -232,19 +237,21 @@ import { ref, computed, onMounted } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import NginxStructuredEditor from './components/NginxStructuredEditor.vue'
 
 const {
   loading, presets, currentPreset, configContent, versions, testResult,
   servers, serverGroups,
   loadPresets, loadServers, savePreset, deletePreset,
   fetchConfig, testConfig, deployConfig, rollbackToVersion,
+  loadCachedConfig,
 } = useNginxConfig()
 
 // UI state
 const showPresetForm = ref(false)
 const showDeployDialog = ref(false)
 const editingPreset = ref<any>(null)
-const viewMode = ref<'raw' | 'parsed'>('raw')
+const viewMode = ref<'raw' | 'visual'>('visual')
 const collapsedGroups = ref(new Set<string>())
 const deployComment = ref('')
 
@@ -311,16 +318,27 @@ async function onDeletePreset(id: string) {
   await deletePreset(id)
 }
 
-function onSelectPreset(preset: any) {
+async function onSelectPreset(preset: any) {
   currentPreset.value = preset
   configContent.value = ''
   versions.value = []
   testResult.value = null
+  viewMode.value = 'visual'
+  // Auto-load cached config from local DB
+  const hasCache = await loadCachedConfig(preset.id)
+  if (!hasCache) {
+    // No cached version — try fetching remote config automatically
+    await onFetchConfig()
+  }
 }
 
 async function onFetchConfig() {
   if (!currentPreset.value) return
   await fetchConfig(currentPreset.value)
+  // Auto-switch to visual mode
+  if (configContent.value) {
+    viewMode.value = 'visual'
+  }
 }
 
 async function onTestConfig() {
@@ -340,6 +358,9 @@ async function onDeploy() {
 async function onRollback(versionId: string) {
   if (!confirm('确定回滚到此版本？当前配置将被替换。')) return
   await rollbackToVersion(versionId)
+  if (configContent.value) {
+    viewMode.value = 'visual'
+  }
 }
 
 function formatDate(dateStr: string) {

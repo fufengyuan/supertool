@@ -11,6 +11,7 @@ pub mod openvpn;
 pub mod wireguard;
 pub mod lan;
 pub mod nginx;
+pub mod alert;
 pub use cicd::*;
 
 /// Initialize SQLite database with all required tables
@@ -329,6 +330,54 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_nginx_config_versions_preset ON nginx_config_versions(presetId);
         CREATE INDEX IF NOT EXISTS idx_nginx_config_versions_current ON nginx_config_versions(presetId, isCurrent);
         CREATE INDEX IF NOT EXISTS idx_nginx_presets_server ON nginx_presets(serverId);
+
+        CREATE TABLE IF NOT EXISTS alert_email_config (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            smtp_host TEXT,
+            smtp_port INTEGER DEFAULT 465,
+            smtp_username TEXT,
+            smtp_password TEXT,
+            smtp_use_tls INTEGER DEFAULT 1,
+            from_email TEXT,
+            to_email TEXT,
+            updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS alert_services (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            host TEXT,
+            port INTEGER,
+            check_interval INTEGER DEFAULT 60,
+            timeout_seconds INTEGER DEFAULT 5,
+            max_retries INTEGER DEFAULT 3,
+            enabled INTEGER DEFAULT 1,
+            last_check_at TEXT,
+            last_status INTEGER,
+            consecutive_failures INTEGER DEFAULT 0,
+            alert_sent_at TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS alert_resources (
+            id TEXT PRIMARY KEY,
+            name TEXT,
+            category TEXT,
+            expire_at TEXT,
+            alert_advance_days INTEGER DEFAULT 30,
+            enabled INTEGER DEFAULT 1,
+            last_alert_sent_at TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS alert_history (
+            id TEXT PRIMARY KEY,
+            type TEXT,
+            ref_id TEXT,
+            ref_name TEXT,
+            message TEXT,
+            sent_at TEXT DEFAULT (datetime('now'))
+        );
 
         "#,
     )?;
