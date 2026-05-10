@@ -74,7 +74,7 @@
       </div>
       <div class="flex gap-1.5">
         <button class="btn btn-ghost btn-sm" @click.stop="$emit('toggle-archive', project)" :title="project.archived ? '取消归档' : '归档'">
-          <template v-if="project.archived"><SvgIcon name="undo" :size="14" class="inline-block align-text-bottom" /></template><template v-else><SvgIcon name="folder" :size="14" /></template>
+          <template v-if="project.archived"><SvgIcon name="undo" :size="14" class="inline-block align-text-bottom" /></template><template v-else><SvgIcon name="archive" :size="14" /></template>
         </button>
         <button class="btn btn-ghost btn-sm text-error hover:bg-error hover:text-white" @click.stop="$emit('delete', project)" title="删除"><SvgIcon name="trash" :size="14" /></button>
         <button class="btn btn-primary btn-sm" @click.stop="$emit('edit', project)" title="编辑"><SvgIcon name="pencil" :size="14" /> </button>
