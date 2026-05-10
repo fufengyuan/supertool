@@ -21,3 +21,4 @@ pub mod nginx;
 pub mod disk_cleaner;
 pub mod cli_installer;
 pub mod alert;
+pub mod git_repo;

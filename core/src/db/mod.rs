@@ -12,6 +12,7 @@ pub mod wireguard;
 pub mod lan;
 pub mod nginx;
 pub mod alert;
+pub mod git_repo;
 pub use cicd::*;
 
 /// Initialize SQLite database with all required tables
@@ -389,6 +390,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add smtp_encryption column for databases created before v4.1
     let _ = conn.execute(
         "ALTER TABLE alert_email_config ADD COLUMN smtp_encryption TEXT NOT NULL DEFAULT 'starttls'",
+        [],
+    );
+    // Migration: add name column to git_repos for databases created before v4.1
+    let _ = conn.execute(
+        "ALTER TABLE git_repos ADD COLUMN name TEXT NOT NULL DEFAULT ''",
         [],
     );
     cicd_tables::init_cicd_tables(conn)?;
