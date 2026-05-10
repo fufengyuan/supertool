@@ -20,7 +20,15 @@ fn build_smtp_transport(
     let tls_params = TlsParameters::new(host.to_string())
         .map_err(|e| format!("创建 TLS 参数失败: {}", e))?;
 
-    let builder = match encryption {
+    // Auto-detect encryption from port: 465=SSL, 587=STARTTLS, 25=none
+    // Port takes priority over user config to prevent mismatches
+    let effective_enc = match port {
+        465 => "ssl",
+        587 => "starttls",
+        _ => encryption,
+    };
+
+    let builder = match effective_enc {
         "ssl" => {
             // Port 465: implicit TLS — TLS handshake happens before any SMTP dialogue
             lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(host)
