@@ -61,10 +61,48 @@ pub async fn get_email_config(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn test_email_config(
     core: State<'_, CoreService>,
-    config: AlertEmailConfig,
+    smtp_host: String,
+    smtp_port: i64,
+    smtp_username: Option<String>,
+    smtp_password: Option<String>,
+    from_email: String,
+    to_email: String,
+    smtp_use_tls: bool,
 ) -> Result<String, String> {
     log::info!("[Tauri CMD] test_email_config() called");
-    send_alert_email(&core, "SuperTool 告警测试", "这是一封测试邮件，来自 SuperTool 告警系统。").await?;
+
+    let pwd = smtp_password.unwrap_or_default();
+    let password = if pwd.starts_with("enc:") || pwd.starts_with("$argon") || (pwd.len() > 20 && pwd.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')) {
+        try_decrypt_password(&pwd)
+    } else {
+        pwd
+    };
+
+    let email = lettre::message::Message::builder()
+        .from(from_email.parse().map_err(|e| format!("发件人邮箱格式错误: {}", e))?)
+        .to(to_email.parse().map_err(|e| format!("收件人邮箱格式错误: {}", e))?)
+        .subject("SuperTool 告警测试")
+        .body("这是一封测试邮件，来自 SuperTool 告警系统。".to_string())
+        .map_err(|e| format!("构建邮件失败: {}", e))?;
+
+    let creds = lettre::transport::smtp::authentication::Credentials::new(smtp_username.unwrap_or_default(), password);
+
+    let transport_builder = if smtp_use_tls {
+        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(&smtp_host)
+    } else {
+        lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(&smtp_host)
+    };
+
+    let mailer = transport_builder
+        .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
+        .port(smtp_port as u16)
+        .credentials(creds)
+        .build();
+
+    mailer.send(email).await
+        .map_err(|e| format!("发送邮件失败: {}", e))?;
+
+    log::info!("[Alert] Test email sent successfully");
     Ok("测试邮件发送成功".to_string())
 }
 

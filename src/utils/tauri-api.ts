@@ -1093,7 +1093,7 @@ export function useAlertAPI() {
   return {
     getEmailConfig: async (): Promise<any> => tauriCall('get_email_config'),
     saveEmailConfig: async (config: any): Promise<any> => tauriCall('save_email_config', { config }),
-    testEmailConfig: async (config: any): Promise<any> => tauriCall('test_email_config', { config }),
+    testEmailConfig: async (config: any): Promise<any> => tauriCall('test_email_config', { ...config }),
     getAlertServices: async (): Promise<any> => tauriCall('get_alert_services'),
     addAlertService: async (service: any): Promise<any> => tauriCall('add_alert_service', { service }),
     updateAlertService: async (service: any): Promise<any> => tauriCall('update_alert_service', { service }),
