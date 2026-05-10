@@ -13,24 +13,36 @@ fn build_smtp_transport(
     username: &str,
     password: &str,
 ) -> Result<lettre::AsyncSmtpTransport<lettre::Tokio1Executor>, String> {
+    use lettre::transport::smtp::client::Tls;
+    use lettre::transport::smtp::client::TlsParameters;
+
     let creds = lettre::transport::smtp::authentication::Credentials::new(username.to_string(), password.to_string());
+    let tls_params = TlsParameters::new(host.to_string())
+        .map_err(|e| format!("创建 TLS 参数失败: {}", e))?;
+
     let builder = match encryption {
-        "ssl" | "starttls" => {
-            // SSL (port 465) and STARTTLS (port 587) both use starttls_relay
-            // which provides proper TLS handshake. Pure SSL via builder_dangerous
-            // is not available in the current lettre version (Tls::Wrapper is private).
+        "ssl" => {
+            // Port 465: implicit TLS — TLS handshake happens before any SMTP dialogue
+            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(host)
+                .port(port)
+                .tls(Tls::Wrapper(tls_params))
+                .timeout(Some(std::time::Duration::from_secs(30)))
+                .credentials(creds)
+        }
+        "starttls" => {
+            // Port 587: STARTTLS — plain connection first, upgrades to TLS via STARTTLS command
             lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::starttls_relay(host)
                 .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
                 .port(port)
-                .timeout(Some(std::time::Duration::from_secs(10)))
+                .timeout(Some(std::time::Duration::from_secs(30)))
                 .credentials(creds)
         }
         _ => {
-            // No encryption
-            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(host)
-                .map_err(|e| format!("创建 SMTP 传输失败: {}", e))?
+            // No encryption (port 25)
+            lettre::AsyncSmtpTransport::<lettre::Tokio1Executor>::builder_dangerous(host)
                 .port(port)
-                .timeout(Some(std::time::Duration::from_secs(10)))
+                .tls(Tls::None)
+                .timeout(Some(std::time::Duration::from_secs(30)))
                 .credentials(creds)
         }
     };
