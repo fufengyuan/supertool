@@ -10,6 +10,7 @@ export interface CicdConfigEntry {
   id: string;
   name?: string;
   projectId: string;
+  gitRepoId?: string;
   deployBranch?: string;
   buildTool?: string;
   updatedAt?: string;
@@ -70,6 +71,7 @@ export interface ConfigForm {
   name: string;
   localPath: string;
   projectId: string;
+  gitRepoId: string;
   repoUrl: string;
   deployBranch: string;
   buildTool: string;
@@ -105,6 +107,7 @@ export function useCicdConfig() {
   // ─── Data ───
   const configs = ref<CicdConfigEntry[]>([]);
   const projects = ref<Project[]>([]);
+  const gitRepos = ref<any[]>([]);
   const servers = ref<Server[]>([]);
   const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
   const selectedConfigId = ref('');
@@ -207,7 +210,7 @@ export function useCicdConfig() {
 
   function defaultConfig(): ConfigForm {
     return {
-      id: null, name: '', localPath: '', projectId: '', repoUrl: '', deployBranch: 'main',
+      id: null, name: '', localPath: '', projectId: '', gitRepoId: '', repoUrl: '', deployBranch: 'main',
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
@@ -660,7 +663,7 @@ export function useCicdConfig() {
 
   async function saveConfig() {
     try {
-      if (!config.value.projectId) { toast.error('请选择关联项目'); return; }
+      if (!config.value.gitRepoId && !config.value.projectId) { toast.error('请选择 Git 仓库或关联项目'); return; }
       if (!deployServers.value.some(s => s.serverId)) { toast.error('请选择服务器'); return; }
       const now = new Date().toISOString();
       const serversJson = deployServers.value.length > 0 ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir }))) : null;
@@ -855,9 +858,34 @@ export function useCicdConfig() {
     catch (error) { handleError(error, { context: 'loadProjects' }); }
   }
 
+  const selectedGitRepo = computed(() => gitRepos.value.find(r => r.id === config.value.gitRepoId) || null);
+
+  async function loadGitRepos() {
+    try {
+      const result = await getTauriAPI().getGitRepos();
+      if (result?.success && result?.data) gitRepos.value = result.data;
+    } catch {}
+  }
+
+  function onGitRepoChange() {
+    const repo = selectedGitRepo.value;
+    if (!repo) return;
+    config.value.repoUrl = repo.remote || repo.path;
+    config.value.localPath = repo.path;
+    config.value.deployBranch = repo.branch || config.value.deployBranch;
+    availableBranches.value = [];
+    scannedModules.value = [];
+    showModuleTree.value = false;
+    expandedTreeNodes.value = [];
+    if (repo.path) {
+      scanLocalProject(repo.path);
+      loadBranches();
+    }
+  }
+
   return {
     // State
-    configs, projects, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
+    configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
     selectedServerId, deployServers, activeServerIdx, groups, expandedGroups,
     showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
     showGroupEditor, newGroupName,
@@ -867,18 +895,18 @@ export function useCicdConfig() {
     // Computed
     filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
     projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
-    parentBuildAutoDetected, parentBuildDetectedPath,
+    parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
     // Functions
     openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
     makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
     testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
     getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
     toggleGroup, renameGroup, addGroup, getServerLabel,
-    loadConfigs, createNewConfig, selectConfig, onProjectChange, selectLocalDir,
+    loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
     selectServer, copyGitUrl, loadBranches, testConnection,
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
-    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects,
+    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
     defaultConfig,
   };
 }
