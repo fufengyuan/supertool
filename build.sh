@@ -76,8 +76,22 @@ build_cli() {
 
 # ─── 通用：Tauri 构建 ───
 tauri_build() {
-    echo "🔨 Building Tauri app (all formats)..."
-    pnpm tauri build
+    echo "🔨 Building Tauri app..."
+    local os
+    os="$(uname)"
+    case "$os" in
+        Darwin)
+            # macOS: dmg + app (pkg 由后续步骤处理)
+            pnpm tauri build --bundles dmg,app || pnpm tauri build
+            ;;
+        Linux)
+            # Linux: deb + rpm (appimage 需要 linuxdeploy 可能不存在)
+            pnpm tauri build --bundles deb,rpm || pnpm tauri build
+            ;;
+        *)
+            pnpm tauri build
+            ;;
+    esac
     echo "✅ Tauri build complete"
 }
 
