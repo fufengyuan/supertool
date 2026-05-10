@@ -152,11 +152,16 @@ pub async fn save_email_config(
     log::info!("[Tauri CMD] save_email_config() called");
     let mut password = smtp_password.unwrap_or_default();
     // Encrypt password if it's plaintext
+    // Known encrypted formats: "enc:" prefix (legacy), "$argon" (Argon2), or our AES-256-GCM base64
+    // Our encrypted format: base64 of 12-byte nonce + ciphertext, typically 40-100 chars
+    // Safe approach: try to decrypt. If it succeeds and differs from input, it was already encrypted.
     if !password.is_empty() && !password.starts_with("enc:") && !password.starts_with("$argon") {
-        let maybe_encrypted = password.len() > 20 && password.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=');
-        if !maybe_encrypted {
+        let decrypted = try_decrypt_password(&password);
+        if decrypted == password {
+            // Decryption returned same string → it's plaintext → encrypt it
             password = encrypt_password(&password).map_err(|e| e.to_string())?;
         }
+        // else: already encrypted, keep as-is
     }
     let config = AlertEmailConfig {
         id: 1,
