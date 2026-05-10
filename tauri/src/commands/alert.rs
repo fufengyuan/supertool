@@ -59,6 +59,16 @@ pub async fn get_email_config(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub async fn test_email_config(
+    core: State<'_, CoreService>,
+    config: AlertEmailConfig,
+) -> Result<String, String> {
+    log::info!("[Tauri CMD] test_email_config() called");
+    send_alert_email(&core, "SuperTool 告警测试", "这是一封测试邮件，来自 SuperTool 告警系统。").await?;
+    Ok("测试邮件发送成功".to_string())
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub async fn save_email_config(
     core: State<'_, CoreService>,
     config: AlertEmailConfig,
