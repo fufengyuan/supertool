@@ -1460,7 +1460,7 @@ export interface TauriAPI {
   validateGitRepoPath: (path: string) => Promise<any>
   showOpenDialogForDirs: () => Promise<any>
   showOpenDialog: (options?: Record<string, unknown>) => Promise<any>
-  getGitCommits: (path: string, since?: string) => Promise<any>
+  getGitCommits: (path: string, since?: string) => Promise<any>,
   scanLocalGitRepos: (directories: string[]) => Promise<any>
   getGitBranches: (path: string) => Promise<any>
   // Calculator
@@ -1952,11 +1952,11 @@ export function getTauriAPI(): TauriAPI {
       if (!res.success) throw new Error(res.error)
       return res
     },
-    // Git Repo Management stubs
-    getGitRepos: async (): Promise<any> => { return { success: true, data: [] }; },
-    addGitRepo: async (_repo: Record<string, unknown>): Promise<any> => { return { success: true }; },
-    updateGitRepo: async (_id: number | string, _repo: Record<string, unknown>): Promise<any> => { return { success: true }; },
-    deleteGitRepo: async (_id: number | string): Promise<any> => { return { success: true }; },
+    // Git Repo Management
+    getGitRepos: async (): Promise<any> => { return tauriCall('get_git_repos'); },
+    addGitRepo: async (repo: Record<string, unknown>): Promise<any> => { return tauriCall('add_git_repo', { data: repo }); },
+    updateGitRepo: async (id: number | string, repo: Record<string, unknown>): Promise<any> => { return tauriCall('update_git_repo', { id, data: repo }); },
+    deleteGitRepo: async (id: number | string): Promise<any> => { return tauriCall('delete_git_repo', { id }); },
     validateGitRepoPath: async (path: string): Promise<any> => { return tauriCall('validate_repo_path', { path }); },
     showOpenDialogForDirs: async (): Promise<{ filePaths?: string[] }> => { 
       const selected = await open({ directory: true, multiple: false })

@@ -86,7 +86,7 @@
             编辑
           </button>
           <button class="btn btn-ghost btn-sm gap-1" @click="toggleArchive(project)" :title="project.archived ? '恢复' : '归档'">
-            <SvgIcon name="archive" :size="14" />
+            <SvgIcon :name="project.archived ? 'undo' : 'archive'" :size="14" />
             {{ project.archived ? '恢复' : '归档' }}
           </button>
           <button class="btn btn-ghost btn-sm gap-1 text-error hover:bg-error/10 hover:text-error" @click="handleDelete(project.id)" title="删除">

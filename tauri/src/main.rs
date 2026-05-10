@@ -599,6 +599,10 @@ fn main() {
             commands::alert::delete_alert_resource,
             commands::alert::get_alert_history,
             commands::alert::trigger_alert_check,
+            commands::git_repo::get_git_repos,
+            commands::git_repo::add_git_repo,
+            commands::git_repo::update_git_repo,
+            commands::git_repo::delete_git_repo,
             update_frequent_menu,
         ])
         .run(tauri::generate_context!())
