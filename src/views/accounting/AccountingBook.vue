@@ -108,10 +108,27 @@
     </div>
 
     <!-- Monthly Trend Chart -->
-    <div v-if="trendData.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-3 shrink-0">
-      <div class="text-xs font-semibold text-base-content/60 mb-2">
+    <div class="bg-base-100 border border-base-content/10 rounded-xl p-3 shrink-0">
+      <div class="text-xs font-semibold text-base-content/60 mb-2 flex items-center justify-between">
         <span><SvgIcon name="trendingUp" :size="14" class="inline-block align-text-bottom" /> 月度趋势（12个月）</span>
+        <span v-if="trendLoading" class="loading loading-spinner loading-xs"></span>
       </div>
+
+      <!-- Loading state -->
+      <div v-if="trendLoading" class="text-center py-8 text-base-content/40 text-sm">
+        <SvgIcon name="trendingUp" size="32" class="mx-auto mb-2 text-base-content/20" />
+        <p>加载趋势数据...</p>
+      </div>
+
+      <!-- Empty state -->
+      <div v-else-if="trendData.length === 0" class="text-center py-8 text-base-content/40 text-sm">
+        <SvgIcon name="trendingUp" size="32" class="mx-auto mb-2 text-base-content/20" />
+        <p>暂无足够数据生成趋势图</p>
+        <p class="text-[10px] mt-1">需要至少 2 个月的数据</p>
+      </div>
+
+      <!-- Chart -->
+      <template v-else>
       <div class="w-full overflow-x-auto" ref="trendChartRef">
         <svg :width="trendChartWidth" :height="200" class="block min-w-[500px]">
           <!-- Grid lines -->
@@ -147,6 +164,7 @@
           <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-error/30 inline-block"></span>支出柱状</span>
         </div>
       </div>
+      </template>
     </div>
 
     <!-- Filter Bar -->
@@ -636,6 +654,22 @@
         </div>
       </div>
     </Teleport>
+
+    <!-- 通用确认对话框 -->
+    <dialog ref="confirmDialog" class="modal">
+      <div class="modal-box max-w-sm">
+        <h3 class="text-lg font-bold flex items-center gap-2">
+          <SvgIcon name="alertTriangle" size="18" class="text-warning" />
+          <span>确认操作</span>
+        </h3>
+        <p class="py-3 text-sm">{{ confirmMessage }}</p>
+        <div class="modal-action">
+          <button class="btn btn-error btn-sm" @click="executeConfirm"><SvgIcon name="trash" size="14" /> 确认</button>
+          <button class="btn btn-sm" @click="cancelConfirm">取消</button>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button @click="cancelConfirm">close</button></form>
+    </dialog>
   </div>
 </template>
 
@@ -654,7 +688,7 @@ const {
   previewLoading, previewGallery, previewIndex, showCategoryManager,
   newCategory, showBudgetManager, budgets, newBudget, budgetAlerts,
   showTemplates, showTemplateEditor, editingTemplate, templates, templateForm,
-  trendData, trendChartRef, trendChartWidth,
+  trendData, trendChartRef, trendChartWidth, trendLoading,
   formCategories, filteredCategories, incomeCategories, expenseCategories,
   topCategories, totalPages, formValid,
   loadData, loadStats, loadBudgets, loadCategories, loadTemplates, loadTrend,
@@ -669,6 +703,7 @@ const {
   debounceSearch, isImage, getFileUrl, statusLabel,
   canApprove, canReimburse, goToPage, closeRecordForm, handleDrop, triggerFileInput,
   fileToBase64, getEnterpriseCategories, getDateRange, getPreviousPeriodRange,
-  addNewCategory, addNewBudget,
+  addNewCategory, addNewBudget, initTrendResizeObserver,
+  confirmDialog, confirmMessage, executeConfirm, cancelConfirm, showConfirm,
 } = ac
 </script>
