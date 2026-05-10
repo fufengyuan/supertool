@@ -69,9 +69,14 @@ export function log(message: string, level: LogLevelValue = LogLevel.INFO, conte
   }
 
   // 所有级别都通过 Tauri API 写入日志文件
-  // 使用 writeSystemLog 而非 writeLogFile（后者不存在）
+  // 自动从消息提取模块名（如 "[Layout] xxx" → Layout），确保日志可追溯
   try {
-    getTauriAPI().writeSystemLog?.(entry.levelLabels, entry.context || 'FRONTEND', entry.message);
+    let moduleName = entry.context;
+    if (!moduleName) {
+      const match = entry.message.match(/^\[([^\]]+)\]/);
+      moduleName = match ? match[1] : 'FRONTEND';
+    }
+    getTauriAPI().writeSystemLog?.(entry.levelLabels, `前端:${moduleName}`, entry.message);
   } catch {
     // 忽略写入失败
   }
