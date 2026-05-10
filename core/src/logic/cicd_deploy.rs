@@ -7,11 +7,13 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::sync::LazyLock;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
 /// 获取用户登录 shell 的完整环境变量，确保版本管理器工具（NVM/Homebrew/nvm-windows）可用
-fn get_user_shell_env() -> HashMap<String, String> {
+/// 全局缓存：整个应用生命周期只 fork 一次 zsh，后续调用直接返回缓存
+static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
     // 第一步：尝试从登录 shell 获取环境变量
     #[cfg(target_os = "windows")]
     let shell_output = std::process::Command::new("cmd")
@@ -122,6 +124,11 @@ fn get_user_shell_env() -> HashMap<String, String> {
         env.insert("PATH".to_string(), all_paths.join(sep));
     }
     env
+});
+
+/// 获取用户登录 shell 环境变量（从缓存读取，不重复 fork）
+fn get_user_shell_env() -> &'static HashMap<String, String> {
+    &SHELL_ENV_CACHE
 }
 
 /// 创建继承用户 shell 环境变量的本地 Command（替代 Command::new）
