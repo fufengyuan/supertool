@@ -506,13 +506,11 @@ export function useCicdConfig() {
   function copyGitUrl() { if (config.value.repoUrl) { navigator.clipboard?.writeText(config.value.repoUrl).catch(() => {}); toast.success('Git 地址已复制'); } }
 
   async function loadBranches() {
-    const repoPath = config.value.localPath || selectedProject.value?.repoPath;
-    const gitUrl = config.value.repoUrl;
-    if (!repoPath && !gitUrl) return;
+    const repoPath = selectedGitRepo.value?.path || config.value.localPath || selectedProject.value?.repoPath;
+    if (!repoPath) return;
     loadingBranches.value = true;
     try {
-      const path = repoPath || gitUrl;
-      const branches = await getTauriAPI().getGitBranches(path);
+      const branches = await getTauriAPI().getGitBranches(repoPath);
       // 后端返回 { branches: [{name, upstream, isCurrent}, ...] }，提取 name 数组
       availableBranches.value = (branches?.branches || branches || []).map((b: any) => typeof b === 'string' ? b : b.name);
       if (config.value.deployBranch && !availableBranches.value.includes(config.value.deployBranch)) {
@@ -870,9 +868,6 @@ export function useCicdConfig() {
   function onGitRepoChange() {
     const repo = selectedGitRepo.value;
     if (!repo) return;
-    config.value.repoUrl = repo.remote || repo.path;
-    config.value.localPath = repo.path;
-    config.value.deployBranch = repo.branch || config.value.deployBranch;
     availableBranches.value = [];
     scannedModules.value = [];
     showModuleTree.value = false;
