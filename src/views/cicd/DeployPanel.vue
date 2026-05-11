@@ -547,7 +547,6 @@ let _cleanupDataChanged: (() => void) | undefined;
 const initialLoading = ref(true);
 
 onMounted(() => {
-    console.log("[components/cicd/DeployPanel.vue] mounted")
   // 异步加载，不阻塞渲染
   (async () => {
     try {
