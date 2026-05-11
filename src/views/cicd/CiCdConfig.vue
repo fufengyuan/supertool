@@ -462,12 +462,14 @@
                   <input v-model="config.deployPath" class="input input-bordered w-full bg-base-200 text-sm" :placeholder="`/opt/${projectShortName}`" />
                 </div>
 
-                <div class="mb-3.5">
+                <!-- 重启脚本：仅 Maven 后端项目需要 -->
+                <div class="mb-3.5" v-if="config.buildTool === 'maven'">
                   <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">重启脚本</label>
                   <input v-model="config.restartScript" class="input input-bordered w-full bg-base-200 text-sm" placeholder="./restart.sh" />
                 </div>
 
-                <label class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-2">
+                <!-- 依赖库分离：仅 Maven 后端项目需要 -->
+                <label class="flex items-center gap-2 text-sm text-base-content cursor-pointer mt-2" v-if="config.buildTool === 'maven'">
                   <input v-model="config.libSeparate" type="checkbox" class="checkbox checkbox-primary" />
                   依赖库分离部署
                 </label>
