@@ -483,12 +483,20 @@ pub async fn execute_deploy(
     }
 
     // Step 5: Restart (if configured)
+    // 前端项目（npm/pnpm/yarn）直接替换静态文件，不需要重启脚本
+    let build_tool = config.build_tool.as_deref().unwrap_or("maven");
+    let is_frontend = ["npm", "pnpm", "yarn"].contains(&build_tool);
+    
     if let Some(ref script) = config.restart_script {
-        for srv in &config.servers {
-            if let Err(e) = execute_restart(srv, script, &emit).await {
-                emit("restart", "failed", &e);
-                // Non-fatal: restart might fail but deploy succeeded
+        if !is_frontend {
+            for srv in &config.servers {
+                if let Err(e) = execute_restart(srv, script, &emit).await {
+                    emit("restart", "failed", &e);
+                    // Non-fatal: restart might fail but deploy succeeded
+                }
             }
+        } else {
+            emit("restart", "skipped", "前端项目无需重启脚本，静态文件已直接替换");
         }
     }
 

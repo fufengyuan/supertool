@@ -86,7 +86,8 @@
                 <span class="text-xs font-medium text-base-content/60">部署路径</span>
                 <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.deployPath }}</span>
               </div>
-              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.restartScript">
+              <!-- 重启脚本：仅 Maven 后端项目显示 -->
+              <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0" v-if="config.restartScript && config.buildTool === 'maven'">
                 <span class="text-xs font-medium text-base-content/60">重启脚本</span>
                 <span class="text-sm font-medium text-right font-mono text-xs bg-base-200 px-2 py-0.5 rounded break-all max-w-[200px] truncate">{{ config.restartScript }}</span>
               </div>
