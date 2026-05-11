@@ -885,12 +885,17 @@ impl LanService {
         Self::add_log_static(log, "info", &format!("File received: {} ({} bytes)", file_name, received));
 
         if let Some(app) = app_handle {
+            let completed_at = chrono::Utc::now().to_rfc3339();
             let _ = app.emit("lan-file-transfer-completed", serde_json::json!({
                 "fileId": file_id,
                 "fileName": file_name,
                 "fileSize": file_size,
                 "received": received,
                 "filePath": save_path_str,
+                "status": "completed",
+                "progress": 100,
+                "completedAt": completed_at,
+                "isImage": Self::is_image_file(&file_name),
             }));
             // Also emit lan-file-received for frontend compatibility
             let _ = app.emit("lan-file-received", serde_json::json!({
