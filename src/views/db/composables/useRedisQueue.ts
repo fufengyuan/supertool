@@ -1,9 +1,9 @@
 // @ts-nocheck
-import * as logger from '../services/logger'
+import * as logger from '../../../services/logger'
 import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { useToast } from './useToast'
-import { getErrorMessage } from '../utils/helpers'
-import { getTauriAPI } from '../utils/tauri-api'
+import { useToast } from '../../../composables/useToast'
+import { getErrorMessage } from '../../../utils/helpers'
+import { getTauriAPI } from '../../../utils/tauri-api'
 
 export interface DBConnection {
   id: string; name: string; type: string; host: string; port: number;
@@ -155,9 +155,7 @@ interface RedisZSetRemoveResponse {
   error?: string
 }
 
-export function useRedisQueue(props: {
-  connectionId: string; connectionName: string; connection?: DBConnection; redisDbIndex?: number }) {
-  console.log("[useRedisQueue.ts] useRedisQueue() init")
+export function useRedisQueue(props: { connectionId: string; connectionName: string; connection?: DBConnection; redisDbIndex?: number }) {
   const toast = useToast()
 
 // ==================== Connection Status ====================

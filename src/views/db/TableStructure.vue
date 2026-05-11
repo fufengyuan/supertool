@@ -395,7 +395,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { useTableStructure } from '@/composables/useTableStructure'
+import { useTableStructure } from './composables/useTableStructure'
 import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps<{

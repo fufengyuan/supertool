@@ -596,7 +596,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { useRedisQueue, type DBConnection } from '@/composables/useRedisQueue'
+import { useRedisQueue, type DBConnection } from './composables/useRedisQueue'
 
 const props = defineProps<{
   connectionId: string

@@ -29,20 +29,14 @@
               :class="{ 'cursor-pointer hover:scale-105 hover:shadow-lg': message.filePath && message.status === 'completed' }"
             >
               <img
-                v-if="imageUrl && !imageLoadFailed"
                 :src="imageUrl"
                 :alt="message.fileName"
                 class="block max-w-[200px] max-h-[200px] w-auto h-auto object-cover rounded-lg"
                 @error="imageLoadFailed = true"
               />
               <!-- 加载失败时显示占位符 -->
-              <div v-if="imageLoadFailed" class="flex items-center justify-center min-w-[120px] min-h-[80px] max-w-[200px] max-h-[200px] rounded-lg bg-gradient-to-br from-white/15 to-white/5 p-3 text-center">
+              <div v-if="imageLoadFailed" class="hidden items-center justify-center min-w-[120px] min-h-[80px] max-w-[200px] max-h-[200px] rounded-lg bg-gradient-to-br from-white/15 to-white/5 p-3 text-center">
                 <span class="text-[11px] text-white/70 break-all leading-tight">{{ message.fileName }}</span>
-              </div>
-              <!-- 加载中占位符 -->
-              <div v-if="!imageUrl && !imageLoadFailed" class="flex items-center justify-center min-w-[120px] min-h-[80px] max-w-[200px] max-h-[200px] rounded-lg bg-gradient-to-br from-white/15 to-white/5 p-3 text-center">
-                <span class="text-[11px] text-white/70">🖼️</span>
-                <span class="text-[11px] text-white/70 break-all leading-tight ml-1">{{ message.fileName }}</span>
               </div>
               <!-- 传输中遮罩 -->
               <div v-if="message.status === 'sending' || message.status === 'receiving'" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-lg bg-black/55">
@@ -52,7 +46,7 @@
               <!-- 错误遮罩 -->
               <div v-else-if="message.status === 'error'" class="absolute inset-0 flex flex-col items-center justify-center gap-1.5 rounded-lg bg-red-800/70">
                 <span class="text-xs text-red-300 font-semibold">{{ message.fromUserId === myUserId ? '发送失败' : '接收失败' }}</span>
-                <button @click.stop="$emit('retry', message)" class="inline-flex items-center justify-center w-7 h-7 border-none rounded-full bg-white/20 text-white cursor-pointer transition-all duration-150 hover:bg-white/35 hover:scale-110" title="重试">
+                    <button @click.stop="$emit('retry', message)" class="inline-flex items-center justify-center w-7 h-7 border-none rounded-full bg-white/20 text-white cursor-pointer transition-all duration-150 hover:bg-white/35 hover:scale-110" title="重试">
                   <SvgIcon name="refresh" size="14" />
                 </button>
               </div>
@@ -110,13 +104,8 @@
             </div>
             <div v-else-if="message.status === 'error'" class="text-[11px] text-red-300 opacity-100">传输失败</div>
             <div v-else-if="message.status === 'cancelled'" class="text-[11px] opacity-70">已取消</div>
-            <!-- 接收完成：显示保存路径 -->
-            <div v-else-if="message.status === 'completed' && message.fromUserId !== myUserId" class="text-[11px] text-green-300 opacity-100">
-              ✓ 已接收
-            </div>
-            <div v-else-if="message.status === 'completed'" class="text-[11px] text-green-300 opacity-100">
-              ✓ 已发送
-            </div>
+            <div v-else-if="message.status === 'completed' && message.fromUserId !== myUserId" class="text-[11px] text-green-300 opacity-100">✓ 已接收</div>
+            <div v-else-if="message.status === 'completed'" class="text-[11px] text-green-300 opacity-100">✓ 已发送</div>
             <!-- 接收方完成时显示文件路径 -->
             <div v-if="message.status === 'completed' && message.filePath" class="mt-1 p-[3px_6px] bg-black/15 rounded-md max-w-[260px]">
               <span class="text-[10px] opacity-70 whitespace-nowrap overflow-hidden text-ellipsis block max-w-full font-mono" :title="message.filePath">{{ message.filePath }}</span>
@@ -149,7 +138,7 @@
 
       <!-- 任务分配消息 -->
       <div v-else-if="message.type === 'task_assigned'" class="flex items-start gap-2.5 py-1">
-        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg"><SvgIcon name="file" size="20" /></div>
+        <div class="text-2xl shrink-0 w-9 h-9 flex items-center justify-center bg-white/10 rounded-lg">📋</div>
         <div class="flex-1 min-w-0">
           <div class="text-[13px] font-medium mb-1 leading-[1.4]">已分配任务：<strong class="font-semibold">{{ parsedTaskContent.taskText }}</strong></div>
           <div v-if="parsedTaskContent.priority" class="text-[11px] opacity-70 mb-0.5">
@@ -197,15 +186,16 @@
       </div>
     </div>
     <div class="flex-1 flex items-center justify-center p-5 cursor-default overflow-hidden" @click.stop="stopPropagation">
-      <img v-if="imageUrl" :src="imageUrl" :alt="message.fileName" class="max-w-[95vw] max-h-[90vh] object-contain shadow-lg select-none" decoding="async" />
+      <img :src="imageUrl || ''" :alt="message.fileName" class="max-w-[95vw] max-h-[90vh] object-contain shadow-lg select-none" decoding="async" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue';
-import { getTauriAPI } from '@/utils/tauri-api';
-import SvgIcon from '@/components/ui/SvgIcon.vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue'
+console.log("[components/lan/ChatMessage.vue] component loaded")
+import { computed, ref } from 'vue';
+import { getTauriAPI } from '../../utils/tauri-api'
 
 const props = defineProps<{
   message: Record<string, any>;
@@ -222,42 +212,18 @@ defineEmits<{
   retry: [message: Record<string, any>];
 }>();
 
+// 根据文件扩展名选择图标
 const showImageLightbox = ref(false);
-const imageLoadFailed = ref(false);
-
-// Tauri 环境下通过 base64 加载图片
-const imageUrl = ref<string>('');
-
-onMounted(async () => {
-  if (isImageFile.value && props.message.filePath && props.message.status === 'completed') {
-    try {
-      const api = getTauriAPI();
-      if (api.loadLocalFileAsBase64) {
-        const base64 = await api.loadLocalFileAsBase64(props.message.filePath);
-        if (base64) {
-          // 自动检测 MIME 类型
-          const ext = props.message.fileName.split('.').pop()?.toLowerCase() || '';
-          const mimeMap: Record<string, string> = {
-            jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
-            gif: 'image/gif', webp: 'image/webp', bmp: 'image/bmp', svg: 'image/svg+xml',
-          };
-          const mime = mimeMap[ext] || 'image/png';
-          imageUrl.value = `data:${mime};base64,${base64}`;
-        }
-      }
-    } catch (e) {
-      console.warn('[ChatMessage] Failed to load image:', e);
-    }
-  }
-});
 
 const handleFileNameClick = () => {
   if (!props.message.filePath || props.message.status !== 'completed') return;
   if (isImageFile.value) {
+    // 图片：打开灯箱查看
     showImageLightbox.value = true;
   } else {
+    // 非图片文件：用系统默认应用打开
     try {
-      getTauriAPI().openFile(props.message.filePath);
+      getTauriAPI().openFile?.(props.message.filePath);
     } catch {
       alert(`文件路径: ${props.message.filePath}`);
     }
@@ -268,15 +234,26 @@ const closeLightbox = () => {
   showImageLightbox.value = false;
 };
 
+// 阻止事件冒泡：点击图片时不关闭灯箱
 const stopPropagation = (e: Event) => {
   e.stopPropagation();
 };
 
+// 灯箱工具栏：系统打开文件
 const openFileInSystem = () => {
   if (props.message.filePath) {
-    getTauriAPI().openFile(props.message.filePath);
+    getTauriAPI().openFile?.(props.message.filePath);
   }
 };
+
+// Track whether the image failed to load, so we can show the placeholder instead
+const imageLoadFailed = ref(false);
+
+// 图片 URL：直接用 file:// 协议加载本地文件（Tauri 渲染进程原生支持）
+const imageUrl = computed(() => {
+  if (!props.message.filePath) return '';
+  return `file://${props.message.filePath.replace(/\\\\/g, '/')}`;
+});
 
 const isImageFile = computed(() => {
   const fileName = props.message.fileName || '';
@@ -284,22 +261,39 @@ const isImageFile = computed(() => {
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
 });
 
+// 将本地文件路径转换为 Tauri 可加载的 URL
+// 修复 macOS/Windows 路径格式差异 + 特殊字符编码
+function localFileUrl(filePath: string): string {
+  // Windows 路径: C:\\Users\\... → file:///C:/Users/...
+  // macOS/Linux 路径: /Users/... → file:///Users/...
+  const normalized = filePath.replace(/\\\\/g, '/');
+  return `file://${encodeURIComponent(normalized).replace(/%2F/g, '/')}`;
+}
+
 const fileIcon = computed(() => {
   const fileName = props.message.fileName || '';
   const ext = fileName.split('.').pop()?.toLowerCase() || '';
   const iconMap: Record<string, string> = {
+    // 图片
     jpg: '🖼️', jpeg: '🖼️', png: '🖼️', gif: '🖼️', svg: '🖼️', webp: '🖼️', bmp: '🖼️',
+    // 文档
     pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', ppt: '📑', pptx: '📑',
+    // 代码
     js: '📜', ts: '📜', py: '📜', java: '📜', go: '📜', rs: '📜', cpp: '📜', c: '📜', h: '📜',
     vue: '📜', html: '📜', css: '📜', json: '📜', yaml: '📜', xml: '📜', md: '📜',
+    // 压缩包
     zip: '📦', tar: '📦', gz: '📦', rar: '📦', '7z': '📦',
+    // 音频/视频
     mp3: '🎵', wav: '🎵', flac: '🎵', mp4: '🎬', avi: '🎬', mkv: '🎬',
+    // 可执行文件
     exe: '⚙️', dmg: '⚙️', deb: '⚙️', rpm: '⚙️', sh: '⚙️', bat: '⚙️',
+    // 默认
     jar: '☕',
   };
   return iconMap[ext] || '📁';
 });
 
+// 解析任务分配消息的 content
 const parsedTaskContent = computed(() => {
   if (props.message.type === 'task_assigned') {
     try {
@@ -313,6 +307,7 @@ const parsedTaskContent = computed(() => {
   return {};
 });
 
+// 优先级标签
 const priorityLabel = computed(() => {
   const map: Record<string, string> = {
     high: '🔴 高',

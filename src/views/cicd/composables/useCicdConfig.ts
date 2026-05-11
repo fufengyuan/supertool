@@ -1,9 +1,9 @@
 // @ts-nocheck
-import { getTauriAPI } from '../utils/tauri-api'
+import { getTauriAPI } from '../../../utils/tauri-api'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
-import { useToast } from './useToast';
-import { useErrorHandler } from './useErrorHandler';
-import type { Project, Server } from '../types';
+import { useToast } from '../../../composables/useToast';
+import { useErrorHandler } from '../../../composables/useErrorHandler';
+import type { Project, Server } from '../../../types';
 
 // ─── Interfaces ───
 export interface CicdConfigEntry {
@@ -100,14 +100,12 @@ export interface ConfigForm {
 }
 
 export function useCicdConfig() {
-  console.log("[useCicdConfig.ts] useCicdConfig() init")
   const toast = useToast();
   const { handleError } = useErrorHandler();
 
   // ─── Data ───
   const configs = ref<CicdConfigEntry[]>([]);
   const projects = ref<Project[]>([]);
-  const gitRepos = ref<any[]>([]);
   const servers = ref<Server[]>([]);
   const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
   const selectedConfigId = ref('');
@@ -210,7 +208,7 @@ export function useCicdConfig() {
 
   function defaultConfig(): ConfigForm {
     return {
-      id: null, name: '', localPath: '', projectId: '', gitRepoId: '', repoUrl: '', deployBranch: 'main',
+      id: null, name: '', localPath: '', projectId: '', repoUrl: '', deployBranch: 'main',
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
@@ -506,12 +504,13 @@ export function useCicdConfig() {
   function copyGitUrl() { if (config.value.repoUrl) { navigator.clipboard?.writeText(config.value.repoUrl).catch(() => {}); toast.success('Git 地址已复制'); } }
 
   async function loadBranches() {
-    const repoPath = selectedGitRepo.value?.path || config.value.localPath || selectedProject.value?.repoPath;
-    if (!repoPath) return;
+    const repoPath = config.value.localPath || selectedProject.value?.repoPath;
+    const gitUrl = config.value.repoUrl;
+    if (!repoPath && !gitUrl) return;
     loadingBranches.value = true;
     try {
-      const branches = await getTauriAPI().getGitBranches(repoPath);
-      // 后端返回 { branches: [{name, upstream, isCurrent}, ...] }，提取 name 数组
+      const path = repoPath || gitUrl;
+      const branches = await getTauriAPI().getGitBranches(path);
       availableBranches.value = (branches?.branches || branches || []).map((b: any) => typeof b === 'string' ? b : b.name);
       if (config.value.deployBranch && !availableBranches.value.includes(config.value.deployBranch)) {
         if (selectedProject.value?.branch) availableBranches.value.push(selectedProject.value.branch);
@@ -523,28 +522,11 @@ export function useCicdConfig() {
   async function testConnection() {
     testResult.value = null;
     try {
-      // 从 deployServers 中取第一个有 serverId 的
-      const deploySrv = deployServers.value.find(s => s.serverId);
-      if (!deploySrv) {
-        toast.error('未选择服务器');
-        return;
-      }
-
-      // 从已加载的 servers 列表中查找完整服务器信息
-      const srv = servers.value.find(s => s.id === deploySrv.serverId);
-      if (!srv) {
-        toast.error('服务器信息未加载');
-        return;
-      }
-
-      const serverConfig = {
-        host: srv.host,
-        port: srv.port,
-        username: srv.username,
-        password: srv.password || undefined,
-        sshKeyPath: srv.sshKeyPath || srv.privateKey || undefined,
-      };
-      testResult.value = await getTauriAPI().testSsh(serverConfig);
+      const serversJson = deployServers.value.length > 0
+        ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir })))
+        : null;
+      const plainConfig = { ...JSON.parse(JSON.stringify(config.value)), servers: serversJson };
+      testResult.value = await getTauriAPI().testSsh(plainConfig);
       if (testResult.value.success) toast.success('SSH 连接测试成功'); else toast.error('连接失败: ' + testResult.value.error);
     } catch (error: unknown) { testResult.value = { success: false, error: error instanceof Error ? error.message : String(error) }; }
   }
@@ -661,7 +643,7 @@ export function useCicdConfig() {
 
   async function saveConfig() {
     try {
-      if (!config.value.gitRepoId && !config.value.projectId) { toast.error('请选择 Git 仓库或关联项目'); return; }
+      if (!config.value.projectId) { toast.error('请选择关联项目'); return; }
       if (!deployServers.value.some(s => s.serverId)) { toast.error('请选择服务器'); return; }
       const now = new Date().toISOString();
       const serversJson = deployServers.value.length > 0 ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir }))) : null;
@@ -828,16 +810,9 @@ export function useCicdConfig() {
       configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
       initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
       servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
-      
-      // 后台异步加载选中配置详情（不阻塞 UI）
-      if (configs.value.length > 0) {
-        selectedConfigId.value = configs.value[0].id;
-        isNewConfig.value = false;
-        loadConfig(configs.value[0].id).catch(() => {}); // 非阻塞
-      }
-      
-      // 后台异步加载 Git 仓库列表（不阻塞 UI）
-      loadGitRepos().catch(() => {});
+      if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
+      // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
+      // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
     } catch (error) { handleError(error, { context: '加载CI/CD配置' }); }
 
     // 后台异步检测工具（不阻塞 UI）
@@ -869,30 +844,9 @@ export function useCicdConfig() {
     catch (error) { handleError(error, { context: 'loadProjects' }); }
   }
 
-  const selectedGitRepo = computed(() => gitRepos.value.find(r => r.id === config.value.gitRepoId) || null);
-
-  async function loadGitRepos() {
-    try {
-      gitRepos.value = (await getTauriAPI().getGitRepos()) || [];
-    } catch {}
-  }
-
-  function onGitRepoChange() {
-    const repo = selectedGitRepo.value;
-    if (!repo) return;
-    availableBranches.value = [];
-    scannedModules.value = [];
-    showModuleTree.value = false;
-    expandedTreeNodes.value = [];
-    if (repo.path) {
-      scanLocalProject(repo.path);
-      loadBranches();
-    }
-  }
-
   return {
     // State
-    configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
+    configs, projects, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
     selectedServerId, deployServers, activeServerIdx, groups, expandedGroups,
     showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
     showGroupEditor, newGroupName,
@@ -902,18 +856,18 @@ export function useCicdConfig() {
     // Computed
     filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
     projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
-    parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
+    parentBuildAutoDetected, parentBuildDetectedPath,
     // Functions
     openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
     makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
     testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
     getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
     toggleGroup, renameGroup, addGroup, getServerLabel,
-    loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
+    loadConfigs, createNewConfig, selectConfig, onProjectChange, selectLocalDir,
     selectServer, copyGitUrl, loadBranches, testConnection,
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
-    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
+    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects,
     defaultConfig,
   };
 }

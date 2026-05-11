@@ -109,7 +109,7 @@ import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import LanUsers from '@/views/lan/LanUsers.vue'
-import ChatPanel from '@/components/ChatPanel.vue'
+import ChatPanel from '@/views/lan/ChatPanel.vue'
 
 import {
   IconChecklist,

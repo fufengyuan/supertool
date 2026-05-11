@@ -51,8 +51,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { ref, onMounted, onUnmounted } from 'vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 const props = defineProps({
   placeholder: { type: String, default: '输入消息...' },

@@ -701,7 +701,7 @@
 
 <script setup lang="ts">
 // @ts-nocheck
-import { useCicdConfig } from '@/composables/useCicdConfig';
+import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
 import DeployPanel from './DeployPanel.vue';
@@ -752,5 +752,5 @@ const {
 } = cicd;
 
 // Re-export types for template
-import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } from '@/composables/useCicdConfig';
+import type { CicdConfigEntry, DeployModule, DeployServerEntry, ConfigForm } from './composables/useCicdConfig';
 </script>
