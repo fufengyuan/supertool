@@ -375,7 +375,7 @@ case "$MODE" in
     pnpm tauri build --bundles dmg,app
     mkdir -p "$PKG_OUTPUT"
     rm -f target/release/bundle/macos/rw.*.dmg
-    local DMG_SRC=""
+    DMG_SRC=""
     for d in target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg; do
         if [ -f "$d" ]; then DMG_SRC="$d"; break; fi
     done
@@ -391,7 +391,7 @@ case "$MODE" in
     
     mkdir -p "$PKG_OUTPUT"
     
-    local APP_PATH=""
+    APP_PATH=""
     for d in target/release/bundle/macos/*.app target/release/bundle/osx/*.app; do
         if [ -d "$d" ]; then APP_PATH="$d"; break; fi
     done
@@ -400,7 +400,7 @@ case "$MODE" in
     fi
     echo "📱 Found app: $APP_PATH"
     
-    local PKG_DIR="pkg-build"
+    PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/app" "$PKG_DIR/cli/usr/local/bin" "$PKG_DIR/skills/usr/local/share/supertool/skills" "$PKG_DIR/scripts" "$PKG_DIR/resources"
     
