@@ -529,6 +529,9 @@ export function useLanAPI() {
       const res = await tauriInvoke<number>('lan_get_unread_count', { peerId })
       return res.success ? (res.data ?? 0) : 0
     },
+    lanMarkMessagesRead: async (peerId: string): Promise<void> => {
+      await tauriInvoke('lan_mark_messages_read', { peerId })
+    },
     // ── 新增 LAN 方法 ──
     lanStop: async (): Promise<void> => {
       await tauriInvoke('lan_stop')
