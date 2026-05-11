@@ -839,6 +839,7 @@ impl LanService {
                             if let Some(app) = app_handle {
                                 let _ = app.emit("lan-file-transfer-progress", serde_json::json!({
                                     "fileId": file_id,
+                                    "status": "receiving",
                                     "progress": progress_pct,
                                     "received": received,
                                     "total": file_size,
@@ -1379,6 +1380,7 @@ impl LanService {
                 if let Some(app) = app_handle {
                     let _ = app.emit("lan-file-transfer-progress", serde_json::json!({
                         "fileId": file_id,
+                        "status": "sending",
                         "progress": progress_pct,
                         "sent": sent,
                         "total": file_size,
