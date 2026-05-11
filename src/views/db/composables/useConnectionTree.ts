@@ -1,8 +1,8 @@
 // @ts-nocheck
-import * as logger from '../services/logger'
+import * as logger from '../../../services/logger'
 import { ref, watch, computed } from 'vue'
-import type { DBConnection } from './useDBManager'
-import { getTauriAPI } from '../utils/tauri-api'
+import type { DBConnection } from '../../../composables/useDBManager'
+import { getTauriAPI } from '../../../utils/tauri-api'
 
 // ============ Emit Events Type ============
 type ConnectionTreeEmit = (
@@ -27,7 +27,7 @@ export function useConnectionTree(
   },
   emit: ConnectionTreeEmit
 ) {
-  console.log("[useConnectionTree.ts] useConnectionTree() init")
+
 
 // ============ Redis Tree Node Interface ============
 

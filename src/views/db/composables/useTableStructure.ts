@@ -1,14 +1,12 @@
 // @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
-import { getErrorMessage } from '../utils/helpers'
-import { getTauriAPI } from '../utils/tauri-api'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { getErrorMessage } from '../../../utils/helpers'
+import { getTauriAPI } from '../../../utils/tauri-api'
 
 export function useTableStructure(
-  props: {
-    connId: string; tableName: string; dbName?: string; dbType?: string; connectionId?: string },
+  props: { connId: string; tableName: string; dbName?: string; dbType?: string; connectionId?: string },
   _emit: unknown
 ) {
-  console.log("[useTableStructure.ts] useTableStructure() init")
 
 
 // ============ Props ============
@@ -66,6 +64,8 @@ interface RawColumnData {
   primaryKey?: boolean
   COLUMN_COMMENT?: string
   comment?: string
+  ORDINAL_POSITION?: number
+  ordinal_position?: number
 }
 
 /** Raw index row from backend (SHOW INDEX result) */
@@ -93,9 +93,9 @@ const createSql = ref('')
 const loadingCreateSql = ref(false)
 const previewError = ref<string | null>(null)
 const executing = ref(false)
-const dragIndex = ref<number | null>(null)
-const dragOverIndex = ref<number | null>(null)
-const dragOverPosition = ref<'before' | 'after'>('before')
+const dragRowIndex = ref<number | null>(null)
+const dropTargetIndex = ref<number | null>(null)
+const dropPosition = ref<'before' | 'after'>('before')
 
 // ============ Column Types ============
 const columnTypes = [
@@ -229,12 +229,12 @@ function isColumnModified(col: ColumnDef): boolean {
   if (col._isNew || col._deleted) return false
   const orig = findOriginalColumn(col)
   if (!orig) return false
-  const { baseType: origType } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
+  const { baseType: origType, length: parsedLen, decimals: parsedDec } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
   const origPk = orig.primaryKey === true || (orig.COLUMN_KEY || orig.key) === 'PRI' || orig.primaryKey === true
   const origAi = orig.autoIncrement === true || (orig.EXTRA || '').includes('auto_increment') || orig.autoIncrement === true
   // Use originalData's length/decimals directly (from INFORMATION_SCHEMA) instead of re-parsing from type string
-  const origLen = orig.length ?? null
-  const origDec = orig.decimals ?? null
+  const origLen = orig.length ?? parsedLen ?? null
+  const origDec = orig.decimals ?? parsedDec ?? null
   const origDefault = (orig as any).COLUMN_DEFAULT ?? (orig as any).default ?? (orig as any).defaultValue ?? null
   const origComment = (orig as any).COLUMN_COMMENT ?? (orig as any).comment ?? ''
   return (
@@ -276,16 +276,19 @@ async function refreshWithOriginals() {
     
     // 兼容处理：现在的 API 直接返回 rows 数组 (包含列信息)
     // 或者返回 { rows: [...columns], indexes: [...] }
-    const columns = Array.isArray(res) ? res : (res?.rows ?? [])
-    const indexes = res?.indexes ?? []
+    const colData = Array.isArray(res) ? res : (res?.rows ?? [])
+    const rawIndexData = res?.indexes ?? []
     
-    if (!columns || columns.length === 0) {
+    if (!colData || colData.length === 0) {
       error.value = '表结构数据为空'
       return
     }
 
-    const rawCols = columns as RawColumnData[]
-    const rawIdxs = indexes as any[]
+    const rawCols = (colData as RawColumnData[]).sort((a, b) => {
+      const posA = a.ORDINAL_POSITION ?? a.ordinal_position ?? 999
+      const posB = b.ORDINAL_POSITION ?? b.ordinal_position ?? 999
+      return posA - posB
+    })
     _originalColumns.value.clear()
 
     columns.value = rawCols.map((c: RawColumnData) => {
@@ -326,9 +329,8 @@ async function refreshWithOriginals() {
       return col
     })
 
-    // rawIdxs already declared above, reuse it or reassign
-    const idxData = (struct.indexes as any[]) ?? []
-    indexes.value = idxData.map((idx: any) => {
+    const rawIdxs = (rawIndexData as any[]) ?? []
+    indexes.value = rawIdxs.map((idx: any) => {
       // Backend new format: { name, columns: ['col1', 'col2'], isUnique, isPrimary }
       // Backend legacy format: [{ Key_name, Column_name, Non_unique }, ...]
       const isPrimary = idx.isPrimary === true || idx.name === 'PRIMARY'
@@ -375,53 +377,98 @@ function discardChanges() {
   refreshWithOriginals()
 }
 
-// ============ Drag & Drop ============
-function onDragStart(index: number, event: DragEvent) {
-  dragIndex.value = index
-  if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move'
-    event.dataTransfer.setData('text/plain', String(index))
-  }
+// ============ Drag & Drop (Custom Mouse-based) ============
+let _dragStartY = 0
+let _dragGhost: HTMLElement | null = null
+let _tableBody: HTMLElement | null = null
+
+function initDragTable(bodyEl: HTMLElement) {
+  _tableBody = bodyEl
 }
 
-function onDragOver(index: number, event: DragEvent) {
+function onRowMouseDown(index: number, event: MouseEvent) {
+  // Only start drag from the drag handle td
+  const target = event.target as HTMLElement
+  const handleTd = target.closest('.ts-td-drag')
+  if (!handleTd) return
+
+  dragRowIndex.value = index
+  _dragStartY = event.clientY
+
+  // Create ghost
+  const row = target.closest('tr') as HTMLElement
+  if (!row) return
+  _dragGhost = document.createElement('div')
+  _dragGhost.className = 'ts-drag-ghost'
+  _dragGhost.textContent = columns.value[index]?.name || ''
+  _dragGhost.style.cssText = `position:fixed;left:${event.clientX + 10}px;top:${event.clientY - 12}px;z-index:9999;pointer-events:none;padding:4px 12px;background:#2EAB7C;color:#fff;border-radius:6px;font-size:12px;opacity:0.85;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.2);`
+  document.body.appendChild(_dragGhost)
+
+  document.addEventListener('mousemove', onDocMouseMove)
+  document.addEventListener('mouseup', onDocMouseUp)
   event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'move'
+}
+
+function onDocMouseMove(event: MouseEvent) {
+  if (dragRowIndex.value === null || !_tableBody) {
+    return
   }
-  // Calculate whether to drop before or after the target row
-  const rect = (event.target as HTMLElement)?.closest?.('tr')?.getBoundingClientRect()
-  if (rect) {
-    const mouseY = event.clientY
-    const midY = rect.top + rect.height / 2
-    dragOverIndex.value = index
-    dragOverPosition.value = mouseY < midY ? 'before' : 'after'
+
+  if (_dragGhost) {
+    _dragGhost.style.left = (event.clientX + 10) + 'px'
+    _dragGhost.style.top = (event.clientY - 12) + 'px'
+  }
+
+  // Find which row the mouse is over
+  const rows = _tableBody.querySelectorAll('tr[data-row-idx]')
+  if (rows.length === 0) {
+    return
+  }
+  let found = false
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect()
+    if (event.clientY >= rect.top && event.clientY <= rect.bottom) {
+      const idx = parseInt(row.getAttribute('data-row-idx') || '-1')
+      if (idx >= 0 && idx !== dragRowIndex.value) {
+        const midY = rect.top + rect.height / 2
+        dropTargetIndex.value = idx
+        dropPosition.value = event.clientY < midY ? 'before' : 'after'
+        found = true
+      }
+      break
+    }
+  }
+  if (!found) {
+    dropTargetIndex.value = null
   }
 }
 
-function onDrop(targetIndex: number, _event: DragEvent) {
-  if (dragIndex.value === null || dragIndex.value === targetIndex) return
-  // Adjust target index based on position
-  let insertIndex = targetIndex
-  if (dragOverPosition.value === 'after' && dragIndex.value < targetIndex) {
-    insertIndex = targetIndex + 1
-  } else if (dragOverPosition.value === 'before' && dragIndex.value > targetIndex) {
-    insertIndex = targetIndex
+function onDocMouseUp(_event: MouseEvent) {
+  if (dragRowIndex.value !== null && dropTargetIndex.value !== null) {
+    let insertIndex = dropTargetIndex.value
+    if (dropPosition.value === 'after') insertIndex++
+
+    const fromIdx = dragRowIndex.value
+    if (fromIdx !== insertIndex && fromIdx !== insertIndex - 1) {
+      const item = columns.value.splice(fromIdx, 1)[0]
+      // Adjust insert index if source was before target
+      if (fromIdx < insertIndex) insertIndex--
+      columns.value.splice(insertIndex, 0, item)
+      if (!item._isNew && !item._deleted) {
+        item._orderChanged = true
+      }
+    }
   }
 
-  const item = columns.value.splice(dragIndex.value, 1)[0]
-  columns.value.splice(insertIndex, 0, item)
-
-  if (!item._isNew && !item._deleted) {
-    item._orderChanged = true
+  // Cleanup
+  if (_dragGhost) {
+    _dragGhost.remove()
+    _dragGhost = null
   }
-  dragIndex.value = null
-  dragOverIndex.value = null
-}
-
-function onDragEnd() {
-  dragIndex.value = null
-  dragOverIndex.value = null
+  dragRowIndex.value = null
+  dropTargetIndex.value = null
+  document.removeEventListener('mousemove', onDocMouseMove)
+  document.removeEventListener('mouseup', onDocMouseUp)
 }
 
 // ============ Index Operations ============
@@ -683,10 +730,10 @@ function generateDdl(): string[] {
 /** Check if only type-related attributes changed (excluding rename, order, PK, and autoIncrement) */
 function isTypeChangeAttrs(col: ColumnDef, orig: RawColumnData | undefined): boolean {
   if (!orig) return false
-  const { baseType: origType } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
+  const { baseType: origType, length: parsedLen, decimals: parsedDec } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
   // Use originalData's length/decimals directly instead of re-parsing from type string
-  const origLen = orig.length ?? null
-  const origDec = orig.decimals ?? null
+  const origLen = orig.length ?? parsedLen ?? null
+  const origDec = orig.decimals ?? parsedDec ?? null
   const origDefault = (orig as any).COLUMN_DEFAULT ?? (orig as any).default ?? (orig as any).defaultValue ?? null
   const origComment = (orig as any).COLUMN_COMMENT ?? (orig as any).comment ?? ''
   return (
@@ -899,10 +946,10 @@ async function showCreateSql() {
   showCreateSqlModal.value = true
   try {
     const res = await getTauriAPI().dbGetCreateSql(props.connId, props.tableName, props.dbName || undefined)
-    if (res?.success && res.sql) {
-      createSql.value = res.sql
+    if (res) {
+      createSql.value = res
     } else {
-      createSql.value = `-- 获取失败: ${res?.error || '未知错误'}`
+      createSql.value = `-- 获取失败: 未知错误`
     }
   } catch (e: unknown) {
     createSql.value = `-- 获取失败: ${getErrorMessage(e) || '未知错误'}`
@@ -956,22 +1003,27 @@ onMounted(() => {
   refreshWithOriginals()
 })
 
+onUnmounted(() => {
+  // Clean up drag event listeners
+  if (_dragGhost) {
+    _dragGhost.remove()
+    _dragGhost = null
+  }
+  document.removeEventListener('mousemove', onDocMouseMove)
+  document.removeEventListener('mouseup', onDocMouseUp)
+})
+
   return {
     loading, error, columns, indexes,
     activeTab, selectedColumnIndex, selectedIndexes,
     showCreateSqlModal, showPreview, previewSqls, previewError,
     executing, createSql, loadingCreateSql, dbTypeLabel,
     hasChanges, changeCount, columnChangeCount, indexChangeCount,
-    availableColumnNames, groupedIndexes, dragIndex, dragOverIndex, dragOverPosition,
-    // Alias names for TableStructure.vue compatibility
-    dragRowIndex: dragIndex, dropTargetIndex: dragOverIndex, dropPosition: dragOverPosition,
+    availableColumnNames, groupedIndexes, dragRowIndex, dropTargetIndex, dropPosition,
     canAutoIncrement, columnTypes, isColumnModified, isIndexModified,
     addColumn, deleteSelectedColumn, addIndex, addIndexColumn,
     removeIndexColumn, deleteIndexAt, deleteSelectedIndexes,
-    onDragStart, onDragOver, onDragEnd, onDrop,
-    // Mouse-based drag stubs (component expects these but composable uses HTML5 drag)
-    initDragTable: (_el: HTMLElement) => {},
-    onRowMouseDown: (_idx: number, _e: MouseEvent) => {},
+    initDragTable, onRowMouseDown,
     onPrimaryKeyChange, toggleIndexSelection,
     refreshWithOriginals, discardChanges,
     executeSqls, generateDdl, showCreateSql, copyCreateSql,
