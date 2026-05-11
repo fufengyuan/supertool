@@ -1488,15 +1488,52 @@ async fn execute_restart(
         return Err("SSH 认证失败（密钥或密码不正确）".to_string());
     }
 
-    // 使用 nohup 后台执行，避免阻塞 SSH 连接
-    let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", script);
+    // 与 Electron 版本对齐：使用 bash -l -c 加载用户环境变量，等待脚本完成
+    // 解析脚本路径和参数（第一个是脚本文件，剩余是参数）
+    let parts: Vec<&str> = script.trim().split_whitespace().collect();
+    let script_file = parts.first().map_or(script, |v| *v);
+    let script_args = if parts.len() > 1 { parts[1..].join(" ") } else { "".to_string() };
+    
+    // 根据脚本路径决定执行方式
+    let exec_cmd = if script_file.starts_with('/') {
+        // 绝对路径：直接执行，chmod +x 确保可执行
+        if script_args.is_empty() {
+            format!("chmod +x {} && bash -l -c '{}' 2>&1", script_file, script_file)
+        } else {
+            format!("chmod +x {} && bash -l -c '{} {}' 2>&1", script_file, script_file, script_args)
+        }
+    } else {
+        // 相对路径：需要先 cd 到 deployDir 再执行
+        if script_args.is_empty() {
+            format!("cd {} && chmod +x {} && bash -l -c '{}' 2>&1", 
+                shell_escape(&srv.deploy_dir), script_file, script_file)
+        } else {
+            format!("cd {} && chmod +x {} && bash -l -c '{} {}' 2>&1", 
+                shell_escape(&srv.deploy_dir), script_file, script_file, script_args)
+        }
+    };
+    
+    emit("restart", "info", &format!("执行命令: {}", exec_cmd.chars().take(120).collect::<String>()));
+    
+    // 执行并等待完成（与 Electron sshExec 一致）
     let mut channel = sess.channel_session()
         .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-    channel.exec(&cmd)
+    channel.exec(&exec_cmd)
         .map_err(|e| format!("执行重启命令失败: {}", e))?;
-    // 等待命令启动（不等待完成）
+    
+    // 收集输出
+    let mut output = String::new();
+    use std::io::Read;
+    channel.read_to_string(&mut output).ok();
     channel.wait_close().ok();
-    emit("restart", "success", &format!("{} 重启完成", label));
+    
+    let exit_status = channel.exit_status().unwrap_or(-1);
+    if exit_status != 0 {
+        emit("restart", "failed", &format!("脚本退出码 {}，输出: {}", exit_status, output.trim().chars().take(200).collect::<String>()));
+        // Non-fatal: 继续执行，不阻断部署流程
+    } else {
+        emit("restart", "success", &format!("应用已重启 (输出: {})", output.trim().chars().take(200).collect::<String>()));
+    }
     sess.disconnect(None, "", None).ok();
     Ok(())
 }
