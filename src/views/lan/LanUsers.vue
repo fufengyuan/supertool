@@ -208,8 +208,6 @@ interface LanPeer {
   address: string;
   messagePort?: number;
   version?: string;
-  fileTransferPort?: number;
-  fileTransferUrl?: string;
   lastSeen?: number;
   online?: boolean;
   status?: 'online' | 'busy' | 'away';
