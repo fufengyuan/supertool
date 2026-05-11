@@ -1007,13 +1007,32 @@ async fn execute_remote_restart(
             return Err("SSH 认证失败".to_string());
         }
 
-        let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", restart_script);
+        // 对齐 core/src/logic/cicd_deploy.rs execute_restart 的修复
+        // 使用 bash -l -c 加载用户环境变量（JAVA_HOME 等）
+        let exec_cmd = if restart_script.starts_with('/') {
+            format!("chmod +x {} && bash -l -c '{}' 2>&1", restart_script, restart_script)
+        } else {
+            // 相对路径需要 cd，但 rollback 没有 deployDir，默认用 ~/apphome
+            format!("cd ~/apphome && chmod +x {} && bash -l -c '{}' 2>&1", restart_script, restart_script)
+        };
         let mut channel = sess.channel_session()
             .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-        channel.exec(&cmd)
+        channel.exec(&exec_cmd)
             .map_err(|e| format!("执行重启命令失败: {}", e))?;
 
+        // 收集输出
+        let mut output = String::new();
+        use std::io::Read;
+        channel.read_to_string(&mut output).ok();
         channel.wait_close().ok();
+
+        let exit_status = channel.exit_status().unwrap_or(-1);
+        if exit_status != 0 {
+            log::error!("[rollback] restart failed (exit {}): {}", exit_status, output.trim());
+            return Err(format!("重启脚本退出码 {}: {}", exit_status, output.trim().chars().take(200).collect::<String>()));
+        } else {
+            log::info!("[rollback] restart success: {}", output.trim());
+        }
         sess.disconnect(None, "", None).ok();
 
         Ok(())
