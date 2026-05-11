@@ -1488,7 +1488,14 @@ async fn execute_restart(
         return Err("SSH 认证失败（密钥或密码不正确）".to_string());
     }
 
-    ssh_exec(&sess, script)?;
+    // 使用 nohup 后台执行，避免阻塞 SSH 连接
+    let cmd = format!("cd / && nohup {} > /dev/null 2>&1 &", script);
+    let mut channel = sess.channel_session()
+        .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
+    channel.exec(&cmd)
+        .map_err(|e| format!("执行重启命令失败: {}", e))?;
+    // 等待命令启动（不等待完成）
+    channel.wait_close().ok();
     emit("restart", "success", &format!("{} 重启完成", label));
     sess.disconnect(None, "", None).ok();
     Ok(())
