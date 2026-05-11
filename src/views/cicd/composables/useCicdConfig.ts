@@ -798,26 +798,36 @@ export function useCicdConfig() {
   let _cleanupDataChanged: (() => void) | undefined;
 
   // ─── Init ───
+  const pageLoading = ref(true);
   onMounted(async () => {
     try {
-      // 快速加载核心数据（不阻塞 UI）
+      // 第一步：快速加载核心数据（不阻塞 UI 渲染）
       const [allConfigs, allProjects, allServers, allSGroups, allGroups, allGitRepos] = await Promise.all([
         getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
         getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
         getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
-        getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
+        getTauriAPI().getAllServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
         getTauriAPI().getCicdGroups?.() as Promise<string[]> | undefined,
         getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
       ]);
       configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
       initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
       servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+      // getGitRepos 直接返回数组，不是 { success, data } 格式
       const repoResult = allGitRepos as any;
-      gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
-      if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
-      // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
-      // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
-    } catch (error) { handleError(error, { context: '加载CI/CD配置' }); }
+      gitRepos.value = Array.isArray(repoResult) ? repoResult : [];
+
+      pageLoading.value = false;
+
+      // 第二步：延迟加载第一个配置详情（不阻塞首次渲染）
+      if (configs.value.length > 0) {
+        selectedConfigId.value = configs.value[0].id;
+        isNewConfig.value = false;
+        // 使用 nextTick 确保 UI 已渲染后再加载配置详情
+        await new Promise(resolve => setTimeout(resolve, 50));
+        loadConfig(configs.value[0].id).catch(() => {});
+      }
+    } catch (error) { handleError(error, { context: '加载CI/CD配置' }); pageLoading.value = false; }
 
     // 后台异步检测工具（不阻塞 UI）
     Promise.all([
@@ -881,5 +891,6 @@ export function useCicdConfig() {
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
     saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
     defaultConfig,
+    pageLoading,
   };
 }
