@@ -1,49 +1,20 @@
 <template>
   <div class="h-screen flex flex-col bg-base-200">
-    <!-- 顶部标题栏 -->
-    <div class="navbar bg-base-100 shadow-sm px-4 flex-none min-h-[2.5rem] h-10">
-      <div class="flex-none">
-        <label class="btn btn-square btn-ghost btn-sm lg:hidden" @click="sidebarOpen = !sidebarOpen">
-          <SvgIcon name="menu" :size="16" />
-        </label>
-        <button class="btn btn-square btn-ghost btn-sm hidden lg:flex" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开' : '折叠'">
-          <SvgIcon name="chevronLeft" :size="16" :class="{ 'rotate-180': sidebarCollapsed }" />
-        </button>
-      </div>
-      <div class="flex-1">
-        <span class="btn btn-ghost text-base gap-2 normal-case min-h-0 h-8">
-          <SvgIcon name="zap" class="text-primary" :size="16" />
-          SuperTool
-        </span>
-      </div>
-      <div class="flex-none gap-2">
-        <!-- 搜索按钮 -->
-        <button class="btn btn-ghost btn-sm gap-1" @click="openGlobalSearch" title="全局搜索 (Ctrl+K)">
-          <SvgIcon name="search" :size="16" />
-          <kbd class="kbd kbd-xs hidden sm:inline-flex">Ctrl+K</kbd>
-        </button>
-        <!-- 局域网 -->
-        <button class="btn btn-ghost btn-sm gap-1" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-          <IconNetwork size="16" stroke-width="1.5" />
-        </button>
-        <!-- 主题切换 -->
-        <label class="swap swap-rotate btn btn-ghost btn-circle btn-sm">
-          <input type="checkbox" :checked="isDark" @change="toggleTheme" />
-          <SvgIcon name="sun" class="swap-off" :size="20" stroke-width="0" />
-          <SvgIcon name="moon" class="swap-on" :size="20" stroke-width="0" />
-        </label>
-      </div>
-    </div>
-
+    <!-- 无自定义标题栏 — 使用原生窗口边框 -->
     <div class="flex flex-1 overflow-hidden">
       <!-- 左侧导航栏 -->
-      <aside class="flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden"
-             :class="[
-               sidebarOpen ? 'w-48' : 'w-0 lg:w-auto',
-               sidebarCollapsed ? 'lg:w-16' : 'lg:w-48'
-             ]"
-             :style="{ minWidth: sidebarCollapsed ? '4rem' : '12rem' }">
-        <nav class="menu menu-sm p-2 gap-1 w-full">
+      <aside class="flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden flex flex-col"
+             :class="[sidebarCollapsed ? 'w-16' : 'w-48']">
+        <!-- 折叠按钮 (侧栏顶部) -->
+        <div class="flex items-center justify-between px-2 py-2 border-b border-base-300">
+          <span v-show="!sidebarCollapsed" class="text-sm font-bold text-base-content pl-2 truncate">SuperTool</span>
+          <button class="btn btn-square btn-ghost btn-xs" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'">
+            <SvgIcon name="chevronLeft" :size="14" :class="{ 'rotate-180': sidebarCollapsed }" />
+          </button>
+        </div>
+
+        <!-- 导航菜单 -->
+        <nav class="menu menu-sm p-2 gap-1 flex-1 overflow-y-auto">
           <!-- 业务 -->
           <div class="menu-title px-3" v-show="!sidebarCollapsed">
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">业务</span>
@@ -88,10 +59,26 @@
             </router-link>
           </li>
         </nav>
-      </aside>
 
-      <!-- 移动端遮罩 -->
-      <div v-if="sidebarOpen" class="fixed inset-0 bg-black/30 z-30 lg:hidden" @click="sidebarOpen = false"></div>
+        <!-- 侧栏底部操作区 -->
+        <div class="border-t border-base-300 p-2 flex flex-col gap-1">
+          <!-- 搜索 -->
+          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="openGlobalSearch" :title="'全局搜索 (Ctrl+K)'">
+            <SvgIcon name="search" :size="14" />
+            <span v-show="!sidebarCollapsed" class="text-xs">搜索</span>
+          </button>
+          <!-- 局域网 -->
+          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
+            <IconNetwork size="14" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-xs">局域网</span>
+          </button>
+          <!-- 主题切换 -->
+          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="toggleTheme" title="切换主题">
+            <SvgIcon :name="isDark ? 'sun' : 'moon'" :size="14" stroke-width="0" />
+            <span v-show="!sidebarCollapsed" class="text-xs">{{ isDark ? '浅色' : '深色' }}</span>
+          </button>
+        </div>
+      </aside>
 
       <!-- 主内容区 -->
       <main class="flex-1 overflow-y-auto p-4 lg:p-6">
@@ -168,7 +155,6 @@ const iconMap: Record<string, any> = {
 const router = useRouter()
 const appStore = useAppStore()
 
-const sidebarOpen = ref(false)
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
 const isDark = ref(false)
@@ -205,7 +191,6 @@ const navGroups = {
 
 function onNavClick(viewId: string, path: string) {
   appStore.recordNavClick(viewId)
-  sidebarOpen.value = false
   router.push(path)
 }
 
