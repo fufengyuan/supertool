@@ -234,7 +234,7 @@ EOF
 <!DOCTYPE html><html><head><meta charset="utf-8"></head>
 <body style="font-family:-apple-system,sans-serif;font-size:13px">
 <h2>安装完成</h2>
-<ul><li>从 /Applications/SuperTool-Tauri.app 启动</li><li>CLI: stool --help</li><li>数据目录: ~/.supertool/</li></ul>
+<ul><li>从 /Applications/SuperTool.app 启动</li><li>CLI: stool --help</li><li>数据目录: ~/.supertool/</li></ul>
 </body></html>
 EOF
 

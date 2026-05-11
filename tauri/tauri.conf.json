@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "SuperTool-Tauri",
+  "productName": "SuperTool",
   "version": "4.1.0",
   "identifier": "com.fufengyuan.supertool.tauri",
   "build": {
@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "SuperTool Tauri",
+        "title": "SuperTool",
         "width": 1200,
         "height": 800,
         "resizable": true,
