@@ -658,6 +658,44 @@ impl LanService {
             // Map msg_type to hyphen-format event names matching frontend listeners
             "assign_task" | "task_update" | "task_status_change" | "task_comment"
             | "collaboration_started" | "collaboration_ended" => {
+                // Persist assign_task to chat_messages DB for history loading
+                if msg_type == "assign_task" {
+                    let msg_id = data["messageId"].as_str()
+                        .or_else(|| data["id"].as_str())
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| format!("msg-{}", chrono::Utc::now().timestamp_millis()));
+                    let from_id = data["from"].as_str().unwrap_or("unknown");
+                    let from_name = data["fromName"].as_str().unwrap_or("unknown");
+                    let to_id = data["to"].as_str().unwrap_or(my_user_id);
+                    let to_name = data["toName"].as_str().unwrap_or(my_nick);
+                    let task_data = data["task"].clone();
+                    let content_str = serde_json::to_string(&task_data).unwrap_or_default();
+                    // Log first before content_str is moved
+                    Self::add_log_static(
+                        log,
+                        "info",
+                        &format!("Task assigned from {}: {}", from_id, &content_str),
+                    );
+                    let chat_msg = ChatMessage {
+                        id: msg_id.to_string(),
+                        from_user_id: from_id.to_string(),
+                        from_user_name: from_name.to_string(),
+                        to_user_id: to_id.to_string(),
+                        to_user_name: to_name.to_string(),
+                        content: Some(content_str),
+                        msg_type: "task_assigned".to_string(),
+                        file_name: None,
+                        file_size: None,
+                        file_path: None,
+                        status: "received".to_string(),
+                        progress: 0,
+                        created_at: chrono::Utc::now().to_rfc3339(),
+                        read: false,
+                    };
+                    if let Ok(conn) = db_conn.lock() {
+                        let _ = lan::insert_chat_message(&conn, &chat_msg);
+                    }
+                }
                 if let Some(app) = app_handle {
                     let event_name = match msg_type {
                         "assign_task" => "lan-task-assigned",
