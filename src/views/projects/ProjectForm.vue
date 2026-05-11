@@ -160,8 +160,8 @@ const managedRepos = ref<any[]>([]);
 const loadManagedRepos = async () => {
   try {
     const result = await getTauriAPI().getGitRepos();
-    if (result?.success && result?.data) {
-      managedRepos.value = result.data;
+    if (Array.isArray(result)) {
+      managedRepos.value = result;
     }
   } catch {
     // Git 仓库管理功能可能不可用，静默失败

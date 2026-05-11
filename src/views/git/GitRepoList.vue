@@ -202,6 +202,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { useToast } from '../../composables/useToast'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
+import { open } from '@tauri-apps/plugin-shell'
 import type { GitRepo } from '../../types'
 
 interface ValidationStatus {
@@ -218,10 +219,6 @@ interface FormData {
 
 const toast = useToast();
 const { handleError } = useErrorHandler();
-
-const emit = defineEmits<{
-  'open-repo': [repo: GitRepo];
-}>();
 
 const repos = ref<GitRepo[]>([]);
 const searchQuery = ref('');
@@ -459,8 +456,12 @@ const deleteRepo = async (repo: GitRepo) => {
   }
 };
 
-const openRepo = (repo: GitRepo) => {
-  emit('open-repo', repo);
+const openRepo = async (repo: GitRepo) => {
+  try {
+    await open(repo.path)
+  } catch (err: any) {
+    toast.error(`无法打开仓库: ${err?.message || err}`)
+  }
 };
 
 // ===== Scan local repos =====

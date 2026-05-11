@@ -18,6 +18,7 @@ pub mod git;
 pub mod git_sync;
 pub mod ssh;
 pub mod nginx;
+pub mod fetch;
 pub mod disk_cleaner;
 pub mod cli_installer;
 pub mod alert;

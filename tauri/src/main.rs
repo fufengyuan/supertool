@@ -605,6 +605,9 @@ fn main() {
             commands::git_repo::update_git_repo,
             commands::git_repo::delete_git_repo,
             update_frequent_menu,
+            // HTTP Fetch (HTML to Markdown tool)
+            commands::fetch::fetch_page_content,
+            commands::fetch::convert_html_to_md,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

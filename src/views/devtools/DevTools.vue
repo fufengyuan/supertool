@@ -25,7 +25,7 @@
               :class="{ 'bg-primary/10 text-primary': activeTool === tool.id }"
               @click="activeTool = tool.id"
             >
-              <span class="text-[15px] shrink-0 w-5 text-center">{{ tool.icon }}</span>
+              <span class="shrink-0 w-5 flex items-center justify-center"><SvgIcon :name="tool.icon" size="15" /></span>
               <span class="flex-1 truncate">{{ tool.name }}</span>
               <span v-if="!tool.offline" class="text-[10px] shrink-0" title="需要联网"><SvgIcon name="globe" size="14" class="align-text-bottom" /></span>
             </div>
@@ -124,6 +124,7 @@ const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = 
   uuid: defineAsyncComponent(() => import('./tools/UuidTool.vue')),
   ws: defineAsyncComponent(() => import('./tools/WsTool.vue')),
   apidebugger: defineAsyncComponent(() => import('./tools/ApiDebugger.vue')),
+  html2md: defineAsyncComponent(() => import('./tools/HtmlToMdTool.vue')),
 }
 
 const currentToolComponent = computed(() => {
