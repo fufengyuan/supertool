@@ -34,6 +34,7 @@ fn default_encryption() -> String {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlertService {
+    #[serde(default)]
     pub id: String,
     pub name: String,
     pub host: String,
