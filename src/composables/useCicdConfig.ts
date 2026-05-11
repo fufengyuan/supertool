@@ -828,10 +828,16 @@ export function useCicdConfig() {
       configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
       initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
       servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
-      if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
-      loadGitRepos(); // 加载已注册的 Git 仓库（用于下拉选择）
-      // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
-      // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
+      
+      // 后台异步加载选中配置详情（不阻塞 UI）
+      if (configs.value.length > 0) {
+        selectedConfigId.value = configs.value[0].id;
+        isNewConfig.value = false;
+        loadConfig(configs.value[0].id).catch(() => {}); // 非阻塞
+      }
+      
+      // 后台异步加载 Git 仓库列表（不阻塞 UI）
+      loadGitRepos().catch(() => {});
     } catch (error) { handleError(error, { context: '加载CI/CD配置' }); }
 
     // 后台异步检测工具（不阻塞 UI）
