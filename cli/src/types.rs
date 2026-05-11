@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "stool", about = "SuperTool CLI v4.0.0 — AI Agent 专属运维工具\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行")]
+#[command(name = "stool", about = "SuperTool CLI v4.1.0 — AI Agent 专属运维工具\\n直连 supertool-core 共享库，零 UDS/HTTP 依赖，完全独立运行")]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
