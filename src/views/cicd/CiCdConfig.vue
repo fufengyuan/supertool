@@ -1,5 +1,12 @@
 <template>
   <div class="flex flex-col h-full overflow-hidden">
+    <!-- Loading overlay (不阻塞内容渲染) -->
+    <div v-if="pageLoading" class="absolute inset-0 z-50 flex items-center justify-center bg-base-200/80">
+      <div class="flex flex-col items-center gap-4">
+        <span class="loading loading-spinner loading-lg text-primary"></span>
+        <span class="text-sm text-base-content/60">加载 CI/CD 配置...</span>
+      </div>
+    </div>
     <!-- Top Tab Bar -->
     <div role="tablist" class="tabs tabs-bordered bg-base-200 flex-shrink-0">
       <button role="tab" class="tab" :class="{ 'tab-active': cicdTab === 'deploy' }" @click="cicdTab = 'deploy'">
@@ -706,9 +713,10 @@
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
-import DeployPanel from './DeployPanel.vue';
-import { ref } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
 
 const cicdTab = ref<'deploy' | 'config'>('deploy')
 
@@ -750,7 +758,7 @@ const {
   addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
   addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
   saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
-  defaultConfig,
+  defaultConfig, pageLoading,
 } = cicd;
 
 // Re-export types for template
