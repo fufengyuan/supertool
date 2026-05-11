@@ -1265,10 +1265,12 @@ fn collect_from_dir(
             let zip_name = format!("{}-lib.zip", module.unwrap_or("main"));
             let zip_path = output_dir.join(&zip_name);
 
-            // Create zip of lib directory
-            create_zip(&lib_dir, &zip_path, lib_filter, true).map_err(|e| {
-                format!("压缩 lib 目录失败: {}", e)
-            })?;
+            // Create zip of lib directory (skip if already exists)
+            if !zip_path.exists() {
+                create_zip(&lib_dir, &zip_path, lib_filter, true).map_err(|e| {
+                    format!("压缩 lib 目录失败: {}", e)
+                })?;
+            }
 
             artifacts.push(Artifact {
                 name: zip_name,
@@ -1285,35 +1287,93 @@ fn collect_from_dir(
 }
 
 fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths: bool) -> Result<(), String> {
-    // Use shell: cd src_dir && find . -name "filter" | zip dest_zip -@
-    let zip_flag = if junk_paths { "-j" } else { "" };
-    let output = if let Some(pattern) = filter {
-        // 转义 filter 参数中的单引号，防止 shell 注入
-        let safe_pattern = pattern.replace('\'', "'\\''");
-        std::process::Command::new("sh")
-            .args(["-c", &format!(
-                "cd '{}' && find . -name '{}' -type f -maxdepth 1 | zip {} '{}' -@",
-                src_dir.display(),
-                safe_pattern,
-                zip_flag,
-                dest_zip.display()
-            )])
-            .output()
-            .map_err(|e| format!("zip 命令失败: {}", e))?
+    let output = if let Some(filter_str) = filter {
+        let filter_str = filter_str.trim();
+        if filter_str.is_empty() {
+            return Ok(());
+        }
+
+        // 支持多行过滤模式（用户可能在 textarea 里每行一个 pattern）
+        let patterns: Vec<&str> = filter_str.split('\n')
+            .map(|s| s.trim())
+            .filter(|s| !s.is_empty())
+            .collect();
+
+        if patterns.is_empty() {
+            return Ok(());
+        }
+
+        // 用安全的方式构建 find 命令（避免 shell 注入）
+        let mut find_cmd = std::process::Command::new("find");
+        find_cmd.arg(".");
+        find_cmd.arg("-type").arg("f");
+        find_cmd.arg("-maxdepth").arg("1");
+        find_cmd.current_dir(src_dir);
+        for (i, p) in patterns.iter().enumerate() {
+            if i == 0 {
+                find_cmd.args(["-name", p]);
+            } else {
+                find_cmd.args(["-o", "-name", p]);
+            }
+        }
+
+        let find_output = find_cmd.output()
+            .map_err(|e| format!("find 命令失败: {}", e))?;
+
+        if !find_output.status.success() {
+            let err = String::from_utf8_lossy(&find_output.stderr);
+            return Err(format!("查找匹配文件失败: {}", err.trim()));
+        }
+
+        let files: Vec<String> = String::from_utf8_lossy(&find_output.stdout)
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.strip_prefix("./").unwrap_or(l).to_string())
+            .collect();
+
+        // 没有匹配的文件 → 跳过，不是错误
+        if files.is_empty() {
+            return Ok(());
+        }
+
+        // 通过 stdin pipe 传递文件列表给 zip
+        let mut child = std::process::Command::new("zip")
+            .arg("-q")
+            .arg(if junk_paths { "-j" } else { "" })
+            .arg(dest_zip.as_os_str())
+            .arg("-@")
+            .stdin(std::process::Stdio::piped())
+            .current_dir(src_dir)
+            .spawn()
+            .map_err(|e| format!("zip 启动失败: {}", e))?;
+
+        if let Some(ref mut stdin) = child.stdin {
+            for f in files {
+                writeln!(stdin, "{}", f).map_err(|e| format!("写入文件列表失败: {}", e))?;
+            }
+        }
+
+        child.wait_with_output()
+            .map_err(|e| format!("zip 完成失败: {}", e))?
     } else {
+        // 无过滤：压缩整个目录
         let mut cmd = std::process::Command::new("zip");
+        cmd.arg("-q");
         cmd.arg("-r");
+        cmd.arg(dest_zip);
+        cmd.arg(".");
         if junk_paths { cmd.arg("-j"); }
-        cmd.arg(dest_zip)
-            .arg(".")
-            .current_dir(src_dir);
+        cmd.current_dir(src_dir);
         cmd.output()
             .map_err(|e| format!("zip 命令失败: {}", e))?
     };
 
     if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("zip 失败: {}", err.trim()));
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let exit_code = output.status.code().unwrap_or(-1);
+        return Err(format!("zip 失败 (exit={}): {} {}",
+            exit_code, stdout, stderr));
     }
 
     Ok(())
