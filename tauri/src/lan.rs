@@ -1230,9 +1230,12 @@ impl LanService {
             "fileId": file_id,
             "fileName": file_name,
             "fileSize": file_size,
-            "to": peer_id,
-            "toName": peer.name,
+            "fromUserId": self.user_id,
+            "fromUserName": nick,
+            "toUserId": peer_id,
+            "toUserName": peer.name,
             "status": "sending",
+            "progress": 0,
         }));
 
         // Notify peer via UDP about incoming file
