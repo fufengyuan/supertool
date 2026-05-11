@@ -452,11 +452,15 @@ impl LanService {
                     .map(|p| p as u16)
                     .unwrap_or(addr.port());
 
-                // Version compatibility check
+                // Version compatibility check — only compare major version
                 if let Some(ref v) = peer_version {
-                    if let Some(major) = v.split('.').next() {
+                    if let Some(peer_major) = v.split('.').next() {
                         if let Some(my_major) = my_version.split('.').next() {
-                            if major != my_major {
+                            if peer_major != my_major {
+                                Self::add_log_static(log, "warn", &format!(
+                                    "Version mismatch: peer {} (v{}) vs local (v{}) — heartbeat dropped",
+                                    peer_id, v, my_version
+                                ));
                                 return;
                             }
                         }
@@ -482,11 +486,18 @@ impl LanService {
 
                 if is_new {
                     Self::add_log_static(log, "info", &format!("Peer discovered: {} ({})", peer_id, addr.ip()));
+                    // Get the just-inserted peer for payload (values already moved into Peer struct)
+                    let peer_ref = peers_map.get(peer_id).unwrap();
                     if let Some(app) = app_handle {
                         let payload = serde_json::json!({
                             "id": peer_id,
+                            "userId": peer_id,  // Explicit userId for frontend matching
                             "address": addr.ip().to_string(),
                             "name": peer_name,
+                            "avatar": peer_ref.avatar,
+                            "version": peer_ref.version,
+                            "status": peer_ref.status,
+                            "messagePort": message_port,
                         });
                         let _ = app.emit("lan-peer-discovered", payload);
                     }
