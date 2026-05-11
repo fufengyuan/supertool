@@ -1,6 +1,17 @@
 <template>
   <div class="px-5 py-4 w-full min-h-full">
+    <!-- Loading skeleton (non-blocking initial render) -->
+    <div v-if="initialLoading" class="flex flex-col gap-4">
+      <div class="skeleton h-8 w-48 rounded-lg"></div>
+      <div class="skeleton h-4 w-64 rounded"></div>
+      <div class="grid grid-cols-[340px_1fr] gap-4 mt-4">
+        <div class="skeleton h-64 rounded-xl"></div>
+        <div class="skeleton h-64 rounded-xl"></div>
+      </div>
+    </div>
+
     <!-- Header -->
+    <template v-else>
     <div class="mb-4">
       <h2 class="text-xl font-bold m-0 mb-1 text-base-content"><SvgIcon name="rocket" size="16" class="inline-block align-text-bottom" /> 一键部署</h2>
       <p class="text-sm text-base-content/60 m-0">选择部署配置，快速将项目部署到目标服务器</p>
@@ -300,6 +311,7 @@
       <p class="m-0 mb-5 text-sm text-base-content/60">请先在 CI/CD 配置页面创建部署配置</p>
       <button @click="goToConfig" class="btn btn-primary">前往配置页面</button>
     </div>
+    </template>
   </div>
 </template>
 
@@ -530,42 +542,47 @@ let cleanupDeployProgress: (() => void) | undefined;
 let cleanupDeployNotification: (() => void) | undefined;
 let _cleanupDataChanged: (() => void) | undefined;
 
-onMounted(async () => {
+// ─── Loading state for non-blocking render ───
+const initialLoading = ref(true);
+
+onMounted(() => {
     console.log("[components/cicd/DeployPanel.vue] mounted")
-  try {
-    const [allConfigs, allProjects, allServers, allSGroups, allGitRepos] = await Promise.all([
-      getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
-      getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
-      getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
-      getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
-      getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
-    ]);
-    configs.value = (allConfigs as CicdConfigEntry[]) || [];
-    projects.value = (allProjects as Project[]) || [];
-    servers.value = (allServers as Server[]) || [];
-    serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
-    // Load git repos for gitRepoId resolution
-    const repoResult = allGitRepos as any;
-    gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
-    // deploy state managed per-config via resetDeployState()
+  // 异步加载，不阻塞渲染
+  (async () => {
+    try {
+      const [allConfigs, allProjects, allServers, allSGroups, allGitRepos] = await Promise.all([
+        getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
+        getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
+        getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
+        getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
+        getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
+      ]);
+      configs.value = (allConfigs as CicdConfigEntry[]) || [];
+      projects.value = (allProjects as Project[]) || [];
+      servers.value = (allServers as Server[]) || [];
+      serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+      // Load git repos for gitRepoId resolution
+      const repoResult = allGitRepos as any;
+      gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
 
-    if (configs.value.length > 0) {
-      // 默认选中最近部署的配置（已按 lastDeployedAt 排序）
-      const sorted = [...configs.value].sort((a, b) => {
-        const aTime = ((a as CicdConfigEntry).lastDeployedAt as string) || ''
-        const bTime = ((b as CicdConfigEntry).lastDeployedAt as string) || ''
-        if (aTime && bTime) return bTime.localeCompare(aTime)
-        if (aTime) return -1
-        if (bTime) return 1
-        return 0
-      })
-      selectedConfigId.value = sorted[0].id;
-      await loadConfigData(selectedConfigId.value);
-    }
+      if (configs.value.length > 0) {
+        // 默认选中最近部署的配置（已按 lastDeployedAt 排序）
+        const sorted = [...configs.value].sort((a, b) => {
+          const aTime = ((a as CicdConfigEntry).lastDeployedAt as string) || ''
+          const bTime = ((b as CicdConfigEntry).lastDeployedAt as string) || ''
+          if (aTime && bTime) return bTime.localeCompare(aTime)
+          if (aTime) return -1
+          if (bTime) return 1
+          return 0
+        })
+        selectedConfigId.value = sorted[0].id;
+        // 非阻塞加载配置详情
+        loadConfigData(selectedConfigId.value).catch(() => {});
+      }
 
-    // Enable deploy progress events from Tauri backend
-    cleanupDeployProgress = await getTauriAPI().onDeployProgress?.(progressHandler);
-    cleanupDeployNotification = await getTauriAPI().onDeployNotification?.((data) => {
+      // Enable deploy progress events from Tauri backend
+      cleanupDeployProgress = await getTauriAPI().onDeployProgress?.(progressHandler);
+      cleanupDeployNotification = await getTauriAPI().onDeployNotification?.((data) => {
       const cfgId = (data as any).configId;
       // 使用 activeDeployConfigId 匹配，这样即使用户切换了配置也能正确处理通知
       if (!cfgId || cfgId !== activeDeployConfigId.value) return;
@@ -593,9 +610,12 @@ onMounted(async () => {
     //   if (type === 'cicd') loadConfigs();
     // });
     // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
-  } catch (error) {
-    handleError(error, { context: '加载部署面板' });
-  }
+      initialLoading.value = false; // 数据加载完成，显示 UI
+    } catch (error) {
+      handleError(error, { context: '加载部署面板' });
+      initialLoading.value = false;
+    }
+  })();
 });
 
 onUnmounted(() => {
