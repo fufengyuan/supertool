@@ -799,19 +799,28 @@ export function useCicdConfig() {
   // ─── Init ───
   onMounted(async () => {
     try {
-      const [allConfigs, allProjects, allServers, allSGroups, tools, toolPaths, sdkVers, allGroups] = await Promise.all([
+      // 快速加载核心数据（不阻塞 UI）
+      const [allConfigs, allProjects, allServers, allSGroups, allGroups] = await Promise.all([
         getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
         getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
         getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
         getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
-        getTauriAPI().detectBuildTools?.() as Promise<Record<string, { available: boolean; version?: string; path?: string }>> | undefined,
-        getTauriAPI().detectToolPaths?.() as Promise<{ mavenHome: string; javaHome: string; nodeHome: string; npmHome: string }> | undefined,
-        getTauriAPI().detectSdkVersions?.() as Promise<typeof sdkVersions.value> | undefined,
         getTauriAPI().getCicdGroups?.() as Promise<string[]> | undefined,
       ]);
       configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
       initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
       servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+      if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
+      // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
+      // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
+    } catch (error) { handleError(error, { context: '加载CI/CD配置' }); }
+
+    // 后台异步检测工具（不阻塞 UI）
+    Promise.all([
+      getTauriAPI().detectBuildTools?.() as Promise<Record<string, { available: boolean; version?: string; path?: string }>> | undefined,
+      getTauriAPI().detectToolPaths?.() as Promise<{ mavenHome: string; javaHome: string; nodeHome: string; npmHome: string }> | undefined,
+      getTauriAPI().detectSdkVersions?.() as Promise<typeof sdkVersions.value> | undefined,
+    ]).then(([tools, toolPaths, sdkVers]) => {
       detectedTools.value = (tools as Record<string, { available: boolean; version?: string }>) || {};
       if (toolPaths && typeof toolPaths === 'object') defaultPaths.value = toolPaths as { mavenHome: string; javaHome: string; nodeHome: string; npmHome: string; pnpmHome: string; yarnHome: string };
       if (sdkVers && typeof sdkVers === 'object') sdkVersions.value = sdkVers as typeof sdkVersions.value;
@@ -820,10 +829,7 @@ export function useCicdConfig() {
         else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
         else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
       }
-      if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
-      // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
-      // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
-    } catch (error) { handleError(error, { context: '加载CI/CD配置' }); }
+    }).catch(() => {});
   });
 
   onBeforeUnmount(() => { _cleanupDataChanged?.(); });
