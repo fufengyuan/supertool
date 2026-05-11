@@ -111,6 +111,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Resolve data directory: check ~/.supertool_dir for custom path, fallback to ~/.supertool
             let home_dir = dirs::home_dir().expect("Failed to resolve home directory");

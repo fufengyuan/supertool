@@ -202,7 +202,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { useToast } from '../../composables/useToast'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
-import { open } from '@tauri-apps/plugin-shell'
+import { openPath } from '@tauri-apps/plugin-opener'
 import type { GitRepo } from '../../types'
 
 interface ValidationStatus {
@@ -458,7 +458,7 @@ const deleteRepo = async (repo: GitRepo) => {
 
 const openRepo = async (repo: GitRepo) => {
   try {
-    await open(repo.path)
+    await openPath(repo.path)
   } catch (err: any) {
     toast.error(`无法打开仓库: ${err?.message || err}`)
   }
