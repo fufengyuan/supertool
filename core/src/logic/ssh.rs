@@ -3,10 +3,12 @@
 /// 替代 Electron 的 ssh2 npm 包，使用 Rust 的 ssh2 crate（libssh2 绑定）。
 /// 支持密码认证和密钥文件认证。
 ///
-/// 与 Electron 的区别：
-/// - Electron ssh2 (npm): 回调式 API
-/// - Rust ssh2: 同步 API，需要在 tokio::task::spawn_blocking 中调用
-/// - PTY 终端：conn.shell() → Rust: session.channel_session().shell()
+/// ## 架构设计
+/// - `connections` 用 `Mutex<HashMap<String, Arc<Session>>>` — 只负责存/取/删
+/// - **所有阻塞 I/O（channel_session, exec, read）都在 Mutex 之外执行**
+/// - `Session` 是线程安全的（所有方法 `&self`），`Arc<Session>` 允许多线程共享
+/// - 一个连接卡住（如网络断开）**不会**影响其他服务器或全局功能
+/// - TCP 读写超时 + SSH keepalive + 输出大小限制，三重防卡死
 use serde::{Deserialize, Serialize};
 use ssh2::{Channel, Session, Sftp};
 use std::collections::HashMap;
@@ -48,12 +50,6 @@ pub struct SshServerConfig {
     pub ssh_key_path: Option<String>,
 }
 
-/// SSH 连接封装
-pub struct SshConnection {
-    pub session: Session,
-    pub stream: TcpStream,
-}
-
 /// PTY 终端封装
 pub struct PtyTerminal {
     pub channel: Channel,
@@ -63,8 +59,16 @@ pub struct PtyTerminal {
 }
 
 /// SSH 服务 — 管理所有 SSH 连接和终端
+///
+/// ## 锁设计（关键）
+/// `connections: Mutex<HashMap<String, Arc<Session>>>` 只做**索引查询**：
+/// 1. 拿 `Arc<Session>` 的 clone（原子操作，O(1)）
+/// 2. 释放 Mutex 锁
+/// 3. 在锁外用 Session 做所有阻塞 I/O
+///
+/// 一个连接卡死在 `channel_session()` 中，**不会**锁住其他服务器的操作。
 pub struct SshService {
-    pub connections: Mutex<HashMap<String, SshConnection>>,
+    pub connections: Mutex<HashMap<String, Arc<Session>>>,
     terminals: Mutex<HashMap<String, Arc<Mutex<PtyTerminal>>>>,
 }
 
@@ -74,6 +78,15 @@ impl SshService {
             connections: Mutex::new(HashMap::new()),
             terminals: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// 获取某个服务器的 Session（克隆 Arc，立刻释放全局锁）
+    fn get_session(&self, server_id: &str) -> Result<Arc<Session>, String> {
+        let conns = self.connections.lock().map_err(|e| e.to_string())?;
+        conns
+            .get(server_id)
+            .ok_or_else(|| "服务器未连接".to_string())
+            .map(|s| s.clone())
     }
 
     /// 创建 PTY 终端（交互式 shell）
@@ -87,29 +100,21 @@ impl SshService {
         rows: u32,
         cols: u32,
     ) -> Result<bool, String> {
-        let channel = {
-            let conns = self.connections.lock().map_err(|e| e.to_string())?;
-            let conn = conns
-                .get(server_id)
-                .ok_or_else(|| "服务器未连接".to_string())?;
+        let session = self.get_session(server_id)?;
 
-            let mut channel = conn
-                .session
-                .channel_session()
-                .map_err(|e| format!("创建通道失败: {}", e))?;
+        let mut channel = session
+            .channel_session()
+            .map_err(|e| format!("创建通道失败: {}", e))?;
 
-            // 请求 PTY（与 Electron 的 xterm-256color 对应）
-            channel
-                .request_pty("xterm", None, Some((cols, rows, 0, 0)))
-                .map_err(|e| format!("请求 PTY 失败: {}", e))?;
+        // 请求 PTY（与 Electron 的 xterm-256color 对应）
+        channel
+            .request_pty("xterm", None, Some((cols, rows, 0, 0)))
+            .map_err(|e| format!("请求 PTY 失败: {}", e))?;
 
-            // 启动交互式 shell
-            channel
-                .shell()
-                .map_err(|e| format!("启动 shell 失败: {}", e))?;
-
-            channel
-        };
+        // 启动交互式 shell
+        channel
+            .shell()
+            .map_err(|e| format!("启动 shell 失败: {}", e))?;
 
         let terminal = PtyTerminal {
             channel,
@@ -143,12 +148,9 @@ impl SshService {
             terminal.lock().map_err(|e| e.to_string())?.server_id.clone()
         };
 
-        // 切换为非阻塞模式（短暂持有 connections 锁）
-        {
-            let conns = self.connections.lock().map_err(|e| e.to_string())?;
-            if let Some(conn) = conns.get(&server_id) {
-                conn.session.set_blocking(false);
-            }
+        // 切换 session 为非阻塞模式（短暂持有 connections 锁）
+        if let Ok(session) = self.get_session(&server_id) {
+            session.set_blocking(false);
         }
 
         // 读取输出（此时没有锁）
@@ -174,12 +176,9 @@ impl SshService {
             }
         }
 
-        // 恢复阻塞模式（短暂持有 connections 锁）
-        {
-            let conns = self.connections.lock().map_err(|e| e.to_string())?;
-            if let Some(conn) = conns.get(&server_id) {
-                conn.session.set_blocking(true);
-            }
+        // 恢复阻塞模式
+        if let Ok(session) = self.get_session(&server_id) {
+            session.set_blocking(true);
         }
 
         Ok(output)
@@ -263,6 +262,7 @@ impl SshService {
 
     /// 连接服务器
     pub fn connect(&self, config: &SshServerConfig) -> Result<bool, String> {
+        // 先检查是否已连（短锁）
         {
             let conns = self.connections.lock().map_err(|e| e.to_string())?;
             if conns.contains_key(&config.id) {
@@ -281,9 +281,13 @@ impl SshService {
         let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
             .map_err(|e| format!("TCP 连接失败: {}", e))?;
 
+        // 设置 TCP 读写超时，防止阻塞读卡死
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(30)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(15)));
+
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
-        session.set_timeout(30_000); // 30秒超时，防止阻塞读卡死
+        session.set_timeout(30_000); // SSH 层超时：握手+认证+操作
         session
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
@@ -305,6 +309,10 @@ impl SshService {
             return Err("认证失败".to_string());
         }
 
+        // 启用 SSH keepalive（每30秒发一次心跳，防止防火墙断开连接）
+        let _ = session.set_keepalive(true, 30);
+
+        // 存入连接池（短锁）
         {
             let mut conns = self.connections.lock().map_err(|e| e.to_string())?;
             // 二次检查：认证期间另一个线程可能已经连上了
@@ -312,13 +320,7 @@ impl SshService {
                 log::info!("[SSH] Already connected to {} (concurrent connect)", config.id);
                 return Ok(true);
             }
-            conns.insert(
-                config.id.clone(),
-                SshConnection {
-                    session,
-                    stream: tcp,
-                },
-            );
+            conns.insert(config.id.clone(), Arc::new(session));
         }
 
         log::info!("[SSH] Connected to {} ({})", config.id, config.name);
@@ -330,8 +332,12 @@ impl SshService {
         let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
             .map_err(|e| format!("TCP 连接失败: {}", e))?;
 
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(15)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)));
+
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
+        session.set_timeout(15_000);
         session
             .handshake()
             .map_err(|e| format!("SSH 握手失败: {}", e))?;
@@ -358,55 +364,76 @@ impl SshService {
     /// 断开连接
     pub fn disconnect(&self, server_id: &str) {
         if let Ok(mut conns) = self.connections.lock() {
-            if let Some(conn) = conns.remove(server_id) {
-                drop(conn.session);
-                drop(conn.stream);
+            if conns.remove(server_id).is_some() {
                 log::info!("[SSH] Disconnected from {}", server_id);
             }
         }
     }
 
-    /// 检查是否已连接（且连接真的活着）
+    /// 检查是否已连接
+    /// 注：仅检查连接池中是否存在，不做实际探活（探活会阻塞锁）
     pub fn is_connected(&self, server_id: &str) -> bool {
         let conns = match self.connections.lock() {
             Ok(c) => c,
             Err(_) => return false,
         };
-        if let Some(conn) = conns.get(server_id) {
-            // 检查 session 是否还认证着
-            conn.session.authenticated()
-        } else {
-            false
-        }
+        conns.contains_key(server_id)
     }
 
-    /// 执行命令
+    /// 执行命令（锁外执行所有阻塞 I/O）
+    ///
+    /// 流程：
+    /// 1. 短锁取 Arc<Session> clone → 释放锁
+    /// 2. 锁外调用 channel_session()（可能阻塞，但不影响其他连接）
+    /// 3. 分块读取输出，TCP 超时 + 1MB 上限防卡死
     pub fn exec_command(&self, server_id: &str, command: &str) -> Result<ExecResult, String> {
-        let mut channel = {
-            let conns = self.connections.lock().map_err(|e| e.to_string())?;
-            let conn = conns
-                .get(server_id)
-                .ok_or_else(|| "服务器未连接".to_string())?;
-            match conn.session.channel_session() {
-                Ok(ch) => {
-                    let mut ch = ch;
-                    if let Err(e) = ch.exec(command) {
-                        // exec 失败可能是连接已断开，清理掉
-                        let _ = self.disconnect(server_id);
-                        return Err(format!("执行命令失败（连接可能已断开）: {}", e));
-                    }
-                    ch
-                }
-                Err(e) => {
-                    // channel_session 失败说明连接已死，清理
+        let session = self.get_session(server_id)?;
+
+        // === 以下所有阻塞 I/O 均在 Mutex 之外执行 ===
+
+        let mut channel = match session.channel_session() {
+            Ok(ch) => {
+                let mut ch = ch;
+                if let Err(e) = ch.exec(command) {
                     let _ = self.disconnect(server_id);
-                    return Err(format!("打开通道失败（连接可能已断开）: {}", e));
+                    return Err(format!("执行命令失败（连接可能已断开）: {}", e));
                 }
+                ch
+            }
+            Err(e) => {
+                let _ = self.disconnect(server_id);
+                return Err(format!("打开通道失败（连接可能已断开）: {}", e));
             }
         };
 
+        // 分块读取 + 大小限制 + TCP 超时保护（30s read_timeout 已设）
         let mut output = String::new();
-        let _ = channel.read_to_string(&mut output);
+        let mut buf = [0u8; 8192];
+        const MAX_OUTPUT: usize = 1_000_000; // 1MB 上限
+
+        loop {
+            if output.len() >= MAX_OUTPUT {
+                output.push_str("\n--- [输出超过 1MB, 截断] ---");
+                break;
+            }
+            match channel.read(&mut buf) {
+                Ok(0) => break,     // EOF
+                Ok(n) => {
+                    output.push_str(&String::from_utf8_lossy(&buf[..n]));
+                }
+                Err(e) => {
+                    // TCP 超时或断开 — 有部分输出也比卡死好
+                    if output.is_empty() {
+                        return Err(format!("读取命令输出失败: {}", e));
+                    }
+                    log::warn!(
+                        "[SSH] exec_command read error (returning partial output): {}",
+                        e
+                    );
+                    break;
+                }
+            }
+        }
 
         let exit_code = channel.exit_status().ok();
         let success = exit_code.map(|c| c == 0).unwrap_or(false);
@@ -626,29 +653,23 @@ impl SshService {
 
     // ============ 内部辅助方法 ============
 
+    /// 获取 SFTP 会话（锁外执行所有阻塞 I/O）
     fn get_sftp(&self, server_id: &str) -> Result<Sftp, String> {
-        let conns = self.connections.lock().map_err(|e| e.to_string())?;
-        let conn = conns
-            .get(server_id)
-            .ok_or_else(|| "服务器未连接".to_string())?;
+        let session = self.get_session(server_id)?;
 
         // 检查连接是否还活着
-        if !conn.session.authenticated() {
-            drop(conns);
+        if !session.authenticated() {
             self.disconnect(server_id);
             return Err("SSH 连接已断开".to_string());
         }
 
-        // 确保 session 处于阻塞模式（防止 read_terminal 切换导致的竞态）
-        conn.session.set_blocking(true);
+        // 确保 session 处于阻塞模式
+        session.set_blocking(true);
 
-        conn.session
-            .sftp()
-            .map_err(|e| {
-                // SFTP 创建失败，可能连接已死
-                log::warn!("[SSH] SFTP creation failed for {}: {}", server_id, e);
-                let _ = self.disconnect(server_id);
-                format!("创建 SFTP 会话失败（连接可能已断开）: {}", e)
-            })
+        session.sftp().map_err(|e| {
+            log::warn!("[SSH] SFTP creation failed for {}: {}", server_id, e);
+            let _ = self.disconnect(server_id);
+            format!("创建 SFTP 会话失败（连接可能已断开）: {}", e)
+        })
     }
 }

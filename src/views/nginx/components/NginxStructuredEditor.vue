@@ -284,6 +284,8 @@ import {
   summarizeServerBlock,
   summarizeUpstream,
   createDirective,
+  splitParamsSmart,
+  joinParamsDisplay,
   type NginxBlock,
   type NginxDirective,
   type ParsedNginxConfig,
@@ -736,8 +738,8 @@ function removeDirectiveFromBlock(block: NginxBlock, dir: NginxDirective) {
 
 function updateOtherDirective(block: NginxBlock, dir: NginxDirective, e: Event) {
   const val = (e.target as HTMLInputElement).value
-  dir.params = val ? val.split(/\s+/) : []
-  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + dir.params.join(' ') : '') + ';'
+  dir.params = val ? splitParamsSmart(val) : []
+  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + joinParamsDisplay(dir.params) : '') + ';'
   emitUpdate()
 }
 
@@ -749,8 +751,8 @@ function updateOtherDirectiveName(block: NginxBlock, dir: NginxDirective, e: Eve
 
 function updateOtherDirectiveParams(block: NginxBlock, dir: NginxDirective, e: Event) {
   const val = (e.target as HTMLInputElement).value
-  dir.params = val ? val.split(/\s+/) : []
-  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + dir.params.join(' ') : '') + ';'
+  dir.params = val ? splitParamsSmart(val) : []
+  dir.raw = dir.name + (dir.params.length > 0 ? ' ' + joinParamsDisplay(dir.params) : '') + ';'
   emitUpdate()
 }
 

@@ -134,7 +134,16 @@ impl CoreService {
 
         match result {
             Ok(v) => Ok(v),
-            Err(e) if e.contains("连接") || e.contains("未连接") || e.contains("通道") => {
+            Err(e) if e.contains("连接") || e.contains("未连接") || e.contains("通道")
+                || e.contains("broken") || e.contains("Broken")
+                || e.contains("reset") || e.contains("Reset")
+                || e.contains("socket") || e.contains("Socket")
+                || e.contains("timeout") || e.contains("Timed")
+                || e.contains("refused") || e.contains("eof")
+                || e.contains("EOF") || e.contains("write")
+                || e.contains("Write") || e.contains("closed")
+                || e.contains("Closed") || e.contains("dead")
+                || e.contains("Dead") => {
                 log::warn!("[SSH] Operation failed for {}, retrying: {}", server_id, e);
                 let ssh2 = self.ssh.clone();
                 let sid2 = sid.clone();
@@ -446,10 +455,18 @@ impl CoreService {
             })
             .collect();
 
+        // 从 gitRepoId 解析仓库信息
+        let git_repo: Option<crate::db::git_repo::GitRepo> = cicd_config.git_repo_id.as_ref().and_then(|id| {
+            self.db_read(|conn| {
+                crate::db::git_repo::get_by_id(conn, id)
+                    .ok()
+                    .flatten()
+            }).ok().flatten()
+        });
         let deploy_config = crate::logic::cicd_deploy::DeployConfig {
-            repo_url: cicd_config.repo_url.clone().unwrap_or_default(),
+            repo_url: git_repo.as_ref().and_then(|r| r.remote.clone().or(Some(r.path.clone()))).unwrap_or_default(),
             branch: cicd_config.deploy_branch.clone(),
-            local_path: cicd_config.local_path.clone(),
+            local_path: git_repo.as_ref().map(|r| r.path.clone()),
             build_tool: cicd_config.build_tool.clone(),
             build_command: cicd_config.build_command.clone(),
             build_path: cicd_config.build_path.clone(),
