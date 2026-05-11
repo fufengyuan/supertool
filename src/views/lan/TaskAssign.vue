@@ -86,13 +86,14 @@ function handleClose() {
 async function assign() {
   if (!task.value.text.trim() || !props.peer) return;
 
-  // 发送任务
-  await getTauriAPI().assignTask(props.peer.id, {
+  // 发送任务 - 使用 lanAssignTask 方法，参数是 (peerId, taskJsonString)
+  const taskJson = JSON.stringify({
     text: task.value.text,
     priority: task.value.priority,
     dueDate: task.value.dueDate,
     note: task.value.note,
   });
+  await getTauriAPI().lanAssignTask(props.peer.id, taskJson);
 
   emit('assigned', task.value);
   emit('close');

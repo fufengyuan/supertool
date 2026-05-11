@@ -1500,13 +1500,37 @@ impl LanService {
         let peers = self.peers.lock().unwrap();
         let peer = peers.get(peer_id).ok_or("Peer not found")?;
 
-        let msg = serde_json::json!({
-            "type": msg_type,
-            "from": self.user_id,
-            "fromName": self.nick_name.lock().unwrap().clone(),
-            "data": data,
-            "timestamp": chrono::Utc::now().timestamp_millis(),
-        });
+        // Generate unique message ID
+        let msg_id = format!("msg-{}", uuid::Uuid::new_v4());
+        let nick = self.nick_name.lock().unwrap().clone();
+
+        // Payload structure matches frontend expectation:
+        // { messageId, from, to, fromName, toName, task (for assign_task), timestamp }
+        let msg = if msg_type == "assign_task" {
+            serde_json::json!({
+                "type": msg_type,
+                "messageId": msg_id,
+                "id": msg_id,
+                "from": self.user_id,
+                "to": peer_id,
+                "fromName": nick,
+                "toName": peer.name.clone(),
+                "task": data,
+                "timestamp": chrono::Utc::now().timestamp_millis(),
+            })
+        } else {
+            serde_json::json!({
+                "type": msg_type,
+                "messageId": msg_id,
+                "id": msg_id,
+                "from": self.user_id,
+                "to": peer_id,
+                "fromName": nick,
+                "toName": peer.name.clone(),
+                "data": data,
+                "timestamp": chrono::Utc::now().timestamp_millis(),
+            })
+        };
 
         if let Ok(data_str) = serde_json::to_string(&msg) {
             if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
