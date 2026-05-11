@@ -106,6 +106,7 @@ export function useCicdConfig() {
   // ─── Data ───
   const configs = ref<CicdConfigEntry[]>([]);
   const projects = ref<Project[]>([]);
+  const gitRepos = ref<any[]>([]);
   const servers = ref<Server[]>([]);
   const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
   const selectedConfigId = ref('');
@@ -800,16 +801,19 @@ export function useCicdConfig() {
   onMounted(async () => {
     try {
       // 快速加载核心数据（不阻塞 UI）
-      const [allConfigs, allProjects, allServers, allSGroups, allGroups] = await Promise.all([
+      const [allConfigs, allProjects, allServers, allSGroups, allGroups, allGitRepos] = await Promise.all([
         getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
         getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
         getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
         getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
         getTauriAPI().getCicdGroups?.() as Promise<string[]> | undefined,
+        getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
       ]);
       configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
       initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
       servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+      const repoResult = allGitRepos as any;
+      gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
       if (configs.value.length > 0) { selectedConfigId.value = configs.value[0].id; isNewConfig.value = false; await loadConfig(configs.value[0].id); }
       // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => { if (type === 'servers') loadServers(); else if (type === 'projects') loadProjects(); else if (type === 'cicd') loadConfigs(); });
       // if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
@@ -844,9 +848,17 @@ export function useCicdConfig() {
     catch (error) { handleError(error, { context: 'loadProjects' }); }
   }
 
+  async function loadGitRepos() {
+    try {
+      const result = await getTauriAPI().getGitRepos?.() as any;
+      gitRepos.value = result?.success && result?.data ? result.data : [];
+    }
+    catch (error) { handleError(error, { context: 'loadGitRepos' }); }
+  }
+
   return {
     // State
-    configs, projects, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
+    configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
     selectedServerId, deployServers, activeServerIdx, groups, expandedGroups,
     showGroupDialog, groupNameInput, groupDialogMode, groupDialogOldName,
     showGroupEditor, newGroupName,
@@ -867,7 +879,7 @@ export function useCicdConfig() {
     selectServer, copyGitUrl, loadBranches, testConnection,
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
-    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects,
+    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
     defaultConfig,
   };
 }
