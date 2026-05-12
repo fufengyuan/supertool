@@ -673,3 +673,87 @@ pub async fn git_submodule_init(repo_path: String, recursive: bool) -> Result<se
         .await
         .map_err(|e| format!("初始化子模块失败: {}", e))
 }
+
+// ==================== Git 远程仓库管理 ====================
+
+/// Add a remote
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_add_remote(repo_path: String, name: String, url: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_add_remote() called, name={}", name);
+    supertool_core::logic::git::git_add_remote(&repo_path, &name, &url)
+        .await
+        .map_err(|e| format!("添加远程仓库失败: {}", e))
+}
+
+/// Remove a remote
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_delete_remote(repo_path: String, name: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_delete_remote() called, name={}", name);
+    supertool_core::logic::git::git_remove_remote(&repo_path, &name)
+        .await
+        .map_err(|e| format!("删除远程仓库失败: {}", e))
+}
+
+/// Rename a branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rename_branch(repo_path: String, old_name: String, new_name: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rename_branch() called, {} -> {}", old_name, new_name);
+    supertool_core::logic::git::git_rename_branch(&repo_path, &old_name, &new_name)
+        .await
+        .map_err(|e| format!("重命名分支失败: {}", e))
+}
+
+/// Compare branches
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_diff_branches(repo_path: String, target: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_diff_branches() called, target={}", target);
+    supertool_core::logic::git::git_compare_branches(&repo_path, &target, None)
+        .await
+        .map_err(|e| format!("对比分支失败: {}", e))
+}
+
+/// Push tags
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_push_tags(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_push_tags() called");
+    supertool_core::logic::git::git_push_tags(&repo_path, "origin")
+        .await
+        .map_err(|e| format!("推送标签失败: {}", e))
+}
+
+/// Clean untracked files
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_clean(repo_path: String, dry_run: bool, force: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_clean() called, dry_run={}", dry_run);
+    supertool_core::logic::git::git_clean(&repo_path, dry_run, force)
+        .await
+        .map_err(|e| format!("清理失败: {}", e))
+}
+
+/// Delete remote branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_delete_remote_branch(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_delete_remote_branch() called, branch={}", branch);
+    supertool_core::logic::git::git_delete_remote_branch(&repo_path, "origin", &branch)
+        .await
+        .map_err(|e| format!("删除远程分支失败: {}", e))
+}
+
+/// Checkout remote branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_checkout_remote_branch(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_checkout_remote_branch() called, branch={}", branch);
+    supertool_core::logic::git::git_checkout_remote_branch(&repo_path, "origin", &branch)
+        .await
+        .map_err(|e| format!("检出远程分支失败: {}", e))
+}
+
+/// Get file at revision
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_get_file_at_revision(repo_path: String, commit: String, path: String) -> Result<String, String> {
+    log::info!("[Tauri CMD] git_get_file_at_revision() called, commit={}, path={}", commit, path);
+    supertool_core::logic::git::git_file_at_revision(&repo_path, &path, &commit)
+        .await
+        .map(|v| v.as_str().unwrap_or("").to_string())
+        .map_err(|e| format!("获取文件版本失败: {}", e))
+}
