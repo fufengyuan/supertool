@@ -192,12 +192,18 @@ function updateHighlight() {
     highlightedHtml.value = ''
     return
   }
+  
+  // 大文件不做高亮（超过 50KB）
+  if (content.value.length > 50000) {
+    highlightedHtml.value = escapeHtml(content.value)
+    return
+  }
+  
   try {
     const lang = hljsLanguage.value
     if (lang === 'plaintext') {
-      // plaintext 使用 autoDetect
-      const result = hljs.highlightAuto(content.value)
-      highlightedHtml.value = result.value
+      // plaintext 不做高亮，直接显示
+      highlightedHtml.value = escapeHtml(content.value)
     } else {
       const result = hljs.highlight(content.value, { language: lang, ignoreIllegals: true })
       highlightedHtml.value = result.value
@@ -412,6 +418,7 @@ onMounted(loadFile)
   font-family: inherit;
   font-size: inherit;
   line-height: inherit;
+  color: var(--color-base-content); /* fallback 颜色，让纯文本也能显示 */
 }
 
 /* highlight.js token colors - Catppuccin Mocha 主题 */
