@@ -112,7 +112,7 @@ function toggleExpand() {
 </script>
 
 <style scoped>
-/* IDEA 深色主题文件节点 */
+/* IDEA 风格文件节点 - 支持主题切换 */
 .tree-node {
   user-select: none;
 }
@@ -126,19 +126,19 @@ function toggleExpand() {
   cursor: pointer;
   transition: background 0.1s;
   font-size: 12px;
-  color: #cccccc;
+  color: var(--color-base-content);
 }
 
 .node-row:hover {
-  background: #2a2d2e;
+  background: color-mix(in oklab, var(--color-base-content) 6%, transparent);
 }
 
 .node-row.selected {
-  background: #094771;
+  background: color-mix(in oklab, var(--color-primary) 15%, transparent);
 }
 
 .node-row.selected:hover {
-  background: #0e639c;
+  background: color-mix(in oklab, var(--color-primary) 20%, transparent);
 }
 
 .expand-icon {
@@ -148,13 +148,13 @@ function toggleExpand() {
   align-items: center;
   justify-content: center;
   font-size: 8px;
-  color: #808080;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
   cursor: pointer;
   margin-right: 2px;
 }
 
 .expand-icon:hover {
-  color: #cccccc;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 }
 
 .expand-icon.placeholder {
@@ -180,6 +180,6 @@ function toggleExpand() {
 }
 
 .node-row.selected .file-name {
-  color: #ffffff;
+  color: var(--color-primary);
 }
 </style>
