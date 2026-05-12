@@ -146,93 +146,114 @@ onMounted(loadFile)
 </script>
 
 <style scoped>
+/* IDEA 风格代码编辑器 */
 .git-code-editor {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-base-100);
+  background: #1e1e1e;
+  color: #d4d4d4;
 }
 
 .editor-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 0 12px;
+  height: 28px;
+  border-bottom: 1px solid #3c3c3c;
+  background: #252526;
 }
 
 .file-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .file-path {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  color: #cccccc;
 }
 
 .modified-badge {
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: color-mix(in oklab, var(--color-warning) 20%, transparent);
-  color: var(--color-warning);
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: #4d3b00;
+  color: #e0b040;
 }
 
 .editor-actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .save-btn {
-  padding: 4px 12px;
-  border-radius: 4px;
-  background: var(--color-primary);
+  padding: 3px 10px;
+  border-radius: 3px;
+  background: #0078d4;
   color: white;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
+  border: none;
+}
+
+.save-btn:hover {
+  background: #1c8ae6;
 }
 
 .save-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .close-btn {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
   background: transparent;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  color: #808080;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
 }
 
 .close-btn:hover {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: #3c3c3c;
+  color: #cccccc;
 }
 
 .editor-content {
   flex: 1;
   overflow: hidden;
+  display: flex;
 }
 
 .code-textarea {
   width: 100%;
   height: 100%;
-  padding: 12px;
-  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
   font-size: 13px;
-  line-height: 1.6;
-  background: var(--color-base-200);
+  line-height: 1.5;
+  background: #1e1e1e;
   border: none;
   resize: none;
   outline: none;
-  tab-size: 2;
+  tab-size: 4;
+  color: #d4d4d4;
+  caret-color: #aeafad;
+}
+
+.code-textarea::selection {
+  background: #264f78;
 }
 
 .code-textarea.modified {
-  border-left: 3px solid var(--color-warning);
+  border-left: 2px solid #e0b040;
 }
 
 .editor-loading {
@@ -240,15 +261,23 @@ onMounted(loadFile)
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  color: #808080;
+  font-size: 12px;
 }
 
 .editor-statusbar {
   display: flex;
-  gap: 16px;
-  padding: 4px 12px;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  gap: 12px;
+  padding: 0 12px;
+  height: 22px;
+  border-top: 1px solid #3c3c3c;
+  background: #252526;
   font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  color: #808080;
+  align-items: center;
+}
+
+.editor-statusbar span {
+  padding: 2px 4px;
 }
 </style>
