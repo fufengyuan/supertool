@@ -396,8 +396,8 @@ function getLineClass(line: any, side: 'old' | 'new') {
 }
 
 .line-header {
-  background: color-mix(in oklab, var(--color-blue) 15%, transparent);
-  color: var(--color-blue);
+  background: #1e3a5f;
+  color: #60a5fa;
 }
 
 .line-header .line-content {
@@ -405,21 +405,21 @@ function getLineClass(line: any, side: 'old' | 'new') {
 }
 
 .line-remove {
-  background: color-mix(in oklab, var(--color-red) 20%, transparent);
+  background: #1e3a5f;
 }
 
 .line-remove .line-content {
-  color: var(--color-red);
-  font-weight: 500;
+  color: #60a5fa;
+  font-weight: 600;
 }
 
 .line-add {
-  background: color-mix(in oklab, var(--color-green) 20%, transparent);
+  background: #0f4c75;
 }
 
 .line-add .line-content {
-  color: var(--color-green);
-  font-weight: 500;
+  color: #3b82f6;
+  font-weight: 600;
 }
 
 .line-context {
