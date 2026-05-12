@@ -314,6 +314,12 @@ impl CoreService {
     pub async fn git_rebase_continue(&self, repo_path: &str) -> Result<Value, String> {
         git::git_rebase_continue(repo_path).await
     }
+    pub async fn git_rebase_interactive(&self, repo_path: &str, base_commit: &str, operations: Vec<Value>) -> Result<Value, String> {
+        git::git_rebase_interactive(repo_path, base_commit, operations).await
+    }
+    pub async fn git_rebase_todo_list(&self, repo_path: &str, base_commit: &str) -> Result<Value, String> {
+        git::git_rebase_todo_list(repo_path, base_commit).await
+    }
     pub async fn git_file_blame(&self, repo_path: &str, file: &str) -> Result<Value, String> {
         git::git_file_blame(repo_path, file).await
     }
