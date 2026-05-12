@@ -678,7 +678,6 @@ function onViewContext(event: MouseEvent, conn: DBConnection, view: string, dbNa
 
 // Ensure connection is connected
 async function ensureConnected(conn: DBConnection) {
-  if (conn.type === 'sqlite') return
   try {
     await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
   } catch (e) {

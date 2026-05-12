@@ -76,7 +76,7 @@ export function log(message: string, level: LogLevelValue = LogLevel.INFO, conte
       const match = entry.message.match(/^\[([^\]]+)\]/);
       moduleName = match ? match[1] : 'FRONTEND';
     }
-    getTauriAPI().writeSystemLog?.(entry.levelLabels, `前端:${moduleName}`, entry.message);
+    getTauriAPI().writeSystemLog?.(entry.levelLabel, `前端:${moduleName}`, entry.message);
   } catch {
     // 忽略写入失败
   }
