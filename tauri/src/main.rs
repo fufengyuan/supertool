@@ -596,6 +596,8 @@ fn main() {
             commands::git::git_rebase,
             commands::git::git_rebase_abort,
             commands::git::git_rebase_continue,
+            commands::git::git_rebase_interactive,
+            commands::git::git_rebase_todo_list,
             // Git 高级操作
             commands::git::git_file_history,
             commands::git::git_unpushed_commits,

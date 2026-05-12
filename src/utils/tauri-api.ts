@@ -1701,6 +1701,8 @@ export interface TauriAPI {
   gitRebase: (repoPath: string, targetBranch: string, onto?: string) => Promise<any>
   gitRebaseAbort: (repoPath: string) => Promise<any>
   gitRebaseContinue: (repoPath: string) => Promise<any>
+  gitRebaseInteractive: (repoPath: string, baseCommit: string, operations: any[]) => Promise<any>
+  gitRebaseTodoList: (repoPath: string, baseCommit: string) => Promise<any>
   gitFileHistory: (repoPath: string, filePath: string, limit?: number) => Promise<any>
   gitUnpushedCommits: (repoPath: string) => Promise<any>
   gitCherryPick: (repoPath: string, commitHash: string, noCommit?: boolean) => Promise<any>
@@ -2343,6 +2345,8 @@ export function getTauriAPI(): TauriAPI {
     gitRebase: async (repoPath: string, targetBranch: string, onto?: string) => tauriCall('git_rebase', { repoPath, targetBranch, onto }),
     gitRebaseAbort: async (repoPath: string) => tauriCall('git_rebase_abort', { repoPath }),
     gitRebaseContinue: async (repoPath: string) => tauriCall('git_rebase_continue', { repoPath }),
+    gitRebaseInteractive: async (repoPath: string, baseCommit: string, operations: any[]) => tauriCall('git_rebase_interactive', { repoPath, baseCommit, operations }),
+    gitRebaseTodoList: async (repoPath: string, baseCommit: string) => tauriCall('git_rebase_todo_list', { repoPath, baseCommit }),
     gitFileHistory: async (repoPath: string, filePath: string, limit?: number) => tauriCall('git_file_history', { repoPath, filePath, limit }),
     gitUnpushedCommits: async (repoPath: string) => tauriCall('git_unpushed_commits', { repoPath }),
     gitCherryPick: async (repoPath: string, commitHash: string, noCommit?: boolean) => tauriCall('git_cherry_pick', { repoPath, commitHash, noCommit }),

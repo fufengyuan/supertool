@@ -1127,13 +1127,16 @@ function confirmDeleteBranch(name: string) {
   function loadInteractiveRebaseCommits() {
     if (!repoPath.value || !interactiveRebaseBase.value) return
     irLoading.value = true
-    api.gitLog(repoPath.value, 20).then((res: any) => {
-      irCommits.value = res.commits || res
-    }).catch((e: any) => {
-      toast.error('加载失败: ' + e.message)
-    }).finally(() => {
-      irLoading.value = false
-    })
+    api.gitRebaseTodoList(repoPath.value, interactiveRebaseBase.value)
+      .then((res: any) => {
+        irCommits.value = res.commits || []
+      })
+      .catch((e: any) => {
+        toast.error('加载失败: ' + e.message)
+      })
+      .finally(() => {
+        irLoading.value = false
+      })
   }
   function irMoveUp() {
     if (irSelectedIndex.value > 0) {
@@ -1154,9 +1157,30 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function doInteractiveRebase() {
-    if (!repoPath.value) return
-    // TODO: 实现交互式 rebase
-    toast.info('交互式 Rebase 功能待实现')
+    if (!repoPath.value || !interactiveRebaseBase.value || irCommits.value.length === 0) {
+      toast.error('请选择基准提交和要操作的提交')
+      return
+    }
+    irLoading.value = true
+    // 构建操作列表
+    const operations = irCommits.value.map((c: any) => ({
+      action: c.action || 'pick',
+      hash: c.hash || c.id,
+      message: c.message || c.subject || ''
+    }))
+    api.gitRebaseInteractive(repoPath.value, interactiveRebaseBase.value, operations)
+      .then(() => {
+        toast.success('交互式 Rebase 成功')
+        showInteractiveRebaseDialog.value = false
+        loadLog()
+        loadStatus()
+      })
+      .catch((e: any) => {
+        toast.error('Rebase 失败: ' + e.message)
+      })
+      .finally(() => {
+        irLoading.value = false
+      })
   }
   function openRemotesDialog() { showRemotesDialog.value = true; loadRemotes() }
   function openAddRemote() { showAddRemoteForm.value = true }

@@ -591,6 +591,24 @@ pub async fn git_rebase_continue(repo_path: String) -> Result<serde_json::Value,
         .map_err(|e| format!("继续rebase失败: {}", e))
 }
 
+/// Interactive rebase - execute with custom operations
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rebase_interactive(repo_path: String, base_commit: String, operations: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rebase_interactive() called, base={}", base_commit);
+    supertool_core::logic::git::git_rebase_interactive(&repo_path, &base_commit, operations)
+        .await
+        .map_err(|e| format!("交互式rebase失败: {}", e))
+}
+
+/// Get commits for interactive rebase preview
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rebase_todo_list(repo_path: String, base_commit: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rebase_todo_list() called, base={}", base_commit);
+    supertool_core::logic::git::git_rebase_todo_list(&repo_path, &base_commit)
+        .await
+        .map_err(|e| format!("获取rebase todo列表失败: {}", e))
+}
+
 // ==================== Git 高级操作 ====================
 
 /// Get file history
