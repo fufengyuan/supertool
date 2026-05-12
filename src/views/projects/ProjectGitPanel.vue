@@ -58,10 +58,14 @@
         <div
           v-for="commit in filteredCommits"
           :key="commit.repo + commit.hash"
-          class="p-3 bg-base-200 rounded-lg border-l-4 border-primary"
+          class="p-3 bg-base-200 rounded-lg border-l-4 border-primary cursor-pointer transition-colors hover:bg-base-300/50"
+          @click="toggleCommitDetail(commit)"
         >
           <div class="flex justify-between items-center mb-1">
             <div class="flex items-center gap-2 min-w-0">
+              <span class="text-base-content/40 shrink-0 transition-transform" :class="{ 'rotate-90': expandedCommit === commit.hash + commit.repoKey }">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+              </span>
               <span v-if="commit.repo" class="text-[11px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-semibold shrink-0">{{ commit.repo }}</span>
               <span class="font-mono text-xs text-base-content/50 truncate" :title="commit.hash">{{ commit.hash.substring(0, 8) }}</span>
             </div>
@@ -69,6 +73,13 @@
           </div>
           <div class="text-xs text-primary mb-0.5">{{ commit.author }}</div>
           <div class="text-sm text-base-content">{{ commit.message }}</div>
+          <!-- 展开详情 -->
+          <div v-if="expandedCommit === commit.hash + commit.repoKey" class="mt-2 pt-2 border-t border-base-content/10">
+            <div v-if="loadingDetail && !commitDetails[commit.hash + commit.repoKey]" class="text-xs text-base-content/50 py-2 text-center">
+              <span class="loading loading-spinner loading-xs mr-1"></span> 加载中...
+            </div>
+            <pre v-else class="text-xs font-mono text-base-content/80 bg-base-300 p-3 rounded-lg overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">{{ commitDetails[commit.hash + commit.repoKey] }}</pre>
+          </div>
         </div>
       </div>
     </div>
@@ -91,6 +102,9 @@ const props = defineProps({
 const commits = ref<any[]>([])
 const loading = ref(false)
 const repoFilter = ref('all')
+const expandedCommit = ref<string | null>(null)
+const commitDetails = ref<Record<string, string>>({})
+const loadingDetail = ref(false)
 
 // 仅本地仓库支持拉取 Git 记录
 const localRepos = computed(() => {
@@ -110,6 +124,25 @@ const formatDate = (dateString: string) => {
   return new Date(dateString).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+const toggleCommitDetail = async (commit: any) => {
+  const key = commit.hash + commit.repoKey
+  if (expandedCommit.value === key) {
+    expandedCommit.value = null
+    return
+  }
+  expandedCommit.value = key
+  if (commitDetails.value[key]) return // already loaded
+  loadingDetail.value = true
+  try {
+    const result = await getTauriAPI().getGitCommitDetail(commit.repoPath || commit.repo, commit.hash)
+    commitDetails.value[key] = result?.diff || '暂无详情'
+  } catch (e: any) {
+    commitDetails.value[key] = '加载失败: ' + (e.message || e)
+  } finally {
+    loadingDetail.value = false
+  }
+}
+
 const loadGitCommits = async () => {
   if (localRepos.value.length === 0) {
     commits.value = []
@@ -127,6 +160,7 @@ const loadGitCommits = async () => {
           ...item,
           repo: repo.label,
           repoKey: repo.key,
+          repoPath: repo.path,
         })))
       } catch (e) {
         console.warn(`Failed to load commits for ${repo.label}:`, e)

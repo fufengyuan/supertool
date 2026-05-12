@@ -288,3 +288,15 @@ pub fn open_in_file_manager(path: String) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Get full commit details (body + diff) for a given commit hash
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_git_commit_detail(
+    repo_path: String,
+    commit_hash: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_git_commit_detail() called, hash={}", commit_hash);
+    supertool_core::logic::git::git_commit_diff(&repo_path, &commit_hash)
+        .await
+        .map_err(|e| format!("获取提交详情失败: {}", e))
+}

@@ -1471,6 +1471,7 @@ export interface TauriAPI {
   scanLocalGitRepos: (directories: string[]) => Promise<any>
   getGitBranches: (path: string) => Promise<any>
   openInFileManager: (path: string) => Promise<any>
+  getGitCommitDetail: (repoPath: string, commitHash: string) => Promise<any>
   fetchPageContent: (url: string) => Promise<string>
   convertHtmlToMd: (html: string) => Promise<string>
   // Calculator
@@ -1993,6 +1994,7 @@ export function getTauriAPI(): TauriAPI {
     scanLocalGitRepos: async (directories: string[]): Promise<any> => tauriCall('scan_local_repos', { directories }),
     getGitBranches: async (path: string): Promise<any> => tauriCall('get_git_branches', { repoPath: path }),
     openInFileManager: async (path: string): Promise<any> => tauriCall('open_in_file_manager', { path }),
+    getGitCommitDetail: async (repoPath: string, commitHash: string): Promise<any> => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
     fetchPageContent: async (url: string): Promise<string> => tauriCall('fetch_page_content', { url }),
     convertHtmlToMd: async (html: string): Promise<string> => tauriCall('convert_html_to_md', { html }),
     // Subtask
