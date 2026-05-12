@@ -27,6 +27,10 @@
             >
               <SvgIcon name="gitBranch" size="14" />
               <span class="branch-label">{{ b.name }}</span>
+              <span v-if="b.upstream" class="branch-upstream-badge">
+                <span v-if="b.ahead > 0" class="ahead-badge">↑{{ b.ahead }}</span>
+                <span v-if="b.behind > 0" class="behind-badge">↓{{ b.behind }}</span>
+              </span>
               <span v-if="b.current" class="current-badge">当前</span>
               <div class="branch-actions" v-if="!b.current">
                 <button class="btn btn-ghost btn-xs" @click.stop="$emit('open-branch-rename', b.name)" title="重命名分支">Rename</button>
@@ -272,6 +276,30 @@ const branchRenameInputRef = ref<HTMLInputElement | null>(null)
   border-radius: 3px;
   background: var(--color-primary);
   color: white;
+  font-weight: 600;
+}
+
+.branch-upstream-badge {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: 6px;
+}
+
+.ahead-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-green) 15%, transparent);
+  color: var(--color-green);
+  font-weight: 600;
+}
+
+.behind-badge {
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--color-amber) 15%, transparent);
+  color: var(--color-amber);
   font-weight: 600;
 }
 

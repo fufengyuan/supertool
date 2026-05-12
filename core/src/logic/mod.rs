@@ -527,7 +527,6 @@ impl CoreService {
         let now = chrono::Utc::now().to_rfc3339();
         let deploy_log = crate::db::cicd::DeployLog {
             id: deploy_id.clone(),
-            project_id: cicd_config.project_id.clone(),
             config_id: config_id.to_string(),
             status: "running".to_string(),
             start_time: now.clone(),
@@ -601,7 +600,6 @@ impl CoreService {
         let end_time = chrono::Utc::now().to_rfc3339();
         let updated_log = crate::db::cicd::DeployLog {
             id: deploy_id.clone(),
-            project_id: cicd_config.project_id.clone(),
             config_id: config_id.to_string(),
             status: final_status.clone(),
             start_time: now.clone(),
@@ -619,7 +617,6 @@ impl CoreService {
         let history = crate::db::cicd::DeployHistory {
             id: uuid::Uuid::new_v4().to_string(),
             config_id: config_id.to_string(),
-            project_id: cicd_config.project_id.clone(),
             status: final_status,
             deployed_at: end_time,
             rolled_back: false,
@@ -657,7 +654,6 @@ impl CoreService {
         let end_time = chrono::Utc::now().to_rfc3339();
         let updated_log = crate::db::cicd::DeployLog {
             id: deploy_log.id.clone(),
-            project_id: deploy_log.project_id.clone(),
             config_id: deploy_log.config_id.clone(),
             status: "cancelled".to_string(),
             start_time: deploy_log.start_time.clone(),
@@ -753,7 +749,6 @@ impl CoreService {
     let history = crate::db::cicd::DeployHistory {
         id: rollback_id,
         config_id: config_id.to_string(),
-        project_id: deploy_log.project_id,
         status: if rollback_errors.is_empty() {
             "rollback-success".to_string()
         } else {

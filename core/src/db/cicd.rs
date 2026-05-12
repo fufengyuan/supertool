@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CicdConfig {
     pub id: String,
-    #[serde(rename = "projectId")]
-    pub project_id: String,
     pub name: String,
     #[serde(rename = "deployBranch")]
     pub deploy_branch: String,
@@ -107,8 +105,6 @@ pub struct DeployModule {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeployLog {
     pub id: String,
-    #[serde(rename = "projectId")]
-    pub project_id: String,
     #[serde(rename = "configId")]
     pub config_id: String,
     pub status: String,
@@ -145,8 +141,6 @@ pub struct DeployHistory {
     pub id: String,
     #[serde(rename = "configId")]
     pub config_id: String,
-    #[serde(rename = "projectId")]
-    pub project_id: String,
     pub status: String,
     #[serde(rename = "deployedAt")]
     pub deployed_at: String,
@@ -161,7 +155,6 @@ pub struct DeployHistory {
 pub fn row_to_cicd_config(row: &rusqlite::Row) -> rusqlite::Result<CicdConfig> {
     Ok(CicdConfig {
         id: row.get("id")?,
-        project_id: row.get("projectId")?,
         name: row.get("name")?,
         deploy_branch: row.get("deployBranch")?,
         maven_settings: row.get("mavenSettings")?,
@@ -220,17 +213,16 @@ fn row_to_deploy_module(row: &rusqlite::Row) -> rusqlite::Result<DeployModule> {
 pub fn row_to_deploy_log(row: &rusqlite::Row) -> rusqlite::Result<DeployLog> {
     Ok(DeployLog {
         id: row.get(0)?,
-        project_id: row.get(1)?,
-        config_id: row.get(2)?,
-        status: row.get(3)?,
-        start_time: row.get(4)?,
-        end_time: row.get(5)?,
-        error_message: row.get(6)?,
-        progress: row.get(7)?,
-        triggered_by: row.get(8)?,
-        created_at: row.get(9)?,
-        log_file_path: row.get(10)?,
-        artifact_paths: row.get(11)?,
+        config_id: row.get(1)?,
+        status: row.get(2)?,
+        start_time: row.get(3)?,
+        end_time: row.get(4)?,
+        error_message: row.get(5)?,
+        progress: row.get(6)?,
+        triggered_by: row.get(7)?,
+        created_at: row.get(8)?,
+        log_file_path: row.get(9)?,
+        artifact_paths: row.get(10)?,
     })
 }
 
@@ -249,11 +241,10 @@ pub fn row_to_deploy_history(row: &rusqlite::Row) -> rusqlite::Result<DeployHist
     Ok(DeployHistory {
         id: row.get(0)?,
         config_id: row.get(1)?,
-        project_id: row.get(2)?,
-        status: row.get(3)?,
-        deployed_at: row.get(4)?,
-        rolled_back: row.get::<_, i64>(5)? != 0,
-        rolled_back_at: row.get(6)?,
+        status: row.get(2)?,
+        deployed_at: row.get(3)?,
+        rolled_back: row.get::<_, i64>(4)? != 0,
+        rolled_back_at: row.get(5)?,
     })
 }
 
@@ -273,16 +264,6 @@ pub fn get_cicd_groups(conn: &Connection) -> Result<Vec<String>, rusqlite::Error
     stmt.query_map([], |row| row.get(0)).map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
-pub fn get_cicd_config(conn: &Connection, project_id: &str) -> Result<Option<CicdConfig>, rusqlite::Error> {
-    let mut stmt = conn.prepare("SELECT * FROM cicd_configs WHERE projectId = ?")?;
-    stmt.query_row([project_id], row_to_cicd_config)
-        .map(Some)
-        .or_else(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => Ok(None),
-            other => Err(other),
-        })
-}
-
 pub fn get_cicd_config_by_config_id(conn: &Connection, config_id: &str) -> Result<Option<CicdConfig>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT * FROM cicd_configs WHERE id = ?")?;
     stmt.query_row([config_id], row_to_cicd_config)
@@ -295,14 +276,14 @@ pub fn get_cicd_config_by_config_id(conn: &Connection, config_id: &str) -> Resul
 
 pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO cicd_configs (id, projectId, name, deployBranch, mavenSettings, mavenProfile, \
+        "INSERT INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, \
          deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, \
          updatedAt, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, \
          npmCustomScript, mavenHome, npmHome, pnpmHome, yarnHome, javaHome, nodeHome, servers, groupName, \
          parentBuildMode, parentBuildPath, requiresApproval, gitRepoId) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
-            c.id, c.project_id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
+            c.id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script, c.health_check_url,
             c.health_check_timeout, c.created_at, c.updated_at, c.build_tool, c.build_command,
             c.build_path, c.repo_url, c.local_path, c.npm_script, c.npm_custom_script,
@@ -317,14 +298,14 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
 
 pub fn update_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<Option<CicdConfig>, rusqlite::Error> {
     conn.execute(
-        "UPDATE cicd_configs SET projectId=?, name=?, deployBranch=?, mavenSettings=?, \
+        "UPDATE cicd_configs SET name=?, deployBranch=?, mavenSettings=?, \
          mavenProfile=?, deployPath=?, libSeparate=?, restartScript=?, healthCheckUrl=?, \
          healthCheckTimeout=?, updatedAt=?, buildTool=?, buildCommand=?, buildPath=?, \
          repoUrl=?, localPath=?, npmScript=?, npmCustomScript=?, mavenHome=?, npmHome=?, pnpmHome=?, yarnHome=?, \
          javaHome=?, nodeHome=?, servers=?, groupName=?, parentBuildMode=?, \
          parentBuildPath=?, requiresApproval=?, gitRepoId=? WHERE id=?",
         params![
-            c.project_id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
+            &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script,
             c.health_check_url, c.health_check_timeout, c.updated_at, c.build_tool,
             c.build_command, c.build_path, c.repo_url, c.local_path, c.npm_script,
@@ -407,11 +388,11 @@ fn get_deploy_module_by_id(conn: &Connection, module_id: &str) -> Result<Option<
 // Deploy logs
 pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO deploy_logs (id, projectId, configId, status, startTime, endTime, \
+        "INSERT INTO deploy_logs (id, configId, status, startTime, endTime, \
          errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
-            log.id, log.project_id, log.config_id, log.status, log.start_time,
+            log.id, log.config_id, log.status, log.start_time,
             log.end_time, log.error_message, log.progress, log.triggered_by,
             log.created_at, log.log_file_path, log.artifact_paths
         ],
@@ -421,24 +402,16 @@ pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, r
 
 pub fn update_deploy_log(conn: &Connection, log: &DeployLog) -> Result<Option<DeployLog>, rusqlite::Error> {
     conn.execute(
-        "UPDATE deploy_logs SET projectId=?, configId=?, status=?, startTime=?, endTime=?, \
+        "UPDATE deploy_logs SET configId=?, status=?, startTime=?, endTime=?, \
          errorMessage=?, progress=?, triggeredBy=?, createdAt=?, logFilePath=?, artifactPaths=? \
          WHERE id=?",
         params![
-            log.project_id, log.config_id, log.status, log.start_time, log.end_time,
+            log.config_id, log.status, log.start_time, log.end_time,
             log.error_message, log.progress, log.triggered_by, log.created_at,
             log.log_file_path, log.artifact_paths, log.id
         ],
     )?;
     get_deploy_log_by_id(conn, &log.id)
-}
-
-pub fn get_deploy_logs(conn: &Connection, project_id: &str, limit: i64) -> Result<Vec<DeployLog>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM deploy_logs WHERE projectId = ? ORDER BY createdAt DESC LIMIT ?"
-    )?;
-    stmt.query_map(params![project_id, limit], row_to_deploy_log)
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
 pub fn get_deploy_log_by_id(conn: &Connection, log_id: &str) -> Result<Option<DeployLog>, rusqlite::Error> {
@@ -473,20 +446,12 @@ pub fn get_deploy_step_logs(conn: &Connection, deploy_log_id: &str) -> Result<Ve
 // Deploy history
 pub fn add_deploy_history(conn: &Connection, h: &DeployHistory) -> Result<DeployHistory, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO deploy_history (id, configId, projectId, status, deployedAt, rolledBack, rolledBackAt) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-        params![h.id, h.config_id, h.project_id, h.status, h.deployed_at,
+        "INSERT INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt) \
+         VALUES (?, ?, ?, ?, ?, ?)",
+        params![h.id, h.config_id, h.status, h.deployed_at,
                 if h.rolled_back { 1 } else { 0 }, h.rolled_back_at],
     )?;
     get_deploy_history_by_id(conn, &h.id).map(|opt| opt.unwrap())
-}
-
-pub fn get_deploy_history(conn: &Connection, project_id: &str, limit: i64) -> Result<Vec<DeployHistory>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM deploy_history WHERE projectId = ? ORDER BY deployedAt DESC LIMIT ?"
-    )?;
-    stmt.query_map(params![project_id, limit], row_to_deploy_history)
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
 fn get_deploy_history_by_id(conn: &Connection, id: &str) -> Result<Option<DeployHistory>, rusqlite::Error> {

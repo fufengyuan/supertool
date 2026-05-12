@@ -312,6 +312,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     loadingDiff.value = true
     try {
       const res = await api.getGitCommitDetail(repoPath.value, selectedCommit.value.hash)
+      // res now contains { hash, author, authorEmail, date, message, files, diff }
       commitDiff.value = res
     } catch (e: any) {
       toast.error('加载提交详情失败: ' + e.message)
