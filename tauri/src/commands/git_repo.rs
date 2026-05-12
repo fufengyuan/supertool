@@ -28,7 +28,7 @@ pub async fn add_git_repo(
         return Ok(serde_json::json!({ "success": false, "error": "仓库路径不能为空" }));
     }
 
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         db_git_repo::add(conn, &id, &name, &path, remote.as_deref(), branch.as_deref())
             .map_err(|e| e.to_string())
     })?;
@@ -47,7 +47,7 @@ pub async fn update_git_repo(
     let remote = data.get("remote").and_then(|v| v.as_str()).map(|s| s.to_string());
     let branch = data.get("branch").and_then(|v| v.as_str()).map(|s| s.to_string());
 
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         db_git_repo::update(conn, &id, &name, &path, remote.as_deref(), branch.as_deref())
             .map_err(|e| e.to_string())
     })?;
@@ -60,7 +60,7 @@ pub async fn delete_git_repo(
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_git_repo() called");
-    core.db_write(|conn| {
+    let _ = core.db_write(|conn| {
         db_git_repo::delete(conn, &id).map_err(|e| e.to_string())
     })?;
     Ok(serde_json::json!({ "success": true }))
