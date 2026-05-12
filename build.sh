@@ -118,7 +118,7 @@ build_macos_all() {
         echo "✅ dmg → $PKG_OUTPUT/$(basename "$DMG_SRC")"
     fi
 
-    # ── 2. 生成增强 .pkg（CLI + Skills 分发到系统路径）──
+    # ── 2. 生成增强 .pkg（CLI + Skills 通过 postinstall 从 app bundle 分发）──
     local APP_PATH=""
     for d in target/release/bundle/macos/*.app target/release/bundle/osx/*.app; do
         if [ -d "$d" ]; then APP_PATH="$d"; break; fi
@@ -130,28 +130,31 @@ build_macos_all() {
 
     local PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
-    mkdir -p "$PKG_DIR/app" "$PKG_DIR/cli/usr/local/bin" "$PKG_DIR/skills/usr/local/share/supertool/skills" "$PKG_DIR/scripts" "$PKG_DIR/resources"
+    mkdir -p "$PKG_DIR/scripts"
 
-    cp -R "$APP_PATH" "$PKG_DIR/app/"
-    cp -f target/release/stool "$PKG_DIR/cli/usr/local/bin/"
-    chmod 755 "$PKG_DIR/cli/usr/local/bin/stool"
-    if [ -d "skills" ]; then
-        cp -R skills/* "$PKG_DIR/skills/usr/local/share/supertool/skills/" 2>/dev/null || true
-    fi
-
-    # postinstall
+    # postinstall：从 /Applications/SuperTool.app 内部取出 stool CLI + skills
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-TARGET_DIR="$3"
+INSTALL_DIR="$2"
+APP_DIR="${INSTALL_DIR}/SuperTool.app"
 echo "🔧 SuperTool postinstall..."
-if [ -f "${TARGET_DIR}/usr/local/bin/stool" ]; then
-    chmod 755 "${TARGET_DIR}/usr/local/bin/stool"
+
+CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
+if [ -f "$CLI_SRC" ]; then
+    mkdir -p /usr/local/bin
+    cp -f "$CLI_SRC" /usr/local/bin/stool
+    chmod 755 /usr/local/bin/stool
     echo "✅ stool → /usr/local/bin/stool"
 fi
-if [ -d "${TARGET_DIR}/usr/local/share/supertool/skills" ]; then
+
+SKILLS_SRC="${APP_DIR}/Contents/Resources/_up_/skills"
+if [ -d "$SKILLS_SRC" ]; then
+    mkdir -p /usr/local/share/supertool/skills
+    cp -R "$SKILLS_SRC"/* /usr/local/share/supertool/skills/ 2>/dev/null || true
     echo "✅ skills → /usr/local/share/supertool/skills"
 fi
+
 LOGGED_IN_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
 if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
     USER_HOME=$(dscl . -read "/Users/${LOGGED_IN_USER}" NFSHomeDirectory 2>/dev/null | cut -d' ' -f2 || echo "/Users/${LOGGED_IN_USER}")
@@ -172,75 +175,13 @@ exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
 
-    # 组件 pkg
-    pkgbuild --root "$PKG_DIR/app" \
-        --identifier "com.fufengyuan.supertool.tauri" \
+    # 使用 pkgbuild --component 标准方式打包 .app（比 --root 更可靠）
+    # 自动安装到 /Applications，无 bundle relocate 副作用
+    pkgbuild --component "$APP_PATH" \
+        --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
         --install-location "/Applications" \
-        "$PKG_DIR/SuperTool-App.pkg"
-
-    pkgbuild --root "$PKG_DIR/cli" \
-        --identifier "com.fufengyuan.supertool.cli" \
-        --version "$VERSION" \
-        --install-location "/" \
-        "$PKG_DIR/SuperTool-CLI.pkg"
-
-    pkgbuild --root "$PKG_DIR/skills" \
-        --identifier "com.fufengyuan.supertool.skills" \
-        --version "$VERSION" \
-        --install-location "/" \
-        "$PKG_DIR/SuperTool-Skills.pkg"
-
-    # Distribution XML
-    cat > "$PKG_DIR/distribution.xml" << EOF
-<?xml version="1.0" encoding="utf-8"?>
-<installer-gui-script minSpecVersion="2">
-    <title>SuperTool ${VERSION}</title>
-    <organization>com.fufengyuan.supertool</organization>
-    <domains enable_anySystem="false" enable_anyUser="true" enable_currentUserOnly="false" enable_localSystem="true"/>
-    <options require-scripts="false" customize="allow" rootVolumeOnly="true"/>
-    <welcome file="welcome.html" mime-type="text/html"/>
-    <conclusion file="conclusion.html" mime-type="text/html"/>
-    <choices-outline>
-        <line choice="choice_app"/>
-        <line choice="choice_cli"/>
-        <line choice="choice_skills"/>
-    </choices-outline>
-    <choice id="choice_app" title="SuperTool 应用" description="安装到 /Applications" enabled="false" selected="true" start_selected="true" visible="true">
-        <pkg-ref id="com.fufengyuan.supertool.tauri"/>
-    </choice>
-    <choice id="choice_cli" title="CLI 命令行工具" description="安装 stool 到 /usr/local/bin" start_selected="true">
-        <pkg-ref id="com.fufengyuan.supertool.cli"/>
-    </choice>
-    <choice id="choice_skills" title="AI 技能库" description="安装到 /usr/local/share/supertool/skills" start_selected="true">
-        <pkg-ref id="com.fufengyuan.supertool.skills"/>
-    </choice>
-    <pkg-ref id="com.fufengyuan.supertool.tauri" version="${VERSION}" onConclusion="none">SuperTool-App.pkg</pkg-ref>
-    <pkg-ref id="com.fufengyuan.supertool.cli" version="${VERSION}" onConclusion="none" auth="root">SuperTool-CLI.pkg</pkg-ref>
-    <pkg-ref id="com.fufengyuan.supertool.skills" version="${VERSION}" onConclusion="none" auth="root">SuperTool-Skills.pkg</pkg-ref>
-</installer-gui-script>
-EOF
-
-    cat > "$PKG_DIR/resources/welcome.html" << 'EOF'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,sans-serif;font-size:13px">
-<h2>欢迎安装 SuperTool</h2>
-<p>本安装包将安装：</p>
-<ul><li>SuperTool.app → /Applications/</li><li>stool CLI → /usr/local/bin/</li><li>AI Skills → /usr/local/share/supertool/skills/</li></ul>
-</body></html>
-EOF
-
-    cat > "$PKG_DIR/resources/conclusion.html" << 'EOF'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,sans-serif;font-size:13px">
-<h2>安装完成</h2>
-<ul><li>从 /Applications/SuperTool.app 启动</li><li>CLI: stool --help</li><li>数据目录: ~/.supertool/</li></ul>
-</body></html>
-EOF
-
-    productbuild --distribution "$PKG_DIR/distribution.xml" \
-        --resources "$PKG_DIR/resources" \
-        --package-path "$PKG_DIR" \
+        --scripts "$PKG_DIR/scripts" \
         "$PKG_OUTPUT/SuperTool-${VERSION}.pkg"
 
     rm -rf "$PKG_DIR"
@@ -402,28 +343,31 @@ case "$MODE" in
     
     PKG_DIR="pkg-build"
     rm -rf "$PKG_DIR"
-    mkdir -p "$PKG_DIR/app" "$PKG_DIR/cli/usr/local/bin" "$PKG_DIR/skills/usr/local/share/supertool/skills" "$PKG_DIR/scripts" "$PKG_DIR/resources"
+    mkdir -p "$PKG_DIR/scripts"
     
-    cp -R "$APP_PATH" "$PKG_DIR/app/"
-    cp -f target/release/stool "$PKG_DIR/cli/usr/local/bin/"
-    chmod 755 "$PKG_DIR/cli/usr/local/bin/stool"
-    if [ -d "skills" ]; then
-        cp -R skills/* "$PKG_DIR/skills/usr/local/share/supertool/skills/" 2>/dev/null || true
-    fi
-    
-    # postinstall
+    # postinstall：从 /Applications/SuperTool.app 内部取出 stool CLI + skills
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-TARGET_DIR="$3"
+INSTALL_DIR="$2"
+APP_DIR="${INSTALL_DIR}/SuperTool.app"
 echo "🔧 SuperTool postinstall..."
-if [ -f "${TARGET_DIR}/usr/local/bin/stool" ]; then
-    chmod 755 "${TARGET_DIR}/usr/local/bin/stool"
+
+CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
+if [ -f "$CLI_SRC" ]; then
+    mkdir -p /usr/local/bin
+    cp -f "$CLI_SRC" /usr/local/bin/stool
+    chmod 755 /usr/local/bin/stool
     echo "✅ stool → /usr/local/bin/stool"
 fi
-if [ -d "${TARGET_DIR}/usr/local/share/supertool/skills" ]; then
+
+SKILLS_SRC="${APP_DIR}/Contents/Resources/_up_/skills"
+if [ -d "$SKILLS_SRC" ]; then
+    mkdir -p /usr/local/share/supertool/skills
+    cp -R "$SKILLS_SRC"/* /usr/local/share/supertool/skills/ 2>/dev/null || true
     echo "✅ skills → /usr/local/share/supertool/skills"
 fi
+
 LOGGED_IN_USER=$(stat -f '%Su' /dev/console 2>/dev/null || echo "")
 if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
     USER_HOME=$(dscl . -read "/Users/${LOGGED_IN_USER}" NFSHomeDirectory 2>/dev/null | cut -d' ' -f2 || echo "/Users/${LOGGED_IN_USER}")
@@ -444,75 +388,12 @@ exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
     
-    # 组件 pkg
-    pkgbuild --root "$PKG_DIR/app" \
-        --identifier "com.fufengyuan.supertool.tauri" \
+    # 使用 pkgbuild --component 标准方式打包 .app
+    pkgbuild --component "$APP_PATH" \
+        --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
         --install-location "/Applications" \
-        "$PKG_DIR/SuperTool-App.pkg"
-    
-    pkgbuild --root "$PKG_DIR/cli" \
-        --identifier "com.fufengyuan.supertool.cli" \
-        --version "$VERSION" \
-        --install-location "/" \
-        "$PKG_DIR/SuperTool-CLI.pkg"
-    
-    pkgbuild --root "$PKG_DIR/skills" \
-        --identifier "com.fufengyuan.supertool.skills" \
-        --version "$VERSION" \
-        --install-location "/" \
-        "$PKG_DIR/SuperTool-Skills.pkg"
-    
-    # Distribution XML
-    cat > "$PKG_DIR/distribution.xml" << EOF
-<?xml version="1.0" encoding="utf-8"?>
-<installer-gui-script minSpecVersion="2">
-    <title>SuperTool ${VERSION}</title>
-    <organization>com.fufengyuan.supertool</organization>
-    <domains enable_anySystem="false" enable_anyUser="true" enable_currentUserOnly="false" enable_localSystem="true"/>
-    <options require-scripts="false" customize="allow" rootVolumeOnly="true"/>
-    <welcome file="welcome.html" mime-type="text/html"/>
-    <conclusion file="conclusion.html" mime-type="text/html"/>
-    <choices-outline>
-        <line choice="choice_app"/>
-        <line choice="choice_cli"/>
-        <line choice="choice_skills"/>
-    </choices-outline>
-    <choice id="choice_app" title="SuperTool 应用" description="安装到 /Applications" enabled="false" selected="true" start_selected="true" visible="true">
-        <pkg-ref id="com.fufengyuan.supertool.tauri"/>
-    </choice>
-    <choice id="choice_cli" title="CLI 命令行工具" description="安装 stool 到 /usr/local/bin" start_selected="true">
-        <pkg-ref id="com.fufengyuan.supertool.cli"/>
-    </choice>
-    <choice id="choice_skills" title="AI 技能库" description="安装到 /usr/local/share/supertool/skills" start_selected="true">
-        <pkg-ref id="com.fufengyuan.supertool.skills"/>
-    </choice>
-    <pkg-ref id="com.fufengyuan.supertool.tauri" version="${VERSION}" onConclusion="none">SuperTool-App.pkg</pkg-ref>
-    <pkg-ref id="com.fufengyuan.supertool.cli" version="${VERSION}" onConclusion="none" auth="root">SuperTool-CLI.pkg</pkg-ref>
-    <pkg-ref id="com.fufengyuan.supertool.skills" version="${VERSION}" onConclusion="none" auth="root">SuperTool-Skills.pkg</pkg-ref>
-</installer-gui-script>
-EOF
-    
-    cat > "$PKG_DIR/resources/welcome.html" << 'EOF'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,sans-serif;font-size:13px">
-<h2>欢迎安装 SuperTool</h2>
-<p>本安装包将安装：</p>
-<ul><li>SuperTool.app → /Applications/</li><li>stool CLI → /usr/local/bin/</li><li>AI Skills → /usr/local/share/supertool/skills/</li></ul>
-</body></html>
-EOF
-    
-    cat > "$PKG_DIR/resources/conclusion.html" << 'EOF'
-<!DOCTYPE html><html><head><meta charset="utf-8"></head>
-<body style="font-family:-apple-system,sans-serif;font-size:13px">
-<h2>安装完成</h2>
-<ul><li>从 /Applications/SuperTool.app 启动</li><li>CLI: stool --help</li><li>数据目录: ~/.supertool/</li></ul>
-</body></html>
-EOF
-    
-    productbuild --distribution "$PKG_DIR/distribution.xml" \
-        --resources "$PKG_DIR/resources" \
-        --package-path "$PKG_DIR" \
+        --scripts "$PKG_DIR/scripts" \
         "$PKG_OUTPUT/SuperTool-${VERSION}.pkg"
     
     rm -rf "$PKG_DIR"
