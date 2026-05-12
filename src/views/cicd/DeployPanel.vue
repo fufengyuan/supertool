@@ -99,7 +99,7 @@
             <button @click="runPreflight" :disabled="deploying" class="btn btn-ghost border border-base-content/10 flex-1 justify-center">
               <SvgIcon name="search" size="14" class="inline-block align-text-bottom" /> 部署预检
             </button>
-            <button @click="startDeploy" :disabled="deploying || !selectedConfigId" class="btn flex-1 justify-center"
+            <button @click="startDeploy" :disabled="deploying || !selectedConfigId || loadingConfig || !config" class="btn flex-1 justify-center"
               :class="config?.requiresApproval ? 'bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90' : 'btn-primary'">
               <template v-if="deploying">部署中...</template>
               <template v-else-if="config?.requiresApproval">
@@ -376,6 +376,7 @@ const { runAll: runPreflightCheck } = useDeployPreflight();
 const configs = ref<CicdConfigEntry[]>([]);
 const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
+const loadingConfig = ref(false);
 const project = ref<Project | null>(null);
 const projects = ref<Project[]>([]);
 const gitRepos = ref<any[]>([]);
@@ -510,8 +511,11 @@ function getServerCount(cfg: CicdConfigEntry | null): number {
 
 async function selectDeployConfig(cfg: CicdConfigEntry) {
   selectedConfigId.value = cfg.id;
+  config.value = null;
+  loadingConfig.value = true;
   resetDeployState();
   await loadConfigData(cfg.id);
+  loadingConfig.value = false;
 }
 
 function getServersInfo(cfg: CicdConfigEntry | null): string {
@@ -577,7 +581,8 @@ onMounted(() => {
         })
         selectedConfigId.value = sorted[0].id;
         // 非阻塞加载配置详情
-        loadConfigData(selectedConfigId.value).catch(() => {});
+        loadingConfig.value = true;
+        loadConfigData(selectedConfigId.value).then(() => { loadingConfig.value = false; }).catch(() => { loadingConfig.value = false; });
       }
 
       // Enable deploy progress events from Tauri backend
