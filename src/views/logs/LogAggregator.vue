@@ -136,6 +136,14 @@
             >
               <SvgIcon name="stopSquare" size="14" /> 终止
             </button>
+            <button
+              @click="resumeQuery"
+              v-if="!isStreaming && selectedPreset && queryMode === 'stream' && logLines.length > 0"
+              class="btn btn-primary btn-sm"
+              title="继续查询同预设"
+            >
+              <SvgIcon name="refresh" size="14" /> 继续
+            </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
           </div>
@@ -708,6 +716,41 @@ function scrollToBottom() {
     showScrollBottom.value = false
   }
 }
+// 继续查询（终止后重新启动同一预设，不清除日志）
+async function resumeQuery() {
+  if (!selectedPreset.value) return
+  // 清理缓冲但不清除已有日志
+  if (logFlushTimer) { clearTimeout(logFlushTimer); logFlushTimer = null }
+  logBuffer.length = 0
+  pendingScroll = false
+
+  streamId.value = `stream_${Date.now()}`
+  activeServers.value = new Set<string>()
+  followMode.value = true
+  userScrolledUp.value = false
+  showScrollBottom.value = false
+
+  const command = buildCommand(selectedPreset.value)
+
+  try {
+    const result = await getTauriAPI().logsStartStream({
+      streamId: streamId.value,
+      serverIds: JSON.parse(JSON.stringify(selectedPreset.value.serverIds)),
+      command
+    })
+    if (result?.success) {
+      isStreaming.value = true
+    } else {
+      streamId.value = ''
+      toast.error(result?.error || '启动日志流失败')
+    }
+  } catch (e: any) {
+    console.error('Failed to resume log stream:', e)
+    streamId.value = ''
+    toast.error('启动日志流失败: ' + e.message)
+  }
+}
+
 // 切换查询模式
 async function switchQueryMode(mode: 'stream' | 'search') {
   queryMode.value = mode
