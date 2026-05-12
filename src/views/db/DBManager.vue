@@ -67,7 +67,7 @@
 
     <div class="flex flex-1 overflow-hidden min-w-0">
       <!-- Left sidebar: Connection tree -->
-      <aside class="w-64 min-w-[200px] max-w-[400px] border-r border-base-content/10 bg-base-100 flex flex-col overflow-hidden">
+      <aside class="w-72 min-w-[260px] max-w-[500px] border-r border-base-content/10 bg-base-100 flex flex-col overflow-hidden">
         <div class="flex items-center justify-between px-3 py-2.5 border-b border-base-content/10">
           <div class="flex items-center gap-2 text-xs font-semibold text-base-content/70">
             <SvgIcon name="server" size="14" class="text-base-content/40" />

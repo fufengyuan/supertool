@@ -33,7 +33,7 @@
       >
         <span class="w-4 text-center text-[10px] text-base-content/40 flex-shrink-0 leading-none">{{ isConnectionExpanded(conn.id) ? '▼' : '▶' }}</span>
         <span class="flex-shrink-0 text-sm leading-none w-[18px] text-center">{{ dbTypeIcon(conn.type) }}</span>
-        <span class="flex-1 truncate text-sm leading-tight min-w-0">{{ conn.name }}</span>
+        <span class="flex-1 truncate text-sm leading-tight min-w-0" :title="conn.name">{{ conn.name }}</span>
         <span v-if="conn.requiresApproval" class="flex-shrink-0 text-xs" title="SQL 执行审核已开启"><SvgIcon name="lock" size="14" class="align-text-bottom" /></span>
         <span class="badge badge-xs badge-ghost uppercase text-[10px] flex-shrink-0 leading-none">{{ conn.type }}</span>
         <button
