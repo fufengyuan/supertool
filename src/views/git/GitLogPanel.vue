@@ -214,15 +214,12 @@
           <span class="text-base-content">{{ (selectedCommit as any).refs }}</span>
         </div>
       </div>
-      <div class="border-t border-base-content/10 p-2 px-2.5">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="font-semibold text-xs">Diff</span>
-          <button class="btn btn-ghost btn-xs" @click="$emit('load-commit-diff')" :disabled="loadingDiff">
-            {{ loadingDiff ? '加载中...' : '查看 Diff' }}
-          </button>
-        </div>
-        <pre v-if="commitDiff" class="bg-base-200 p-2.5 rounded font-mono text-[11px] leading-relaxed overflow-x-auto max-h-[300px] whitespace-pre-wrap text-base-content">{{ commitDiff }}</pre>
-        <div v-else-if="!loadingDiff" class="text-center text-base-content/60 text-xs p-4">点击"查看 Diff"加载变更详情</div>
+      <div class="border-t border-base-content/10 p-2">
+        <DiffViewer
+          :files="commitDiff?.files || null"
+          :diff="commitDiff?.diff || null"
+          :loading="loadingDiff"
+        />
       </div>
     </div>
   </div>
@@ -230,6 +227,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import DiffViewer from '@/components/ui/DiffViewer.vue'
 import { ref } from 'vue'
 
 defineProps<{
@@ -244,7 +242,7 @@ defineProps<{
   filteredLog: any[]
   selectedLogCommits: Set<string>
   selectedCommit: any | null
-  commitDiff: string | null
+  commitDiff: { hash: string; author: string; authorEmail: string; date: string; message: string; files: any[]; diff: string } | null
   loadingDiff: boolean
   loading: boolean
   hasMoreLog: boolean
