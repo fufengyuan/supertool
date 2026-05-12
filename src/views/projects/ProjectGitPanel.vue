@@ -54,7 +54,7 @@
         <SvgIcon name="gitCommit" :size="24" class="mx-auto mb-2 opacity-50" />
         <p class="m-0">暂无提交记录</p>
       </div>
-      <div v-else class="max-h-[500px] overflow-y-auto space-y-2">
+      <div v-else class="max-h-[80vh] overflow-y-auto space-y-2">
         <div
           v-for="commit in filteredCommits"
           :key="commit.repo + commit.hash"
@@ -74,12 +74,13 @@
           <div class="text-xs text-primary mb-0.5">{{ commit.author }}</div>
           <div class="text-sm text-base-content">{{ commit.message }}</div>
           <!-- 展开详情 -->
-          <div v-if="expandedCommit === commit.hash + commit.repoKey" class="mt-2 pt-2 border-t border-base-content/10">
+          <div v-if="expandedCommit === commit.hash + commit.repoKey" class="mt-2 pt-2 border-t border-base-content/10 h-[60vh]">
             <div v-if="loadingDetail && !commitDetails[commit.hash + commit.repoKey]" class="text-xs text-base-content/50 py-2 text-center">
               <span class="loading loading-spinner loading-xs mr-1"></span> 加载中...
             </div>
             <SplitDiffViewer
               v-else
+              class="h-full"
               :files="commitDetails[commit.hash + commit.repoKey]?.files || null"
               :diff="commitDetails[commit.hash + commit.repoKey]?.diff || null"
               :loading="false"
