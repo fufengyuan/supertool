@@ -68,6 +68,7 @@ pub struct DiskInfo {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DuplicateGroup {
     pub key: String,
     pub files: Vec<DirEntry>,
