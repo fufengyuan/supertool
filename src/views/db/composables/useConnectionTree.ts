@@ -700,6 +700,21 @@ watch(
           continue
         }
 
+        // SQLite: use fixed database name matching the template hardcoded key
+        if (conn.type === 'sqlite') {
+          loadingDatabases.value[item.id] = true
+          try {
+            await ensureConnected(conn)
+            databases.value[item.id] = ['sqlite_main']
+          } catch (e) {
+            console.error('[ConnectionTree] Failed to connect SQLite:', e)
+            databases.value[item.id] = []
+          } finally {
+            loadingDatabases.value[item.id] = false
+          }
+          continue
+        }
+
         loadingDatabases.value[item.id] = true
         try {
           await ensureConnected(conn)
@@ -996,6 +1011,21 @@ async function refreshTables(connId: string) {
         } catch (e) {
           console.error('[ConnectionTree] Failed to refresh Redis databases:', e)
           redisDatabases.value[connId] = []
+        }
+        return
+      }
+
+      if (conn.type === 'sqlite') {
+        try {
+          await ensureConnected(conn)
+          databases.value[connId] = ['sqlite_main']
+          // Clear cached tables/views
+          const key = dbKey(connId, 'sqlite_main')
+          delete dbTables.value[key]
+          delete dbViews.value[key]
+        } catch (e) {
+          console.error('[ConnectionTree] Failed to refresh SQLite:', e)
+          databases.value[connId] = ['sqlite_main']
         }
         return
       }
