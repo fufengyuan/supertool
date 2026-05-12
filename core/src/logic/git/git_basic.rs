@@ -64,8 +64,8 @@ pub async fn git_status(repo_path: &str) -> Result<Value, String> {
 
 pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, String> {
     let n = limit.unwrap_or(50);
-    // %H=hash, %an=author name, %ae=author email, %ai=date ISO, %s=subject, %P=parent hashes, %d=decorate (refs)
-    let fmt = "%H|%an|%ae|%ai|%s|%P|%d";
+    // %H=hash, %an=author name, %ae=author email, %aI=date ISO 8601 strict (JS parseable), %s=subject, %P=parent hashes, %d=decorate (refs)
+    let fmt = "%H|%an|%ae|%aI|%s|%P|%d";
     let output = run_git(repo_path, &["log", &format!("--format={}", fmt), &format!("-n{}", n), "--shortstat"]).await?;
     
     let mut commits: Vec<Value> = Vec::new();

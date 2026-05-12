@@ -149,7 +149,7 @@
         </button>
       </div>
       <div class="diff-preview-content">
-        <DiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
+        <SplitDiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
       </div>
     </div>
 
@@ -203,7 +203,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import DiffViewer from '@/components/ui/DiffViewer.vue'
+import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 
 defineProps<{
   statusData: any | null
