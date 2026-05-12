@@ -1,12 +1,12 @@
 [package]
-name = "supertool-tauri"
+name = "supertool"
 version = "4.1.0"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
 
 [[bin]]
-name = "supertool-tauri"
+name = "supertool"
 path = "src/main.rs"
 
 [dependencies]
