@@ -178,7 +178,7 @@ async function loadTrend() {
   try {
     const result = await getTauriAPI().getAccountingTrend(12)
     if (result && Array.isArray(result)) {
-      // Backend returns rows as { month, type, total } — need to merge by month
+      // Backend returns rows as [{ month, type, total }] — need to merge by month
       const map = new Map<string, { income: number; expense: number; count: number }>()
       for (const row of result) {
         const month = row.month as string
@@ -198,8 +198,6 @@ async function loadTrend() {
   } catch (_e) { console.error('加载趋势失败:', _e) }
   finally { trendLoading.value = false }
 }
-
-// Track container width for responsive chart
 function initTrendResizeObserver() {
   if (!trendChartRef.value) return
   trendResizeObserver = new ResizeObserver((entries) => {
@@ -451,14 +449,6 @@ async function loadCategories() {
   } catch (e: unknown) {
     console.error('加载分类失败:', e)
   }
-}
-
-// Trend chart
-async function loadTrend() {
-  try {
-    const result = await getTauriAPI().getAccountingTrend(12)
-    if (result && result.length) trendData.value = result
-  } catch (_e) { console.error('加载趋势失败:', _e) }
 }
 
 function trendX(i: number): number {
