@@ -1710,6 +1710,15 @@ export interface TauriAPI {
   gitFileBlame: (repoPath: string, filePath: string) => Promise<any>
   gitSubmoduleList: (repoPath: string) => Promise<any>
   gitSubmoduleInit: (repoPath: string, recursive: boolean) => Promise<any>
+  gitAddRemote: (repoPath: string, name: string, url: string) => Promise<any>
+  gitDeleteRemote: (repoPath: string, name: string) => Promise<any>
+  gitRenameBranch: (repoPath: string, oldName: string, newName: string) => Promise<any>
+  gitDiffBranches: (repoPath: string, target: string) => Promise<any>
+  gitPushTags: (repoPath: string) => Promise<any>
+  gitClean: (repoPath: string, dryRun: boolean, force: boolean) => Promise<any>
+  gitDeleteRemoteBranch: (repoPath: string, branch: string) => Promise<any>
+  gitCheckoutRemoteBranch: (repoPath: string, branch: string) => Promise<any>
+  gitGetFileAtRevision: (repoPath: string, commit: string, path: string) => Promise<string>
 
 }
 
@@ -2336,6 +2345,15 @@ export function getTauriAPI(): TauriAPI {
     gitFileBlame: async (repoPath: string, filePath: string) => tauriCall('git_file_blame', { repoPath, filePath }),
     gitSubmoduleList: async (repoPath: string) => tauriCall('git_submodule_list', { repoPath }),
     gitSubmoduleInit: async (repoPath: string, recursive: boolean) => tauriCall('git_submodule_init', { repoPath, recursive }),
+    gitAddRemote: async (repoPath: string, name: string, url: string) => tauriCall('git_add_remote', { repoPath, name, url }),
+    gitDeleteRemote: async (repoPath: string, name: string) => tauriCall('git_delete_remote', { repoPath, name }),
+    gitRenameBranch: async (repoPath: string, oldName: string, newName: string) => tauriCall('git_rename_branch', { repoPath, oldName, newName }),
+    gitDiffBranches: async (repoPath: string, target: string) => tauriCall('git_diff_branches', { repoPath, target }),
+    gitPushTags: async (repoPath: string) => tauriCall('git_push_tags', { repoPath }),
+    gitClean: async (repoPath: string, dryRun: boolean, force: boolean) => tauriCall('git_clean', { repoPath, dryRun, force }),
+    gitDeleteRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_delete_remote_branch', { repoPath, branch }),
+    gitCheckoutRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_checkout_remote_branch', { repoPath, branch }),
+    gitGetFileAtRevision: async (repoPath: string, commit: string, path: string) => tauriCall<string>('git_get_file_at_revision', { repoPath, commit, path }),
     getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
 
   }

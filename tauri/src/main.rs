@@ -606,6 +606,16 @@ fn main() {
             commands::git::git_file_blame,
             commands::git::git_submodule_list,
             commands::git::git_submodule_init,
+            // Git 远程仓库管理
+            commands::git::git_add_remote,
+            commands::git::git_delete_remote,
+            commands::git::git_rename_branch,
+            commands::git::git_diff_branches,
+            commands::git::git_push_tags,
+            commands::git::git_clean,
+            commands::git::git_delete_remote_branch,
+            commands::git::git_checkout_remote_branch,
+            commands::git::git_get_file_at_revision,
             // Git sync commands
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_configure,
