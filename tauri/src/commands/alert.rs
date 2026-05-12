@@ -110,7 +110,7 @@ pub async fn get_email_config(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn test_email_config(
-    core: State<'_, CoreService>,
+    _core: State<'_, CoreService>,
     smtp_host: String,
     smtp_port: i64,
     smtp_username: Option<String>,

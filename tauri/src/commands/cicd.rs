@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::process::Command;
 use std::sync::{Mutex, LazyLock};
 use tauri::{State, Emitter};
 
