@@ -1852,8 +1852,18 @@ pub async fn db_test(config: DbConnectionConfig) -> Result<serde_json::Value, St
         "mysql" => { connect_mysql(&config).await?; Ok(serde_json::json!({ "success": true })) }
         "postgres" => { connect_postgres(&config).await?; Ok(serde_json::json!({ "success": true })) }
         "redis" => { connect_redis(&config).await?; Ok(serde_json::json!({ "success": true })) }
+        "sqlite" => { connect_sqlite(&config)?; Ok(serde_json::json!({ "success": true })) }
         other => Err(format!("Unsupported database type: {}", other)),
     }
+}
+
+fn connect_sqlite(config: &DbConnectionConfig) -> Result<(), String> {
+    let path = config.path.as_deref().ok_or("SQLite: database path is required")?;
+    let expanded = shellexpand::tilde(path);
+    // Check file exists and is readable
+    std::fs::metadata(expanded.as_ref())
+        .map_err(|e| format!("SQLite: cannot access database file '{}': {}", expanded, e))?;
+    Ok(())
 }
 
 // (Legacy UDS router compatibility aliases removed — CLI uses HTTP API directly)
