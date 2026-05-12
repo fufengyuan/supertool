@@ -78,7 +78,12 @@
             <div v-if="loadingDetail && !commitDetails[commit.hash + commit.repoKey]" class="text-xs text-base-content/50 py-2 text-center">
               <span class="loading loading-spinner loading-xs mr-1"></span> 加载中...
             </div>
-            <pre v-else class="text-xs font-mono text-base-content/80 bg-base-300 p-3 rounded-lg overflow-x-auto max-h-96 leading-relaxed whitespace-pre-wrap">{{ commitDetails[commit.hash + commit.repoKey] }}</pre>
+            <SplitDiffViewer
+              v-else
+              :files="commitDetails[commit.hash + commit.repoKey]?.files || null"
+              :diff="commitDetails[commit.hash + commit.repoKey]?.diff || null"
+              :loading="false"
+            />
           </div>
         </div>
       </div>
@@ -90,6 +95,7 @@
 console.log("[views/projects/ProjectGitPanel.vue] component loaded")
 import { ref, computed, onMounted } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
 
@@ -103,7 +109,8 @@ const commits = ref<any[]>([])
 const loading = ref(false)
 const repoFilter = ref('all')
 const expandedCommit = ref<string | null>(null)
-const commitDetails = ref<Record<string, string>>({})
+// 存储完整的 commit detail 对象（包含 files 和 diff）
+const commitDetails = ref<Record<string, { files: any[]; diff: string } | null>>({})
 const loadingDetail = ref(false)
 
 // 仅本地仓库支持拉取 Git 记录
@@ -135,9 +142,11 @@ const toggleCommitDetail = async (commit: any) => {
   loadingDetail.value = true
   try {
     const result = await getTauriAPI().getGitCommitDetail(commit.repoPath || commit.repo, commit.hash)
-    commitDetails.value[key] = result?.diff || '暂无详情'
+    // 存储完整的 commit detail 对象
+    commitDetails.value[key] = result ? { files: result.files || [], diff: result.diff || '' } : null
   } catch (e: any) {
-    commitDetails.value[key] = '加载失败: ' + (e.message || e)
+    commitDetails.value[key] = null
+    console.error('加载提交详情失败:', e)
   } finally {
     loadingDetail.value = false
   }
