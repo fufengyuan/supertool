@@ -58,7 +58,7 @@
         </div>
 
         <!-- Config Details Card -->
-        <template v-if="config && selectedGitRepoObj">
+        <template v-if="config && (selectedGitRepoObj || config.name)">
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
             <div class="flex flex-col gap-2.5">
@@ -598,19 +598,20 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
   const pct = data.progress || 0;
   const isUploadProgress = data.stage === 'ssh' && data.status === 'uploading' && pct > 0;
   const shouldThrottle = isUploadProgress && (pct - state.lastLoggedProgress < 5) && pct < 100;
-  if (!shouldThrottle) {
-    if (isUploadProgress) state.lastLoggedProgress = pct;
-    const now = new Date().toLocaleTimeString('zh-CN');
-    state.realtimeLogs = [...state.realtimeLogs, { time: now, stage: data.stage || 'info', message: data.message || '' }];
-    scrollToBottom();
-  }
-  state.progress = pct;
-  state.currentStep = data.message || state.currentStep;
   
-  // 如果有 deployLogId，更新它
-  if (data.deployLogId && !state.deployLogId) {
-    state.deployLogId = data.deployLogId;
+  // 构建更新对象（不直接修改 state，改用 updateDeployState 触发响应式）
+  const updates: Partial<DeployState> = { progress: pct };
+  if (!shouldThrottle) {
+    if (isUploadProgress) updates.lastLoggedProgress = pct;
+    const now = new Date().toLocaleTimeString('zh-CN');
+    updates.realtimeLogs = [...state.realtimeLogs, { time: now, stage: data.stage || 'info', message: data.message || '' }];
   }
+  updates.currentStep = data.message || state.currentStep;
+  if (data.deployLogId && !state.deployLogId) {
+    updates.deployLogId = data.deployLogId;
+  }
+  updateDeployState(cfgId, updates);
+  if (!shouldThrottle) scrollToBottom();
 };
 
 let cleanupDeployProgress: (() => void) | undefined;
@@ -653,21 +654,27 @@ onMounted(() => {
       if (!state) return;
       
       if (data.success) {
-        state.deploying = false;
-        state.progress = 100;
-        state.currentStep = '部署成功！';
-        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' }];
+        updateDeployState(cfgId, {
+          deploying: false,
+          progress: 100,
+          currentStep: '部署成功！',
+          realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' }],
+        });
         toast.success(`部署完成`);
         refreshLogs();
       } else if (data.cancelled) {
-        state.deploying = false;
-        state.deployCancelled = true;
-        state.currentStep = '⏹️ 部署已取消';
+        updateDeployState(cfgId, {
+          deploying: false,
+          deployCancelled: true,
+          currentStep: '⏹️ 部署已取消',
+        });
         toast.info('部署已取消');
       } else {
-        state.deploying = false;
-        state.currentStep = '部署失败: ' + (data.error || '未知错误');
-        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') }];
+        updateDeployState(cfgId, {
+          deploying: false,
+          currentStep: '部署失败: ' + (data.error || '未知错误'),
+          realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') }],
+        });
         toast.error(`部署失败: ${data.error || '未知错误'}`, 6000);
         refreshLogs();
       }
@@ -758,13 +765,13 @@ async function startDeploy() {
     if (!proceed) return;
   }
 
-  // 初始化当前配置的部署状态
-  const newState = initDeployState(selectedConfigId.value);
-  newState.deploying = true;
-  newState.currentStep = '开始部署...';
-  newState.realtimeLogs = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }];
-  newState.startTime = Date.now();
-  deployStates.value.set(selectedConfigId.value, newState);
+  // 初始化当前配置的部署状态（通过 updateDeployState 保证响应式）
+  updateDeployState(selectedConfigId.value, {
+    deploying: true,
+    currentStep: '开始部署...',
+    realtimeLogs: [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }],
+    startTime: Date.now(),
+  });
 
   const deployLogIdHandler = (data: { deployLogId: string }) => {
     const state = deployStates.value.get(selectedConfigId.value);
@@ -791,12 +798,11 @@ async function startDeploy() {
       }
     }
   } catch (error) {
-    const state = deployStates.value.get(selectedConfigId.value);
-    if (state) {
-      state.deploying = false;
-      state.currentStep = '部署失败: ' + error.message;
-      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + error.message }];
-    }
+    updateDeployState(selectedConfigId.value, {
+      deploying: false,
+      currentStep: '部署失败: ' + error.message,
+      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + error.message }],
+    });
     handleError(error, { context: '部署' });
   }
 }
@@ -812,10 +818,12 @@ async function cancelDeploy() {
   try {
     const result = await getTauriAPI().cancelDeploy(state.deployLogId);
     if (result.success) {
-      state.deploying = false;
-      state.deployCancelled = true;
-      state.currentStep = '⏹️ 部署已取消';
-      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'info', message: '⏹️ 部署取消请求已发送' }];
+      updateDeployState(selectedConfigId.value, {
+        deploying: false,
+        deployCancelled: true,
+        currentStep: '⏹️ 部署已取消',
+        realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'info', message: '⏹️ 部署取消请求已发送' }],
+      });
       toast.info('部署取消请求已发送');
     }
   } catch (error) {
@@ -836,36 +844,35 @@ async function doRollback(log: DeployLog) {
 
   rollingBack.value = true;
   resetDeployState(selectedConfigId.value);
-  const state = deployStates.value.get(selectedConfigId.value);
-  if (state) {
-    state.currentStep = '开始回滚...';
-    state.realtimeLogs = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '回滚任务已启动' }];
-  }
+  updateDeployState(selectedConfigId.value, {
+    currentStep: '开始回滚...',
+    realtimeLogs: [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '回滚任务已启动' }],
+  });
 
   try {
     const result = await getTauriAPI().rollback(config.value!.id, log.id) as { success: boolean; error?: string };
 
     if (result.success) {
-      if (state) {
-        state.progress = 100;
-        state.currentStep = '🔄 回滚成功！';
-        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '✅ 回滚成功完成' }];
-      }
+      updateDeployState(selectedConfigId.value, {
+        progress: 100,
+        currentStep: '🔄 回滚成功！',
+        realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '✅ 回滚成功完成' }],
+      });
       toast.success('回滚成功！');
     } else {
-      if (state) {
-        state.currentStep = '回滚失败: ' + (result.error || '未知错误');
-        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚失败: ' + (result.error || '未知错误') }];
-      }
+      updateDeployState(selectedConfigId.value, {
+        currentStep: '回滚失败: ' + (result.error || '未知错误'),
+        realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚失败: ' + (result.error || '未知错误') }],
+      });
       toast.error('回滚失败: ' + (result.error || '未知错误'), 6000);
     }
 
     await refreshLogs();
   } catch (error) {
-    if (state) {
-      state.currentStep = '回滚异常: ' + error.message;
-      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + error.message }];
-    }
+    updateDeployState(selectedConfigId.value, {
+      currentStep: '回滚异常: ' + error.message,
+      realtimeLogs: [...(deployStates.value.get(selectedConfigId.value)?.realtimeLogs || []), { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + error.message }],
+    });
     handleError(error, { context: '回滚' });
   }
 
