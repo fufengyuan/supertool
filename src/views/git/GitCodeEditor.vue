@@ -68,7 +68,6 @@ import xml from 'highlight.js/lib/languages/xml'
 import css from 'highlight.js/lib/languages/css'
 import scss from 'highlight.js/lib/languages/scss'
 import markdown from 'highlight.js/lib/languages/markdown'
-import vueLang from 'highlight.js/lib/languages/vue'
 
 hljs.registerLanguage('typescript', typescript)
 hljs.registerLanguage('javascript', javascript)
@@ -85,7 +84,7 @@ hljs.registerLanguage('html', xml) // HTML 使用 xml 解析器
 hljs.registerLanguage('css', css)
 hljs.registerLanguage('scss', scss)
 hljs.registerLanguage('markdown', markdown)
-hljs.registerLanguage('vue', vueLang)
+hljs.registerLanguage('vue', xml) // Vue SFC 使用 xml 解析器作为基础
 
 const props = defineProps<{
   repoPath: string
