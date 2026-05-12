@@ -802,3 +802,12 @@ pub async fn git_apply_patch(repo_path: String, patch_content: String) -> Result
         .await
         .map_err(|e| format!("应用补丁失败: {}", e))
 }
+
+/// Execute a raw git command
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_raw_command(repo_path: String, args: Vec<String>) -> Result<String, String> {
+    log::info!("[Tauri CMD] git_raw_command() called, args={:?}", args);
+    supertool_core::logic::git::git_raw_command(&repo_path, &args)
+        .await
+        .map_err(|e| format!("执行命令失败: {}", e))
+}

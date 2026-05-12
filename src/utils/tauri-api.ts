@@ -1725,6 +1725,7 @@ export interface TauriAPI {
   gitCompareCommits: (repoPath: string, commit1: string, commit2: string) => Promise<any>
   gitCreatePatch: (repoPath: string, commit1: string, commit2: string) => Promise<any>
   gitApplyPatch: (repoPath: string, patchContent: string) => Promise<any>
+  gitRawCommand: (repoPath: string, args: string[]) => Promise<any>
 
 }
 
@@ -2366,6 +2367,7 @@ export function getTauriAPI(): TauriAPI {
     gitCompareCommits: async (repoPath: string, commit1: string, commit2: string) => tauriCall('git_compare_commits', { repoPath, commit1, commit2 }),
     gitCreatePatch: async (repoPath: string, commit1: string, commit2: string) => tauriCall('git_create_patch', { repoPath, commit1, commit2 }),
     gitApplyPatch: async (repoPath: string, patchContent: string) => tauriCall('git_apply_patch', { repoPath, patchContent }),
+    gitRawCommand: async (repoPath: string, args: string[]) => tauriCall('git_raw_command', { repoPath, args }),
     getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
 
   }
