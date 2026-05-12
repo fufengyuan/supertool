@@ -246,7 +246,8 @@ function getLineClass(line: any, side: 'old' | 'new') {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  max-height: 100%;
+  height: 80vh;
+  max-height: 80vh;
   overflow: hidden;
 }
 
@@ -338,7 +339,8 @@ function getLineClass(line: any, side: 'old' | 'new') {
 
 .split-container {
   display: flex;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
