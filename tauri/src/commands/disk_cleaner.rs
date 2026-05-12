@@ -16,6 +16,7 @@ const CATEGORY_MAX_FILES: u64 = 200_000;
 // ── Types ──────────────────────────────────────────────────
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DirEntry {
     pub path: String,
     pub name: String,
@@ -26,8 +27,10 @@ pub struct DirEntry {
 }
 
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileCategory {
     pub extension: String,
+    pub label: String,
     pub icon: String,
     pub count: u32,
     pub total_size: u64,
@@ -178,7 +181,7 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
     let limit = limit.max(10); // at least 10
     let max_files = CATEGORY_MAX_FILES;
 
-    let mut file_map: std::collections::HashMap<String, (String, u32, u64, Vec<DirEntry>)> =
+    let mut file_map: std::collections::HashMap<String, (String, String, u32, u64, Vec<DirEntry>)> =
         std::collections::HashMap::new();
 
     let count = Arc::new(AtomicU64::new(0));
@@ -214,7 +217,7 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
             .unwrap_or_else(|| "无扩展名".to_string());
 
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-        let (icon, _) = get_category_info(&ext);
+        let (icon, label) = get_category_info(&ext);
         let modified = entry.metadata().ok().and_then(|m| {
             m.modified()
                 .ok()
@@ -230,22 +233,23 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
             children_count: None,
         };
 
-        let cat = file_map.entry(ext.clone()).or_insert_with(|| (icon.clone(), 0, 0, Vec::new()));
-        cat.1 += 1;
-        cat.2 += size;
-        cat.3.push(entry_info);
+        let cat = file_map.entry(ext.clone()).or_insert_with(|| (icon.clone(), label.clone(), 0, 0, Vec::new()));
+        cat.2 += 1;
+        cat.3 += size;
+        cat.4.push(entry_info);
     }
 
     // Sort and limit files within each category
-    for (_, (_, _, _, files)) in file_map.iter_mut() {
+    for (_, (_, _, _, _, files)) in file_map.iter_mut() {
         files.sort_by(|a, b| b.size.cmp(&a.size));
         files.truncate(limit as usize);
     }
 
     let mut categories: Vec<FileCategory> = file_map
         .into_iter()
-        .map(|(ext, (icon, count, total_size, files))| FileCategory {
+        .map(|(ext, (icon, label, count, total_size, files))| FileCategory {
             extension: ext,
+            label,
             icon,
             count,
             total_size,
