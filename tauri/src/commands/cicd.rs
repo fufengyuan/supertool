@@ -905,7 +905,7 @@ pub async fn rollback(
     log_id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] rollback() called");
-    let deploy_log = core.db_read(|conn| cicd_get_deploy_log_by_id(conn, &log_id))?
+    let _deploy_log = core.db_read(|conn| cicd_get_deploy_log_by_id(conn, &log_id))?
         .ok_or("部署记录不存在")?;
 
     // Get CICD config to read server info
