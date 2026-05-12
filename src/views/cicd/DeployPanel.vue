@@ -774,8 +774,9 @@ async function startDeploy() {
   });
 
   const deployLogIdHandler = (data: { deployLogId: string }) => {
-    const state = deployStates.value.get(selectedConfigId.value);
-    if (state) state.deployLogId = data.deployLogId;
+    if (data.deployLogId) {
+      updateDeployState(selectedConfigId.value, { deployLogId: data.deployLogId });
+    }
   };
   const cleanupLogId = await getTauriAPI().onDeployLogIdCreated?.(deployLogIdHandler);
 
@@ -785,12 +786,12 @@ async function startDeploy() {
     cleanupLogId?.();
 
     if (!result.success) {
-      const state = deployStates.value.get(selectedConfigId.value);
-      if (state) {
-        state.deploying = false;
-        state.currentStep = '部署失败: ' + (result.error || '配置异常');
-        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (result.error || '配置异常') }];
-      }
+      const prevLogs = deployStates.value.get(selectedConfigId.value)?.realtimeLogs || [];
+      updateDeployState(selectedConfigId.value, {
+        deploying: false,
+        currentStep: '部署失败: ' + (result.error || '配置异常'),
+        realtimeLogs: [...prevLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (result.error || '配置异常') }],
+      });
       if (result.requiresApproval) {
         toast.warning(result.message || '此配置需要审核确认', 5000);
       } else {
@@ -946,7 +947,7 @@ async function refreshLogs() {
       return {
         ...log,
         projectName: config.value ? getGitRepoName(config.value.gitRepoId) : '',
-        projectCategory: proj?.category || '',
+        projectCategory: project.value?.category || '',
         configName: logConfig ? String(logConfig.name || '') : String(config.value?.name || ''),
         configGroupName: logConfig ? String(logConfig.groupName || '') : '',
         deployBranch: logConfig ? String(logConfig.deployBranch || '') : String(log.deployBranch || config.value?.deployBranch || ''),
@@ -990,8 +991,7 @@ function formatDate(dateStr: string) {
 
 function clearRealtimeLogs() {
   if (selectedConfigId.value) {
-    const state = deployStates.value.get(selectedConfigId.value);
-    if (state) state.realtimeLogs = [];
+    updateDeployState(selectedConfigId.value, { realtimeLogs: [] });
   }
 }
 
