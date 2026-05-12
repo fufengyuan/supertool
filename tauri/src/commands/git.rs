@@ -255,3 +255,35 @@ pub fn validate_repo_path(path: String) -> Result<RepoValidationResult, String> 
         error: None,
     })
 }
+
+/// Open a file path in the system file manager (Finder / Nautilus / Explorer)
+#[tauri::command(rename_all = "camelCase")]
+pub fn open_in_file_manager(path: String) -> Result<(), String> {
+    log::info!("[Tauri CMD] open_in_file_manager() called, path={}", path);
+
+    let p = std::path::Path::new(&path);
+    if !p.exists() {
+        return Err(format!("路径不存在: {}", path));
+    }
+
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else if cfg!(target_os = "linux") {
+        "xdg-open"
+    } else if cfg!(target_os = "windows") {
+        "explorer"
+    } else {
+        return Err("不支持的操作系统".to_string());
+    };
+
+    let status = std::process::Command::new(opener)
+        .arg(&path)
+        .status()
+        .map_err(|e| format!("打开文件管理器失败: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("{} 返回了非零退出码", opener));
+    }
+
+    Ok(())
+}

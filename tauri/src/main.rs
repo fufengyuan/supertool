@@ -559,6 +559,7 @@ fn main() {
             commands::git::get_git_commits,
             commands::git::scan_local_repos,
             commands::git::validate_repo_path,
+            commands::git::open_in_file_manager,
             // Git sync commands
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_configure,
