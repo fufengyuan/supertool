@@ -36,6 +36,9 @@
         :total-changes="totalChanges"
         :commit-sign-off="commitSignOff"
         :commit-no-verify="commitNoVerify"
+        :preview-diff="previewDiff"
+        :selected-preview-file="selectedPreviewFile"
+        :loading-preview="loadingPreview"
         @update:commit-message="commitMessage = $event"
         @update:commit-sign-off="commitSignOff = $event"
         @update:commit-no-verify="commitNoVerify = $event"
@@ -44,6 +47,8 @@
         @select-all-files="selectAllFiles"
         @commit="handleCommit"
         @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
+        @preview-file="previewCommitFile"
+        @clear-preview="clearPreview"
       />
 
       <!-- ===== Stash 面板 ===== -->
@@ -793,6 +798,11 @@ const {
   repoPath,
   loadStatus,
   refreshAll,
+  previewDiff,
+  selectedPreviewFile,
+  loadingPreview,
+  previewCommitFile,
+  clearPreview,
 } = useGitManager(props.repo, () => emit("close"))
 
 // Local dropdown state (composable returns noop stubs for these)
