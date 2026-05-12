@@ -336,7 +336,7 @@ import { useDeployPreflight } from '../../composables/useDeployPreflight';
 import { useSharedCicdData } from '../../composables/useSharedCicdData';
 import type { CicdConfigEntry, ServerGroupEntry } from '../../composables/useSharedCicdData';
 import SvgIcon from '../../components/ui/SvgIcon.vue';
-import type { Project, Server } from '../../types';
+import type { Project } from '../../types';
 
 interface DeployLog {
   id: string;
