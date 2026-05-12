@@ -168,11 +168,11 @@
         <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
           <div class="flex justify-between items-center">
             <span class="text-sm font-semibold text-base-content">部署历史</span>
-            <span class="text-xs text-base-content/60">{{ logs.length }} 条记录</span>
+            <span class="text-xs text-base-content/60">{{ combinedLogs.length }} 条记录</span>
           </div>
 
           <div class="flex flex-col gap-2 mt-3">
-            <div v-for="log in logs" :key="log.id" class="px-3.5 py-3 bg-base-200 rounded-lg border-l-4 border-transparent"
+            <div v-for="log in combinedLogs" :key="log.id" class="px-3.5 py-3 bg-base-200 rounded-lg border-l-4 border-transparent"
               :class="{
                 'border-l-success': log.status === 'success',
                 'border-l-error': log.status === 'failed',
@@ -209,6 +209,17 @@
 
               <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="log.status === 'failed'">
                 <p class="text-error font-medium text-sm m-0">{{ log.errorMessage || '未知错误' }}</p>
+              </div>
+
+              <!-- 正在进行的部署显示进度 -->
+              <div class="mt-2 px-2.5 py-2 bg-primary/10 rounded" v-if="log.status === 'running'">
+                <div class="flex justify-between items-center mb-1.5">
+                  <span class="text-sm font-medium text-primary">{{ log.currentStep || '部署中...' }}</span>
+                  <span class="text-xs font-semibold text-primary">{{ Math.round(log.progress || 0) }}%</span>
+                </div>
+                <div class="h-1.5 bg-base-content/10 rounded-full overflow-hidden">
+                  <div class="h-full bg-primary transition-all duration-300" :style="{ width: (log.progress || 0) + '%' }"></div>
+                </div>
               </div>
 
               <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="log.status === 'cancelled'">
@@ -299,7 +310,7 @@
               </button>
             </div>
 
-            <div v-if="logs.length === 0" class="text-center p-5 text-base-content/60 text-sm">暂无部署记录</div>
+            <div v-if="combinedLogs.length === 0" class="text-center p-5 text-base-content/60 text-sm">暂无部署记录</div>
           </div>
         </div>
       </div>
@@ -391,30 +402,94 @@ const loadingLogContent = ref<Record<string, boolean>>({});
 // Tree selector state
 const expandedDeployGroups = ref<Set<string>>(new Set());
 
-// Deploy state — individual refs (same as working Electron version)
-const deploying = ref(false);
-const deployCancelled = ref(false);
-const progress = ref(0);
-const currentStep = ref('');
-const realtimeLogs = ref<{ time: string; stage: string; message: string }[]>([]);
-const activeDeployLogId = ref<string | null>(null);
-const activeDeployConfigId = ref<string | null>(null);
-const lastLoggedProgress = ref(-1);
+// Deploy state — Map 结构支持多配置并行部署
+interface DeployState {
+  deploying: boolean;
+  deployCancelled: boolean;
+  progress: number;
+  currentStep: string;
+  realtimeLogs: { time: string; stage: string; message: string }[];
+  deployLogId: string | null;
+  lastLoggedProgress: number;
+  startTime: number; // 用于排序
+}
+
+const deployStates = ref<Map<string, DeployState>>(new Map());
+
+// 获取当前选中配置的部署状态
+const currentDeployState = computed(() => {
+  if (!selectedConfigId.value) return null;
+  return deployStates.value.get(selectedConfigId.value) || null;
+});
+
+// 便捷访问当前状态的 computed
+const deploying = computed(() => currentDeployState.value?.deploying ?? false);
+const deployCancelled = computed(() => currentDeployState.value?.deployCancelled ?? false);
+const progress = computed(() => currentDeployState.value?.progress ?? 0);
+const currentStep = computed(() => currentDeployState.value?.currentStep ?? '');
+const realtimeLogs = computed(() => currentDeployState.value?.realtimeLogs ?? []);
+const activeDeployLogId = computed(() => currentDeployState.value?.deployLogId ?? null);
+const lastLoggedProgress = computed(() => currentDeployState.value?.lastLoggedProgress ?? -1);
+
+// 所有正在部署的配置列表（用于历史记录显示）
+const allRunningDeploys = computed(() => {
+  const running: DeployLog[] = [];
+  for (const [configId, state] of deployStates.value) {
+    if (state.deploying) {
+      const cfg = configs.value.find(c => c.id === configId);
+      running.push({
+        id: state.deployLogId || `running-${configId}`,
+        projectId: cfg?.projectId || '',
+        configId,
+        status: 'running',
+        createdAt: new Date(state.startTime).toISOString(),
+        triggeredBy: 'user',
+        currentStep: state.currentStep,
+        progress: state.progress,
+        configName: cfg?.name || '',
+        configGroupName: cfg?.groupName || '',
+      });
+    }
+  }
+  // 按开始时间排序，最新的在前
+  return running.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+});
+
+// 合并正在进行的部署和已完成的日志（用于历史记录显示）
+const combinedLogs = computed(() => {
+  // 正在进行的部署显示在最前面
+  const running = allRunningDeploys.value;
+  // 已完成的日志
+  const completed = logs.value;
+  // 合并，running 在前
+  return [...running, ...completed];
+});
 
 const rollingBack = ref(false);
 const rollingBackId = ref<string | null>(null);
 const preflightResults = ref<{ name: string; passed: boolean; message: string }[]>([]);
 const logContainer = ref(null);
 
-function resetDeployState() {
-  deploying.value = false;
-  deployCancelled.value = false;
-  progress.value = 0;
-  currentStep.value = '';
-  realtimeLogs.value = [];
-  activeDeployLogId.value = null;
-  activeDeployConfigId.value = null;
-  lastLoggedProgress.value = -1;
+function initDeployState(configId: string): DeployState {
+  return {
+    deploying: false,
+    deployCancelled: false,
+    progress: 0,
+    currentStep: '',
+    realtimeLogs: [],
+    deployLogId: null,
+    lastLoggedProgress: -1,
+    startTime: Date.now(),
+  };
+}
+
+function resetDeployState(configId: string) {
+  deployStates.value.set(configId, initDeployState(configId));
+}
+
+function updateDeployState(configId: string, updates: Partial<DeployState>) {
+  const existing = deployStates.value.get(configId) || initDeployState(configId);
+  deployStates.value.set(configId, { ...existing, ...updates });
 }
 
 // Full log file viewer state
@@ -513,7 +588,7 @@ async function selectDeployConfig(cfg: CicdConfigEntry) {
   selectedConfigId.value = cfg.id;
   config.value = null;
   loadingConfig.value = true;
-  resetDeployState();
+  // 切换配置时不清空其他配置的部署状态，只切换显示
   await loadConfigData(cfg.id);
   loadingConfig.value = false;
 }
@@ -527,20 +602,30 @@ function goToConfig() {
   window.dispatchEvent(new CustomEvent('switch-cicd-tab', { detail: 'config' }));
 }
 
-const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string }) => {
-  const cfgId = data.configId || activeDeployConfigId.value;
-  if (!cfgId || cfgId !== activeDeployConfigId.value) return;
+const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string; deployLogId?: string }) => {
+  // 从事件中获取 configId，如果没有则使用当前选中的配置
+  const cfgId = data.configId || selectedConfigId.value;
+  if (!cfgId) return;
+
+  const state = deployStates.value.get(cfgId);
+  if (!state || !state.deploying) return; // 只处理正在部署的状态
+
   const pct = data.progress || 0;
   const isUploadProgress = data.stage === 'ssh' && data.status === 'uploading' && pct > 0;
-  const shouldThrottle = isUploadProgress && (pct - lastLoggedProgress.value < 5) && pct < 100;
+  const shouldThrottle = isUploadProgress && (pct - state.lastLoggedProgress < 5) && pct < 100;
   if (!shouldThrottle) {
-    if (isUploadProgress) lastLoggedProgress.value = pct;
+    if (isUploadProgress) state.lastLoggedProgress = pct;
     const now = new Date().toLocaleTimeString('zh-CN');
-    realtimeLogs.value = [...realtimeLogs.value, { time: now, stage: data.stage || 'info', message: data.message || '' }];
+    state.realtimeLogs = [...state.realtimeLogs, { time: now, stage: data.stage || 'info', message: data.message || '' }];
     scrollToBottom();
   }
-  progress.value = pct;
-  currentStep.value = data.message || currentStep.value;
+  state.progress = pct;
+  state.currentStep = data.message || state.currentStep;
+  
+  // 如果有 deployLogId，更新它
+  if (data.deployLogId && !state.deployLogId) {
+    state.deployLogId = data.deployLogId;
+  }
 };
 
 let cleanupDeployProgress: (() => void) | undefined;
@@ -589,24 +674,27 @@ onMounted(() => {
       cleanupDeployProgress = await getTauriAPI().onDeployProgress?.(progressHandler);
       cleanupDeployNotification = await getTauriAPI().onDeployNotification?.((data) => {
       const cfgId = (data as any).configId;
-      // 使用 activeDeployConfigId 匹配，这样即使用户切换了配置也能正确处理通知
-      if (!cfgId || cfgId !== activeDeployConfigId.value) return;
+      if (!cfgId) return;
+      
+      const state = deployStates.value.get(cfgId);
+      if (!state) return;
+      
       if (data.success) {
-        deploying.value = false;
-        progress.value = 100;
-        currentStep.value = '部署成功！';
-        realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' }];
+        state.deploying = false;
+        state.progress = 100;
+        state.currentStep = '部署成功！';
+        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' }];
         toast.success(`部署完成`);
         refreshLogs();
       } else if (data.cancelled) {
-        deploying.value = false;
-        deployCancelled.value = true;
-        currentStep.value = '⏹️ 部署已取消';
+        state.deploying = false;
+        state.deployCancelled = true;
+        state.currentStep = '⏹️ 部署已取消';
         toast.info('部署已取消');
       } else {
-        deploying.value = false;
-        currentStep.value = '部署失败: ' + (data.error || '未知错误');
-        realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') }];
+        state.deploying = false;
+        state.currentStep = '部署失败: ' + (data.error || '未知错误');
+        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') }];
         toast.error(`部署失败: ${data.error || '未知错误'}`, 6000);
         refreshLogs();
       }
@@ -693,7 +781,9 @@ async function runPreflight() {
 
 async function startDeploy() {
   if (!selectedConfigId.value) return;
-  if (deploying.value) return;
+
+  const currentState = deployStates.value.get(selectedConfigId.value);
+  if (currentState?.deploying) return; // 该配置已经在部署中
 
   if (config.value?.requiresApproval) {
     const proceed = confirm(
@@ -708,13 +798,18 @@ async function startDeploy() {
     if (!proceed) return;
   }
 
-  resetDeployState();
-  deploying.value = true;
-  activeDeployConfigId.value = selectedConfigId.value;
-  currentStep.value = '开始部署...';
-  realtimeLogs.value = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }];
+  // 初始化当前配置的部署状态
+  const newState = initDeployState(selectedConfigId.value);
+  newState.deploying = true;
+  newState.currentStep = '开始部署...';
+  newState.realtimeLogs = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '部署任务已启动' }];
+  newState.startTime = Date.now();
+  deployStates.value.set(selectedConfigId.value, newState);
 
-  const deployLogIdHandler = (data: { deployLogId: string }) => { activeDeployLogId.value = data.deployLogId; };
+  const deployLogIdHandler = (data: { deployLogId: string }) => {
+    const state = deployStates.value.get(selectedConfigId.value);
+    if (state) state.deployLogId = data.deployLogId;
+  };
   const cleanupLogId = await getTauriAPI().onDeployLogIdCreated?.(deployLogIdHandler);
 
   try {
@@ -723,9 +818,12 @@ async function startDeploy() {
     cleanupLogId?.();
 
     if (!result.success) {
-      deploying.value = false;
-      currentStep.value = '部署失败: ' + (result.error || '配置异常');
-      realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (result.error || '配置异常') }];
+      const state = deployStates.value.get(selectedConfigId.value);
+      if (state) {
+        state.deploying = false;
+        state.currentStep = '部署失败: ' + (result.error || '配置异常');
+        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (result.error || '配置异常') }];
+      }
       if (result.requiresApproval) {
         toast.warning(result.message || '此配置需要审核确认', 5000);
       } else {
@@ -733,26 +831,31 @@ async function startDeploy() {
       }
     }
   } catch (error) {
-    deploying.value = false;
-    currentStep.value = '部署失败: ' + error.message;
-    realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + error.message }];
+    const state = deployStates.value.get(selectedConfigId.value);
+    if (state) {
+      state.deploying = false;
+      state.currentStep = '部署失败: ' + error.message;
+      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署异常: ' + error.message }];
+    }
     handleError(error, { context: '部署' });
   }
 }
 
 async function cancelDeploy() {
-  if (!deploying.value || !activeDeployLogId.value) return;
+  if (!selectedConfigId.value) return;
+  const state = deployStates.value.get(selectedConfigId.value);
+  if (!state?.deploying || !state.deployLogId) return;
 
   const confirmed = confirm('确定要取消当前部署吗？');
   if (!confirmed) return;
 
   try {
-    const result = await getTauriAPI().cancelDeploy(activeDeployLogId.value);
+    const result = await getTauriAPI().cancelDeploy(state.deployLogId);
     if (result.success) {
-      deploying.value = false;
-      deployCancelled.value = true;
-      currentStep.value = '⏹️ 部署已取消';
-      realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'info', message: '⏹️ 部署取消请求已发送' }];
+      state.deploying = false;
+      state.deployCancelled = true;
+      state.currentStep = '⏹️ 部署已取消';
+      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'info', message: '⏹️ 部署取消请求已发送' }];
       toast.info('部署取消请求已发送');
     }
   } catch (error) {
@@ -772,28 +875,37 @@ async function doRollback(log: DeployLog) {
   if (!config.value || !selectedConfigId.value) return;
 
   rollingBack.value = true;
-  resetDeployState();
-  currentStep.value = '开始回滚...';
-  realtimeLogs.value = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '回滚任务已启动' }];
+  resetDeployState(selectedConfigId.value);
+  const state = deployStates.value.get(selectedConfigId.value);
+  if (state) {
+    state.currentStep = '开始回滚...';
+    state.realtimeLogs = [{ time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '回滚任务已启动' }];
+  }
 
   try {
     const result = await getTauriAPI().rollback(config.value!.id, log.id) as { success: boolean; error?: string };
 
     if (result.success) {
-      progress.value = 100;
-      currentStep.value = '🔄 回滚成功！';
-      realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '✅ 回滚成功完成' }];
+      if (state) {
+        state.progress = 100;
+        state.currentStep = '🔄 回滚成功！';
+        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'rollback', message: '✅ 回滚成功完成' }];
+      }
       toast.success('回滚成功！');
     } else {
-      currentStep.value = '回滚失败: ' + (result.error || '未知错误');
-      realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚失败: ' + (result.error || '未知错误') }];
+      if (state) {
+        state.currentStep = '回滚失败: ' + (result.error || '未知错误');
+        state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚失败: ' + (result.error || '未知错误') }];
+      }
       toast.error('回滚失败: ' + (result.error || '未知错误'), 6000);
     }
 
     await refreshLogs();
   } catch (error) {
-    currentStep.value = '回滚异常: ' + error.message;
-    realtimeLogs.value = [...realtimeLogs.value, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + error.message }];
+    if (state) {
+      state.currentStep = '回滚异常: ' + error.message;
+      state.realtimeLogs = [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 回滚异常: ' + error.message }];
+    }
     handleError(error, { context: '回滚' });
   }
 
@@ -913,7 +1025,8 @@ function formatDate(dateStr: string) {
 
 function clearRealtimeLogs() {
   if (selectedConfigId.value) {
-    realtimeLogs.value = [];
+    const state = deployStates.value.get(selectedConfigId.value);
+    if (state) state.realtimeLogs = [];
   }
 }
 
