@@ -10,7 +10,6 @@ import type { Project, Server } from '../../../types';
 export interface CicdConfigEntry {
   id: string;
   name?: string;
-  projectId: string;
   gitRepoId?: string;
   deployBranch?: string;
   buildTool?: string;
@@ -71,7 +70,6 @@ export interface ConfigForm {
   id: string | null;
   name: string;
   localPath: string;
-  projectId: string;
   gitRepoId: string;
   repoUrl: string;
   deployBranch: string;
@@ -207,7 +205,7 @@ export function useCicdConfig() {
 
   function defaultConfig(): ConfigForm {
     return {
-      id: null, name: '', localPath: '', projectId: '', repoUrl: '', deployBranch: 'main',
+      id: null, name: '', localPath: '', repoUrl: '', deployBranch: 'main',
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
@@ -293,7 +291,7 @@ export function useCicdConfig() {
     if (searchQuery.value) {
       const q = searchQuery.value.toLowerCase();
       result = configs.value.filter(c =>
-        getProjectName(c.projectId).toLowerCase().includes(q) || c.groupName?.toLowerCase().includes(q)
+        (c.name || getGitRepoName(c.gitRepoId)).toLowerCase().includes(q) || c.groupName?.toLowerCase().includes(q)
       );
     }
     return [...result].sort((a, b) => {
@@ -315,10 +313,9 @@ export function useCicdConfig() {
     return map;
   });
 
-  const selectedProject = computed(() => projects.value.find(p => p.id === config.value.projectId) || null);
-  const hasAnyGitSource = computed(() => selectedProject.value && (selectedProject.value.gitUrl1 || selectedProject.value.gitUrl2 || selectedProject.value.repoPath || selectedProject.value.repoPath2));
+  const hasAnyGitSource = computed(() => selectedGitRepo.value && (selectedGitRepo.value.gitUrl1 || selectedGitRepo.value.gitUrl2 || selectedGitRepo.value.repoPath || selectedGitRepo.value.repoPath2));
   const gitSources = computed(() => {
-    const p = selectedProject.value; if (!p) return [];
+    const p = selectedGitRepo.value; if (!p) return [];
     const sources: { key: string; label: string; icon: string; url: string; path: string }[] = [];
     if (p.gitUrl1) sources.push({ key: 'remote1', label: '远程仓库 1', icon: '🌐', url: p.gitUrl1, path: p.gitUrl1.split('/').pop() || p.gitUrl1 });
     if (p.gitUrl2) sources.push({ key: 'remote2', label: '远程仓库 2', icon: '🌐', url: p.gitUrl2, path: p.gitUrl2.split('/').pop() || p.gitUrl2 });
@@ -326,7 +323,7 @@ export function useCicdConfig() {
     if (p.repoPath2) sources.push({ key: 'local2', label: '本地仓库 2', icon: '📂', url: p.repoPath2, path: p.repoPath2.split('/').pop() || p.repoPath2 });
     return sources;
   });
-  const projectShortName = computed(() => selectedProject.value?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30) || 'app');
+  const projectShortName = computed(() => selectedGitRepo.value?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30) || 'app');
 
   const buildToolDefs = [
     { key: 'maven', name: 'Maven', icon: '🔶' }, { key: 'npm', name: 'npm', icon: '🔴' },
@@ -348,8 +345,21 @@ export function useCicdConfig() {
     return '';
   });
 
+  // 当前选中的 Git 仓库对象（用于支持 "本地项目目录" 和分支编辑）
+  const selectedGitRepo = computed(() => {
+    if (config.value.gitRepoId) {
+      return gitRepos.value.find((r: any) => r.id === config.value.gitRepoId) || null;
+    }
+    return null;
+  });
+
   // ─── UI Helpers ───
-  function getProjectName(projectId?: string) { if (!projectId) return '项目 ?'; const proj = projects.value.find(p => p.id === projectId); return proj ? proj.name : '项目 ' + projectId; }
+  function getGitRepoName(id?: string) {
+    if (!id) return '';
+    const repo = gitRepos.value.find((r: any) => r.id === id);
+    return repo ? repo.name : '';
+  }
+  function getProjectName(projectId?: string) { if (!projectId) return getGitRepoName(config.value?.gitRepoId) || '项目 ?'; const proj = projects.value.find(p => p.id === projectId); return proj ? proj.name : '项目 ' + projectId; }
   function getToolBadge(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || ''; }
   function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || '🛠️'; }
   function getBuildToolName(tool?: string) { const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle' }; return names[tool || ''] || ''; }
@@ -443,19 +453,26 @@ export function useCicdConfig() {
 
   function onProjectChange() {
     availableBranches.value = []; scannedModules.value = []; showModuleTree.value = false; expandedTreeNodes.value = [];
-    if (gitSources.value.length > 0) config.value.repoUrl = gitSources.value[0].url;
-    if (selectedProject.value?.repoPath && !config.value.localPath) config.value.localPath = selectedProject.value.repoPath;
-    if (selectedProject.value?.branch && !config.value.deployBranch) config.value.deployBranch = selectedProject.value.branch;
-    const url = config.value.repoUrl.toLowerCase();
-    if ((url.includes('.java') || url.includes('spring') || url.includes('pom')) && detectedTools.value.maven?.available) {
-      config.value.buildTool = 'maven'; if (!config.value.deployPath) config.value.deployPath = '~/apphome';
-    } else if ((url.includes('vue') || url.includes('react') || url.includes('next')) && detectedTools.value.npm?.available) {
-      config.value.buildTool = 'npm'; if (!config.value.deployPath) config.value.deployPath = '/home/nginxWebUI/ui';
-    }
-    // 自动扫描本地项目
-    const localPath = config.value.localPath || selectedProject.value?.repoPath;
+    const repo = selectedGitRepo.value;
+    if (repo?.path && !config.value.localPath) config.value.localPath = repo.path;
+    if (repo?.branch && !config.value.deployBranch) config.value.deployBranch = repo.branch;
+    const localPath = config.value.localPath || repo?.path;
     if (localPath) scanLocalProject(localPath);
     if (config.value.repoUrl || config.value.localPath) loadBranches();
+  }
+
+  function onGitRepoChange() {
+    // 用户切换 Git 仓库后，自动补填本地路径
+    const repo = gitRepos.value.find((r: any) => r.id === config.value.gitRepoId);
+    if (repo) {
+      if (repo.path) config.value.localPath = repo.path;
+      if (repo.branch && !config.value.deployBranch) config.value.deployBranch = repo.branch;
+      const path = repo.path || config.value.localPath;
+      if (path) {
+        scanLocalProject(path);
+        loadBranches();
+      }
+    }
   }
 
   async function selectLocalDir() {
@@ -527,7 +544,7 @@ export function useCicdConfig() {
   function copyGitUrl() { if (config.value.repoUrl) { navigator.clipboard?.writeText(config.value.repoUrl).catch(() => {}); toast.success('Git 地址已复制'); } }
 
   async function loadBranches() {
-    const repoPath = config.value.localPath || selectedProject.value?.repoPath;
+    const repoPath = config.value.localPath || selectedGitRepo.value?.path;
     const gitUrl = config.value.repoUrl;
     if (!repoPath && !gitUrl) return;
     loadingBranches.value = true;
@@ -536,7 +553,7 @@ export function useCicdConfig() {
       const branches = await getTauriAPI().getGitBranches(path);
       availableBranches.value = (branches?.branches || branches || []).map((b: any) => typeof b === 'string' ? b : b.name);
       if (config.value.deployBranch && !availableBranches.value.includes(config.value.deployBranch)) {
-        if (selectedProject.value?.branch) availableBranches.value.push(selectedProject.value.branch);
+        if (selectedGitRepo.value?.branch) availableBranches.value.push(selectedGitRepo.value.branch);
       }
     } catch (error) { console.error('Failed to load branches:', error); availableBranches.value = []; }
     finally { loadingBranches.value = false; }
@@ -570,7 +587,7 @@ export function useCicdConfig() {
   }
 
   async function scanModules() {
-    const projectPath = config.value.localPath || selectedProject.value?.repoPath;
+    const projectPath = config.value.localPath || selectedGitRepo.value?.path;
     if (!projectPath) { toast.error('请先选择有本地路径的项目'); return; }
     scanningModules.value = true;
     try {
@@ -666,7 +683,6 @@ export function useCicdConfig() {
 
   async function saveConfig() {
     try {
-      if (!config.value.projectId) { toast.error('请选择关联项目'); return; }
       if (!deployServers.value.some(s => s.serverId)) { toast.error('请选择服务器'); return; }
       const now = new Date().toISOString();
       const serversJson = deployServers.value.length > 0 ? JSON.stringify(deployServers.value.map(s => ({ serverId: s.serverId, label: s.label, deployDir: s.deployDir }))) : null;
@@ -710,6 +726,17 @@ export function useCicdConfig() {
       const existing = await getTauriAPI().getCicdConfigById(configId) as CicdConfigEntry | undefined;
       if (existing && existing.id) {
         config.value = { ...defaultConfig(), ...existing } as ConfigForm;
+        // 修复：Rust Option::None 序列化为 JSON null，会覆盖 defaultConfig 的空字符串
+        // 将所有 null 字符串字段转回空字符串
+        for (const key of ['gitRepoId', 'deployBranch', 'groupName', 'name', 'localPath', 'repoUrl',
+          'mavenHome', 'javaHome', 'npmHome', 'pnpmHome', 'yarnHome', 'nodeHome',
+          'deployPath', 'restartScript', 'mavenProfile', 'mavenSettings',
+          'buildCommand', 'buildPath', 'npmScript', 'npmCustomScript',
+        ] as const) {
+          if ((config.value as any)[key] === null || (config.value as any)[key] === undefined) {
+            (config.value as any)[key] = '';
+          }
+        }
         // Normalize old saved /bin/java → JAVA_HOME, /bin/node → NVM_HOME
         config.value.javaHome = normalizeHomeDir(config.value.javaHome);
         config.value.nodeHome = normalizeHomeDir(config.value.nodeHome);
@@ -752,7 +779,7 @@ export function useCicdConfig() {
           if (!config.value.pnpmHome && currentNode.pnpm) config.value.pnpmHome = currentNode.pnpm;
           if (!config.value.yarnHome && currentNode.yarn) config.value.yarnHome = currentNode.yarn;
         }
-        if (config.value.projectId) { const proj = projects.value.find(p => p.id === config.value.projectId); if (proj && (config.value.localPath || proj.repoPath)) loadBranches(); }
+        if (config.value.localPath) loadBranches();
       }
     } catch (error) { handleError(error, { context: '加载配置' }); }
   }
@@ -897,16 +924,16 @@ export function useCicdConfig() {
     defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
     sdkmanInstallGuide, nvmInstallGuide,
     // Computed
-    filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
+    filteredConfigs, groupedConfigs, hasAnyGitSource, gitSources,
     projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
-    parentBuildAutoDetected, parentBuildDetectedPath,
+    parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
     // Functions
     openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,
     makeDefaultServer, getServerName, onServerSelect, addServer, removeServer,
     testServerById, onJavaVersionSelected, onNodeVersionSelected, reDetectToolPaths,
-    getProjectName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
+    getProjectName, getGitRepoName, getToolBadge, getBuildToolIcon, getBuildToolName, formatTime,
     toggleGroup, renameGroup, addGroup, getServerLabel,
-    loadConfigs, createNewConfig, selectConfig, onProjectChange, selectLocalDir,
+    loadConfigs, createNewConfig, selectConfig, onProjectChange, onGitRepoChange, selectLocalDir,
     selectServer, copyGitUrl, loadBranches, testConnection,
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,

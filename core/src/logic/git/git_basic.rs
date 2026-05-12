@@ -136,18 +136,50 @@ fn parse_refs(refs_raw: &str) -> Vec<String> {
 
 pub async fn git_branches(repo_path: &str) -> Result<Value, String> {
     let output = run_git(repo_path, &["branch", "-a", "--format=%(refname:short)|%(upstream:short)|%(HEAD)"]).await?;
-    let branches: Vec<Value> = output
+    let mut branches: Vec<Value> = output
         .lines()
         .filter(|l| !l.is_empty())
         .map(|line| {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
+            let name = parts.first().unwrap_or(&"").to_string();
+            let upstream = if parts.len() > 1 && !parts[1].is_empty() { 
+                Some(parts[1].to_string()) 
+            } else { 
+                None 
+            };
+            let is_current = parts.len() > 2 && parts[2] == "*";
+            
             json!({
-                "name": parts.first().unwrap_or(&""),
-                "upstream": if parts.len() > 1 && !parts[1].is_empty() { Value::String(parts[1].to_string()) } else { Value::Null },
-                "isCurrent": parts.len() > 2 && parts[2] == "*"
+                "name": name,
+                "upstream": upstream,
+                "isCurrent": is_current,
+                "ahead": 0,
+                "behind": 0
             })
         })
         .collect();
+    
+    // Calculate ahead/behind for branches with upstream
+    for branch in branches.iter_mut() {
+        if let Some(upstream) = branch.get("upstream").and_then(|u| u.as_str()) {
+            let branch_name = branch.get("name").and_then(|n| n.as_str()).unwrap_or("");
+            // Skip remote branches (they start with "remotes/")
+            if branch_name.starts_with("remotes/") {
+                continue;
+            }
+            let count_output = run_git(repo_path, &["rev-list", "--left-right", "--count", &format!("{}...{}", branch_name, upstream)]).await;
+            if let Ok(count_str) = count_output {
+                let counts: Vec<&str> = count_str.trim().split_whitespace().collect();
+                if counts.len() >= 2 {
+                    let ahead = counts.first().and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
+                    let behind = counts.get(1).and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
+                    branch["ahead"] = Value::Number(ahead.into());
+                    branch["behind"] = Value::Number(behind.into());
+                }
+            }
+        }
+    }
+    
     Ok(json!({"branches": branches}))
 }
 
@@ -167,8 +199,56 @@ pub async fn git_diff(repo_path: &str, file: Option<&str>) -> Result<Value, Stri
 }
 
 pub async fn git_commit_diff(repo_path: &str, commit_hash: &str) -> Result<Value, String> {
-    let output = run_git(repo_path, &["show", "--no-color", commit_hash]).await?;
-    Ok(json!({"diff": output}))
+    // Get commit info with --stat to show file changes summary
+    let stat_output = run_git(repo_path, &["show", "--stat", "--no-color", "--format=%H|%an|%ae|%ai|%s", commit_hash]).await?;
+    
+    // Parse commit info from first line
+    let lines: Vec<&str> = stat_output.lines().collect();
+    let info_line = lines.first().map_or("", |v| *v);
+    let info_parts: Vec<&str> = info_line.split('|').collect();
+    
+    let hash = info_parts.first().unwrap_or(&"").to_string();
+    let author = info_parts.get(1).unwrap_or(&"").to_string();
+    let author_email = info_parts.get(2).unwrap_or(&"").to_string();
+    let date = info_parts.get(3).unwrap_or(&"").to_string();
+    let message = info_parts.get(4).unwrap_or(&"").to_string();
+    
+    // Parse file changes from stat output
+    let files: Vec<Value> = lines.iter()
+        .skip(1)  // Skip commit info line
+        .take_while(|line| !line.starts_with(" ") && !line.is_empty() && !line.contains("files changed"))
+        .filter_map(|line| {
+            // Format: " file_path | X insertions(+), Y deletions(-)"
+            let parts: Vec<&str> = line.split('|').collect();
+            if parts.len() >= 2 {
+                let file_path = parts.first().unwrap_or(&"").trim();
+                let changes = parts.get(1).unwrap_or(&"").trim();
+                Some(json!({
+                    "path": file_path,
+                    "changes": changes,
+                    "status": if changes.contains("insertion") || changes.contains("deletion") { "modified" } 
+                              else if line.contains("new file") { "added" }
+                              else if line.contains("deleted") { "deleted" }
+                              else { "modified" }
+                }))
+            } else {
+                None
+            }
+        })
+        .collect();
+    
+    // Get full diff for each file
+    let full_diff = run_git(repo_path, &["show", "--no-color", commit_hash]).await?;
+    
+    Ok(json!({
+        "hash": hash,
+        "author": author,
+        "authorEmail": author_email,
+        "date": date,
+        "message": message,
+        "files": files,
+        "diff": full_diff
+    }))
 }
 
 // ============ Git 写操作 ============

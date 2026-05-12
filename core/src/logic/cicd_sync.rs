@@ -11,20 +11,32 @@ impl super::CoreService {
         self.db_read(|conn| crate::db::cicd::get_cicd_groups(conn).expect("get cicd groups"))
     }
 
-    pub fn get_deploy_logs(&self, project_id: &str, limit: i64) -> Result<Vec<crate::db::cicd::DeployLog>, String> {
-        self.db_read(|conn| crate::db::cicd::get_deploy_logs(conn, project_id, limit).expect("get deploy logs"))
-    }
-
     pub fn get_deploy_modules(&self, config_id: &str) -> Result<Vec<crate::db::cicd::DeployModule>, String> {
         self.db_read(|conn| crate::db::cicd::get_deploy_modules(conn, config_id).expect("get deploy modules"))
     }
 
-    pub fn get_deploy_history(&self, project_id: &str, limit: i64) -> Result<Vec<crate::db::cicd::DeployHistory>, String> {
-        self.db_read(|conn| crate::db::cicd::get_deploy_history(conn, project_id, limit).expect("get deploy history"))
-    }
-
     pub fn get_deploy_step_logs(&self, deploy_log_id: &str) -> Result<Vec<crate::db::cicd::DeployStepLog>, String> {
         self.db_read(|conn| crate::db::cicd::get_deploy_step_logs(conn, deploy_log_id).expect("get step logs"))
+    }
+
+    pub fn get_deploy_history_by_config(&self, config_id: &str, limit: i64) -> Result<Vec<crate::db::cicd::DeployHistory>, String> {
+        self.db_read(|conn| {
+            let mut stmt = conn.prepare("SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt.query_map(rusqlite::params![config_id, limit], crate::db::cicd::row_to_deploy_history)
+                .map_err(|e| e.to_string())?;
+            Ok(rows.filter_map(|r| r.ok()).collect())
+        })?
+    }
+
+    pub fn get_deploy_logs_by_config(&self, config_id: &str, limit: i64) -> Result<Vec<crate::db::cicd::DeployLog>, String> {
+        self.db_read(|conn| {
+            let mut stmt = conn.prepare("SELECT * FROM deploy_logs WHERE configId = ? ORDER BY createdAt DESC LIMIT ?")
+                .map_err(|e| e.to_string())?;
+            let rows = stmt.query_map(rusqlite::params![config_id, limit], crate::db::cicd::row_to_deploy_log)
+                .map_err(|e| e.to_string())?;
+            Ok(rows.filter_map(|r| r.ok()).collect())
+        })?
     }
 
     // ============ Misc ============
