@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, inject } from 'vue'
+import { ref, computed, onMounted, watch, provide } from 'vue'
 import { tauriCall } from '@/utils/tauri-api'
 
 interface FileTreeEntry {
@@ -61,6 +61,9 @@ const loading = ref(false)
 const searchQuery = ref('')
 const selectedPath = ref<string | null>(null)
 const expandedPaths = ref<Set<string>>(new Set())
+
+// 通过 provide 将 expandedPaths 共享给 TreeNode
+provide('expandedPaths', expandedPaths)
 
 // 过滤文件树
 const filteredTree = computed(() => {

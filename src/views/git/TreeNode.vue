@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, ref } from 'vue'
+import { computed, inject, Ref } from 'vue'
 
 interface FileTreeEntry {
   path: string
@@ -61,7 +61,9 @@ const emit = defineEmits<{
   'expand': [path: string]
 }>()
 
-const expandedPaths = inject<Set<string>>('expandedPaths', new Set())
+// 从父组件获取 expandedPaths (是一个 Ref<Set<string>>)
+const expandedPathsRef = inject<Ref<Set<string>>>('expandedPaths')
+const expandedPaths = expandedPathsRef?.value || new Set()
 
 const isExpanded = computed(() => expandedPaths.has(props.entry.path))
 

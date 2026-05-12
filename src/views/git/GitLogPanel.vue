@@ -42,11 +42,6 @@
             spellcheck="false"
           />
         </div>
-        <!-- 分支过滤 -->
-        <select :value="logBranchFilter" @change="$emit('update:logBranchFilter', ($event.target as HTMLSelectElement).value)" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none cursor-pointer h-[18px]">
-          <option value="">所有分支</option>
-          <option v-for="b in localBranches" :key="b.name" :value="b.name">{{ b.name }}</option>
-        </select>
         <!-- 日期过滤 -->
         <input :value="logDateFrom" @input="$emit('update:logDateFrom', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="From" />
         <input :value="logDateTo" @input="$emit('update:logDateTo', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="To" />
@@ -74,12 +69,12 @@
         <thead class="sticky top-0 bg-base-200 border-b border-base-content/8">
           <tr class="h-[20px]">
             <th class="w-[24px] text-center px-1"><input type="checkbox" :checked="(selectedLogCommits as Set<string>).size > 0 && (selectedLogCommits as Set<string>).size === filteredLog.length" @click="$emit('toggle-select-all-log-commits')" class="accent-primary w-[10px] h-[10px] cursor-pointer" title="全选" /></th>
-            <th class="w-[60px] px-1 text-left font-medium">Hash</th>
-            <th class="w-[100px] px-1 text-left font-medium">Author</th>
-            <th class="w-[80px] px-1 text-left font-medium">Date</th>
-            <th class="min-w-[150px] px-1 text-left font-medium">Message</th>
-            <th class="w-[40px] px-1 text-center font-medium">Files</th>
-            <th class="w-[100px] px-1 text-left font-medium">Refs</th>
+            <th class="w-[60px] px-1 text-left font-medium">哈希</th>
+            <th class="w-[100px] px-1 text-left font-medium">作者</th>
+            <th class="w-[80px] px-1 text-left font-medium">日期</th>
+            <th class="min-w-[150px] px-1 text-left font-medium">消息</th>
+            <th class="w-[40px] px-1 text-center font-medium">文件</th>
+            <th class="w-[100px] px-1 text-left font-medium">引用</th>
           </tr>
         </thead>
         <tbody>

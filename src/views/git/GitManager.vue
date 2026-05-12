@@ -156,38 +156,38 @@
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('diff')">
         <SvgIcon name="pencil" size="14" />
-        Diff
+        查看差异
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('history')">
         <SvgIcon name="clock" size="14" />
-        Show History
+        查看历史
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('blame')">
         <SvgIcon name="user" size="14" />
-        Blame
+        查看作者
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('compareBranch')">
         <SvgIcon name="barChart" size="14" />
-        Compare with Branch...
+        与分支比较...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('discard')" v-if="contextMenu.fileType !== 'untracked'">
         <SvgIcon name="undo" size="14" />
-        Discard Changes
+        撤销更改
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('add')" v-if="contextMenu.fileType === 'untracked'">
         <SvgIcon name="plus" size="14" />
-        Add to VCS
+        添加到版本控制
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('reset')" v-if="contextMenu.fileType !== 'untracked'">
         <SvgIcon name="x" size="14" />
-        Remove from VCS
+        从版本控制移除
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="contextMenuAction('gitignore')">
         <SvgIcon name="file" :size="14" />
-        Add to .gitignore
+        添加到 .gitignore
       </div>
     </div>
 
@@ -204,25 +204,25 @@
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('revert')">
         <SvgIcon name="undo" size="14" />
-        Revert Commit
+        回退提交
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('create-tag')">
         <SvgIcon name="tag" size="14" />
-        Create Tag...
+        创建标签...
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-commits')">
         <SvgIcon name="barChart" size="14" />
-        Compare with Another Commit...
+        与其他提交比较...
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('get-file')">
         <SvgIcon name="download" :size="14" />
-        Get File at Revision...
+        获取该版本文件...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick-multi')">
         <SvgIcon name="arrowDown" :size="14" />
-        Cherry-pick Multiple...
+        批量 Cherry-pick...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-with')">
@@ -240,16 +240,16 @@
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('apply')">
         <SvgIcon name="arrowRight" :size="14" />
-        Apply
+        应用
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="stashContextAction('pop')">
         <SvgIcon name="upload" size="14" />
-        Pop
+        弹出
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)] hover:text-red-500 hover:bg-red-500/10" @click="stashContextAction('drop')">
         <SvgIcon name="trash" size="14" />
-        Drop
+        删除
       </div>
     </div>
 
