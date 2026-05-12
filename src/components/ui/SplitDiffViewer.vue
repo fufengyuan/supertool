@@ -396,28 +396,30 @@ function getLineClass(line: any, side: 'old' | 'new') {
 }
 
 .line-header {
-  background: color-mix(in oklab, var(--color-blue) 10%, transparent);
-  color: color-mix(in oklab, var(--color-blue) 80%, transparent);
+  background: color-mix(in oklab, var(--color-blue) 15%, transparent);
+  color: var(--color-blue);
 }
 
 .line-header .line-content {
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .line-remove {
-  background: color-mix(in oklab, var(--color-red) 12%, transparent);
+  background: color-mix(in oklab, var(--color-red) 20%, transparent);
 }
 
 .line-remove .line-content {
   color: var(--color-red);
+  font-weight: 500;
 }
 
 .line-add {
-  background: color-mix(in oklab, var(--color-green) 12%, transparent);
+  background: color-mix(in oklab, var(--color-green) 20%, transparent);
 }
 
 .line-add .line-content {
   color: var(--color-green);
+  font-weight: 500;
 }
 
 .line-context {
