@@ -328,15 +328,14 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, computed, onMounted, onUnmounted, onBeforeUnmount, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useDeployPreflight } from '../../composables/useDeployPreflight';
 import { useSharedCicdData } from '../../composables/useSharedCicdData';
-import type { CicdConfigEntry, ServerGroupEntry } from '../../composables/useSharedCicdData';
+import type { CicdConfigEntry } from '../../composables/useSharedCicdData';
 import SvgIcon from '../../components/ui/SvgIcon.vue';
-import type { Project } from '../../types';
 
 interface DeployLog {
   id: string;
@@ -375,11 +374,10 @@ const { handleError } = useErrorHandler();
 const { runAll: runPreflightCheck } = useDeployPreflight();
 
 const shared = useSharedCicdData();
-const { configs, projects, servers, serverGroups, gitRepos } = shared;
+const { configs, servers, serverGroups, gitRepos } = shared;
 const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const loadingConfig = ref(false);
-const project = ref<Project | null>(null);
 const logs = ref<DeployLog[]>([]);
 const stepLogs = ref<Record<string, DeployStep[]>>({});
 const expandedLog = ref<string | null>(null);
@@ -521,10 +519,6 @@ function toggleDeployGroup(groupName: string) {
   expandedDeployGroups.value = set;
 }
 
-function getProjectName(_projectId: string) {
-  return config.value ? getGitRepoName(config.value.gitRepoId) : 'Project ?';
-}
-
 function getGitRepoName(id?: string) {
   if (!id) return '';
   const repo = gitRepos.value.find((r: any) => r.id === id);
@@ -558,11 +552,6 @@ function getServerNames(cfg: CicdConfigEntry | null): string[] {
   } catch {
     return [];
   }
-}
-
-function getServerLabel(cfg: CicdConfigEntry): string {
-  const names = getServerNames(cfg);
-  return names.length > 0 ? names.join(', ') : '未配置服务器';
 }
 
 function getServerCount(cfg: CicdConfigEntry | null): number {
@@ -702,7 +691,6 @@ async function loadConfigData(configId: string) {
     console.log("[loadConfigData] called")
     config.value = await getTauriAPI().getCicdConfigById(configId) as CicdConfigEntry | null;
     if (config.value) {
-      project.value = null;
       const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
       const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
       // Enrich logs with project name and per-config info
@@ -713,8 +701,8 @@ async function loadConfigData(configId: string) {
         const repoName = logConfig?.gitRepoId ? getGitRepoName(logConfig.gitRepoId) : '';
         return {
           ...log,
-          projectName: repoName || project.value?.name || '',
-          projectCategory: project.value?.category || '',
+          projectName: repoName || '',
+          projectCategory: '',
           configName: logConfig ? String(logConfig.name || '') : String(config.value?.name || ''),
           configGroupName: logConfig ? String(logConfig.groupName || '') : '',
           deployBranch: logConfig ? String(logConfig.deployBranch || '') : String(log.deployBranch || config.value?.deployBranch || ''),
@@ -832,14 +820,6 @@ async function cancelDeploy() {
   }
 }
 
-function confirmRollback(log: DeployLog) {
-  const confirmed = confirm(
-    `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\\n\\n此操作将把服务器恢复到该版本，当前部署将被备份。`
-  );
-  if (!confirmed) return;
-  doRollback(log);
-}
-
 async function doRollback(log: DeployLog) {
   if (!config.value || !selectedConfigId.value) return;
 
@@ -947,7 +927,7 @@ async function refreshLogs() {
       return {
         ...log,
         projectName: config.value ? getGitRepoName(config.value.gitRepoId) : '',
-        projectCategory: project.value?.category || '',
+        projectCategory: '',
         configName: logConfig ? String(logConfig.name || '') : String(config.value?.name || ''),
         configGroupName: logConfig ? String(logConfig.groupName || '') : '',
         deployBranch: logConfig ? String(logConfig.deployBranch || '') : String(log.deployBranch || config.value?.deployBranch || ''),
