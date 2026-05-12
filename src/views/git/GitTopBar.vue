@@ -26,30 +26,30 @@
     <div class="topbar-right">
       <!-- Stash 下拉按钮 -->
       <div class="dropdown-wrap">
-        <button class="btn btn-ghost btn-sm" @click="$emit('update:showStashMenu', !showStashMenu)" title="Stash">
+        <button class="btn btn-ghost btn-sm" @click="$emit('update:showStashMenu', !showStashMenu)" title="暂存">
           <SvgIcon name="archive" width="14" height="14" />
-          Stash
+          暂存
           <SvgIcon class="dropdown-arrow" name="chevronDown" width="10" height="10" />
         </button>
         <div v-if="showStashMenu" class="dropdown-menu" @click.stop>
           <div class="dropdown-menu-item" @click="$emit('stash-save')">
             <SvgIcon name="plus" width="14" height="14" />
-            Save Stash...
+            保存暂存...
           </div>
           <div class="dropdown-menu-item" @click="$emit('stash-save-untracked')">
             <SvgIcon name="plus" width="14" height="14" />
-            Stash All (incl. untracked)
+            暂存全部(含未跟踪)
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('toggle-stash-panel')">
             <SvgIcon name="archive" width="14" height="14" />
-            Show Stash List
+            显示暂存列表
           </div>
         </div>
       </div>
       <!-- Git 菜单按钮 -->
       <div class="dropdown-wrap">
-        <button class="btn btn-ghost btn-sm" @click="$emit('update:showGitMenu', !showGitMenu)" title="Git Operations">
+        <button class="btn btn-ghost btn-sm" @click="$emit('update:showGitMenu', !showGitMenu)" title="Git 操作">
           <SvgIcon name="gitPullRequest" width="14" height="14" />
           Git
           <SvgIcon class="dropdown-arrow" name="chevronDown" width="10" height="10" />
@@ -57,77 +57,77 @@
         <div v-if="showGitMenu" class="dropdown-menu" @click.stop>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'rebase')">
             <SvgIcon name="gitMerge" width="14" height="14" />
-            Rebase...
+            变基...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'compare-branches')">
             <SvgIcon name="barChart" width="14" height="14" />
-            Compare Branches...
+            比较分支...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'tags')">
             <SvgIcon name="tag" width="14" height="14" />
-            Tags...
+            标签...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'submodules')">
             <SvgIcon name="grid" width="14" height="14" />
-            Submodules...
+            子模块...
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'push-dialog')">
             <SvgIcon name="upload" width="14" height="14" />
-            Push...
+            推送...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'pull-dialog')">
             <SvgIcon name="download" width="14" height="14" />
-            Pull...
+            拉取...
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'fetch')">
             <SvgIcon name="refresh" width="14" height="14" />
-            Fetch
+            获取
           </div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'push-tags')">
             <SvgIcon name="tag" width="14" height="14" />
-            Push Tags
+            推送标签
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'undo-last-commit')">
             <SvgIcon name="undo" width="14" height="14" />
-            Undo Last Commit
+            撤销上次提交
           </div>
           <div class="dropdown-menu-separator"></div>
           <div class="dropdown-menu-item" @click="$emit('git-action', 'amend')">
             <SvgIcon name="pencil" width="14" height="14" />
-            Amend Last Commit...
+            修改上次提交...
           </div>
         </div>
       </div>
 
       <!-- Files 按钮 -->
-      <button class="btn btn-ghost btn-sm" :class="{ active: showFileBrowser }" @click="$emit('toggle-file-browser')" title="Browse Files">
+      <button class="btn btn-ghost btn-sm" :class="{ active: showFileBrowser }" @click="$emit('toggle-file-browser')" title="浏览文件">
         <SvgIcon name="file" width="14" height="14" />
-        Files
+        文件
       </button>
-      <button class="btn btn-ghost btn-sm" @click="$emit('pull')" :disabled="pulling" title="Pull">
+      <button class="btn btn-ghost btn-sm" @click="$emit('pull')" :disabled="pulling" title="拉取">
         <SvgIcon v-if="!pulling" name="download" width="14" height="14" />
         <SvgIcon v-else name="refresh" class="spin-icon" width="14" height="14" />
-        Pull
+        拉取
       </button>
-      <button class="btn btn-ghost btn-sm" @click="$emit('push')" :disabled="pushing" title="Push">
+      <button class="btn btn-ghost btn-sm" @click="$emit('push')" :disabled="pushing" title="推送">
         <SvgIcon v-if="!pushing" name="upload" width="14" height="14" />
         <SvgIcon v-else name="refresh" class="spin-icon" width="14" height="14" />
-        Push
+        推送
       </button>
-      <button class="btn btn-ghost btn-sm btn-error" @click="$emit('force-push')" :disabled="pushing" title="Force Push">
+      <button class="btn btn-ghost btn-sm btn-error" @click="$emit('force-push')" :disabled="pushing" title="强制推送">
         <SvgIcon v-if="!pushing" name="upload" width="14" height="14" />
         <SvgIcon v-else name="refresh" class="spin-icon" width="14" height="14" />
-        Force Push
+        强制推送
       </button>
-      <button class="btn btn-ghost btn-sm" @click="$emit('open-branches')" title="Merge/Branches">
+      <button class="btn btn-ghost btn-sm" @click="$emit('open-branches')" title="合并/分支">
         <SvgIcon name="gitBranch" width="14" height="14" />
-        Branches
+        分支
       </button>
-      <button class="btn btn-ghost btn-sm" @click="$emit('refresh')" :disabled="loading" title="Refresh">
+      <button class="btn btn-ghost btn-sm" @click="$emit('refresh')" :disabled="loading" title="刷新">
         <SvgIcon :class="{ spin: loading }" name="refresh" width="14" height="14" />
-        Refresh
+        刷新
       </button>
     </div>
   </div>

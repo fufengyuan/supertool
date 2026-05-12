@@ -230,15 +230,17 @@ onMounted(loadFile)
   flex: 1;
   overflow: hidden;
   display: flex;
+  min-height: 200px;
 }
 
 .code-textarea {
   width: 100%;
   height: 100%;
-  padding: 8px 12px;
+  flex: 1;
+  padding: 12px 16px;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
-  font-size: 13px;
-  line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.6;
   background: var(--color-base-100);
   border: none;
   resize: none;

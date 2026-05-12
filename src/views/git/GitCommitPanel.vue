@@ -19,7 +19,7 @@
         <div class="group-header" @click="$emit('toggle-group', 'modified')">
           <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('modified') }" />
           <span class="group-icon modified">M</span>
-          <span class="group-label">Modified</span>
+          <span class="group-label">已修改</span>
           <span class="group-count">{{ statusData.modified.length }}</span>
         </div>
         <div class="group-files" v-show="!collapsedGroups.has('modified')">
@@ -44,7 +44,7 @@
         <div class="group-header" @click="$emit('toggle-group', 'added')">
           <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('added') }" />
           <span class="group-icon added">A</span>
-          <span class="group-label">Added</span>
+          <span class="group-label">已添加</span>
           <span class="group-count">{{ statusData.added.length }}</span>
         </div>
         <div class="group-files" v-show="!collapsedGroups.has('added')">
@@ -69,7 +69,7 @@
         <div class="group-header" @click="$emit('toggle-group', 'deleted')">
           <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('deleted') }" />
           <span class="group-icon deleted">D</span>
-          <span class="group-label">Deleted</span>
+          <span class="group-label">已删除</span>
           <span class="group-count">{{ statusData.deleted.length }}</span>
         </div>
         <div class="group-files" v-show="!collapsedGroups.has('deleted')">
@@ -94,7 +94,7 @@
         <div class="group-header" @click="$emit('toggle-group', 'untracked')">
           <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('untracked') }" />
           <span class="group-icon untracked">U</span>
-          <span class="group-label">Unversioned</span>
+          <span class="group-label">未跟踪</span>
           <span class="group-count">{{ statusData.untracked.length }}</span>
         </div>
         <div class="group-files" v-show="!collapsedGroups.has('untracked')">
@@ -119,7 +119,7 @@
         <div class="group-header" @click="$emit('toggle-group', 'conflicted')">
           <SvgIcon name="chevronDown" size="12" class="group-arrow" :class="{ collapsed: collapsedGroups.has('conflicted') }" />
           <span class="group-icon conflicted">C</span>
-          <span class="group-label">Conflicted</span>
+          <span class="group-label">冲突</span>
           <span class="group-count">{{ statusData.conflicted.length }}</span>
         </div>
         <div class="group-files" v-show="!collapsedGroups.has('conflicted')">
@@ -174,11 +174,11 @@
       <div class="commit-options">
         <label class="form-checkbox-label commit-option-label">
           <input type="checkbox" :checked="commitSignOff" @change="$emit('update:commitSignOff', ($event.target as HTMLInputElement).checked)" />
-          Sign-off (-s)
+          签署 (-s)
         </label>
         <label class="form-checkbox-label commit-option-label">
           <input type="checkbox" :checked="commitNoVerify" @change="$emit('update:commitNoVerify', ($event.target as HTMLInputElement).checked)" />
-          No Verify (--no-verify)
+          跳过验证 (--no-verify)
         </label>
       </div>
       <div class="commit-actions">
@@ -187,14 +187,14 @@
           @click="$emit('commit', false)"
           :disabled="committing || selectedFiles.size === 0 || !commitMessage.trim()"
         >
-          Commit
+          提交
         </button>
         <button
           class="btn btn-success btn-sm"
           @click="$emit('commit', true)"
           :disabled="committing || selectedFiles.size === 0 || !commitMessage.trim()"
         >
-          Commit & Push
+          提交并推送
         </button>
       </div>
     </div>
