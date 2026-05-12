@@ -134,7 +134,7 @@ pub enum CicdCommands {
     Rollback { config_id: String, deploy_log_id: String },
     Cancel { config_id: String },
     Modules { config_id: String, #[arg(short, long)] json: bool },
-    Logs { project_id: String, #[arg(short = 'l', long, default_value = "20")] limit: usize },
+    Logs { config_id: String, #[arg(short = 'l', long, default_value = "20")] limit: usize },
 }
 
 #[derive(Subcommand)]

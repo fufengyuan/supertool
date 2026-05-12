@@ -14,7 +14,6 @@ import type { Project, Server } from '../types'
 export interface CicdConfigEntry {
   id: string
   name?: string
-  projectId: string
   gitRepoId?: string
   deployBranch?: string
   buildTool?: string

@@ -41,7 +41,7 @@
                     @click="selectDeployConfig(cfg)"
                   >
                     <span class="flex-1 font-medium truncate min-w-0">
-                      {{ cfg.name || getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}
+                      {{ cfg.name || getGitRepoName(cfg.gitRepoId) }}
                     </span>
                     <span class="flex items-center gap-1 text-[11px] text-base-content/60 shrink-0">
                       <span class="font-mono text-[10px] bg-black/5 px-1.5 py-0.5 rounded-sm">{{ cfg.deployBranch || 'main' }}</span>
@@ -58,7 +58,7 @@
         </div>
 
         <!-- Config Details Card -->
-        <template v-if="config && (project || selectedGitRepoObj)">
+        <template v-if="config && selectedGitRepoObj">
           <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
             <div class="text-sm font-semibold text-base-content mb-3">配置详情</div>
             <div class="flex flex-col gap-2.5">
@@ -68,7 +68,7 @@
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">仓库</span>
-                <span class="text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || project?.name || '-' }}</span>
+                <span class="text-sm text-base-content font-medium text-right">{{ selectedGitRepoObj?.name || '-' }}</span>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">分支</span>
@@ -340,7 +340,6 @@ import type { Project } from '../../types';
 
 interface DeployLog {
   id: string;
-  projectId: string;
   configId: string;
   status: string;
   createdAt: string;
@@ -427,7 +426,6 @@ const allRunningDeploys = computed(() => {
       const cfg = configs.value.find(c => c.id === configId);
       running.push({
         id: state.deployLogId || `running-${configId}`,
-        projectId: cfg?.projectId || '',
         configId,
         status: 'running',
         createdAt: new Date(state.startTime).toISOString(),
@@ -525,7 +523,7 @@ function toggleDeployGroup(groupName: string) {
 
 function getProjectName(projectId: string) {
   const proj = projects.value.find(p => p.id === projectId);
-  return proj ? proj.name : 'Project ' + projectId;
+  return proj ? proj.name : (config.value ? getGitRepoName(config.value.gitRepoId) : 'Project ' + projectId);
 }
 
 function getGitRepoName(id?: string) {
@@ -698,11 +696,7 @@ async function loadConfigData(configId: string) {
     console.log("[loadConfigData] called")
     config.value = await getTauriAPI().getCicdConfigById(configId) as CicdConfigEntry | null;
     if (config.value) {
-      if (config.value.projectId) {
-        project.value = projects.value.find((p) => p.id === config.value.projectId) || null;
-      } else {
-        project.value = null;
-      }
+      project.value = null;
       const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
       const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
       // Enrich logs with project name and per-config info
@@ -754,7 +748,7 @@ async function startDeploy() {
 
   if (config.value?.requiresApproval) {
     const proceed = confirm(
-      `⚠️ 审核确认\\n\\n配置「${config.value.name || getProjectName(config.value.projectId)}」已开启部署审核。\\n\\n请确认你已准备好部署到生产环境，是否继续？`
+      `⚠️ 审核确认\\n\\\\n配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。\\\\n\\\\n请确认你已准备好部署到生产环境，是否继续？`
     );
     if (!proceed) return;
   }
@@ -883,7 +877,7 @@ async function rollbackDeploy(log: DeployLog) {
   // Check if config requires approval
   if (config.value?.requiresApproval) {
     const proceed = confirm(
-      `⚠️ 审核确认\\n\\n配置「${config.value.name || getProjectName(config.value.projectId)}」已开启部署审核。\\n\\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
+      `⚠️ 审核确认\\\\n\\\\n配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。\\\\n\\\\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
     );
     if (!proceed) return;
   } else {

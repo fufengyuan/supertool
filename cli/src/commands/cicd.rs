@@ -45,7 +45,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 .get_cicd_configs()
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let config = configs.iter().find(|c| {
-                c.project_id == *project_id || c.id == *project_id
+                c.id == *project_id
             });
             if let Some(c) = config {
                 if *json {
@@ -128,7 +128,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                         std::thread::sleep(std::time::Duration::from_secs(5));
                         let history = rt
                             .core
-                            .get_deploy_history(config_id, 1)
+                            .get_deploy_history_by_config(config_id, 1)
                             .map_err(|e| anyhow::anyhow!("{}", e))?;
                         if let Some(latest) = history.first() {
                             let status = &latest.status;
@@ -166,10 +166,10 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 }
             }
         }
-        CicdCommands::Logs { project_id, limit } => {
+        CicdCommands::Logs { config_id, limit } => {
             let logs = rt
                 .core
-                .get_deploy_logs(project_id, *limit as i64)
+                .get_deploy_logs_by_config(config_id, *limit as i64)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             println!("  部署日志 ({} 条):", logs.len());
             for l in &logs {
@@ -237,7 +237,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
         }
         CicdCommands::Cancel { config_id } => {
             // Get latest running deploy for this config
-            let history = rt.core.get_deploy_history(config_id, 1)
+            let history = rt.core.get_deploy_history_by_config(config_id, 1)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             let deploy_log_id = history.first()
                 .filter(|h| h.status == "running" || h.status == "pending")
@@ -278,7 +278,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
         } => {
             let history = rt
                 .core
-                .get_deploy_history(config_id, *limit as i64)
+                .get_deploy_history_by_config(config_id, *limit as i64)
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
 
             // Filter by status if specified
@@ -335,7 +335,7 @@ fn resolve_cicd_name(rt: &CliRuntime, config_id: &str) -> String {
     };
     configs
         .iter()
-        .find(|c| c.id == config_id || c.project_id == config_id)
+        .find(|c| c.id == config_id)
         .map(|c| c.name.clone())
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| config_id.to_string())
