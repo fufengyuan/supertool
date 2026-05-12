@@ -300,3 +300,376 @@ pub async fn get_git_commit_detail(
         .await
         .map_err(|e| format!("获取提交详情失败: {}", e))
 }
+
+// ==================== Git 状态操作 ====================
+
+/// Get git status (modified, added, deleted, untracked files)
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_status(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_status() called");
+    supertool_core::logic::git::git_status(&repo_path)
+        .await
+        .map_err(|e| format!("获取状态失败: {}", e))
+}
+
+/// Get current branch name
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_current_branch(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_current_branch() called");
+    supertool_core::logic::git::git_current_branch(&repo_path)
+        .await
+        .map_err(|e| format!("获取当前分支失败: {}", e))
+}
+
+/// Get all branches with details
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_branches(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_branches() called");
+    supertool_core::logic::git::git_branches(&repo_path)
+        .await
+        .map_err(|e| format!("获取分支列表失败: {}", e))
+}
+
+/// Get git log with detailed info
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_log(repo_path: String, limit: Option<usize>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_log() called");
+    supertool_core::logic::git::git_log(&repo_path, limit)
+        .await
+        .map_err(|e| format!("获取日志失败: {}", e))
+}
+
+/// Get diff for a file or entire repo
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_diff(repo_path: String, file: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_diff() called");
+    supertool_core::logic::git::git_diff(&repo_path, file.as_deref())
+        .await
+        .map_err(|e| format!("获取差异失败: {}", e))
+}
+
+// ==================== Git 写操作 ====================
+
+/// Add files to staging
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_add(repo_path: String, files: Vec<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_add() called");
+    let files_ref: Vec<&str> = files.iter().map(|s| s.as_str()).collect();
+    supertool_core::logic::git::git_add(&repo_path, &files_ref)
+        .await
+        .map_err(|e| format!("添加文件失败: {}", e))
+}
+
+/// Reset files from staging
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_reset(repo_path: String, file: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_reset() called");
+    supertool_core::logic::git::git_reset(&repo_path, file.as_deref())
+        .await
+        .map_err(|e| format!("重置文件失败: {}", e))
+}
+
+/// Commit changes
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_commit(repo_path: String, message: String, files: Option<Vec<String>>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_commit() called");
+    // Handle files: convert to Vec<&str> if provided
+    match files {
+        Some(f) if !f.is_empty() => {
+            let files_str: Vec<&str> = f.iter().map(|s| s.as_str()).collect();
+            supertool_core::logic::git::git_commit(&repo_path, &message, Some(&files_str))
+                .await
+                .map_err(|e| format!("提交失败: {}", e))
+        },
+        _ => {
+            supertool_core::logic::git::git_commit(&repo_path, &message, None)
+                .await
+                .map_err(|e| format!("提交失败: {}", e))
+        }
+    }
+}
+
+/// Checkout a branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_checkout(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_checkout() called, branch={}", branch);
+    supertool_core::logic::git::git_checkout(&repo_path, &branch)
+        .await
+        .map_err(|e| format!("切换分支失败: {}", e))
+}
+
+/// Create a new branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_create_branch(repo_path: String, branch_name: String, from: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_create_branch() called, branch={}", branch_name);
+    supertool_core::logic::git::git_create_branch(&repo_path, &branch_name, from.as_deref())
+        .await
+        .map_err(|e| format!("创建分支失败: {}", e))
+}
+
+/// Delete a branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_delete_branch(repo_path: String, branch_name: String, force: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_delete_branch() called, branch={}", branch_name);
+    supertool_core::logic::git::git_delete_branch(&repo_path, &branch_name, force)
+        .await
+        .map_err(|e| format!("删除分支失败: {}", e))
+}
+
+/// Merge a branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_merge(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_merge() called, branch={}", branch);
+    supertool_core::logic::git::git_merge(&repo_path, &branch)
+        .await
+        .map_err(|e| format!("合并失败: {}", e))
+}
+
+// ==================== Git 远程操作 ====================
+
+/// Pull from remote
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_pull(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_pull() called");
+    supertool_core::logic::git::git_pull(&repo_path)
+        .await
+        .map_err(|e| format!("拉取失败: {}", e))
+}
+
+/// Push to remote
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_push(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_push() called");
+    supertool_core::logic::git::git_push(&repo_path)
+        .await
+        .map_err(|e| format!("推送失败: {}", e))
+}
+
+/// Force push to remote
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_force_push(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_force_push() called");
+    supertool_core::logic::git::git_force_push(&repo_path)
+        .await
+        .map_err(|e| format!("强制推送失败: {}", e))
+}
+
+/// Fetch from remote(s)
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_fetch(repo_path: String, remote: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_fetch() called");
+    supertool_core::logic::git::git_fetch(&repo_path, remote.as_deref())
+        .await
+        .map_err(|e| format!("获取远程信息失败: {}", e))
+}
+
+/// Get remotes list
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_remotes(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_remotes() called");
+    supertool_core::logic::git::git_remotes(&repo_path)
+        .await
+        .map_err(|e| format!("获取远程列表失败: {}", e))
+}
+
+/// Discard changes for a file
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_discard_changes(repo_path: String, file: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_discard_changes() called, file={}", file);
+    supertool_core::logic::git::git_discard_changes(&repo_path, &file)
+        .await
+        .map_err(|e| format!("丢弃更改失败: {}", e))
+}
+
+// ==================== Git Stash 操作 ====================
+
+/// Save stash
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_save(
+    repo_path: String,
+    message: Option<String>,
+    include_untracked: bool,
+    keep_index: bool,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_save() called");
+    supertool_core::logic::git::git_stash_save(&repo_path, message.as_deref(), include_untracked, keep_index)
+        .await
+        .map_err(|e| format!("保存stash失败: {}", e))
+}
+
+/// List stashes
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_list(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_list() called");
+    supertool_core::logic::git::git_stash_list(&repo_path)
+        .await
+        .map_err(|e| format!("获取stash列表失败: {}", e))
+}
+
+/// Apply stash
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_apply(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_apply() called");
+    supertool_core::logic::git::git_stash_apply(&repo_path, stash_ref.as_deref())
+        .await
+        .map_err(|e| format!("应用stash失败: {}", e))
+}
+
+/// Pop stash
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_pop(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_pop() called");
+    supertool_core::logic::git::git_stash_pop(&repo_path, stash_ref.as_deref())
+        .await
+        .map_err(|e| format!("弹出stash失败: {}", e))
+}
+
+/// Drop stash
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_stash_drop(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_stash_drop() called");
+    supertool_core::logic::git::git_stash_drop(&repo_path, stash_ref.as_deref())
+        .await
+        .map_err(|e| format!("删除stash失败: {}", e))
+}
+
+// ==================== Git Tag 操作 ====================
+
+/// List tags
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_list_tags(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_list_tags() called");
+    supertool_core::logic::git::git_list_tags(&repo_path)
+        .await
+        .map_err(|e| format!("获取tag列表失败: {}", e))
+}
+
+/// Create tag
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>, force: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_create_tag() called, tag={}", tag_name);
+    supertool_core::logic::git::git_create_tag(&repo_path, &tag_name, message.as_deref(), force)
+        .await
+        .map_err(|e| format!("创建tag失败: {}", e))
+}
+
+/// Delete tag
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_delete_tag(repo_path: String, tag_name: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_delete_tag() called, tag={}", tag_name);
+    supertool_core::logic::git::git_delete_tag(&repo_path, &tag_name)
+        .await
+        .map_err(|e| format!("删除tag失败: {}", e))
+}
+
+// ==================== Git Rebase 操作 ====================
+
+/// Rebase onto branch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rebase(repo_path: String, target_branch: String, onto: Option<String>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rebase() called");
+    supertool_core::logic::git::git_rebase(&repo_path, &target_branch, onto.as_deref())
+        .await
+        .map_err(|e| format!("rebase失败: {}", e))
+}
+
+/// Abort rebase
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rebase_abort(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rebase_abort() called");
+    supertool_core::logic::git::git_rebase_abort(&repo_path)
+        .await
+        .map_err(|e| format!("中止rebase失败: {}", e))
+}
+
+/// Continue rebase
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_rebase_continue(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_rebase_continue() called");
+    supertool_core::logic::git::git_rebase_continue(&repo_path)
+        .await
+        .map_err(|e| format!("继续rebase失败: {}", e))
+}
+
+// ==================== Git 高级操作 ====================
+
+/// Get file history
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_file_history(repo_path: String, file_path: String, limit: Option<usize>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_file_history() called, file={}", file_path);
+    supertool_core::logic::git::git_file_history(&repo_path, &file_path, limit)
+        .await
+        .map_err(|e| format!("获取文件历史失败: {}", e))
+}
+
+/// Get unpushed commits
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_unpushed_commits(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_unpushed_commits() called");
+    supertool_core::logic::git::git_unpushed_commits(&repo_path)
+        .await
+        .map_err(|e| format!("获取未推送提交失败: {}", e))
+}
+
+/// Cherry-pick a commit
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_cherry_pick(repo_path: String, commit_hash: String, no_commit: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_cherry_pick() called, hash={}", commit_hash);
+    supertool_core::logic::git::git_cherry_pick(&repo_path, &commit_hash, no_commit)
+        .await
+        .map_err(|e| format!("cherry-pick失败: {}", e))
+}
+
+/// Revert a commit
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_revert(repo_path: String, commit_hash: String, no_commit: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_revert() called, hash={}", commit_hash);
+    supertool_core::logic::git::git_revert(&repo_path, &commit_hash, no_commit)
+        .await
+        .map_err(|e| format!("revert失败: {}", e))
+}
+
+/// Amend last commit
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_amend_commit(repo_path: String, message: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_amend_commit() called");
+    supertool_core::logic::git::git_amend_commit(&repo_path, &message)
+        .await
+        .map_err(|e| format!("修改提交失败: {}", e))
+}
+
+/// Reset to a commit
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_reset_to_commit(repo_path: String, commit_hash: String, mode: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_reset_to_commit() called, hash={}", commit_hash);
+    supertool_core::logic::git::git_reset_to_commit(&repo_path, &commit_hash, &mode)
+        .await
+        .map_err(|e| format!("重置到提交失败: {}", e))
+}
+
+/// Get file blame
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_file_blame(repo_path: String, file_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_file_blame() called, file={}", file_path);
+    supertool_core::logic::git::git_file_blame(&repo_path, &file_path)
+        .await
+        .map_err(|e| format!("获取blame失败: {}", e))
+}
+
+/// Get submodule list
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_submodule_list(repo_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_submodule_list() called");
+    supertool_core::logic::git::git_submodule_list(&repo_path)
+        .await
+        .map_err(|e| format!("获取子模块列表失败: {}", e))
+}
+
+/// Init submodule
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_submodule_init(repo_path: String, recursive: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_submodule_init() called");
+    supertool_core::logic::git::git_submodule_init(&repo_path, recursive)
+        .await
+        .map_err(|e| format!("初始化子模块失败: {}", e))
+}
