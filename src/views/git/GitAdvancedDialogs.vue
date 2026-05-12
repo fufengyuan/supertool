@@ -8,7 +8,7 @@
       </div>
       <div class="flex-1 overflow-y-auto p-2">
         <div v-for="commit in fileHistoryData" :key="commit.hash" class="flex items-center gap-2 px-2 py-1.5 rounded text-xs hover:bg-base-content/5 transition-colors duration-100">
-          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm shrink-0">{{ commit.hash.substring(0, 7) }}</code>
+          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm shrink-0">{{ commit?.hash?.substring(0, 7) || '-' }}</code>
           <span class="text-base-content/60 text-[11px] shrink-0" :title="formatFullDate(commit.date)">{{ formatRelativeDate(commit.date) }}</span>
           <span class="text-base-content/60 truncate block flex-1 min-w-0">{{ commit.message }}</span>
           <span class="text-base-content shrink-0">{{ getAuthorName(commit.author) }}</span>
@@ -72,7 +72,7 @@
             <option value="fixup" class="text-violet-500">fixup</option>
             <option value="drop" class="text-red-500">drop</option>
           </select>
-          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm shrink-0">{{ c.hash.substring(0, 7) }}</code>
+          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm shrink-0">{{ c?.hash?.substring(0, 7) || '-' }}</code>
           <span class="text-base-content/60 truncate flex-1 min-w-0">{{ c.message }}</span>
           <button class="btn btn-ghost btn-xs px-1 text-sm leading-none" @click.stop="$emit('ir-move-up', idx)" :disabled="idx === 0" title="上移">↑</button>
           <button class="btn btn-ghost btn-xs px-1 text-sm leading-none" @click.stop="$emit('ir-move-down', idx)" :disabled="idx === irCommits.length - 1" title="下移">↓</button>
