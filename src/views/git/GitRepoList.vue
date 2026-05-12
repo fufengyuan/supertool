@@ -462,6 +462,19 @@ const deleteRepo = async (repo: GitRepo) => {
 };
 
 const openRepo = async (repo: GitRepo) => {
+  // 验证路径有效性
+  try {
+    const api = getTauriAPI();
+    if (api?.validateGitRepoPath) {
+      const result = await api.validateGitRepoPath(repo.path);
+      if (!result.valid) {
+        toast.error(`仓库路径无效: ${result.error || '路径不存在或不是 Git 仓库'}`);
+        return;
+      }
+    }
+  } catch {
+    // 验证失败时继续打开，让后端处理
+  }
   selectedRepo.value = repo;
 };
 
