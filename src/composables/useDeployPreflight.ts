@@ -72,7 +72,6 @@ export function useDeployPreflight() {
   async function checkConfigCompleteness(config: CicdConfig): Promise<DeployPreflightResult> {
     const required = [
       { key: 'deployPath', label: '部署路径' },
-      { key: 'projectId', label: '关联项目' },
     ];
 
     const missing = required.filter((f) => !config?.[f.key]);
