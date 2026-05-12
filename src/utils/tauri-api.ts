@@ -2373,6 +2373,10 @@ export function getTauriAPI(): TauriAPI {
     gitApplyPatch: async (repoPath: string, patchContent: string) => tauriCall('git_apply_patch', { repoPath, patchContent }),
     gitRawCommand: async (repoPath: string, args: string[]) => tauriCall('git_raw_command', { repoPath, args }),
     getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
+    // 文件浏览
+    getFileTree: async (repoPath: string, subdir?: string) => tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath, subdir }),
+    readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
+    saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
 
   }
 

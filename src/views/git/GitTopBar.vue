@@ -98,33 +98,14 @@
             <SvgIcon name="pencil" width="14" height="14" />
             Amend Last Commit...
           </div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'reset')">
-            <SvgIcon name="undo" width="14" height="14" />
-            Reset to Commit...
-          </div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'interactive-rebase')">
-            <SvgIcon name="menu" width="14" height="14" />
-            Interactive Rebase...
-          </div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'remotes')">
-            <SvgIcon name="globe" width="14" height="14" />
-            Remotes...
-          </div>
-          <div class="dropdown-menu-separator"></div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'create-patch')">
-            <SvgIcon name="file" width="14" height="14" />
-            Create Patch...
-          </div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'apply-patch')">
-            <SvgIcon name="file" width="14" height="14" />
-            Apply Patch...
-          </div>
-          <div class="dropdown-menu-item" @click="$emit('git-action', 'git-clean')">
-            <SvgIcon name="trash" width="14" height="14" />
-            Clean Working Tree...
-          </div>
         </div>
       </div>
+
+      <!-- Files 按钮 -->
+      <button class="btn btn-ghost btn-sm" :class="{ active: showFileBrowser }" @click="$emit('toggle-file-browser')" title="Browse Files">
+        <SvgIcon name="file" width="14" height="14" />
+        Files
+      </button>
       <button class="btn btn-ghost btn-sm" @click="$emit('pull')" :disabled="pulling" title="Pull">
         <SvgIcon v-if="!pulling" name="download" width="14" height="14" />
         <SvgIcon v-else name="refresh" class="spin-icon" width="14" height="14" />
@@ -163,6 +144,7 @@ defineProps<{
   pushing: boolean
   showStashMenu: boolean
   showGitMenu: boolean
+  showFileBrowser: boolean
 }>()
 
 defineEmits<{
@@ -174,6 +156,7 @@ defineEmits<{
   'stash-save': []
   'stash-save-untracked': []
   'toggle-stash-panel': []
+  'toggle-file-browser': []
   'pull': []
   'push': []
   'force-push': []

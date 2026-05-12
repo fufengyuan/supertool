@@ -625,6 +625,9 @@ fn main() {
             commands::git::git_create_patch,
             commands::git::git_apply_patch,
             commands::git::git_raw_command,
+            commands::git::get_file_tree,
+            commands::git::read_file_content,
+            commands::git::save_file_content,
             // Git sync commands
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_configure,

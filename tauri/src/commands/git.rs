@@ -829,3 +829,119 @@ pub async fn git_raw_command(repo_path: String, args: Vec<String>) -> Result<Str
         .await
         .map_err(|e| format!("执行命令失败: {}", e))
 }
+
+// =================== File Browser Commands ===================
+
+/// File entry for file tree
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileTreeEntry {
+    pub path: String,
+    pub name: String,
+    pub is_dir: bool,
+    pub children: Option<Vec<FileTreeEntry>>,
+}
+
+/// Get file tree for a directory (recursive)
+#[tauri::command(rename_all = "camelCase")]
+pub fn get_file_tree(repo_path: String, subdir: Option<String>) -> Result<Vec<FileTreeEntry>, String> {
+    log::info!("[Tauri CMD] get_file_tree() called, repo_path={}", repo_path);
+    let base_path = if let Some(sub) = subdir {
+        Path::new(&repo_path).join(sub)
+    } else {
+        Path::new(&repo_path).to_path_buf()
+    };
+    
+    scan_directory_recursive(&base_path, &repo_path, 3)  // Max depth 3 for performance
+}
+
+fn scan_directory_recursive(dir: &Path, base_path: &str, depth: u32) -> Result<Vec<FileTreeEntry>, String> {
+    if depth == 0 {
+        return Ok(Vec::new());
+    }
+    
+    if !dir.exists() || !dir.is_dir() {
+        return Err(format!("目录不存在或不是目录: {}", dir.display()));
+    }
+    
+    let mut entries: Vec<FileTreeEntry> = Vec::new();
+    let read_dir = std::fs::read_dir(dir)
+        .map_err(|e| format!("无法读取目录: {}", e))?;
+    
+    for entry in read_dir {
+        let entry = entry.map_err(|e| format!("读取条目失败: {}", e))?;
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().to_string();
+        
+        // Skip hidden files and .git directory
+        if name.starts_with('.') {
+            continue;
+        }
+        
+        let is_dir = path.is_dir();
+        let relative_path = path.strip_prefix(base_path)
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|_| path.to_string_lossy().to_string());
+        
+        let children = if is_dir && depth > 1 {
+            Some(scan_directory_recursive(&path, base_path, depth - 1)?)
+        } else {
+            None
+        };
+        
+        entries.push(FileTreeEntry {
+            path: relative_path,
+            name,
+            is_dir,
+            children,
+        });
+    }
+    
+    // Sort: directories first, then files, alphabetically
+    entries.sort_by(|a, b| {
+        if a.is_dir && !b.is_dir {
+            std::cmp::Ordering::Less
+        } else if !a.is_dir && b.is_dir {
+            std::cmp::Ordering::Greater
+        } else {
+            a.name.cmp(&b.name)
+        }
+    });
+    
+    Ok(entries)
+}
+
+/// Read file content
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_file_content(repo_path: String, file_path: String) -> Result<String, String> {
+    log::info!("[Tauri CMD] read_file_content() called, file={}", file_path);
+    let full_path = Path::new(&repo_path).join(&file_path);
+    
+    if !full_path.exists() {
+        return Err(format!("文件不存在: {}", file_path));
+    }
+    
+    if full_path.is_dir() {
+        return Err(format!("是目录，不是文件: {}", file_path));
+    }
+    
+    std::fs::read_to_string(&full_path)
+        .map_err(|e| format!("读取文件失败: {}", e))
+}
+
+/// Save file content
+#[tauri::command(rename_all = "camelCase")]
+pub fn save_file_content(repo_path: String, file_path: String, content: String) -> Result<(), String> {
+    log::info!("[Tauri CMD] save_file_content() called, file={}", file_path);
+    let full_path = Path::new(&repo_path).join(&file_path);
+    
+    // Ensure parent directory exists
+    if let Some(parent) = full_path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("创建目录失败: {}", e))?;
+        }
+    }
+    
+    std::fs::write(&full_path, &content)
+        .map_err(|e| format!("保存文件失败: {}", e))
+}

@@ -9,6 +9,7 @@
       :pushing="pushing"
       :show-stash-menu="showStashMenu"
       :show-git-menu="showGitMenu"
+      :show-file-browser="showFileBrowser"
       @close="$emit('close')"
       @update:show-stash-menu="showStashMenu = $event"
       @update:show-git-menu="showGitMenu = $event"
@@ -17,6 +18,7 @@
       @stash-save="openStashSave()"
       @stash-save-untracked="openStashSaveIncludeUntracked()"
       @toggle-stash-panel="showStashPanel = !showStashPanel"
+      @toggle-file-browser="showFileBrowser = !showFileBrowser"
       @pull="doPull()"
       @push="doPush()"
       @force-push="doForcePush()"
@@ -25,8 +27,29 @@
 
     <!-- ===== 主内容区域 ===== -->
     <div class="flex flex-1 overflow-hidden">
-      <!-- ===== 左侧：提交面板 ===== -->
-      <GitCommitPanel
+      <!-- ===== 文件浏览模式 ===== -->
+      <template v-if="showFileBrowser">
+        <GitFileTree
+          :repo-path="repo.path"
+          @select-file="handleSelectFile"
+        />
+        <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150"></div>
+        <GitCodeEditor
+          v-if="selectedFilePath"
+          :repo-path="repo.path"
+          :file-path="selectedFilePath"
+          @close="selectedFilePath = null"
+          @saved="handleFileSaved"
+        />
+        <div v-else class="flex-1 flex items-center justify-center bg-base-100 text-base-content/50">
+          <span>选择文件查看内容</span>
+        </div>
+      </template>
+
+      <!-- ===== Git 模式 ===== -->
+      <template v-else>
+        <!-- ===== 左侧：提交面板 ===== -->
+        <GitCommitPanel
         :status-data="statusData"
         :loading="loading"
         :selected-files="selectedFiles"
@@ -121,6 +144,7 @@
         @on-graph-click="onGraphClick($event)"
         @load-commit-diff="loadCommitDiff()"
       />
+      </template>
     </div>
 
     <!-- ===== 右键菜单 ===== -->
@@ -508,6 +532,21 @@ import GitBranchPopup from './GitBranchPopup.vue'
 import GitConfirmDialogs from './GitConfirmDialogs.vue'
 import GitFormDialogs from './GitFormDialogs.vue'
 import GitAdvancedDialogs from './GitAdvancedDialogs.vue'
+import GitFileTree from './GitFileTree.vue'
+import GitCodeEditor from './GitCodeEditor.vue'
+
+// 文件浏览状态
+const showFileBrowser = ref(false)
+const selectedFilePath = ref<string | null>(null)
+
+function handleSelectFile(path: string) {
+  selectedFilePath.value = path
+}
+
+function handleFileSaved(path: string) {
+  // 文件保存后刷新 Git status
+  loadStatus()
+}
 
 const props = defineProps<{
   repo: GitRepo
