@@ -5116,42 +5116,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
-name = "supertool-core"
-version = "4.1.0"
-dependencies = [
- "aes-gcm",
- "anyhow",
- "base64 0.22.1",
- "boringtun",
- "chrono",
- "dirs 6.0.0",
- "flate2",
- "getrandom 0.2.17",
- "hmac 0.13.0",
- "libc",
- "log",
- "mysql_async",
- "notify-rust",
- "openssl",
- "postgres-native-tls",
- "rand 0.8.6",
- "redis",
- "regex",
- "rusqlite",
- "scrypt",
- "serde",
- "serde_json",
- "sha1 0.11.0",
- "ssh2",
- "thiserror 1.0.69",
- "tokio",
- "tokio-postgres",
- "tun2",
- "uuid",
- "zip",
-]
-
-[[package]]
 name = "supertool"
 version = "4.1.0"
 dependencies = [
@@ -5194,6 +5158,42 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tauri-plugin-shell",
+ "thiserror 1.0.69",
+ "tokio",
+ "tokio-postgres",
+ "tun2",
+ "uuid",
+ "zip",
+]
+
+[[package]]
+name = "supertool-core"
+version = "4.1.0"
+dependencies = [
+ "aes-gcm",
+ "anyhow",
+ "base64 0.22.1",
+ "boringtun",
+ "chrono",
+ "dirs 6.0.0",
+ "flate2",
+ "getrandom 0.2.17",
+ "hmac 0.13.0",
+ "libc",
+ "log",
+ "mysql_async",
+ "notify-rust",
+ "openssl",
+ "postgres-native-tls",
+ "rand 0.8.6",
+ "redis",
+ "regex",
+ "rusqlite",
+ "scrypt",
+ "serde",
+ "serde_json",
+ "sha1 0.11.0",
+ "ssh2",
  "thiserror 1.0.69",
  "tokio",
  "tokio-postgres",
