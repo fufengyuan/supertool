@@ -757,3 +757,48 @@ pub async fn git_get_file_at_revision(repo_path: String, commit: String, path: S
         .map(|v| v.as_str().unwrap_or("").to_string())
         .map_err(|e| format!("获取文件版本失败: {}", e))
 }
+
+/// Update a single submodule
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_submodule_update(repo_path: String, submodule_path: String, recursive: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_submodule_update() called, path={}", submodule_path);
+    supertool_core::logic::git::git_submodule_update(&repo_path, &submodule_path, recursive)
+        .await
+        .map_err(|e| format!("更新子模块失败: {}", e))
+}
+
+/// Update all submodules
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_submodule_update_all(repo_path: String, recursive: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_submodule_update_all() called");
+    supertool_core::logic::git::git_submodule_update_all(&repo_path, recursive)
+        .await
+        .map_err(|e| format!("更新子模块失败: {}", e))
+}
+
+/// Compare two commits
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_compare_commits(repo_path: String, commit1: String, commit2: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_compare_commits() called, {} vs {}", commit1, commit2);
+    supertool_core::logic::git::git_compare_commits(&repo_path, &commit1, &commit2)
+        .await
+        .map_err(|e| format!("对比提交失败: {}", e))
+}
+
+/// Create a patch file
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_create_patch(repo_path: String, commit1: String, commit2: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_create_patch() called, {}..{}", commit1, commit2);
+    supertool_core::logic::git::git_create_patch(&repo_path, &commit1, &commit2)
+        .await
+        .map_err(|e| format!("创建补丁失败: {}", e))
+}
+
+/// Apply a patch
+#[tauri::command(rename_all = "camelCase")]
+pub async fn git_apply_patch(repo_path: String, patch_content: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_apply_patch() called");
+    supertool_core::logic::git::git_apply_patch(&repo_path, &patch_content)
+        .await
+        .map_err(|e| format!("应用补丁失败: {}", e))
+}

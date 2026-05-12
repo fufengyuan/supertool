@@ -362,6 +362,21 @@ impl CoreService {
     pub async fn git_submodule_init(&self, repo_path: &str, recursive: bool) -> Result<Value, String> {
         git::git_submodule_init(repo_path, recursive).await
     }
+    pub async fn git_submodule_update(&self, repo_path: &str, path: &str, recursive: bool) -> Result<Value, String> {
+        git::git_submodule_update(repo_path, path, recursive).await
+    }
+    pub async fn git_submodule_update_all(&self, repo_path: &str, recursive: bool) -> Result<Value, String> {
+        git::git_submodule_update_all(repo_path, recursive).await
+    }
+    pub async fn git_compare_commits(&self, repo_path: &str, c1: &str, c2: &str) -> Result<Value, String> {
+        git::git_compare_commits(repo_path, c1, c2).await
+    }
+    pub async fn git_create_patch(&self, repo_path: &str, c1: &str, c2: &str) -> Result<Value, String> {
+        git::git_create_patch(repo_path, c1, c2).await
+    }
+    pub async fn git_apply_patch(&self, repo_path: &str, patch: &str) -> Result<Value, String> {
+        git::git_apply_patch(repo_path, patch).await
+    }
     pub async fn git_exec(&self, repo_path: &str, args: &[&str]) -> Result<Value, String> {
         git::git_exec(repo_path, args).await
     }

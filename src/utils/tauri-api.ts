@@ -1719,6 +1719,12 @@ export interface TauriAPI {
   gitDeleteRemoteBranch: (repoPath: string, branch: string) => Promise<any>
   gitCheckoutRemoteBranch: (repoPath: string, branch: string) => Promise<any>
   gitGetFileAtRevision: (repoPath: string, commit: string, path: string) => Promise<string>
+  // Git 高级操作
+  gitSubmoduleUpdate: (repoPath: string, submodulePath: string, recursive: boolean) => Promise<any>
+  gitSubmoduleUpdateAll: (repoPath: string, recursive: boolean) => Promise<any>
+  gitCompareCommits: (repoPath: string, commit1: string, commit2: string) => Promise<any>
+  gitCreatePatch: (repoPath: string, commit1: string, commit2: string) => Promise<any>
+  gitApplyPatch: (repoPath: string, patchContent: string) => Promise<any>
 
 }
 
@@ -2354,6 +2360,12 @@ export function getTauriAPI(): TauriAPI {
     gitDeleteRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_delete_remote_branch', { repoPath, branch }),
     gitCheckoutRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_checkout_remote_branch', { repoPath, branch }),
     gitGetFileAtRevision: async (repoPath: string, commit: string, path: string) => tauriCall<string>('git_get_file_at_revision', { repoPath, commit, path }),
+    // Git 高级操作
+    gitSubmoduleUpdate: async (repoPath: string, submodulePath: string, recursive: boolean) => tauriCall('git_submodule_update', { repoPath, submodulePath, recursive }),
+    gitSubmoduleUpdateAll: async (repoPath: string, recursive: boolean) => tauriCall('git_submodule_update_all', { repoPath, recursive }),
+    gitCompareCommits: async (repoPath: string, commit1: string, commit2: string) => tauriCall('git_compare_commits', { repoPath, commit1, commit2 }),
+    gitCreatePatch: async (repoPath: string, commit1: string, commit2: string) => tauriCall('git_create_patch', { repoPath, commit1, commit2 }),
+    gitApplyPatch: async (repoPath: string, patchContent: string) => tauriCall('git_apply_patch', { repoPath, patchContent }),
     getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
 
   }

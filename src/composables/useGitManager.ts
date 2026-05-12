@@ -190,6 +190,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const showCreatePatchDialog = ref(false)
   const patchFrom = ref('')
   const patchTo = ref('')
+  const patchContent = ref('')
   const patchOutputDir = ref('')
   const showApplyPatchDialog = ref(false)
   const applyPatchFile = ref('')
@@ -1035,8 +1036,16 @@ function confirmDeleteBranch(name: string) {
   function openSubmodulesDialog() { showSubmodulesDialog.value = true; loadSubmodules() }
   function doSubmoduleUpdate(path?: string) {
     if (!repoPath.value) return
-    // TODO: git_submodule_update 后端未实现
-    toast.error('子模块更新功能暂未实现')
+    if (!path) {
+      toast.error('请选择子模块')
+      return
+    }
+    api.gitSubmoduleUpdate(repoPath.value, path, true).then(() => {
+      toast.success('子模块更新成功')
+      loadSubmodules()
+    }).catch((e: any) => {
+      toast.error('更新失败: ' + e.message)
+    })
   }
   function doSubmoduleInitAll() {
     if (!repoPath.value) return
@@ -1049,8 +1058,12 @@ function confirmDeleteBranch(name: string) {
   }
   function doSubmoduleUpdateAll() {
     if (!repoPath.value) return
-// TODO: git_submodule_update_all 后端未实现
-    toast.error('批量更新子模块功能暂未实现')
+    api.gitSubmoduleUpdateAll(repoPath.value, true).then(() => {
+      toast.success('批量更新完成')
+      loadSubmodules()
+    }).catch((e: any) => {
+      toast.error('批量更新失败: ' + e.message)
+    })
   }
   function openSubmodulePath(path: string) {
     api.openInFileManager(path).catch((e: any) => {
@@ -1069,8 +1082,14 @@ function confirmDeleteBranch(name: string) {
   function openCompareCommitsDialog() { showCompareCommitsDialog.value = true }
   async function doCompareCommits() {
     if (!repoPath.value || !compareCommitFrom.value || !compareCommitTo.value) return
-    // TODO: git_compare_commits 后端未实现
-    toast.error('提交对比功能暂未实现')
+    ccLoading.value = true
+    try {
+      const res = await api.gitCompareCommits(repoPath.value, compareCommitFrom.value, compareCommitTo.value)
+      compareResult.value = res
+      toast.success('对比完成')
+    } catch (e: any) {
+      toast.error('对比失败: ' + e.message)
+    }
     ccLoading.value = false
   }
   function openGetFileRevisionDialog() { showGetFileRevisionDialog.value = true }
@@ -1091,8 +1110,13 @@ function confirmDeleteBranch(name: string) {
   }
   async function doCreatePatch() {
     if (!repoPath.value || !patchFrom.value || !patchTo.value) return
-    // TODO: git_create_patch 后端未实现
-    toast.error('创建补丁功能暂未实现')
+    try {
+      const res = await api.gitCreatePatch(repoPath.value, patchFrom.value, patchTo.value)
+      patchContent.value = res.patch || ''
+      toast.success('补丁已生成')
+    } catch (e: any) {
+      toast.error('创建补丁失败: ' + e.message)
+    }
   }
   async function selectPatchFile() {
     const res = await api.showOpenDialog({ filters: [{ name: 'Patch Files', extensions: ['patch', 'diff'] }] })
@@ -1102,8 +1126,15 @@ function confirmDeleteBranch(name: string) {
   }
   async function doApplyPatch() {
     if (!repoPath.value || !applyPatchFile.value) return
-    // TODO: git_apply_patch 后端未实现
-    toast.error('应用补丁功能暂未实现')
+    try {
+      // 读取补丁文件内容
+      const content = await api.readFileContent(applyPatchFile.value)
+      await api.gitApplyPatch(repoPath.value, content)
+      toast.success('补丁已应用')
+      refreshAll()
+    } catch (e: any) {
+      toast.error('应用补丁失败: ' + e.message)
+    }
   }
   function toggleLogCommitSelect(hash: string) {
     if (selectedLogCommits.value.has(hash)) {

@@ -616,6 +616,12 @@ fn main() {
             commands::git::git_delete_remote_branch,
             commands::git::git_checkout_remote_branch,
             commands::git::git_get_file_at_revision,
+            // Git 新增高级命令
+            commands::git::git_submodule_update,
+            commands::git::git_submodule_update_all,
+            commands::git::git_compare_commits,
+            commands::git::git_create_patch,
+            commands::git::git_apply_patch,
             // Git sync commands
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_configure,
