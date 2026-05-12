@@ -335,8 +335,8 @@ impl CoreService {
     pub async fn git_file_at_revision(&self, repo_path: &str, file: &str, rev: &str) -> Result<Value, String> {
         git::git_file_at_revision(repo_path, file, rev).await
     }
-    pub async fn git_clean(&self, repo_path: &str, dry: bool, force: bool) -> Result<Value, String> {
-        git::git_clean(repo_path, dry, force).await
+    pub async fn git_clean(&self, repo_path: &str, dry: bool, force: bool, include_ignored: bool, directories: bool) -> Result<Value, String> {
+        git::git_clean(repo_path, dry, force, include_ignored, directories).await
     }
     pub async fn git_remotes(&self, repo_path: &str) -> Result<Value, String> {
         git::git_remotes(repo_path).await

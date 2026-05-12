@@ -1351,12 +1351,12 @@ function confirmDeleteBranch(name: string) {
     refreshAll()
   }
   function openGitCleanDialog() { showGitCleanDialog.value = true }
-  async function doGitCleanDryRun() {
+async function doGitCleanDryRun() {
     if (!repoPath.value) return
     try {
       gcLoading.value = true
-      const res = await tauriCall<any[]>('git_clean', { repoPath: repoPath.value, dryRun: true, includeIgnored: gitCleanIncludeIgnored.value, directories: gitCleanForceDirectories.value })
-      gitCleanFiles.value = res
+      const res = await api.gitClean(repoPath.value, true, true, gitCleanIncludeIgnored.value, gitCleanForceDirectories.value)
+      gitCleanFiles.value = (res as any).files || []
     } catch (e: any) {
       toast.error('预览失败: ' + e.message)
     } finally {
@@ -1366,7 +1366,7 @@ function confirmDeleteBranch(name: string) {
   async function doGitClean() {
     if (!repoPath.value) return
     try {
-      await api.gitClean(repoPath.value, false, gitCleanForceDirectories.value)
+      await api.gitClean(repoPath.value, false, true, gitCleanIncludeIgnored.value, gitCleanForceDirectories.value)
       toast.success('清理完成')
       refreshAll()
     } catch (e: any) {

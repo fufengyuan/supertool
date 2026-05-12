@@ -114,12 +114,19 @@ pub async fn git_accept_conflict(repo_path: &str, file: &str, strategy: &str) ->
 
 // ============ 重置与撤销 ============
 
-pub async fn git_clean(repo_path: &str, dry_run: bool, force: bool) -> Result<Value, String> {
+pub async fn git_clean(repo_path: &str, dry_run: bool, force: bool, include_ignored: bool, directories: bool) -> Result<Value, String> {
     let mut args = vec!["clean"];
     if dry_run { args.push("-n"); }
     if force { args.push("-f"); }
+    if include_ignored { args.push("-X"); }
+    if directories { args.push("-d"); }
     let output = run_git(repo_path, &args).await?;
-    Ok(json!({"success": true, "output": output}))
+    // Parse output to return list of files that would be removed
+    let files: Vec<String> = output.lines()
+        .filter(|l| l.starts_with("Would remove") || l.starts_with("Removing"))
+        .map(|l| l.replace("Would remove ", "").replace("Removing ", "").trim().to_string())
+        .collect();
+    Ok(json!({"success": true, "files": files, "output": output}))
 }
 
 pub async fn git_rename_branch(repo_path: &str, old_name: &str, new_name: &str) -> Result<Value, String> {
