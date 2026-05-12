@@ -46,7 +46,7 @@ impl super::CoreService {
             serde_json::to_string(&params["keywords"]).unwrap_or_else(|_| "[]".to_string());
         self.with_db(|db| {
             db.conn_mut().execute(
-                "INSERT INTO log_presets (id, name, serverIds, logPath, logType, maxLines, presetGroup, keywords) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                "INSERT INTO log_presets (id, name, serverIds, logPath, logType, maxLines, presetGroup, keywords, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now'))",
                 params![id, name, server_ids, log_path, log_type, max_lines, preset_group, keywords],
             ).map_err(|e| e.to_string())
         })
