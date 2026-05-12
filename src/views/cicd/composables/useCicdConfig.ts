@@ -406,9 +406,9 @@ export function useCicdConfig() {
     else if (detectedTools.value.npm?.available) { config.value.buildTool = 'npm'; config.value.deployPath = '/home/nginxWebUI/ui'; }
     else if (detectedTools.value.pnpm?.available) { config.value.buildTool = 'pnpm'; config.value.deployPath = '/home/nginxWebUI/ui'; }
     else if (detectedTools.value.yarn?.available) { config.value.buildTool = 'yarn'; config.value.deployPath = '/home/nginxWebUI/ui'; }
-    const currentJava = sdkVersions.value.sdkman.java.find((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
+    const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
     if (currentJava && !config.value.javaHome) { config.value.javaHome = currentJava.path; selectedJavaVersion.value = currentJava.path; }
-    const currentNode = sdkVersions.value.nvm.node.find((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
+    const currentNode = sdkVersions.value.nvm?.node?.find?.((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
     if (currentNode && !config.value.nodeHome) { config.value.nodeHome = currentNode.path; selectedNodeVersion.value = currentNode.path; }
     if (currentNode) {
       if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
@@ -721,9 +721,9 @@ export function useCicdConfig() {
         if (!config.value.pnpmHome && dp.pnpmHome) config.value.pnpmHome = dp.pnpmHome;
         if (!config.value.yarnHome && dp.yarnHome) config.value.yarnHome = dp.yarnHome;
         if (!config.value.nodeHome && dp.nodeHome) config.value.nodeHome = dp.nodeHome;
-        const currentJava = sdkVersions.value.sdkman.java.find((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
+        const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
         if (currentJava && !config.value.javaHome) { config.value.javaHome = currentJava.path; selectedJavaVersion.value = currentJava.path; }
-        const currentNode = sdkVersions.value.nvm.node.find((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
+        const currentNode = sdkVersions.value.nvm?.node?.find?.((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
         if (currentNode && !config.value.nodeHome) { config.value.nodeHome = currentNode.path; selectedNodeVersion.value = currentNode.path; }
         if (currentNode) {
           if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
@@ -773,7 +773,7 @@ export function useCicdConfig() {
       if (!c.javaHome && dp.javaHome) c.javaHome = dp.javaHome;
       // Try SDKMAN for Java
       if (!c.javaHome) {
-        const cur = sdkVersions.value.sdkman.java.find((v: { isCurrent?: boolean }) => v.isCurrent);
+        const cur = sdkVersions.value.sdkman?.java?.find?.((v: { isCurrent?: boolean }) => v.isCurrent);
         if (cur) { c.javaHome = cur.path; selectedJavaVersion.value = cur.path; }
       }
     }
@@ -837,7 +837,15 @@ export function useCicdConfig() {
     ]).then(([tools, toolPaths, sdkVers]) => {
       detectedTools.value = (tools as Record<string, { available: boolean; version?: string }>) || {};
       if (toolPaths && typeof toolPaths === 'object') defaultPaths.value = toolPaths as { mavenHome: string; javaHome: string; nodeHome: string; npmHome: string; pnpmHome: string; yarnHome: string };
-      if (sdkVers && typeof sdkVers === 'object') sdkVersions.value = sdkVers as typeof sdkVersions.value;
+      if (sdkVers && typeof sdkVers === 'object') {
+        sdkVersions.value = {
+          sdkman: { java: [], maven: [], gradle: [] },
+          nvm: { node: [] },
+          ...sdkVers,
+          sdkman: { java: [], maven: [], gradle: [], ...((sdkVers as any)?.sdkman || {}) },
+          nvm: { node: [], ...((sdkVers as any)?.nvm || {}) },
+        };
+      }
       if (!config.value.buildTool) {
         if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
         else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
