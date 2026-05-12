@@ -400,7 +400,8 @@ onMounted(loadFile)
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
   font-size: 14px;
   line-height: 1.6;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   overflow: auto;
   pointer-events: none;
   color: transparent;
@@ -453,13 +454,14 @@ onMounted(loadFile)
   padding: 12px 16px;
   border: none;
   background: transparent;
-  color: var(--color-base-content);
+  color: transparent;
   font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
   font-size: 14px;
   line-height: 1.6;
   resize: none;
   outline: none;
-  white-space: pre;
+  white-space: pre-wrap;
+  word-wrap: break-word;
   overflow: auto;
   tab-size: 4;
   caret-color: var(--color-base-content);
