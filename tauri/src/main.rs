@@ -622,6 +622,7 @@ fn main() {
             commands::git::git_compare_commits,
             commands::git::git_create_patch,
             commands::git::git_apply_patch,
+            commands::git::git_raw_command,
             // Git sync commands
             commands::git_sync::git_sync_status,
             commands::git_sync::git_sync_configure,

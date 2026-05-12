@@ -1,4 +1,5 @@
 import { ref, computed, watch } from 'vue'
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs'
 import { getTauriAPI, tauriCall } from '../utils/tauri-api'
 import { useToast } from './useToast'
 
@@ -749,6 +750,41 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     }
   }
 
+  async function showFileDiff(file: string) {
+    if (!repoPath.value) return
+    try {
+      const res = await api.gitDiff(repoPath.value, file)
+      // 显示差异，使用现有的 commitDiff 显示机制
+      commitDiff.value = (res as any).diff || ''
+      showGetFilePreviewDialog.value = true
+      getFileContent.value = (res as any).diff || ''
+    } catch (e: any) {
+      toast.error('加载差异失败: ' + e.message)
+    }
+  }
+
+  async function doAddFile(file: string) {
+    if (!repoPath.value) return
+    try {
+      await api.gitAdd(repoPath.value, [file])
+      toast.success('已添加到暂存区')
+      await loadStatus()
+    } catch (e: any) {
+      toast.error('添加失败: ' + e.message)
+    }
+  }
+
+  async function doResetFile(file: string) {
+    if (!repoPath.value) return
+    try {
+      await api.gitReset(repoPath.value, file)
+      toast.success('已从暂存区移除')
+      await loadStatus()
+    } catch (e: any) {
+      toast.error('移除失败: ' + e.message)
+    }
+  }
+
   async function doDiscardChanges(file: string) {
     if (!repoPath.value) return
     try {
@@ -819,7 +855,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     const file = contextMenu.value.file
     switch (action) {
       case 'diff':
-        // TODO: show diff
+        showFileDiff(file)
         break
       case 'history':
         showFileHistory(file)
@@ -831,10 +867,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
         doDiscardChanges(file)
         break
       case 'add':
-        // git add file
+        doAddFile(file)
         break
       case 'reset':
-        // git reset file
+        doResetFile(file)
         break
       case 'gitignore':
         addToGitignore(file)
@@ -863,22 +899,171 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     closeContextMenu()
   }
 
-  function addToGitignore(file: string) {
-    // TODO: implement
-    toast.info('添加到 .gitignore: ' + file)
+  async function addToGitignore(file: string) {
+    if (!repoPath.value) return
+    const gitignorePath = `${repoPath.value}/.gitignore`
+    try {
+      let content = ''
+      try {
+        content = await readTextFile(gitignorePath)
+      } catch {
+        // 文件不存在，创建新文件
+        content = ''
+      }
+      // 检查是否已存在
+      if (content.split('\n').some(line => line.trim() === file)) {
+        toast.info('该文件已在 .gitignore 中')
+        return
+      }
+      // 追加新行
+      const newContent = content.endsWith('\n') || content === ''
+        ? `${content}${file}\n`
+        : `${content}\n${file}\n`
+      await writeTextFile(gitignorePath, newContent)
+      toast.success('已添加到 .gitignore')
+      await loadStatus()
+    } catch (e: any) {
+      toast.error('添加失败: ' + e.message)
+    }
   }
 
-  // ============ 占位函数（未实现） ============
+  // ============ 图形视图和 Console 功能 ============
 
-  function switchToGraphView() { logViewMode.value = 'graph' }
-  function loadGraphLog() { /* TODO */ }
-  function drawGraph() { /* TODO */ }
-  function onGraphMouseMove(_e: MouseEvent) { /* TODO */ }
-  function onGraphClick(_e: MouseEvent) { /* TODO */ }
-  function execConsoleCommand() { /* TODO */ }
-  function scrollToConsoleBottom() { /* TODO */ }
-  function consoleHistoryUp() { /* TODO */ }
-  function consoleHistoryDown() { /* TODO */ }
+  function switchToGraphView() {
+    logViewMode.value = 'graph'
+    loadGraphLog()
+  }
+
+  async function loadGraphLog() {
+    if (!repoPath.value || graphLoading.value) return
+    graphLoading.value = true
+    try {
+      const res = await api.gitLog(repoPath.value, 100)
+      graphLog.value = (res as any).commits || []
+      drawGraph()
+    } catch (e: any) {
+      toast.error('加载图形日志失败: ' + e.message)
+    } finally {
+      graphLoading.value = false
+    }
+  }
+
+  function drawGraph() {
+    if (!graphCanvasRef.value || graphLog.value.length === 0) return
+    const canvas = graphCanvasRef.value
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const width = canvas.width
+    const height = canvas.height
+    ctx.clearRect(0, 0, width, height)
+
+    const nodeRadius = 6
+    const rowHeight = 30
+    const leftPadding = 20
+
+    // 分配分支颜色
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+    graphLog.value.forEach((commit: any, i: number) => {
+      const branch = commit.branch || 'main'
+      if (!BRANCH_COLORS[branch]) {
+        BRANCH_COLORS[branch] = colors[Object.keys(BRANCH_COLORS).length % colors.length]
+      }
+      const y = i * rowHeight + leftPadding
+      const x = leftPadding + (commit.branchLevel || 0) * 20
+
+      // 绘制节点
+      ctx.beginPath()
+      ctx.arc(x, y, nodeRadius, 0, Math.PI * 2)
+      ctx.fillStyle = BRANCH_COLORS[branch]
+      ctx.fill()
+
+      // 绘制连接线
+      if (i > 0) {
+        const prevCommit = graphLog.value[i - 1]
+        const prevY = (i - 1) * rowHeight + leftPadding
+        const prevX = leftPadding + (prevCommit.branchLevel || 0) * 20
+        ctx.beginPath()
+        ctx.moveTo(prevX, prevY)
+        ctx.lineTo(x, y)
+        ctx.strokeStyle = BRANCH_COLORS[branch]
+        ctx.stroke()
+      }
+
+      // 绘制提交信息
+      ctx.fillStyle = '#e5e7eb'
+      ctx.font = '12px sans-serif'
+      const shortHash = commit.hash?.substring(0, 7) || ''
+      const message = commit.message?.substring(0, 30) || ''
+      ctx.fillText(`${shortHash} ${message}`, x + nodeRadius + 10, y + 4)
+    })
+  }
+
+  function onGraphMouseMove(e: MouseEvent) {
+    if (!graphCanvasRef.value) return
+    const canvas = graphCanvasRef.value
+    const rect = canvas.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    const rowHeight = 30
+    const index = Math.floor((y - 20) / rowHeight)
+    if (index >= 0 && index < graphLog.value.length) {
+      graphHoveredIndex.value = index
+    } else {
+      graphHoveredIndex.value = -1
+    }
+  }
+
+  function onGraphClick(_e: MouseEvent) {
+    if (graphHoveredIndex.value >= 0 && graphHoveredIndex.value < graphLog.value.length) {
+      graphSelectedCommit.value = graphLog.value[graphHoveredIndex.value]
+    }
+  }
+
+  async function execConsoleCommand() {
+    if (!repoPath.value || !consoleInput.value.trim()) return
+    const cmd = consoleInput.value.trim()
+    consoleHistory.value.push(`> ${cmd}`)
+    consoleInputHistory.value.unshift(cmd)
+    consoleHistoryIndex.value = -1
+
+    try {
+      // 使用 git 命令执行
+      const res = await api.gitRawCommand(repoPath.value, cmd.split(' '))
+      const output = typeof res === 'string' ? res : JSON.stringify(res, null, 2)
+      consoleHistory.value.push(output)
+    } catch (e: any) {
+      consoleHistory.value.push(`Error: ${e.message}`)
+    }
+
+    consoleInput.value = ''
+    scrollToConsoleBottom()
+  }
+
+  function scrollToConsoleBottom() {
+    if (consoleOutputRef.value) {
+      consoleOutputRef.value.scrollTop = consoleOutputRef.value.scrollHeight
+    }
+  }
+
+  function consoleHistoryUp() {
+    if (consoleInputHistory.value.length === 0) return
+    if (consoleHistoryIndex.value < consoleInputHistory.value.length - 1) {
+      consoleHistoryIndex.value++
+      consoleInput.value = consoleInputHistory.value[consoleHistoryIndex.value]
+    }
+  }
+
+  function consoleHistoryDown() {
+    if (consoleHistoryIndex.value > 0) {
+      consoleHistoryIndex.value--
+      consoleInput.value = consoleInputHistory.value[consoleHistoryIndex.value]
+    } else if (consoleHistoryIndex.value === 0) {
+      consoleHistoryIndex.value = -1
+      consoleInput.value = ''
+    }
+  }
   function getAuthorName(commit: any): string { return commit?.authorName || '' }
   function parseRefs(refs: string): string[] { return refs?.split(',').map(r => r.trim()).filter(Boolean) || [] }
   function selectStash(stash: any) { selectedStash.value = stash }

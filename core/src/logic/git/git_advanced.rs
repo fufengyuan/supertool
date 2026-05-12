@@ -267,5 +267,28 @@ pub async fn git_apply_patch(repo_path: &str, patch_content: &str) -> Result<Val
 
 pub async fn git_exec(repo_path: &str, args: &[&str]) -> Result<Value, String> {
     let output = run_git(repo_path, args).await?;
-    Ok(json!({"output": output}))
+    Ok(json!({"success": true, "output": output}))
+}
+
+/// 执行任意 git 命令并返回原始输出
+pub async fn git_raw_command(repo_path: &str, args: &[String]) -> Result<String, String> {
+    let git_bin = find_git();
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let output = Command::new(&git_bin)
+        .args(&args_str)
+        .current_dir(repo_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .await
+        .map_err(|e| format!("执行 git 命令失败: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+
+    if !output.status.success() {
+        return Err(stderr.trim().to_string());
+    }
+
+    Ok(stdout)
 }
