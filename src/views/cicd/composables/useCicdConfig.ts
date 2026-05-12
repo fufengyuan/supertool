@@ -349,19 +349,9 @@ export function useCicdConfig() {
   });
 
   // 当前选中的 Git 仓库对象（用于支持 "本地项目目录" 和分支编辑）
-  // 优先匹配 gitRepoId → gitRepos[]，其次回退到 projectId → repoPath
   const selectedGitRepo = computed(() => {
-    // 方式一：通过 gitRepoId 匹配 git_repos 表中的记录
     if (config.value.gitRepoId) {
-      const repo = gitRepos.value.find((r: any) => r.id === config.value.gitRepoId);
-      if (repo) return repo;
-    }
-    // 方式二：通过 projectId 回退到项目的 repoPath
-    if (config.value.projectId) {
-      const proj = projects.value.find(p => p.id === config.value.projectId);
-      if (proj && (proj.repoPath || proj.repoPath2)) {
-        return { id: proj.id, name: proj.name, path: proj.repoPath || proj.repoPath2 || '' };
-      }
+      return gitRepos.value.find((r: any) => r.id === config.value.gitRepoId) || null;
     }
     return null;
   });
