@@ -102,8 +102,109 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const smLoading = ref(false)
 
   // Context menu
-  const contextMenu = ref(false)
-  const logContextMenu = ref(false)
+  const contextMenu = ref({ show: false, x: 0, y: 0, file: '', fileType: '' })
+  const logContextMenu = ref({ show: false, x: 0, y: 0, commit: null as any })
+  const stashContextMenu = ref({ show: false, x: 0, y: 0, stash: null as any })
+
+  // Log 扩展状态
+  const logTotalEstimate = ref(0)
+  const logViewMode = ref<'list' | 'graph'>('list')
+  const logDateFrom = ref('')
+  const logDateTo = ref('')
+  const showAuthorFilter = ref(false)
+  const logAuthors = ref<string[]>([])
+  const selectedAuthors = ref<Set<string>>(new Set())
+  const selectedLogCommits = ref<Set<string>>(new Set())
+  const graphLog = ref<any[]>([])
+  const graphLoading = ref(false)
+  const graphHoveredIndex = ref(-1)
+  const graphSelectedCommit = ref<any>(null)
+  const BRANCH_COLORS: Record<string, string> = {}
+  const graphCanvasRef = ref<HTMLCanvasElement | null>(null)
+
+  // Console 状态
+  const consoleHistory = ref<string[]>([])
+  const consoleInput = ref('')
+  const consoleInputRef = ref<HTMLInputElement | null>(null)
+  const consoleOutputRef = ref<HTMLDivElement | null>(null)
+  const consoleHistoryIndex = ref(-1)
+  const consoleInputHistory = ref<string[]>([])
+  const resizeObserver = ref<ResizeObserver | null>(null)
+
+  // Stash 扩展状态
+  const stashShowContent = ref('')
+  const stashSaveInput = ref<HTMLInputElement | null>(null)
+
+  // Tag 扩展状态
+  const newTagCommit = ref('')
+
+  // 对话框状态
+  const showCompareBranchesDialog = ref(false)
+  const compareBranchTarget = ref('')
+  const compareResult = ref<any>(null)
+  const rebaseInProgress = ref(false)
+  const showCompareWithDialog = ref(false)
+  const compareWithTarget = ref('')
+  const compareWithCommit = ref('')
+  const pushRemote = ref('')
+  const pushBranch = ref('')
+  const pushSetUpstream = ref(false)
+  const pushUnpushedCommits = ref<number[]>([])
+  const pullRemote = ref('')
+  const pullBranch = ref('')
+  const pullRebase = ref(false)
+  const pullAutoStash = ref(false)
+  const amendNoEdit = ref(false)
+  const showInteractiveRebaseDialog = ref(false)
+  const interactiveRebaseBase = ref('')
+  const irCommits = ref<any[]>([])
+  const irSelectedIndex = ref(-1)
+  const irLoading = ref(false)
+  const remoteUrls = ref<Record<string, { fetch: string; push: string }>>({})
+  const showAddRemoteForm = ref(false)
+  const newRemoteName = ref('')
+  const newRemoteUrl = ref('')
+  const showBranchRenameDialog = ref(false)
+  const branchRenameOld = ref('')
+  const branchRenameNew = ref('')
+  const commitSignOff = ref(false)
+  const commitNoVerify = ref(false)
+  const showCompareCommitsDialog = ref(false)
+  const compareCommitFrom = ref('')
+  const compareCommitTo = ref('')
+  const compareCommitsDiff = ref<any>(null)
+  const ccLoading = ref(false)
+  const showGetFileRevisionDialog = ref(false)
+  const getFileCommit = ref('')
+  const getFilePath = ref('')
+  const getFileContent = ref('')
+  const showGetFilePreviewDialog = ref(false)
+  const showCreatePatchDialog = ref(false)
+  const patchFrom = ref('')
+  const patchTo = ref('')
+  const patchOutputDir = ref('')
+  const showApplyPatchDialog = ref(false)
+  const applyPatchFile = ref('')
+  const applyPatchCheck = ref(false)
+  const applyPatchSign = ref(false)
+  const applyPatch3way = ref(false)
+  const applyPatchResult = ref('')
+  const applyPatchError = ref('')
+  const showCherryPickMultiDialog = ref(false)
+  const cherryPickMultiNoCommit = ref(false)
+  const showGitCleanDialog = ref(false)
+  const gitCleanIncludeIgnored = ref(false)
+  const gitCleanForceDirectories = ref(false)
+  const gitCleanFiles = ref<any[]>([])
+  const gcLoading = ref(false)
+  const selectedTagForBranch = ref('')
+  const deleteRemoteBranchTarget = ref('')
+  const deletingBranch = ref(false)
+  const showMergeDialog = ref(false)
+
+  // 布局状态
+  const commitPanelWidth = ref(300)
+  const isResizing = ref(false)
 
   // Repo path
   const repoPath = computed(() => repo?.path || '')
@@ -647,6 +748,175 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     return new Date(dateStr).toLocaleString('zh-CN')
   }
 
+  // ============ 右键菜单操作 ============
+
+  function showFileContextMenu(event: MouseEvent, file: string, type: string) {
+    event.preventDefault()
+    contextMenu.value = {
+      show: true,
+      x: event.clientX,
+      y: event.clientY,
+      file,
+      fileType: type
+    }
+  }
+
+  function showLogContextMenu(event: MouseEvent, commit: any) {
+    event.preventDefault()
+    logContextMenu.value = {
+      show: true,
+      x: event.clientX,
+      y: event.clientY,
+      commit
+    }
+  }
+
+  function closeContextMenu() {
+    contextMenu.value.show = false
+    logContextMenu.value.show = false
+  }
+
+  function contextMenuAction(action: string) {
+    const file = contextMenu.value.file
+    switch (action) {
+      case 'diff':
+        // TODO: show diff
+        break
+      case 'history':
+        showFileHistory(file)
+        break
+      case 'blame':
+        showFileBlame(file)
+        break
+      case 'discard':
+        doDiscardChanges(file)
+        break
+      case 'add':
+        // git add file
+        break
+      case 'reset':
+        // git reset file
+        break
+      case 'gitignore':
+        addToGitignore(file)
+        break
+    }
+    closeContextMenu()
+  }
+
+  function logContextAction(action: string) {
+    const commit = logContextMenu.value.commit
+    switch (action) {
+      case 'cherry-pick':
+        cherryPickTarget.value = commit?.hash || ''
+        doCherryPick()
+        break
+      case 'revert':
+        revertTarget.value = commit?.hash || ''
+        doRevert()
+        break
+      case 'create-tag':
+        newTagName.value = ''
+        newTagMessage.value = ''
+        showCreateTagDialog.value = true
+        break
+    }
+    closeContextMenu()
+  }
+
+  function addToGitignore(file: string) {
+    // TODO: implement
+    toast.info('添加到 .gitignore: ' + file)
+  }
+
+  // ============ 占位函数（未实现） ============
+
+  function switchToGraphView() { logViewMode.value = 'graph' }
+  function loadGraphLog() { /* TODO */ }
+  function drawGraph() { /* TODO */ }
+  function onGraphMouseMove(_e: MouseEvent) { /* TODO */ }
+  function onGraphClick(_e: MouseEvent) { /* TODO */ }
+  function execConsoleCommand() { /* TODO */ }
+  function scrollToConsoleBottom() { /* TODO */ }
+  function consoleHistoryUp() { /* TODO */ }
+  function consoleHistoryDown() { /* TODO */ }
+  function getAuthorName(commit: any): string { return commit?.authorName || '' }
+  function parseRefs(refs: string): string[] { return refs?.split(',').map(r => r.trim()).filter(Boolean) || [] }
+  function selectStash(stash: any) { selectedStash.value = stash }
+  function showStashContextMenu(event: MouseEvent, stash: any) {
+    event.preventDefault()
+    stashContextMenu.value = { show: true, x: event.clientX, y: event.clientY, stash }
+  }
+  function stashContextAction(action: string) {
+    const stash = stashContextMenu.value.stash
+    switch (action) {
+      case 'pop': doStashPop(stash?.ref); break
+      case 'drop': doStashDrop(stash?.ref); break
+    }
+    stashContextMenu.value.show = false
+  }
+  function openStashSaveIncludeUntracked() {
+    showStashSaveDialog.value = true
+    stashSaveMessage.value = ''
+    stashIncludeUntracked.value = true
+  }
+  function confirmDeleteBranch(_name: string) { /* TODO: show confirm dialog */ }
+  function openCompareBranchesDialog() { showCompareBranchesDialog.value = true }
+  async function doCompareBranches() { /* TODO */ }
+  function openRebaseDialog() { showRebaseDialog.value = true }
+  function doCompareWith() { /* TODO */ }
+  function openPushDialog() { showPushDialog.value = true }
+  function openPullDialog() { showPullDialog.value = true }
+  async function doPushWithOptions() { /* TODO */ }
+  function doFetchRemote(_remote: string) { /* TODO */ }
+  function openAmendDialog() { showAmendDialog.value = true }
+  function openResetDialog() { showResetDialog.value = true }
+  function openInteractiveRebaseDialog() { /* TODO */ }
+  function loadInteractiveRebaseCommits() { /* TODO */ }
+  function irMoveUp() { /* TODO */ }
+  function irMoveDown() { /* TODO */ }
+  function doInteractiveRebase() { /* TODO */ }
+  function openRemotesDialog() { showRemotesDialog.value = true; loadRemotes() }
+  function openAddRemote() { showAddRemoteForm.value = true }
+  async function doAddRemote() { /* TODO */ }
+  function confirmDeleteRemote(_name: string) { /* TODO */ }
+  async function doDeleteRemote(_name: string) { /* TODO */ }
+  function openBranchRename() { showBranchRenameDialog.value = true }
+  function doBranchRename() { /* TODO */ }
+  function toggleAuthor(_author: string) { /* TODO */ }
+  function doCommitWithOptions() { /* TODO */ }
+  function doUndoLastCommit() { /* TODO */ }
+  function openSubmodulesDialog() { showSubmodulesDialog.value = true; loadSubmodules() }
+  function doSubmoduleUpdate(_path?: string) { /* TODO */ }
+  function doSubmoduleInitAll() { /* TODO */ }
+  function doSubmoduleUpdateAll() { /* TODO */ }
+  function openSubmodulePath(_path: string) { /* TODO */ }
+  async function doPushTags() { /* TODO */ }
+  function openCompareCommitsDialog() { showCompareCommitsDialog.value = true }
+  async function doCompareCommits() { /* TODO */ }
+  function openGetFileRevisionDialog() { showGetFileRevisionDialog.value = true }
+  async function doGetFileAtRevision() { /* TODO */ }
+  function copyFileContent() { /* TODO */ }
+  async function doCreatePatch() { /* TODO */ }
+  function selectPatchFile() { /* TODO */ }
+  async function doApplyPatch() { /* TODO */ }
+  function toggleLogCommitSelect(_hash: string) { /* TODO */ }
+  function toggleSelectAllLogCommits() { /* TODO */ }
+  function getCommitMessage(_commit: any): string { return '' }
+  function doCherryPickMulti() { /* TODO */ }
+  function openGitCleanDialog() { showGitCleanDialog.value = true }
+  function doGitCleanDryRun() { /* TODO */ }
+  function doGitClean() { /* TODO */ }
+  function openCreateBranchFromTag() { /* TODO */ }
+  function confirmDeleteRemoteBranch(_name: string) { /* TODO */ }
+  function doDeleteRemoteBranch(_name: string) { /* TODO */ }
+  function checkoutRemoteBranch(_name: string) { /* TODO */ }
+  function startResize(_e: MouseEvent) { isResizing.value = true }
+  function doPullWithOptions() { /* TODO */ }
+  function openTagsDialog() { showTagsDialog.value = true; loadTags() }
+  function openCreateTag() { showCreateTagDialog.value = true }
+  function confirmDeleteTag(_name: string) { /* TODO */ }
+
   // 初始化加载
   watch(repoPath, (path) => {
     if (path) refreshAll()
@@ -660,46 +930,93 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
 
     // Log
     logData, logSearch, logBranchFilter, selectedCommit, commitDiff, loadingDiff,
-    logCount, filteredLog, hasMoreLog,
+    logCount, logTotalEstimate, filteredLog, hasMoreLog,
+    logViewMode, logDateFrom, logDateTo, showAuthorFilter, logAuthors, selectedAuthors,
+    graphLog, graphLoading, graphHoveredIndex, graphSelectedCommit, BRANCH_COLORS, graphCanvasRef,
+    switchToGraphView, loadGraphLog, drawGraph, onGraphMouseMove, onGraphClick,
+    consoleHistory, consoleInput, consoleInputRef, consoleOutputRef,
+    consoleHistoryIndex, consoleInputHistory, execConsoleCommand,
+    scrollToConsoleBottom, consoleHistoryUp, consoleHistoryDown, resizeObserver,
+    getAuthorName, parseRefs, selectedLogCommits,
     loadLog, loadMoreLog, selectCommit, loadCommitDiff,
 
     // Branch
     branchesData, localBranches, remoteBranches, showBranchesPopup, showCreateBranch,
-    newBranchName, newBranchFrom, mergeTarget, merging,
-    loadBranches, loadCurrentBranch, checkoutBranch, doCreateBranch, doDeleteBranch, doMerge,
+    newBranchName, newBranchFrom, mergeTarget, merging, showMergeDialog,
+    loadBranches, loadCurrentBranch, checkoutBranch, doCreateBranch,
+    confirmDeleteBranch, doDeleteBranch, doMerge,
 
     // Push/Pull
     pushing, pulling, showPushDialog, showPullDialog, pushForce,
-    doPush, doPull, doFetch, doForcePush,
+    pushRemote, pushBranch, pushSetUpstream, pushUnpushedCommits,
+    pullRemote, pullBranch, pullRebase, pullAutoStash,
+    doPush, doPull, doForcePush, doFetch, doFetchRemote,
+    openPushDialog, openPullDialog, doPushWithOptions, doPullWithOptions, loadUnpushedCommits,
 
     // Commit
-    doCommit, doCommitAndPush,
+    commitSignOff, commitNoVerify,
+    doCommit, doCommitAndPush, doCommitWithOptions, doUndoLastCommit,
 
     // File
     toggleGroup, toggleFileSelect, selectAllFiles, doDiscardChanges,
 
     // Stash
-    showStashPanel, stashList, selectedStash, showStashSaveDialog, stashSaveMessage, stashIncludeUntracked,
-    loadStashList, openStashSave, doStashSave, doStashPop, doStashDrop,
+    showStashPanel, stashList, selectedStash, stashShowContent,
+    showStashSaveDialog, stashSaveMessage, stashIncludeUntracked, stashSaveInput, stashContextMenu,
+    loadStashList, openStashSave, openStashSaveIncludeUntracked,
+    doStashSave, doStashPop, doStashDrop, selectStash,
+    showStashContextMenu, stashContextAction,
 
     // Tags
-    showTagsDialog, tagsList, showCreateTagDialog, newTagName, newTagMessage,
-    loadTags, doCreateTag, doDeleteTag,
+    showTagsDialog, tagsList, showCreateTagDialog, newTagName, newTagCommit, newTagMessage,
+    selectedTagForBranch,
+    openTagsDialog, openCreateTag, loadTags, doCreateTag, confirmDeleteTag, doDeleteTag,
+    openCreateBranchFromTag,
 
     // Advanced
     cherryPickTarget, cherryPicking, revertTarget, reverting,
-    showRebaseDialog, rebaseTarget, rebasing,
-    showAmendDialog, amendMessage, amending,
+    showRebaseDialog, rebaseTarget, rebasing, rebaseInProgress,
+    showAmendDialog, amendMessage, amendNoEdit, amending,
     showResetDialog, resetTarget, resetMode, resetting,
-    showRemotesDialog, remotesList, showSubmodulesDialog, submodulesList, smLoading,
+    showInteractiveRebaseDialog, interactiveRebaseBase, irCommits, irSelectedIndex, irLoading,
+    openInteractiveRebaseDialog, loadInteractiveRebaseCommits, irMoveUp, irMoveDown, doInteractiveRebase,
+    showRemotesDialog, remotesList, remoteUrls, showAddRemoteForm, newRemoteName, newRemoteUrl,
+    openRemotesDialog, openAddRemote, doAddRemote, confirmDeleteRemote, doDeleteRemote,
+    showBranchRenameDialog, branchRenameOld, branchRenameNew,
+    openBranchRename, doBranchRename,
+    showCompareBranchesDialog, compareBranchTarget, compareResult,
+    showCompareWithDialog, compareWithTarget, compareWithCommit,
+    showCompareCommitsDialog, compareCommitFrom, compareCommitTo, compareCommitsDiff, ccLoading,
+    showGetFileRevisionDialog, getFileCommit, getFilePath, getFileContent, showGetFilePreviewDialog,
+    showCreatePatchDialog, patchFrom, patchTo, patchOutputDir,
+    showApplyPatchDialog, applyPatchFile, applyPatchCheck, applyPatchSign, applyPatch3way, applyPatchResult, applyPatchError,
+    showCherryPickMultiDialog, cherryPickMultiNoCommit,
+    showGitCleanDialog, gitCleanIncludeIgnored, gitCleanForceDirectories, gitCleanFiles, gcLoading,
+    deleteRemoteBranchTarget, deletingBranch,
     showFileHistoryDialog, fileHistoryFile, fileHistoryData,
     showBlameDialog, blameFile, blameData,
-    contextMenu, logContextMenu,
+    showSubmodulesDialog, submodulesList, smLoading,
+    openSubmodulesDialog, loadSubmodules, doSubmoduleInit, doSubmoduleUpdate,
+    doSubmoduleInitAll, doSubmoduleUpdateAll, openSubmodulePath,
+    showFileContextMenu, showLogContextMenu, closeContextMenu,
+    contextMenuAction, logContextAction, addToGitignore,
+    toggleAuthor, toggleLogCommitSelect, toggleSelectAllLogCommits, getCommitMessage,
+    doCompareBranches,
+    doRebase, doRebaseAbort, doRebaseContinue, doCompareWith,
+    doAmend, doReset,
+    doCherryPick, doRevert, doCherryPickMulti,
+    openGetFileRevisionDialog, doGetFileAtRevision, copyFileContent,
+    openCompareCommitsDialog, doCompareCommits,
+    doCreatePatch, selectPatchFile, doApplyPatch,
+    openGitCleanDialog, doGitCleanDryRun, doGitClean,
+    confirmDeleteRemoteBranch, doDeleteRemoteBranch, checkoutRemoteBranch,
+    doPushTags,
+
+    // Layout
+    commitPanelWidth, isResizing, startResize,
 
     // Functions
-    doCherryPick, doRevert, doRebase, doRebaseAbort, doRebaseContinue, doAmend, doReset,
-    loadRemotes, loadSubmodules, doSubmoduleInit,
-    showFileHistory, showFileBlame, loadUnpushedCommits,
+    showFileHistory, showFileBlame,
     refreshAll, loadStatus,
 
     // Utils
