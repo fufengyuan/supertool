@@ -1669,6 +1669,45 @@ export interface TauriAPI {
   deleteAlertResource: (id: string) => Promise<any>
   getAlertHistory: () => Promise<any>
   triggerAlertCheck: () => Promise<any>
+  // Git Operations
+  gitStatus: (repoPath: string) => Promise<any>
+  gitCurrentBranch: (repoPath: string) => Promise<any>
+  gitBranches: (repoPath: string) => Promise<any>
+  gitLog: (repoPath: string, limit?: number) => Promise<any>
+  gitDiff: (repoPath: string, file?: string) => Promise<any>
+  gitAdd: (repoPath: string, files: string[]) => Promise<any>
+  gitReset: (repoPath: string, file?: string) => Promise<any>
+  gitCommit: (repoPath: string, message: string, files?: string[]) => Promise<any>
+  gitCheckout: (repoPath: string, branch: string) => Promise<any>
+  gitCreateBranch: (repoPath: string, branchName: string, from?: string) => Promise<any>
+  gitDeleteBranch: (repoPath: string, branchName: string, force: boolean) => Promise<any>
+  gitMerge: (repoPath: string, branch: string) => Promise<any>
+  gitPull: (repoPath: string) => Promise<any>
+  gitPush: (repoPath: string) => Promise<any>
+  gitForcePush: (repoPath: string) => Promise<any>
+  gitFetch: (repoPath: string, remote?: string) => Promise<any>
+  gitRemotes: (repoPath: string) => Promise<any>
+  gitDiscardChanges: (repoPath: string, file: string) => Promise<any>
+  gitStashSave: (repoPath: string, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => Promise<any>
+  gitStashList: (repoPath: string) => Promise<any>
+  gitStashApply: (repoPath: string, stashRef?: string) => Promise<any>
+  gitStashPop: (repoPath: string, stashRef?: string) => Promise<any>
+  gitStashDrop: (repoPath: string, stashRef?: string) => Promise<any>
+  gitListTags: (repoPath: string) => Promise<any>
+  gitCreateTag: (repoPath: string, tagName: string, message?: string, force?: boolean) => Promise<any>
+  gitDeleteTag: (repoPath: string, tagName: string) => Promise<any>
+  gitRebase: (repoPath: string, targetBranch: string, onto?: string) => Promise<any>
+  gitRebaseAbort: (repoPath: string) => Promise<any>
+  gitRebaseContinue: (repoPath: string) => Promise<any>
+  gitFileHistory: (repoPath: string, filePath: string, limit?: number) => Promise<any>
+  gitUnpushedCommits: (repoPath: string) => Promise<any>
+  gitCherryPick: (repoPath: string, commitHash: string, noCommit?: boolean) => Promise<any>
+  gitRevert: (repoPath: string, commitHash: string, noCommit?: boolean) => Promise<any>
+  gitAmendCommit: (repoPath: string, message: string) => Promise<any>
+  gitResetToCommit: (repoPath: string, commitHash: string, mode: string) => Promise<any>
+  gitFileBlame: (repoPath: string, filePath: string) => Promise<any>
+  gitSubmoduleList: (repoPath: string) => Promise<any>
+  gitSubmoduleInit: (repoPath: string, recursive: boolean) => Promise<any>
 
 }
 
@@ -2254,6 +2293,48 @@ export function getTauriAPI(): TauriAPI {
     exportWordReport: async (params: Record<string, unknown>) => tauriCall("export_word_report", { params }),
     // LAN
     ...lan,
+    // Git Operations
+    gitStatus: async (repoPath: string) => tauriCall('git_status', { repoPath }),
+    gitCurrentBranch: async (repoPath: string) => tauriCall('git_current_branch', { repoPath }),
+    gitBranches: async (repoPath: string) => tauriCall('git_branches', { repoPath }),
+    gitLog: async (repoPath: string, limit?: number) => tauriCall('git_log', { repoPath, limit }),
+    gitDiff: async (repoPath: string, file?: string) => tauriCall('git_diff', { repoPath, file }),
+    gitAdd: async (repoPath: string, files: string[]) => tauriCall('git_add', { repoPath, files }),
+    gitReset: async (repoPath: string, file?: string) => tauriCall('git_reset', { repoPath, file }),
+    gitCommit: async (repoPath: string, message: string, files?: string[]) => tauriCall('git_commit', { repoPath, message, files }),
+    gitCheckout: async (repoPath: string, branch: string) => tauriCall('git_checkout', { repoPath, branch }),
+    gitCreateBranch: async (repoPath: string, branchName: string, from?: string) => tauriCall('git_create_branch', { repoPath, branchName, from }),
+    gitDeleteBranch: async (repoPath: string, branchName: string, force: boolean) => tauriCall('git_delete_branch', { repoPath, branchName, force }),
+    gitMerge: async (repoPath: string, branch: string) => tauriCall('git_merge', { repoPath, branch }),
+    gitPull: async (repoPath: string) => tauriCall('git_pull', { repoPath }),
+    gitPush: async (repoPath: string) => tauriCall('git_push', { repoPath }),
+    gitForcePush: async (repoPath: string) => tauriCall('git_force_push', { repoPath }),
+    gitFetch: async (repoPath: string, remote?: string) => tauriCall('git_fetch', { repoPath, remote }),
+    gitRemotes: async (repoPath: string) => tauriCall('git_remotes', { repoPath }),
+    gitDiscardChanges: async (repoPath: string, file: string) => tauriCall('git_discard_changes', { repoPath, file }),
+    gitStashSave: async (repoPath: string, message?: string, includeUntracked?: boolean, keepIndex?: boolean) => 
+      tauriCall('git_stash_save', { repoPath, message, includeUntracked, keepIndex }),
+    gitStashList: async (repoPath: string) => tauriCall('git_stash_list', { repoPath }),
+    gitStashApply: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_apply', { repoPath, stashRef }),
+    gitStashPop: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_pop', { repoPath, stashRef }),
+    gitStashDrop: async (repoPath: string, stashRef?: string) => tauriCall('git_stash_drop', { repoPath, stashRef }),
+    gitListTags: async (repoPath: string) => tauriCall('git_list_tags', { repoPath }),
+    gitCreateTag: async (repoPath: string, tagName: string, message?: string, force?: boolean) => 
+      tauriCall('git_create_tag', { repoPath, tagName, message, force }),
+    gitDeleteTag: async (repoPath: string, tagName: string) => tauriCall('git_delete_tag', { repoPath, tagName }),
+    gitRebase: async (repoPath: string, targetBranch: string, onto?: string) => tauriCall('git_rebase', { repoPath, targetBranch, onto }),
+    gitRebaseAbort: async (repoPath: string) => tauriCall('git_rebase_abort', { repoPath }),
+    gitRebaseContinue: async (repoPath: string) => tauriCall('git_rebase_continue', { repoPath }),
+    gitFileHistory: async (repoPath: string, filePath: string, limit?: number) => tauriCall('git_file_history', { repoPath, filePath, limit }),
+    gitUnpushedCommits: async (repoPath: string) => tauriCall('git_unpushed_commits', { repoPath }),
+    gitCherryPick: async (repoPath: string, commitHash: string, noCommit?: boolean) => tauriCall('git_cherry_pick', { repoPath, commitHash, noCommit }),
+    gitRevert: async (repoPath: string, commitHash: string, noCommit?: boolean) => tauriCall('git_revert', { repoPath, commitHash, noCommit }),
+    gitAmendCommit: async (repoPath: string, message: string) => tauriCall('git_amend_commit', { repoPath, message }),
+    gitResetToCommit: async (repoPath: string, commitHash: string, mode: string) => tauriCall('git_reset_to_commit', { repoPath, commitHash, mode }),
+    gitFileBlame: async (repoPath: string, filePath: string) => tauriCall('git_file_blame', { repoPath, filePath }),
+    gitSubmoduleList: async (repoPath: string) => tauriCall('git_submodule_list', { repoPath }),
+    gitSubmoduleInit: async (repoPath: string, recursive: boolean) => tauriCall('git_submodule_init', { repoPath, recursive }),
+    getGitCommitDetail: async (repoPath: string, commitHash: string) => tauriCall('get_git_commit_detail', { repoPath, commitHash }),
 
   }
 
