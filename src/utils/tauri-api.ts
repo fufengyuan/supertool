@@ -541,8 +541,12 @@ export function useLanAPI() {
       return res.success ? res.data : { success: false, error: res.error }
     },
     lanGetMessagesBetween: async (userId1: string, userId2: string, limit: number, offset: number): Promise<any[]> => {
-      const res = await tauriInvoke<any[]>('lan_get_messages_between', { userId1, userId2, limit, offset })
-      return res.success ? (res.data ?? []) : []
+      const res = await tauriInvoke<any>('lan_get_messages_between', { userId1, userId2, limit, offset })
+      if (res.success && res.data) {
+        const inner = res.data as any
+        return (inner.data ?? []) as any[]
+      }
+      return []
     },
     lanSendMessage: async (peerId: string, content: string): Promise<any> => {
       const res = await tauriInvoke<any>('lan_send_message', { peerId, content })
