@@ -182,6 +182,10 @@ export function useDatabaseAPI() {
       const { database, user, ...normalized } = config as any
       normalized.type = config.type === 'postgresql' ? 'postgres' : config.type
       if (!normalized.username && user) normalized.username = user
+      // SQLite 没有 username/host/password，确保必填字段有默认值避免 Rust 反序列化失败
+      if (config.type === 'sqlite') {
+        normalized.username = normalized.username ?? ''
+      }
       if (!normalized.dbName && database) normalized.dbName = database
       const res = await tauriInvoke<boolean>('db_connect', { config: normalized })
       return { success: res.success, error: res.error }
