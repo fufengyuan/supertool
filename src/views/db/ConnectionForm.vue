@@ -26,7 +26,12 @@
         <template v-if="localForm.type === 'sqlite'">
           <div class="mt-4">
             <label class="label"><span class="label-text">数据库文件路径</span></label>
-            <input v-model="localForm.path" class="input input-bordered w-full" placeholder="/path/to/database.db" />
+            <div class="flex gap-2">
+              <input v-model="localForm.path" class="input input-bordered flex-1" placeholder="/path/to/database.db" />
+              <button @click="pickSqliteFile" class="btn btn-ghost border border-base-content/10 shrink-0" title="选择文件">
+                <SvgIcon name="folder" size="14" /> 选择
+              </button>
+            </div>
           </div>
         </template>
 
@@ -95,6 +100,7 @@
 <script setup lang="ts">// @ts-nocheck
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, watch, onUnmounted, nextTick, onMounted } from 'vue'
+import { open } from '@tauri-apps/plugin-dialog'
 
 interface TestResult {
   success: boolean
@@ -135,6 +141,25 @@ watch(localForm, (newVal) => {
 onUnmounted(() => {
   if (emitTimer) clearTimeout(emitTimer)
 })
+
+async function pickSqliteFile() {
+  try {
+    const selected = await open({
+      multiple: false,
+      title: '选择 SQLite 数据库文件',
+      filters: [{
+        name: 'SQLite 数据库',
+        extensions: ['db', 'sqlite', 'sqlite3', 'db3']
+      }]
+    })
+    if (selected) {
+      const path = Array.isArray(selected) ? selected[0] : selected
+      localForm.value.path = path
+    }
+  } catch (e) {
+    console.error('文件选择失败:', e)
+  }
+}
 
 const defaultPort = computed(() => {
   const map: Record<string, string> = {
