@@ -1101,7 +1101,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     }
   }
   function getAuthorName(commit: any): string { return commit?.authorName || '' }
-  function parseRefs(refs: string): string[] { return refs?.split(',').map(r => r.trim()).filter(Boolean) || [] }
+  function parseRefs(refs: string | string[]): string[] {
+  if (Array.isArray(refs)) return refs
+  return refs?.split(',').map(r => r.trim()).filter(Boolean) || []
+}
   function selectStash(stash: any) { selectedStash.value = stash }
   function showStashContextMenu(event: MouseEvent, stash: any) {
     event.preventDefault()

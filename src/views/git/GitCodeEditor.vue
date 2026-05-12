@@ -149,6 +149,7 @@ const detectedLanguage = computed(() => {
 // 编辑器样式
 const editorStyle = {
   height: '100%',
+  width: '100%',
   fontSize: '14px',
   fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace",
 }
