@@ -1866,4 +1866,98 @@ fn connect_sqlite(config: &DbConnectionConfig) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn create_test_config(path: &str) -> DbConnectionConfig {
+        DbConnectionConfig {
+            id: "test-id".into(),
+            name: "test".into(),
+            db_type: "sqlite".into(),
+            host: String::new(),
+            port: 0,
+            username: String::new(),
+            password: None,
+            db_name: None,
+            db_index: None,
+            path: Some(path.into()),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_sqlite_execute_query_returns_rows() {
+        let dir = std::env::temp_dir().join(format!("supertool_test_sqlite_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let db_path = dir.join("test.db");
+        let path_str = db_path.to_str().unwrap();
+
+        // Create a test SQLite database with schema
+        {
+            let conn = rusqlite::Connection::open(&db_path).unwrap();
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INTEGER)",
+                [],
+            ).unwrap();
+            conn.execute("INSERT INTO users (name, age) VALUES ('Alice', 30), ('Bob', 25), ('Charlie', 35)", []).unwrap();
+            conn.execute("CREATE TABLE IF NOT EXISTS posts (id INTEGER PRIMARY KEY, title TEXT, user_id INTEGER)", []).unwrap();
+        }
+
+        let cfg = create_test_config(path_str);
+
+        // Test: list tables from sqlite_master
+        let result = execute_sqlite_query(&cfg, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").await.unwrap();
+        let rows = result.get("rows").and_then(|r| r.as_array()).unwrap();
+        assert_eq!(rows.len(), 2, "expected 2 tables, got: {:?}", rows);
+        let names: Vec<&str> = rows.iter().filter_map(|r| r.get("name").and_then(|v| v.as_str())).collect();
+        assert!(names.contains(&"posts"), "should contain posts table");
+        assert!(names.contains(&"users"), "should contain users table");
+
+        // Test: query a table
+        let result = execute_sqlite_query(&cfg, "SELECT id, name, age FROM users ORDER BY age").await.unwrap();
+        let rows = result.get("rows").and_then(|r| r.as_array()).unwrap();
+        assert_eq!(rows.len(), 3, "expected 3 users, got: {:?}", rows);
+        assert_eq!(rows[0].get("name").and_then(|v| v.as_str()), Some("Bob"));
+        assert_eq!(rows[0].get("age").and_then(|v| v.as_i64()), Some(25));
+        assert_eq!(rows[2].get("name").and_then(|v| v.as_str()), Some("Charlie"));
+
+        // Cleanup
+        let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[test]
+    fn test_connect_sqlite_valid_path() {
+        let dir = std::env::temp_dir().join(format!("supertool_test_connect_{}", std::process::id()));
+        let _ = std::fs::create_dir_all(&dir);
+        let db_path = dir.join("valid.db");
+        let path_str = db_path.to_str().unwrap();
+
+        // Create the file
+        rusqlite::Connection::open(&db_path).unwrap();
+
+        let cfg = create_test_config(path_str);
+        assert!(connect_sqlite(&cfg).is_ok(), "valid path should succeed");
+
+        let _ = std::fs::remove_file(&db_path);
+    }
+
+    #[test]
+    fn test_connect_sqlite_missing_path_returns_error() {
+        let cfg = DbConnectionConfig {
+            path: None,
+            ..create_test_config("/nonexistent/path.db")
+        };
+        let result = connect_sqlite(&cfg);
+        assert!(result.is_err(), "missing path should fail");
+        assert!(result.unwrap_err().contains("path is required"));
+    }
+
+    #[test]
+    fn test_connect_sqlite_nonexistent_file_returns_error() {
+        let cfg = create_test_config("/tmp/__nonexistent_supertool_test_db__.db");
+        let result = connect_sqlite(&cfg);
+        assert!(result.is_err(), "nonexistent file should fail");
+    }
+}
+
 // (Legacy UDS router compatibility aliases removed — CLI uses HTTP API directly)
