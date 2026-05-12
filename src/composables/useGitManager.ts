@@ -121,7 +121,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
 
   // Log 扩展状态
   const logTotalEstimate = ref(0)
-  const logViewMode = ref<'list' | 'graph'>('list')
+  const logViewMode = ref<'table' | 'graph'>('table')
   const logDateFrom = ref('')
   const logDateTo = ref('')
   const showAuthorFilter = ref(false)
