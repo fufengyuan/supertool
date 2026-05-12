@@ -258,7 +258,7 @@ defineProps<{
   getAuthorName: (commit: any) => string
   formatRelativeDate: (date: any) => string
   formatFullDate: (date: any) => string
-  parseRefs: (refs: string) => string[]
+  parseRefs: (refs: string | string[]) => string[]
 }>()
 
 defineEmits<{
