@@ -834,6 +834,7 @@ pub async fn git_raw_command(repo_path: String, args: Vec<String>) -> Result<Str
 
 /// File entry for file tree
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct FileTreeEntry {
     pub path: String,
     pub name: String,
