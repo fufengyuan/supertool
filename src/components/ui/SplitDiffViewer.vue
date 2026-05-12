@@ -246,8 +246,8 @@ function getLineClass(line: any, side: 'old' | 'new') {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  height: 80vh;
-  max-height: 80vh;
+  height: 100%;
+  min-height: 400px;
   overflow: hidden;
 }
 
