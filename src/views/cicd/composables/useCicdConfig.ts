@@ -230,6 +230,30 @@ export function useCicdConfig() {
   const selectedNodeVersion = ref('');
   const detectingPaths = ref(false);
 
+  // 平台检测 & SDK 安装指引
+  const platform = ref<'mac' | 'linux' | 'win'>('linux');
+  if (typeof navigator !== 'undefined') {
+    const ua = navigator.userAgent.toLowerCase();
+    if (ua.includes('mac')) platform.value = 'mac';
+    else if (ua.includes('win')) platform.value = 'win';
+  }
+  const sdkmanInstallGuide = computed(() => ({
+    show: sdkVersions.value.sdkman?.java?.length === 0,
+    steps: platform.value === 'mac'
+      ? ['curl -s "https://get.sdkman.io" | bash', 'source "$HOME/.sdkman/bin/sdkman-init.sh"', 'sdk install java']
+      : platform.value === 'win'
+        ? ['# SDKMAN 不支持 Windows 原生运行，推荐使用 WSL', '# 或在 WSL 中执行：', 'curl -s "https://get.sdkman.io" | bash', 'source "$HOME/.sdkman/bin/sdkman-init.sh"', 'sdk install java']
+        : ['curl -s "https://get.sdkman.io" | bash', 'source "$HOME/.sdkman/bin/sdkman-init.sh"', 'sdk install java'],
+  }));
+  const nvmInstallGuide = computed(() => ({
+    show: sdkVersions.value.nvm?.node?.length === 0,
+    steps: platform.value === 'mac'
+      ? ['curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash', 'source "$HOME/.nvm/nvm.sh"', 'nvm install --lts']
+      : platform.value === 'win'
+        ? ['# Windows 推荐使用 nvm-windows', '# 下载安装: https://github.com/coreybutler/nvm-windows/releases', 'nvm install lts', 'nvm use lts']
+        : ['curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash', 'source "$HOME/.nvm/nvm.sh"', 'nvm install --lts'],
+  }));
+
   async function reDetectToolPaths() {
     detectingPaths.value = true;
     try {
@@ -868,8 +892,7 @@ export function useCicdConfig() {
 
   async function loadGitRepos() {
     try {
-      const result = await getTauriAPI().getGitRepos?.() as any;
-      gitRepos.value = result?.success && result?.data ? result.data : [];
+      gitRepos.value = (await getTauriAPI().getGitRepos?.()) || [];
     }
     catch (error) { handleError(error, { context: 'loadGitRepos' }); }
   }
@@ -883,6 +906,7 @@ export function useCicdConfig() {
     config, modules, testResult, detectedTools, availableBranches, loadingBranches,
     expandedModules, scannedModules, scanningModules, showModuleTree, expandedTreeNodes,
     defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
+    sdkmanInstallGuide, nvmInstallGuide,
     // Computed
     filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
     projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
