@@ -210,7 +210,7 @@
       <div v-if="pushUnpushedCommits.length > 0" class="max-h-[200px] overflow-y-auto border-t border-base-content/10">
         <div class="px-4 py-2 text-xs font-semibold text-base-content/60 bg-base-200 sticky top-0">待推送提交 ({{ pushUnpushedCommits.length }})</div>
         <div v-for="c in pushUnpushedCommits" :key="c.hash" class="flex items-center gap-2 px-4 py-1 text-xs hover:bg-base-200/50">
-          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ c.hash.substring(0, 7) }}</code>
+          <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ c?.hash?.substring(0, 7) || '-' }}</code>
           <span class="text-base-content/60 truncate block max-w-[560px]">{{ c.message }}</span>
         </div>
       </div>

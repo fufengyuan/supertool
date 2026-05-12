@@ -90,7 +90,7 @@
               <input type="checkbox" :checked="(selectedLogCommits as Set<string>).has(commit.hash)" @click.stop="$emit('toggle-log-commit-select', commit.hash)" class="accent-primary shrink-0 w-3.5 h-3.5 cursor-pointer" />
             </td>
             <td class="w-[70px]">
-              <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ commit.hash.substring(0, 7) }}</code>
+              <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ commit?.hash?.substring(0, 7) || '-' }}</code>
             </td>
             <td class="w-[120px]">
               <span class="text-base-content">{{ getAuthorName(commit) }}</span>

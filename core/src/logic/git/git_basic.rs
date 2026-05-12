@@ -1,12 +1,25 @@
 /// Git 基本操作 — status, log, branches, add, commit, checkout, merge
 
 use serde_json::{json, Value};
+use std::path::Path;
 use std::process::Stdio;
 use tokio::process::Command;
 use super::super::git::find_git;
 
 /// Internal helper for run_git
 async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
+    // 验证路径存在
+    if repo_path.is_empty() {
+        return Err("仓库路径为空".to_string());
+    }
+    let path = Path::new(repo_path);
+    if !path.exists() {
+        return Err(format!("仓库路径不存在: {}", repo_path));
+    }
+    if !path.join(".git").exists() {
+        return Err(format!("不是 Git 仓库: {}", repo_path));
+    }
+
     let git_bin = find_git();
     let output = Command::new(&git_bin)
         .args(args)
