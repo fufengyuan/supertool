@@ -42,7 +42,7 @@
         @toggle-group="toggleGroup"
         @toggle-file-select="toggleFileSelect"
         @select-all-files="selectAllFiles"
-        @commit="doCommit"
+        @commit="handleCommit"
         @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
       />
 
@@ -817,6 +817,14 @@ function handleGitAction(action: string) {
     case 'create-patch': showCreatePatchDialog.value = true; break
     case 'apply-patch': showApplyPatchDialog.value = true; break
     case 'git-clean': openGitCleanDialog(); break
+  }
+}
+
+function handleCommit(shouldPush: boolean) {
+  if (shouldPush) {
+    doCommitAndPush()
+  } else {
+    doCommitWithOptions()
   }
 }
 
