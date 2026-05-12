@@ -333,19 +333,10 @@ import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast';
 import { useErrorHandler } from '../../composables/useErrorHandler';
 import { useDeployPreflight } from '../../composables/useDeployPreflight';
+import { useSharedCicdData } from '../../composables/useSharedCicdData';
+import type { CicdConfigEntry, ServerGroupEntry } from '../../composables/useSharedCicdData';
 import SvgIcon from '../../components/ui/SvgIcon.vue';
 import type { Project, Server } from '../../types';
-
-interface CicdConfigEntry {
-  id: string;
-  projectId: string;
-  gitRepoId?: string;
-  deployBranch: string;
-  servers?: string;
-  lastDeployedAt?: string | null;
-  groupName?: string;
-  [key: string]: unknown;
-}
 
 interface DeployLog {
   id: string;
@@ -384,15 +375,12 @@ const toast = useToast();
 const { handleError } = useErrorHandler();
 const { runAll: runPreflightCheck } = useDeployPreflight();
 
-const configs = ref<CicdConfigEntry[]>([]);
+const shared = useSharedCicdData();
+const { configs, projects, servers, serverGroups, gitRepos } = shared;
 const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const loadingConfig = ref(false);
 const project = ref<Project | null>(null);
-const projects = ref<Project[]>([]);
-const gitRepos = ref<any[]>([]);
-const servers = ref<Server[]>([]);
-const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
 const logs = ref<DeployLog[]>([]);
 const stepLogs = ref<Record<string, DeployStep[]>>({});
 const expandedLog = ref<string | null>(null);
@@ -639,20 +627,8 @@ onMounted(() => {
   // 异步加载，不阻塞渲染
   (async () => {
     try {
-      const [allConfigs, allProjects, allServers, allSGroups, allGitRepos] = await Promise.all([
-        getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
-        getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
-        getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
-        getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
-        getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
-      ]);
-      configs.value = (allConfigs as CicdConfigEntry[]) || [];
-      projects.value = (allProjects as Project[]) || [];
-      servers.value = (allServers as Server[]) || [];
-      serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
-      // Load git repos for gitRepoId resolution
-      const repoResult = allGitRepos as any;
-      gitRepos.value = repoResult?.success && repoResult?.data ? repoResult.data : [];
+      // 共享数据由模块级单例缓存，已加载则直接跳过
+      await shared.load();
 
       if (configs.value.length > 0) {
         // 默认选中最近部署的配置（已按 lastDeployedAt 排序）
@@ -753,16 +729,7 @@ async function loadConfigData(configId: string) {
 async function loadConfigs() {
   try {
     console.log("[loadConfigs] called")
-    const [allConfigs, allProjects, allServers, allSGroups] = await Promise.all([
-      getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
-      getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
-      getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
-      getTauriAPI().getServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
-    ]);
-    configs.value = (allConfigs as CicdConfigEntry[]) || [];
-    projects.value = (allProjects as Project[]) || [];
-    servers.value = (allServers as Server[]) || [];
-    serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
+    await shared.refresh();
   } catch (error) {
     handleError(error, { context: 'loadConfigs' });
   }

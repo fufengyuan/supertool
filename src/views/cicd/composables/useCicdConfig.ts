@@ -3,6 +3,7 @@ import { getTauriAPI } from '../../../utils/tauri-api'
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useToast } from '../../../composables/useToast';
 import { useErrorHandler } from '../../../composables/useErrorHandler';
+import { useSharedCicdData } from '../../../composables/useSharedCicdData';
 import type { Project, Server } from '../../../types';
 
 // ─── Interfaces ───
@@ -104,11 +105,8 @@ export function useCicdConfig() {
   const { handleError } = useErrorHandler();
 
   // ─── Data ───
-  const configs = ref<CicdConfigEntry[]>([]);
-  const projects = ref<Project[]>([]);
-  const gitRepos = ref<any[]>([]);
-  const servers = ref<Server[]>([]);
-  const serverGroups = ref<Array<{ id: string; name: string; color: string; parentId: string | null }>>([]);
+  const shared = useSharedCicdData();
+  const { configs, projects, servers, serverGroups, gitRepos } = shared;
   const selectedConfigId = ref('');
   const isNewConfig = ref(false);
   const searchQuery = ref('');
@@ -825,21 +823,12 @@ export function useCicdConfig() {
   const pageLoading = ref(true);
   onMounted(async () => {
     try {
-      // 第一步：快速加载核心数据（不阻塞 UI 渲染）
-      const [allConfigs, allProjects, allServers, allSGroups, allGroups, allGitRepos] = await Promise.all([
-        getTauriAPI().getCicdConfigs?.() as Promise<CicdConfigEntry[]> | undefined,
-        getTauriAPI().getProjects?.() as Promise<Project[]> | undefined,
-        getTauriAPI().getAllServers?.() as Promise<Server[]> | undefined,
-        getTauriAPI().getAllServerGroups?.() as Promise<Array<{ id: string; name: string; color: string; parentId: string | null }>> | undefined,
-        getTauriAPI().getCicdGroups?.() as Promise<string[]> | undefined,
-        getTauriAPI().getGitRepos?.() as Promise<any> | undefined,
-      ]);
-      configs.value = (allConfigs as CicdConfigEntry[]) || []; groups.value = (allGroups as string[]) || [];
-      initExpandedGroups(); projects.value = (allProjects as Project[]) || [];
-      servers.value = (allServers as Server[]) || []; serverGroups.value = (allSGroups as Array<{ id: string; name: string; color: string; parentId: string | null }>) || [];
-      // getGitRepos 直接返回数组，不是 { success, data } 格式
-      const repoResult = allGitRepos as any;
-      gitRepos.value = Array.isArray(repoResult) ? repoResult : [];
+      // 第一步：加载共享数据（模块级缓存，DeployPanel 复用不再重复请求）
+      await shared.load();
+
+      // CICD 独有分组数据
+      groups.value = (await getTauriAPI().getCicdGroups?.()) as string[] || [];
+      initExpandedGroups();
 
       pageLoading.value = false;
 
@@ -853,14 +842,19 @@ export function useCicdConfig() {
       }
     } catch (error) { handleError(error, { context: '加载CI/CD配置' }); pageLoading.value = false; }
 
-    // 后台异步检测工具（不阻塞 UI）
-    Promise.all([
-      getTauriAPI().detectBuildTools?.() as Promise<Record<string, { available: boolean; version?: string; path?: string }>> | undefined,
-      getTauriAPI().detectToolPaths?.() as Promise<{ mavenHome: string; javaHome: string; nodeHome: string; npmHome: string }> | undefined,
-      getTauriAPI().detectSdkVersions?.() as Promise<typeof sdkVersions.value> | undefined,
-    ]).then(([tools, toolPaths, sdkVers]) => {
+    // 后台异步检测工具路径与 SDK 版本（不阻塞页面渲染）
+    getTauriAPI().detectBuildTools?.().then(tools => {
       detectedTools.value = (tools as Record<string, { available: boolean; version?: string }>) || {};
+      if (!config.value.buildTool) {
+        if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
+        else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
+        else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
+      }
+    }).catch(() => {});
+    getTauriAPI().detectToolPaths?.().then(toolPaths => {
       if (toolPaths && typeof toolPaths === 'object') defaultPaths.value = toolPaths as { mavenHome: string; javaHome: string; nodeHome: string; npmHome: string; pnpmHome: string; yarnHome: string };
+    }).catch(() => {});
+    getTauriAPI().detectSdkVersions?.().then(sdkVers => {
       if (sdkVers && typeof sdkVers === 'object') {
         sdkVersions.value = {
           sdkman: { java: [], maven: [], gradle: [] },
@@ -869,11 +863,6 @@ export function useCicdConfig() {
           sdkman: { java: [], maven: [], gradle: [], ...((sdkVers as any)?.sdkman || {}) },
           nvm: { node: [], ...((sdkVers as any)?.nvm || {}) },
         };
-      }
-      if (!config.value.buildTool) {
-        if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
-        else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
-        else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
       }
     }).catch(() => {});
   });
