@@ -723,9 +723,9 @@ pub async fn git_push_tags(repo_path: String) -> Result<serde_json::Value, Strin
 
 /// Clean untracked files
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_clean(repo_path: String, dry_run: bool, force: bool) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_clean() called, dry_run={}", dry_run);
-    supertool_core::logic::git::git_clean(&repo_path, dry_run, force)
+pub async fn git_clean(repo_path: String, dry_run: bool, force: bool, include_ignored: bool, directories: bool) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] git_clean() called, dry_run={}, include_ignored={}, directories={}", dry_run, include_ignored, directories);
+    supertool_core::logic::git::git_clean(&repo_path, dry_run, force, include_ignored, directories)
         .await
         .map_err(|e| format!("清理失败: {}", e))
 }

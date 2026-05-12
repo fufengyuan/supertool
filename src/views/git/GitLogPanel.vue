@@ -93,7 +93,7 @@
               <code class="font-mono text-[11px] text-primary bg-primary/10 px-1 py-[1px] rounded-sm">{{ commit.hash.substring(0, 7) }}</code>
             </td>
             <td class="w-[120px]">
-              <span class="text-base-content">{{ getAuthorName(commit.author) }}</span>
+              <span class="text-base-content">{{ getAuthorName(commit) }}</span>
             </td>
             <td class="w-[100px]">
               <span class="text-base-content/60 text-[11px]" :title="formatFullDate(commit.date)">{{ formatRelativeDate(commit.date) }}</span>
@@ -258,7 +258,7 @@ defineProps<{
   consoleHistory: any[]
   consoleInput: string
   localBranches: any[]
-  getAuthorName: (author: string) => string
+  getAuthorName: (commit: any) => string
   formatRelativeDate: (date: any) => string
   formatFullDate: (date: any) => string
   parseRefs: (refs: string) => string[]

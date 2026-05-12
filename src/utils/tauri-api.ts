@@ -1715,7 +1715,7 @@ export interface TauriAPI {
   gitRenameBranch: (repoPath: string, oldName: string, newName: string) => Promise<any>
   gitDiffBranches: (repoPath: string, target: string) => Promise<any>
   gitPushTags: (repoPath: string) => Promise<any>
-  gitClean: (repoPath: string, dryRun: boolean, force: boolean) => Promise<any>
+  gitClean: (repoPath: string, dryRun: boolean, force: boolean, includeIgnored: boolean, directories: boolean) => Promise<any>
   gitDeleteRemoteBranch: (repoPath: string, branch: string) => Promise<any>
   gitCheckoutRemoteBranch: (repoPath: string, branch: string) => Promise<any>
   gitGetFileAtRevision: (repoPath: string, commit: string, path: string) => Promise<string>
@@ -2357,7 +2357,7 @@ export function getTauriAPI(): TauriAPI {
     gitRenameBranch: async (repoPath: string, oldName: string, newName: string) => tauriCall('git_rename_branch', { repoPath, oldName, newName }),
     gitDiffBranches: async (repoPath: string, target: string) => tauriCall('git_diff_branches', { repoPath, target }),
     gitPushTags: async (repoPath: string) => tauriCall('git_push_tags', { repoPath }),
-    gitClean: async (repoPath: string, dryRun: boolean, force: boolean) => tauriCall('git_clean', { repoPath, dryRun, force }),
+    gitClean: async (repoPath: string, dryRun: boolean, force: boolean, includeIgnored: boolean, directories: boolean) => tauriCall('git_clean', { repoPath, dryRun, force, includeIgnored, directories }),
     gitDeleteRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_delete_remote_branch', { repoPath, branch }),
     gitCheckoutRemoteBranch: async (repoPath: string, branch: string) => tauriCall('git_checkout_remote_branch', { repoPath, branch }),
     gitGetFileAtRevision: async (repoPath: string, commit: string, path: string) => tauriCall<string>('git_get_file_at_revision', { repoPath, commit, path }),

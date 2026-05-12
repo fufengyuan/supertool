@@ -51,28 +51,87 @@ pub async fn git_status(repo_path: &str) -> Result<Value, String> {
 
 pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, String> {
     let n = limit.unwrap_or(50);
-    let fmt = "%H|%an|%ae|%ai|%s|%P";
-    let output = run_git(repo_path, &["log", &format!("--format={}", fmt), &format!("-n{}", n)]).await?;
-    let commits: Vec<Value> = output
-        .lines()
-        .filter(|l| !l.is_empty())
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.splitn(6, '|').collect();
-            if parts.len() >= 5 {
-                Some(json!({
-                    "hash": parts[0],
-                    "authorName": parts[1],
-                    "authorEmail": parts[2],
-                    "date": parts[3],
-                    "message": parts[4],
-                    "parentHashes": if parts.len() > 5 { parts[5] } else { "" }
-                }))
+    // %H=hash, %an=author name, %ae=author email, %ai=date ISO, %s=subject, %P=parent hashes, %d=decorate (refs)
+    let fmt = "%H|%an|%ae|%ai|%s|%P|%d";
+    let output = run_git(repo_path, &["log", &format!("--format={}", fmt), &format!("-n{}", n), "--shortstat"]).await?;
+    
+    let mut commits: Vec<Value> = Vec::new();
+    let lines: Vec<&str> = output.lines().collect();
+    let mut i = 0;
+    
+    while i < lines.len() {
+        let line = lines[i];
+        if line.is_empty() {
+            i += 1;
+            continue;
+        }
+        
+        let parts: Vec<&str> = line.splitn(7, '|').collect();
+        if parts.len() >= 5 {
+            let hash = parts[0];
+            let author_name = parts[1];
+            let author_email = parts[2];
+            let date = parts[3];
+            let message = parts[4];
+            let parent_hashes = if parts.len() > 5 { parts[5] } else { "" };
+            let refs_raw = if parts.len() > 6 { parts[6].trim() } else { "" };
+            
+            // Clean refs: remove "HEAD ->" prefix, parse branch/tag names
+            let refs = parse_refs(refs_raw);
+            
+            // Parse shortstat from next line (e.g., " 2 files changed, 10 insertions(+), 5 deletions(-)")
+            let mut file_count: Option<usize> = None;
+            if i + 1 < lines.len() {
+                let stat_line = lines[i + 1].trim();
+                if stat_line.contains("files changed") || stat_line.contains("file changed") {
+                    // Extract file count
+                    if let Some(fc_str) = stat_line.split_whitespace().next() {
+                        file_count = fc_str.parse().ok();
+                    }
+                    i += 1; // Skip stat line
+                }
+            }
+            
+            commits.push(json!({
+                "hash": hash,
+                "authorName": author_name,
+                "authorEmail": author_email,
+                "date": date,
+                "message": message,
+                "parentHashes": parent_hashes,
+                "refs": refs,
+                "fileCount": file_count
+            }));
+        }
+        i += 1;
+    }
+    
+    Ok(json!({"commits": commits}))
+}
+
+/// Parse refs from git log --decorate output
+fn parse_refs(refs_raw: &str) -> Vec<String> {
+    if refs_raw.is_empty() {
+        return Vec::new();
+    }
+    // refs_raw format: " (HEAD -> main, origin/main, tag: v1.0)"
+    let refs_str = refs_raw.trim();
+    if !refs_str.starts_with('(') || !refs_str.ends_with(')') {
+        return Vec::new();
+    }
+    let inner = &refs_str[1..refs_str.len()-1];
+    inner.split(',')
+        .map(|r| r.trim())
+        .filter(|r| !r.is_empty())
+        .map(|r| {
+            // Convert "tag: v1.0" to "v1.0 (tag)"
+            if r.starts_with("tag: ") {
+                format!("{} (tag)", r[5..].trim())
             } else {
-                None
+                r.to_string()
             }
         })
-        .collect();
-    Ok(json!({"commits": commits}))
+        .collect()
 }
 
 pub async fn git_branches(repo_path: &str) -> Result<Value, String> {
