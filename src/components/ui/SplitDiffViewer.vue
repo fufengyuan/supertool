@@ -396,8 +396,8 @@ function getLineClass(line: any, side: 'old' | 'new') {
 }
 
 .line-header {
-  background: #1e3a5f;
-  color: #60a5fa;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .line-header .line-content {
@@ -405,20 +405,20 @@ function getLineClass(line: any, side: 'old' | 'new') {
 }
 
 .line-remove {
-  background: #1e3a5f;
+  background: #fee2e2;
 }
 
 .line-remove .line-content {
-  color: #60a5fa;
+  color: #dc2626;
   font-weight: 600;
 }
 
 .line-add {
-  background: #0f4c75;
+  background: #dbeafe;
 }
 
 .line-add .line-content {
-  color: #3b82f6;
+  color: #2563eb;
   font-weight: 600;
 }
 
