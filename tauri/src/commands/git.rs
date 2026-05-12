@@ -14,6 +14,7 @@ pub struct GitBranch {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GitCommit {
     pub hash: String,
+    #[serde(rename = "message")]
     pub subject: String,
     pub author: String,
     pub date: String,
