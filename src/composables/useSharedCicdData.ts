@@ -48,12 +48,17 @@ let _loadPromise: Promise<void> | null = null
 
 export function useSharedCicdData() {
   async function load(refresh = false): Promise<void> {
-    // 如果已经加载且不需要刷新，直接跳过
+    // 如果已加载且不需要刷新，立即跳过
     if (_loaded && !refresh) return
-    // 防止并发重复加载
-    if (_loading && !refresh) {
+    // 如果正在加载中，等待完成，再根据 refresh 决定是否重载
+    if (_loading) {
       await _loadPromise
-      return
+      if (refresh) {
+        // 刚完成的加载可能已设置了 _loaded，需要强制重载
+        _loaded = false
+      } else {
+        return // 数据已就绪，无需额外操作
+      }
     }
 
     _loading = true
