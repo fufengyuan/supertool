@@ -1,5 +1,5 @@
 import { ref, computed, watch } from 'vue'
-import { getTauriAPI } from '../utils/tauri-api'
+import { getTauriAPI, tauriCall } from '../utils/tauri-api'
 import { useToast } from './useToast'
 
 export interface GitRepo {
@@ -92,7 +92,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const reverting = ref(false)
   const showFileHistoryDialog = ref(false)
   const fileHistoryFile = ref('')
-  const fileHistoryData = ref<any>(null)
+  const fileHistoryData = ref<any[]>([])
   const showBlameDialog = ref(false)
   const blameFile = ref('')
   const blameData = ref<any>(null)
@@ -104,7 +104,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const resetMode = ref('hard')
   const resetting = ref(false)
   const showRemotesDialog = ref(false)
-  const remotesList = ref<any[]>([])
+  const remotesList = ref<string[]>([])
   const showSubmodulesDialog = ref(false)
   const submodulesList = ref<any[]>([])
   const smLoading = ref(false)
@@ -157,7 +157,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const pushRemote = ref('')
   const pushBranch = ref('')
   const pushSetUpstream = ref(false)
-  const pushUnpushedCommits = ref<number[]>([])
+  const pushUnpushedCommits = ref<{ hash: string; date?: string; message: string }[]>([])
   const pullRemote = ref('')
   const pullBranch = ref('')
   const pullRebase = ref(false)
@@ -168,7 +168,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const irCommits = ref<any[]>([])
   const irSelectedIndex = ref(-1)
   const irLoading = ref(false)
-  const remoteUrls = ref<Record<string, { fetch: string; push: string }>>({})
+  const remoteUrls = ref<Record<string, string>>({})
   const showAddRemoteForm = ref(false)
   const newRemoteName = ref('')
   const newRemoteUrl = ref('')
@@ -688,7 +688,13 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!repoPath.value) return
     try {
       const res = await api.gitRemotes(repoPath.value)
-      remotesList.value = (res as any).remotes || []
+      const remotes = (res as any).remotes || []
+      remotesList.value = remotes.map((r: any) => r.name)
+      // 转换为 Record<string, string> 用于显示
+      remoteUrls.value = {}
+      for (const r of remotes) {
+        remoteUrls.value[r.name] = r.fetchUrl || r.pushUrl || ''
+      }
     } catch (e: any) {
       toast.error('加载远程仓库失败: ' + e.message)
     }
@@ -757,9 +763,9 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!repoPath.value) return
     try {
       const res = await api.gitUnpushedCommits(repoPath.value)
-      return (res as any).count || 0
+      pushUnpushedCommits.value = (res as any).commits || []
     } catch (e: any) {
-      return 0
+      pushUnpushedCommits.value = []
     }
   }
 
@@ -892,62 +898,337 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     stashSaveMessage.value = ''
     stashIncludeUntracked.value = true
   }
-  function confirmDeleteBranch(_name: string) { /* TODO: show confirm dialog */ }
-  function openCompareBranchesDialog() { showCompareBranchesDialog.value = true }
-  async function doCompareBranches() { /* TODO */ }
+function confirmDeleteBranch(name: string) {
+    if (confirm(`确定删除分支 ${name}?`)) doDeleteBranch(name, false)
+  }
+  async function doCompareBranches() {
+    if (!repoPath.value || !compareBranchTarget.value) return
+    try {
+      const res = await tauriCall('git_diff_branches', { repoPath: repoPath.value, target: compareBranchTarget.value })
+      compareResult.value = res
+    } catch (e: any) {
+      toast.error('对比失败: ' + e.message)
+    }
+  }
+  function doCompareWith() {
+    if (!repoPath.value || !compareWithTarget.value) return
+    doCompareBranches()
+  }
   function openRebaseDialog() { showRebaseDialog.value = true }
-  function doCompareWith() { /* TODO */ }
   function openPushDialog() { showPushDialog.value = true }
   function openPullDialog() { showPullDialog.value = true }
-  async function doPushWithOptions() { /* TODO */ }
-  function doFetchRemote(_remote: string) { /* TODO */ }
+  async function doPushWithOptions() {
+    if (!repoPath.value) return
+    try {
+      pushing.value = true
+      await tauriCall('git_push', { repoPath: repoPath.value, remote: pushRemote.value, branch: pushBranch.value, setUpstream: pushSetUpstream.value })
+      toast.success('推送成功')
+      showPushDialog.value = false
+      refreshAll()
+    } catch (e: any) {
+      toast.error('推送失败: ' + e.message)
+    } finally {
+      pushing.value = false
+    }
+  }
+  function doFetchRemote(remote: string) {
+    if (!repoPath.value) return
+    doFetch()
+  }
   function openAmendDialog() { showAmendDialog.value = true }
   function openResetDialog() { showResetDialog.value = true }
-  function openInteractiveRebaseDialog() { /* TODO */ }
-  function loadInteractiveRebaseCommits() { /* TODO */ }
-  function irMoveUp() { /* TODO */ }
-  function irMoveDown() { /* TODO */ }
-  function doInteractiveRebase() { /* TODO */ }
+  function openInteractiveRebaseDialog() { showInteractiveRebaseDialog.value = true; loadInteractiveRebaseCommits() }
+  function loadInteractiveRebaseCommits() {
+    if (!repoPath.value || !interactiveRebaseBase.value) return
+    irLoading.value = true
+    tauriCall('git_log', { repoPath: repoPath.value, limit: 20 }).then((res: any) => {
+      irCommits.value = res.commits || res
+    }).catch((e: any) => {
+      toast.error('加载失败: ' + e.message)
+    }).finally(() => {
+      irLoading.value = false
+    })
+  }
+  function irMoveUp() {
+    if (irSelectedIndex.value > 0) {
+      const commits = irCommits.value
+      const tmp = commits[irSelectedIndex.value]
+      commits[irSelectedIndex.value] = commits[irSelectedIndex.value - 1]
+      commits[irSelectedIndex.value - 1] = tmp
+      irSelectedIndex.value--
+    }
+  }
+  function irMoveDown() {
+    if (irSelectedIndex.value < irCommits.value.length - 1) {
+      const commits = irCommits.value
+      const tmp = commits[irSelectedIndex.value]
+      commits[irSelectedIndex.value] = commits[irSelectedIndex.value + 1]
+      commits[irSelectedIndex.value + 1] = tmp
+      irSelectedIndex.value++
+    }
+  }
+  function doInteractiveRebase() {
+    if (!repoPath.value) return
+    // TODO: 实现交互式 rebase
+    toast.info('交互式 Rebase 功能待实现')
+  }
   function openRemotesDialog() { showRemotesDialog.value = true; loadRemotes() }
   function openAddRemote() { showAddRemoteForm.value = true }
-  async function doAddRemote() { /* TODO */ }
-  function confirmDeleteRemote(_name: string) { /* TODO */ }
-  async function doDeleteRemote(_name: string) { /* TODO */ }
+  async function doAddRemote() {
+    if (!repoPath.value || !newRemoteName.value || !newRemoteUrl.value) return
+    try {
+      await tauriCall('git_add_remote', { repoPath: repoPath.value, name: newRemoteName.value, url: newRemoteUrl.value })
+      toast.success('添加远程仓库成功')
+      newRemoteName.value = ''
+      newRemoteUrl.value = ''
+      showAddRemoteForm.value = false
+      loadRemotes()
+    } catch (e: any) {
+      toast.error('添加失败: ' + e.message)
+    }
+  }
+  function confirmDeleteRemote(name: string) {
+    if (confirm(`确定删除远程仓库 ${name}?`)) doDeleteRemote(name)
+  }
+  async function doDeleteRemote(name: string) {
+    if (!repoPath.value) return
+    try {
+      await tauriCall('git_delete_remote', { repoPath: repoPath.value, name })
+      toast.success('删除成功')
+      loadRemotes()
+    } catch (e: any) {
+      toast.error('删除失败: ' + e.message)
+    }
+  }
   function openBranchRename() { showBranchRenameDialog.value = true }
-  function doBranchRename() { /* TODO */ }
-  function toggleAuthor(_author: string) { /* TODO */ }
-  function doCommitWithOptions() { /* TODO */ }
-  function doUndoLastCommit() { /* TODO */ }
+  function doBranchRename() {
+    if (!repoPath.value || !branchRenameOld.value || !branchRenameNew.value) return
+    tauriCall('git_rename_branch', { repoPath: repoPath.value, oldName: branchRenameOld.value, newName: branchRenameNew.value }).then(() => {
+      toast.success('重命名成功')
+      loadBranches()
+      showBranchRenameDialog.value = false
+    }).catch((e: any) => {
+      toast.error('重命名失败: ' + e.message)
+    })
+  }
+  function toggleAuthor(author: string) {
+    if (selectedAuthors.value.has(author)) {
+      selectedAuthors.value.delete(author)
+    } else {
+      selectedAuthors.value.add(author)
+    }
+  }
+  function doCommitWithOptions() {
+    // 直接调用 doCommit，signOff 和 noVerify 选项暂不支持
+    doCommit(commitNoVerify.value)
+  }
+  async function doUndoLastCommit() {
+    if (!repoPath.value) return
+    try {
+      await tauriCall('git_reset_to_commit', { repoPath: repoPath.value, commitHash: 'HEAD~1', mode: 'soft' })
+      toast.success('已撤销上次提交')
+      refreshAll()
+    } catch (e: any) {
+      toast.error('撤销失败: ' + e.message)
+    }
+  }
   function openSubmodulesDialog() { showSubmodulesDialog.value = true; loadSubmodules() }
-  function doSubmoduleUpdate(_path?: string) { /* TODO */ }
-  function doSubmoduleInitAll() { /* TODO */ }
-  function doSubmoduleUpdateAll() { /* TODO */ }
-  function openSubmodulePath(_path: string) { /* TODO */ }
-  async function doPushTags() { /* TODO */ }
+  function doSubmoduleUpdate(path?: string) {
+    if (!repoPath.value) return
+    tauriCall('git_submodule_update', { repoPath: repoPath.value, path }).then(() => {
+      toast.success('更新成功')
+      loadSubmodules()
+    }).catch((e: any) => {
+      toast.error('更新失败: ' + e.message)
+    })
+  }
+  function doSubmoduleInitAll() {
+    if (!repoPath.value) return
+    tauriCall('git_submodule_init', { repoPath: repoPath.value, recursive: true }).then(() => {
+      toast.success('初始化完成')
+      loadSubmodules()
+    }).catch((e: any) => {
+      toast.error('初始化失败: ' + e.message)
+    })
+  }
+  function doSubmoduleUpdateAll() {
+    if (!repoPath.value) return
+    tauriCall('git_submodule_update_all', { repoPath: repoPath.value }).then(() => {
+      toast.success('更新完成')
+      loadSubmodules()
+    }).catch((e: any) => {
+      toast.error('更新失败: ' + e.message)
+    })
+  }
+  function openSubmodulePath(path: string) {
+    tauriCall('open_in_file_manager', { path }).catch((e: any) => {
+      toast.error('打开失败: ' + e.message)
+    })
+  }
+  async function doPushTags() {
+    if (!repoPath.value) return
+    try {
+      await tauriCall('git_push_tags', { repoPath: repoPath.value })
+      toast.success('推送标签成功')
+    } catch (e: any) {
+      toast.error('推送失败: ' + e.message)
+    }
+  }
   function openCompareCommitsDialog() { showCompareCommitsDialog.value = true }
-  async function doCompareCommits() { /* TODO */ }
+  async function doCompareCommits() {
+    if (!repoPath.value || !compareCommitFrom.value || !compareCommitTo.value) return
+    try {
+      ccLoading.value = true
+      const res = await tauriCall('git_compare_commits', { repoPath: repoPath.value, from: compareCommitFrom.value, to: compareCommitTo.value })
+      compareCommitsDiff.value = res
+    } catch (e: any) {
+      toast.error('对比失败: ' + e.message)
+    } finally {
+      ccLoading.value = false
+    }
+  }
   function openGetFileRevisionDialog() { showGetFileRevisionDialog.value = true }
-  async function doGetFileAtRevision() { /* TODO */ }
-  function copyFileContent() { /* TODO */ }
-  async function doCreatePatch() { /* TODO */ }
-  function selectPatchFile() { /* TODO */ }
-  async function doApplyPatch() { /* TODO */ }
-  function toggleLogCommitSelect(_hash: string) { /* TODO */ }
-  function toggleSelectAllLogCommits() { /* TODO */ }
-  function getCommitMessage(_commit: any): string { return '' }
-  function doCherryPickMulti() { /* TODO */ }
+  async function doGetFileAtRevision() {
+    if (!repoPath.value || !getFileCommit.value || !getFilePath.value) return
+    try {
+      const res = await tauriCall<string>('git_get_file_at_revision', { repoPath: repoPath.value, commit: getFileCommit.value, path: getFilePath.value })
+      getFileContent.value = res
+    } catch (e: any) {
+      toast.error('获取失败: ' + e.message)
+    }
+  }
+  function copyFileContent() {
+    if (getFileContent.value) {
+      navigator.clipboard.writeText(getFileContent.value)
+      toast.success('已复制')
+    }
+  }
+  async function doCreatePatch() {
+    if (!repoPath.value || !patchFrom.value || !patchTo.value) return
+    try {
+      const res = await tauriCall('git_create_patch', { repoPath: repoPath.value, from: patchFrom.value, to: patchTo.value })
+      // 保存到 patchOutputDir
+      if (patchOutputDir.value && res) {
+        await tauriCall('save_patch_file', { dir: patchOutputDir.value, content: res })
+        toast.success('补丁已创建')
+      }
+    } catch (e: any) {
+      toast.error('创建失败: ' + e.message)
+    }
+  }
+  async function selectPatchFile() {
+    const res = await api.showOpenDialog({ filters: [{ name: 'Patch Files', extensions: ['patch', 'diff'] }] })
+    if (res.filePaths?.[0]) {
+      applyPatchFile.value = res.filePaths[0]
+    }
+  }
+  async function doApplyPatch() {
+    if (!repoPath.value || !applyPatchFile.value) return
+    try {
+      await tauriCall('git_apply_patch', { repoPath: repoPath.value, file: applyPatchFile.value, check: applyPatchCheck.value, sign: applyPatchSign.value, '3way': applyPatch3way.value })
+      toast.success('补丁已应用')
+      refreshAll()
+    } catch (e: any) {
+      applyPatchError.value = e.message
+      toast.error('应用失败: ' + e.message)
+    }
+  }
+  function toggleLogCommitSelect(hash: string) {
+    if (selectedLogCommits.value.has(hash)) {
+      selectedLogCommits.value.delete(hash)
+    } else {
+      selectedLogCommits.value.add(hash)
+    }
+  }
+  function toggleSelectAllLogCommits() {
+    if (selectedLogCommits.value.size === filteredLog.value.length) {
+      selectedLogCommits.value.clear()
+    } else {
+      filteredLog.value.forEach((c: any) => selectedLogCommits.value.add(c.hash))
+    }
+  }
+  function getCommitMessage(commit: any): string { return commit?.message || '' }
+  function doCherryPickMulti() {
+    const hashes = Array.from(selectedLogCommits.value)
+    if (hashes.length === 0) return
+    // 逐个 cherry-pick
+    hashes.forEach(async (hash) => {
+      try {
+        await tauriCall('git_cherry_pick', { repoPath: repoPath.value, commitHash: hash, noCommit: cherryPickMultiNoCommit.value })
+      } catch (e: any) {
+        toast.error(`Cherry-pick ${hash} 失败: ${e.message}`)
+      }
+    })
+    toast.success('批量 Cherry-pick 完成')
+    refreshAll()
+  }
   function openGitCleanDialog() { showGitCleanDialog.value = true }
-  function doGitCleanDryRun() { /* TODO */ }
-  function doGitClean() { /* TODO */ }
-  function openCreateBranchFromTag() { /* TODO */ }
-  function confirmDeleteRemoteBranch(_name: string) { /* TODO */ }
-  function doDeleteRemoteBranch(_name: string) { /* TODO */ }
-  function checkoutRemoteBranch(_name: string) { /* TODO */ }
+  async function doGitCleanDryRun() {
+    if (!repoPath.value) return
+    try {
+      gcLoading.value = true
+      const res = await tauriCall<any[]>('git_clean', { repoPath: repoPath.value, dryRun: true, includeIgnored: gitCleanIncludeIgnored.value, directories: gitCleanForceDirectories.value })
+      gitCleanFiles.value = res
+    } catch (e: any) {
+      toast.error('预览失败: ' + e.message)
+    } finally {
+      gcLoading.value = false
+    }
+  }
+  async function doGitClean() {
+    if (!repoPath.value) return
+    try {
+      await tauriCall('git_clean', { repoPath: repoPath.value, dryRun: false, includeIgnored: gitCleanIncludeIgnored.value, directories: gitCleanForceDirectories.value })
+      toast.success('清理完成')
+      refreshAll()
+    } catch (e: any) {
+      toast.error('清理失败: ' + e.message)
+    }
+  }
+  function openCreateBranchFromTag() {
+    if (selectedTagForBranch.value) {
+      newBranchName.value = ''
+      newBranchFrom.value = selectedTagForBranch.value
+      showCreateBranch.value = true
+    }
+  }
+  function confirmDeleteRemoteBranch(name: string) {
+    if (confirm(`确定删除远程分支 ${name}?`)) doDeleteRemoteBranch(name)
+  }
+  async function doDeleteRemoteBranch(name: string) {
+    if (!repoPath.value) return
+    deletingBranch.value = true
+    try {
+      await tauriCall('git_delete_remote_branch', { repoPath: repoPath.value, branch: name })
+      toast.success('删除成功')
+      loadBranches()
+    } catch (e: any) {
+      toast.error('删除失败: ' + e.message)
+    } finally {
+      deletingBranch.value = false
+    }
+  }
+  async function checkoutRemoteBranch(name: string) {
+    if (!repoPath.value) return
+    try {
+      await tauriCall('git_checkout', { repoPath: repoPath.value, branch: name })
+      toast.success(`已切换到 ${name}`)
+      loadCurrentBranch()
+      refreshAll()
+    } catch (e: any) {
+      toast.error('切换失败: ' + e.message)
+    }
+  }
   function startResize(_e: MouseEvent) { isResizing.value = true }
-  function doPullWithOptions() { /* TODO */ }
+  function doPullWithOptions() {
+    if (!repoPath.value) return
+    doPull()
+  }
   function openTagsDialog() { showTagsDialog.value = true; loadTags() }
   function openCreateTag() { showCreateTagDialog.value = true }
-  function confirmDeleteTag(_name: string) { /* TODO */ }
+  function confirmDeleteTag(name: string) {
+    if (confirm(`确定删除标签 ${name}?`)) doDeleteTag(name)
+  }
 
   // 初始化加载
   watch(repoPath, (path) => {

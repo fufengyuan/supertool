@@ -44,6 +44,8 @@ async function tauriCall<T>(command: string, args: Record<string, unknown> = {},
   return res.data as T
 }
 
+export { tauriInvoke, tauriCall }
+
 // ============ 项目 ============
 
 export function useProjectsAPI() {
