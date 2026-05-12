@@ -677,7 +677,7 @@ impl CoreService {
     }
 
         pub async fn cicd_rollback(&self, config_id: &str, log_id: &str) -> Result<Value, String> {
-    let deploy_log = self.db_read(|conn| {
+    let _deploy_log = self.db_read(|conn| {
         crate::db::cicd::get_deploy_log_by_id(conn, log_id)
             .map_err(|e| e.to_string())
     })??
