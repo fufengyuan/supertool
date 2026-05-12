@@ -361,6 +361,25 @@
                         {{ v.name }}{{ v.isCurrent ? ' ★' : '' }}
                       </option>
                     </select>
+                    <!-- SDKMAN 安装指引 -->
+                    <div v-if="sdkmanInstallGuide.show && config.buildTool === 'maven'" class="mt-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                      <div class="flex items-start gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <div class="text-xs text-base-content/80 leading-relaxed">
+                          <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 SDKMAN</p>
+                          <p class="m-0 mb-1.5">SDKMAN 可方便地管理 JDK 版本，推荐安装：</p>
+                          <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
+                            <template v-for="(step, i) in sdkmanInstallGuide.steps" :key="i">
+                              $ {{ step }}<br v-if="i < sdkmanInstallGuide.steps.length - 1" />
+                            </template>
+                          </code>
+                          <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            检测后刷新
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <!-- 父子模块构建时，Profile/settings.xml 很重要 — 直接展示 -->
@@ -433,6 +452,25 @@
                         {{ v.name }}{{ v.isCurrent ? ' ★' : '' }}
                       </option>
                     </select>
+                    <!-- NVM 安装指引 -->
+                    <div v-if="nvmInstallGuide.show && ['npm','pnpm','yarn'].includes(config.buildTool)" class="mt-2 p-3 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                      <div class="flex items-start gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        <div class="text-xs text-base-content/80 leading-relaxed">
+                          <p class="m-0 mb-1 font-semibold text-amber-600">未检测到 NVM</p>
+                          <p class="m-0 mb-1.5">NVM 可方便地管理 Node.js 版本，推荐安装：</p>
+                          <code class="block font-mono text-[11px] bg-base-200 p-2 rounded-lg leading-relaxed whitespace-pre-wrap">
+                            <template v-for="(step, i) in nvmInstallGuide.steps" :key="i">
+                              $ {{ step }}<br v-if="i < nvmInstallGuide.steps.length - 1" />
+                            </template>
+                          </code>
+                          <button @click="reDetectToolPaths" class="mt-2 text-xs btn btn-ghost btn-xs gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                            检测后刷新
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <!-- 高级选项折叠 -->
@@ -745,6 +783,7 @@ const {
   config, modules, testResult, detectedTools, availableBranches, loadingBranches,
   expandedModules, scannedModules, scanningModules, showModuleTree, expandedTreeNodes,
   defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
+  sdkmanInstallGuide, nvmInstallGuide,
   filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
   projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
   parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
