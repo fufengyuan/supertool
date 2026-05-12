@@ -122,37 +122,45 @@ onMounted(loadFileTree)
 </script>
 
 <style scoped>
+/* IDEA 深色主题文件树 */
 .git-file-tree {
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--color-base-100);
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: #252526;
+  border-right: 1px solid #3c3c3c;
+  color: #cccccc;
 }
 
 .tree-search {
-  padding: 8px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 4px 8px;
+  border-bottom: 1px solid #3c3c3c;
+  background: #252526;
 }
 
 .search-input {
   width: 100%;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: var(--color-base-200);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
-  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  background: #3c3c3c;
+  border: 1px solid #4a4a4a;
+  font-size: 12px;
+  color: #cccccc;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  border-color: #0078d4;
+}
+
+.search-input::placeholder {
+  color: #808080;
 }
 
 .tree-content {
   flex: 1;
   overflow-y: auto;
-  padding: 4px;
+  padding: 0;
 }
 
 .tree-loading,
@@ -161,7 +169,7 @@ onMounted(loadFileTree)
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  font-size: 13px;
+  color: #808080;
+  font-size: 12px;
 }
 </style>

@@ -33,7 +33,7 @@
           :repo-path="repo.path"
           @select-file="handleSelectFile"
         />
-        <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150"></div>
+        <div class="w-1 shrink-0 bg-[#3c3c3c] hover:bg-[#4a4a4a] transition-colors duration-150"></div>
         <GitCodeEditor
           v-if="selectedFilePath"
           :repo-path="repo.path"
@@ -41,7 +41,7 @@
           @close="selectedFilePath = null"
           @saved="handleFileSaved"
         />
-        <div v-else class="flex-1 flex items-center justify-center bg-base-100 text-base-content/50">
+        <div v-else class="flex-1 flex items-center justify-center bg-[#1e1e1e] text-[#808080] text-[12px]">
           <span>选择文件查看内容</span>
         </div>
       </template>

@@ -112,6 +112,7 @@ function toggleExpand() {
 </script>
 
 <style scoped>
+/* IDEA 深色主题文件节点 */
 .tree-node {
   user-select: none;
 }
@@ -119,26 +120,41 @@ function toggleExpand() {
 .node-row {
   display: flex;
   align-items: center;
-  height: 24px;
-  padding: 2px 8px 2px 0;
-  border-radius: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 0;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.1s;
+  font-size: 12px;
+  color: #cccccc;
 }
 
 .node-row:hover {
-  background: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  background: #2a2d2e;
 }
 
 .node-row.selected {
-  background: color-mix(in oklab, var(--color-primary) 15%, transparent);
+  background: #094771;
+}
+
+.node-row.selected:hover {
+  background: #0e639c;
 }
 
 .expand-icon {
-  width: 16px;
-  font-size: 10px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: #808080;
   cursor: pointer;
+  margin-right: 2px;
+}
+
+.expand-icon:hover {
+  color: #cccccc;
 }
 
 .expand-icon.placeholder {
@@ -146,20 +162,24 @@ function toggleExpand() {
 }
 
 .file-icon {
-  width: 20px;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 14px;
   margin-right: 4px;
 }
 
 .file-name {
-  font-size: 13px;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 22px;
 }
 
-.node-children {
-  /* 子节点样式 */
+.node-row.selected .file-name {
+  color: #ffffff;
 }
 </style>
