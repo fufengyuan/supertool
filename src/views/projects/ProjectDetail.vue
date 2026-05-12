@@ -1,7 +1,7 @@
 <template>
-  <div v-if="project" class="p-5">
+  <div v-if="project" class="flex flex-col h-full p-5 overflow-hidden">
     <!-- 面包屑导航 -->
-    <div class="flex items-center gap-2 mb-4 text-sm">
+    <div class="flex items-center gap-2 mb-4 text-sm shrink-0">
       <button class="btn btn-ghost btn-xs gap-1 px-2 text-primary font-medium no-underline" @click="goBack" title="返回项目列表">
         <SvgIcon name="chevronLeft" :size="16" />
         项目
@@ -11,7 +11,7 @@
     </div>
 
     <!-- 项目头部 -->
-    <div class="bg-base-100 p-5 rounded-xl mb-4 shadow-sm">
+    <div class="bg-base-100 p-5 rounded-xl mb-4 shadow-sm shrink-0">
       <div class="flex items-start gap-3 mb-4">
         <div class="w-4 h-4 rounded-full shrink-0 mt-1" :style="{ backgroundColor: project.color }"></div>
         <div class="min-w-0 flex-1">
@@ -52,7 +52,7 @@
     </div>
 
     <!-- 标签页切换 -->
-    <div role="tablist" class="tabs tabs-boxed mb-4">
+    <div role="tablist" class="tabs tabs-boxed mb-4 shrink-0">
       <button role="tab" class="tab flex-1" :class="{ 'tab-active': activeTab === 'active' }" @click="activeTab = 'active'">
         <SvgIcon name="file" :size="14" />  进行中 ({{ activeTasks.length }})
       </button>
@@ -65,7 +65,7 @@
     </div>
 
     <!-- 进行中任务 -->
-    <div v-if="activeTab === 'active'">
+    <div v-if="activeTab === 'active'" class="flex-1 min-h-0 overflow-y-auto">
       <ProjectTodoList
         :project="project"
         :tasks="activeTasks"
@@ -79,7 +79,7 @@
     </div>
 
     <!-- 已完成任务 -->
-    <div v-if="activeTab === 'completed'">
+    <div v-if="activeTab === 'completed'" class="flex-1 min-h-0 overflow-y-auto">
       <div v-if="completedTasks.length === 0" class="text-center px-5 py-10 text-base-content/60">
         <span class="text-5xl block mb-3 opacity-50"><SvgIcon name="search" :size="14" /> </span>
         <p class="text-sm m-0 mb-4">暂无已完成任务</p>
@@ -100,8 +100,8 @@
     </div>
 
     <!-- Git 面板 -->
-    <div v-if="activeTab === 'git'">
-      <ProjectGitPanel v-if="hasGitRepos" :project="project" />
+    <div v-if="activeTab === 'git'" class="flex-1 min-h-0 overflow-hidden">
+      <ProjectGitPanel v-if="hasGitRepos" :project="project" class="h-full" />
       <div v-else class="text-center px-5 py-10 text-base-content/60">
         <span class="text-5xl block mb-3 opacity-50">📜</span>
         <p class="text-sm m-0 mb-4">此项目未配置 Git 仓库</p>

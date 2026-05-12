@@ -1,7 +1,7 @@
 <template>
-  <div class="my-4">
+  <div class="flex flex-col h-full">
     <!-- 仓库信息 - 所有仓库都显示 -->
-    <div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 mb-5">
+    <div class="grid grid-cols-[repeat(auto-fit,minmax(250px,1fr))] gap-3 mb-3 shrink-0">
       <div v-if="project.repoPath" class="p-3 bg-base-200 rounded-lg border-l-4 border-primary">
         <div class="flex items-center justify-between mb-1.5">
           <span class="text-xs font-semibold text-base-content"><SvgIcon name="folder" :size="14" class="inline-block align-text-bottom" /> 本地仓库 1</span>
@@ -31,7 +31,7 @@
     </div>
 
     <!-- 提交记录 - 仅支持本地仓库 -->
-    <div class="p-5 bg-base-100 rounded-xl shadow-sm">
+    <div class="flex-1 min-h-0 flex flex-col p-4 bg-base-100 rounded-xl shadow-sm overflow-hidden">
       <div class="flex justify-between items-center mb-4">
         <h3 class="m-0 text-base-content text-lg"><SvgIcon name="gitCommit" :size="18" class="inline-block align-text-bottom" /> 提交记录</h3>
         <div class="flex items-center gap-2">
@@ -54,7 +54,7 @@
         <SvgIcon name="gitCommit" :size="24" class="mx-auto mb-2 opacity-50" />
         <p class="m-0">暂无提交记录</p>
       </div>
-      <div v-else class="max-h-[80vh] overflow-y-auto space-y-2">
+      <div v-else class="flex-1 min-h-0 overflow-y-auto space-y-2">
         <div
           v-for="commit in filteredCommits"
           :key="commit.repo + commit.hash"
@@ -74,13 +74,13 @@
           <div class="text-xs text-primary mb-0.5">{{ commit.author }}</div>
           <div class="text-sm text-base-content">{{ commit.message }}</div>
           <!-- 展开详情 -->
-          <div v-if="expandedCommit === commit.hash + commit.repoKey" class="mt-2 pt-2 border-t border-base-content/10 h-[60vh]">
+          <div v-if="expandedCommit === commit.hash + commit.repoKey" class="mt-2 pt-2 border-t border-base-content/10 min-h-[300px]">
             <div v-if="loadingDetail && !commitDetails[commit.hash + commit.repoKey]" class="text-xs text-base-content/50 py-2 text-center">
               <span class="loading loading-spinner loading-xs mr-1"></span> 加载中...
             </div>
             <SplitDiffViewer
               v-else
-              class="h-full"
+              style="height: 400px"
               :files="commitDetails[commit.hash + commit.repoKey]?.files || null"
               :diff="commitDetails[commit.hash + commit.repoKey]?.diff || null"
               :loading="false"
