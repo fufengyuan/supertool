@@ -34,7 +34,6 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // Log 状态
   const logData = ref<any[]>([])
   const logSearch = ref('')
-  const logBranchFilter = ref('')
   const selectedCommit = ref<any>(null)
   const commitDiff = ref<any>(null)
   const loadingDiff = ref(false)
@@ -758,14 +757,24 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
 
   async function showFileDiff(file: string) {
     if (!repoPath.value) return
+    loadingDiff.value = true
     try {
       const res = await api.gitDiff(repoPath.value, file)
-      // 显示差异，使用现有的 commitDiff 显示机制
-      commitDiff.value = (res as any).diff || ''
-      showGetFilePreviewDialog.value = true
-      getFileContent.value = (res as any).diff || ''
+      // 显示差异，构造完整的 commitDiff 对象
+      commitDiff.value = {
+        hash: '',
+        author: '',
+        authorEmail: '',
+        date: '',
+        message: '',
+        files: [{ path: file, changes: '', status: 'modified' }],
+        diff: (res as any).diff || ''
+      }
     } catch (e: any) {
       toast.error('加载差异失败: ' + e.message)
+      commitDiff.value = null
+    } finally {
+      loadingDiff.value = false
     }
   }
 
@@ -1481,7 +1490,7 @@ async function doGitCleanDryRun() {
     repoPath,
 
     // Log
-    logData, logSearch, logBranchFilter, selectedCommit, commitDiff, loadingDiff,
+    logData, logSearch, selectedCommit, commitDiff, loadingDiff,
     logCount, logTotalEstimate, filteredLog, hasMoreLog,
     logViewMode, logDateFrom, logDateTo, showAuthorFilter, logAuthors, selectedAuthors,
     graphLog, graphLoading, graphHoveredIndex, graphSelectedCommit, BRANCH_COLORS, graphCanvasRef,
