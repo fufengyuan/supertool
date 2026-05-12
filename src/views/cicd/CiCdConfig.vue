@@ -74,9 +74,8 @@
                   @click="selectConfig(cfg.id)"
                 >
                   <div class="flex items-center gap-1.5 mb-1.5">
-                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getGitRepoName(cfg.gitRepoId) }}</span>
-                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ cfg.name }}{{ getGitRepoName(cfg.gitRepoId) }}</span>
-                    <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
+                    <span class="text-sm font-semibold text-base-content flex-1 min-w-0" :title="cfg.name || getGitRepoName(cfg.gitRepoId)">{{ cfg.name || getGitRepoName(cfg.gitRepoId) }}</span>
+                    <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 whitespace-nowrap flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
                     <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><SvgIcon name="lock" :size="12" class="inline-block align-text-bottom" /></span>
                   </div>
                   <div class="flex items-center justify-between mb-1.5">
