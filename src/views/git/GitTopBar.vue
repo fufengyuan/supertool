@@ -167,6 +167,7 @@ defineEmits<{
 <style>
 /* GitTopBar 子组件样式 — 从 GitManager.vue 复制 */
 /* ===================== 下拉菜单 ===================== */
+/* IDEA 风格：紧凑扁平菜单 */
 .dropdown-wrap {
   position: relative;
 }
@@ -177,21 +178,21 @@ defineEmits<{
   right: 0;
   z-index: 1000;
   background: var(--color-base-100);
-  border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  min-width: 200px;
-  padding: 4px 0;
-  margin-top: 4px;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  border-radius: 2px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  min-width: 180px;
+  padding: 2px 0;
+  margin-top: 2px;
 }
 
 .dropdown-menu-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: 6px;
+  padding: 4px 12px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   transition: background 0.1s;
   color: var(--color-base-content);
 }
@@ -202,81 +203,86 @@ defineEmits<{
 
 .dropdown-menu-item svg {
   flex-shrink: 0;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 }
 
 .dropdown-menu-separator {
   height: 1px;
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  margin: 4px 0;
+  background: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  margin: 2px 0;
 }
 
 /* ===================== 顶部工具栏 ===================== */
+/* IDEA 风格：紧凑扁平，无圆角按钮 */
 .git-topbar {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
-  gap: 12px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
-  min-height: 40px;
+  padding: 0 8px;
+  gap: 8px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  background: var(--color-base-200);
+  height: 28px;
   flex-shrink: 0;
 }
 
 .topbar-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 200px;
+  gap: 4px;
+  min-width: 180px;
 }
 
 .back-btn {
   flex-shrink: 0;
-  padding: 4px 6px;
-  border-radius: 4px;
+  padding: 2px 4px;
+  border-radius: 2px;
+  min-height: 22px;
 }
 
 .repo-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  line-height: 1.3;
 }
 
 .repo-name {
-  font-weight: 600;
-  font-size: 14px;
+  font-weight: 500;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .repo-path {
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  font-size: 10px;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 480px;
+  max-width: 300px;
 }
 
 .topbar-center {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   justify-content: center;
 }
 
+/* IDEA 分支选择器风格 */
 .branch-selector {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 2px 8px;
   border: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  border-radius: 4px;
-  background: var(--color-base-200);
+  border-radius: 2px;
+  background: var(--color-base-100);
   cursor: pointer;
-  transition: border-color 0.15s ease;
+  transition: border-color 0.1s;
+  height: 22px;
 }
 
 .branch-selector:hover {
@@ -284,34 +290,36 @@ defineEmits<{
 }
 
 .branch-name {
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-primary);
 }
 
 .dropdown-arrow {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  font-size: 10px;
 }
 
 .ahead-behind {
   display: flex;
-  gap: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
 }
 
 .ahead {
-  color: #f59e0b;
+  color: var(--color-success);
   font-weight: 500;
 }
 
 .behind {
-  color: #3b82f6;
+  color: var(--color-info);
   font-weight: 500;
 }
 
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 /* ===================== 动画 ===================== */
