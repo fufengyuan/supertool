@@ -842,24 +842,21 @@ pub struct FileTreeEntry {
     pub children: Option<Vec<FileTreeEntry>>,
 }
 
-/// Get file tree for a directory (recursive)
+/// Get file tree for a directory (lazy loading, only one level)
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_file_tree(repo_path: String, subdir: Option<String>) -> Result<Vec<FileTreeEntry>, String> {
-    log::info!("[Tauri CMD] get_file_tree() called, repo_path={}", repo_path);
+    log::info!("[Tauri CMD] get_file_tree() called, repo_path={}, subdir={:?}", repo_path, subdir);
     let base_path = if let Some(sub) = subdir {
         Path::new(&repo_path).join(sub)
     } else {
         Path::new(&repo_path).to_path_buf()
     };
     
-    scan_directory_recursive(&base_path, &repo_path, 3)  // Max depth 3 for performance
+    scan_directory_one_level(&base_path, &repo_path)
 }
 
-fn scan_directory_recursive(dir: &Path, base_path: &str, depth: u32) -> Result<Vec<FileTreeEntry>, String> {
-    if depth == 0 {
-        return Ok(Vec::new());
-    }
-    
+/// Scan only one level of directory (for lazy loading)
+fn scan_directory_one_level(dir: &Path, base_path: &str) -> Result<Vec<FileTreeEntry>, String> {
     if !dir.exists() || !dir.is_dir() {
         return Err(format!("目录不存在或不是目录: {}", dir.display()));
     }
@@ -883,11 +880,9 @@ fn scan_directory_recursive(dir: &Path, base_path: &str, depth: u32) -> Result<V
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| path.to_string_lossy().to_string());
         
-        let children = if is_dir && depth > 1 {
-            Some(scan_directory_recursive(&path, base_path, depth - 1)?)
-        } else {
-            None
-        };
+        // For lazy loading: directories have children: None (will be loaded on expand)
+        // Files have children: None
+        let children = None;
         
         entries.push(FileTreeEntry {
             path: relative_path,

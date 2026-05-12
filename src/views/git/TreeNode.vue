@@ -2,7 +2,7 @@
   <div class="tree-node">
     <div
       class="node-row"
-      :class="{ selected: selectedPath === entry.path, expanded: isExpanded }"
+      :class="{ selected: selectedPath === entry.path, expanded: isExpanded, loading: isLoadingChildren }"
       :style="{ paddingLeft: depth * 16 + 8 + 'px' }"
       @click="handleClick"
     >
@@ -12,7 +12,8 @@
         class="expand-icon"
         @click.stop="toggleExpand"
       >
-        {{ isExpanded ? '▼' : '▶' }}
+        <span v-if="isLoadingChildren" class="loading-spinner">⋯</span>
+        <span v-else>{{ isExpanded ? '▼' : '▶' }}</span>
       </span>
       <span v-else class="expand-icon placeholder"></span>
 
@@ -26,13 +27,14 @@
     </div>
 
     <!-- 子节点 -->
-    <div v-if="entry.isDir && isExpanded && entry.children" class="node-children">
+    <div v-if="entry.isDir && isExpanded && hasChildren" class="node-children">
       <TreeNode
-        v-for="child in entry.children"
+        v-for="child in children"
         :key="child.path"
         :entry="child"
         :depth="depth + 1"
         :selected-path="selectedPath"
+        :repo-path="repoPath"
         @select="$emit('select', $event)"
         @expand="$emit('expand', $event)"
       />
@@ -41,7 +43,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, Ref } from 'vue'
+import { computed, inject, Ref, ref, watch } from 'vue'
+import { tauriCall } from '@/utils/tauri-api'
 
 interface FileTreeEntry {
   path: string
@@ -54,6 +57,7 @@ const props = defineProps<{
   entry: FileTreeEntry
   depth: number
   selectedPath: string | null
+  repoPath: string
 }>()
 
 const emit = defineEmits<{
@@ -64,7 +68,22 @@ const emit = defineEmits<{
 // 从父组件获取 expandedPaths (是一个 Ref<Set<string>>)
 const expandedPathsRef = inject<Ref<Set<string>>>('expandedPaths')
 
+// 懒加载的子节点数据
+const children = ref<FileTreeEntry[]>([])
+const isLoadingChildren = ref(false)
+
 const isExpanded = computed(() => expandedPathsRef?.value?.has(props.entry.path) || false)
+
+// 判断是否有子节点（已加载或需要加载）
+const hasChildren = computed(() => {
+  if (props.entry.children && props.entry.children.length > 0) {
+    return true
+  }
+  if (children.value && children.value.length > 0) {
+    return true
+  }
+  return isExpanded.value // 展开状态时可能有子节点（懒加载后）
+})
 
 const iconClass = computed(() => {
   if (props.entry.isDir) return 'directory'
@@ -107,8 +126,44 @@ function handleClick() {
   }
 }
 
-function toggleExpand() {
-  emit('expand', props.entry.path)
+async function toggleExpand() {
+  const expandedPaths = expandedPathsRef?.value
+  if (!expandedPaths) return
+  
+  const path = props.entry.path
+  
+  if (expandedPaths.has(path)) {
+    // 折叠：移除展开状态
+    expandedPaths.delete(path)
+  } else {
+    // 展开：添加展开状态，懒加载子节点
+    expandedPaths.add(path)
+    
+    // 如果 entry.children 为空或未定义，需要懒加载
+    if (!props.entry.children || props.entry.children.length === 0) {
+      if (!children.value || children.value.length === 0) {
+        await loadChildren()
+      }
+    }
+  }
+}
+
+async function loadChildren() {
+  if (!props.entry.isDir || isLoadingChildren.value) return
+  
+  isLoadingChildren.value = true
+  try {
+    const subChildren = await tauriCall<FileTreeEntry[]>('get_file_tree', {
+      repoPath: props.repoPath,
+      subdir: props.entry.path
+    })
+    children.value = subChildren || []
+  } catch (err) {
+    console.error('加载子目录失败:', err)
+    children.value = []
+  } finally {
+    isLoadingChildren.value = false
+  }
 }
 </script>
 
@@ -142,6 +197,10 @@ function toggleExpand() {
   background: color-mix(in oklab, var(--color-primary) 20%, transparent);
 }
 
+.node-row.loading {
+  opacity: 0.7;
+}
+
 .expand-icon {
   width: 14px;
   height: 14px;
@@ -160,6 +219,16 @@ function toggleExpand() {
 
 .expand-icon.placeholder {
   visibility: hidden;
+}
+
+.loading-spinner {
+  font-size: 10px;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .file-icon {

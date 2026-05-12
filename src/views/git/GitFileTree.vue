@@ -18,6 +18,7 @@
         :entry="entry"
         :depth="0"
         :selected-path="selectedPath"
+        :repo-path="repoPath"
         @select="handleSelect"
         @expand="handleExpand"
       />
