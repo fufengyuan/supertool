@@ -87,16 +87,24 @@ const props = defineProps<{
 
 const selectedFileIdx = ref<number | null>(null)
 
-// 从 diff 中解析文件名
+// 从 diff 中解析文件名（需要跳过 commit header）
 const oldFileName = computed(() => {
   if (!props.diff) return ''
-  const match = props.diff.match(/^\-\-\- (.+)/m)
+  // 找到 diff 开始的位置
+  const diffStart = props.diff.indexOf('diff --git')
+  if (diffStart === -1) return '旧文件'
+  const diffPart = props.diff.slice(diffStart)
+  const match = diffPart.match(/^\-\-\- (.+)/m)
   return match ? match[1].replace('a/', '') : '旧文件'
 })
 
 const newFileName = computed(() => {
   if (!props.diff) return ''
-  const match = props.diff.match(/^\+\+\+ (.+)/m)
+  // 找到 diff 开始的位置
+  const diffStart = props.diff.indexOf('diff --git')
+  if (diffStart === -1) return '新文件'
+  const diffPart = props.diff.slice(diffStart)
+  const match = diffPart.match(/^\+\+\+ (.+)/m)
   return match ? match[1].replace('b/', '') : '新文件'
 })
 
@@ -122,7 +130,19 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
   let oldStart = 0
   let newStart = 0
   
-  for (const line of lines) {
+  // 找到 diff 开始的位置（跳过 git show 的 commit header）
+  let diffStartIndex = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('diff --git')) {
+      diffStartIndex = i
+      break
+    }
+  }
+  
+  // 只处理 diff 部分
+  const diffLines = lines.slice(diffStartIndex)
+  
+  for (const line of diffLines) {
     // 解析 @@ -1,10 +1,15 @@ 格式
     if (line.startsWith('@@')) {
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
