@@ -136,15 +136,6 @@
             >
               <SvgIcon name="stopSquare" size="14" /> 终止
             </button>
-            <button
-              v-if="queryMode === 'stream'"
-              @click="toggleFollowMode"
-              :class="['btn btn-sm gap-1 rounded-md transition-all', followMode ? 'btn-primary animate-pulse' : 'btn-ghost border border-base-content/10 text-base-content/60']"
-              :title="followMode ? '关闭跟踪（自由滚动）' : '开启跟踪（始终显示最新日志）'"
-            >
-              <SvgIcon name="crosshair" size="14" />
-              <template v-if="followMode"><SvgIcon name="mapPin" size="14" /> 跟踪中</template><template v-else><SvgIcon name="mapPin" size="14" /> 跟踪</template>
-            </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
           </div>
@@ -182,9 +173,9 @@
           v-if="queryMode === 'stream' && showScrollBottom"
           @click="scrollToBottom"
           class="btn btn-primary btn-sm rounded-full absolute bottom-4 right-4 z-10 shadow-lg animate-pulse hover:scale-105 hover:shadow-xl transition-all"
-          title="点击后进入跟踪模式"
+          title="回到底部"
         >
-          <SvgIcon name="arrowDown" size="14" /> 回到底部并跟踪
+          <SvgIcon name="arrowDown" size="14" /> 回到底部
         </button>
       </div>
     </div>
@@ -285,11 +276,11 @@ const selectedPreset = ref<any | null>(null)
 const logLines = ref<Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; isMatch?: boolean; matched?: boolean; lineNum?: string }>>([])
 const isStreaming = ref(false)
 const followMode = ref(true)
+const userScrolledUp = ref(false)
 const activeServers = ref(new Set<string>())
 const streamId = ref('')
 const logContainer = ref<HTMLElement | null>(null)
 let scrollingFromRAF = false
-let lastScrollTop = 0
 let pendingScroll = false
 
 // 查询模式
@@ -509,9 +500,9 @@ async function selectAndQuery(preset: any) {
     return
   }
 
-  // 点击正在流的预设则停止
+  // 如果已经是当前预设且正在流，不做任何事（只有停止按钮能中断）
   if (selectedPreset.value?.id === preset.id && isStreaming.value) {
-    await stopQuery()
+    scrollToBottom()
     return
   }
 
@@ -544,6 +535,7 @@ async function stopQuery() {
     console.error('Failed to stop stream:', e)
   }
   followMode.value = false
+  userScrolledUp.value = false
 }
 
 // 从预设开始查询
@@ -557,7 +549,7 @@ async function startQueryFromPreset(preset: any) {
   logLines.value = []
   activeServers.value = new Set<string>()
   followMode.value = true
-  lastScrollTop = 0
+  userScrolledUp.value = false
   showScrollBottom.value = false
 
   const command = buildCommand(preset)
@@ -666,7 +658,7 @@ function scheduleFlush() {
     if (logLines.value.length > 2000) {
       logLines.value = logLines.value.slice(-2000)
     }
-    if (followMode.value) {
+    if (followMode.value && !userScrolledUp.value) {
       nextTick(() => {
         requestAnimationFrame(() => {
           scrollToBottomSilent()
@@ -690,7 +682,6 @@ function scrollToBottomSilent() {
   }
   scrollingFromRAF = true
   logContainer.value.scrollTop = logContainer.value.scrollHeight
-  lastScrollTop = logContainer.value.scrollTop
   // 使用微任务延迟重置标志，避免 onScroll 误判
   Promise.resolve().then(() => { scrollingFromRAF = false })
 }
@@ -703,29 +694,16 @@ function onScroll() {
 
   const { scrollTop, scrollHeight, clientHeight } = logContainer.value
   const atBottom = scrollHeight - scrollTop - clientHeight < 50
-  const scrolledUp = scrollTop < lastScrollTop
-  const scrollUpDistance = lastScrollTop - scrollTop
 
-  // 只有用户主动向上滚动超过 150px 才退出跟踪（放宽阈值）
-  if (followMode.value && scrolledUp && scrollUpDistance > 150 && isStreaming.value) {
-    followMode.value = false
-  }
+  // 用户向上滚动超过 100px → 暂定自动追踪，显示回到底部按钮
+  userScrolledUp.value = !atBottom && isStreaming.value
 
-  showScrollBottom.value = !followMode.value && !atBottom && isStreaming.value
-  lastScrollTop = scrollTop
+  showScrollBottom.value = userScrolledUp.value && isStreaming.value
 }
 
 function scrollToBottom() {
   if (logContainer.value) {
-    followMode.value = true
-    scrollToBottomSilent()
-    showScrollBottom.value = false
-  }
-}
-
-function toggleFollowMode() {
-  followMode.value = !followMode.value
-  if (followMode.value) {
+    userScrolledUp.value = false
     scrollToBottomSilent()
     showScrollBottom.value = false
   }
