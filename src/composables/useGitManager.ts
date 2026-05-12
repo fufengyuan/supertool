@@ -62,6 +62,11 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // Stash 状态
   const showStashPanel = ref(false)
   const stashList = ref<any[]>([])
+  
+  // Diff Preview 状态（提交面板文件预览）
+  const previewDiff = ref<string | null>(null)
+  const selectedPreviewFile = ref<string | null>(null)
+  const loadingPreview = ref(false)
   const selectedStash = ref<any>(null)
   const showStashSaveDialog = ref(false)
   const stashSaveMessage = ref('')
@@ -762,6 +767,27 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     } catch (e: any) {
       toast.error('加载差异失败: ' + e.message)
     }
+  }
+
+  async function previewCommitFile(file: string) {
+    if (!repoPath.value) return
+    loadingPreview.value = true
+    selectedPreviewFile.value = file
+    try {
+      const res = await api.gitDiff(repoPath.value, file)
+      previewDiff.value = (res as any).diff || ''
+    } catch (e: any) {
+      toast.error('加载预览失败: ' + e.message)
+      previewDiff.value = null
+      selectedPreviewFile.value = null
+    } finally {
+      loadingPreview.value = false
+    }
+  }
+
+  function clearPreview() {
+    previewDiff.value = null
+    selectedPreviewFile.value = null
   }
 
   async function doAddFile(file: string) {
@@ -1485,6 +1511,7 @@ async function doGitCleanDryRun() {
 
     // File
     toggleGroup, toggleFileSelect, selectAllFiles, doDiscardChanges,
+    previewDiff, selectedPreviewFile, loadingPreview, previewCommitFile, clearPreview,
 
     // Stash
     showStashPanel, stashList, selectedStash, stashShowContent,

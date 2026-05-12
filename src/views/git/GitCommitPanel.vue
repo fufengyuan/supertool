@@ -27,8 +27,9 @@
             v-for="file in statusData.modified"
             :key="'M:' + file"
             class="file-item"
-            :class="{ selected: selectedFiles.has(file) }"
+            :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
             @click="toggleFileSelect(file)"
+            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'modified')"
           >
             <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
@@ -51,8 +52,9 @@
             v-for="file in statusData.added"
             :key="'A:' + file"
             class="file-item"
-            :class="{ selected: selectedFiles.has(file) }"
+            :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
             @click="toggleFileSelect(file)"
+            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'added')"
           >
             <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
@@ -75,8 +77,9 @@
             v-for="file in statusData.deleted"
             :key="'D:' + file"
             class="file-item"
-            :class="{ selected: selectedFiles.has(file) }"
+            :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
             @click="toggleFileSelect(file)"
+            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'deleted')"
           >
             <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
@@ -99,8 +102,9 @@
             v-for="file in statusData.untracked"
             :key="'U:' + file"
             class="file-item"
-            :class="{ selected: selectedFiles.has(file) }"
+            :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
             @click="toggleFileSelect(file)"
+            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'untracked')"
           >
             <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
@@ -123,8 +127,9 @@
             v-for="file in statusData.conflicted"
             :key="'C:' + file"
             class="file-item conflicted-item"
-            :class="{ selected: selectedFiles.has(file) }"
+            :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
             @click="toggleFileSelect(file)"
+            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'conflicted')"
           >
             <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
@@ -132,6 +137,19 @@
             <span class="file-name" :title="file">{{ file }}</span>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- Diff 预览区域 -->
+    <div v-if="previewDiff" class="diff-preview-area">
+      <div class="diff-preview-header">
+        <span class="preview-title">{{ selectedPreviewFile }}</span>
+        <button class="btn btn-ghost btn-xs" @click="$emit('clear-preview')" title="关闭预览">
+          <SvgIcon name="x" size="12" />
+        </button>
+      </div>
+      <div class="diff-preview-content">
+        <DiffViewer :files="null" :diff="previewDiff" :loading="loadingPreview" />
       </div>
     </div>
 
@@ -185,6 +203,8 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import DiffViewer from '@/components/ui/DiffViewer.vue'
+
 defineProps<{
   statusData: any | null
   loading: boolean
@@ -195,6 +215,9 @@ defineProps<{
   totalChanges: number
   commitSignOff: boolean
   commitNoVerify: boolean
+  previewDiff: string | null
+  selectedPreviewFile: string | null
+  loadingPreview: boolean
 }>()
 
 const emit = defineEmits<{
@@ -206,10 +229,16 @@ const emit = defineEmits<{
   'select-all-files': []
   'commit': [push: boolean]
   'file-context-menu': [payload: { event: MouseEvent; file: string; type: string }]
+  'preview-file': [file: string]
+  'clear-preview': []
 }>()
 
 function toggleFileSelect(file: string) {
   emit('toggle-file-select', file)
+}
+
+function previewFile(file: string) {
+  emit('preview-file', file)
 }
 
 function showFileContextMenu(event: MouseEvent, file: string, type: string) {
@@ -436,6 +465,44 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 
 .empty-files p {
   font-size: 13px;
+}
+
+/* ===================== Diff 预览区域 ===================== */
+.diff-preview-area {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-100);
+  max-height: 200px;
+  flex-shrink: 0;
+}
+
+.diff-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: var(--color-base-200);
+}
+
+.preview-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-base-content);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-preview-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.file-item.previewing {
+  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
 }
 
 /* ===================== 提交区域 ===================== */
