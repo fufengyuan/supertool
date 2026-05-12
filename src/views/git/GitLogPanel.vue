@@ -215,7 +215,7 @@
         </div>
       </div>
       <div class="border-t border-base-content/10 p-2">
-        <DiffViewer
+        <SplitDiffViewer
           :files="commitDiff?.files || null"
           :diff="commitDiff?.diff || null"
           :loading="loadingDiff"
@@ -227,7 +227,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import DiffViewer from '@/components/ui/DiffViewer.vue'
+import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 import { ref } from 'vue'
 
 defineProps<{
