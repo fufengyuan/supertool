@@ -15,7 +15,15 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // 核心状态
   const loading = ref(false)
   const currentBranch = ref('')
-  const statusData = ref<{ files: any[] } | null>(null)
+  const statusData = ref<{
+    modified: string[]
+    added: string[]
+    deleted: string[]
+    untracked: string[]
+    conflicted: string[]
+    ahead: number
+    behind: number
+  } | null>(null)
   const selectedFiles = ref(new Set<string>())
   const collapsedGroups = ref(new Set<string>())
   const commitMessage = ref('')
@@ -216,8 +224,25 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     loading.value = true
     try {
       const res = await api.gitStatus(repoPath.value)
-      statusData.value = res as { files: any[] }
-      totalChanges.value = (res as any).files?.length || 0
+      const files = (res as any).files || []
+      // 转换数据结构：后端返回 { files: [{path, type}] }，前端需要 { modified: [], added: [], ... }
+      const grouped: any = {
+        modified: [],
+        added: [],
+        deleted: [],
+        untracked: [],
+        conflicted: [],
+        ahead: 0,
+        behind: 0
+      }
+      for (const f of files) {
+        const type = f.type || 'untracked'
+        if (grouped[type]) {
+          grouped[type].push(f.path)
+        }
+      }
+      statusData.value = grouped
+      totalChanges.value = files.length
     } catch (e: any) {
       toast.error('加载状态失败: ' + e.message)
     } finally {
@@ -321,8 +346,15 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   function selectAllFiles() {
-    const files = statusData.value?.files || []
-    files.forEach(f => selectedFiles.value.add(f.path))
+    if (!statusData.value) return
+    const allFiles = [
+      ...statusData.value.modified,
+      ...statusData.value.added,
+      ...statusData.value.deleted,
+      ...statusData.value.untracked,
+      ...statusData.value.conflicted
+    ]
+    allFiles.forEach(f => selectedFiles.value.add(f))
   }
 
   async function doCommit(noVerify: boolean = false) {
@@ -998,6 +1030,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     showSubmodulesDialog, submodulesList, smLoading,
     openSubmodulesDialog, loadSubmodules, doSubmoduleInit, doSubmoduleUpdate,
     doSubmoduleInitAll, doSubmoduleUpdateAll, openSubmodulePath,
+    contextMenu, logContextMenu,
     showFileContextMenu, showLogContextMenu, closeContextMenu,
     contextMenuAction, logContextAction, addToGitignore,
     toggleAuthor, toggleLogCommitSelect, toggleSelectAllLogCommits, getCommitMessage,
