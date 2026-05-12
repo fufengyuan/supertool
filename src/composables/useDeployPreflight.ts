@@ -20,7 +20,6 @@ interface CicdConfig {
   npmHome?: string;
   servers?: string;
   deployPath?: string;
-  projectId?: string;
   [key: string]: unknown;
 }
 

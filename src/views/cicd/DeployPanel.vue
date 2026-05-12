@@ -521,9 +521,8 @@ function toggleDeployGroup(groupName: string) {
   expandedDeployGroups.value = set;
 }
 
-function getProjectName(projectId: string) {
-  const proj = projects.value.find(p => p.id === projectId);
-  return proj ? proj.name : (config.value ? getGitRepoName(config.value.gitRepoId) : 'Project ' + projectId);
+function getProjectName(_projectId: string) {
+  return config.value ? getGitRepoName(config.value.gitRepoId) : 'Project ?';
 }
 
 function getGitRepoName(id?: string) {
@@ -929,19 +928,17 @@ function closeFullLog() {
 }
 
 async function refreshLogs() {
-    console.log("[closeFullLog] called")
-  if (config.value?.projectId) {
     console.log("[refreshLogs] called")
+  if (config.value?.id) {
     const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
     const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
-    const proj = projects.value.find(p => p.id === config.value?.projectId);
     const configMap = new Map<string, CicdConfigEntry>()
     for (const c of configs.value) configMap.set(c.id, c)
     logs.value = rawLogs.map(log => {
       const logConfig = configMap.get(log.configId)
       return {
         ...log,
-        projectName: proj?.name || '',
+        projectName: config.value ? getGitRepoName(config.value.gitRepoId) : '',
         projectCategory: proj?.category || '',
         configName: logConfig ? String(logConfig.name || '') : String(config.value?.name || ''),
         configGroupName: logConfig ? String(logConfig.groupName || '') : '',

@@ -359,7 +359,7 @@ export function useCicdConfig() {
     const repo = gitRepos.value.find((r: any) => r.id === id);
     return repo ? repo.name : '';
   }
-  function getProjectName(projectId?: string) { if (!projectId) return getGitRepoName(config.value?.gitRepoId) || '项目 ?'; const proj = projects.value.find(p => p.id === projectId); return proj ? proj.name : '项目 ' + projectId; }
+  function getProjectName(_projectId?: string) { return getGitRepoName(config.value?.gitRepoId) || '项目 ?'; }
   function getToolBadge(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || ''; }
   function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || '🛠️'; }
   function getBuildToolName(tool?: string) { const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle' }; return names[tool || ''] || ''; }
