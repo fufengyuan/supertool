@@ -1,8 +1,24 @@
 <template>
-  <div class="flex flex-col h-full min-h-0 max-w-full overflow-hidden">
-    <div class="flex items-center justify-between px-5 py-3 border-b border-base-content/10 min-h-0 gap-3">
-      <h2 class="text-base font-semibold text-base-content m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"><SvgIcon name="database" size="14" />  数据库管理</h2>
-      <div class="flex gap-2 shrink-0" v-if="db.activeConnection.value">
+  <div class="flex flex-col h-full min-h-0 max-w-full overflow-hidden bg-base-200">
+    <!-- Header bar -->
+    <div class="flex items-center justify-between px-5 py-2.5 bg-base-100 border-b border-base-content/10 gap-3">
+      <div class="flex items-center gap-3 min-w-0">
+        <h2 class="text-sm font-semibold text-base-content m-0 whitespace-nowrap flex items-center gap-2">
+          <span class="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+            <SvgIcon name="database" size="14" />
+          </span>
+          <span>数据库</span>
+        </h2>
+        <span v-if="db.activeConnection.value" class="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium"
+          :class="db.activeConnection.value.type === 'redis' ? 'bg-red-500/10 text-red-500' : 'bg-primary/10 text-primary'">
+          <span class="w-1.5 h-1.5 rounded-full"
+            :class="db.activeConnection.value.type === 'redis' ? 'bg-red-500' : 'bg-primary'"></span>
+          {{ db.activeConnection.value.name }}
+          <span class="text-base-content/40">·</span>
+          <span class="text-base-content/40 uppercase text-[10px]">{{ db.activeConnection.value.type }}</span>
+        </span>
+      </div>
+      <div class="flex gap-1.5 shrink-0" v-if="db.activeConnection.value">
         <template v-if="db.activeConnection.value.type === 'redis'">
           <button
             @click="openRedisManager"
@@ -14,35 +30,37 @@
           </button>
         </template>
         <template v-else>
-          <button
-            @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
-            class="btn btn-ghost btn-sm"
-            title="新建查询"
-          >
-            <SvgIcon name="file" size="14" />
-            新建查询
-          </button>
-          <button
-            @click="db.openStructureSyncTab()"
-            class="btn btn-ghost btn-sm"
-            title="结构同步"
-          >
-            <SvgIcon name="tool" size="14" />  结构同步
-          </button>
-          <button
-            @click="db.openDataSyncTab()"
-            class="btn btn-ghost btn-sm"
-            title="数据同步"
-          >
-            <SvgIcon name="package" size="14" />  数据同步
-          </button>
-          <button
-            @click="openBackupTab"
-            class="btn btn-ghost btn-sm"
-            title="数据库备份"
-          >
-            <SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 数据库备份
-          </button>
+          <div class="flex gap-1 p-0.5 bg-base-200 rounded-lg">
+            <button
+              @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
+              class="btn btn-ghost btn-sm rounded-md"
+              title="新建查询"
+            >
+              <SvgIcon name="pencil" size="14" />
+              新建查询
+            </button>
+            <button
+              @click="db.openStructureSyncTab()"
+              class="btn btn-ghost btn-sm rounded-md"
+              title="结构同步"
+            >
+              <SvgIcon name="tool" size="14" />  结构同步
+            </button>
+            <button
+              @click="db.openDataSyncTab()"
+              class="btn btn-ghost btn-sm rounded-md"
+              title="数据同步"
+            >
+              <SvgIcon name="package" size="14" />  数据同步
+            </button>
+            <button
+              @click="openBackupTab"
+              class="btn btn-ghost btn-sm rounded-md"
+              title="数据库备份"
+            >
+              <SvgIcon name="folder" size="14" />  备份
+            </button>
+          </div>
         </template>
       </div>
     </div>
@@ -50,9 +68,15 @@
     <div class="flex flex-1 overflow-hidden min-w-0">
       <!-- Left sidebar: Connection tree -->
       <aside class="w-64 min-w-[200px] max-w-[400px] border-r border-base-content/10 bg-base-100 flex flex-col overflow-hidden">
-        <div class="flex items-center justify-between px-3 py-[10px] text-xs font-semibold text-base-content/60 border-b border-base-content/10">
-          <span>连接</span>
-          <button @click="db.openAddForm()" class="btn btn-primary btn-sm" title="添加连接">+</button>
+        <div class="flex items-center justify-between px-3 py-2.5 border-b border-base-content/10">
+          <div class="flex items-center gap-2 text-xs font-semibold text-base-content/70">
+            <SvgIcon name="server" size="14" class="text-base-content/40" />
+            <span>连接</span>
+            <span class="text-[10px] font-normal text-base-content/30 bg-base-200 px-1.5 py-0.5 rounded-full">{{ db.sortedConnections.value.length }}</span>
+          </div>
+          <button @click="db.openAddForm()" class="w-6 h-6 flex items-center justify-center rounded-md bg-primary/10 text-primary hover:bg-primary/20 transition-colors cursor-pointer border-0" title="添加连接">
+            <SvgIcon name="plus" size="12" />
+          </button>
         </div>
         <ConnectionTree
           ref="treeRef"
@@ -90,66 +114,85 @@
       <!-- Main area -->
       <main class="flex-1 flex flex-col overflow-hidden min-w-0">
         <!-- No connection selected -->
-        <div v-if="!db.activeConnection.value" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
-          <SvgIcon name="database" size="48" stroke-width="1.5" class="opacity-30" />
-          <p class="text-base font-semibold text-base-content m-0">选择或添加数据库连接</p>
-          <p class="text-xs m-0">从左侧选择已有连接，或添加新的数据库连接</p>
-          <button @click="db.openAddForm()" class="btn btn-primary">添加连接</button>
+        <div v-if="!db.activeConnection.value" class="flex-1 flex items-center justify-center p-8">
+          <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
+            <div class="w-16 h-16 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
+              <SvgIcon name="database" size="28" stroke-width="1.5" class="text-base-content/30" />
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-base-content m-0 mb-1">选择或添加数据库连接</p>
+              <p class="text-xs text-base-content/50 m-0">从左侧选择一个已保存的连接，或添加一个新的数据库连接开始工作</p>
+            </div>
+            <button @click="db.openAddForm()" class="btn btn-primary btn-sm">
+              <SvgIcon name="plus" size="14" /> 添加连接
+            </button>
+          </div>
         </div>
 
         <!-- No tabs open -->
-        <div v-else-if="db.tabs.value.length === 0" class="flex flex-col items-center justify-center gap-3 px-6 py-12 text-base-content/60 text-center">
+        <div v-else-if="db.tabs.value.length === 0" class="flex-1 flex items-center justify-center p-8">
           <template v-if="db.activeConnection.value?.type === 'redis'">
-            <SvgIcon name="key" size="48" stroke-width="1.5" class="opacity-30" />
-            <p class="text-base font-semibold text-base-content m-0">Redis 连接已就绪</p>
-            <p class="text-xs m-0">浏览和管理 Redis 键值数据</p>
-            <button
-              @click="openRedisManager"
-              class="btn btn-primary"
-            >
-              <SvgIcon name="key" size="14" />  打开 Redis 管理器
-            </button>
+            <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
+              <div class="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+                <SvgIcon name="key" size="28" stroke-width="1.5" class="text-red-500/50" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-base-content m-0 mb-1">Redis 连接已就绪</p>
+                <p class="text-xs text-base-content/50 m-0">浏览和管理 Redis 键值数据</p>
+              </div>
+              <button @click="openRedisManager" class="btn btn-primary btn-sm">
+                <SvgIcon name="key" size="14" /> 打开 Redis 管理器
+              </button>
+            </div>
           </template>
           <template v-else>
-            <SvgIcon name="file" size="48" stroke-width="1.5" class="opacity-30" />
-            <p class="text-base font-semibold text-base-content m-0">打开一个工作区</p>
-            <p class="text-xs m-0">从左侧树中选择一个表，或点击&quot;新建查询&quot;开始</p>
-            <button
-              @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
-              class="btn btn-primary"
-            >
-              新建查询
-            </button>
+            <div class="flex flex-col items-center gap-4 max-w-[300px] text-center">
+              <div class="w-16 h-16 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
+                <SvgIcon name="file" size="28" stroke-width="1.5" class="text-base-content/30" />
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-base-content m-0 mb-1">打开一个工作区</p>
+                <p class="text-xs text-base-content/50 m-0">从左侧树中选择一个表，或点击"新建查询"开始</p>
+              </div>
+              <button
+                @click="db.openSqlTab(db.activeConnection.value.id, db.activeConnection.value.name)"
+                class="btn btn-primary btn-sm"
+              >
+                <SvgIcon name="pencil" size="14" /> 新建查询
+              </button>
+            </div>
           </template>
         </div>
 
         <!-- Tabbed workspace -->
         <template v-else>
           <!-- Tab bar -->
-          <div class="flex items-end gap-px px-2 bg-base-200 border-b border-base-content/10 overflow-x-auto min-h-[34px]">
+          <div class="flex items-end px-2 bg-base-100 border-b border-base-content/10 overflow-x-auto">
             <div
               v-for="(tab, idx) in db.tabs.value"
               :key="tab.id"
-              class="flex items-center gap-1.5 px-3 py-[6px] min-w-[100px] max-w-[200px] rounded-t-lg cursor-pointer text-xs text-base-content/60 bg-transparent border border-transparent border-b-0 transition-all duration-100 select-none group"
-              :class="[db.activeTabIndex.value === idx ? 'bg-base-200 text-base-content border-base-content/10 font-medium' : '']"
+              class="group flex items-center gap-1.5 px-3 py-1.5 min-w-[100px] max-w-[200px] cursor-pointer text-xs select-none border-b-2 transition-all duration-100"
+              :class="[db.activeTabIndex.value === idx
+                ? 'border-primary text-base-content bg-base-200'
+                : 'border-transparent text-base-content/50 hover:text-base-content/80 hover:border-base-content/20 bg-transparent']"
               @click="db.setActiveTab(idx)"
             >
-              <span class="text-xs shrink-0">
+              <span class="shrink-0 leading-none">
                 <template v-if="['🏗️','🔴','🗂️'].includes(getTabIcon(tab))">{{ getTabIcon(tab) }}</template>
-                <SvgIcon v-else :name="getTabIcon(tab)" size="14" />
+                <SvgIcon v-else :name="getTabIcon(tab)" size="13" />
               </span>
               <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="tab.title">{{ tab.title }}</span>
-              <button class="flex items-center justify-center w-4 h-4 border-0 bg-transparent rounded-sm cursor-pointer text-base-content/60 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-primary/10 hover:text-primary transition-all duration-100" @click.stop="db.closeTab(tab.id)" title="关闭">
+              <button class="flex items-center justify-center w-4 h-4 border-0 bg-transparent rounded-sm cursor-pointer text-base-content/30 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-primary transition-all duration-100" @click.stop="db.closeTab(tab.id)" title="关闭">
                 <SvgIcon name="x" size="10" stroke-width="2.5" />
               </button>
             </div>
           </div>
 
           <!-- Active tab content -->
-          <div class="flex-1 overflow-hidden flex flex-col bg-base-200 min-w-0">
+          <div class="flex-1 overflow-hidden flex flex-col min-w-0 bg-base-200">
             <!-- SQL Query tab -->
             <template v-if="activeTab?.type === 'sql'">
-              <div class="flex flex-col h-full p-4 gap-3 overflow-hidden">
+              <div class="flex flex-col h-full gap-0 overflow-hidden">
                 <SqlEditor
                   ref="sqlEditorRef"
                   :connection="getTabConnection(activeTab)"
@@ -187,23 +230,27 @@
 
             <!-- Table Data tab -->
             <template v-else-if="activeTab?.type === 'tableData'">
-              <div class="flex flex-col h-full p-4 gap-3 overflow-hidden max-w-full box-border">
-                <div class="flex items-center justify-between pb-2 border-b border-base-content/10">
-                  <span class="text-sm font-semibold text-base-content">
-                    <SvgIcon name="barChart" size="14" />  {{ activeTab.tableName }}
-                    <span class="text-xs font-normal text-base-content/60 ml-2">- {{ activeTab.connectionName }}</span>
-                  </span>
-                  <div class="flex gap-2 shrink-0">
-                    <button
-                      @click="loadTableData"
-                      class="btn btn-ghost btn-sm"
-                      :disabled="tableLoading"
-                    >
-                      <SvgIcon name="refresh" size="14" />  刷新
-                    </button>
+              <div class="flex flex-col h-full overflow-hidden">
+                <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-6 h-6 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <SvgIcon name="barChart" size="12" />
+                    </span>
+                    <span class="text-sm font-semibold text-base-content truncate">{{ activeTab.tableName }}</span>
+                    <span class="text-xs text-base-content/40">·</span>
+                    <span class="text-xs text-base-content/50 truncate">{{ activeTab.connectionName }}</span>
                   </div>
+                  <button
+                    @click="loadTableData"
+                    class="btn btn-ghost btn-sm"
+                    :disabled="tableLoading"
+                  >
+                    <SvgIcon name="refresh" size="14" />  刷新
+                  </button>
                 </div>
-                <div v-if="tableLoading" class="flex items-center justify-center p-6 text-base-content/60">加载中...</div>
+                <div v-if="tableLoading" class="flex items-center justify-center p-8 text-base-content/50 text-sm">
+                  <span class="loading loading-spinner loading-sm mr-2"></span>加载中...
+                </div>
                 <DataGrid
                   v-else
                   :rows="resultRows"
@@ -241,14 +288,16 @@
             <!-- Redis Console tab -->
             <template v-else-if="activeTab?.type === 'redisConsole'">
               <div class="flex flex-col h-full overflow-hidden">
-                <div class="flex items-center justify-between pb-2 border-b border-base-content/10">
-                  <span class="text-sm font-semibold text-base-content">
-                    🔴 Redis 控制台
-                    <span class="text-xs font-normal text-base-content/60 ml-2">- {{ activeTab.connectionName }}</span>
+                <div class="flex items-center gap-2 px-4 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
+                  <span class="w-6 h-6 rounded-md bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                    <SvgIcon name="key" size="12" />
                   </span>
+                  <span class="text-sm font-semibold text-base-content">Redis 控制台</span>
+                  <span class="text-xs text-base-content/40">·</span>
+                  <span class="text-xs text-base-content/50 truncate">{{ activeTab.connectionName }}</span>
                 </div>
                 <div class="flex-1 flex flex-col p-4 gap-2 overflow-hidden">
-                  <div class="flex-1 overflow-y-auto p-3 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs leading-relaxed" ref="redisOutputRef">
+                  <div class="flex-1 overflow-y-auto p-3 bg-base-100 border border-base-content/10 rounded-lg font-mono text-xs leading-relaxed" ref="redisOutputRef">
                     <div v-for="(msg, idx) in redisMessages" :key="idx" class="py-0.5" :class="{'text-primary': msg.type === 'input', 'text-base-content': msg.type === 'output', 'text-error': msg.type === 'error'}">
                       <span class="font-semibold">{{ msg.prefix }}</span>
                       <span class="break-all">{{ msg.content }}</span>
