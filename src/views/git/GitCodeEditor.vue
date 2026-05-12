@@ -19,20 +19,15 @@
       </div>
     </div>
 
-    <!-- 编辑器 - 语法高亮 overlay -->
+    <!-- CodeMirror 编辑器 -->
     <div class="editor-content">
-      <!-- 高亮背景层 -->
-      <pre class="code-highlight" aria-hidden="true"><code ref="highlightCode" v-html="highlightedHtml"></code></pre>
-      <!-- 编辑 textarea -->
-      <textarea
+      <codemirror
         v-if="!loading"
-        ref="editorRef"
         v-model="content"
-        class="code-textarea"
-        :class="{ modified: isModified }"
-        spellcheck="false"
-        @scroll="syncScroll"
-        @input="updateHighlight"
+        :style="editorStyle"
+        :extensions="extensions"
+        :autofocus="true"
+        @change="handleChange"
       />
       <div v-else class="editor-loading">
         <span>加载文件...</span>
@@ -49,42 +44,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue'
+import { ref, computed, watch, shallowRef, onMounted } from 'vue'
+import { Codemirror } from 'vue-codemirror'
+import { javascript } from '@codemirror/lang-javascript'
+import { python } from '@codemirror/lang-python'
+import { rust } from '@codemirror/lang-rust'
+import { java } from '@codemirror/lang-java'
+import { json } from '@codemirror/lang-json'
+import { yaml } from '@codemirror/lang-yaml'
+import { sql } from '@codemirror/lang-sql'
+import { html } from '@codemirror/lang-html'
+import { css } from '@codemirror/lang-css'
+import { markdown } from '@codemirror/lang-markdown'
+import { vue } from '@codemirror/lang-vue'
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter } from '@codemirror/view'
+import { EditorState, Prec } from '@codemirror/state'
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+import { syntaxHighlighting, defaultHighlightStyle, bracketMatching, indentOnInput } from '@codemirror/language'
+import { oneDark } from '@codemirror/theme-one-dark'
 import { tauriCall } from '@/utils/tauri-api'
-import hljs from 'highlight.js/lib/core'
-
-// 注册常用语言
-import typescript from 'highlight.js/lib/languages/typescript'
-import javascript from 'highlight.js/lib/languages/javascript'
-import python from 'highlight.js/lib/languages/python'
-import rust from 'highlight.js/lib/languages/rust'
-import java from 'highlight.js/lib/languages/java'
-import go from 'highlight.js/lib/languages/go'
-import json from 'highlight.js/lib/languages/json'
-import yaml from 'highlight.js/lib/languages/yaml'
-import bash from 'highlight.js/lib/languages/bash'
-import sql from 'highlight.js/lib/languages/sql'
-import xml from 'highlight.js/lib/languages/xml'
-import css from 'highlight.js/lib/languages/css'
-import scss from 'highlight.js/lib/languages/scss'
-import markdown from 'highlight.js/lib/languages/markdown'
-
-hljs.registerLanguage('typescript', typescript)
-hljs.registerLanguage('javascript', javascript)
-hljs.registerLanguage('python', python)
-hljs.registerLanguage('rust', rust)
-hljs.registerLanguage('java', java)
-hljs.registerLanguage('go', go)
-hljs.registerLanguage('json', json)
-hljs.registerLanguage('yaml', yaml)
-hljs.registerLanguage('bash', bash)
-hljs.registerLanguage('sql', sql)
-hljs.registerLanguage('xml', xml)
-hljs.registerLanguage('html', xml) // HTML 使用 xml 解析器
-hljs.registerLanguage('css', css)
-hljs.registerLanguage('scss', scss)
-hljs.registerLanguage('markdown', markdown)
-hljs.registerLanguage('vue', xml) // Vue SFC 使用 xml 解析器作为基础
 
 const props = defineProps<{
   repoPath: string
@@ -100,9 +78,6 @@ const content = ref('')
 const originalContent = ref('')
 const loading = ref(false)
 const saving = ref(false)
-const editorRef = ref<HTMLTextAreaElement | null>(null)
-const highlightCode = ref<HTMLElement | null>(null)
-const highlightedHtml = ref('')
 
 const isModified = computed(() => content.value !== originalContent.value)
 
@@ -110,7 +85,7 @@ const lineCount = computed(() => {
   return content.value.split('\n').length
 })
 
-// 文件扩展名到 highlight.js 语言映射
+// 文件扩展名到语言映射
 const extToLang: Record<string, string> = {
   'ts': 'typescript',
   'tsx': 'typescript',
@@ -123,9 +98,9 @@ const extToLang: Record<string, string> = {
   'xml': 'xml',
   'svg': 'xml',
   'css': 'css',
-  'scss': 'scss',
-  'sass': 'scss',
-  'less': 'scss',
+  'scss': 'css',
+  'sass': 'css',
+  'less': 'css',
   'json': 'json',
   'json5': 'json',
   'md': 'markdown',
@@ -137,7 +112,7 @@ const extToLang: Record<string, string> = {
   'go': 'go',
   'yaml': 'yaml',
   'yml': 'yaml',
-  'toml': 'yaml', // TOML 类似 YAML 语法
+  'toml': 'yaml',
   'sh': 'bash',
   'bash': 'bash',
   'zsh': 'bash',
@@ -145,12 +120,6 @@ const extToLang: Record<string, string> = {
   'txt': 'plaintext',
   'cfg': 'plaintext',
   'ini': 'plaintext',
-  'env': 'bash',
-  'gitignore': 'bash',
-  'dockerfile': 'bash',
-  'makefile': 'bash',
-  'gradle': 'bash',
-  'properties': 'bash',
 }
 
 // 显示语言名映射
@@ -161,15 +130,12 @@ const langDisplayName: Record<string, string> = {
   'html': 'HTML',
   'xml': 'XML',
   'css': 'CSS',
-  'scss': 'SCSS',
   'json': 'JSON',
   'markdown': 'Markdown',
   'rust': 'Rust',
   'python': 'Python',
   'java': 'Java',
-  'go': 'Go',
   'yaml': 'YAML',
-  'bash': 'Shell',
   'sql': 'SQL',
   'plaintext': 'Plain Text',
 }
@@ -180,55 +146,74 @@ const detectedLanguage = computed(() => {
   return langDisplayName[lang] || lang
 })
 
-// 获取 highlight.js 语言名
-const hljsLanguage = computed(() => {
+// 编辑器样式
+const editorStyle = {
+  height: '100%',
+  fontSize: '14px',
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace",
+}
+
+// 动态获取语言扩展
+function getLanguageExtension(lang: string) {
+  switch (lang) {
+    case 'typescript':
+      return javascript({ typescript: true })
+    case 'javascript':
+      return javascript()
+    case 'vue':
+      return vue()
+    case 'html':
+      return html()
+    case 'css':
+      return css()
+    case 'json':
+      return json()
+    case 'markdown':
+      return markdown()
+    case 'rust':
+      return rust()
+    case 'python':
+      return python()
+    case 'java':
+      return java()
+    case 'yaml':
+      return yaml()
+    case 'sql':
+      return sql()
+    default:
+      return []
+  }
+}
+
+// CodeMirror 扩展配置
+const extensions = computed(() => {
   const ext = props.filePath.split('.').pop()?.toLowerCase() || ''
-  return extToLang[ext] || 'plaintext'
+  const lang = extToLang[ext] || 'plaintext'
+  
+  const baseExtensions = [
+    lineNumbers(),
+    highlightActiveLine(),
+    highlightActiveLineGutter(),
+    history(),
+    bracketMatching(),
+    indentOnInput(),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+    oneDark, // 使用 oneDark 主题，类似 IDEA 深色主题
+    EditorView.lineWrapping, // 支持长行换行
+  ]
+  
+  const langExtension = getLanguageExtension(lang)
+  if (langExtension) {
+    baseExtensions.push(langExtension)
+  }
+  
+  return baseExtensions
 })
 
-// 语法高亮更新
-function updateHighlight() {
-  if (!content.value) {
-    highlightedHtml.value = ''
-    return
-  }
-  
-  // 大文件不做高亮（超过 50KB）
-  if (content.value.length > 50000) {
-    highlightedHtml.value = escapeHtml(content.value)
-    return
-  }
-  
-  try {
-    const lang = hljsLanguage.value
-    if (lang === 'plaintext') {
-      // plaintext 不做高亮，直接显示
-      highlightedHtml.value = escapeHtml(content.value)
-    } else {
-      const result = hljs.highlight(content.value, { language: lang, ignoreIllegals: true })
-      highlightedHtml.value = result.value
-    }
-  } catch {
-    highlightedHtml.value = escapeHtml(content.value)
-  }
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
-
-// 同步滚动
-function syncScroll() {
-  const pre = highlightCode.value?.parentElement
-  const ta = editorRef.value
-  if (pre && ta) {
-    pre.scrollTop = ta.scrollTop
-    pre.scrollLeft = ta.scrollLeft
-  }
+// 内容变化处理
+function handleChange(value: string) {
+  content.value = value
 }
 
 // 加载文件内容
@@ -239,17 +224,10 @@ async function loadFile() {
     const fileContent = await tauriCall<string>('read_file_content', { repoPath: props.repoPath, filePath: props.filePath })
     content.value = fileContent
     originalContent.value = fileContent
-    // 设置滚动到顶部
-    await nextTick()
-    if (editorRef.value) {
-      editorRef.value.scrollTop = 0
-    }
-    updateHighlight()
   } catch (err) {
     console.error('加载文件失败:', err)
     content.value = `// 加载文件失败: ${err}`
     originalContent.value = ''
-    updateHighlight()
   } finally {
     loading.value = false
   }
@@ -278,7 +256,7 @@ onMounted(loadFile)
 </script>
 
 <style scoped>
-/* IDEA 风格代码编辑器 - 支持主题切换 */
+/* IDEA 风格代码编辑器 */
 .git-code-editor {
   display: flex;
   flex-direction: column;
@@ -363,7 +341,6 @@ onMounted(loadFile)
   flex: 1;
   overflow: hidden;
   display: flex;
-  position: relative;
   min-height: 200px;
 }
 
@@ -372,6 +349,7 @@ onMounted(loadFile)
   align-items: center;
   justify-content: center;
   height: 100%;
+  width: 100%;
   color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
   font-size: 12px;
 }
@@ -391,94 +369,14 @@ onMounted(loadFile)
 .editor-statusbar span {
   padding: 2px 4px;
 }
-</style>
 
-<style>
-/* 语法高亮 overlay 层 - 全局样式 */
-.code-highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  margin: 0;
-  padding: 12px 16px;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow: auto;
-  pointer-events: none;
-  color: transparent;
-  background: var(--color-base-100);
+/* CodeMirror 编辑器容器样式 */
+.cm-editor {
+  height: 100% !important;
+  width: 100% !important;
 }
 
-.code-highlight code {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: var(--color-base-content); /* fallback 颜色，让纯文本也能显示 */
-}
-
-/* highlight.js token colors - Catppuccin Mocha 主题 */
-.code-highlight :deep(.hljs-keyword) { color: #cba6f7; font-weight: 500; }
-.code-highlight :deep(.hljs-built_in) { color: #89b4fa; }
-.code-highlight :deep(.hljs-type) { color: #89dceb; }
-.code-highlight :deep(.hljs-string) { color: #a6e3a1; }
-.code-highlight :deep(.hljs-number) { color: #fab387; }
-.code-highlight :deep(.hljs-comment) { color: #6c7086; font-style: italic; }
-.code-highlight :deep(.hljs-operator) { color: #94e2d5; }
-.code-highlight :deep(.hljs-variable) { color: #f38ba8; }
-.code-highlight :deep(.hljs-title) { color: #f9e2af; }
-.code-highlight :deep(.hljs-title.function_) { color: #89b4fa; }
-.code-highlight :deep(.hljs-title.class_) { color: #f9e2af; }
-.code-highlight :deep(.hljs-literal) { color: #fab387; }
-.code-highlight :deep(.hljs-attr) { color: #f9e2af; }
-.code-highlight :deep(.hljs-attribute) { color: #a6e3a1; }
-.code-highlight :deep(.hljs-meta) { color: #6c7086; }
-.code-highlight :deep(.hljs-tag) { color: #89b4fa; }
-.code-highlight :deep(.hljs-name) { color: #f38ba8; }
-.code-highlight :deep(.hljs-selector-tag) { color: #f38ba8; }
-.code-highlight :deep(.hljs-selector-id) { color: #f9e2af; }
-.code-highlight :deep(.hljs-selector-class) { color: #f9e2af; }
-.code-highlight :deep(.hljs-selector-attr) { color: #f9e2af; }
-.code-highlight :deep(.hljs-regexp) { color: #f5c2e7; }
-.code-highlight :deep(.hljs-symbol) { color: #f5c2e7; }
-.code-highlight :deep(.hljs-bullet) { color: #f5c2e7; }
-.code-highlight :deep(.hljs-link) { color: #89b4fa; }
-.code-highlight :deep(.hljs-quote) { color: #a6e3a1; }
-.code-highlight :deep(.hljs-addition) { color: #a6e3a1; background: rgba(166, 227, 161, 0.15); }
-.code-highlight :deep(.hljs-deletion) { color: #f38ba8; background: rgba(243, 139, 168, 0.15); }
-.code-highlight :deep(.hljs-emphasis) { font-style: italic; }
-.code-highlight :deep(.hljs-strong) { font-weight: bold; }
-
-/* 编辑 textarea - 全局样式 */
-.code-textarea {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  padding: 12px 16px;
-  border: none;
-  background: transparent;
-  color: transparent;
-  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  overflow: auto;
-  tab-size: 4;
-  caret-color: var(--color-base-content);
-}
-
-.code-textarea::selection {
-  background: color-mix(in oklab, var(--color-primary) 30%, transparent);
-}
-
-.code-textarea.modified {
-  border-left: 2px solid var(--color-warning);
+.cm-scroller {
+  overflow: auto !important;
 }
 </style>
