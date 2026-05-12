@@ -233,7 +233,6 @@ import { ref } from 'vue'
 defineProps<{
   logViewMode: string
   logSearch: string
-  logBranchFilter: string
   logDateFrom: string
   logDateTo: string
   showAuthorFilter: boolean
@@ -265,7 +264,6 @@ defineProps<{
 defineEmits<{
   'update:logViewMode': [value: string]
   'update:logSearch': [value: string]
-  'update:logBranchFilter': [value: string]
   'update:logDateFrom': [value: string]
   'update:logDateTo': [value: string]
   'update:showAuthorFilter': [value: boolean]

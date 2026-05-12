@@ -94,7 +94,6 @@
       <GitLogPanel
         :log-view-mode="logViewMode"
         :log-search="logSearch"
-        :log-branch-filter="logBranchFilter"
         :log-date-from="logDateFrom"
         :log-date-to="logDateTo"
         :show-author-filter="showAuthorFilter"
@@ -123,7 +122,6 @@
         :parse-refs="parseRefs"
         @update:log-view-mode="logViewMode = $event"
         @update:log-search="logSearch = $event"
-        @update:log-branch-filter="logBranchFilter = $event"
         @update:log-date-from="logDateFrom = $event"
         @update:log-date-to="logDateTo = $event"
         @update:show-author-filter="showAuthorFilter = $event"
@@ -572,7 +570,6 @@ const {
   selectAllFiles,
   logData,
   logSearch,
-  logBranchFilter,
   selectedCommit,
   commitDiff,
   loadingDiff,

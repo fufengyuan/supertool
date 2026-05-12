@@ -63,9 +63,8 @@ const emit = defineEmits<{
 
 // 从父组件获取 expandedPaths (是一个 Ref<Set<string>>)
 const expandedPathsRef = inject<Ref<Set<string>>>('expandedPaths')
-const expandedPaths = expandedPathsRef?.value || new Set()
 
-const isExpanded = computed(() => expandedPaths.has(props.entry.path))
+const isExpanded = computed(() => expandedPathsRef?.value?.has(props.entry.path) || false)
 
 const iconClass = computed(() => {
   if (props.entry.isDir) return 'directory'
