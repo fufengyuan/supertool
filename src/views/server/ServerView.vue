@@ -42,30 +42,28 @@
 
     <!-- 按分组树形折叠显示 -->
     <template v-if="selectedGroup === ''">
-      <div v-if="getServersByGroup(null).length > 0" class="mb-1 rounded-xl" :class="{ 'mb-2': expandedGroups.has(null) }">
-        <div class="flex items-center justify-between p-[7px_12px] rounded-xl cursor-pointer select-none bg-base-100 border border-base-content/10 relative overflow-hidden transition-all hover:border-primary hover:shadow-[0_2px_12px_rgba(108,99,255,0.1)] hover:-translate-y-px" @click="toggleGroup(null)">
-          <div class="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-[3px]" style="background: linear-gradient(180deg, #6c63ff, #4834d4)"></div>
-          <div class="flex items-center gap-2 relative z-[1]">
-            <SvgIcon name="chevronDown" size="14" stroke-width="2.5" class="text-base-content/60 transition-transform flex-shrink-0" :class="{ 'rotate-180 text-primary': expandedGroups.has(null) }" />
-            <SvgIcon name="serverRack" size="14" class="shrink-0" />
-            <span class="font-semibold text-xs text-base-content">未分组</span>
-            <span class="text-[11px] font-semibold px-1.5 py-px rounded-full bg-primary/15 text-primary leading-tight">{{ getServersByGroup(null).length }}</span>
-          </div>
-          <div class="flex items-center gap-2 relative z-[1]">
-            <span class="flex items-center gap-1 text-xs text-success font-medium" v-if="getOnlineCount(null) > 0">
-              <span class="w-1.5 h-1.5 rounded-full bg-success shadow-[0_0_4px_var(--color-success)]"></span>
-              {{ getOnlineCount(null) }} 在线
-            </span>
-          </div>
+      <!-- 未分组 - IDEA 风格简洁标题栏 -->
+      <div v-if="getServersByGroup(null).length > 0" class="mb-2">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer select-none transition-colors"
+          :class="expandedGroups.has(null) ? 'bg-base-100' : 'hover:bg-base-100/50'"
+          @click="toggleGroup(null)">
+          <SvgIcon name="chevronDown" size="12" stroke-width="2.5" class="text-base-content/50 transition-transform flex-shrink-0" :class="{ 'rotate-180': expandedGroups.has(null) }" />
+          <span class="w-2 h-2 rounded-full flex-shrink-0 bg-primary"></span>
+          <span class="font-medium text-[11px] text-base-content">未分组</span>
+          <span class="text-[10px] px-1.5 py-0 rounded bg-base-200 text-base-content/60 leading-tight">{{ getServersByGroup(null).length }}</span>
+          <span class="flex items-center gap-1 text-[10px] text-success ml-auto" v-if="getOnlineCount(null) > 0">
+            <span class="w-1 h-1 rounded-full bg-success"></span>
+            {{ getOnlineCount(null) }}
+          </span>
         </div>
         <Transition
-          enter-active-class="transition-all duration-300 ease-out"
-          leave-active-class="transition-all duration-300 ease-in"
-          enter-from-class="opacity-0 -translate-y-1.5"
-          leave-to-class="opacity-0 -translate-y-1.5"
+          enter-active-class="transition-all duration-200 ease-out"
+          leave-active-class="transition-all duration-200 ease-in"
+          enter-from-class="opacity-0 max-h-0"
+          leave-to-class="opacity-0 max-h-0"
         >
-          <div v-show="expandedGroups.has(null)" class="mt-1 p-2 rounded-xl bg-base-100/80 border border-base-content/10 border-t-0">
-            <div class="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-2">
+          <div v-show="expandedGroups.has(null)" class="mt-1 pl-5">
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-1.5">
               <ServerItem
                 v-for="server in getFilteredServers(getServersByGroup(null))"
                 :key="server.id"
