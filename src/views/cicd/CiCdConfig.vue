@@ -74,8 +74,8 @@
                   @click="selectConfig(cfg.id)"
                 >
                   <div class="flex items-center gap-1.5 mb-1.5">
-                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
-                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ cfg.name }}{{ getGitRepoName(cfg.gitRepoId) || getProjectName(cfg.projectId) }}</span>
+                    <span class="text-sm font-semibold text-base-content truncate flex-1 min-w-0">{{ cfg.name || getGitRepoName(cfg.gitRepoId) }}</span>
+                    <span class="text-xs text-base-content/60 truncate flex-shrink-0 max-w-20" v-if="cfg.name">{{ cfg.name }}{{ getGitRepoName(cfg.gitRepoId) }}</span>
                     <span class="text-xs px-2 py-0.5 rounded bg-base-200 text-base-content/60 flex-shrink-0" :class="{ 'bg-white/20 text-primary': selectedConfigId === cfg.id }">{{ cfg.deployBranch || 'main' }}</span>
                     <span v-if="cfg.requiresApproval" class="flex-shrink-0" title="需要审核确认"><SvgIcon name="lock" :size="12" class="inline-block align-text-bottom" /></span>
                   </div>
@@ -125,10 +125,10 @@
             </div>
 
             <!-- Pipeline Visualization -->
-            <div class="flex items-center gap-1 py-3" v-if="selectedGitRepo || selectedProject">
-              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.gitRepoId || config.projectId }">
+            <div class="flex items-center gap-1 py-3" v-if="selectedGitRepo">
+              <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.gitRepoId }">
                 <SvgIcon name="folder" :size="18" />
-                <span class="text-xs font-medium text-base-content">{{ selectedGitRepo?.name || selectedProject?.name || '仓库' }}</span>
+                <span class="text-xs font-medium text-base-content">{{ selectedGitRepo?.name || '仓库' }}</span>
               </div>
               <div class="text-base text-base-content/60 opacity-40">→</div>
               <div class="flex flex-col items-center gap-1 px-4 py-2 rounded-lg bg-base-200 border border-dashed border-base-content/10 min-w-[80px]" :class="{ 'bg-primary/10 border-primary border-solid': config.buildTool }">
@@ -584,7 +584,7 @@
                 </span>
               </div>
               <div class="flex gap-2">
-                <button @click="scanModules" class="btn btn-ghost btn-sm" :disabled="scanningModules || !selectedProject?.repoPath" :title="!selectedProject?.repoPath ? '请先选择有本地路径的项目' : ''">
+                <button @click="scanModules" class="btn btn-ghost btn-sm" :disabled="scanningModules || !config.localPath" :title="!config.localPath ? '请先选择有本地路径的项目' : ''">
                   <template v-if="scanningModules">
                     <SvgIcon name="search" size="14" class="animate-spin" />
                     扫描中...
@@ -784,7 +784,7 @@ const {
   expandedModules, scannedModules, scanningModules, showModuleTree, expandedTreeNodes,
   defaultPaths, sdkVersions, selectedJavaVersion, selectedNodeVersion, detectingPaths,
   sdkmanInstallGuide, nvmInstallGuide,
-  filteredConfigs, groupedConfigs, selectedProject, hasAnyGitSource, gitSources,
+  filteredConfigs, groupedConfigs, hasAnyGitSource, gitSources,
   projectShortName, availableBuildTools, addedModulePaths, buildToolDefs,
   parentBuildAutoDetected, parentBuildDetectedPath, selectedGitRepo,
   openGroupDialog, confirmGroupDialog, cancelGroupDialog, initExpandedGroups,

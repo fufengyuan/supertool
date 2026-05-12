@@ -691,7 +691,6 @@ pub async fn deploy(
     let now = chrono::Utc::now().to_rfc3339();
     let deploy_log = DeployLog {
         id: deploy_id.clone(),
-        project_id: cicd_config.project_id.clone(),
         config_id: config_id.clone(),
         status: "running".to_string(),
                     start_time: now.clone(),
@@ -787,7 +786,6 @@ pub async fn deploy(
 
         let new_log = DeployLog {
             id: (*deploy_id_arc).clone(),
-            project_id: cicd_config.project_id.clone(),
             config_id: (*config_id_arc).clone(),
             status: final_status,
             start_time: now.clone(),
@@ -809,7 +807,6 @@ pub async fn deploy(
         let history = crate::commands::cicd::DeployHistory {
             id: (*deploy_id_arc).clone(),
             config_id: (*config_id_arc).clone(),
-            project_id: cicd_config.project_id.clone(),
             status: history_status.to_string(),
             deployed_at: chrono::Utc::now().to_rfc3339(),
             rolled_back: false,
@@ -949,7 +946,6 @@ pub async fn rollback(
     let history = DeployHistory {
         id: rollback_id,
         config_id: config_id.clone(),
-        project_id: deploy_log.project_id,
         status: if rollback_errors.is_empty() { "rollback-success".to_string() } else { "rollback-partial".to_string() },
         deployed_at: now.clone(),
         rolled_back: true,
@@ -1560,14 +1556,20 @@ pub async fn get_deploy_step_logs(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_deploy_history(
     core: State<'_, CoreService>,
-    project_id: String,
+    config_id: String,
     limit: Option<i64>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_deploy_history() called");
     let lim = limit.unwrap_or(50);
     let history = core.db_read(|conn| {
-        supertool_core::db::cicd::get_deploy_history(conn, &project_id, lim)
-            .map_err(|e| e.to_string())
-    })?;
-    serde_json::to_value(&history).map_err(|e| e.to_string())
+        let mut stmt = conn
+            .prepare("SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params![config_id, lim], row_to_deploy_history)
+            .map_err(|e| e.to_string())?;
+        let items: Vec<DeployHistory> = rows.filter_map(|r| r.ok()).collect();
+        serde_json::to_value(&items).map_err(|e| e.to_string())
+    })??;
+    Ok(history)
 }
