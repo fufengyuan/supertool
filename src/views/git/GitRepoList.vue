@@ -1,5 +1,9 @@
 <template>
-  <div class="p-5 max-w-[1200px] mx-auto">
+  <!-- Git 仓库图形化管理 -->
+  <GitManager v-if="selectedRepo" :repo="selectedRepo" @close="closeGitManager" />
+
+  <!-- Git 仓库列表 -->
+  <div v-else class="p-5 max-w-[1200px] mx-auto">
     <div class="flex justify-between items-center mb-5">
       <h2 class="m-0 text-2xl font-semibold text-base-content">Git 仓库</h2>
       <div class="flex gap-2">
@@ -199,6 +203,7 @@ import UiButton from '@/components/ui/Button.vue';
 import UiModal from '@/components/ui/Modal.vue';
 import UiEmptyState from '@/components/ui/EmptyState.vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import GitManager from './GitManager.vue';
 import { useToast } from '../../composables/useToast'
 import { useErrorHandler } from '../../composables/useErrorHandler'
 import { getTauriAPI } from '../../utils/tauri-api'
@@ -220,6 +225,7 @@ const toast = useToast();
 const { handleError } = useErrorHandler();
 
 const repos = ref<GitRepo[]>([]);
+const selectedRepo = ref<GitRepo | null>(null);
 const searchQuery = ref('');
 const showModal = ref(false);
 const editingRepo = ref<GitRepo | null>(null);
@@ -456,11 +462,12 @@ const deleteRepo = async (repo: GitRepo) => {
 };
 
 const openRepo = async (repo: GitRepo) => {
-  try {
-    await getTauriAPI().openInFileManager(repo.path)
-  } catch (err: any) {
-    toast.error(`无法打开仓库: ${err?.message || err}`)
-  }
+  selectedRepo.value = repo;
+};
+
+const closeGitManager = () => {
+  selectedRepo.value = null;
+  loadRepos(); // 回到列表时刷新
 };
 
 // ===== Scan local repos =====
