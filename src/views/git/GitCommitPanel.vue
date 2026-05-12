@@ -247,14 +247,15 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 </script>
 
 <style>
-/* GitCommitPanel 样式（从 GitManager.vue 提取） */
+/* GitCommitPanel 样式 - IDEA 风格 */
 /* ===================== 提交面板布局 ===================== */
 .commit-panel {
   display: flex;
   flex-direction: column;
-  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  min-width: 200px;
+  border-right: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  min-width: 180px;
   flex-shrink: 0;
+  background: var(--color-base-200);
 }
 
 /* ===================== 面板头部 ===================== */
@@ -262,26 +263,27 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
-  background: var(--color-base-100);
+  padding: 3px 8px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  background: var(--color-base-200);
   flex-shrink: 0;
+  height: 24px;
 }
 
 .panel-title {
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 500;
+  font-size: 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 
 .change-count {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 15%, transparent);
   color: var(--color-primary);
-  padding: 1px 6px;
-  border-radius: 10px;
-  font-size: 11px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 10px;
   font-weight: 500;
 }
 
@@ -293,18 +295,19 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .file-group {
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 6%, transparent);
 }
 
 .group-header {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 4px;
+  padding: 2px 8px;
   cursor: pointer;
-  background: var(--color-base-100);
+  background: var(--color-base-200);
   user-select: none;
   transition: background 0.1s;
+  height: 20px;
 }
 
 .group-header:hover {
@@ -312,8 +315,9 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .group-arrow {
-  transition: transform 0.15s;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  transition: transform 0.1s;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  font-size: 10px;
 }
 
 .group-arrow.collapsed {
@@ -321,88 +325,6 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .group-icon {
-  width: 18px;
-  height: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 700;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-}
-
-.group-icon.modified {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
-}
-
-.group-icon.added {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
-}
-
-.group-icon.deleted {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
-}
-
-.group-icon.untracked {
-  background: rgba(156, 163, 175, 0.15);
-  color: #9ca3af;
-}
-
-.group-icon.conflicted {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
-}
-
-.group-label {
-  font-weight: 500;
-  font-size: 12px;
-}
-
-.group-count {
-  margin-left: auto;
-  font-size: 11px;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-}
-
-.group-files {
-  padding-left: 12px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 10px;
-  cursor: pointer;
-  transition: background 0.1s;
-  user-select: none;
-}
-
-.file-item:hover {
-  background: var(--hover-bg);
-}
-
-.file-item.selected {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
-}
-
-.file-item.conflicted-item {
-  background: rgba(168, 85, 247, 0.05);
-}
-
-.file-checkbox {
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  accent-color: var(--color-primary);
-  cursor: pointer;
-}
-
-.file-icon {
   width: 16px;
   height: 16px;
   display: flex;
@@ -412,36 +334,119 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   font-size: 9px;
   font-weight: 700;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+.group-icon.modified {
+  background: color-mix(in oklab, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
+}
+
+.group-icon.added {
+  background: color-mix(in oklab, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
+.group-icon.deleted {
+  background: color-mix(in oklab, var(--color-error) 15%, transparent);
+  color: var(--color-error);
+}
+
+.group-icon.untracked {
+  background: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.group-icon.conflicted {
+  background: color-mix(in oklab, var(--color-secondary) 15%, transparent);
+  color: var(--color-secondary);
+}
+
+.group-label {
+  font-weight: 500;
+  font-size: 11px;
+}
+
+.group-count {
+  margin-left: auto;
+  font-size: 10px;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+}
+
+.group-files {
+  padding-left: 8px;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  cursor: pointer;
+  transition: background 0.1s;
+  user-select: none;
+  height: 20px;
+}
+
+.file-item:hover {
+  background: var(--hover-bg);
+}
+
+.file-item.selected {
+  background: color-mix(in oklab, var(--color-primary) 8%, transparent);
+}
+
+.file-item.conflicted-item {
+  background: color-mix(in oklab, var(--color-secondary) 5%, transparent);
+}
+
+.file-checkbox {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.file-icon {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
   flex-shrink: 0;
 }
 
 .file-icon.modified {
-  background: rgba(245, 158, 11, 0.15);
-  color: #f59e0b;
+  background: color-mix(in oklab, var(--color-warning) 15%, transparent);
+  color: var(--color-warning);
 }
 
 .file-icon.added {
-  background: rgba(34, 197, 94, 0.15);
-  color: #22c55e;
+  background: color-mix(in oklab, var(--color-success) 15%, transparent);
+  color: var(--color-success);
 }
 
 .file-icon.deleted {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: color-mix(in oklab, var(--color-error) 15%, transparent);
+  color: var(--color-error);
 }
 
 .file-icon.untracked {
-  background: rgba(156, 163, 175, 0.15);
-  color: #9ca3af;
+  background: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
 }
 
 .file-icon.conflicted {
-  background: rgba(168, 85, 247, 0.15);
-  color: #a855f7;
+  background: color-mix(in oklab, var(--color-secondary) 15%, transparent);
+  color: var(--color-secondary);
 }
 
 .file-name {
-  font-size: 12px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -454,26 +459,26 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   align-items: center;
   justify-content: center;
   flex: 1;
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  gap: 8px;
-  padding: 24px;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  gap: 6px;
+  padding: 16px;
 }
 
 .empty-files svg {
-  color: #22c55e;
+  color: var(--color-success);
 }
 
 .empty-files p {
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /* ===================== Diff 预览区域 ===================== */
 .diff-preview-area {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
   background: var(--color-base-100);
-  max-height: 200px;
+  max-height: 180px;
   flex-shrink: 0;
 }
 
@@ -481,14 +486,15 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 10px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 2px 8px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
   background: var(--color-base-200);
+  height: 22px;
 }
 
 .preview-title {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 500;
   color: var(--color-base-content);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -498,43 +504,45 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 .diff-preview-content {
   flex: 1;
   overflow-y: auto;
-  padding: 4px;
+  padding: 2px;
 }
 
 .file-item.previewing {
-  background: color-mix(in oklab, var(--color-primary) 10%, transparent);
+  background: color-mix(in oklab, var(--color-primary) 8%, transparent);
 }
 
 /* ===================== 提交区域 ===================== */
 .commit-area {
   display: flex;
   flex-direction: column;
-  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
   background: var(--color-base-100);
   flex-shrink: 0;
 }
 
 .commit-header {
-  padding: 6px 10px;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  padding: 3px 8px;
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  height: 22px;
 }
 
 .commit-title {
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 500;
+  font-size: 11px;
 }
 
 .commit-message-input {
   width: 100%;
-  padding: 8px 10px;
+  padding: 4px 8px;
   border: none;
   background: var(--color-base-200);
   color: var(--color-base-content);
-  font-size: 13px;
+  font-size: 12px;
   font-family: inherit;
   resize: vertical;
   outline: none;
-  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  min-height: 40px;
 }
 
 .commit-message-input:focus {
@@ -542,33 +550,35 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .commit-message-input::placeholder {
-  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
-  opacity: 0.5;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
+  opacity: 0.6;
 }
 
 .commit-actions {
   display: flex;
-  gap: 6px;
-  padding: 8px 10px;
+  gap: 4px;
+  padding: 4px 8px;
 }
 
 /* ===================== 多选标签 ===================== */
 .form-checkbox-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 12px;
+  gap: 4px;
+  font-size: 11px;
   color: var(--color-base-content);
   cursor: pointer;
 }
 
 .form-checkbox-label input[type="checkbox"] {
   accent-color: var(--color-primary);
+  width: 12px;
+  height: 12px;
 }
 
 /* ===================== 滚动条 ===================== */
 .file-list::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 
 .file-list::-webkit-scrollbar-track {
@@ -576,7 +586,7 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
 }
 
 .file-list::-webkit-scrollbar-thumb {
-  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  background: color-mix(in oklab, var(--color-base-content) 8%, transparent);
   border-radius: 3px;
 }
 

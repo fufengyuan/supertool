@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col h-full overflow-hidden bg-base-200 text-base-content text-[13px]">
+  <div class="flex flex-col h-full overflow-hidden bg-base-200 text-base-content text-[11px]">
     <GitTopBar
       :repo="repo"
       :current-branch="currentBranch"
