@@ -21,7 +21,7 @@
           </div>
           <router-link v-for="item in navGroups.business" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center gap-3 py-2 pl-5 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
             <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
@@ -34,7 +34,7 @@
           </div>
           <router-link v-for="item in navGroups.ops" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
             <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
@@ -47,7 +47,7 @@
           </div>
           <router-link v-for="item in navGroups.dev" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
             <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
@@ -60,7 +60,7 @@
           </div>
           <router-link v-for="item in navGroups.security" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
             <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
