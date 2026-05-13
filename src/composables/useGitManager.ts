@@ -885,6 +885,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   function closeContextMenu() {
     contextMenu.value.show = false
     logContextMenu.value.show = false
+    stashContextMenu.value.show = false
   }
 
   function contextMenuAction(action: string) {
