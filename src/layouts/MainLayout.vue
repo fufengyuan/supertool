@@ -20,9 +20,9 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">业务</span>
           </div>
           <li v-for="item in navGroups.business" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-base-200" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed">{{ item.label }}</span>
+            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
+              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
             </router-link>
           </li>
 
@@ -31,9 +31,9 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">运维</span>
           </div>
           <li v-for="item in navGroups.ops" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-base-200" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed">{{ item.label }}</span>
+            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
+              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
             </router-link>
           </li>
 
@@ -42,9 +42,9 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">开发</span>
           </div>
           <li v-for="item in navGroups.dev" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-base-200" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed">{{ item.label }}</span>
+            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
+              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
             </router-link>
           </li>
 
@@ -53,9 +53,9 @@
             <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">安全</span>
           </div>
           <li v-for="item in navGroups.security" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-3 w-full px-3 py-2 rounded-lg hover:bg-base-200" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed">{{ item.label }}</span>
+            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
+              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
             </router-link>
           </li>
         </nav>
