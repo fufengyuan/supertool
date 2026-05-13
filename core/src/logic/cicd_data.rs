@@ -13,7 +13,6 @@ impl super::CoreService {
             let configs: Vec<Value> = stmt.query_map([], |row| {
                 Ok(json!({
                     "id": row.get::<_, String>("id")?,
-                    "projectId": row.get::<_, String>("projectId")?,
                     "name": row.get::<_, String>("name")?,
                     "deployBranch": row.get::<_, String>("deployBranch")?,
                     "mavenSettings": row.get::<_, Option<String>>("mavenSettings")?,
@@ -139,11 +138,10 @@ impl super::CoreService {
                     let servers_val: Option<String> = c.get("servers").and_then(|v| v.as_str()).map(|s| s.to_string())
                         .or_else(|| c.get("servers").map(|v| serde_json::to_string(v).unwrap_or_default()));
                     let _ = conn.execute(
-                        "INSERT OR REPLACE INTO cicd_configs (id, projectId, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30)",
+                        "INSERT OR REPLACE INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt)
+                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29)",
                         rusqlite::params![
                             id,
-                            c.get("projectId").and_then(|v|v.as_str()).unwrap_or(""),
                             c.get("name").and_then(|v|v.as_str()).unwrap_or(""),
                             c.get("deployBranch").and_then(|v|v.as_str()).unwrap_or(""),
                             c.get("mavenSettings").and_then(|v|v.as_str()),
