@@ -1024,7 +1024,13 @@ function clearRealtimeLogs() {
 function scrollToBottom() {
   nextTick(() => {
     if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      // 只在用户已处于底部附近时自动滚动，避免打断用户查看历史日志
+      const el = logContainer.value
+      const threshold = 50 // 距离底部 50px 以内视为"在底部"
+      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+      if (isNearBottom) {
+        el.scrollTop = el.scrollHeight
+      }
     }
   });
 }
