@@ -33,8 +33,8 @@
               </span>
               <span v-if="b.current" class="current-badge">当前</span>
               <div class="branch-actions" v-if="!b.current">
-                <button class="btn btn-ghost btn-xs" @click.stop="$emit('open-branch-rename', b.name)" title="重命名分支">Rename</button>
-                <button class="btn btn-ghost btn-xs" @click.stop="$emit('show-merge-dialog', b.name)" title="合并到此分支">Merge</button>
+                <button class="btn btn-ghost btn-xs" @click.stop="$emit('open-branch-rename', b.name)" title="重命名分支">重命名</button>
+                <button class="btn btn-ghost btn-xs" @click.stop="$emit('show-merge-dialog', b.name)" title="合并到此分支">合并</button>
                 <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-branch', b.name)" title="删除分支"><SvgIcon name="x" size="14" /></button>
               </div>
             </div>
@@ -52,7 +52,7 @@
               <SvgIcon name="gitBranch" size="14" />
               <span class="branch-label">{{ b.name }}</span>
               <div class="branch-actions">
-                <button class="btn btn-ghost btn-xs" @click.stop="$emit('checkout-remote-branch', b.name)" title="Checkout as new local branch">Checkout</button>
+                <button class="btn btn-ghost btn-xs" @click.stop="$emit('checkout-remote-branch', b.name)" title="检出为本地分支">检出</button>
                 <button class="btn btn-ghost btn-xs btn-error" @click.stop="$emit('delete-remote-branch', b.name)" title="删除远程分支"><SvgIcon name="x" size="14" /></button>
               </div>
             </div>

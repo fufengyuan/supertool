@@ -198,7 +198,7 @@
     >
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick')">
         <SvgIcon name="arrowDown" :size="14" />
-        Cherry-pick
+        拣选提交
       </div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('revert')">
         <SvgIcon name="undo" size="14" />
@@ -220,12 +220,12 @@
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('cherry-pick-multi')">
         <SvgIcon name="arrowDown" :size="14" />
-        批量 Cherry-pick...
+        批量拣选提交...
       </div>
       <div class="h-px bg-base-content/10 my-1"></div>
       <div class="flex items-center gap-2 px-3 py-1.5 cursor-pointer text-xs hover:bg-[var(--hover-bg)]" @click="logContextAction('compare-with')">
         <SvgIcon name="barChart" size="14" />
-        Compare with...
+        与指定提交比较...
       </div>
     </div>
 

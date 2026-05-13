@@ -22,7 +22,7 @@
   <div v-if="showBlameDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="$emit('update:show-blame-dialog', false)">
     <div class="max-w-2xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-        <span class="font-semibold text-sm">Blame: {{ blameFile }}</span>
+        <span class="font-semibold text-sm">作者信息: {{ blameFile }}</span>
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-blame-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex-1 overflow-auto p-2.5">
@@ -35,11 +35,11 @@
   <div v-if="showInteractiveRebaseDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="$emit('update:show-interactive-rebase-dialog', false)">
     <div class="max-w-xl w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[80vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-        <span class="font-semibold text-sm">交互式 Rebase</span>
+        <span class="font-semibold text-sm">交互式变基</span>
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-interactive-rebase-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
-        <label class="text-xs font-semibold text-base-content/60">Rebase 起点</label>
+        <label class="text-xs font-semibold text-base-content/60">变基起点</label>
         <div class="flex gap-2">
           <input
             :value="interactiveRebaseBase"
@@ -80,7 +80,7 @@
       </div>
       <div class="flex justify-end gap-2 p-3 border-t border-base-content/10">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:show-interactive-rebase-dialog', false)">取消</button>
-        <button class="btn btn-primary btn-sm" @click="$emit('start-interactive-rebase')" :disabled="irCommits.length === 0 || irLoading">开始 Rebase</button>
+        <button class="btn btn-primary btn-sm" @click="$emit('start-interactive-rebase')" :disabled="irCommits.length === 0 || irLoading">开始变基</button>
       </div>
     </div>
   </div>
@@ -113,7 +113,7 @@
           <SvgIcon name="globe" size="14" class="shrink-0 text-base-content/60" />
           <span class="font-mono font-semibold text-primary min-w-[60px]">{{ r }}</span>
           <span class="flex-1 text-[11px] text-base-content/60 truncate font-mono" :title="remoteUrls[r]">{{ remoteUrls[r] }}</span>
-          <button class="btn btn-ghost btn-xs" @click.stop="$emit('fetch-remote', r)" title="Fetch">Fetch</button>
+          <button class="btn btn-ghost btn-xs" @click.stop="$emit('fetch-remote', r)" title="获取">获取</button>
           <button class="btn btn-ghost btn-xs text-red-500 hover:bg-red-500/10" @click.stop="$emit('delete-remote', r)" title="删除"><SvgIcon name="x" size="14" class="inline-block" /></button>
         </div>
         <div v-if="remotesList.length === 0 && !loading" class="p-5 text-center text-base-content/60 text-xs">没有远程仓库</div>
@@ -125,13 +125,13 @@
   <div v-if="showSubmodulesDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="$emit('update:show-submodules-dialog', false)">
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-        <span class="font-semibold text-sm">Submodules</span>
+        <span class="font-semibold text-sm">子模块管理</span>
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-submodules-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="px-4 py-2 border-b border-base-content/10 flex gap-2">
-        <button class="btn btn-primary btn-sm" @click="$emit('submodule-init-all')" :disabled="smLoading">Init All</button>
-        <button class="btn btn-ghost btn-sm" @click="$emit('submodule-update-all')" :disabled="smLoading">Update All</button>
-        <button class="btn btn-ghost btn-sm" @click="$emit('refresh-submodules')" :disabled="smLoading">Refresh</button>
+        <button class="btn btn-primary btn-sm" @click="$emit('submodule-init-all')" :disabled="smLoading">全部初始化</button>
+        <button class="btn btn-ghost btn-sm" @click="$emit('submodule-update-all')" :disabled="smLoading">全部更新</button>
+        <button class="btn btn-ghost btn-sm" @click="$emit('refresh-submodules')" :disabled="smLoading">刷新</button>
       </div>
       <div class="flex-1 overflow-y-auto p-2">
         <div
@@ -144,15 +144,15 @@
           <span class="text-[11px] text-base-content/60 truncate max-w-[140px] cursor-pointer hover:text-primary" @click="$emit('open-submodule-path', sm.path)" :title="sm.path">{{ sm.path }}</span>
           <span class="font-mono text-[11px] text-base-content/60 shrink-0" :title="sm.hash">{{ sm.hash ? sm.hash.substring(0, 7) : '-' }}</span>
           <span class="shrink-0 text-[11px]" :class="sm.initialized ? 'text-green-500' : 'text-amber-500'">
-            {{ sm.initialized ? 'Init' : 'Not init' }}
+            {{ sm.initialized ? '已初始化' : '未初始化' }}
           </span>
           <div class="ml-auto shrink-0">
-            <button v-if="!sm.initialized" class="btn btn-ghost btn-xs" @click.stop="$emit('submodule-init', sm.name)">Init</button>
-            <button v-if="sm.initialized" class="btn btn-ghost btn-xs" @click.stop="$emit('submodule-update', sm.name)">Update</button>
+            <button v-if="!sm.initialized" class="btn btn-ghost btn-xs" @click.stop="$emit('submodule-init', sm.name)">初始化</button>
+            <button v-if="sm.initialized" class="btn btn-ghost btn-xs" @click.stop="$emit('submodule-update', sm.name)">更新</button>
           </div>
         </div>
-        <div v-if="submodulesList.length === 0 && !smLoading" class="p-5 text-center text-base-content/60 text-xs">No submodules defined in .gitmodules</div>
-        <div v-if="smLoading" class="p-5 text-center text-base-content/60 text-xs">Loading...</div>
+        <div v-if="submodulesList.length === 0 && !smLoading" class="p-5 text-center text-base-content/60 text-xs">.gitmodules 中没有子模块定义</div>
+        <div v-if="smLoading" class="p-5 text-center text-base-content/60 text-xs">加载中...</div>
       </div>
       <div class="flex justify-end gap-2 p-3 border-t border-base-content/10">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:show-submodules-dialog', false)">关闭</button>
@@ -168,10 +168,10 @@
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-compare-commits-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
-        <label class="text-xs font-semibold text-base-content/60">From Commit</label>
-        <input :value="compareCommitFrom" @input="$emit('update:compare-commit-from', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref (e.g., HEAD~5)" spellcheck="false" />
-        <label class="text-xs font-semibold text-base-content/60">To Commit</label>
-        <input :value="compareCommitTo" @input="$emit('update:compare-commit-to', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref (e.g., HEAD)" spellcheck="false" />
+        <label class="text-xs font-semibold text-base-content/60">源提交</label>
+        <input :value="compareCommitFrom" @input="$emit('update:compare-commit-from', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="输入提交哈希或引用 (如 HEAD~5)" spellcheck="false" />
+        <label class="text-xs font-semibold text-base-content/60">目标提交</label>
+        <input :value="compareCommitTo" @input="$emit('update:compare-commit-to', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="输入提交哈希或引用 (如 HEAD)" spellcheck="false" />
         <button class="btn btn-ghost btn-sm self-start" @click="$emit('compare-commits')" :disabled="!compareCommitFrom || !compareCommitTo || ccLoading">比较</button>
       </div>
       <div v-if="compareCommitsDiff" class="border-t border-base-content/10">
@@ -192,7 +192,7 @@
       </div>
       <div class="flex flex-col gap-2.5 p-3">
         <label class="text-xs font-semibold text-base-content/60">Commit</label>
-        <input :value="getFileCommit" @input="$emit('update:get-file-commit', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="Commit hash or ref" spellcheck="false" />
+        <input :value="getFileCommit" @input="$emit('update:get-file-commit', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="输入提交哈希或引用" spellcheck="false" />
         <label class="text-xs font-semibold text-base-content/60">File Path</label>
         <input :value="getFilePath" @input="$emit('update:get-file-path', ($event.target as HTMLInputElement).value)" class="p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="path/to/file.txt" spellcheck="false" />
       </div>
@@ -250,7 +250,7 @@
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-apply-patch-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
-        <label class="text-xs font-semibold text-base-content/60">Patch File</label>
+        <label class="text-xs font-semibold text-base-content/60">补丁文件</label>
         <div class="flex gap-2">
           <input :value="applyPatchFile" @input="$emit('update:apply-patch-file', ($event.target as HTMLInputElement).value)" class="flex-1 p-2 px-2.5 border border-base-content/20 rounded bg-base-200 text-base-content text-[13px] outline-none focus:border-primary" placeholder="选择或输入 patch 文件路径" spellcheck="false" />
           <button class="btn btn-ghost btn-xs" @click="$emit('select-patch-file')" title="选择文件">
@@ -284,7 +284,7 @@
   <div v-if="showCherryPickMultiDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="$emit('update:show-cherry-pick-multi-dialog', false)">
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-        <span class="font-semibold text-sm">Cherry-pick 多个提交 ({{ selectedLogCommits.size }})</span>
+        <span class="font-semibold text-sm">批量拣选提交 ({{ selectedLogCommits.size }})</span>
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-cherry-pick-multi-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex-1 overflow-y-auto p-2">
@@ -300,7 +300,7 @@
       <div class="flex justify-end gap-2 p-3 border-t border-base-content/10">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:show-cherry-pick-multi-dialog', false)">取消</button>
         <button class="btn btn-primary btn-sm" @click="$emit('cherry-pick-multi')" :disabled="selectedLogCommits.size === 0 || cherryPicking">
-          Cherry-pick All
+          全部拣选
         </button>
       </div>
     </div>
@@ -310,7 +310,7 @@
   <div v-if="showGitCleanDialog" class="fixed inset-0 bg-black/40 z-[900] flex items-center justify-center" @click="$emit('update:show-git-clean-dialog', false)">
     <div class="max-w-lg w-full bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden max-h-[70vh]" @click.stop>
       <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
-        <span class="font-semibold text-sm">Clean Working Tree</span>
+        <span class="font-semibold text-sm">清理工作区</span>
         <button class="btn btn-ghost btn-xs" @click="$emit('update:show-git-clean-dialog', false)"><SvgIcon name="x" size="14" class="inline-block" /></button>
       </div>
       <div class="flex flex-col gap-2.5 p-3">
@@ -322,7 +322,7 @@
           <input type="checkbox" :checked="gitCleanForceDirectories" @change="$emit('update:git-clean-force-directories', ($event.target as HTMLInputElement).checked)" />
           删除目录 (-d)
         </label>
-        <button class="btn btn-ghost btn-sm self-start" @click="$emit('git-clean-dry-run')" :disabled="gcLoading">Dry Run (预览)</button>
+        <button class="btn btn-ghost btn-sm self-start" @click="$emit('git-clean-dry-run')" :disabled="gcLoading">预检 (Dry Run)</button>
       </div>
       <div v-if="gitCleanFiles.length > 0" class="border-t border-base-content/10">
         <div class="px-4 py-2 text-xs font-semibold text-base-content/60 bg-base-200/50">将删除以下 {{ gitCleanFiles.length }} 个文件/目录:</div>

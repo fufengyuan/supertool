@@ -26,7 +26,7 @@
             class="flex items-center justify-center w-[24px] h-[18px] p-0 border-0 bg-transparent text-base-content/50 rounded cursor-pointer hover:text-base-content hover:bg-[var(--hover-bg)]"
             :class="{ '!text-primary !bg-primary/10': logViewMode === 'console' }"
             @click="$emit('update:logViewMode', 'console')"
-            title="Git Console"
+            title="命令控制台"
           >
             <SvgIcon name="terminal" :size="12" />
           </button>
@@ -43,8 +43,8 @@
           />
         </div>
         <!-- 日期过滤 -->
-        <input :value="logDateFrom" @input="$emit('update:logDateFrom', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="From" />
-        <input :value="logDateTo" @input="$emit('update:logDateTo', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="To" />
+        <input :value="logDateFrom" @input="$emit('update:logDateFrom', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="起始" />
+        <input :value="logDateTo" @input="$emit('update:logDateTo', ($event.target as HTMLInputElement).value)" type="date" class="py-0.5 px-1 border border-base-content/10 rounded bg-base-100 text-base-content text-[10px] outline-none w-[100px] h-[18px]" title="结束" />
         <!-- 作者过滤 -->
         <button class="btn btn-ghost btn-xs h-[18px] min-h-[18px] px-1" @click="$emit('update:showAuthorFilter', !showAuthorFilter)" :class="{ '!text-primary !bg-primary/10': (selectedAuthors as Set<string>).size > 0 }" title="作者">
           <SvgIcon name="user" :size="10" />
@@ -165,7 +165,7 @@
           <pre v-if="line.output" class="ml-[18px] mt-1 p-2 bg-white/5 rounded whitespace-pre-wrap break-all text-[10px] max-h-[300px] overflow-y-auto" :class="line.isError ? 'text-[#f85149] bg-[rgba(248,81,73,0.05)]' : 'text-[#c9d1d9]'">{{ line.output }}</pre>
         </div>
         <div v-if="consoleHistory.length === 0" class="p-5 text-center text-[#8b949e]">
-          <p>Git Console — 输入任意 git 命令</p>
+          <p>命令控制台 — 输入任意 git 命令</p>
           <p class="text-[11px]">例如: <code class="bg-white/10 px-1.5 py-0.5 rounded text-blue-400">status</code>, <code class="bg-white/10 px-1.5 py-0.5 rounded text-blue-400">log --oneline -10</code>, <code class="bg-white/10 px-1.5 py-0.5 rounded text-blue-400">branch -vv</code></p>
         </div>
       </div>

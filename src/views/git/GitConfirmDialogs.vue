@@ -6,7 +6,7 @@
     @click="$emit('update:cherry-pick-target', null)"
   >
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl p-6" @click.stop>
-      <h3 class="text-lg font-semibold m-0 mb-4">Cherry-pick</h3>
+      <h3 class="text-lg font-semibold m-0 mb-4">拣选提交</h3>
       <p class="m-0 mb-4 text-[13px] leading-relaxed">
         将提交
         <code class="bg-primary/10 text-primary px-1 py-[1px] rounded-sm font-mono text-xs">{{ cherryPickTarget.substring(0, 7) }}</code>
@@ -14,7 +14,7 @@
       </p>
       <div class="flex justify-end gap-2">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:cherry-pick-target', null)">取消</button>
-        <button class="btn btn-primary btn-sm" @click="$emit('cherry-pick')" :disabled="cherryPicking">Cherry-pick</button>
+        <button class="btn btn-primary btn-sm" @click="$emit('cherry-pick')" :disabled="cherryPicking">拣选提交</button>
       </div>
     </div>
   </div>
@@ -26,7 +26,7 @@
     @click="$emit('update:revert-target', null)"
   >
     <div class="max-w-md w-full bg-base-100 rounded-xl shadow-2xl p-6" @click.stop>
-      <h3 class="text-lg font-semibold m-0 mb-4">Revert Commit</h3>
+      <h3 class="text-lg font-semibold m-0 mb-4">回退提交</h3>
       <p class="m-0 mb-4 text-[13px] leading-relaxed">
         创建一个新的提交来撤销
         <code class="bg-primary/10 text-primary px-1 py-[1px] rounded-sm font-mono text-xs">{{ revertTarget.substring(0, 7) }}</code>
@@ -34,7 +34,7 @@
       </p>
       <div class="flex justify-end gap-2">
         <button class="btn btn-ghost btn-sm" @click="$emit('update:revert-target', null)">取消</button>
-        <button class="btn btn-primary btn-sm" @click="$emit('revert')" :disabled="reverting">Revert</button>
+        <button class="btn btn-primary btn-sm" @click="$emit('revert')" :disabled="reverting">回退</button>
       </div>
     </div>
   </div>
