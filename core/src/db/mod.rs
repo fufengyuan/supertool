@@ -332,6 +332,163 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_nginx_config_versions_current ON nginx_config_versions(presetId, isCurrent);
         CREATE INDEX IF NOT EXISTS idx_nginx_presets_server ON nginx_presets(serverId);
 
+        -- Nginx structured management tables
+        CREATE TABLE IF NOT EXISTS nginx_servers (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            proxyType INTEGER NOT NULL DEFAULT 0,
+            listen TEXT NOT NULL DEFAULT '80',
+            ip TEXT NOT NULL DEFAULT '',
+            def INTEGER NOT NULL DEFAULT 0,
+            ipv6 INTEGER NOT NULL DEFAULT 0,
+            proxyProtocol INTEGER NOT NULL DEFAULT 0,
+            serverName TEXT NOT NULL DEFAULT '',
+            ssl INTEGER NOT NULL DEFAULT 0,
+            certId TEXT NOT NULL DEFAULT '',
+            rewrite INTEGER NOT NULL DEFAULT 0,
+            rewriteListen TEXT NOT NULL DEFAULT '80',
+            http2 INTEGER NOT NULL DEFAULT 0,
+            protocols TEXT NOT NULL DEFAULT '',
+            passwordId TEXT NOT NULL DEFAULT '',
+            denyAllow TEXT NOT NULL DEFAULT '0',
+            denyId TEXT NOT NULL DEFAULT '',
+            allowId TEXT NOT NULL DEFAULT '',
+            proxyUpstreamId TEXT NOT NULL DEFAULT '',
+            descr TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort INTEGER NOT NULL DEFAULT 0,
+            paramJson TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_locations (
+            id TEXT PRIMARY KEY,
+            serverId TEXT NOT NULL,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            path TEXT NOT NULL DEFAULT '/',
+            locType INTEGER NOT NULL DEFAULT 0,
+            value TEXT NOT NULL DEFAULT '',
+            upstreamType INTEGER NOT NULL DEFAULT 0,
+            upstreamId TEXT NOT NULL DEFAULT '',
+            upstreamPath TEXT NOT NULL DEFAULT '',
+            rootPath TEXT NOT NULL DEFAULT '',
+            rootPage TEXT NOT NULL DEFAULT '',
+            rootType TEXT NOT NULL DEFAULT '',
+            header INTEGER NOT NULL DEFAULT 0,
+            websocket INTEGER NOT NULL DEFAULT 0,
+            cros INTEGER NOT NULL DEFAULT 0,
+            headerHost TEXT NOT NULL DEFAULT 'default',
+            returnUrl TEXT NOT NULL DEFAULT '',
+            returnPath INTEGER NOT NULL DEFAULT 0,
+            paramJson TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (serverId) REFERENCES nginx_servers(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_upstreams (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            proxyType INTEGER NOT NULL DEFAULT 0,
+            strategy TEXT NOT NULL DEFAULT 'polling',
+            descr TEXT NOT NULL DEFAULT '',
+            paramJson TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_upstream_servers (
+            id TEXT PRIMARY KEY,
+            upstreamId TEXT NOT NULL,
+            address TEXT NOT NULL DEFAULT '',
+            port INTEGER NOT NULL DEFAULT 0,
+            weight INTEGER NOT NULL DEFAULT 1,
+            maxFails INTEGER NOT NULL DEFAULT 3,
+            failTimeout TEXT NOT NULL DEFAULT '10s',
+            maxConns INTEGER NOT NULL DEFAULT 0,
+            backup INTEGER NOT NULL DEFAULT 0,
+            down INTEGER NOT NULL DEFAULT 0,
+            sort INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (upstreamId) REFERENCES nginx_upstreams(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_http_params (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            value TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            sort INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_streams (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            listen TEXT NOT NULL DEFAULT '0.0.0.0:80',
+            proxyUpstreamId TEXT NOT NULL DEFAULT '',
+            proxyPass TEXT NOT NULL DEFAULT '',
+            ssl INTEGER NOT NULL DEFAULT 0,
+            certId TEXT NOT NULL DEFAULT '',
+            protocol TEXT NOT NULL DEFAULT 'TCP',
+            descr TEXT NOT NULL DEFAULT '',
+            enabled INTEGER NOT NULL DEFAULT 1,
+            paramJson TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_certs (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            pem TEXT NOT NULL DEFAULT '',
+            key TEXT NOT NULL DEFAULT '',
+            domain TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_templates (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            name TEXT NOT NULL DEFAULT '',
+            content TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_basic_settings (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL UNIQUE,
+            workerProcesses TEXT NOT NULL DEFAULT 'auto',
+            workerConnections INTEGER NOT NULL DEFAULT 1024,
+            errorLog TEXT NOT NULL DEFAULT '/var/log/nginx/error.log',
+            errorLogLevel TEXT NOT NULL DEFAULT 'warn',
+            pid TEXT NOT NULL DEFAULT '/var/run/nginx.pid',
+            events TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_nginx_servers_preset ON nginx_servers(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_locations_server ON nginx_locations(serverId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_upstreams_preset ON nginx_upstreams(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_upstream_servers_upstream ON nginx_upstream_servers(upstreamId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_http_params_preset ON nginx_http_params(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_streams_preset ON nginx_streams(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_certs_preset ON nginx_certs(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_templates_preset ON nginx_templates(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_basic_settings_preset ON nginx_basic_settings(presetId);
+
         CREATE TABLE IF NOT EXISTS alert_email_config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             smtp_host TEXT,
