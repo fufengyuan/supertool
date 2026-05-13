@@ -10,6 +10,7 @@ pub mod cicd_deploy;
 pub mod openvpn;
 pub mod wireguard;
 pub mod nginx;
+pub mod nginx_generator;
 pub mod log_sanitizer;
 
 // 拆分后的模块
