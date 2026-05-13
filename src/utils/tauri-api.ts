@@ -550,6 +550,16 @@ export function useLanAPI() {
     lanSetAvatar: async (avatar: string): Promise<void> => {
       await tauriInvoke('lan_set_avatar', { avatar })
     },
+    lanUploadAvatar: async (filePath: string): Promise<{ path: string; fullPath: string }> => {
+      const res = await tauriInvoke<{ path: string; fullPath: string }>('lan_upload_avatar', { filePath })
+      if (res.success && res.data) return res.data
+      throw new Error(res.error || '上传失败')
+    },
+    lanGetAvatarPath: async (avatar: string): Promise<{ isEmoji: boolean; path: string }> => {
+      const res = await tauriInvoke<{ isEmoji: boolean; path: string }>('lan_get_avatar_path', { avatar })
+      if (res.success && res.data) return res.data
+      return { isEmoji: true, path: avatar }
+    },
     lanShowOpenDialogForDirs: async (): Promise<{ filePaths: string[]; canceled: boolean }> => {
       const selected = await open({
         directory: true,

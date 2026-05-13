@@ -523,6 +523,8 @@ fn main() {
             commands::lan::lan_get_peers,
             commands::lan::lan_set_nick_name,
             commands::lan::lan_set_avatar,
+            commands::lan::lan_upload_avatar,
+            commands::lan::lan_get_avatar_path,
             commands::lan::lan_set_receive_path,
             commands::lan::lan_show_open_dialog_for_dirs,
             commands::lan::lan_send_message,

@@ -401,6 +401,81 @@ pub fn lan_set_avatar(avatar: String) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub fn lan_upload_avatar(file_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] lan_upload_avatar() called, path={}", file_path);
+    require_lan()?;
+    
+    use std::fs;
+    use std::path::Path;
+    
+    // 获取 supertool 数据目录
+    let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+    let avatars_dir = data_dir.join("avatars");
+    
+    // 创建 avatars 目录
+    if !avatars_dir.exists() {
+        fs::create_dir_all(&avatars_dir).map_err(|e| e.to_string())?;
+    }
+    
+    // 读取源文件
+    let source_path = Path::new(&file_path);
+    if !source_path.exists() {
+        return Err("文件不存在".to_string());
+    }
+    
+    // 生成目标文件名（使用时间戳 + 原始扩展名）
+    let ext = source_path.extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("png");
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let dest_filename = format!("avatar_{}.{}", timestamp, ext);
+    let dest_path = avatars_dir.join(&dest_filename);
+    
+    // 复制文件
+    fs::copy(&source_path, &dest_path).map_err(|e| e.to_string())?;
+    
+    // 返回相对路径（用于存储到数据库）
+    let avatar_path = format!("avatar:{}", dest_filename);
+    
+    // 更新 avatar
+    with_lan(|lan| lan.set_avatar(avatar_path.clone()));
+    
+    Ok(serde_json::json!({ 
+        "success": true, 
+        "data": { 
+            "path": avatar_path,
+            "fullPath": dest_path.to_string_lossy().to_string()
+        }
+    }))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn lan_get_avatar_path(avatar: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] lan_get_avatar_path() called");
+    
+    // 如果是 emoji（短字符串），直接返回
+    if avatar.len() <= 4 || !avatar.starts_with("avatar:") {
+        return Ok(serde_json::json!({ "success": true, "data": { "isEmoji": true, "path": avatar } }));
+    }
+    
+    // 解析 avatar:filename 格式
+    let filename = avatar.strip_prefix("avatar:").unwrap_or(&avatar);
+    let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+    let full_path = data_dir.join("avatars").join(filename);
+    
+    Ok(serde_json::json!({ 
+        "success": true, 
+        "data": { 
+            "isEmoji": false, 
+            "path": full_path.to_string_lossy().to_string()
+        }
+    }))
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub fn lan_set_receive_path(path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_set_receive_path() called");
     require_lan()?;

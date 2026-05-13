@@ -6,7 +6,8 @@
       <div class="relative flex items-center gap-3.5 p-4">
         <div class="relative shrink-0">
           <div class="size-12 rounded-2xl bg-gradient-to-br from-[#667eea] to-[#764ba2] flex items-center justify-center text-2xl shadow-[0_4px_12px_rgba(102,126,234,0.3)] shrink-0">
-            <span>{{ myAvatar }}</span>
+            <img v-if="myAvatarPath && !myAvatarIsEmoji" :src="convertFileSrc(myAvatarPath)" class="size-full rounded-2xl object-cover" />
+            <span v-else>{{ myAvatar }}</span>
           </div>
           <span class="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full border-[3px] border-base-100 transition-all duration-300"
                 :class="{
@@ -49,12 +50,20 @@
         <div class="p-4">
           <div class="mb-4 last:mb-0">
             <label class="block text-xs font-medium text-base-content/60 mb-2">头像</label>
-            <div class="flex flex-wrap gap-1.5">
+            <div class="flex flex-wrap gap-1.5 mb-2">
               <span v-for="emoji in avatarOptions" :key="emoji"
                     class="size-[38px] flex items-center justify-center text-xl rounded-xl cursor-pointer transition-all bg-white/3 hover:bg-white/8 hover:scale-110"
-                    :class="{ 'bg-[#667eea]/20 shadow-[inset_0_0_0_2px_#667eea]': editAvatar === emoji }"
-                    @click="editAvatar = emoji">{{ emoji }}</span>
+                    :class="{ 'bg-[#667eea]/20 shadow-[inset_0_0_0_2px_#667eea]': editAvatar === emoji && !editAvatarPath }"
+                    @click="editAvatar = emoji; editAvatarPath = ''">{{ emoji }}</span>
             </div>
+            <!-- 上传图片按钮 -->
+            <button class="btn btn-outline btn-sm w-full gap-2" @click="uploadAvatar" :disabled="uploadingAvatar">
+              <SvgIcon name="upload" size="16" />
+              {{ uploadingAvatar ? '上传中...' : '上传图片' }}
+            </button>
+            <p v-if="editAvatarPath" class="text-xs text-base-content/50 mt-2">
+              已选择图片: {{ editAvatarPath.split('/').pop() }}
+            </p>
           </div>
           <div class="mb-4 last:mb-0">
             <label class="block text-xs font-medium text-base-content/60 mb-2">昵称</label>
@@ -199,6 +208,8 @@
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { getTauriAPI } from '@/utils/tauri-api'
+import { open } from '@tauri-apps/plugin-dialog'
+import { convertFileSrc } from '@tauri-apps/api/core'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useToast } from '@/composables/useToast'
 
@@ -232,10 +243,14 @@ const checkingPermission = ref(false)
 const myUserId = ref('');
 const myDisplayName = ref('');
 const myAvatar = ref('😀');
+const myAvatarPath = ref<string>('');
+const myAvatarIsEmoji = ref(true);
 const currentStatus = ref<'online' | 'busy' | 'away'>('online');
 const showProfileEditor = ref(false);
 const editNickName = ref('');
 const editAvatar = ref('😀');
+const editAvatarPath = ref('');
+const uploadingAvatar = ref(false);
 const avatarOptions = ['😀','😎','🤓','👨‍💻','👩‍💻','🐱','🐶','🦊','🐼','🐨','🦁','🐸','🐵','🤖','👾','🎮'];
 const emit = defineEmits<{
   'select-peer': [peer: LanPeer];
@@ -431,20 +446,59 @@ async function loadMyProfile() {
     myAvatar.value = info.avatar || '😀';
     editNickName.value = '';
     editAvatar.value = info.avatar || '😀';
+    // 解析头像路径
+    if (info.avatar && info.avatar.startsWith('avatar:')) {
+      const avatarInfo = await getTauriAPI().lanGetAvatarPath(info.avatar);
+      myAvatarIsEmoji.value = avatarInfo.isEmoji;
+      myAvatarPath.value = avatarInfo.path;
+      editAvatarPath.value = avatarInfo.isEmoji ? '' : avatarInfo.path;
+    } else {
+      myAvatarIsEmoji.value = true;
+      myAvatarPath.value = '';
+      editAvatarPath.value = '';
+    }
   } catch (e) {
     console.warn('Failed to load profile:', e);
   }
 }
+
+// 上传头像图片
+async function uploadAvatar() {
+  try {
+    const selected = await open({
+      multiple: false,
+      filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
+      title: '选择头像图片',
+    });
+    if (!selected) return;
+    const filePath = typeof selected === 'string' ? selected : selected.path;
+    uploadingAvatar.value = true;
+    const result = await getTauriAPI().lanUploadAvatar(filePath);
+    editAvatar.value = result.path;
+    editAvatarPath.value = result.fullPath;
+    toast.success('头像上传成功');
+  } catch (e: any) {
+    console.error('Failed to upload avatar:', e);
+    toast.error(`上传失败: ${e.message || e}`);
+  } finally {
+    uploadingAvatar.value = false;
+  }
+}
+
 // 保存资料
 async function saveProfile() {
   try {
     await getTauriAPI().lanSetNickName(editNickName.value);
     await getTauriAPI().lanSetAvatar(editAvatar.value);
     myAvatar.value = editAvatar.value;
+    myAvatarPath.value = editAvatarPath.value;
+    myAvatarIsEmoji.value = !editAvatarPath.value;
     myDisplayName.value = editNickName.value || myUserId.value;
     showProfileEditor.value = false;
+    editAvatarPath.value = '';
   } catch (e: any) {
     console.error('Failed to save profile:', e);
+    toast.error(`保存失败: ${e.message || e}`);
   }
 }
 
