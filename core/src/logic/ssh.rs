@@ -553,9 +553,10 @@ impl SshService {
         remote_path: &str,
     ) -> Result<Vec<SftpFile>, String> {
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         let readdir = sftp
-            .readdir(Path::new(remote_path))
+            .readdir(Path::new(&expanded_path))
             .map_err(|e| format!("读取目录失败: {}", e))?;
 
         let files: Vec<SftpFile> = readdir
@@ -596,9 +597,10 @@ impl SshService {
         remote_path: &str,
     ) -> Result<String, String> {
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         let mut file = sftp
-            .open(Path::new(remote_path))
+            .open(Path::new(&expanded_path))
             .map_err(|e| format!("打开文件失败: {}", e))?;
 
         let mut contents = Vec::new();
@@ -614,8 +616,9 @@ impl SshService {
     /// 创建远程目录
     pub fn create_remote_dir(&self, server_id: &str, remote_path: &str) -> Result<bool, String> {
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
-        sftp.mkdir(Path::new(remote_path), 0o755)
+        sftp.mkdir(Path::new(&expanded_path), 0o755)
             .map(|_| true)
             .map_err(|e| format!("创建目录失败: {}", e))
     }
@@ -623,8 +626,9 @@ impl SshService {
     /// 删除远程文件
     pub fn delete_remote_file(&self, server_id: &str, remote_path: &str) -> Result<bool, String> {
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
-        sftp.unlink(Path::new(remote_path))
+        sftp.unlink(Path::new(&expanded_path))
             .map(|_| true)
             .map_err(|e| format!("删除文件失败: {}", e))
     }
@@ -638,6 +642,7 @@ impl SshService {
     ) -> Result<u64, String> {
         let sftp = self.get_sftp(server_id)?;
         let local = Path::new(local_path);
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         // 读取本地文件
         let local_data = std::fs::read(local).map_err(|e| format!("读取本地文件失败: {}", e))?;
@@ -645,7 +650,7 @@ impl SshService {
 
         // 创建远程文件并写入
         let mut remote_file = sftp
-            .create(Path::new(remote_path))
+            .create(Path::new(&expanded_path))
             .map_err(|e| format!("创建远程文件失败: {}", e))?;
 
         remote_file
@@ -653,10 +658,11 @@ impl SshService {
             .map_err(|e| format!("写入远程文件失败: {}", e))?;
 
         log::info!(
-            "[SFTP] Uploaded {} ({}) to {}:{remote_path}",
+            "[SFTP] Uploaded {} ({}) to {}:{}",
             local_path,
             file_size,
-            server_id
+            server_id,
+            expanded_path
         );
         Ok(file_size)
     }
@@ -669,10 +675,11 @@ impl SshService {
         local_path: &str,
     ) -> Result<u64, String> {
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         // 打开远程文件
         let mut remote_file = sftp
-            .open(Path::new(remote_path))
+            .open(Path::new(&expanded_path))
             .map_err(|e| format!("打开远程文件失败: {}", e))?;
 
         // 读取远程文件内容
@@ -714,9 +721,10 @@ impl SshService {
         }
 
         let sftp = self.get_sftp(server_id)?;
+        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         // 创建远程目录
-        let _ = sftp.mkdir(Path::new(remote_path), 0o755);
+        let _ = sftp.mkdir(Path::new(&expanded_path), 0o755);
 
         let mut total_size: u64 = 0;
         for entry in std::fs::read_dir(local).map_err(|e| format!("读取本地目录失败: {}", e))? {
@@ -727,7 +735,7 @@ impl SshService {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
 
-            let new_remote = format!("{}/{}", remote_path, file_name);
+            let new_remote = format!("{}/{}", expanded_path, file_name);
 
             if path.is_dir() {
                 let size = self.upload_dir_recursive(server_id, &path.to_string_lossy(), &new_remote)?;
@@ -742,7 +750,7 @@ impl SshService {
             "[SFTP] Uploaded directory {} to {}:{} ({} bytes total)",
             local_path,
             server_id,
-            remote_path,
+            expanded_path,
             total_size
         );
         Ok(total_size)
@@ -768,5 +776,16 @@ impl SshService {
             let _ = self.disconnect(server_id);
             format!("创建 SFTP 会话失败（连接可能已断开）: {}", e)
         })
+    }
+
+    /// 展开远程路径中的 ~ 为实际路径（使用 SFTP realpath）
+    fn expand_remote_path(sftp: &Sftp, remote_path: &str) -> Result<String, String> {
+        if remote_path.starts_with('~') {
+            let expanded = sftp.realpath(Path::new(remote_path))
+                .map_err(|e| format!("展开路径 '~' 失败: {}", e))?;
+            Ok(expanded.to_string_lossy().to_string())
+        } else {
+            Ok(remote_path.to_string())
+        }
     }
 }

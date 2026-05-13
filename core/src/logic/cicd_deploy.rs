@@ -1616,7 +1616,18 @@ async fn execute_restart(
 }
 
 fn shell_escape(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
+    // ~ 需要在引号外展开为 $HOME，否则单引号内的 ~ 不会被 shell 解释
+    if s.starts_with('~') {
+        let rest = &s[1..];
+        if rest.is_empty() {
+            "$HOME".to_string()
+        } else {
+            // rest 部分（如 /app）需要引号保护
+            format!("$HOME'{}'", rest.replace('\'', "'\\''"))
+        }
+    } else {
+        format!("'{}'", s.replace('\'', "'\\''"))
+    }
 }
 
 fn file_size_display(path: &str) -> String {
