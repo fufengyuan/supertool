@@ -812,8 +812,10 @@ async fn run_maven_build(
         args.push(profile);
     }
     if let Some(ref settings) = config.maven_settings {
-        args.push("-s");
-        args.push(settings);
+        if !settings.is_empty() {
+            args.push("-s");
+            args.push(settings);
+        }
     }
 
     let mut cmd = user_shell_cmd(&mvn.to_string_lossy());
