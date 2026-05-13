@@ -449,6 +449,103 @@ impl SshService {
         })
     }
 
+    /// 在独立连接上批量执行命令（不共享连接池，不影响终端 shell 会话）
+    ///
+    /// 创建临时 SSH 连接 → 逐条执行命令 → 断开连接。
+    /// 用于监控面板等场景，避免与终端的 shell 通道争用同一 session。
+    pub fn exec_commands_independent(
+        &self,
+        config: &SshServerConfig,
+        commands: &[String],
+    ) -> Result<HashMap<String, ExecResult>, String> {
+        // 创建临时 TCP 连接
+        let tcp = TcpStream::connect(format!("{}:{}", config.host, config.port))
+            .map_err(|e| format!("TCP 连接失败: {}", e))?;
+        let _ = tcp.set_read_timeout(Some(std::time::Duration::from_secs(15)));
+        let _ = tcp.set_write_timeout(Some(std::time::Duration::from_secs(10)));
+
+        let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
+        session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
+        session.set_timeout(20_000);
+        session.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+
+        // 认证
+        if let Some(ref key_path) = config.ssh_key_path {
+            session
+                .userauth_pubkey_file(&config.username, None, Path::new(key_path), None)
+                .map_err(|e| format!("密钥认证失败: {}", e))?;
+        } else if let Some(ref password) = config.password {
+            session
+                .userauth_password(&config.username, password)
+                .map_err(|e| format!("密码认证失败: {}", e))?;
+        } else {
+            return Err("没有可用的认证方式".to_string());
+        }
+
+        if !session.authenticated() {
+            return Err("认证失败".to_string());
+        }
+
+        // 逐条执行命令
+        let mut results = HashMap::new();
+        for cmd in commands {
+            let mut channel = session
+                .channel_session()
+                .map_err(|e| format!("打开通道失败: {}", e))?;
+            if let Err(e) = channel.exec(cmd) {
+                results.insert(
+                    cmd.clone(),
+                    ExecResult {
+                        success: false,
+                        output: String::new(),
+                        error_output: format!("执行失败: {}", e),
+                        exit_code: None,
+                    },
+                );
+                continue;
+            }
+
+            let mut output = String::new();
+            let mut buf = [0u8; 8192];
+            const MAX_OUTPUT: usize = 1_000_000;
+            loop {
+                if output.len() >= MAX_OUTPUT {
+                    output.push_str("\n--- [输出超过 1MB, 截断] ---");
+                    break;
+                }
+                match channel.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => output.push_str(&String::from_utf8_lossy(&buf[..n])),
+                    Err(e) => {
+                        if output.is_empty() {
+                            output = format!("读取输出失败: {}", e);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            let exit_code = channel.exit_status().ok();
+            let success = exit_code.map(|c| c == 0).unwrap_or(false);
+            let _ = channel.close();
+            let _ = channel.wait_close();
+
+            results.insert(
+                cmd.clone(),
+                ExecResult {
+                    success,
+                    output,
+                    error_output: String::new(),
+                    exit_code: exit_code.map(|c| c as u32),
+                },
+            );
+        }
+
+        // 断开临时连接（drop session + tcp）
+        drop(session);
+        Ok(results)
+    }
+
     /// 创建 SFTP 会话并列出目录
     pub fn list_remote_dir(
         &self,

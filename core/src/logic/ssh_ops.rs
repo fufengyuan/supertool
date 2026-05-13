@@ -120,6 +120,35 @@ impl super::CoreService {
         let result = self.run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &cmd)).await?;
         Ok(json!(result))
     }
+    /// 使用独立 SSH 连接批量执行命令（不共享连接池，不影响终端）
+    pub async fn exec_ssh_commands_independent(
+        &self,
+        params: Value,
+        commands: Vec<String>,
+    ) -> Result<Value, String> {
+        let config = ssh::SshServerConfig {
+            id: params["id"].as_str().unwrap_or("").to_string(),
+            name: params["name"].as_str().unwrap_or("").to_string(),
+            host: params["host"].as_str().unwrap_or("").to_string(),
+            port: params["port"].as_u64().unwrap_or(22) as u32,
+            username: params["username"].as_str().unwrap_or("").to_string(),
+            password: params.get("password").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
+            ssh_key_path: params.get("sshKeyPath").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
+        };
+        let ssh = self.ssh.clone();
+        let results = tokio::task::spawn_blocking(move || ssh.exec_commands_independent(&config, &commands))
+            .await
+            .map_err(|e| format!("SSH 批量命令执行失败: {}\n", e))??;
+        let mut json_results = serde_json::Map::new();
+        for (cmd, result) in results {
+            json_results.insert(cmd, json!({
+                "output": result.output,
+                "success": result.success,
+                "exitCode": result.exit_code,
+            }));
+        }
+        Ok(json!({ "success": true, "results": json_results }))
+    }
     pub async fn sftp_list_dir(&self, server_id: &str, remote_path: &str) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();

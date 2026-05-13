@@ -61,46 +61,19 @@ pub async fn get_server_monitor(
 ) -> Result<Value, String> {
     log::info!("[Tauri CMD] get_server_monitor({}), {} commands", server_id, commands.len());
 
-    // 确保已连接
-    let connected = core.ssh_is_connected(&server_id).await?;
-    let is_conn = connected
-        .get("connected")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if !is_conn {
-        // 自动连接
-        let server = core.get_server_by_id(&server_id).await?;
-        let data = server.as_object().ok_or("服务器数据格式错误")?;
-        let config = json!({
-            "id": data.get("id").and_then(|v| v.as_str()).unwrap_or(""),
-            "name": data.get("name").and_then(|v| v.as_str()).unwrap_or(""),
-            "host": data.get("host").and_then(|v| v.as_str()).unwrap_or(""),
-            "port": data.get("port").and_then(|v| v.as_u64()).unwrap_or(22),
-            "username": data.get("username").and_then(|v| v.as_str()).unwrap_or(""),
-            "password": data.get("password").and_then(|v| v.as_str()),
-            "sshKeyPath": data.get("sshKeyPath").and_then(|v| v.as_str()),
-        });
-        core.ssh_connect(config).await?;
-    }
+    // 从 DB 获取服务器配置（不共享连接池中的 session，避免影响终端 shell）
+    let server = core.get_server_by_id(&server_id).await?;
+    let data = server.as_object().ok_or("服务器数据格式错误")?;
+    let config = json!({
+        "id": data.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+        "name": data.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+        "host": data.get("host").and_then(|v| v.as_str()).unwrap_or(""),
+        "port": data.get("port").and_then(|v| v.as_u64()).unwrap_or(22),
+        "username": data.get("username").and_then(|v| v.as_str()).unwrap_or(""),
+        "password": data.get("password").and_then(|v| v.as_str()),
+        "sshKeyPath": data.get("sshKeyPath").and_then(|v| v.as_str()),
+    });
 
-    let mut results = serde_json::Map::new();
-    for cmd in &commands {
-        match core.exec_ssh_command(&server_id, cmd).await {
-            Ok(result) => {
-                if let Some(output) = result.get("output").and_then(|v| v.as_str()) {
-                    results.insert(cmd.clone(), json!(output));
-                } else {
-                    results.insert(cmd.clone(), json!(result.to_string()));
-                }
-            }
-            Err(e) => {
-                results.insert(cmd.clone(), json!(format!("ERROR: {}", e)));
-            }
-        }
-    }
-
-    Ok(json!({
-        "success": true,
-        "results": results,
-    }))
+    // 使用独立 SSH 连接执行命令（不共享连接池，不影响终端 shell 会话）
+    core.exec_ssh_commands_independent(config, commands).await
 }
