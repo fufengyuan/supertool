@@ -649,16 +649,8 @@ function formatValue(val: unknown): string {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
       }
     }
-    // Numeric strings that look like timestamps (e.g. "1705305000")
-    const numStr = Number(val)
-    if (!isNaN(numStr) && val.trim().length >= 10) {
-      const ts = numStr > 1e11 ? numStr : numStr * 1000
-      const d = new Date(ts)
-      if (!isNaN(d.getTime()) && d.getFullYear() >= 2000 && d.getFullYear() <= 2100) {
-        const pad = (n: number) => String(n).padStart(2, '0')
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-      }
-    }
+    // NOTE: Do NOT format numeric strings as timestamps — they are likely IDs or identifiers.
+    // Real timestamp columns are typically numeric types (INT/BIGINT), not TEXT/VARCHAR.
 
     try {
       let parsed = JSON.parse(val)
