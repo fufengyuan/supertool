@@ -1,5 +1,9 @@
 use crate::logic::CoreService;
 use crate::db::ApiResponse;
+use crate::db::nginx::{
+    NginxServer, NginxLocation, NginxUpstream, NginxUpstreamServer,
+    NginxHttpParam, NginxStream, NginxCert, NginxTemplate, NginxBasicSetting,
+};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct NginxTestResult {
@@ -263,5 +267,408 @@ impl CoreService {
         Ok(self.with_db(move |db| {
             crate::db::nginx::set_current_version(db, &pid, &vid)
         }))
+    }
+
+    // ============ NginxServer CRUD ============
+
+    pub async fn get_servers_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxServer>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxServer>, String> {
+            crate::db::nginx::get_servers_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn get_nginx_server_by_id(
+        &self,
+        id: &str,
+    ) -> Result<ApiResponse<Option<NginxServer>>, String> {
+        let sid = id.to_string();
+        let result = self.db_read(move |conn| -> Result<Option<NginxServer>, String> {
+            crate::db::nginx::get_server_by_id(conn, &sid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_server(
+        &self,
+        server: &NginxServer,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = server.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_server(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_server(
+        &self,
+        server: &NginxServer,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = server.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_server(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_server(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let sid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_server(conn, &sid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxLocation CRUD ============
+
+    pub async fn get_locations_by_server(
+        &self,
+        server_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxLocation>>, String> {
+        let sid = server_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxLocation>, String> {
+            crate::db::nginx::get_locations_by_server(conn, &sid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_location(
+        &self,
+        location: &NginxLocation,
+    ) -> Result<ApiResponse<()>, String> {
+        let loc = location.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_location(conn, &loc).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_location(
+        &self,
+        location: &NginxLocation,
+    ) -> Result<ApiResponse<()>, String> {
+        let loc = location.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_location(conn, &loc).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_location(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let sid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_location(conn, &sid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxUpstream CRUD ============
+
+    pub async fn get_upstreams_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxUpstream>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxUpstream>, String> {
+            crate::db::nginx::get_upstreams_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn get_upstream_by_id(
+        &self,
+        id: &str,
+    ) -> Result<ApiResponse<Option<NginxUpstream>>, String> {
+        let uid = id.to_string();
+        let result = self.db_read(move |conn| -> Result<Option<NginxUpstream>, String> {
+            crate::db::nginx::get_upstream_by_id(conn, &uid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_upstream(
+        &self,
+        upstream: &NginxUpstream,
+    ) -> Result<ApiResponse<()>, String> {
+        let u = upstream.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_upstream(conn, &u).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_upstream(
+        &self,
+        upstream: &NginxUpstream,
+    ) -> Result<ApiResponse<()>, String> {
+        let u = upstream.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_upstream(conn, &u).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_upstream(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let uid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_upstream(conn, &uid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxUpstreamServer CRUD ============
+
+    pub async fn get_upstream_servers(
+        &self,
+        upstream_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxUpstreamServer>>, String> {
+        let uid = upstream_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxUpstreamServer>, String> {
+            crate::db::nginx::get_upstream_servers(conn, &uid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_upstream_server(
+        &self,
+        upstream_server: &NginxUpstreamServer,
+    ) -> Result<ApiResponse<()>, String> {
+        let us = upstream_server.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_upstream_server(conn, &us).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_upstream_server(
+        &self,
+        upstream_server: &NginxUpstreamServer,
+    ) -> Result<ApiResponse<()>, String> {
+        let us = upstream_server.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_upstream_server(conn, &us).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_upstream_server(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let uid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_upstream_server(conn, &uid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxHttpParam CRUD ============
+
+    pub async fn get_http_params_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxHttpParam>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxHttpParam>, String> {
+            crate::db::nginx::get_http_params_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_http_param(
+        &self,
+        param: &NginxHttpParam,
+    ) -> Result<ApiResponse<()>, String> {
+        let p = param.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_http_param(conn, &p).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_http_param(
+        &self,
+        param: &NginxHttpParam,
+    ) -> Result<ApiResponse<()>, String> {
+        let p = param.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_http_param(conn, &p).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_http_param(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let pid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_http_param(conn, &pid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxStream CRUD ============
+
+    pub async fn get_streams_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxStream>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxStream>, String> {
+            crate::db::nginx::get_streams_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_stream(
+        &self,
+        stream: &NginxStream,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = stream.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_stream(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_stream(
+        &self,
+        stream: &NginxStream,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = stream.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_stream(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_stream(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let sid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_stream(conn, &sid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxCert CRUD ============
+
+    pub async fn get_certs_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxCert>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxCert>, String> {
+            crate::db::nginx::get_certs_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_cert(
+        &self,
+        cert: &NginxCert,
+    ) -> Result<ApiResponse<()>, String> {
+        let c = cert.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_cert(conn, &c).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_cert(
+        &self,
+        cert: &NginxCert,
+    ) -> Result<ApiResponse<()>, String> {
+        let c = cert.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_cert(conn, &c).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_cert(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let cid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_cert(conn, &cid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxTemplate CRUD ============
+
+    pub async fn get_templates_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxTemplate>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxTemplate>, String> {
+            crate::db::nginx::get_templates_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_template(
+        &self,
+        template: &NginxTemplate,
+    ) -> Result<ApiResponse<()>, String> {
+        let t = template.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_template(conn, &t).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_template(
+        &self,
+        template: &NginxTemplate,
+    ) -> Result<ApiResponse<()>, String> {
+        let t = template.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_template(conn, &t).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_template(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let tid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_template(conn, &tid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxBasicSetting CRUD ============
+
+    pub async fn get_basic_setting(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Option<NginxBasicSetting>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Option<NginxBasicSetting>, String> {
+            crate::db::nginx::get_basic_setting(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn upsert_basic_setting(
+        &self,
+        setting: &NginxBasicSetting,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = setting.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::upsert_nginx_basic_setting(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ Config Generation ============
+
+    pub async fn generate_nginx_config(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<String>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| {
+            crate::logic::nginx_generator::generate_nginx_config(conn, &pid)
+        })??;
+        Ok(ApiResponse::ok(result))
     }
 }

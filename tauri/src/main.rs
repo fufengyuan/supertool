@@ -647,6 +647,51 @@ fn main() {
             commands::nginx::get_nginx_config_versions,
             commands::nginx::save_nginx_config_version,
             commands::nginx::set_active_nginx_version,
+            // NginxServer commands
+            commands::nginx::get_servers_by_preset,
+            commands::nginx::add_nginx_server,
+            commands::nginx::update_nginx_server,
+            commands::nginx::delete_nginx_server,
+            // NginxLocation commands
+            commands::nginx::get_locations_by_server,
+            commands::nginx::add_nginx_location,
+            commands::nginx::update_nginx_location,
+            commands::nginx::delete_nginx_location,
+            // NginxUpstream commands
+            commands::nginx::get_upstreams_by_preset,
+            commands::nginx::add_nginx_upstream,
+            commands::nginx::update_nginx_upstream,
+            commands::nginx::delete_nginx_upstream,
+            // NginxUpstreamServer commands
+            commands::nginx::get_upstream_servers,
+            commands::nginx::add_nginx_upstream_server,
+            commands::nginx::update_nginx_upstream_server,
+            commands::nginx::delete_nginx_upstream_server,
+            // NginxHttpParam commands
+            commands::nginx::get_http_params_by_preset,
+            commands::nginx::add_nginx_http_param,
+            commands::nginx::update_nginx_http_param,
+            commands::nginx::delete_nginx_http_param,
+            // NginxStream commands
+            commands::nginx::get_streams_by_preset,
+            commands::nginx::add_nginx_stream,
+            commands::nginx::update_nginx_stream,
+            commands::nginx::delete_nginx_stream,
+            // NginxCert commands
+            commands::nginx::get_certs_by_preset,
+            commands::nginx::add_nginx_cert,
+            commands::nginx::update_nginx_cert,
+            commands::nginx::delete_nginx_cert,
+            // NginxTemplate commands
+            commands::nginx::get_templates_by_preset,
+            commands::nginx::add_nginx_template,
+            commands::nginx::update_nginx_template,
+            commands::nginx::delete_nginx_template,
+            // NginxBasicSetting commands
+            commands::nginx::get_basic_setting,
+            commands::nginx::upsert_basic_setting,
+            // Config Generation
+            commands::nginx::generate_nginx_config,
             // Disk cleaner commands
             commands::disk_cleaner::get_home_dir,
             commands::disk_cleaner::get_disk_info,
