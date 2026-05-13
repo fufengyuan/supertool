@@ -223,7 +223,7 @@ function setupResizeObserver() {
     if (rows > 0 && cols > 0 && (rows !== lastResizeRows || cols !== lastResizeCols)) {
       lastResizeRows = rows
       lastResizeCols = cols
-      getTauriAPI().resizeTerminal(tab.sessionId, rows, cols)
+      getTauriAPI().resizeTerminal(tab.sessionId, cols, rows)
     }
   })
 
@@ -482,7 +482,7 @@ async function connectTab(tab: TerminalTab) {
         if (term.rows > 0 && term.cols > 0) {
           lastResizeRows = term.rows
           lastResizeCols = term.cols
-          getTauriAPI().resizeTerminal(sid, term.rows, term.cols)
+          getTauriAPI().resizeTerminal(sid, term.cols, term.rows)
         }
       }
 
