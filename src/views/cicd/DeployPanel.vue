@@ -135,6 +135,31 @@
         </template>
       </div>
 
+      <!-- Approval Confirmation Modal -->
+      <div v-if="showApprovalDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60" @click.self="cancelApproval">
+        <div class="bg-base-200 border border-base-content/10 rounded-xl p-6 w-[420px] max-w-[90vw] shadow-xl animate-[slideUp_0.2s_ease]">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center text-warning">
+              <SvgIcon name="lock" size="20" />
+            </div>
+            <div>
+              <h4 class="m-0 text-lg font-bold text-base-content">审核确认</h4>
+              <p class="m-0 text-sm text-base-content/60 mt-0.5">此配置已开启部署审核</p>
+            </div>
+          </div>
+          <p class="text-sm text-base-content/80 mb-5 leading-relaxed">
+            配置「<strong>{{ config?.name || getGitRepoName(config?.gitRepoId) }}</strong>」开启了审核模式。
+            <br />请确认你已准备好部署，是否继续？
+          </p>
+          <div class="flex justify-end gap-2">
+            <button @click="cancelApproval" class="btn btn-ghost">取消</button>
+            <button @click="confirmApproval" class="btn bg-gradient-to-br from-warning to-amber-600 border-warning text-white hover:from-warning/90 hover:to-amber-600/90">
+              <SvgIcon name="rocket" size="14" class="inline-block align-text-bottom" /> 确认部署
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Right: Log + History -->
       <div class="flex flex-col gap-3 min-w-0">
         <!-- Real-time Log -->
@@ -454,6 +479,29 @@ const rollingBackId = ref<string | null>(null);
 const preflightResults = ref<{ name: string; passed: boolean; message: string }[]>([]);
 const logContainer = ref(null);
 
+// Approval confirmation modal
+const showApprovalDialog = ref(false);
+let approvalResolve: ((value: boolean) => void) | null = null;
+
+function showApprovalConfirm(): Promise<boolean> {
+  showApprovalDialog.value = true;
+  return new Promise(resolve => {
+    approvalResolve = resolve;
+  });
+}
+
+function confirmApproval() {
+  showApprovalDialog.value = false;
+  approvalResolve?.(true);
+  approvalResolve = null;
+}
+
+function cancelApproval() {
+  showApprovalDialog.value = false;
+  approvalResolve?.(false);
+  approvalResolve = null;
+}
+
 function initDeployState(configId: string): DeployState {
   return {
     deploying: false,
@@ -741,9 +789,7 @@ async function startDeploy() {
   if (currentState?.deploying) return; // 该配置已经在部署中
 
   if (config.value?.requiresApproval) {
-    const proceed = confirm(
-      `⚠️ 审核确认\\n\\\\n配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。\\\\n\\\\n请确认你已准备好部署到生产环境，是否继续？`
-    );
+    const proceed = await showApprovalConfirm();
     if (!proceed) return;
   }
 
