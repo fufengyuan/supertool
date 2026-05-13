@@ -307,7 +307,7 @@
                 <!-- Auto-load log file when step logs are empty -->
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
                   <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-y-auto overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
+                  <pre ref="el => { if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }) }" class="mt-1 p-2 bg-base-100 rounded overflow-y-auto overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
                   <button
                     v-else
@@ -1024,13 +1024,7 @@ function clearRealtimeLogs() {
 function scrollToBottom() {
   nextTick(() => {
     if (logContainer.value) {
-      // 只在用户已处于底部附近时自动滚动，避免打断用户查看历史日志
-      const el = logContainer.value
-      const threshold = 50 // 距离底部 50px 以内视为"在底部"
-      const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
-      if (isNearBottom) {
-        el.scrollTop = el.scrollHeight
-      }
+      logContainer.value.scrollTop = logContainer.value.scrollHeight
     }
   });
 }
