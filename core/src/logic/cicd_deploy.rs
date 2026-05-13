@@ -724,10 +724,17 @@ async fn build_single_module(
 
     // Custom build command (stream output for real-time logs)
     if let Some(ref cmd) = module.build_command.as_ref().filter(|s| !s.is_empty()) {
-        emit("build", "starting", &format!("执行构建命令: {}", cmd));
+        let final_cmd = if cmd.contains("mvn") && config.skip_tests && !cmd.contains("skipTests") {
+            let appended = format!("{} -DskipTests", cmd);
+            emit("build", "info", &format!("已追加 -DskipTests（原始命令中未含）"));
+            appended
+        } else {
+            cmd.to_string()
+        };
+        emit("build", "starting", &format!("执行构建命令: {}", final_cmd));
 
         let mut child_cmd = user_shell_cmd("sh");
-        child_cmd.arg("-c").arg(cmd).current_dir(&build_path)
+        child_cmd.arg("-c").arg(&final_cmd).current_dir(&build_path)
             .stdout(Stdio::piped()).stderr(Stdio::piped());
 
         // 注入配置的工具路径，确保自定义命令能找到 mvn/npm/node
