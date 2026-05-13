@@ -200,6 +200,9 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { getTauriAPI } from '@/utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 interface LanPeer {
   id: string;
