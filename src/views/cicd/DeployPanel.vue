@@ -258,7 +258,7 @@
                     <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 完整日志</span>
                     <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors inline-flex items-center gap-1"><SvgIcon name="x" size="12" /> 关闭</button>
                   </div>
-                  <pre class="m-0 p-2.5 max-h-[500px] overflow-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
+                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
                 </div>
 
                 <!-- Step logs -->
@@ -307,7 +307,7 @@
                 <!-- Auto-load log file when step logs are empty -->
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
                   <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-y-auto overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
                   <button
                     v-else
