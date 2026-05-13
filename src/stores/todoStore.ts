@@ -138,8 +138,10 @@ export const useTodoStore = defineStore('todos', () => {
     try {
       const saved = await todosApi.addTodo(todoData);
       pushUndoSnapshot();
-      todos.value.push(saved);
-      return saved;
+      // 后端返回不完整，合并传入的完整数据
+      const fullTodo = { ...todoData, ...saved, id: saved.id } as Todo;
+      todos.value.push(fullTodo);
+      return fullTodo;
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'addTodo', rethrow: true });
