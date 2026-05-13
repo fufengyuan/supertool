@@ -1137,16 +1137,62 @@ export function useLogsAPI() {
 
 export function useNginxAPI() {
   return {
+    // Presets
     getNginxPresets: async (): Promise<any> => tauriCall('get_all_nginx_presets'),
     addNginxPreset: async (preset: any): Promise<any> => tauriCall('add_nginx_preset', { preset }),
     updateNginxPreset: async (preset: any): Promise<any> => tauriCall('update_nginx_preset', { preset }),
     deleteNginxPreset: async (id: string): Promise<any> => tauriCall('delete_nginx_preset', { id }),
+    // Config
     fetchNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('fetch_nginx_config', { serverId, configPath }),
     testNginxConfig: async (serverId: string, configPath: string): Promise<any> => tauriCall('test_nginx_config', { serverId, configPath }),
     deployNginxConfig: async (serverId: string, configPath: string, content: string, comment: string): Promise<any> => tauriCall('deploy_nginx_config', { serverId, configPath, content, comment }),
     getNginxConfigVersions: async (presetId: string): Promise<any> => tauriCall('get_nginx_config_versions', { presetId }),
     saveNginxConfigVersion: async (version: any): Promise<any> => tauriCall('save_nginx_config_version', { version }),
     setActiveNginxVersion: async (presetId: string, versionId: string): Promise<any> => tauriCall('set_active_nginx_version', { presetId, versionId }),
+    generateNginxConfig: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config', { presetId }),
+    // Servers
+    getServersByPreset: async (presetId: string): Promise<any> => tauriCall('get_servers_by_preset', { presetId }),
+    addNginxServer: async (server: any): Promise<any> => tauriCall('add_nginx_server', { server }),
+    updateNginxServer: async (server: any): Promise<any> => tauriCall('update_nginx_server', { server }),
+    deleteNginxServer: async (id: string): Promise<any> => tauriCall('delete_nginx_server', { id }),
+    // Locations
+    getLocationsByServer: async (serverId: string): Promise<any> => tauriCall('get_locations_by_server', { serverId }),
+    addNginxLocation: async (location: any): Promise<any> => tauriCall('add_nginx_location', { location }),
+    updateNginxLocation: async (location: any): Promise<any> => tauriCall('update_nginx_location', { location }),
+    deleteNginxLocation: async (id: string): Promise<any> => tauriCall('delete_nginx_location', { id }),
+    // Upstreams
+    getUpstreamsByPreset: async (presetId: string): Promise<any> => tauriCall('get_upstreams_by_preset', { presetId }),
+    addNginxUpstream: async (upstream: any): Promise<any> => tauriCall('add_nginx_upstream', { upstream }),
+    updateNginxUpstream: async (upstream: any): Promise<any> => tauriCall('update_nginx_upstream', { upstream }),
+    deleteNginxUpstream: async (id: string): Promise<any> => tauriCall('delete_nginx_upstream', { id }),
+    // Upstream Servers
+    getUpstreamServers: async (upstreamId: string): Promise<any> => tauriCall('get_upstream_servers', { upstreamId }),
+    addNginxUpstreamServer: async (upstreamServer: any): Promise<any> => tauriCall('add_nginx_upstream_server', { upstreamServer }),
+    updateNginxUpstreamServer: async (upstreamServer: any): Promise<any> => tauriCall('update_nginx_upstream_server', { upstreamServer }),
+    deleteNginxUpstreamServer: async (id: string): Promise<any> => tauriCall('delete_nginx_upstream_server', { id }),
+    // HTTP Params
+    getHttpParamsByPreset: async (presetId: string): Promise<any> => tauriCall('get_http_params_by_preset', { presetId }),
+    addNginxHttpParam: async (param: any): Promise<any> => tauriCall('add_nginx_http_param', { param }),
+    updateNginxHttpParam: async (param: any): Promise<any> => tauriCall('update_nginx_http_param', { param }),
+    deleteNginxHttpParam: async (id: string): Promise<any> => tauriCall('delete_nginx_http_param', { id }),
+    // Streams
+    getStreamsByPreset: async (presetId: string): Promise<any> => tauriCall('get_streams_by_preset', { presetId }),
+    addNginxStream: async (stream: any): Promise<any> => tauriCall('add_nginx_stream', { stream }),
+    updateNginxStream: async (stream: any): Promise<any> => tauriCall('update_nginx_stream', { stream }),
+    deleteNginxStream: async (id: string): Promise<any> => tauriCall('delete_nginx_stream', { id }),
+    // Certs
+    getCertsByPreset: async (presetId: string): Promise<any> => tauriCall('get_certs_by_preset', { presetId }),
+    addNginxCert: async (cert: any): Promise<any> => tauriCall('add_nginx_cert', { cert }),
+    updateNginxCert: async (cert: any): Promise<any> => tauriCall('update_nginx_cert', { cert }),
+    deleteNginxCert: async (id: string): Promise<any> => tauriCall('delete_nginx_cert', { id }),
+    // Templates
+    getTemplatesByPreset: async (presetId: string): Promise<any> => tauriCall('get_templates_by_preset', { presetId }),
+    addNginxTemplate: async (template: any): Promise<any> => tauriCall('add_nginx_template', { template }),
+    updateNginxTemplate: async (template: any): Promise<any> => tauriCall('update_nginx_template', { template }),
+    deleteNginxTemplate: async (id: string): Promise<any> => tauriCall('delete_nginx_template', { id }),
+    // Basic Setting
+    getBasicSetting: async (presetId: string): Promise<any> => tauriCall('get_basic_setting', { presetId }),
+    upsertBasicSetting: async (setting: any): Promise<any> => tauriCall('upsert_basic_setting', { setting }),
   };
 }
 
@@ -1711,6 +1757,41 @@ export interface TauriAPI {
   getNginxConfigVersions: (presetId: string) => Promise<any>
   saveNginxConfigVersion: (version: any) => Promise<any>
   setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
+  generateNginxConfig: (presetId: string) => Promise<any>
+  getServersByPreset: (presetId: string) => Promise<any>
+  addNginxServer: (server: any) => Promise<any>
+  updateNginxServer: (server: any) => Promise<any>
+  deleteNginxServer: (id: string) => Promise<any>
+  getLocationsByServer: (serverId: string) => Promise<any>
+  addNginxLocation: (location: any) => Promise<any>
+  updateNginxLocation: (location: any) => Promise<any>
+  deleteNginxLocation: (id: string) => Promise<any>
+  getUpstreamsByPreset: (presetId: string) => Promise<any>
+  addNginxUpstream: (upstream: any) => Promise<any>
+  updateNginxUpstream: (upstream: any) => Promise<any>
+  deleteNginxUpstream: (id: string) => Promise<any>
+  getUpstreamServers: (upstreamId: string) => Promise<any>
+  addNginxUpstreamServer: (upstreamServer: any) => Promise<any>
+  updateNginxUpstreamServer: (upstreamServer: any) => Promise<any>
+  deleteNginxUpstreamServer: (id: string) => Promise<any>
+  getHttpParamsByPreset: (presetId: string) => Promise<any>
+  addNginxHttpParam: (param: any) => Promise<any>
+  updateNginxHttpParam: (param: any) => Promise<any>
+  deleteNginxHttpParam: (id: string) => Promise<any>
+  getStreamsByPreset: (presetId: string) => Promise<any>
+  addNginxStream: (stream: any) => Promise<any>
+  updateNginxStream: (stream: any) => Promise<any>
+  deleteNginxStream: (id: string) => Promise<any>
+  getCertsByPreset: (presetId: string) => Promise<any>
+  addNginxCert: (cert: any) => Promise<any>
+  updateNginxCert: (cert: any) => Promise<any>
+  deleteNginxCert: (id: string) => Promise<any>
+  getTemplatesByPreset: (presetId: string) => Promise<any>
+  addNginxTemplate: (template: any) => Promise<any>
+  updateNginxTemplate: (template: any) => Promise<any>
+  deleteNginxTemplate: (id: string) => Promise<any>
+  getBasicSetting: (presetId: string) => Promise<any>
+  upsertBasicSetting: (setting: any) => Promise<any>
   // Alert
   getEmailConfig: () => Promise<any>
   saveEmailConfig: (config: any) => Promise<any>
@@ -2023,6 +2104,41 @@ export function getTauriAPI(): TauriAPI {
     getNginxConfigVersions: nginx.getNginxConfigVersions,
     saveNginxConfigVersion: nginx.saveNginxConfigVersion,
     setActiveNginxVersion: nginx.setActiveNginxVersion,
+    generateNginxConfig: nginx.generateNginxConfig,
+    getServersByPreset: nginx.getServersByPreset,
+    addNginxServer: nginx.addNginxServer,
+    updateNginxServer: nginx.updateNginxServer,
+    deleteNginxServer: nginx.deleteNginxServer,
+    getLocationsByServer: nginx.getLocationsByServer,
+    addNginxLocation: nginx.addNginxLocation,
+    updateNginxLocation: nginx.updateNginxLocation,
+    deleteNginxLocation: nginx.deleteNginxLocation,
+    getUpstreamsByPreset: nginx.getUpstreamsByPreset,
+    addNginxUpstream: nginx.addNginxUpstream,
+    updateNginxUpstream: nginx.updateNginxUpstream,
+    deleteNginxUpstream: nginx.deleteNginxUpstream,
+    getUpstreamServers: nginx.getUpstreamServers,
+    addNginxUpstreamServer: nginx.addNginxUpstreamServer,
+    updateNginxUpstreamServer: nginx.updateNginxUpstreamServer,
+    deleteNginxUpstreamServer: nginx.deleteNginxUpstreamServer,
+    getHttpParamsByPreset: nginx.getHttpParamsByPreset,
+    addNginxHttpParam: nginx.addNginxHttpParam,
+    updateNginxHttpParam: nginx.updateNginxHttpParam,
+    deleteNginxHttpParam: nginx.deleteNginxHttpParam,
+    getStreamsByPreset: nginx.getStreamsByPreset,
+    addNginxStream: nginx.addNginxStream,
+    updateNginxStream: nginx.updateNginxStream,
+    deleteNginxStream: nginx.deleteNginxStream,
+    getCertsByPreset: nginx.getCertsByPreset,
+    addNginxCert: nginx.addNginxCert,
+    updateNginxCert: nginx.updateNginxCert,
+    deleteNginxCert: nginx.deleteNginxCert,
+    getTemplatesByPreset: nginx.getTemplatesByPreset,
+    addNginxTemplate: nginx.addNginxTemplate,
+    updateNginxTemplate: nginx.updateNginxTemplate,
+    deleteNginxTemplate: nginx.deleteNginxTemplate,
+    getBasicSetting: nginx.getBasicSetting,
+    upsertBasicSetting: nginx.upsertBasicSetting,
     // Alert
     getEmailConfig: alert.getEmailConfig,
     saveEmailConfig: alert.saveEmailConfig,
