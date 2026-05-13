@@ -1,17 +1,22 @@
 use rusqlite::Connection;
 
 pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
-    // ── Schema migration: drop unused columns ──
+    // ── Schema migration: backward compat ──
+    // Best-effort: try to drop projectId for clean DBs, then re-add with DEFAULT for safety
     let migrations = [
         "ALTER TABLE cicd_configs DROP COLUMN projectId",
         "ALTER TABLE deploy_logs DROP COLUMN projectId",
         "ALTER TABLE deploy_history DROP COLUMN projectId",
+        // If DROP didn't work (or column never existed), ensure it exists with a default
+        "ALTER TABLE cicd_configs ADD COLUMN projectId TEXT DEFAULT ''",
+        "ALTER TABLE deploy_logs ADD COLUMN projectId TEXT DEFAULT ''",
+        "ALTER TABLE deploy_history ADD COLUMN projectId TEXT DEFAULT ''",
         // Legacy migrations (safe to re-run)
         "ALTER TABLE cicd_configs ADD COLUMN pnpmHome TEXT DEFAULT ''",
         "ALTER TABLE cicd_configs ADD COLUMN yarnHome TEXT DEFAULT ''",
     ];
     for sql in migrations {
-        let _ = conn.execute(sql, []); // ignore errors (column already gone / already exists)
+        let _ = conn.execute(sql, []); // ignore errors
     }
 
     conn.execute_batch(
@@ -19,6 +24,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         -- CI/CD configuration profiles
         CREATE TABLE IF NOT EXISTS cicd_configs (
             id TEXT PRIMARY KEY,
+            projectId TEXT DEFAULT '',
             name TEXT DEFAULT '',
             deployBranch TEXT NOT NULL DEFAULT 'main',
             mavenSettings TEXT,
@@ -74,6 +80,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         -- Deploy logs (each deployment attempt)
         CREATE TABLE IF NOT EXISTS deploy_logs (
             id TEXT PRIMARY KEY,
+            projectId TEXT DEFAULT '',
             configId TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'running',
             startTime TEXT NOT NULL,
@@ -100,6 +107,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS deploy_history (
             id TEXT PRIMARY KEY,
             configId TEXT NOT NULL,
+            projectId TEXT DEFAULT '',
             status TEXT NOT NULL,
             deployedAt TEXT NOT NULL,
             rolledBack INTEGER NOT NULL DEFAULT 0,
