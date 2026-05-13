@@ -155,17 +155,20 @@ export const useTodoStore = defineStore('todos', () => {
       const updated = await todosApi.updateTodo(todoData);
       const index = todos.value.findIndex((t) => t.id === todoData.id);
       if (index !== -1) {
-        todos.value[index] = updated;
+        // 后端可能只返回 {id}，使用传入的完整数据更新本地数组
+        const fullUpdated = updated.id && !updated.text ? todoData : updated;
+        todos.value[index] = fullUpdated;
       }
       // 重复任务触发修复：如果更新导致 completed 变为 true 且有 repeatType，创建下一个实例
-      if (!wasCompleted && updated.completed && updated.repeatType) {
+      const finalTodo = todos.value.find(t => t.id === todoData.id);
+      if (!wasCompleted && finalTodo?.completed && finalTodo.repeatType) {
         try {
-          await createRepeatInstance(updated);
+          await createRepeatInstance(finalTodo);
         } catch (repeatErr) {
           handleError(repeatErr, { context: 'updateTodo createRepeatInstance', showToast: false });
         }
       }
-      return updated;
+      return todos.value[index];
     } catch (err) {
       error.value = (err as Error).message;
       handleError(err, { context: 'updateTodo', rethrow: true });

@@ -15,7 +15,7 @@
         <span :class="`w-2 h-2 rounded-full ${quickAddPriority === 'low' ? 'bg-success' : quickAddPriority === 'medium' ? 'bg-warning' : 'bg-error'}`"></span>
         {{ quickPriorityLabel }}
       </button>
-      <select v-if="quickAddText" v-model="quickAddProjectId" class="select select-ghost w-auto max-w-[180px]" @change="handleQuickAdd">
+      <select v-if="quickAddText" v-model="quickAddProjectId" class="select select-ghost w-auto max-w-[180px]">
         <option value="">无项目</option>
         <option v-for="p in projectStore.projects" :key="p.id" :value="p.id">{{ p.name }}</option>
       </select>
