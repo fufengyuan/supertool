@@ -299,8 +299,8 @@ pub async fn db_get_tables(id: String, db_name: String) -> Result<serde_json::Va
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
     match conn {
         DbConnection::MySql(p) => execute_mysql_query(p, &format!("SHOW TABLES FROM `{}`", db_name)).await,
-        DbConnection::Postgres(c) => execute_postgres_query(c, "SELECT tablename FROM pg_tables WHERE schemaname = 'public'").await,
-        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").await,
+        DbConnection::Postgres(c) => execute_postgres_query(c, "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename").await,
+        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").await,
         _ => Err("Unsupported database type for listing tables".to_string()),
     }
 }
