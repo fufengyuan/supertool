@@ -108,6 +108,13 @@ build_macos_all() {
     # 清理上次打包残留的临时 DMG 文件（rw.*.dmg 是 create-dmg 的临时文件）
     rm -f target/release/bundle/macos/rw.*.dmg
 
+    local arch_label=""
+    if [ "$1" = "x64" ] || [ "$1" = "x86_64" ]; then
+        arch_label="-x64"
+    elif [ "$1" = "arm64" ] || [ "$1" = "aarch64" ]; then
+        arch_label="-arm64"
+    fi
+
     # ── 1. 复制原生 .dmg ──
     local DMG_SRC=""
     for d in target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg; do
@@ -182,10 +189,10 @@ POSTINSTALL
         --version "$VERSION" \
         --install-location "/Applications" \
         --scripts "$PKG_DIR/scripts" \
-        "$PKG_OUTPUT/SuperTool-${VERSION}.pkg"
+        "$PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
 
     rm -rf "$PKG_DIR"
-    echo "✅ pkg → $PKG_OUTPUT/SuperTool-${VERSION}.pkg"
+    echo "✅ pkg → $PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
 }
 
 # ═══════════════════════════════════════════
@@ -330,6 +337,13 @@ case "$MODE" in
     build_cli "$ARCH"
     pnpm tauri build --bundles app
     
+    local arch_label=""
+    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+        arch_label="-x64"
+    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+        arch_label="-arm64"
+    fi
+
     mkdir -p "$PKG_OUTPUT"
     
     APP_PATH=""
@@ -394,10 +408,10 @@ POSTINSTALL
         --version "$VERSION" \
         --install-location "/Applications" \
         --scripts "$PKG_DIR/scripts" \
-        "$PKG_OUTPUT/SuperTool-${VERSION}.pkg"
+        "$PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
     
     rm -rf "$PKG_DIR"
-    echo "✅ pkg → $PKG_OUTPUT/SuperTool-${VERSION}.pkg"
+    echo "✅ pkg → $PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
     ;;
   full)
     # 同时生成 dmg + pkg
