@@ -14,50 +14,58 @@
         </div>
 
         <!-- 导航菜单 -->
-        <nav class="menu menu-sm p-2 gap-1 flex-1 overflow-y-auto">
+        <nav class="flex-1 overflow-y-auto flex flex-col items-stretch">
           <!-- 业务 -->
-          <div class="menu-title px-3" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">业务</span>
+          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
+            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">业务</span>
           </div>
-          <li v-for="item in navGroups.business" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
-            </router-link>
-          </li>
+          <router-link v-for="item in navGroups.business" :key="item.path"
+            :to="item.path"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            @click="onNavClick(item.viewId, item.path)">
+            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+          </router-link>
 
           <!-- 运维 -->
-          <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">运维</span>
+          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
+            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">运维</span>
           </div>
-          <li v-for="item in navGroups.ops" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
-            </router-link>
-          </li>
+          <router-link v-for="item in navGroups.ops" :key="item.path"
+            :to="item.path"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            @click="onNavClick(item.viewId, item.path)">
+            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+          </router-link>
 
           <!-- 开发 -->
-          <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">开发</span>
+          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
+            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">开发</span>
           </div>
-          <li v-for="item in navGroups.dev" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
-            </router-link>
-          </li>
+          <router-link v-for="item in navGroups.dev" :key="item.path"
+            :to="item.path"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            @click="onNavClick(item.viewId, item.path)">
+            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+          </router-link>
 
           <!-- 安全 -->
-          <div class="menu-title px-3 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">安全</span>
+          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
+            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">安全</span>
           </div>
-          <li v-for="item in navGroups.security" :key="item.path" class="w-full">
-            <router-link :to="item.path" class="flex items-center gap-2 w-full px-2 py-1.5 rounded-lg hover:bg-base-200 justify-start" active-class="active bg-base-200" @click="onNavClick(item.viewId, item.path)">
-              <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-              <span v-show="!sidebarCollapsed" class="text-xs">{{ item.label }}</span>
-            </router-link>
-          </li>
+          <router-link v-for="item in navGroups.security" :key="item.path"
+            :to="item.path"
+            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            @click="onNavClick(item.viewId, item.path)">
+            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+          </router-link>
         </nav>
 
         <!-- 侧栏底部操作区 -->
