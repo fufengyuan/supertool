@@ -56,7 +56,7 @@
         </div>
       </div>
 
-      <!-- 右侧：配置编辑 -->
+      <!-- 右侧：选项卡布局 -->
       <div class="flex-1 flex flex-col gap-4 min-w-0">
         <!-- 工具栏 -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
@@ -67,39 +67,45 @@
             </div>
             <div class="flex gap-2">
               <button
-                @click="onFetchConfig"
+                @click="onGenerateConfig"
                 :disabled="!currentPreset || loading"
                 class="btn btn-ghost btn-sm"
               >
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 加载中...</template><template v-else><SvgIcon name="inbox" size="14" /> 获取配置</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 生成中...</template>
+                <template v-else><SvgIcon name="eye" size="14" /> 预览</template>
               </button>
               <button
                 @click="onTestConfig"
                 :disabled="!currentPreset || loading"
                 class="btn btn-outline btn-sm"
               >
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 检测中...</template><template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 检测中...</template>
+                <template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
               </button>
               <button
                 @click="showDeployDialog = true"
-                :disabled="!currentPreset || !configContent || loading"
+                :disabled="!currentPreset || loading"
                 class="btn btn-primary btn-sm">
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 发布中...</template><template v-else><SvgIcon name="rocket" size="14" /> 发布</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 发布中...</template>
+                <template v-else><SvgIcon name="rocket" size="14" /> 发布</template>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- 视图模式切换 -->
-        <div class="flex gap-1">
+        <!-- 选项卡导航 -->
+        <div class="tabs tabs-boxed bg-base-100 border border-base-content/10">
           <button
-            :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'visual' }]"
-            @click="viewMode = 'visual'"
-          ><SvgIcon name="grid" size="14" />  可视化编辑</button>
-          <button
-            :class="['btn btn-ghost btn-sm', { 'btn-active': viewMode === 'raw' }]"
-            @click="viewMode = 'raw'"
-          ><SvgIcon name="file" size="14" />  查看原生配置</button>
+            v-for="tab in tabs"
+            :key="tab.key"
+            class="tab"
+            :class="{ 'tab-active': currentTab === tab.key }"
+            :disabled="!currentPreset"
+            @click="switchTab(tab.key)"
+          >
+            <SvgIcon :name="tab.icon" size="14" class="mr-1" />
+            {{ tab.label }}
+          </button>
         </div>
 
         <!-- 测试结果提示 -->
@@ -113,21 +119,29 @@
           <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto"><SvgIcon name="x" size="14" /></button>
         </div>
 
-        <!-- 配置编辑器 -->
-        <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1 min-h-[300px]">
-          <textarea
-            v-if="viewMode === 'raw'"
-            v-model="configContent"
-            :disabled="!currentPreset"
-            placeholder="Nginx 原生配置文本..."
-            class="textarea textarea-bordered font-mono min-h-[400px] w-full border-0 focus:outline-none rounded-xl p-4 resize-y"
-            spellcheck="false"
-          ></textarea>
-          <NginxStructuredEditor
-            v-else
-            v-model="configContent"
-            :key="currentPreset?.id"
-          />
+        <!-- 选项卡内容 -->
+        <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1 min-h-[400px]">
+          <div v-for="tab in tabs" :key="tab.key" v-show="currentTab === tab.key" class="p-4">
+            <!-- 未选择预设时显示提示 -->
+            <div v-if="!currentPreset" class="flex items-center justify-center h-32 text-base-content/50">
+              <p>请先选择一个预设</p>
+            </div>
+            <!-- 组件加载中 -->
+            <div v-else-if="!loadedComponents[tab.key]" class="flex items-center justify-center h-32 text-base-content/50">
+              <p>加载中...</p>
+            </div>
+            <!-- 渲染子组件 -->
+            <component
+              v-else-if="loadedComponents[tab.key]"
+              :is="loadedComponents[tab.key]"
+              :preset-id="currentPreset.id"
+            />
+            <!-- 兜底占位 -->
+            <div v-else class="flex flex-col items-center justify-center h-32 text-base-content/50">
+              <p>子页面 <strong>{{ tabComponentMap[tab.key] }}</strong> 尚未创建</p>
+              <p class="text-xs mt-2">请在 <code>src/views/nginx/</code> 下创建此组件</p>
+            </div>
+          </div>
         </div>
 
         <!-- 版本历史 -->
@@ -261,11 +275,11 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
+import { getTauriAPI } from '../../utils/tauri-api'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import NginxStructuredEditor from './components/NginxStructuredEditor.vue'
 
 const {
   loading, presets, currentPreset, configContent, versions, testResult,
@@ -279,7 +293,6 @@ const {
 const showPresetForm = ref(false)
 const showDeployDialog = ref(false)
 const editingPreset = ref<any>(null)
-const viewMode = ref<'raw' | 'visual'>('visual')
 const collapsedGroups = ref(new Set<string>())
 const deployComment = ref('')
 const showDeleteConfirm = ref(false)
@@ -287,6 +300,66 @@ const showRollbackConfirm = ref(false)
 const confirmDeleteId = ref('')
 const confirmRollbackId = ref('')
 const deleting = ref(false)
+const currentTab = ref('server')
+
+// Tab definitions
+const tabs = [
+  { key: 'server', label: 'Server', icon: 'server' },
+  { key: 'upstream', label: 'Upstream', icon: 'layers' },
+  { key: 'http', label: 'HTTP', icon: 'globe' },
+  { key: 'stream', label: 'Stream', icon: 'activity' },
+  { key: 'cert', label: 'Cert', icon: 'shield' },
+  { key: 'template', label: '模板', icon: 'file' },
+  { key: 'basic', label: '基本设置', icon: 'settings' },
+]
+
+// Map tab keys to component file names
+const tabComponentMap = {
+  server: 'ServerPage.vue',
+  upstream: 'UpstreamPage.vue',
+  http: 'HttpPage.vue',
+  stream: 'StreamPage.vue',
+  cert: 'CertPage.vue',
+  template: 'TemplatePage.vue',
+  basic: 'BasicSettingPage.vue',
+}
+
+// Dynamically loaded components cache
+const loadedComponents = reactive<Record<string, any>>({
+  server: null,
+  upstream: null,
+  http: null,
+  stream: null,
+  cert: null,
+  template: null,
+  basic: null,
+})
+
+function switchTab(tabKey: string) {
+  currentTab.value = tabKey
+  // Lazy-load the component if not already loaded
+  if (!loadedComponents[tabKey]) {
+    loadTabComponent(tabKey)
+  }
+}
+
+async function loadTabComponent(tabKey: string) {
+  const fileName = tabComponentMap[tabKey]
+  try {
+    const mod = await import(`./${fileName}`)
+    loadedComponents[tabKey] = mod.default || mod
+  } catch (err: any) {
+    console.warn(`[NginxManager] 未能加载 ${fileName}:`, err?.message || err)
+    // Mark as null so the template shows the fallback placeholder
+    loadedComponents[tabKey] = null
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadPresets(), loadServers()])
+  // Pre-load the default tab
+  loadTabComponent('server')
+})
 
 const presetForm = ref({
   id: '',
@@ -366,7 +439,7 @@ async function onSelectPreset(preset: any) {
   configContent.value = ''
   versions.value = []
   testResult.value = null
-  viewMode.value = 'visual'
+  currentTab.value = 'server'
   // Auto-load cached config from local DB
   const hasCache = await loadCachedConfig(preset.id)
   if (!hasCache) {
@@ -378,15 +451,27 @@ async function onSelectPreset(preset: any) {
 async function onFetchConfig() {
   if (!currentPreset.value) return
   await fetchConfig(currentPreset.value)
-  // Auto-switch to visual mode
-  if (configContent.value) {
-    viewMode.value = 'visual'
-  }
 }
 
 async function onTestConfig() {
   if (!currentPreset.value) return
   await testConfig(currentPreset.value.serverId, currentPreset.value.configPath)
+}
+
+async function onGenerateConfig() {
+  if (!currentPreset.value) return
+  try {
+    loading.value = true
+    const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
+    configContent.value = result?.data || result || ''
+    // Also load version history
+    const verResult = await getTauriAPI().getNginxConfigVersions(currentPreset.value.id)
+    versions.value = verResult?.data || verResult || []
+  } catch (err) {
+    console.error('生成配置失败:', err)
+  } finally {
+    loading.value = false
+  }
 }
 
 async function onDeploy() {
@@ -412,9 +497,6 @@ async function executeRollback() {
   showRollbackConfirm.value = false
   confirmRollbackId.value = ''
   deleting.value = false
-  if (configContent.value) {
-    viewMode.value = 'visual'
-  }
 }
 
 function formatDate(dateStr: string) {
@@ -426,8 +508,4 @@ function formatDate(dateStr: string) {
     return dateStr
   }
 }
-
-onMounted(async () => {
-  await Promise.all([loadPresets(), loadServers()])
-})
 </script>
