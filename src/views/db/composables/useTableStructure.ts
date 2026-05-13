@@ -539,7 +539,25 @@ function generateDdl(): string[] {
   const safeTable = quoteIdent(props.tableName, db)
   const safeDb = props.dbName ? quoteIdent(props.dbName, db) + '.' : ''
 
-  // --- Deleted columns (generate DROP COLUMN first) ---
+  // --- Collect deleted column names for SQLite index cleanup ---
+  const deletedColumnNames = columns.value
+    .filter(col => col._deleted && !col._isNew && col._originalName)
+    .map(col => col._originalName!)
+
+  // --- For SQLite, drop indexes referencing deleted columns FIRST ---
+  // SQLite requires indexes to be dropped before the columns they reference
+  if (db === 'sqlite' && deletedColumnNames.length > 0) {
+    for (const idx of indexes.value) {
+      if (idx.type === 'PRIMARY') continue
+      // Check if this index references any deleted column
+      const refsDeleted = idx.columns.some(colName => deletedColumnNames.includes(colName))
+      if (refsDeleted && idx._originalName) {
+        sqls.push(`DROP INDEX IF EXISTS ${quoteIdent(idx._originalName, db)};`)
+      }
+    }
+  }
+
+  // --- Deleted columns (generate DROP COLUMN) ---
   for (const col of columns.value) {
     if (col._deleted && !col._isNew && col._originalName) {
       // SQLite 3.35.0+ and MySQL/PostgreSQL support DROP COLUMN

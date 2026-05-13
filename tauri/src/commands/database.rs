@@ -421,12 +421,35 @@ pub async fn db_get_table_structure(id: String, db_name: Option<String>, table: 
                     \"cid\" + 1 AS \"ORDINAL_POSITION\" \
                 FROM pragma_table_info('{}') ORDER BY \"cid\"", table);
             let col_result = execute_sqlite_query(cfg, &col_sql).await?;
-            // SQLite indexes: PRAGMA index_list + index_info
+            // SQLite indexes: PRAGMA index_list + index_info (need to query columns for each index)
             let idx_list_sql = format!("SELECT name, \"unique\" FROM pragma_index_list('{}')", table);
             let idx_list_result = execute_sqlite_query(cfg, &idx_list_sql).await?;
             let cols = col_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
-            let idxs = idx_list_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
-            Ok(serde_json::json!({ "success": true, "rows": cols, "indexes": idxs }))
+            
+            // Build index array with column info
+            let idx_rows = idx_list_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
+            let mut indexes_with_columns: Vec<serde_json::Value> = vec![];
+            if let serde_json::Value::Array(rows) = idx_rows {
+                for row in rows {
+                    let idx_name = row.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    // Query columns for this specific index
+                    let idx_info_sql = format!("SELECT name FROM pragma_index_info('{}') ORDER BY seqno", idx_name);
+                    let idx_info_result = execute_sqlite_query(cfg, &idx_info_sql).await?;
+                    let col_rows = idx_info_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
+                    let columns: Vec<String> = if let serde_json::Value::Array(cr) = col_rows {
+                        cr.iter().filter_map(|c| c.get("name").and_then(|v| v.as_str()).map(|s| s.to_string())).collect()
+                    } else { vec![] };
+                    let is_unique = row.get("unique").and_then(|v| v.as_i64()).unwrap_or(0) == 1;
+                    indexes_with_columns.push(serde_json::json!({
+                        "name": idx_name,
+                        "columns": columns,
+                        "isUnique": is_unique,
+                        "isPrimary": false  // SQLite primary keys are not in index_list
+                    }));
+                }
+            }
+            
+            Ok(serde_json::json!({ "success": true, "rows": cols, "indexes": indexes_with_columns }))
         }
         _ => Err("Unsupported database type".to_string()),
     }
