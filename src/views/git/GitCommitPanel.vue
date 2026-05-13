@@ -7,7 +7,8 @@
       </span>
       <div class="panel-header-actions">
         <button class="btn btn-ghost btn-xs" @click="$emit('select-all-files')" :disabled="totalChanges === 0" title="全选">
-          ☑ 全选
+          <SvgIcon name="checkSquare" :size="12" />
+          全选
         </button>
       </div>
     </div>

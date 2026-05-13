@@ -12,15 +12,13 @@
         class="expand-icon"
         @click.stop="toggleExpand"
       >
-        <span v-if="isLoadingChildren" class="loading-spinner">⋯</span>
-        <span v-else>{{ isExpanded ? '▼' : '▶' }}</span>
+        <SvgIcon v-if="isLoadingChildren" name="refresh" :size="10" class="animate-spin" />
+        <SvgIcon v-else :name="isExpanded ? 'chevronDown' : 'chevronRight'" :size="10" />
       </span>
       <span v-else class="expand-icon placeholder"></span>
 
       <!-- 文件图标 -->
-      <span class="file-icon" :class="iconClass">
-        {{ entry.isDir ? '📁' : getFileIcon(entry.name) }}
-      </span>
+      <SvgIcon :name="getFileIconName(entry.name, entry.isDir)" :size="14" class="file-icon" :class="iconClass" />
 
       <!-- 文件名 -->
       <span class="file-name">{{ entry.name }}</span>
@@ -45,6 +43,7 @@
 <script setup lang="ts">
 import { computed, inject, Ref, ref, watch } from 'vue'
 import { tauriCall } from '@/utils/tauri-api'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 interface FileTreeEntry {
   path: string
@@ -91,31 +90,32 @@ const iconClass = computed(() => {
   return `file-${ext}`
 })
 
-function getFileIcon(name: string): string {
+function getFileIconName(name: string, isDir: boolean): string {
+  if (isDir) return 'folder'
   const ext = name.split('.').pop()?.toLowerCase() || ''
   const iconMap: Record<string, string> = {
-    'ts': '📘',
-    'tsx': '📘',
-    'js': '📙',
-    'jsx': '📙',
-    'vue': '💚',
-    'html': '📄',
-    'css': '🎨',
-    'scss': '🎨',
-    'json': '📋',
-    'md': '📝',
-    'txt': '📝',
-    'rs': '🦀',
-    'py': '🐍',
-    'java': '☕',
-    'go': '🐹',
-    'yaml': '⚙️',
-    'yml': '⚙️',
-    'toml': '⚙️',
-    'sh': '💻',
-    'gitignore': '🙈',
+    'ts': 'file',
+    'tsx': 'file',
+    'js': 'file',
+    'jsx': 'file',
+    'vue': 'file',
+    'html': 'file',
+    'css': 'file',
+    'scss': 'file',
+    'json': 'file',
+    'md': 'file',
+    'txt': 'file',
+    'rs': 'file',
+    'py': 'file',
+    'java': 'file',
+    'go': 'file',
+    'yaml': 'file',
+    'yml': 'file',
+    'toml': 'file',
+    'sh': 'file',
+    'gitignore': 'file',
   }
-  return iconMap[ext] || '📄'
+  return iconMap[ext] || 'file'
 }
 
 function handleClick() {
@@ -202,15 +202,14 @@ async function loadChildren() {
 }
 
 .expand-icon {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 8px;
-  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
   cursor: pointer;
   margin-right: 2px;
+  color: color-mix(in oklab, var(--color-base-content) 50%, transparent);
 }
 
 .expand-icon:hover {
@@ -221,24 +220,14 @@ async function loadChildren() {
   visibility: hidden;
 }
 
-.loading-spinner {
-  font-size: 10px;
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0%, 100% { opacity: 0.5; }
-  50% { opacity: 1; }
-}
-
 .file-icon {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
   margin-right: 4px;
+  flex-shrink: 0;
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+}
+
+.node-row.selected .file-icon {
+  color: var(--color-primary);
 }
 
 .file-name {
