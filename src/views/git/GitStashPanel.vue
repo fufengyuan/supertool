@@ -2,7 +2,7 @@
   <div class="stash-panel">
     <div class="panel-header">
       <span class="panel-title">
->暂存<
+        暂存
         <span class="change-count" v-if="stashList.length > 0">{{ stashList.length }}</span>
       </span>
       <button class="btn btn-ghost btn-xs" @click="$emit('open-stash-save')" title="保存暂存">
