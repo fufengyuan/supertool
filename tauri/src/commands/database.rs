@@ -344,17 +344,18 @@ pub async fn db_get_databases(id: String) -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn db_get_table_structure(id: String, db_name: String, table: String) -> Result<serde_json::Value, String> {
+pub async fn db_get_table_structure(id: String, db_name: Option<String>, table: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] db_get_table_structure() called");
     let pool = CONNECTION_POOL.lock().await;
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
     match conn {
         DbConnection::MySql(p) => {
+            let db = db_name.unwrap_or_default();
             // Query columns
-            let col_sql = format!("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA, COLUMN_COMMENT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION", db_name, table);
+            let col_sql = format!("SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY, EXTRA, COLUMN_COMMENT, ORDINAL_POSITION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{}' AND TABLE_NAME='{}' ORDER BY ORDINAL_POSITION", db, table);
             let col_result = execute_mysql_query(p, &col_sql).await?;
             // Query indexes
-            let idx_sql = format!("SHOW INDEX FROM `{}`.`{}`", db_name, table);
+            let idx_sql = format!("SHOW INDEX FROM `{}`.`{}`", db, table);
             let idx_result = execute_mysql_query(p, &idx_sql).await?;
             // Merge into one response
             let cols = col_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
@@ -394,15 +395,37 @@ pub async fn db_get_table_structure(id: String, db_name: String, table: String) 
             let idx_sql = format!(
                 "SELECT i.relname AS index_name, ix.indisunique AS is_unique, ix.indisprimary AS is_primary, \
                  array_agg(a.attname ORDER BY array_position(ix.indkey, a.attnum)) AS columns \
-                 FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid \
-                 JOIN pg_class i ON i.oid = ix.indexrelid \
-                 JOIN pg_namespace n ON n.oid = t.relnamespace \
-                 JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) \
-                 WHERE n.nspname = 'public' AND t.relname = '{}' \
-                 GROUP BY i.relname, ix.indisunique, ix.indisprimary ORDER BY i.relname", table);
+                FROM pg_class t JOIN pg_index ix ON t.oid = ix.indrelid \
+                JOIN pg_class i ON i.oid = ix.indexrelid \
+                JOIN pg_namespace n ON n.oid = t.relnamespace \
+                JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(ix.indkey) \
+                WHERE n.nspname = 'public' AND t.relname = '{}' \
+                GROUP BY i.relname, ix.indisunique, ix.indisprimary ORDER BY i.relname", table);
             let idx_result = execute_postgres_query(c, &idx_sql).await?;
             let cols = col_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
             let idxs = idx_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
+            Ok(serde_json::json!({ "success": true, "rows": cols, "indexes": idxs }))
+        }
+        DbConnection::Sqlite(cfg) => {
+            // SQLite: PRAGMA table_info returns cid, name, type, notnull, dflt_value, pk
+            // Convert to MySQL-compatible format
+            let col_sql = format!(
+                "SELECT \
+                    name AS \"COLUMN_NAME\", \
+                    type AS \"COLUMN_TYPE\", \
+                    CASE WHEN notnull = 1 THEN 'NO' ELSE 'YES' END AS \"IS_NULLABLE\", \
+                    dflt_value AS \"COLUMN_DEFAULT\", \
+                    CASE WHEN pk > 0 THEN 'PRI' ELSE '' END AS \"COLUMN_KEY\", \
+                    '' AS \"EXTRA\", \
+                    '' AS \"COLUMN_COMMENT\", \
+                    cid + 1 AS \"ORDINAL_POSITION\" \
+                FROM pragma_table_info('{}') ORDER BY cid", table);
+            let col_result = execute_sqlite_query(cfg, &col_sql).await?;
+            // SQLite indexes: PRAGMA index_list + index_info
+            let idx_list_sql = format!("SELECT name, unique FROM pragma_index_list('{}')", table);
+            let idx_list_result = execute_sqlite_query(cfg, &idx_list_sql).await?;
+            let cols = col_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
+            let idxs = idx_list_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
             Ok(serde_json::json!({ "success": true, "rows": cols, "indexes": idxs }))
         }
         _ => Err("Unsupported database type".to_string()),
@@ -546,7 +569,7 @@ pub async fn db_compare_structures(app: tauri::AppHandle, source_id: String, sou
 
     // Tables only in source — generate CREATE TABLE SQL
     for t in &only_source {
-        let create_sql = match db_get_table_structure(source_id.clone(), source_db.clone(), t.to_string()).await {
+        let create_sql = match db_get_table_structure(source_id.clone(), Some(source_db.clone()), t.to_string()).await {
             Ok(v) => {
                 let cols = v.get("rows").and_then(|r| r.as_array()).cloned().unwrap_or_default();
                 generate_create_table_sql(t, &cols)
@@ -583,8 +606,8 @@ pub async fn db_compare_structures(app: tauri::AppHandle, source_id: String, sou
             "table": src_table,
         }));
 
-        let src_struct = db_get_table_structure(source_id.clone(), source_db.clone(), src_table.to_string()).await;
-        let tgt_struct = db_get_table_structure(target_id.clone(), target_db.clone(), tgt_table.to_string()).await;
+        let src_struct = db_get_table_structure(source_id.clone(), Some(source_db.clone()), src_table.to_string()).await;
+        let tgt_struct = db_get_table_structure(target_id.clone(), Some(target_db.clone()), tgt_table.to_string()).await;
 
         let src_resp = src_struct.as_ref().ok();
         let tgt_resp = tgt_struct.as_ref().ok();
