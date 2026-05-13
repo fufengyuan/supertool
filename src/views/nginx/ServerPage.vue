@@ -125,11 +125,11 @@
             <div class="grid grid-cols-2 gap-2">
               <div class="flex flex-col gap-1">
                 <label class="text-sm font-medium">监听 IP</label>
-                <input v-model="form.listen" placeholder="0.0.0.0" class="input input-bordered w-full" />
+                <input v-model="form.ip" placeholder="0.0.0.0" class="input input-bordered w-full" />
               </div>
               <div class="flex flex-col gap-1">
                 <label class="text-sm font-medium">端口</label>
-                <input v-model="form.ip" type="number" placeholder="80" class="input input-bordered w-full" />
+                <input v-model="form.listen" type="number" placeholder="80" class="input input-bordered w-full" />
               </div>
             </div>
 
@@ -195,13 +195,13 @@
             <div class="flex flex-col gap-1">
               <label class="text-sm font-medium">描述</label>
               <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
-            </div>
-
-            <!-- 启用 -->
-            <label class="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" v-model="form.enabled" class="checkbox checkbox-sm" />
-              启用
-            </label>
+<!-- rewrite -->
+            <div class="flex flex-col gap-1">
+              <label class="text-sm font-medium">HTTP→HTTPS 重写</label>
+              <select v-model.number="form.rewrite" class="select select-bordered w-full">
+                <option :value="0">关闭</option>
+                <option :value="1">开启</option>
+              </select>
           </div>
 
           <!-- 右列 - SSL 区域 -->
@@ -464,7 +464,7 @@ function toggleProtocol(val: string) {
   } else {
     selectedProtocols.value.push(val)
   }
-  form.value.protocols = selectedProtocols.value.join(',')
+  form.value.protocols = selectedProtocols.value.join(' ')
 }
 
 // Locations 子表
@@ -484,9 +484,8 @@ const filteredServers = computed(() => {
 
 // 工具
 function formatListen(svr: any) {
-  let result = ''
-  if (svr.listen) result += svr.listen
-  if (svr.ip) result += (result ? ':' : '') + svr.ip
+  let result = svr.ip || ''
+  if (svr.listen) result += (result ? ':' : '') + (typeof svr.listen === 'number' ? svr.listen : svr.listen)
   if (!result) result = svr.listen || svr.ip || '-'
   return result
 }
@@ -559,7 +558,7 @@ async function openEditDialog(svr: any) {
   form.value = { ...svr }
   // 解析 protocols
   if (svr.protocols) {
-    selectedProtocols.value = svr.protocols.split(',').filter(Boolean)
+    selectedProtocols.value = svr.protocols.split(/[, ]+/).filter(Boolean)
   } else {
     selectedProtocols.value = []
   }
@@ -631,8 +630,17 @@ async function onSave() {
     }
 
     // 保存 locations - 新增
+    const LOC_TYPE_MAP: Record<string, number> = {
+      proxy_pass: 0,
+      root: 1,
+      upstream: 2,
+      blank: 3,
+      return: 4,
+    }
     for (const loc of locations.value) {
       loc.serverId = form.value.id
+      loc.locType = typeof loc.type === 'string' ? (LOC_TYPE_MAP[loc.type] ?? 0) : (loc.locType ?? loc.type ?? 0)
+      delete loc.type
       if (loc._key && !loc.id) {
         // 新增
         const newLoc = {
