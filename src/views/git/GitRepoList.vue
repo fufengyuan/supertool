@@ -15,101 +15,107 @@
     </div>
 
     <!-- 扫描本地目录面板 -->
-    <div v-if="showScanSection" class="mb-5 border border-base-content/20 rounded-xl bg-base-100 overflow-hidden">
-      <div class="flex justify-between items-center px-4 py-3 bg-base-200 border-b border-base-content/10">
-        <span class="text-sm font-semibold text-base-content"><SvgIcon name="folder" :size="14" class="inline-block align-text-bottom" /> 扫描本地目录</span>
-        <button class="btn btn-ghost btn-xs" @click="showScanSection = false"><SvgIcon name="x" :size="14" class="inline-block" /></button>
+    <div v-if="showScanSection" class="mb-4 border border-base-content/10 rounded-lg bg-base-100 overflow-hidden">
+      <div class="flex justify-between items-center px-3 py-2 bg-base-200/50 border-b border-base-content/10">
+        <span class="text-xs font-medium text-base-content flex items-center gap-1.5">
+          <SvgIcon name="folder" :size="14" />
+          扫描本地目录
+        </span>
+        <button class="w-6 h-6 flex items-center justify-center rounded hover:bg-base-200 text-base-content/50 hover:text-base-content" @click="showScanSection = false">
+          <SvgIcon name="x" :size="12" />
+        </button>
       </div>
-      <div class="p-4">
-        <p class="m-0 mb-3 text-xs text-base-content/60">输入工作目录路径（每行一个），点击搜索将自动发现该目录下的 Git 仓库</p>
+      <div class="p-3">
+        <p class="m-0 mb-2 text-xs text-base-content/50">输入工作目录路径，每行一个</p>
         <textarea
           v-model="scanDirectories"
-          class="textarea textarea-bordered w-full font-mono text-xs resize-y"
-          placeholder="/home/fufengyuan/projects&#10;/home/fufengyuan/workspace&#10;/home/fufengyuan/code"
-          rows="4"
+          class="w-full p-2 text-xs font-mono bg-base-100 border border-base-content/10 rounded-lg resize-y focus:border-primary focus:outline-none"
+          placeholder="/home/user/projects&#10;/home/user/workspace"
+          rows="3"
         ></textarea>
-        <div class="flex items-center gap-3 mt-3">
-          <UiButton variant="primary" @click="doScan" :loading="scanning">
-            <template v-if="scanning">扫描中...</template>
-            <template v-else><SvgIcon name="search" :size="14" class="inline-block align-text-bottom" /> 扫描</template>
-          </UiButton>
-          <span v-if="scanResult !== null" class="text-xs text-base-content/70">
+        <div class="flex items-center gap-3 mt-2">
+          <button class="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors" @click="doScan" :disabled="scanning">
+            <SvgIcon v-if="scanning" name="refresh" :size="12" class="animate-spin" />
+            <SvgIcon v-else name="search" :size="12" />
+            {{ scanning ? '扫描中...' : '扫描' }}
+          </button>
+          <span v-if="scanResult !== null" class="text-xs text-base-content/60">
             {{ scanResult === 0 ? '未找到仓库' : `找到 ${scanResult} 个仓库` }}
           </span>
         </div>
         <!-- 扫描结果列表 -->
-        <div v-if="scannedRepos.length > 0" class="mt-4 flex flex-col gap-2 max-h-[300px] overflow-y-auto">
-          <div v-for="repo in scannedRepos" :key="repo.path" class="flex justify-between items-center px-3 py-2.5 rounded-lg bg-base-200 border border-base-content/10">
+        <div v-if="scannedRepos.length > 0" class="mt-3 flex flex-col gap-1.5 max-h-[200px] overflow-y-auto">
+          <div v-for="repo in scannedRepos" :key="repo.path" class="flex justify-between items-center px-3 py-2 rounded-lg bg-base-200/50 border border-base-content/5">
             <div class="flex flex-col gap-0.5 min-w-0">
-              <span class="text-sm font-medium text-base-content">{{ repo.name }}</span>
-              <span class="text-xs text-base-content/50 font-mono truncate">{{ repo.path }}</span>
+              <span class="text-xs font-medium text-base-content">{{ repo.name }}</span>
+              <span class="text-[11px] text-base-content/40 font-mono truncate">{{ repo.path }}</span>
             </div>
-            <UiButton
-              variant="success"
-              size="sm"
+            <button
+              class="px-2 py-1 text-xs font-medium rounded-lg transition-colors"
+              :class="isRepoAlreadyAdded(repo.path) ? 'bg-base-200 text-base-content/40' : 'bg-primary/10 text-primary hover:bg-primary hover:text-white'"
               :disabled="isRepoAlreadyAdded(repo.path)"
               @click="addScannedRepo(repo)"
             >
-              {{ isRepoAlreadyAdded(repo.path) ? '已添加' : '+ 添加' }}
-            </UiButton>
+              {{ isRepoAlreadyAdded(repo.path) ? '已添加' : '添加' }}
+            </button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- 搜索栏 -->
-    <div class="flex gap-3 mb-5 flex-wrap items-center">
+    <div class="flex gap-3 mb-4 flex-wrap items-center">
       <div class="relative flex-1 min-w-[200px]">
-        <SvgIcon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/60 pointer-events-none w-4 h-4" />
-        <input v-model="searchQuery" type="text" class="input input-bordered w-full pl-9" placeholder="搜索仓库名称、路径或远程地址..." />
+        <SvgIcon name="search" class="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40 w-4 h-4" />
+        <input v-model="searchQuery" type="text" class="w-full h-9 pl-9 text-sm bg-base-100 border border-base-content/10 rounded-lg focus:border-primary focus:outline-none transition-colors" placeholder="搜索仓库..." />
       </div>
     </div>
 
     <!-- 仓库列表 - 卡片形式 -->
-    <div v-if="filteredRepos.length > 0" class="flex flex-col gap-3">
+    <div v-if="filteredRepos.length > 0" class="flex flex-col gap-2">
       <div
         v-for="repo in filteredRepos"
         :key="repo.id"
-        class="flex items-center gap-4 px-5 py-4 bg-base-100 border border-base-content/10 rounded-xl transition-all duration-200 cursor-pointer hover:border-primary hover:shadow-lg hover:-translate-y-px"
+        class="flex items-center gap-4 px-4 py-3 bg-base-100 border border-base-content/10 rounded-lg transition-all duration-150 cursor-pointer hover:border-primary/40 hover:bg-primary/5"
         @dblclick="openRepo(repo)"
       >
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1.5">
-            <SvgIcon name="gitBranch" :size="20" class="text-primary shrink-0" />
-            <span class="text-base font-semibold text-base-content truncate">{{ repo.name }}</span>
+          <div class="flex items-center gap-2 mb-1">
+            <SvgIcon name="gitBranch" :size="16" class="text-primary shrink-0" />
+            <span class="text-sm font-semibold text-base-content truncate">{{ repo.name }}</span>
           </div>
-          <div class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.path">
-            <SvgIcon name="folder" :size="14" class="shrink-0 opacity-60" />
+          <div class="flex items-center gap-1.5 text-xs text-base-content/50 truncate" :title="repo.path">
+            <SvgIcon name="folder" :size="12" class="shrink-0" />
             <span>{{ repo.path }}</span>
           </div>
         </div>
 
-        <div class="flex flex-col gap-1.5 min-w-[180px] max-w-[280px]">
-          <div v-if="repo.remote" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate" :title="repo.remote">
-            <SvgIcon name="link" :size="14" class="opacity-60" />
+        <div class="flex flex-col gap-1 min-w-[160px] max-w-[240px]">
+          <div v-if="repo.remote" class="flex items-center gap-1.5 text-xs text-base-content/50 truncate" :title="repo.remote">
+            <SvgIcon name="link" :size="12" />
             <span class="truncate">{{ repo.remote }}</span>
           </div>
-          <div v-if="repo.branch" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
-            <SvgIcon name="gitBranch" :size="14" class="opacity-60" />
-            <span class="badge badge-sm">{{ repo.branch }}</span>
+          <div v-if="repo.branch" class="flex items-center gap-1.5 text-xs text-base-content/50">
+            <SvgIcon name="gitBranch" :size="12" />
+            <span class="px-1.5 py-0.5 bg-primary/10 text-primary rounded text-[11px] font-medium">{{ repo.branch }}</span>
           </div>
-          <div v-if="repo.lastOpened" class="flex items-center gap-1.5 text-xs text-base-content/60 truncate">
-            <SvgIcon name="clock" :size="14" class="opacity-60" />
-            <span class="truncate">{{ formatTime(repo.lastOpened) }}</span>
+          <div v-if="repo.lastOpened" class="flex items-center gap-1.5 text-xs text-base-content/40">
+            <SvgIcon name="clock" :size="12" />
+            <span>{{ formatTime(repo.lastOpened) }}</span>
           </div>
         </div>
 
-        <div class="flex gap-2 shrink-0">
-          <UiButton variant="success" size="sm" @click="openRepo(repo)" title="打开仓库">
-            <SvgIcon name="externalLink" :size="14" />
+        <div class="flex gap-1.5 shrink-0">
+          <button class="flex items-center gap-1 px-2.5 py-1.5 bg-primary/10 text-primary rounded-lg text-xs font-medium hover:bg-primary hover:text-white transition-colors" @click="openRepo(repo)" title="打开仓库">
+            <SvgIcon name="externalLink" :size="12" />
             打开
-          </UiButton>
-          <UiButton variant="ghost" size="sm" @click="openEditModal(repo)" title="编辑">
-            <SvgIcon name="pencil" :size="14" />
-          </UiButton>
-          <UiButton variant="danger" size="sm" @click="deleteRepo(repo)" title="删除">
-            <SvgIcon name="trash" :size="14" />
-          </UiButton>
+          </button>
+          <button class="w-8 h-8 flex items-center justify-center rounded-lg text-base-content/50 hover:text-base-content hover:bg-base-200 transition-colors" @click="openEditModal(repo)" title="编辑">
+            <SvgIcon name="pencil" :size="12" />
+          </button>
+          <button class="w-8 h-8 flex items-center justify-center rounded-lg text-base-content/50 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" @click="deleteRepo(repo)" title="删除">
+            <SvgIcon name="trash" :size="12" />
+          </button>
         </div>
       </div>
     </div>
@@ -127,7 +133,7 @@
     <!-- 添加/编辑仓库模态框 -->
     <UiModal
       v-model="showModal"
-      :title="editingRepo ? '✏️ 编辑仓库' : '✨ 添加 Git 仓库'"
+      :title="editingRepo ? '编辑仓库' : '添加仓库'"
       @close="resetModal"
       width="640px"
     >
