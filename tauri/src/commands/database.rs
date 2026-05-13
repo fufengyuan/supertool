@@ -194,7 +194,7 @@ fn redis_value_to_json(val: &redis::Value) -> serde_json::Value {
     }
 }
 
-// ============ SQLite (CLI for now - rusqlite is sync) ============
+// ============ SQLite (rusqlite - sync, wrapped in spawn_blocking) ============
 
 async fn execute_sqlite_query(config: &DbConnectionConfig, sql: &str) -> Result<serde_json::Value, String> {
     let db_path = config.path.as_deref()
@@ -224,6 +224,21 @@ async fn execute_sqlite_query(config: &DbConnectionConfig, sql: &str) -> Result<
         let result: Result<Vec<_>, _> = rows.collect();
         let rows = result.map_err(|e| format!("SQLite row collect failed: {}", e))?;
         Ok::<_, String>(serde_json::json!({ "success": true, "rows": rows }))
+    }).await.map_err(|e| format!("SQLite task failed: {}", e))?
+}
+
+/// Execute SQLite write operations (INSERT, UPDATE, DELETE, etc.)
+async fn execute_sqlite_write(config: &DbConnectionConfig, sql: &str) -> Result<serde_json::Value, String> {
+    let db_path = config.path.as_deref()
+        .ok_or_else(|| "SQLite database path required".to_string())?;
+    let db_path = db_path.to_string();
+    let sql = sql.to_string();
+    tokio::task::spawn_blocking(move || {
+        let conn = rusqlite::Connection::open_with_flags(&db_path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
+            .map_err(|e| format!("SQLite open failed: {}", e))?;
+        conn.execute(&sql, [])
+            .map_err(|e| format!("SQLite execute failed: {}", e))?;
+        Ok::<_, String>(serde_json::json!({ "success": true, "rows": [] }))
     }).await.map_err(|e| format!("SQLite task failed: {}", e))?
 }
 
@@ -432,6 +447,11 @@ pub async fn db_get_table_primary_keys(id: String, table: String, db_name: Strin
         DbConnection::Postgres(c) => {
             let sql = format!("SELECT kcu.column_name FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name WHERE tc.table_schema='public' AND tc.table_name='{}' AND tc.constraint_type='PRIMARY KEY'", table);
             execute_postgres_query(c, &sql).await
+        }
+        DbConnection::Sqlite(cfg) => {
+            // SQLite: PRAGMA table_info returns pk column index > 0
+            let sql = format!("SELECT name FROM pragma_table_info('{}') WHERE pk > 0 ORDER BY pk", table);
+            execute_sqlite_query(cfg, &sql).await
         }
         _ => Err("Unsupported database type".to_string()),
     }
@@ -1767,15 +1787,25 @@ pub async fn db_insert_table_row(id: String, table_name: String, values_json: se
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
     let obj = values_json.as_object().ok_or("values_json must be an object")?;
     if obj.is_empty() { return Err("Empty values".to_string()); }
-    let (cols, vals): (Vec<String>, Vec<String>) = obj.iter().map(|(k, v)| {
-        let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
-        (k.clone(), val)
-    }).unzip();
-    let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
-    let sql = format!("INSERT INTO {}`{}` ({}) VALUES ({})", prefix, table_name, cols.join(", "), vals.join(", "));
     match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        _ => Err("Only MySQL supported for now".to_string()),
+        DbConnection::MySql(p) => {
+            let (cols, vals): (Vec<String>, Vec<String>) = obj.iter().map(|(k, v)| {
+                let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
+                (format!("`{}`", k), val)
+            }).unzip();
+            let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
+            let sql = format!("INSERT INTO {}`{}` ({}) VALUES ({})", prefix, table_name, cols.join(", "), vals.join(", "));
+            execute_mysql_query(p, &sql).await
+        }
+        DbConnection::Sqlite(cfg) => {
+            let (cols, vals): (Vec<String>, Vec<String>) = obj.iter().map(|(k, v)| {
+                let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
+                (format!("\"{}\"", k), val)
+            }).unzip();
+            let sql = format!("INSERT INTO \"{}\" ({}) VALUES ({})", table_name, cols.join(", "), vals.join(", "));
+            execute_sqlite_write(cfg, &sql).await
+        }
+        _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }
 }
 
@@ -1785,19 +1815,33 @@ pub async fn db_update_table_row(id: String, table_name: String, primary_key_jso
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
     let pk_obj = primary_key_json.as_object().ok_or("primary_key_json must be an object")?;
     let val_obj = values_json.as_object().ok_or("values_json must be an object")?;
-    let sets: Vec<String> = val_obj.iter().map(|(k, v)| {
-        let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
-        format!("`{}` = {}", k, val)
-    }).collect();
-    let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
-        if matches!(v, serde_json::Value::Null) { format!("`{}` IS NULL", k) }
-        else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("`{}` = {}", k, val) }
-    }).collect();
-    let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
-    let sql = format!("UPDATE {}`{}` SET {} WHERE {}", prefix, table_name, sets.join(", "), wheres.join(" AND "));
     match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        _ => Err("Only MySQL supported for now".to_string()),
+        DbConnection::MySql(p) => {
+            let sets: Vec<String> = val_obj.iter().map(|(k, v)| {
+                let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
+                format!("`{}` = {}", k, val)
+            }).collect();
+            let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
+                if matches!(v, serde_json::Value::Null) { format!("`{}` IS NULL", k) }
+                else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("`{}` = {}", k, val) }
+            }).collect();
+            let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
+            let sql = format!("UPDATE {}`{}` SET {} WHERE {}", prefix, table_name, sets.join(", "), wheres.join(" AND "));
+            execute_mysql_query(p, &sql).await
+        }
+        DbConnection::Sqlite(cfg) => {
+            let sets: Vec<String> = val_obj.iter().map(|(k, v)| {
+                let val = match v { serde_json::Value::Null => "NULL".to_string(), serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() };
+                format!("\"{}\" = {}", k, val)
+            }).collect();
+            let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
+                if matches!(v, serde_json::Value::Null) { format!("\"{}\" IS NULL", k) }
+                else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("\"{}\" = {}", k, val) }
+            }).collect();
+            let sql = format!("UPDATE \"{}\" SET {} WHERE {}", table_name, sets.join(", "), wheres.join(" AND "));
+            execute_sqlite_write(cfg, &sql).await
+        }
+        _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }
 }
 
@@ -1806,15 +1850,25 @@ pub async fn db_delete_table_row(id: String, table_name: String, primary_key_jso
     let pool = CONNECTION_POOL.lock().await;
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
     let pk_obj = primary_key_json.as_object().ok_or("primary_key_json must be an object")?;
-    let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
-        if matches!(v, serde_json::Value::Null) { format!("`{}` IS NULL", k) }
-        else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("`{}` = {}", k, val) }
-    }).collect();
-    let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
-    let sql = format!("DELETE FROM {}`{}` WHERE {}", prefix, table_name, wheres.join(" AND "));
     match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        _ => Err("Only MySQL supported for now".to_string()),
+        DbConnection::MySql(p) => {
+            let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
+                if matches!(v, serde_json::Value::Null) { format!("`{}` IS NULL", k) }
+                else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("`{}` = {}", k, val) }
+            }).collect();
+            let prefix = db_name.filter(|s| !s.is_empty()).map(|d| format!("`{}`.", d)).unwrap_or_default();
+            let sql = format!("DELETE FROM {}`{}` WHERE {}", prefix, table_name, wheres.join(" AND "));
+            execute_mysql_query(p, &sql).await
+        }
+        DbConnection::Sqlite(cfg) => {
+            let wheres: Vec<String> = pk_obj.iter().map(|(k, v)| {
+                if matches!(v, serde_json::Value::Null) { format!("\"{}\" IS NULL", k) }
+                else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; format!("\"{}\" = {}", k, val) }
+            }).collect();
+            let sql = format!("DELETE FROM \"{}\" WHERE {}", table_name, wheres.join(" AND "));
+            execute_sqlite_write(cfg, &sql).await
+        }
+        _ => Err("Only MySQL and SQLite supported for now".to_string()),
     }
 }
 
@@ -1822,25 +1876,46 @@ pub async fn db_delete_table_row(id: String, table_name: String, primary_key_jso
 pub async fn db_get_table_data_filtered(id: String, db_name: String, table_name: String, filters_json: serde_json::Value, limit: usize, offset: usize, sort_column: Option<String>, sort_dir: Option<String>) -> Result<serde_json::Value, String> {
     let pool = CONNECTION_POOL.lock().await;
     let conn = pool.get(&id).ok_or_else(|| "Connection not found".to_string())?;
-    let mut where_clauses = Vec::new();
-    if let Some(obj) = filters_json.as_object() {
-        for (k, v) in obj {
-            if matches!(v, serde_json::Value::Null) { where_clauses.push(format!("`{}` IS NULL", k)); }
-            else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; where_clauses.push(format!("`{}` = '{}'", k, val)); }
-        }
-    }
-    let mut sql = format!("SELECT * FROM `{}`.`{}`", db_name, table_name);
-    if !where_clauses.is_empty() { sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND "))); }
-    if let Some(col) = sort_column {
-        if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            let dir = match sort_dir.as_deref().unwrap_or("").to_uppercase().as_str() { "DESC" => "DESC", _ => "ASC" };
-            sql.push_str(&format!(" ORDER BY `{}` {}", col, dir));
-        }
-    }
-    sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
     match conn {
-        DbConnection::MySql(p) => execute_mysql_query(p, &sql).await,
-        _ => Err("Only MySQL supported".to_string()),
+        DbConnection::MySql(p) => {
+            let mut where_clauses = Vec::new();
+            if let Some(obj) = filters_json.as_object() {
+                for (k, v) in obj {
+                    if matches!(v, serde_json::Value::Null) { where_clauses.push(format!("`{}` IS NULL", k)); }
+                    else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; where_clauses.push(format!("`{}` = {}", k, val)); }
+                }
+            }
+            let mut sql = format!("SELECT * FROM `{}`.`{}`", db_name, table_name);
+            if !where_clauses.is_empty() { sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND "))); }
+            if let Some(col) = sort_column {
+                if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    let dir = match sort_dir.as_deref().unwrap_or("").to_uppercase().as_str() { "DESC" => "DESC", _ => "ASC" };
+                    sql.push_str(&format!(" ORDER BY `{}` {}", col, dir));
+                }
+            }
+            sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
+            execute_mysql_query(p, &sql).await
+        }
+        DbConnection::Sqlite(cfg) => {
+            let mut where_clauses = Vec::new();
+            if let Some(obj) = filters_json.as_object() {
+                for (k, v) in obj {
+                    if matches!(v, serde_json::Value::Null) { where_clauses.push(format!("\"{}\" IS NULL", k)); }
+                    else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; where_clauses.push(format!("\"{}\" = {}", k, val)); }
+                }
+            }
+            let mut sql = format!("SELECT * FROM \"{}\"", table_name);
+            if !where_clauses.is_empty() { sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND "))); }
+            if let Some(col) = sort_column {
+                if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    let dir = match sort_dir.as_deref().unwrap_or("").to_uppercase().as_str() { "DESC" => "DESC", _ => "ASC" };
+                    sql.push_str(&format!(" ORDER BY \"{}\" {}", col, dir));
+                }
+            }
+            sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
+            execute_sqlite_query(cfg, &sql).await
+        }
+        _ => Err("Only MySQL and SQLite supported".to_string()),
     }
 }
 
