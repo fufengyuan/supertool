@@ -2,10 +2,10 @@
   <div class="stash-panel">
     <div class="panel-header">
       <span class="panel-title">
-        Stash
+>暂存<
         <span class="change-count" v-if="stashList.length > 0">{{ stashList.length }}</span>
       </span>
-      <button class="btn btn-ghost btn-xs" @click="$emit('open-stash-save')" title="Stash Changes">
+      <button class="btn btn-ghost btn-xs" @click="$emit('open-stash-save')" title="保存暂存">
         <SvgIcon name="plus" size="12" />
       </button>
     </div>
@@ -23,7 +23,7 @@
         <span class="stash-desc" :title="stash.description">{{ stash.description }}</span>
       </div>
       <div v-if="stashList.length === 0 && !loading" class="stash-empty">
-        <p>没有 Stash</p>
+        <p>没有暂存记录</p>
       </div>
     </div>
     <!-- Stash 预览 -->

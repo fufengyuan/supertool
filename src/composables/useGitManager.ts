@@ -505,7 +505,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
       const res = await api.gitStashList(repoPath.value)
       stashList.value = (res as any).stashes || []
     } catch (e: any) {
-      toast.error('加载stash失败: ' + e.message)
+      toast.error('加载暂存列表失败: ' + e.message)
     }
   }
 
@@ -519,12 +519,12 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!repoPath.value) return
     try {
       await api.gitStashSave(repoPath.value, stashSaveMessage.value || undefined, stashIncludeUntracked.value, false)
-      toast.success('Stash保存成功')
+      toast.success('暂存保存成功')
       showStashSaveDialog.value = false
       await loadStashList()
       await loadStatus()
     } catch (e: any) {
-      toast.error('Stash失败: ' + e.message)
+      toast.error('暂存失败: ' + e.message)
     }
   }
 
@@ -532,11 +532,11 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!repoPath.value) return
     try {
       await api.gitStashPop(repoPath.value, stashRef)
-      toast.success('Stash弹出成功')
+      toast.success('暂存弹出成功')
       await loadStashList()
       await loadStatus()
     } catch (e: any) {
-      toast.error('Stash弹出失败: ' + e.message)
+      toast.error('暂存弹出失败: ' + e.message)
     }
   }
 
@@ -544,10 +544,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     if (!repoPath.value) return
     try {
       await api.gitStashDrop(repoPath.value, stashRef)
-      toast.success('Stash删除成功')
+      toast.success('暂存删除成功')
       await loadStashList()
     } catch (e: any) {
-      toast.error('Stash删除失败: ' + e.message)
+      toast.error('暂存删除失败: ' + e.message)
     }
   }
 
@@ -598,11 +598,11 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     cherryPicking.value = true
     try {
       await api.gitCherryPick(repoPath.value, cherryPickTarget.value, false)
-      toast.success('Cherry-pick成功')
+      toast.success('拣选提交成功')
       cherryPickTarget.value = ''
       await refreshAll()
     } catch (e: any) {
-      toast.error('Cherry-pick失败: ' + e.message)
+      toast.error('拣选提交失败: ' + e.message)
     } finally {
       cherryPicking.value = false
     }
@@ -613,11 +613,11 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     reverting.value = true
     try {
       await api.gitRevert(repoPath.value, revertTarget.value, false)
-      toast.success('Revert成功')
+      toast.success('回退成功')
       revertTarget.value = ''
       await refreshAll()
     } catch (e: any) {
-      toast.error('Revert失败: ' + e.message)
+      toast.error('回退失败: ' + e.message)
     } finally {
       reverting.value = false
     }
@@ -628,11 +628,11 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     rebasing.value = true
     try {
       await api.gitRebase(repoPath.value, rebaseTarget.value)
-      toast.success('Rebase成功')
+      toast.success('变基成功')
       showRebaseDialog.value = false
       await refreshAll()
     } catch (e: any) {
-      toast.error('Rebase失败: ' + e.message)
+      toast.error('变基失败: ' + e.message)
     } finally {
       rebasing.value = false
     }
@@ -751,7 +751,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
       const res = await api.gitFileBlame(repoPath.value, file)
       blameData.value = res
     } catch (e: any) {
-      toast.error('加载Blame失败: ' + e.message)
+      toast.error('加载作者信息失败: ' + e.message)
     }
   }
 
@@ -1408,10 +1408,10 @@ function confirmDeleteBranch(name: string) {
       try {
         await api.gitCherryPick(repoPath.value, hash, cherryPickMultiNoCommit.value)
       } catch (e: any) {
-        toast.error(`Cherry-pick ${hash} 失败: ${e.message}`)
+        toast.error(`拣选提交 ${hash} 失败: ${e.message}`)
       }
     })
-    toast.success('批量 Cherry-pick 完成')
+    toast.success('批量拣选提交完成')
     refreshAll()
   }
   function openGitCleanDialog() { showGitCleanDialog.value = true }
