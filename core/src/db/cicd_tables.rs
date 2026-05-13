@@ -15,7 +15,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         -- CI/CD configuration profiles
         CREATE TABLE IF NOT EXISTS cicd_configs (
             id TEXT PRIMARY KEY,
-            projectId TEXT NOT NULL,
+            projectId TEXT DEFAULT '',
             name TEXT DEFAULT '',
             deployBranch TEXT NOT NULL DEFAULT 'main',
             mavenSettings TEXT,
@@ -71,7 +71,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         -- Deploy logs (each deployment attempt)
         CREATE TABLE IF NOT EXISTS deploy_logs (
             id TEXT PRIMARY KEY,
-            projectId TEXT NOT NULL,
+            projectId TEXT DEFAULT '',
             configId TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'running',
             startTime TEXT NOT NULL,
@@ -98,7 +98,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
         CREATE TABLE IF NOT EXISTS deploy_history (
             id TEXT PRIMARY KEY,
             configId TEXT NOT NULL,
-            projectId TEXT NOT NULL,
+            projectId TEXT DEFAULT '',
             status TEXT NOT NULL,
             deployedAt TEXT NOT NULL,
             rolledBack INTEGER NOT NULL DEFAULT 0,
