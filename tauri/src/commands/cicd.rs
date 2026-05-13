@@ -668,8 +668,9 @@ pub async fn deploy(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy() called");
     // Get config from DB
-    let cicd_config = core.db_read(|conn| cicd_get_config_by_id(conn, &config_id).expect("db error"))?
-        .ok_or("CI/CD 配置不存在")?;
+    let cicd_config = core.db_read(|conn| {
+        cicd_get_config_by_id(conn, &config_id).map_err(|e| e.to_string())
+    })??.ok_or("CI/CD 配置不存在")?;
 
     // Check approval requirement
     if cicd_config.requires_approval && confirmed != Some(true) {
@@ -681,7 +682,9 @@ pub async fn deploy(
         }));
     }
 
-    let modules = core.db_read(|conn| cicd_get_modules(conn, &config_id).expect("db error"))?;
+    let modules = core.db_read(|conn| {
+        cicd_get_modules(conn, &config_id).map_err(|e| e.to_string())
+    })??;
 
     // Build DeployConfig
     let deploy_config = build_deploy_config(&core, &cicd_config, &modules)?;
@@ -704,10 +707,13 @@ pub async fn deploy(
     };
 
     // Save deploy log
-    core.db_write(|conn| {
-        cicd_add_deploy_log(conn, &deploy_log).expect("db error");
-        cicd_touch_deploy(conn, &config_id).expect("db error");
-    })?;
+    core.db_write(|conn| -> Result<(), String> {
+        cicd_add_deploy_log(conn, &deploy_log)
+            .map_err(|e| e.to_string())?;
+        cicd_touch_deploy(conn, &config_id)
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    })??;
 
     // Get app dir for deploy logs
     let app_dir = core.db_read(|conn| {
