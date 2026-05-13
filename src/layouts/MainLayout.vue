@@ -6,84 +6,84 @@
       <aside class="flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden flex flex-col"
              :class="[sidebarCollapsed ? 'w-16' : 'w-48']">
         <!-- 折叠按钮 (侧栏顶部) -->
-        <div class="flex items-center justify-between px-2 py-2 border-b border-base-300">
-          <span v-show="!sidebarCollapsed" class="text-sm font-bold text-base-content pl-2 truncate">SuperTool</span>
-          <button class="btn btn-square btn-ghost btn-xs" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'">
-            <SvgIcon name="chevronLeft" :size="14" :class="{ 'rotate-180': sidebarCollapsed }" />
+        <div class="flex items-center justify-between p-2 border-b border-base-300">
+          <span v-show="!sidebarCollapsed" class="text-sm font-bold text-base-content pl-1 truncate">SuperTool</span>
+          <button class="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-base-200 transition-colors" @click="sidebarCollapsed = !sidebarCollapsed" :title="sidebarCollapsed ? '展开侧栏' : '折叠侧栏'">
+            <SvgIcon name="chevronLeft" :size="18" :class="{ 'rotate-180': sidebarCollapsed }" />
           </button>
         </div>
 
         <!-- 导航菜单 -->
-        <nav class="flex-1 overflow-y-auto flex flex-col items-stretch">
+        <nav class="flex-1 overflow-y-auto flex flex-col items-stretch p-2">
           <!-- 业务 -->
-          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">业务</span>
+          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
+            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">业务</span>
           </div>
           <router-link v-for="item in navGroups.business" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
           </router-link>
 
           <!-- 运维 -->
-          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">运维</span>
+          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
+            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">运维</span>
           </div>
           <router-link v-for="item in navGroups.ops" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
           </router-link>
 
           <!-- 开发 -->
-          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">开发</span>
+          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
+            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">开发</span>
           </div>
           <router-link v-for="item in navGroups.dev" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
           </router-link>
 
           <!-- 安全 -->
-          <div class="px-3 py-1 mt-2" v-show="!sidebarCollapsed">
-            <span class="text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">安全</span>
+          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
+            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">安全</span>
           </div>
           <router-link v-for="item in navGroups.security" :key="item.path"
             :to="item.path"
-            class="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-base-200 transition-colors cursor-pointer"
+            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
             :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="16" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-xs truncate">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
           </router-link>
         </nav>
 
         <!-- 侧栏底部操作区 -->
         <div class="border-t border-base-300 p-2 flex flex-col gap-1">
           <!-- 搜索 -->
-          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="openGlobalSearch" :title="'全局搜索 (Ctrl+K)'">
-            <SvgIcon name="search" :size="14" />
-            <span v-show="!sidebarCollapsed" class="text-xs">搜索</span>
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="openGlobalSearch" :title="'全局搜索 (Ctrl+K)'">
+            <SvgIcon name="search" :size="20" />
+            <span v-show="!sidebarCollapsed" class="text-sm">搜索</span>
           </button>
           <!-- 局域网 -->
-          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-            <IconNetwork size="14" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-xs">局域网</span>
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
+            <IconNetwork size="20" stroke-width="1.5" />
+            <span v-show="!sidebarCollapsed" class="text-sm">局域网</span>
           </button>
           <!-- 主题切换 -->
-          <button class="btn btn-ghost btn-xs gap-2 w-full justify-start" @click="toggleTheme" title="切换主题">
-            <SvgIcon :name="isDark ? 'sun' : 'moon'" :size="14" stroke-width="0" />
-            <span v-show="!sidebarCollapsed" class="text-xs">{{ isDark ? '浅色' : '深色' }}</span>
+          <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleTheme" title="切换主题">
+            <SvgIcon :name="isDark ? 'sun' : 'moon'" :size="20" stroke-width="0" />
+            <span v-show="!sidebarCollapsed" class="text-sm">{{ isDark ? '浅色' : '深色' }}</span>
           </button>
         </div>
       </aside>
