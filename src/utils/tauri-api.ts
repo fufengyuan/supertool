@@ -315,7 +315,7 @@ export function useDatabaseAPI() {
       return res.success && res.data ? res.data : {}
     },
     dbExecuteStructureSync: async (id: string, sqls: string[], dbName: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_execute_structure_sync', { id, sqls, dbName })
+      const res = await tauriInvoke<any>('db_execute_structure_sync', { id, sqls, targetDbName: dbName })
       return res.success && res.data ? res.data : null
     },
     // 数据对比 & 同步

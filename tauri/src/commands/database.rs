@@ -929,7 +929,7 @@ pub async fn db_execute_structure_sync(id: String, sqls: Vec<String>, targetDbNa
     let begin_result = match conn {
         DbConnection::MySql(p) => execute_mysql_query(p, "BEGIN").await,
         DbConnection::Postgres(c) => execute_postgres_query(c, "BEGIN").await,
-        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "BEGIN").await,
+        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "BEGIN").await,
         _ => Err("Unsupported database type".to_string()),
     };
     if let Err(e) = begin_result {
@@ -943,7 +943,7 @@ pub async fn db_execute_structure_sync(id: String, sqls: Vec<String>, targetDbNa
         let r = match conn {
             DbConnection::MySql(p) => execute_mysql_query(p, trimmed).await,
             DbConnection::Postgres(c) => execute_postgres_query(c, trimmed).await,
-            DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, trimmed).await,
+            DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, trimmed).await,
             _ => Err("Unsupported database type".to_string()),
         };
 
@@ -955,7 +955,7 @@ pub async fn db_execute_structure_sync(id: String, sqls: Vec<String>, targetDbNa
                 let _ = match conn {
                     DbConnection::MySql(p) => execute_mysql_query(p, "ROLLBACK").await,
                     DbConnection::Postgres(c) => execute_postgres_query(c, "ROLLBACK").await,
-                    DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "ROLLBACK").await,
+                    DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "ROLLBACK").await,
                     _ => Err("Unsupported".to_string()),
                 };
                 return Ok(serde_json::json!({ "success": false, "executed": executed, "errors": errors }));
@@ -967,7 +967,7 @@ pub async fn db_execute_structure_sync(id: String, sqls: Vec<String>, targetDbNa
     let _ = match conn {
         DbConnection::MySql(p) => execute_mysql_query(p, "COMMIT").await,
         DbConnection::Postgres(c) => execute_postgres_query(c, "COMMIT").await,
-        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "COMMIT").await,
+        DbConnection::Sqlite(cfg) => execute_sqlite_write(cfg, "COMMIT").await,
         _ => Err("Unsupported".to_string()),
     };
 

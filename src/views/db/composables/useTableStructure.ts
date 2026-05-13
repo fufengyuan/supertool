@@ -992,7 +992,7 @@ async function executeSqls() {
     let result: DdlExecutionResponse | undefined
 
     if (typeof api?.dbExecuteStructureSync === 'function') {
-      result = await api.dbExecuteStructureSync(props.connId, JSON.parse(JSON.stringify(previewSqls.value)), props.dbName || undefined) as DdlExecutionResponse
+      result = await api.dbExecuteStructureSync(props.connId, JSON.parse(JSON.stringify(previewSqls.value)), props.dbName || '') as DdlExecutionResponse
     } else {
       previewError.value = 'DDL 执行接口不可用。请确保 dbExecuteStructureSync 已注册。'
       return
