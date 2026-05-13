@@ -926,14 +926,39 @@ pub async fn rollback(
     if let Some(ref servers_str) = cicd_config.servers {
         if let Ok(servers) = serde_json::from_str::<Vec<serde_json::Value>>(servers_str) {
             for server_val in &servers {
-                let host = server_val.get("host").and_then(|v| v.as_str()).unwrap_or("unknown");
-                let port = server_val.get("port").and_then(|v| v.as_u64()).unwrap_or(22) as u16;
-                let username = server_val.get("username").and_then(|v| v.as_str()).unwrap_or("root");
-                let password = server_val.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-                let private_key = server_val.get("privateKey").and_then(|v| v.as_str()).map(|s| s.to_string());
+                let host_or_id = server_val.get("host")
+                    .or_else(|| server_val.get("serverId"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_string();
+                if host_or_id.is_empty() {
+                    continue;
+                }
 
-                // Attempt SSH connection and execute restart
-                match execute_remote_restart(host.to_string(), port, username.to_string(), password.map(|s| s.to_string()), private_key.map(|s| s.to_string()), cicd_config.restart_script.clone()).await {
+                // Query full server config from servers table
+                let server = match core.db_read(|conn| {
+                    conn.query_row(
+                        "SELECT * FROM servers WHERE id = ? OR host = ?",
+                        rusqlite::params![host_or_id, host_or_id],
+                        supertool_core::db::servers::row_to_server,
+                    )
+                }) {
+                    Ok(Ok(s)) => s,
+                    _ => {
+                        rollback_errors.push(format!("{}: 服务器不存在", host_or_id));
+                        continue;
+                    }
+                };
+
+                let host = server.host.clone();
+                let port = server.port as u16;
+                let username = server.username.clone();
+                let password = server.password.clone()
+                    .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
+                let ssh_key = server.ssh_key_path.clone();
+
+                // Execute restart script via SSH
+                match execute_remote_restart(host.clone(), port, username, password, ssh_key, cicd_config.restart_script.clone()).await {
                     Ok(_) => log::info!("[rollback] {}:{} restart successful", host, port),
                     Err(e) => {
                         log::error!("[rollback] {}:{} restart failed: {}", host, port, e);
