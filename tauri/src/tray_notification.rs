@@ -205,6 +205,20 @@ pub fn show_deploy_notification(success: bool, project_name: &str, error: Option
     }
 }
 
+/// 发送 LAN 消息系统通知
+pub fn show_lan_message_notification(from_name: &str, content: &str) {
+    play_notification_sound();
+    let title = "💬 局域网消息";
+    let body = format!("{}: {}", from_name, content);
+    if let Err(e) = notify_rust::Notification::new()
+        .summary(title)
+        .body(&body)
+        .show()
+    {
+        log::warn!("[Notification] Failed to show LAN message notification: {}", e);
+    }
+}
+
 /// 启动后台通知检查定时器（每 5 分钟检查一次到期任务）
 pub fn start_notification_timer(app_handle: tauri::AppHandle) {
     use std::sync::Arc;

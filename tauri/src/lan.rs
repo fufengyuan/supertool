@@ -553,6 +553,16 @@ impl LanService {
                     Self::add_log_static(log, "info", &format!("Message from {}: {}",
                         msg.from.as_deref().unwrap_or("unknown"),
                         msg.content.as_deref().unwrap_or("")));
+
+                    // 发送系统通知
+                    let from_name = msg.from_name.as_deref()
+                        .or(msg.from.as_deref())
+                        .unwrap_or("unknown");
+                    let content_preview = msg.content.as_deref()
+                        .map(|c| if c.len() > 50 { &c[..50] } else { c })
+                        .unwrap_or("");
+                    crate::tray_notification::show_lan_message_notification(from_name, content_preview);
+
                     if let Some(app) = app_handle {
                         let _ = app.emit("lan-message-received", data.clone());
                     }
