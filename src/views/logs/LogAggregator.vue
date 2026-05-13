@@ -146,6 +146,7 @@
             </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
+            <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="fileDownload" size="14" /> 下载日志</button>
           </div>
         </div>
 
@@ -299,6 +300,9 @@ const searchKeyword = ref('')
 const searchContextLines = ref(10)
 const isSearching = ref(false)
 const hasSearched = ref(false)
+
+// 下载状态
+const isDownloadingLog = ref(false)
 
 // 滚动状态
 const showScrollBottom = ref(false)
@@ -810,6 +814,63 @@ function exportLogs() {
   a.click()
   URL.revokeObjectURL(url)
   toast.success(`已导出 ${lines.length} 行日志`)
+}
+
+// 下载远程日志文件
+async function downloadRemoteLogs() {
+  if (!selectedPreset.value) {
+    toast.warning('请先选择预设')
+    return
+  }
+  if (!selectedPreset.value.logPath) {
+    toast.warning('预设未配置日志路径')
+    return
+  }
+  if (!selectedPreset.value.serverIds?.length) {
+    toast.warning('预设未配置服务器')
+    return
+  }
+
+  // 获取第一个日志路径
+  const paths = selectedPreset.value.logPath.split('\n').filter(p => p.trim())
+  if (paths.length === 0) {
+    toast.warning('日志路径为空')
+    return
+  }
+  const logPath = paths[0].trim()
+
+  // 获取第一个服务器
+  const serverId = selectedPreset.value.serverIds[0]
+  const server = allServers.value.find(s => s.id === serverId)
+  if (!server) {
+    toast.warning('服务器不存在')
+    return
+  }
+
+  try {
+    isDownloadingLog.value = true
+    toast.info(`正在从 ${server.name} 下载 ${logPath}...`)
+
+    // 获取下载目录
+    const downloadsDir = await getTauriAPI().getDownloadsDir()
+    const fileName = logPath.split('/').pop() || 'log.txt'
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const localPath = downloadsDir.endsWith('/') || downloadsDir.endsWith('\\')
+      ? downloadsDir + `${server.name}_${timestamp}_${fileName}`
+      : downloadsDir + '/' + `${server.name}_${timestamp}_${fileName}`
+
+    // 下载文件
+    await getTauriAPI().downloadFile(serverId, logPath, localPath)
+
+    toast.success(`下载成功: ${localPath}`)
+
+    // 打开文件所在目录
+    await getTauriAPI().lanOpenFileFolder(localPath)
+  } catch (error: any) {
+    handleError(error, { context: 'downloadRemoteLogs' })
+  } finally {
+    isDownloadingLog.value = false
+  }
 }
 
 // 预设管理
