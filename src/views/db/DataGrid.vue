@@ -59,7 +59,7 @@
                 :title="columnComments && columnComments[col] ? `${col}: ${columnComments[col]}` : col">
               <div class="flex flex-col items-start gap-px px-3 py-2 min-h-8">
                 <div class="flex items-center gap-1 w-full">
-                  <span class="font-semibold text-[11px] uppercase tracking-wider flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
+                  <span class="font-semibold text-[11px] tracking-wider flex-1 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap"
                         :class="{ 'text-primary': sortColumn === col }">{{ col }}</span>
                   <span v-if="sortColumn === col" class="text-primary font-bold text-[10px] shrink-0">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
                   <span v-else class="text-base-content/60 opacity-30 text-xs shrink-0 group-hover:text-primary group-hover:opacity-70 transition-all duration-150">⇅</span>
