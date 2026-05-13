@@ -77,13 +77,17 @@
         <label class="text-[11px] font-semibold text-base-content/60">任务内容</label>
         <input v-model="editLocalText" class="input input-bordered w-full text-sm" @keyup.enter="emitSaveEdit" @keyup.escape="$emit('cancel-edit')" ref="editInputRef" />
       </div>
-      <div class="grid grid-cols-3 gap-2.5">
+      <div class="grid grid-cols-4 gap-2.5">
         <div class="flex flex-col gap-1">
           <label class="text-[11px] font-semibold text-base-content/60">项目</label>
           <select v-model="editLocalProjectId" class="select select-bordered select-sm w-full text-sm">
             <option value="">无</option>
             <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
           </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[11px] font-semibold text-base-content/60">截止日期</label>
+          <input v-model="editLocalDueDate" type="date" class="input input-bordered input-sm w-full text-sm" />
         </div>
         <div class="flex flex-col gap-1">
           <label class="text-[11px] font-semibold text-base-content/60">优先级</label>
@@ -153,6 +157,7 @@ const editLocalText = ref(props.todo.text)
 const editLocalProjectId = ref(props.todo.projectId || '')
 const editLocalPriority = ref(props.todo.priority || 'medium')
 const editLocalTag = ref(props.todo.tag || '')
+const editLocalDueDate = ref(props.todo.dueDate || '')
 
 // Watch editingId to initialize local state when entering edit mode
 watch(() => props.editingId, (val) => {
@@ -161,6 +166,7 @@ watch(() => props.editingId, (val) => {
     editLocalProjectId.value = props.todo.projectId || ''
     editLocalPriority.value = props.todo.priority || 'medium'
     editLocalTag.value = props.todo.tag || ''
+    editLocalDueDate.value = props.todo.dueDate || ''
     nextTick(() => {
       editInputRef.value?.focus()
       editInputRef.value?.select()
@@ -179,6 +185,7 @@ function emitSaveEdit() {
     projectId: editLocalProjectId.value || null,
     priority: editLocalPriority.value,
     tag: editLocalTag.value || null,
+    dueDate: editLocalDueDate.value || null,
   })
 }
 

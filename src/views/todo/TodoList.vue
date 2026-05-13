@@ -705,7 +705,7 @@ const startEdit = (todo) => {
   editText.value = todo.text
 }
 
-const saveEdit = async (data: { id: string; text: string; projectId?: string | null; priority?: string; tag?: string | null }) => {
+const saveEdit = async (data: { id: string; text: string; projectId?: string | null; priority?: string; tag?: string | null; dueDate?: string | null }) => {
   const id = typeof data === 'string' ? data : data.id
   const text = typeof data === 'string' ? editText.value.trim() : data.text.trim()
   
@@ -715,11 +715,12 @@ const saveEdit = async (data: { id: string; text: string; projectId?: string | n
   if (todo) {
     const updates: Record<string, any> = { ...todo, text }
     
-    // Apply project, priority, tag from edit mode if provided
+    // Apply project, priority, tag, dueDate from edit mode if provided
     if (typeof data !== 'string') {
       if (data.projectId !== undefined) updates.projectId = data.projectId || null
       if (data.priority) updates.priority = data.priority
       if (data.tag !== undefined) updates.tag = data.tag || null
+      if (data.dueDate !== undefined) updates.dueDate = data.dueDate || null
     }
     
     try { await todoStore.updateTodo(updates as any) }
