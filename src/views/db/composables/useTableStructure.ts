@@ -539,6 +539,21 @@ function generateDdl(): string[] {
   const safeTable = quoteIdent(props.tableName, db)
   const safeDb = props.dbName ? quoteIdent(props.dbName, db) + '.' : ''
 
+  // --- Deleted columns (generate DROP COLUMN first) ---
+  for (const col of columns.value) {
+    if (col._deleted && !col._isNew && col._originalName) {
+      // SQLite 3.35.0+ and MySQL/PostgreSQL support DROP COLUMN
+      if (db === 'mysql') {
+        sqls.push(`ALTER TABLE ${safeDb}${safeTable} DROP COLUMN ${quoteIdent(col._originalName, db)};`)
+      } else if (db === 'postgresql') {
+        sqls.push(`ALTER TABLE ${safeDb}${safeTable} DROP COLUMN ${quoteIdent(col._originalName, db)};`)
+      } else if (db === 'sqlite') {
+        // SQLite 3.35.0+ (2021-03-12) supports ALTER TABLE DROP COLUMN
+        sqls.push(`ALTER TABLE ${safeTable} DROP COLUMN ${quoteIdent(col._originalName, db)};`)
+      }
+    }
+  }
+
   // Build the list of existing (non-new, non-deleted) columns in their CURRENT order
   // This is used to determine the AFTER clause for reordering
   const activeColumns = columns.value.filter(c => !c._deleted)
