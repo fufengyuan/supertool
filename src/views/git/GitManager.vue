@@ -519,6 +519,7 @@
 <script setup lang="ts">
 // @ts-nocheck — TODO: 需要修复 useGitManager composable 的类型系统
 import { ref } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import type { GitRepo } from '../../types'
 import { useGitManager } from '../../composables/useGitManager'
@@ -844,6 +845,16 @@ const {
 // Local dropdown state (composable returns noop stubs for these)
 const showStashMenu = ref(false)
 const showGitMenu = ref(false)
+
+// 点击页面空白处关闭所有右键菜单
+function handleDocumentClick() {
+  if (contextMenu.value.show) contextMenu.value.show = false
+  if (logContextMenu.value.show) logContextMenu.value.show = false
+  if (stashContextMenu.value.show) stashContextMenu.value.show = false
+}
+
+onMounted(() => document.addEventListener('click', handleDocumentClick))
+onUnmounted(() => document.removeEventListener('click', handleDocumentClick))
 
 function handleGitAction(action: string) {
   switch (action) {
