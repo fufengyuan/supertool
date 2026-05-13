@@ -280,15 +280,14 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
          deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, \
          updatedAt, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, \
          npmCustomScript, mavenHome, npmHome, pnpmHome, yarnHome, javaHome, nodeHome, servers, groupName, \
-         projectId, parentBuildMode, parentBuildPath, requiresApproval, gitRepoId) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script, c.health_check_url,
             c.health_check_timeout, c.created_at, c.updated_at, c.build_tool, c.build_command,
             c.build_path, c.repo_url, c.local_path, c.npm_script, c.npm_custom_script,
             c.maven_home, c.npm_home, c.pnpm_home, c.yarn_home, c.java_home, c.node_home, c.servers, c.group_name,
-            "",
             if c.parent_build_mode { 1 } else { 0 }, c.parent_build_path,
             if c.requires_approval { 1 } else { 0 },
             c.git_repo_id
@@ -389,11 +388,11 @@ fn get_deploy_module_by_id(conn: &Connection, module_id: &str) -> Result<Option<
 // Deploy logs
 pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO deploy_logs (id, configId, projectId, status, startTime, endTime, \
+        "INSERT INTO deploy_logs (id, configId, status, startTime, endTime, \
          errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
-            log.id, log.config_id, "", log.status, log.start_time,
+            log.id, log.config_id, log.status, log.start_time,
             log.end_time, log.error_message, log.progress, log.triggered_by,
             log.created_at, log.log_file_path, log.artifact_paths
         ],
@@ -447,9 +446,9 @@ pub fn get_deploy_step_logs(conn: &Connection, deploy_log_id: &str) -> Result<Ve
 // Deploy history
 pub fn add_deploy_history(conn: &Connection, h: &DeployHistory) -> Result<DeployHistory, rusqlite::Error> {
     conn.execute(
-        "INSERT INTO deploy_history (id, configId, projectId, status, deployedAt, rolledBack, rolledBackAt) \
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
-        params![h.id, h.config_id, "", h.status, h.deployed_at,
+        "INSERT INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt) \
+         VALUES (?, ?, ?, ?, ?, ?)",
+        params![h.id, h.config_id, h.status, h.deployed_at,
                 if h.rolled_back { 1 } else { 0 }, h.rolled_back_at],
     )?;
     get_deploy_history_by_id(conn, &h.id).map(|opt| opt.unwrap())

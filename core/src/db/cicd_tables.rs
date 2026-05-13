@@ -1,30 +1,128 @@
 use rusqlite::Connection;
 
+/// 删除表中指定列（兼容所有 SQLite 版本）
+/// 先尝试 ALTER TABLE DROP COLUMN（3.35.0+），失败则回退到表重建
+fn drop_column_if_exists(conn: &Connection, table: &str, column: &str) -> rusqlite::Result<()> {
+    // 检查列是否存在
+    let exists: bool = conn
+        .query_row(
+            &format!(
+                "SELECT COUNT(*) > 0 FROM pragma_table_info('{}') WHERE name=?1",
+                table
+            ),
+            [column],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+
+    if !exists {
+        return Ok(()); // 列已不存在，无需操作
+    }
+
+    // 方法一：ALTER TABLE DROP COLUMN
+    let drop_sql = format!("ALTER TABLE {} DROP COLUMN {}", table, column);
+    match conn.execute(&drop_sql, []) {
+        Ok(_) => {
+            log::info!("[Schema] Dropped column '{}' from {}", column, table);
+            return Ok(());
+        }
+        Err(e) => {
+            log::warn!(
+                "[Schema] ALTER TABLE DROP COLUMN failed for {}.{}: {}. Falling back to table recreation.",
+                table, column, e
+            );
+        }
+    }
+
+    // 方法二：表重建（兼容 SQLite < 3.35.0）
+    // 1. 获取当前表的列信息（排除要删除的列）
+    let mut stmt = conn.prepare(&format!(
+        "SELECT name, type, \"notnull\", dflt_value, pk FROM pragma_table_info('{}') WHERE name != ?1 ORDER BY cid",
+        table
+    ))?;
+    let cols: Vec<(String, Option<String>, i64, Option<String>, i64)> = stmt
+        .query_map([column], |row| {
+            Ok((
+                row.get::<_, String>(0)?,       // name
+                row.get::<_, Option<String>>(1)?, // type
+                row.get::<_, i64>(2)?,           // notnull
+                row.get::<_, Option<String>>(3)?, // dflt_value
+                row.get::<_, i64>(4)?,           // pk
+            ))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if cols.is_empty() {
+        return Err(rusqlite::Error::InvalidColumnName(table.to_string()));
+    }
+
+    // 2. 构建新表 DDL
+    let mut col_defs: Vec<String> = Vec::new();
+    let mut col_names: Vec<String> = Vec::new();
+    for (name, ty, notnull, dflt, pk) in &cols {
+        let mut def = name.clone();
+        if let Some(t) = ty {
+            def.push(' ');
+            def.push_str(t);
+        }
+        if *notnull != 0 && *pk == 0 {
+            def.push_str(" NOT NULL");
+        }
+        if let Some(d) = dflt {
+            // SQLite stores default values as strings like 'value' or NULL
+            if d != "NULL" && d != "null" {
+                def.push_str(&format!(" DEFAULT {}", d));
+            }
+        }
+        if *pk != 0 {
+            def.push_str(" PRIMARY KEY");
+        }
+        col_defs.push(def);
+        col_names.push(name.clone());
+    }
+
+    let tmp_table = format!("{}_new", table);
+
+    // 3. 执行重建
+    conn.execute_batch(&format!(
+        "BEGIN TRANSACTION;
+         CREATE TABLE {tmp_table} ({col_defs});
+         INSERT INTO {tmp_table} ({col_names}) SELECT {col_names} FROM {table};
+         DROP TABLE {table};
+         ALTER TABLE {tmp_table} RENAME TO {table};
+         COMMIT;",
+        tmp_table = tmp_table,
+        col_defs = col_defs.join(", "),
+        col_names = col_names.join(", "),
+        table = table,
+    ))?;
+
+    log::info!("[Schema] Recreated table '{}' without column '{}'", table, column);
+    Ok(())
+}
+
 pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
-    // ── Schema migration: backward compat ──
-    // Best-effort: try to drop projectId for clean DBs, then re-add with DEFAULT for safety
+    // ── Drop unused projectId column with fallback ──
+    for table in &["cicd_configs", "deploy_logs", "deploy_history"] {
+        if let Err(e) = drop_column_if_exists(conn, table, "projectId") {
+            log::warn!("[Schema] Failed to clean up projectId from {}: {}", table, e);
+        }
+    }
+
+    // Legacy migrations (safe to re-run)
     let migrations = [
-        "ALTER TABLE cicd_configs DROP COLUMN projectId",
-        "ALTER TABLE deploy_logs DROP COLUMN projectId",
-        "ALTER TABLE deploy_history DROP COLUMN projectId",
-        // If DROP didn't work (or column never existed), ensure it exists with a default
-        "ALTER TABLE cicd_configs ADD COLUMN projectId TEXT DEFAULT ''",
-        "ALTER TABLE deploy_logs ADD COLUMN projectId TEXT DEFAULT ''",
-        "ALTER TABLE deploy_history ADD COLUMN projectId TEXT DEFAULT ''",
-        // Legacy migrations (safe to re-run)
         "ALTER TABLE cicd_configs ADD COLUMN pnpmHome TEXT DEFAULT ''",
         "ALTER TABLE cicd_configs ADD COLUMN yarnHome TEXT DEFAULT ''",
     ];
     for sql in migrations {
-        let _ = conn.execute(sql, []); // ignore errors
+        let _ = conn.execute(sql, []); // ignore "duplicate column" errors
     }
 
     conn.execute_batch(
         r#"
-        -- CI/CD configuration profiles
         CREATE TABLE IF NOT EXISTS cicd_configs (
             id TEXT PRIMARY KEY,
-            projectId TEXT DEFAULT '',
             name TEXT DEFAULT '',
             deployBranch TEXT NOT NULL DEFAULT 'main',
             mavenSettings TEXT,
@@ -57,7 +155,6 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             yarnHome TEXT
         );
 
-        -- Deploy modules (multi-module project support)
         CREATE TABLE IF NOT EXISTS deploy_modules (
             id TEXT PRIMARY KEY,
             configId TEXT NOT NULL,
@@ -77,10 +174,8 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             updatedAt TEXT NOT NULL
         );
 
-        -- Deploy logs (each deployment attempt)
         CREATE TABLE IF NOT EXISTS deploy_logs (
             id TEXT PRIMARY KEY,
-            projectId TEXT DEFAULT '',
             configId TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'running',
             startTime TEXT NOT NULL,
@@ -93,7 +188,6 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             artifactPaths TEXT
         );
 
-        -- Deploy step logs (detailed step-by-step logs)
         CREATE TABLE IF NOT EXISTS deploy_step_logs (
             id TEXT PRIMARY KEY,
             deployLogId TEXT NOT NULL,
@@ -103,11 +197,9 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             timestamp TEXT NOT NULL
         );
 
-        -- Deploy history (quick history list)
         CREATE TABLE IF NOT EXISTS deploy_history (
             id TEXT PRIMARY KEY,
             configId TEXT NOT NULL,
-            projectId TEXT DEFAULT '',
             status TEXT NOT NULL,
             deployedAt TEXT NOT NULL,
             rolledBack INTEGER NOT NULL DEFAULT 0,
