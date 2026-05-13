@@ -14,8 +14,6 @@
           <span class="w-1.5 h-1.5 rounded-full"
             :class="db.activeConnection.value.type === 'redis' ? 'bg-red-500' : 'bg-primary'"></span>
           {{ db.activeConnection.value.name }}
-          <span class="text-base-content/40">·</span>
-          <span class="text-base-content/40 uppercase text-[10px]">{{ db.activeConnection.value.type }}</span>
         </span>
       </div>
       <div class="flex gap-1.5 shrink-0" v-if="db.activeConnection.value">

@@ -35,7 +35,6 @@
         <span class="flex-shrink-0 text-sm leading-none w-[18px] text-center">{{ dbTypeIcon(conn.type) }}</span>
         <span class="flex-1 truncate text-sm leading-tight min-w-0" :title="conn.name">{{ conn.name }}</span>
         <span v-if="conn.requiresApproval" class="flex-shrink-0 text-xs" title="SQL 执行审核已开启"><SvgIcon name="lock" size="14" class="align-text-bottom" /></span>
-        <span class="badge badge-xs badge-ghost uppercase text-[10px] flex-shrink-0 leading-none">{{ conn.type }}</span>
         <button
           class="btn btn-ghost btn-xs px-1 min-h-0 h-5 w-5 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-base-300 transition-all"
           @click.stop="$emit('edit', conn)"
