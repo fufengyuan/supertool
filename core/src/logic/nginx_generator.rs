@@ -261,9 +261,18 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
         }
     }
 
-    // Server-level root/index if no location has root
-    // Check server-level root from server-level directives
-    // (not stored in our model — use param_json for server-level extra directives)
+    // Server-level root/index fallback from paramJson
+    if !s.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+            for extra in &extras {
+                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                if !name.is_empty() {
+                    out.push_str(&format!("        {} {};\n", name, value));
+                }
+            }
+        }
+    }
 
     out.push_str("    }\n\n");
     Ok(())
