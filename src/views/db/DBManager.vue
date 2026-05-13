@@ -165,23 +165,20 @@
         <!-- Tabbed workspace -->
         <template v-else>
           <!-- Tab bar -->
-          <div class="flex items-end px-2 bg-base-100 border-b border-base-content/10 overflow-x-auto">
+          <div class="flex items-end px-2 bg-base-100 border-b border-base-content/10 overflow-x-auto gap-1">
             <div
               v-for="(tab, idx) in db.tabs.value"
               :key="tab.id"
-              class="group flex items-center gap-1.5 px-3 py-1.5 min-w-[100px] max-w-[200px] cursor-pointer text-xs select-none border-b-2 transition-all duration-100"
+              class="group flex items-center gap-2 px-3 py-2 min-w-[90px] max-w-[180px] cursor-pointer text-xs select-none rounded-t-lg transition-all"
               :class="[db.activeTabIndex.value === idx
-                ? 'border-primary text-base-content bg-base-200'
-                : 'border-transparent text-base-content/50 hover:text-base-content/80 hover:border-base-content/20 bg-transparent']"
+                ? 'bg-base-200 text-base-content border-b-2 border-primary'
+                : 'text-base-content/60 hover:text-base-content hover:bg-base-200/50']"
               @click="db.setActiveTab(idx)"
             >
-              <span class="shrink-0 leading-none">
-                <template v-if="['🏗️','🔴','🗂️'].includes(getTabIcon(tab))">{{ getTabIcon(tab) }}</template>
-                <SvgIcon v-else :name="getTabIcon(tab)" size="13" />
-              </span>
-              <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="tab.title">{{ tab.title }}</span>
-              <button class="flex items-center justify-center w-4 h-4 border-0 bg-transparent rounded-sm cursor-pointer text-base-content/30 shrink-0 opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:text-primary transition-all duration-100" @click.stop="db.closeTab(tab.id)" title="关闭">
-                <SvgIcon name="x" size="10" stroke-width="2.5" />
+              <SvgIcon :name="getTabIcon(tab)" size="14" class="shrink-0" :class="getTabIconClass(tab)" />
+              <span class="flex-1 overflow-hidden text-ellipsis whitespace-nowrap font-medium" :title="tab.title">{{ tab.title }}</span>
+              <button class="flex items-center justify-center w-5 h-5 border-0 bg-transparent rounded-md cursor-pointer text-base-content/40 shrink-0 opacity-0 group-hover:opacity-100 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all" @click.stop="db.closeTab(tab.id)" title="关闭">
+                <SvgIcon name="x" size="12" stroke-width="2" />
               </button>
             </div>
           </div>
@@ -465,13 +462,23 @@ function getTabIcon(tab: WorkspaceTab | null): string {
   switch (tab.type) {
     case 'sql': return 'pencil'
     case 'tableData': return 'barChart'
-    case 'tableStructure': return '🏗️'
-    case 'redisConsole': return '🔴'
+    case 'tableStructure': return 'table'
+    case 'redisConsole': return 'key'
     case 'redisManager': return 'key'
     case 'structureSync': return 'tool'
     case 'dataSync': return 'package'
-    case 'backup': return '🗂️'
+    case 'backup': return 'folder'
     default: return 'file'
+  }
+}
+
+function getTabIconClass(tab: WorkspaceTab | null): string {
+  if (!tab) return ''
+  switch (tab.type) {
+    case 'redisConsole': return 'text-red-500'
+    case 'redisManager': return 'text-red-500'
+    case 'backup': return 'text-orange-500'
+    default: return ''
   }
 }
 
