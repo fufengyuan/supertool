@@ -273,7 +273,7 @@ onUnmounted(async () => {
 }
 
 .sidebar-scrollbar:hover {
-  scrollbar-color: oklch(0.6 0 0) oklch(0.95 0 0);
+  scrollbar-color: oklch(0.75 0 0) oklch(0.97 0 0);
 }
 
 .sidebar-scrollbar::-webkit-scrollbar {
@@ -291,6 +291,6 @@ onUnmounted(async () => {
 }
 
 .sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
-  background-color: oklch(0.6 0 0);
+  background-color: oklch(0.75 0 0);
 }
 </style>
