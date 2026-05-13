@@ -487,6 +487,7 @@ pub async fn db_get_views(id: String, db_name: String) -> Result<serde_json::Val
     match conn {
         DbConnection::MySql(p) => execute_mysql_query(p, &format!("SHOW FULL TABLES FROM `{}` WHERE Table_type = 'VIEW'", db_name)).await,
         DbConnection::Postgres(c) => execute_postgres_query(c, "SELECT table_name FROM information_schema.views WHERE table_schema='public'").await,
+        DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, "SELECT name FROM sqlite_master WHERE type='view' AND name NOT LIKE 'sqlite_%'").await,
         _ => Err("Unsupported database type".to_string()),
     }
 }
@@ -501,6 +502,11 @@ pub async fn db_get_create_sql(id: String, table: String, db_name: String) -> Re
             execute_mysql_query(p, &sql).await
         }
         DbConnection::Postgres(_c) => Err("PostgreSQL: use pg_dump for CREATE TABLE SQL".to_string()),
+        DbConnection::Sqlite(cfg) => {
+            // SQLite: get CREATE statement from sqlite_master
+            let sql = format!("SELECT sql AS 'Create Table' FROM sqlite_master WHERE type='table' AND name='{}'", table);
+            execute_sqlite_query(cfg, &sql).await
+        }
         _ => Err("Unsupported database type".to_string()),
     }
 }
@@ -1328,6 +1334,7 @@ pub async fn db_backup_create(id: String, db_name: String, objects: Vec<serde_js
             let data = match conn {
                 DbConnection::MySql(p) => execute_mysql_query(p, &format!("SELECT * FROM `{}`.`{}`", db_name, table)).await,
                 DbConnection::Postgres(c) => execute_postgres_query(c, &format!("SELECT * FROM \"{}\".\"{}\"", db_name, table)).await,
+                DbConnection::Sqlite(cfg) => execute_sqlite_query(cfg, &format!("SELECT * FROM \"{}\"", table)).await,
                 _ => Err("Unsupported".to_string()),
             };
             backup.insert(table.to_string(), data.unwrap_or(serde_json::Value::Null));
