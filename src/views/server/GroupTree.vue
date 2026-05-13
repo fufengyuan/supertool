@@ -1,9 +1,10 @@
 <template>
   <!-- IDEA 风格：分组标题栏 + 服务器平铺 -->
   <div class="mb-2">
-    <!-- 分组标题栏 - 简洁扁平 -->
+    <!-- 分组标题栏 - 简洁扁平，带分组背景色 -->
     <div class="flex items-center gap-2 px-3 py-1.5 rounded cursor-pointer select-none transition-colors group/header"
-      :class="isExpanded ? 'bg-base-100' : 'hover:bg-base-100/50'"
+      :style="isExpanded ? { backgroundColor: groupBgColor } : {}"
+      :class="isExpanded ? '' : 'hover:bg-base-100/50'"
       @click="toggle">
       <!-- 展开/折叠箭头 -->
       <SvgIcon class="text-base-content/50 transition-transform flex-shrink-0" 
@@ -109,6 +110,15 @@ const onlineCount = computed(() => {
 
 const isExpanded = computed(() => {
   return props.expandedGroups.has(props.group.id as string | null);
+});
+
+// 将 hex 颜色转为 rgba（10% 透明度）
+const groupBgColor = computed(() => {
+  const hex = props.group.color || '#6b7280';
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, 0.1)`;
 });
 
 function toggle() {
