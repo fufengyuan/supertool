@@ -559,7 +559,7 @@ impl LanService {
                         .or(msg.from.as_deref())
                         .unwrap_or("unknown");
                     let content_preview = msg.content.as_deref()
-                        .map(|c| if c.len() > 50 { &c[..50] } else { c })
+                        .map(|c| if c.len() > 100 { &c[..100] } else { c })
                         .unwrap_or("");
                     crate::tray_notification::show_lan_message_notification(from_name, content_preview);
 

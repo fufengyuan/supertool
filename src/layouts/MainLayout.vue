@@ -16,55 +16,55 @@
         <!-- 导航菜单 -->
         <nav class="flex-1 overflow-y-auto flex flex-col items-stretch p-2">
           <!-- 业务 -->
-          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">业务</span>
+          <div class="py-1.5 mt-1 pl-2" v-show="!sidebarCollapsed">
+            <span class="text-xs font-bold text-base-content uppercase tracking-wider">业务</span>
           </div>
           <router-link v-for="item in navGroups.business" :key="item.path"
             :to="item.path"
-            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
           <!-- 运维 -->
-          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">运维</span>
+          <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
+            <span class="text-xs font-bold text-base-content uppercase tracking-wider">运维</span>
           </div>
           <router-link v-for="item in navGroups.ops" :key="item.path"
             :to="item.path"
-            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
           <!-- 开发 -->
-          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">开发</span>
+          <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
+            <span class="text-xs font-bold text-base-content uppercase tracking-wider">开发</span>
           </div>
           <router-link v-for="item in navGroups.dev" :key="item.path"
             :to="item.path"
-            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
           <!-- 安全 -->
-          <div class="py-1.5 mt-1" v-show="!sidebarCollapsed">
-            <span class="text-xs font-semibold text-base-content/40 uppercase tracking-wider">安全</span>
+          <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
+            <span class="text-xs font-bold text-base-content uppercase tracking-wider">安全</span>
           </div>
           <router-link v-for="item in navGroups.security" :key="item.path"
             :to="item.path"
-            class="flex items-center justify-center gap-2.5 py-2 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 text-base-content' : 'text-base-content/70']"
+            class="flex items-center gap-2.5 py-2 px-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
             @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="20" class="shrink-0" stroke-width="1.5" />
-            <span v-show="!sidebarCollapsed" class="text-sm">{{ item.label }}</span>
+            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
         </nav>
 
