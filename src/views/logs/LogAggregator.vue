@@ -666,7 +666,7 @@ function scheduleFlush() {
     if (logLines.value.length > 2000) {
       logLines.value = logLines.value.slice(-2000)
     }
-    if (followMode.value && !userScrolledUp.value) {
+    if (followMode.value) {
       nextTick(() => {
         requestAnimationFrame(() => {
           scrollToBottomSilent()
