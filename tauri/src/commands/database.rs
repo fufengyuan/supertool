@@ -1968,7 +1968,26 @@ pub async fn db_get_table_data_filtered(id: String, db_name: String, table_name:
             sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
             execute_sqlite_query(cfg, &sql).await
         }
-        _ => Err("Only MySQL and SQLite supported".to_string()),
+        DbConnection::Postgres(c) => {
+            let mut where_clauses = Vec::new();
+            if let Some(obj) = filters_json.as_object() {
+                for (k, v) in obj {
+                    if matches!(v, serde_json::Value::Null) { where_clauses.push(format!("\"{}\" IS NULL", k)); }
+                    else { let val = match v { serde_json::Value::Bool(b) => b.to_string(), serde_json::Value::Number(n) => n.to_string(), serde_json::Value::String(s) => format!("'{}'", s.replace('\'', "''")), _ => v.to_string() }; where_clauses.push(format!("\"{}\" = {}", k, val)); }
+                }
+            }
+            let mut sql = format!("SELECT * FROM \"{}\".\"{}\"", db_name, table_name);
+            if !where_clauses.is_empty() { sql.push_str(&format!(" WHERE {}", where_clauses.join(" AND "))); }
+            if let Some(col) = sort_column {
+                if !col.is_empty() && col.chars().all(|c| c.is_alphanumeric() || c == '_') {
+                    let dir = match sort_dir.as_deref().unwrap_or("").to_uppercase().as_str() { "DESC" => "DESC", _ => "ASC" };
+                    sql.push_str(&format!(" ORDER BY \"{}\" {}", col, dir));
+                }
+            }
+            sql.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
+            execute_postgres_query(c, &sql).await
+        }
+        _ => Err("Unsupported database type".to_string()),
     }
 }
 
