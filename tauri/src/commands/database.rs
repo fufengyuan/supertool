@@ -413,16 +413,16 @@ pub async fn db_get_table_structure(id: String, db_name: Option<String>, table: 
                 "SELECT \
                     name AS \"COLUMN_NAME\", \
                     type AS \"COLUMN_TYPE\", \
-                    CASE WHEN notnull = 1 THEN 'NO' ELSE 'YES' END AS \"IS_NULLABLE\", \
-                    dflt_value AS \"COLUMN_DEFAULT\", \
-                    CASE WHEN pk > 0 THEN 'PRI' ELSE '' END AS \"COLUMN_KEY\", \
+                    CASE WHEN \"notnull\" = 1 THEN 'NO' ELSE 'YES' END AS \"IS_NULLABLE\", \
+                    \"dflt_value\" AS \"COLUMN_DEFAULT\", \
+                    CASE WHEN \"pk\" > 0 THEN 'PRI' ELSE '' END AS \"COLUMN_KEY\", \
                     '' AS \"EXTRA\", \
                     '' AS \"COLUMN_COMMENT\", \
-                    cid + 1 AS \"ORDINAL_POSITION\" \
-                FROM pragma_table_info('{}') ORDER BY cid", table);
+                    \"cid\" + 1 AS \"ORDINAL_POSITION\" \
+                FROM pragma_table_info('{}') ORDER BY \"cid\"", table);
             let col_result = execute_sqlite_query(cfg, &col_sql).await?;
             // SQLite indexes: PRAGMA index_list + index_info
-            let idx_list_sql = format!("SELECT name, unique FROM pragma_index_list('{}')", table);
+            let idx_list_sql = format!("SELECT name, \"unique\" FROM pragma_index_list('{}')", table);
             let idx_list_result = execute_sqlite_query(cfg, &idx_list_sql).await?;
             let cols = col_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
             let idxs = idx_list_result.get("rows").cloned().unwrap_or(serde_json::Value::Array(vec![]));
