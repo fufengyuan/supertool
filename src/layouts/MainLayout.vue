@@ -3,7 +3,7 @@
     <!-- 无自定义标题栏 — 使用原生窗口边框 -->
     <div class="flex flex-1 overflow-hidden">
       <!-- 左侧导航栏 -->
-      <aside class="flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden flex flex-col"
+      <aside class="sidebar-scrollbar flex-none bg-base-100 border-r border-base-300 transition-all duration-200 overflow-y-auto overflow-x-hidden flex flex-col"
              :class="[sidebarCollapsed ? 'w-16' : 'w-48']">
         <!-- 折叠按钮 (侧栏顶部) -->
         <div class="flex items-center justify-between p-2 border-b border-base-300">
@@ -265,3 +265,32 @@ onUnmounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.sidebar-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.sidebar-scrollbar:hover {
+  scrollbar-color: oklch(0.6 0 0) oklch(0.95 0 0);
+}
+
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+}
+
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
+  background-color: oklch(0.6 0 0);
+}
+</style>
