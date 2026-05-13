@@ -1,7 +1,7 @@
 // @ts-nocheck
 /**
  * Tauri API — 统一 IPC/原生接口层
- * 覆盖 81 个 Tauri commands
+ * 覆盖 81+ 个 Tauri commands
  */
 
 import { invoke } from '@tauri-apps/api/core'
@@ -14,18 +14,58 @@ import type {
   WireGuardConfig, WireGuardStatus,
 } from '../types'
 
+// ============ 日志脱敏 ============
+
+/** 敏感字段名（大小写不敏感匹配，包含子串即命中） */
+const SENSITIVE_KEYS = [
+  'password', 'passwd', 'pwd', 'secret', 'token',
+  'access_token', 'refresh_token', 'api_key', 'apikey', 'api_secret',
+  'auth', 'authorization', 'credential',
+  'private_key', 'ssh_key', 'privatekey',
+  'sshkeypath', 'ssh_key_path',
+  'dbpassword', 'db_password', 'sshpassword', 'ssh_password',
+]
+
+/** 递归脱敏，原地修改并返回 */
+function sanitizeLogValue(val: unknown): unknown {
+  if (val === null || val === undefined) return val
+  if (Array.isArray(val)) {
+    return val.map(v => sanitizeLogValue(v))
+  }
+  if (typeof val === 'object') {
+    const obj = val as Record<string, unknown>
+    for (const key of Object.keys(obj)) {
+      const lower = key.toLowerCase()
+      if (SENSITIVE_KEYS.some(sk => lower.includes(sk))) {
+        const v = obj[key]
+        obj[key] = typeof v === 'string' && v.length > 0 ? '**' : v
+      } else {
+        obj[key] = sanitizeLogValue(obj[key])
+      }
+    }
+    return obj
+  }
+  return val
+}
+
+/** 将任意 JSON 值序列化为安全日志字符串（不超过 maxLen 字符） */
+function safeJsonLog(val: unknown, maxLen = 300): string {
+  const clone = JSON.parse(JSON.stringify(val))
+  sanitizeLogValue(clone)
+  const s = JSON.stringify(clone)
+  return s.length <= maxLen ? s : s.slice(0, maxLen) + '...'
+}
+
 // ============ 核心调用 ============
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<ApiResponse<T>> {
-  const argsStr = JSON.stringify(args).slice(0, 200)
-  if (!silent) console.log(`[Tauri IPC] → ${command}  ${argsStr}`)
+  if (!silent) console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)
   const t0 = performance.now()
   try {
     const raw = await invoke(command, args)
     const elapsed = (performance.now() - t0).toFixed(0)
     if (!silent) {
-      const dataStr = JSON.stringify(raw).slice(0, 300)
-      console.log(`[Tauri IPC] ← ${command} ✅ ${elapsed}ms  ${dataStr}`)
+      console.log(`[Tauri IPC] ← ${command} ✅ ${elapsed}ms  ${safeJsonLog(raw)}`)
     }
     return { success: true, data: raw as unknown as T }
   } catch (err: unknown) {
