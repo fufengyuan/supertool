@@ -212,17 +212,17 @@ fn row_to_deploy_module(row: &rusqlite::Row) -> rusqlite::Result<DeployModule> {
 
 pub fn row_to_deploy_log(row: &rusqlite::Row) -> rusqlite::Result<DeployLog> {
     Ok(DeployLog {
-        id: row.get(0)?,
-        config_id: row.get(1)?,
-        status: row.get(2)?,
-        start_time: row.get(3)?,
-        end_time: row.get(4)?,
-        error_message: row.get(5)?,
-        progress: row.get(6)?,
-        triggered_by: row.get(7)?,
-        created_at: row.get(8)?,
-        log_file_path: row.get(9)?,
-        artifact_paths: row.get(10)?,
+        id: row.get("id")?,
+        config_id: row.get("configId")?,
+        status: row.get("status")?,
+        start_time: row.get("startTime")?,
+        end_time: row.get("endTime")?,
+        error_message: row.get("errorMessage")?,
+        progress: row.get("progress")?,
+        triggered_by: row.get("triggeredBy")?,
+        created_at: row.get("createdAt")?,
+        log_file_path: row.get("logFilePath")?,
+        artifact_paths: row.get("artifactPaths")?,
     })
 }
 
@@ -239,12 +239,12 @@ fn row_to_deploy_step_log(row: &rusqlite::Row) -> rusqlite::Result<DeployStepLog
 
 pub fn row_to_deploy_history(row: &rusqlite::Row) -> rusqlite::Result<DeployHistory> {
     Ok(DeployHistory {
-        id: row.get(0)?,
-        config_id: row.get(1)?,
-        status: row.get(2)?,
-        deployed_at: row.get(3)?,
-        rolled_back: row.get::<_, i64>(4)? != 0,
-        rolled_back_at: row.get(5)?,
+        id: row.get("id")?,
+        config_id: row.get("configId")?,
+        status: row.get("status")?,
+        deployed_at: row.get("deployedAt")?,
+        rolled_back: row.get::<_, i64>("rolledBack")? != 0,
+        rolled_back_at: row.get("rolledBackAt")?,
     })
 }
 
