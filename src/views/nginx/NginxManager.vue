@@ -405,11 +405,11 @@ const tabs = [
   { key: 'server', label: 'Server', icon: 'server' },
   { key: 'upstream', label: 'Upstream', icon: 'layers' },
   { key: 'http', label: 'HTTP', icon: 'globe' },
-  { key: 'stream', label: 'Stream', icon: 'activity' },
+  { key: 'stream', label: 'Stream', icon: 'zap' },
   { key: 'cert', label: 'Cert', icon: 'shield' },
   { key: 'template', label: '模板', icon: 'file' },
   { key: 'basic', label: '基本设置', icon: 'settings' },
-  { key: 'param', label: '额外参数', icon: 'list' },
+  { key: 'param', label: '额外参数', icon: 'menu' },
   { key: 'deny', label: '黑白名单', icon: 'shield' },
   { key: 'password', label: '密码文件', icon: 'lock' },
 ]

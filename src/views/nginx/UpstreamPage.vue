@@ -49,7 +49,7 @@
                   <SvgIcon name="pencil" size="14" />
                 </button>
                 <button @click="onCloneUpstream(upstream)" class="btn btn-ghost btn-xs btn-square" title="克隆">
-                  <SvgIcon name="copy" size="14" />
+                  <SvgIcon name="clipboard" size="14" />
                 </button>
                 <button @click="onDeleteUpstream(upstream.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
                   <SvgIcon name="trash" size="14" />

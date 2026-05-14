@@ -91,7 +91,7 @@
                   <SvgIcon name="pencil" size="12" />
                 </button>
                 <button @click="onCloneServer(svr)" class="btn btn-ghost btn-xs btn-square" title="克隆">
-                  <SvgIcon name="copy" size="12" />
+                  <SvgIcon name="clipboard" size="12" />
                 </button>
                 <button @click="onDeleteServer(svr.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
                   <SvgIcon name="trash" size="12" />
@@ -337,7 +337,7 @@
                     </td>
                     <td class="text-center">
                       <div class="flex items-center justify-center gap-0.5">
-                        <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="list" size="12" /></button>
+                        <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
                         <button @click="onDeleteLocation(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="x" size="14" /></button>
                       </div>
                     </td>
