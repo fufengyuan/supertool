@@ -571,3 +571,63 @@ fn test_round_trip_with_deny_allow() {
     // The generated config is semantically correct; the limitation is in the parser.
     assert_eq!(parsed.servers[0].deny_allow, 2, "parser sets deny_allow=2 for 'allow all;'");
 }
+
+#[test]
+fn test_real_world_config_parse() {
+    let text = include_str!("../../testdata/nginx.conf");
+    let config = supertool_core::logic::nginx_parser::parse_nginx_config(text)
+        .expect("Failed to parse real-world nginx.conf");
+
+    // Basic settings: worker_processes, error_log, pid, load_module x2, events block
+    assert!(config.basic_settings.len() >= 5, "Should have basic settings");
+
+    // HTTP params: mime.types, default_type, sendfile, tcp_nopush, ...
+    assert!(config.http_params.len() >= 5, "Should have http params");
+
+    // Upstreams: 4 inside http (stream upstreams are not currently extracted)
+    assert_eq!(config.upstreams.len(), 4, "Should have 4 upstreams (all from http block)");
+
+    // Servers: 4 (main SSL, redirect, admin, static)
+    assert_eq!(config.servers.len(), 4, "Should have 4 server blocks");
+
+    // Stream servers: 3 (mysql, redis, ssl)
+    assert_eq!(config.streams.len(), 3, "Should have 3 stream servers");
+
+    // Verify specific server details
+    let main_srv = config.servers.iter().find(|s| s.server_name.contains("www.example.com"));
+    assert!(main_srv.is_some(), "www.example.com should exist");
+    let main = main_srv.unwrap();
+    assert_eq!(main.ssl, 1, "Main server should have SSL");
+    assert!(main.def, "Main server should be default_server");
+    assert!(main.ipv6, "Main server should have IPv6 listen");
+    assert_eq!(main.locations.len(), 6, "Main server should have 6 locations");
+    assert_eq!(main.http2, 1, "Old-style http2 on listen");
+
+    // Verify upstream details
+    let backend = config.upstreams.iter().find(|u| u.name == "backend_api").unwrap();
+    assert_eq!(backend.servers.len(), 3, "backend_api should have 3 servers");
+    assert_eq!(backend.strategy, "", "backend_api should have default polling strategy");
+    assert!(backend.servers[2].backup, "Third backend server should be backup");
+
+    let ws = config.upstreams.iter().find(|u| u.name == "websocket_servers").unwrap();
+    assert_eq!(ws.strategy, "least_conn");
+
+    // Verify admin server (with deny/allow)
+    let admin = config.servers.iter().find(|s| s.server_name == "admin.example.com").unwrap();
+    assert_eq!(admin.ip, "127.0.0.1");
+    assert_eq!(admin.listen, "8080");
+    assert_eq!(admin.deny_allow, 1, "deny all sets deny_allow=1");
+
+    // Verify plain redirect server
+    let redirect = config.servers.iter().find(|s| s.listen == "80" && s.ssl == 0);
+    assert!(redirect.is_some(), "Plain HTTP redirect server should exist");
+
+    // Verify stream
+    let redis_stream = config.streams.iter().find(|s| s.listen == "6379").unwrap();
+    assert_eq!(redis_stream.proxy_upstream_id, "redis_cluster");
+    assert_eq!(redis_stream.proxy_pass, "redis_cluster");
+
+    let mysql_stream = config.streams.iter().find(|s| s.listen == "3306").unwrap();
+    assert!(mysql_stream.proxy_upstream_id.is_empty());
+    assert_eq!(mysql_stream.proxy_pass, "10.0.10.1:3306");
+}
