@@ -64,7 +64,7 @@ pub struct NginxServer {
     #[serde(rename = "passwordId")]
     pub password_id: String,
     #[serde(rename = "denyAllow")]
-    pub deny_allow: String,
+    pub deny_allow: i64,
     #[serde(rename = "denyId")]
     pub deny_id: String,
     #[serde(rename = "allowId")]
@@ -116,6 +116,7 @@ pub struct NginxLocation {
     #[serde(rename = "paramJson")]
     pub param_json: String,
     pub sort: i64,
+    pub descr: String,
     #[serde(rename = "createdAt")]
     pub created_at: String,
 }
@@ -363,6 +364,7 @@ pub fn row_to_nginx_location(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxL
         return_path: row.get::<_, i64>("returnPath")? == 1,
         param_json: row.get("paramJson")?,
         sort: row.get("sort")?,
+        descr: row.get("descr")?,
         created_at: row.get("createdAt")?,
     })
 }
@@ -748,14 +750,14 @@ pub fn add_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> r
     conn.execute(
         "INSERT INTO nginx_locations (id, serverId, enabled, path, locType, value,
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
-         header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, createdAt)
+         header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
         params![loc.id, loc.server_id, bool_int(loc.enabled), loc.path, loc.loc_type, loc.value,
                 loc.upstream_type, loc.upstream_id, loc.upstream_path,
                 loc.root_path, loc.root_page, loc.root_type,
                 bool_int(loc.header), bool_int(loc.websocket), bool_int(loc.cros),
                 loc.header_host, loc.return_url, bool_int(loc.return_path),
-                loc.param_json, loc.sort, loc.created_at],
+                loc.param_json, loc.sort, loc.descr, loc.created_at],
     )?;
     Ok(())
 }
@@ -763,15 +765,15 @@ pub fn add_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> r
 pub fn update_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_locations SET enabled=?2, path=?3, locType=?4, value=?5,
-         upstreamType=?6, upstreamId=?7, upstreamPath=?8, rootPath=?9, rootPage=?10, rootType=?11,
-         header=?12, websocket=?13, cros=?14, headerHost=?15, returnUrl=?16, returnPath=?17, paramJson=?18, sort=?19
+          upstreamType=?6, upstreamId=?7, upstreamPath=?8, rootPath=?9, rootPage=?10, rootType=?11,
+          header=?12, websocket=?13, cros=?14, headerHost=?15, returnUrl=?16, returnPath=?17, paramJson=?18, sort=?19, descr=?20
          WHERE id=?1",
         params![loc.id, bool_int(loc.enabled), loc.path, loc.loc_type, loc.value,
                 loc.upstream_type, loc.upstream_id, loc.upstream_path,
                 loc.root_path, loc.root_page, loc.root_type,
                 bool_int(loc.header), bool_int(loc.websocket), bool_int(loc.cros),
                 loc.header_host, loc.return_url, bool_int(loc.return_path),
-                loc.param_json, loc.sort],
+                loc.param_json, loc.sort, loc.descr],
     )?;
     Ok(())
 }

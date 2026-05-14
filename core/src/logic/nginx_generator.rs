@@ -304,6 +304,15 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
 }
 
 fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxServer, out: &mut String) -> Result<(), String> {
+    // Description as comments
+    if !loc.descr.is_empty() {
+        for line in loc.descr.lines() {
+            if !line.trim().is_empty() {
+                out.push_str(&format!("        # {}\n", line.trim()));
+            }
+        }
+    }
+
     out.push_str(&format!("        location {} {{\n", loc.path));
 
     // Custom params - prepend mode
