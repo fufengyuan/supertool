@@ -68,14 +68,46 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
 
 fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Result<(), String> {
     out.push_str(&format!("    upstream {} {{\n", u.name));
+
+    // Description as comments
+    if !u.descr.is_empty() {
+        for line in u.descr.lines() {
+            if !line.trim().is_empty() {
+                out.push_str(&format!("        # {}\n", line.trim()));
+            }
+        }
+    }
+
+    // Strategy
     if u.strategy == "ip_hash" {
         out.push_str("        ip_hash;\n");
     } else if u.strategy == "least_conn" {
         out.push_str("        least_conn;\n");
     } else if u.strategy == "random" {
         out.push_str("        random;\n");
+    } else if u.strategy == "sticky" {
+        out.push_str("        sticky;\n");
+    } else if u.strategy == "least_time" {
+        out.push_str("        least_time;\n");
     }
 
+    // Custom params - prepend mode (position=1)
+    if !u.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&u.param_json) {
+            for extra in &extras {
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 1 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        out.push_str(&format!("        {} {};\n", name, value));
+                    }
+                }
+            }
+        }
+    }
+
+    // Upstream servers
     let servers = crate::db::nginx::get_upstream_servers(conn, &u.id)
         .map_err(|e| e.to_string())?;
     for srv in &servers {
@@ -91,14 +123,17 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         out.push_str(";\n");
     }
 
-    // Extra params
+    // Custom params - append mode (position=0 or null)
     if !u.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&u.param_json) {
             for extra in &extras {
-                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                if !name.is_empty() {
-                    out.push_str(&format!("        {} {};\n", name, value));
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 0 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        out.push_str(&format!("        {} {};\n", name, value));
+                    }
                 }
             }
         }
@@ -109,154 +144,125 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
 }
 
 fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> Result<(), String> {
-    // Build listen directive
-    let mut listen_parts: Vec<String> = Vec::new();
-    if s.ssl {
-        listen_parts.push(format!("{} ssl", s.listen));
-        if s.http2 == 1 || s.http2 == 2 { listen_parts[0].push_str(" http2"); }
-        if s.proxy_protocol { listen_parts[0].push_str(" proxy_protocol"); }
+    // Description as comments
+    if !s.descr.is_empty() {
+        for line in s.descr.lines() {
+            if !line.trim().is_empty() {
+                out.push_str(&format!("    # {}\n", line.trim()));
+            }
+        }
+    }
+
+    out.push_str("    server {\n");
+
+    if s.proxy_type == 0 {
+        // HTTP proxy
+
+        // server_name
+        if !s.server_name.is_empty() {
+            out.push_str(&format!("        server_name  {};\n", s.server_name));
+        }
+
+        // listen directive
+        let mut listen_val = format!("listen {}", s.listen);
+        if s.def { listen_val += " default_server"; }
+        if s.proxy_protocol { listen_val += " proxy_protocol"; }
+        if s.ssl {
+            listen_val += " ssl";
+            if s.http2 == 1 { listen_val += " http2"; } // old-style http2
+        }
+        out.push_str(&format!("        {};\n", listen_val));
+        if s.ipv6 {
+            let mut listen_ipv6 = format!("listen [::]:{}", s.listen);
+            if s.def { listen_ipv6 += " default_server"; }
+            if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
+            if s.ssl { listen_ipv6 += " ssl"; }
+            out.push_str(&format!("        {};\n", listen_ipv6));
+        }
+
+        // HTTP2 new-style (http2 on;)
+        if s.ssl && s.http2 == 2 {
+            out.push_str("        http2 on;\n");
+        }
+
+        // Password auth
+        // TODO: Password support when model is added
+
+        // SSL certs
+        if s.ssl && !s.cert_id.is_empty() {
+            if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
+                out.push_str(&format!("        ssl_certificate      {};\n", cert.pem));
+                out.push_str(&format!("        ssl_certificate_key  {};\n", cert.key));
+            }
+            if !s.protocols.is_empty() {
+                out.push_str(&format!("        ssl_protocols       {};\n", s.protocols.replace(",", " ")));
+            }
+        }
+
+        // Custom params - prepend mode
+        append_param_json_prepend(s, out);
+
+        // Locations
+        let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
+            .map_err(|e| e.to_string())?;
+
+        for loc in &locations {
+            if !loc.enabled { continue; }
+            append_location_block(conn, loc, s, out)?;
+        }
+
+        // Custom params - append mode from paramJson
+        if !s.param_json.is_empty() {
+            if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+                for extra in &extras {
+                    let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                    if pos == 0 {
+                        let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                        if !name.is_empty() {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
+                    }
+                }
+            }
+        }
+
+        // HTTP→HTTPS redirect (inside the same server block, like nginxWebUI)
+        if s.ssl && s.rewrite {
+            let port = s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string();
+            out.push_str(&format!(
+                "        if ($scheme = http) {{\n            return 301 https://$host:{};\n        }}\n",
+                port
+            ));
+        }
+
     } else {
-        listen_parts.push(s.listen.clone());
-        if s.proxy_protocol { listen_parts[0].push_str(" proxy_protocol"); }
-    }
-    if s.def { listen_parts[0].push_str(" default_server"); }
-    if s.ipv6 { listen_parts.push(format!("[::]:{}", s.listen)); }
+        // TCP/UDP proxy (proxyType 1 or 2)
 
-    for lp in &listen_parts {
-        out.push_str(&format!("    server {{\n        listen {};\n", lp));
-    }
-    if !s.ip.is_empty() {
-        // Replace the listen if ip is set
-        // Already handled below
-    }
+        let mut listen_val = format!("listen {}", s.listen);
+        if s.proxy_protocol { listen_val += " proxy_protocol"; }
+        if s.proxy_type == 2 { listen_val += " udp"; }
+        if s.ssl { listen_val += " ssl"; }
+        out.push_str(&format!("        {};\n", listen_val));
+        if s.ipv6 {
+            let mut listen_ipv6 = format!("listen [::]:{}", s.listen);
+            if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
+            if s.ssl { listen_ipv6 += " ssl"; }
+            out.push_str(&format!("        {};\n", listen_ipv6));
+        }
 
-    out.push_str(&format!("        server_name  {};\n", if s.server_name.is_empty() { "_" } else { &s.server_name }));
-
-    // SSL certs
-    if s.ssl {
-        // Look up cert
-        if !s.cert_id.is_empty() {
+        // SSL certs
+        if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!("        ssl_certificate      {};\n", cert.pem));
                 out.push_str(&format!("        ssl_certificate_key  {};\n", cert.key));
             }
         }
-        if !s.protocols.is_empty() {
-            out.push_str(&format!("        ssl_protocols       {};\n", s.protocols.replace(",", " ")));
-        }
-        if s.http2 == 2 {
-            // New style — already handled in listen
-        }
-    }
 
-    // HTTP->HTTPS redirect
-    if s.rewrite && s.ssl {
-        out.push_str("        return 301 https://$server_name$request_uri;\n");
-        out.push_str("    }\n\n");
-        // Add a second server block for the redirect listener
-        out.push_str(&format!("    server {{\n        listen {};\n", if s.rewrite_listen.is_empty() { "80" } else { &s.rewrite_listen }));
-        out.push_str(&format!("        server_name  {};\n", if s.server_name.is_empty() { "_" } else { &s.server_name }));
-        out.push_str("        return 301 https://$server_name$request_uri;\n");
-        out.push_str("    }\n\n");
-        return Ok(());
-    }
-
-    // Root / Index from server level
-    // Locations
-    let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
-        .map_err(|e| e.to_string())?;
-    let mut has_root = false;
-
-    for loc in &locations {
-        if !loc.enabled { continue; }
-        match loc.loc_type {
-            0 => { // proxy_pass
-                out.push_str(&format!("        location {} {{\n", loc.path));
-                if loc.websocket {
-                    out.push_str("            proxy_http_version 1.1;\n");
-                    out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
-                    out.push_str("            proxy_set_header Connection \"upgrade\";\n");
-                }
-                if loc.header {
-                    out.push_str("            proxy_set_header Host $host;\n");
-                    out.push_str("            proxy_set_header X-Real-IP $remote_addr;\n");
-                    out.push_str("            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n");
-                    out.push_str("            proxy_set_header X-Forwarded-Proto $scheme;\n");
-                }
-                if loc.cros {
-                    out.push_str("            add_header Access-Control-Allow-Origin *;\n");
-                    out.push_str("            add_header Access-Control-Allow-Methods \"GET, POST, OPTIONS\";\n");
-                    out.push_str("            add_header Access-Control-Allow-Headers \"DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization\";\n");
-                }
-                if loc.upstream_type == 1 && !loc.upstream_id.is_empty() {
-                    // Manual upstream reference
-                    out.push_str(&format!("            proxy_pass http://{};\n", loc.upstream_id));
-                } else if !loc.value.is_empty() {
-                    out.push_str(&format!("            proxy_pass {};\n", loc.value));
-                } else if !loc.upstream_id.is_empty() {
-                    let upstream_name = get_upstream_name(conn, &loc.upstream_id);
-                    out.push_str(&format!("            proxy_pass http://{};\n", upstream_name));
-                }
-                // Extra params
-                append_param_json(loc, out);
-                out.push_str("        }\n\n");
-            }
-            1 => { // root
-                out.push_str(&format!("        location {} {{\n", loc.path));
-                out.push_str(&format!("            root {}/{};\n", loc.root_path, loc.root_page));
-                if !loc.value.is_empty() {
-                    out.push_str(&format!("            index {};\n", loc.value));
-                }
-                append_param_json(loc, out);
-                out.push_str("        }\n\n");
-                has_root = true;
-            }
-            2 => { // upstream (selectable)
-                out.push_str(&format!("        location {} {{\n", loc.path));
-                if loc.websocket {
-                    out.push_str("            proxy_http_version 1.1;\n");
-                    out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
-                    out.push_str("            proxy_set_header Connection \"upgrade\";\n");
-                }
-                if loc.header {
-                    out.push_str("            proxy_set_header Host $host;\n");
-                    out.push_str("            proxy_set_header X-Real-IP $remote_addr;\n");
-                    out.push_str("            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n");
-                }
-                let upstream_name = get_upstream_name(conn, &loc.upstream_id);
-                if !loc.upstream_path.is_empty() {
-                    out.push_str(&format!("            proxy_pass http://{}{};\n", upstream_name, loc.upstream_path));
-                } else {
-                    out.push_str(&format!("            proxy_pass http://{};\n", upstream_name));
-                }
-                append_param_json(loc, out);
-                out.push_str("        }\n\n");
-            }
-            3 => {} // blank — just a location placeholder
-            4 => { // return
-                let ret_url = if loc.return_path {
-                    format!("{}$request_uri", loc.return_url)
-                } else {
-                    loc.return_url.clone()
-                };
-                out.push_str(&format!("        location {} {{\n", loc.path));
-                out.push_str(&format!("            return {} {};\n", if loc.value.is_empty() { "302" } else { &loc.value }, ret_url));
-                out.push_str("        }\n\n");
-            }
-            _ => {}
-        }
-    }
-
-    // Server-level root/index fallback from paramJson
-    if !s.param_json.is_empty() {
-        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
-            for extra in &extras {
-                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                if !name.is_empty() {
-                    out.push_str(&format!("        {} {};\n", name, value));
-                }
-            }
+        // Proxy pass
+        if !s.proxy_upstream_id.is_empty() {
+            let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);
+            out.push_str(&format!("        proxy_pass {};\n", upstream_name));
         }
     }
 
@@ -264,14 +270,146 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
     Ok(())
 }
 
-fn append_param_json(loc: &NginxLocation, out: &mut String) {
+fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxServer, out: &mut String) -> Result<(), String> {
+    out.push_str(&format!("        location {} {{\n", loc.path));
+
+    // Custom params - prepend mode
+    append_location_param_json_prepend(loc, out);
+
+    match loc.loc_type {
+        0 | 2 => {
+            // proxy_pass (type 0) or upstream (type 2)
+
+            // proxy_pass directive
+            if loc.loc_type == 0 && !loc.value.is_empty() {
+                out.push_str(&format!("            proxy_pass {};\n", loc.value));
+            } else if loc.loc_type == 2 || (!loc.upstream_id.is_empty()) {
+                let upstream_type = if loc.upstream_type == 1 { "https" } else { "http" };
+                let upstream_name = get_upstream_name(conn, &loc.upstream_id);
+                let path = if loc.upstream_path.is_empty() { "" } else { &loc.upstream_path };
+                out.push_str(&format!("            proxy_pass {}://{}{};\n", upstream_type, upstream_name, path));
+            } else if loc.upstream_type == 1 && !loc.upstream_id.is_empty() {
+                // Manual upstream reference
+                out.push_str(&format!("            proxy_pass http://{};\n", loc.upstream_id));
+            }
+
+            // Websocket support
+            if loc.websocket {
+                out.push_str("            proxy_http_version 1.1;\n");
+                out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
+                out.push_str("            proxy_set_header Connection \"upgrade\";\n");
+            }
+
+            // Header settings with configurable headerHost
+            if loc.header {
+                out.push_str(&format!("            proxy_set_header Host {};\n",
+                    if loc.header_host.is_empty() { "$host" } else { &loc.header_host }));
+                out.push_str("            proxy_set_header X-Real-IP $remote_addr;\n");
+                out.push_str("            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n");
+                out.push_str("            proxy_set_header X-Forwarded-Proto $scheme;\n");
+                out.push_str("            proxy_set_header X-Forwarded-Host $http_host;\n");
+                out.push_str("            proxy_set_header X-Forwarded-Port $server_port;\n");
+            }
+
+            // CORS support
+            if loc.cros {
+                out.push_str("            add_header Access-Control-Allow-Origin *;\n");
+                out.push_str("            add_header Access-Control-Allow-Methods *;\n");
+                out.push_str("            add_header Access-Control-Allow-Headers *;\n");
+                out.push_str("            add_header Access-Control-Allow-Credentials true;\n");
+                out.push_str("            if ($request_method = 'OPTIONS') {\n");
+                out.push_str("                return 204;\n");
+                out.push_str("            }\n");
+            }
+
+            // proxy_redirect for SSL
+            if server.ssl && server.rewrite {
+                out.push_str("            proxy_redirect http:// https://;\n");
+            }
+        }
+        1 => {
+            // Root / static
+            let root_type = if loc.root_type == "alias" { "alias" } else { "root" };
+            if loc.root_path.contains('$') {
+                // Dynamic path — use as-is
+                out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
+            } else {
+                let path = loc.root_path.trim_end_matches('/');
+                out.push_str(&format!("            {} {};\n", root_type, if root_type == "alias" { format!("{}/", path) } else { path.to_string() }));
+                if !loc.root_page.is_empty() {
+                    out.push_str(&format!("            index {};\n", loc.root_page));
+                }
+            }
+        }
+        3 => {} // blank — placeholder
+        4 => {
+            // Return/redirect
+            let ret_url = if loc.return_path {
+                format!("{}$request_uri", loc.return_url)
+            } else {
+                loc.return_url.clone()
+            };
+            out.push_str(&format!("            return {} {};\n",
+                if loc.value.is_empty() { "302" } else { &loc.value },
+                ret_url
+            ));
+        }
+        _ => {}
+    }
+
+    // Custom params - append mode
+    append_location_param_json_append(loc, out);
+
+    out.push_str("        }\n\n");
+    Ok(())
+}
+
+fn append_param_json_prepend(s: &NginxServer, out: &mut String) {
+    if !s.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+            for extra in &extras {
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 1 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        out.push_str(&format!("        {} {};\n", name, value));
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn append_location_param_json_prepend(loc: &NginxLocation, out: &mut String) {
     if !loc.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&loc.param_json) {
             for extra in &extras {
-                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                if !name.is_empty() {
-                    out.push_str(&format!("            {} {};\n", name, value));
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 1 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        out.push_str(&format!("            {} {};\n", name, value));
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn append_location_param_json_append(loc: &NginxLocation, out: &mut String) {
+    if !loc.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&loc.param_json) {
+            for extra in &extras {
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                // Default position 0 = append
+                if pos == 0 || pos == 2 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        out.push_str(&format!("            {} {};\n", name, value));
+                    }
                 }
             }
         }
