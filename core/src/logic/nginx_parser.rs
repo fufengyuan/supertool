@@ -838,7 +838,7 @@ mod tests {
     #[test]
     fn test_tokenize_simple() {
         let tokens = tokenize("worker_processes auto;");
-        assert!(tokens.len() >= 3);
+        assert!(tokens.len() >= 3, "expected at least 3 tokens, got {}", tokens.len());
         assert_eq!(tokens[0], Token::Word("worker_processes".to_string()));
         assert_eq!(tokens[1], Token::Word("auto".to_string()));
         assert_eq!(tokens[2], Token::Semicolon);
@@ -854,6 +854,23 @@ mod tests {
         assert!(words.contains(&"server"));
         assert!(words.contains(&"listen"));
         assert!(words.contains(&"80"));
+    }
+
+    #[test]
+    fn test_tokenize_quoted_string() {
+        let tokens = tokenize("server_name \"example.com\";");
+        assert!(tokens.iter().any(|t| t == &Token::Word("example.com".to_string())),
+            "quoted string should produce a Word token without quotes");
+    }
+
+    #[test]
+    fn test_tokenize_comments_skipped() {
+        let tokens = tokenize("worker_processes auto; # this is a comment\npid /run/nginx.pid;");
+        let words: Vec<_> = tokens.iter().filter_map(|t| {
+            if let Token::Word(w) = t { Some(w.as_str()) } else { None }
+        }).collect();
+        assert!(words.contains(&"pid"), "pid should be present after comment");
+        assert!(!words.contains(&"this"), "comment content should be skipped");
     }
 
     #[test]
@@ -914,5 +931,624 @@ stream {
         assert_eq!(config.upstreams.len(), 1);
         assert_eq!(config.servers.len(), 1);
         assert_eq!(config.streams.len(), 1);
+    }
+
+    // ── Expanded parser tests ───────────────────────────────────────
+
+    #[test]
+    fn test_empty_config() {
+        let config = parse_nginx_config("").unwrap();
+        assert!(config.basic_settings.is_empty(), "empty config should have no basic_settings");
+        assert!(config.http_params.is_empty());
+        assert!(config.upstreams.is_empty());
+        assert!(config.servers.is_empty());
+        assert!(config.streams.is_empty());
+    }
+
+    #[test]
+    fn test_config_with_only_comments() {
+        let text = "# This is a comment\n# Another comment\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert!(config.basic_settings.is_empty());
+    }
+
+    #[test]
+    fn test_single_directive() {
+        let config = parse_nginx_config("worker_processes auto;").unwrap();
+        assert_eq!(config.basic_settings.len(), 1);
+        assert_eq!(config.basic_settings[0].name, "worker_processes");
+        assert_eq!(config.basic_settings[0].value, "auto");
+    }
+
+    #[test]
+    fn test_events_block() {
+        let config = parse_nginx_config("events { worker_connections 1024; }").unwrap();
+        assert!(!config.basic_settings.is_empty());
+        let events_setting = config.basic_settings.iter().find(|s| s.name == "events");
+        assert!(events_setting.is_some(), "events block should be stored as a basic setting");
+        if let Some(ev) = events_setting {
+            assert!(ev.value.contains("worker_connections"), "events block should contain worker_connections");
+        }
+    }
+
+    #[test]
+    fn test_http_block_with_upstreams_servers_locations() {
+        let text = r#"
+http {
+    sendfile on;
+    tcp_nopush on;
+    keepalive_timeout 65;
+
+    upstream backend {
+        ip_hash;
+        server 10.0.0.1:8080 weight=5 max_fails=3;
+        server 10.0.0.2:8080 weight=3 backup;
+    }
+
+    upstream api {
+        least_conn;
+        server 10.0.0.3:9000;
+    }
+
+    server {
+        listen 443 ssl;
+        server_name example.com;
+        ssl_certificate /etc/ssl/certs/server.crt;
+        ssl_certificate_key /etc/ssl/private/server.key;
+        ssl_protocols TLSv1.2 TLSv1.3;
+
+        location / {
+            proxy_pass http://backend;
+            proxy_set_header Host $host;
+        }
+
+        location /api {
+            proxy_pass http://api/v2/;
+        }
+
+        location /static {
+            root /var/www/static;
+        }
+
+        location /redirect {
+            return 301 https://new.example.com$request_uri;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.http_params.iter().filter(|p| p.name != "include" && p.name != "default_type").count(), 3,
+            "should have 3 http-level params (sendfile, tcp_nopush, keepalive_timeout)");
+        assert_eq!(config.upstreams.len(), 2, "should have 2 upstreams");
+        assert_eq!(config.upstreams[0].name, "backend");
+        assert_eq!(config.upstreams[0].strategy, "ip_hash");
+        assert_eq!(config.upstreams[0].servers.len(), 2);
+        assert!(config.upstreams[0].servers[1].backup, "second backend server should be backup");
+        assert_eq!(config.upstreams[1].name, "api");
+        assert_eq!(config.upstreams[1].strategy, "least_conn");
+        assert_eq!(config.upstreams[1].servers.len(), 1);
+
+        assert_eq!(config.servers.len(), 1, "should have 1 server");
+        let srv = &config.servers[0];
+        assert_eq!(srv.listen, "443");
+        assert_eq!(srv.server_name, "example.com");
+        assert_eq!(srv.ssl, 1);
+        assert!(srv.pem.contains("server.crt"));
+        assert!(srv.key.contains("server.key"));
+        assert!(srv.protocols.contains("TLSv1.2"));
+        assert_eq!(srv.locations.len(), 4);
+
+        // Check locations
+        let root_loc = srv.locations.iter().find(|l| l.path == "/").unwrap();
+        assert_eq!(root_loc.loc_type, "proxy_pass");
+        assert_eq!(root_loc.upstream_id, "backend");
+        assert_eq!(root_loc.upstream_path, "/");
+
+        let api_loc = srv.locations.iter().find(|l| l.path == "/api").unwrap();
+        assert_eq!(api_loc.upstream_id, "api");
+        assert_eq!(api_loc.upstream_path, "/v2/");
+
+        let static_loc = srv.locations.iter().find(|l| l.path == "/static").unwrap();
+        assert_eq!(static_loc.loc_type, "root");
+        assert_eq!(static_loc.root_path, "/var/www/static");
+
+        let redirect_loc = srv.locations.iter().find(|l| l.path == "/redirect").unwrap();
+        assert_eq!(redirect_loc.loc_type, "return");
+        assert!(redirect_loc.return_url.contains("301"));
+    }
+
+    #[test]
+    fn test_stream_block() {
+        let text = r#"
+stream {
+    server {
+        listen 1234;
+        proxy_pass 10.0.0.1:5678;
+    }
+    server {
+        listen 1235;
+        proxy_pass backend_stream;
+        ssl on;
+        ssl_certificate /etc/ssl/certs/stream.crt;
+        protocol TCP;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.streams.len(), 2);
+        assert_eq!(config.streams[0].listen, "1234");
+        assert_eq!(config.streams[0].proxy_pass, "10.0.0.1:5678");
+        assert!(config.streams[0].proxy_upstream_id.is_empty());
+        assert_eq!(config.streams[1].listen, "1235");
+        assert_eq!(config.streams[1].proxy_pass, "backend_stream");
+        assert_eq!(config.streams[1].proxy_upstream_id, "backend_stream");
+        assert_eq!(config.streams[1].ssl, 1);
+        assert_eq!(config.streams[1].cert_id, "imported");
+        assert_eq!(config.streams[1].protocol, "TCP");
+    }
+
+    #[test]
+    fn test_multiple_servers_different_ports() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        server_name example.com;
+    }
+    server {
+        listen 8080;
+        server_name admin.example.com;
+    }
+    server {
+        listen 443 ssl;
+        server_name secure.example.com;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 3);
+        assert_eq!(config.servers[0].server_name, "example.com");
+        assert_eq!(config.servers[1].listen, "8080");
+        assert_eq!(config.servers[2].listen, "443");
+        assert_eq!(config.servers[2].ssl, 1);
+    }
+
+    #[test]
+    fn test_server_with_ssl() {
+        let text = r#"
+http {
+    server {
+        listen 443 ssl;
+        server_name secure.example.com;
+        ssl_certificate /etc/nginx/certs/fullchain.pem;
+        ssl_certificate_key /etc/nginx/certs/privkey.pem;
+        ssl_protocols TLSv1.2 TLSv1.3;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 1);
+        let srv = &config.servers[0];
+        assert_eq!(srv.ssl, 1);
+        assert!(srv.pem.contains("fullchain.pem"));
+        assert!(srv.key.contains("privkey.pem"));
+        assert_eq!(srv.protocols, "TLSv1.2 TLSv1.3");
+        assert_eq!(srv.cert_id, "imported");
+    }
+
+    #[test]
+    fn test_server_with_http2_old_style() {
+        let text = r#"
+http {
+    server {
+        listen 443 ssl http2;
+        server_name example.com;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers[0].http2, 1, "old-style http2 on ssl listen should set http2=1");
+        assert_eq!(config.servers[0].ssl, 1);
+    }
+
+    #[test]
+    fn test_server_with_http2_new_style() {
+        let text = r#"
+http {
+    server {
+        listen 443 ssl;
+        http2 on;
+        server_name example.com;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers[0].http2, 2, "new-style 'http2 on;' should set http2=2");
+    }
+
+    #[test]
+    fn test_server_with_auth_basic() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        server_name protected.example.com;
+        auth_basic "Restricted Area";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 1);
+        // auth_basic doesn't set a specific field but should parse without error
+    }
+
+    #[test]
+    fn test_server_with_deny_allow() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        server_name restricted.example.com;
+        deny 10.0.0.1;
+        allow 192.168.1.0/24;
+        deny all;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 1);
+        // deny all; sets deny_allow to 1 (blacklist mode)
+        assert_eq!(config.servers[0].deny_allow, 1, "deny all should set deny_allow to 1");
+    }
+
+    #[test]
+    fn test_location_proxy_pass() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location / {
+            proxy_pass http://backend;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert_eq!(loc.loc_type, "proxy_pass");
+        assert_eq!(loc.upstream_id, "backend");
+        assert_eq!(loc.upstream_path, "/");
+    }
+
+    #[test]
+    fn test_location_proxy_pass_with_path() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location /api {
+            proxy_pass http://backend/api/v1/;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert_eq!(loc.loc_type, "proxy_pass");
+        assert_eq!(loc.upstream_id, "backend");
+        assert_eq!(loc.upstream_path, "/api/v1/");
+    }
+
+    #[test]
+    fn test_location_root() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location / {
+            root /var/www/html;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert_eq!(loc.loc_type, "root");
+        assert_eq!(loc.root_path, "/var/www/html");
+    }
+
+    #[test]
+    fn test_location_return() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location /old {
+            return 301 https://new.example.com$request_uri;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert_eq!(loc.loc_type, "return");
+        assert!(loc.return_url.contains("301"));
+        assert!(loc.return_url.contains("new.example.com"));
+    }
+
+    #[test]
+    fn test_location_websocket_headers() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location /ws {
+            proxy_pass http://backend;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert!(loc.websocket, "WebSocket headers should be detected");
+    }
+
+    #[test]
+    fn test_location_cors_headers() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location /api {
+            proxy_pass http://backend;
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods *;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert!(loc.cros, "CORS headers should be detected");
+    }
+
+    #[test]
+    fn test_upstream_ip_hash_strategy() {
+        let config = parse_nginx_config("upstream backend { ip_hash; server 127.0.0.1:8080; }").unwrap();
+        assert_eq!(config.upstreams[0].strategy, "ip_hash");
+    }
+
+    #[test]
+    fn test_upstream_least_conn_strategy() {
+        let config = parse_nginx_config("upstream backend { least_conn; server 127.0.0.1:8080; }").unwrap();
+        assert_eq!(config.upstreams[0].strategy, "least_conn");
+    }
+
+    #[test]
+    fn test_upstream_random_strategy() {
+        let config = parse_nginx_config("upstream backend { random; server 127.0.0.1:8080; }").unwrap();
+        assert_eq!(config.upstreams[0].strategy, "random");
+    }
+
+    #[test]
+    fn test_upstream_server_with_all_params() {
+        let text = "upstream backend {\n    server 10.0.0.1:8080 weight=10 max_fails=5 fail_timeout=30s max_conns=100 backup down;\n}";
+        let config = parse_nginx_config(text).unwrap();
+        let srv = &config.upstreams[0].servers[0];
+        assert_eq!(srv.address, "10.0.0.1");
+        assert_eq!(srv.port, 8080);
+        assert_eq!(srv.weight, 10);
+        assert_eq!(srv.max_fails, 5);
+        assert_eq!(srv.fail_timeout, "30s");
+        assert_eq!(srv.max_conns, 100);
+        assert!(srv.backup, "backup should be true");
+        assert!(srv.down, "down should be true");
+    }
+
+    #[test]
+    fn test_upstream_server_separate_key_value_params() {
+        let text = "upstream backend {\n    server 127.0.0.1:8080 weight 5 max_fails 3 fail_timeout 20s;\n}";
+        let config = parse_nginx_config(text).unwrap();
+        let srv = &config.upstreams[0].servers[0];
+        assert_eq!(srv.weight, 5);
+        assert_eq!(srv.max_fails, 3);
+        assert_eq!(srv.fail_timeout, "20s");
+    }
+
+    #[test]
+    fn test_ipv6_listen() {
+        let text = r#"
+http {
+    server {
+        listen [::]:80;
+        server_name ipv6.example.com;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let srv = &config.servers[0];
+        assert!(srv.ipv6, "IPv6 listen should be detected");
+        assert_eq!(srv.listen, "80");
+    }
+
+    #[test]
+    fn test_listen_with_all_flags() {
+        let text = r#"
+http {
+    server {
+        listen 443 ssl http2 default_server proxy_protocol;
+        server_name example.com;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let srv = &config.servers[0];
+        assert_eq!(srv.listen, "443");
+        assert!(srv.def, "default_server should be detected");
+        assert!(srv.proxy_protocol, "proxy_protocol should be detected");
+        assert_eq!(srv.ssl, 1);
+        assert_eq!(srv.http2, 1);
+    }
+
+    #[test]
+    fn test_quoted_string_values() {
+        let text = r#"server_name "example.com";"#;
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.basic_settings[0].value, "example.com");
+    }
+
+    #[test]
+    fn test_variables_in_config() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location / {
+            proxy_pass http://backend;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert!(loc.header, "proxy_set_header Host should set header=true");
+    }
+
+    #[test]
+    fn test_include_directive() {
+        let text = "include /etc/nginx/conf.d/*.conf;\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert!(config.basic_settings.iter().any(|s| s.name == "include"),
+            "include directive should be stored as a basic setting");
+    }
+
+    #[test]
+    fn test_load_module_directive() {
+        let text = "load_module modules/ngx_http_geoip_module.so;\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert!(config.basic_settings.iter().any(|s| s.name == "load_module"),
+            "load_module directive should be stored as a basic setting");
+    }
+
+    #[test]
+    fn test_map_block_skipped_gracefully() {
+        let text = r#"
+http {
+    map $http_host $backend {
+        hostnames;
+        default backend_default;
+        example.com backend_example;
+        *.example.org backend_wildcard;
+    }
+    server {
+        listen 80;
+    }
+}
+"#;
+        // map is a block directive that is not upstream/server, should be skipped gracefully
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 1, "server should still be parsed despite map block");
+    }
+
+    #[test]
+    fn test_listen_with_ip() {
+        let text = r#"
+http {
+    server {
+        listen 127.0.0.1:8080;
+        server_name localhost;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let srv = &config.servers[0];
+        assert_eq!(srv.listen, "8080");
+        assert_eq!(srv.ip, "127.0.0.1");
+    }
+
+    #[test]
+    fn test_top_level_upstream_outside_http() {
+        let text = "upstream backend { server 10.0.0.1:8080; }\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.upstreams.len(), 1);
+        assert_eq!(config.upstreams[0].name, "backend");
+    }
+
+    #[test]
+    fn test_top_level_server_outside_http() {
+        let text = "server { listen 80; server_name standalone; }\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers.len(), 1);
+        assert_eq!(config.servers[0].server_name, "standalone");
+    }
+
+    #[test]
+    fn test_parse_returns_error_on_bad_input() {
+        let result = parse_nginx_config("server { listen 80; "); // missing closing brace
+        assert!(result.is_err(), "unclosed block should return an error");
+    }
+
+    #[test]
+    fn test_http2_without_ssl_old_style() {
+        // http2 flag on listen line without ssl should set http2=2 (new-style)
+        let text = "server { listen 80 http2; server_name test.com; }\n";
+        let config = parse_nginx_config(text).unwrap();
+        assert_eq!(config.servers[0].http2, 2, "http2 without ssl should set http2=2");
+    }
+
+    #[test]
+    fn test_deny_allow_whitelist_mode() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        allow 192.168.1.0/24;
+        allow 10.0.0.0/8;
+        deny all;
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        // First deny all encountered sets deny_allow=1, but allow all comes after in logic...
+        // Actually the parser checks: if arg == "all" and the child name is "deny" then deny_allow = 1
+        // If child name is "allow" and arg == "all" and deny_allow == 0 then deny_allow = 2
+        // In this case: deny all is the last line, so deny_allow becomes 1
+        assert_eq!(config.servers[0].deny_allow, 1, "deny all sets deny_allow=1 (blacklist)");
+    }
+
+    #[test]
+    fn test_parse_https_proxy_pass() {
+        let text = r#"
+http {
+    server {
+        listen 80;
+        location / {
+            proxy_pass https://backend-secure:443/;
+        }
+    }
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        let loc = &config.servers[0].locations[0];
+        assert_eq!(loc.loc_type, "proxy_pass");
+        assert!(loc.value.contains("https://"));
+    }
+
+    #[test]
+    fn test_split_addr_port_ipv6() {
+        let (addr, port) = split_addr_port("[::1]:8080");
+        assert_eq!(addr, "::1");
+        assert_eq!(port, 8080);
+
+        let (addr2, port2) = split_addr_port("[2001:db8::1]:443");
+        assert_eq!(addr2, "2001:db8::1");
+        assert_eq!(port2, 443);
     }
 }
