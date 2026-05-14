@@ -1153,6 +1153,9 @@ export function useNginxAPI() {
     saveNginxConfigVersion: async (version: any): Promise<any> => tauriCall('save_nginx_config_version', { version }),
     setActiveNginxVersion: async (presetId: string, versionId: string): Promise<any> => tauriCall('set_active_nginx_version', { presetId, versionId }),
     generateNginxConfig: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config', { presetId }),
+    generateNginxConfigDecomposed: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config_decomposed', { presetId }),
+    deployNginxConfigDecomposed: async (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string): Promise<any> =>
+      tauriCall('deploy_nginx_config_decomposed', { serverId, configPath, mainContent, subFiles, comment }),
     // Servers
     getServersByPreset: async (presetId: string): Promise<any> => tauriCall('get_servers_by_preset', { presetId }),
     addNginxServer: async (server: any): Promise<any> => tauriCall('add_nginx_server', { server }),
@@ -1777,6 +1780,8 @@ export interface TauriAPI {
   saveNginxConfigVersion: (version: any) => Promise<any>
   setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
   generateNginxConfig: (presetId: string) => Promise<any>
+  generateNginxConfigDecomposed: (presetId: string) => Promise<any>
+  deployNginxConfigDecomposed: (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string) => Promise<any>
   getServersByPreset: (presetId: string) => Promise<any>
   addNginxServer: (server: any) => Promise<any>
   updateNginxServer: (server: any) => Promise<any>
@@ -2136,6 +2141,8 @@ export function getTauriAPI(): TauriAPI {
     saveNginxConfigVersion: nginx.saveNginxConfigVersion,
     setActiveNginxVersion: nginx.setActiveNginxVersion,
     generateNginxConfig: nginx.generateNginxConfig,
+    generateNginxConfigDecomposed: nginx.generateNginxConfigDecomposed,
+    deployNginxConfigDecomposed: nginx.deployNginxConfigDecomposed,
     getServersByPreset: nginx.getServersByPreset,
     addNginxServer: nginx.addNginxServer,
     updateNginxServer: nginx.updateNginxServer,

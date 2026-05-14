@@ -58,6 +58,39 @@ pub fn generate_nginx_config(conn: &Connection, preset_id: &str) -> Result<Strin
     Ok(output)
 }
 
+/// Result of a decomposed config generation (multi-file)
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NginxConfigResult {
+    pub main_config: String,
+    pub sub_files: Vec<NginxSubFile>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct NginxSubFile {
+    pub filename: String,
+    pub content: String,
+}
+
+/// Generate nginx config in decomposed mode (separate files for upstreams and server blocks)
+pub fn generate_nginx_config_decomposed(conn: &Connection, preset_id: &str) -> Result<NginxConfigResult, String> {
+    let mut sub_files: Vec<NginxSubFile> = Vec::new();
+    let mut main = String::new();
+
+    // 1. Basic settings (always in main)
+    append_basic_settings(conn, preset_id, &mut main)?;
+
+    // 2. HTTP block — decomposed
+    append_http_block_decomposed(conn, preset_id, &mut main, &mut sub_files)?;
+
+    // 3. Stream block — decomposed
+    append_stream_block_decomposed(conn, preset_id, &mut main, &mut sub_files)?;
+
+    Ok(NginxConfigResult {
+        main_config: main,
+        sub_files,
+    })
+}
+
 fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
     let settings = get_basic_settings_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for s in &settings {
@@ -102,6 +135,89 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
 
     out.push_str("}\n\n");
     Ok(())
+}
+
+/// Decomposed version: extract upstreams and server blocks into separate sub-files
+fn append_http_block_decomposed(
+    conn: &Connection,
+    preset_id: &str,
+    out: &mut String,
+    sub_files: &mut Vec<NginxSubFile>,
+) -> Result<(), String> {
+    out.push_str("http {\n");
+    out.push_str("    include       /etc/nginx/mime.types;\n");
+    out.push_str("    default_type  application/octet-stream;\n\n");
+
+    // HTTP-level params
+    let params = get_http_params_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for p in &params {
+        if p.enabled {
+            out.push_str(&format!("    {} {};\n", p.name, p.value));
+        }
+    }
+    if !params.is_empty() {
+        out.push_str("\n");
+    }
+
+    // Upstreams (decomposed into separate files)
+    let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for u in &upstreams {
+        if u.proxy_type != 0 { continue; }
+        let mut sub = String::new();
+        append_upstream(conn, u, &mut sub)?;
+        let filename = sanitize_filename(&format!("http-upstream-{}.conf", u.name));
+        add_sub_file(sub_files, &filename, &sub);
+        out.push_str(&format!("    include conf.d/{};\n", filename));
+    }
+
+    // Servers (decomposed into separate files)
+    let servers = get_servers_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for s in &servers {
+        if !s.enabled { continue; }
+        if s.proxy_type != 0 { continue; }
+        let mut sub = String::new();
+        append_server_block(conn, s, &mut sub)?;
+        let name = if !s.server_name.is_empty() {
+            s.server_name.clone()
+        } else {
+            format!("http-{}", s.listen)
+        };
+        let filename = sanitize_filename(&format!("{}.conf", name));
+        add_sub_file(sub_files, &filename, &sub);
+        out.push_str(&format!("    include conf.d/{};\n", filename));
+    }
+
+    out.push_str("}\n\n");
+    Ok(())
+}
+
+/// Helper: add or merge sub-file entry
+fn add_sub_file(sub_files: &mut Vec<NginxSubFile>, filename: &str, content: &str) {
+    for sf in sub_files.iter_mut() {
+        if sf.filename == filename {
+            sf.content.push_str("\n");
+            sf.content.push_str(content);
+            return;
+        }
+    }
+    sub_files.push(NginxSubFile {
+        filename: filename.to_string(),
+        content: content.to_string(),
+    });
+}
+
+/// Sanitize a string for use as a filename: replace invalid chars with _
+fn sanitize_filename(name: &str) -> String {
+    name.replace(' ', "_")
+        .replace('/', "_")
+        .replace('\\', "_")
+        .replace(':', "_")
+        .replace('*', "_")
+        .replace('?', "_")
+        .replace('"', "_")
+        .replace('<', "_")
+        .replace('>', "_")
+        .replace('|', "_")
 }
 
 fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Result<(), String> {
@@ -546,6 +662,65 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
             out.push_str(&format!("        proxy_pass {};\n", s.proxy_pass));
         }
         out.push_str("    }\n\n");
+    }
+    out.push_str("}\n\n");
+    Ok(())
+}
+
+/// Decomposed version: extract stream upstreams and servers into sub-files
+fn append_stream_block_decomposed(
+    conn: &Connection,
+    preset_id: &str,
+    out: &mut String,
+    sub_files: &mut Vec<NginxSubFile>,
+) -> Result<(), String> {
+    let streams = crate::db::nginx::get_streams_by_preset(conn, preset_id)
+        .map_err(|e| e.to_string())?;
+    if streams.is_empty() { return Ok(()); }
+
+    // Decompose stream upstreams into sub-files
+    let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for u in &upstreams {
+        if u.proxy_type != 1 { continue; }
+        let mut sub = String::new();
+        append_upstream(conn, u, &mut sub)?;
+        let filename = sanitize_filename(&format!("stream-upstream-{}.conf", u.name));
+        add_sub_file(sub_files, &filename, &sub);
+        out.push_str(&format!("    include conf.d/{};\n", filename));
+    }
+
+    out.push_str("stream {\n");
+    for s in &streams {
+        if !s.enabled { continue; }
+
+        // Generate stream server block into sub-file
+        let mut sub = String::new();
+        sub.push_str(&format!("    server {{\n"));
+        sub.push_str(&format!("        listen {};\n", s.listen));
+        if s.ssl {
+            if !s.cert_id.is_empty() {
+                let (pem, key) = get_cert_path(conn, &s.cert_id);
+                if !pem.is_empty() {
+                    sub.push_str(&format!("        ssl_certificate {};\n", pem));
+                }
+                if !key.is_empty() {
+                    sub.push_str(&format!("        ssl_certificate_key {};\n", key));
+                }
+            }
+            sub.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
+        }
+        if !s.proxy_upstream_id.is_empty() {
+            let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);
+            sub.push_str(&format!("        proxy_pass {};\n", upstream_name));
+        } else if !s.proxy_pass.is_empty() {
+            sub.push_str(&format!("        proxy_pass {};\n", s.proxy_pass));
+        }
+        sub.push_str("    }\n\n");
+
+        let name = format!("stream-{}", s.listen);
+        let filename = sanitize_filename(&format!("{}.conf", name));
+        add_sub_file(sub_files, &filename, &sub);
+        out.push_str(&format!("    include conf.d/{};\n", filename));
     }
     out.push_str("}\n\n");
     Ok(())

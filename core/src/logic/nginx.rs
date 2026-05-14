@@ -5,6 +5,7 @@ use crate::db::nginx::{
     NginxHttpParam, NginxStream, NginxCert, NginxTemplate, NginxBasicSetting,
     NginxParam, NginxDenyAllow, NginxPassword,
 };
+use crate::logic::nginx_generator::{NginxConfigResult, NginxSubFile};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct NginxTestResult {
@@ -184,6 +185,121 @@ impl CoreService {
             backup_path,
             message: format!(
                 "配置已部署。重载: {}",
+                reload_result.output.trim()
+            ),
+        }))
+    }
+
+    pub async fn deploy_nginx_config_decomposed(
+        &self,
+        server_id: &str,
+        config_path: &str,
+        main_content: &str,
+        sub_files: Vec<NginxSubFile>,
+    ) -> Result<ApiResponse<NginxDeployResult>, String> {
+        self.ensure_ssh_connected(server_id).await?;
+
+        let sid = server_id.to_string();
+        let safe_path = shell_escape_path(config_path);
+        let ts = chrono::Utc::now().format("%Y%m%d%H%M%S%3f").to_string();
+        let backup_path = format!("{}.bak.{}", config_path, ts);
+        let safe_backup = shell_escape_path(&backup_path);
+        let conf_d_dir = {
+            let idx = config_path.rfind('/').unwrap_or(0);
+            if idx > 0 { format!("{}/conf.d", &config_path[..idx]) }
+            else { "/etc/nginx/conf.d".to_string() }
+        };
+        let safe_conf_d = shell_escape_path(&conf_d_dir);
+
+        // 1. Backup current config
+        let sid1 = sid.clone();
+        let sp1 = safe_path.clone();
+        let sb1 = safe_backup.clone();
+        let backup_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid1, &format!("cp '{}' '{}' 2>&1", sp1, sb1))
+            })
+            .await?;
+        if !backup_result.success {
+            return Ok(ApiResponse::err(format!("备份失败: {}", backup_result.output.trim())));
+        }
+
+        // 2. Write main config via base64
+        let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, main_content);
+        let sid2 = sid.clone();
+        let sp2 = safe_path.clone();
+        let write_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid2, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, sp2))
+            })
+            .await?;
+        if !write_result.success {
+            return Ok(ApiResponse::err(format!("写入主配置失败: {}", write_result.output.trim())));
+        }
+
+        // 3. Create conf.d/ directory and write sub-files
+        let sid3 = sid.clone();
+        let sc3 = safe_conf_d.clone();
+        let mkdir_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid3, &format!("mkdir -p '{}' 2>&1", sc3))
+            })
+            .await?;
+        if !mkdir_result.success {
+            return Ok(ApiResponse::err(format!("创建 conf.d 目录失败: {}", mkdir_result.output.trim())));
+        }
+
+        for sub in &sub_files {
+            let sid_sub = sid.clone();
+            let sc_d = safe_conf_d.clone();
+            let encoded_sub = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &sub.content);
+            let safe_sub_path = shell_escape_path(&format!("{}/{}", conf_d_dir, sub.filename));
+            let write_sub = self
+                .run_ssh_with_retry(server_id, move |ssh| {
+                    ssh.exec_command(&sid_sub, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded_sub, safe_sub_path))
+                })
+                .await?;
+            if !write_sub.success {
+                return Ok(ApiResponse::err(format!("写入子文件 {} 失败: {}", sub.filename, write_sub.output.trim())));
+            }
+        }
+
+        // 4. Test with nginx -t
+        let sid4 = sid.clone();
+        let sp4 = safe_path.clone();
+        let test_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid4, &format!("nginx -t -c '{}' 2>&1", sp4))
+            })
+            .await?;
+        if !test_result.output.contains("syntax is ok") && !test_result.output.contains("test is successful") {
+            // Rollback
+            let sid5 = sid.clone();
+            let sb5 = safe_backup.clone();
+            let sp5 = safe_path.clone();
+            let _ = self.run_ssh_blocking(move |ssh| {
+                ssh.exec_command(&sid5, &format!("cp '{}' '{}' 2>&1", sb5, sp5))
+            }).await;
+            return Ok(ApiResponse::err(format!(
+                "nginx -t 检测失败: {}. 已回滚.",
+                test_result.output.trim()
+            )));
+        }
+
+        // 5. Reload nginx
+        let sid6 = sid.clone();
+        let reload_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid6, "systemctl reload nginx 2>&1 || nginx -s reload 2>&1")
+            })
+            .await?;
+
+        Ok(ApiResponse::ok(NginxDeployResult {
+            success: true,
+            backup_path,
+            message: format!(
+                "配置已部署 ({}个子文件)。重载: {}",
+                sub_files.len(),
                 reload_result.output.trim()
             ),
         }))
@@ -834,6 +950,17 @@ impl CoreService {
         let pid = preset_id.to_string();
         let result = self.db_read(move |conn| {
             crate::logic::nginx_generator::generate_nginx_config(conn, &pid)
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn generate_nginx_config_decomposed(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<NginxConfigResult>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| {
+            crate::logic::nginx_generator::generate_nginx_config_decomposed(conn, &pid)
         })??;
         Ok(ApiResponse::ok(result))
     }
