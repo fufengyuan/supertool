@@ -411,43 +411,76 @@ export function useCicdConfig() {
     initExpandedGroups();
   }
 
-  async function createNewConfig() {
+  function createNewConfig() {
+    // 立即显示新建配置界面（不阻塞）
     isNewConfig.value = true; selectedConfigId.value = ''; config.value = defaultConfig();
     modules.value = []; selectedServerId.value = ''; testResult.value = null;
     deployServers.value = [makeDefaultServer()]; activeServerIdx.value = 0;
     config.value.localPath = ''; availableBranches.value = [];
     scannedModules.value = []; showModuleTree.value = false; expandedTreeNodes.value = [];
 
-    // Ensure defaultPaths are populated (auto-detect if not yet)
-    const dp = defaultPaths.value;
-    if (!dp.mavenHome && !dp.npmHome && !dp.nodeHome) {
-      try {
-        const paths = await getTauriAPI().detectToolPaths() as typeof dp;
-        if (paths) Object.assign(dp, paths);
-      } catch {}
+    // 异步检测工具路径和SDK版本（不阻塞界面显示）
+    runToolDetection();
+  }
+
+  // 工具检测：只在用户点击新建配置时才执行，异步填充
+  async function runToolDetection() {
+    // 并行执行所有检测
+    const [toolsResult, pathsResult, sdkResult] = await Promise.all([
+      getTauriAPI().detectBuildTools?.().catch(() => null),
+      getTauriAPI().detectToolPaths?.().catch(() => null),
+      getTauriAPI().detectSdkVersions?.().catch(() => null),
+    ]);
+
+    // 填充检测结果
+    if (toolsResult && typeof toolsResult === 'object') {
+      detectedTools.value = toolsResult as Record<string, { available: boolean; version?: string }>;
+      // 自动选择构建工具
+      if (!config.value.buildTool) {
+        if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
+        else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
+        else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
+      }
     }
 
-    // Fill all paths from detection
-    config.value.mavenHome = dp.mavenHome || '';
-    config.value.javaHome = dp.javaHome || '';
-    config.value.npmHome = dp.npmHome || '';
-    config.value.pnpmHome = dp.pnpmHome || '';
-    config.value.yarnHome = dp.yarnHome || '';
-    config.value.nodeHome = dp.nodeHome || '';
-
-    if (detectedTools.value.maven?.available) { config.value.buildTool = 'maven'; config.value.deployPath = '~/apphome'; }
-    else if (detectedTools.value.npm?.available) { config.value.buildTool = 'npm'; config.value.deployPath = '/home/nginxWebUI/ui'; }
-    else if (detectedTools.value.pnpm?.available) { config.value.buildTool = 'pnpm'; config.value.deployPath = '/home/nginxWebUI/ui'; }
-    else if (detectedTools.value.yarn?.available) { config.value.buildTool = 'yarn'; config.value.deployPath = '/home/nginxWebUI/ui'; }
-    const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
-    if (currentJava && !config.value.javaHome) { config.value.javaHome = currentJava.path; selectedJavaVersion.value = currentJava.path; }
-    const currentNode = sdkVersions.value.nvm?.node?.find?.((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
-    if (currentNode && !config.value.nodeHome) { config.value.nodeHome = currentNode.path; selectedNodeVersion.value = currentNode.path; }
-    if (currentNode) {
-      if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
-      if (!config.value.pnpmHome && currentNode.pnpm) config.value.pnpmHome = currentNode.pnpm;
-      if (!config.value.yarnHome && currentNode.yarn) config.value.yarnHome = currentNode.yarn;
+    if (pathsResult && typeof pathsResult === 'object') {
+      defaultPaths.value = pathsResult as typeof defaultPaths.value;
+      // 填充默认路径
+      config.value.mavenHome = defaultPaths.value.mavenHome || '';
+      config.value.javaHome = defaultPaths.value.javaHome || '';
+      config.value.npmHome = defaultPaths.value.npmHome || '';
+      config.value.pnpmHome = defaultPaths.value.pnpmHome || '';
+      config.value.yarnHome = defaultPaths.value.yarnHome || '';
+      config.value.nodeHome = defaultPaths.value.nodeHome || '';
     }
+
+    if (sdkResult && typeof sdkResult === 'object') {
+      sdkVersions.value = {
+        sdkman: { java: [], maven: [], gradle: [] },
+        nvm: { node: [] },
+        ...sdkResult,
+        sdkman: { java: [], maven: [], gradle: [], ...((sdkResult as any)?.sdkman || {}) },
+        nvm: { node: [], ...((sdkResult as any)?.nvm || {}) },
+      };
+      // 选择当前 SDK 版本
+      const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { isCurrent?: boolean }) => v.isCurrent);
+      if (currentJava && !config.value.javaHome) {
+        config.value.javaHome = currentJava.path;
+        selectedJavaVersion.value = currentJava.path;
+      }
+      const currentNode = sdkVersions.value.nvm?.node?.find?.((v: { isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
+      if (currentNode && !config.value.nodeHome) {
+        config.value.nodeHome = currentNode.path;
+        selectedNodeVersion.value = currentNode.path;
+        if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
+        if (!config.value.pnpmHome && currentNode.pnpm) config.value.pnpmHome = currentNode.pnpm;
+        if (!config.value.yarnHome && currentNode.yarn) config.value.yarnHome = currentNode.yarn;
+      }
+    }
+
+    // 设置默认部署路径
+    if (config.value.buildTool === 'maven') config.value.deployPath = '~/apphome';
+    else if (['npm', 'pnpm', 'yarn'].includes(config.value.buildTool)) config.value.deployPath = '/home/nginxWebUI/ui';
   }
 
   function selectConfig(id: string) { isNewConfig.value = false; selectedConfigId.value = id; loadConfig(id); }
@@ -848,12 +881,12 @@ export function useCicdConfig() {
   let _cleanupDataChanged: (() => void) | undefined;
 
   // ─── Init ───
-  // 移除阻塞式 loading，页面立即渲染
+  // 页面立即渲染，不做任何阻塞式加载
   const pageLoading = ref(false);
-  const dataLoading = ref(true); // 仅用于显示骨架屏/空状态
+  const dataLoading = ref(false); // 配置列表已通过共享数据加载
 
   onMounted(async () => {
-    // 第一步：立即加载共享数据（不阻塞页面框架渲染）
+    // 第一步：加载核心数据（配置列表、服务器、仓库等）- 这是轻量级DB查询，很快
     shared.load().then(() => {
       // CICD 独有分组数据
       getTauriAPI().getCicdGroups?.().then(groupsResult => {
@@ -861,42 +894,17 @@ export function useCicdConfig() {
         initExpandedGroups();
       }).catch(() => {});
       
-      dataLoading.value = false;
-      
-      // 第二步：延迟加载第一个配置详情（不阻塞首次渲染）
+      // 如果有配置，自动选中第一个
       if (configs.value.length > 0) {
         selectedConfigId.value = configs.value[0].id;
         isNewConfig.value = false;
-        loadConfig(configs.value[0].id).catch(() => {});
+        // 延迟加载配置详情，不阻塞列表渲染
+        setTimeout(() => loadConfig(configs.value[0].id).catch(() => {}), 100);
       }
-    }).catch(err => {
-      handleError(err, { context: '加载CI/CD配置' });
-      dataLoading.value = false;
-    });
+    }).catch(err => handleError(err, { context: '加载CI/CD配置' }));
 
-    // 后台异步检测工具路径与 SDK 版本（不阻塞页面渲染）
-    getTauriAPI().detectBuildTools?.().then(tools => {
-      detectedTools.value = (tools as Record<string, { available: boolean; version?: string }>) || {};
-      if (!config.value.buildTool) {
-        if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
-        else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
-        else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
-      }
-    }).catch(() => {});
-    getTauriAPI().detectToolPaths?.().then(toolPaths => {
-      if (toolPaths && typeof toolPaths === 'object') defaultPaths.value = toolPaths as { mavenHome: string; javaHome: string; nodeHome: string; npmHome: string; pnpmHome: string; yarnHome: string };
-    }).catch(() => {});
-    getTauriAPI().detectSdkVersions?.().then(sdkVers => {
-      if (sdkVers && typeof sdkVers === 'object') {
-        sdkVersions.value = {
-          sdkman: { java: [], maven: [], gradle: [] },
-          nvm: { node: [] },
-          ...sdkVers,
-          sdkman: { java: [], maven: [], gradle: [], ...((sdkVers as any)?.sdkman || {}) },
-          nvm: { node: [], ...((sdkVers as any)?.nvm || {}) },
-        };
-      }
-    }).catch(() => {});
+    // ⚠️ 关键优化：完全不调用 detect_build_tools/detect_tool_paths/detect_sdk_versions
+    // 这些检测会阻塞 IPC 通道（运行7个shell命令），只在用户点击新建配置时才触发
   });
 
   onBeforeUnmount(() => { _cleanupDataChanged?.(); });
