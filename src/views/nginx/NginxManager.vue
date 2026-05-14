@@ -257,6 +257,13 @@
       <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
 
+        <!-- 分解模式开关 -->
+        <div class="mt-4 flex items-center gap-3">
+          <label class="text-sm font-medium cursor-pointer" for="decompose-switch">分解模式（conf.d/）</label>
+          <input id="decompose-switch" type="checkbox" v-model="decomposeMode" class="toggle toggle-sm toggle-primary" @change="onDecomposeChange" />
+          <span class="text-xs text-base-content/50">将 Server / Upstream 拆分为独立子文件，通过 include 引入</span>
+        </div>
+
         <!-- 配置差异 -->
         <div class="mt-4">
           <label class="text-sm font-medium mb-1 block">配置差异对比</label>
@@ -276,6 +283,23 @@
             <!-- 差异内容 -->
             <pre v-else-if="diffContent" class="text-xs leading-relaxed overflow-auto max-h-80 m-0 p-3 bg-base-200/50 font-mono whitespace-pre-wrap">{{ diffContent }}</pre>
             <div v-else class="flex items-center justify-center h-12 text-sm text-base-content/50">点击"预览"生成配置后再发布可查看差异</div>
+          </div>
+        </div>
+
+        <!-- 分解后的子文件列表 -->
+        <div v-if="decomposeMode && decomposedSubFiles.length > 0" class="mt-4">
+          <label class="text-sm font-medium mb-1 block">分解子文件（{{ decomposedSubFiles.length }} 个）</label>
+          <div class="border border-base-content/10 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+            <div
+              v-for="(sf, idx) in decomposedSubFiles"
+              :key="idx"
+              class="px-3 py-2 border-b border-base-content/5 last:border-b-0 text-xs font-mono text-base-content/70 hover:bg-base-200/50 flex items-center gap-2"
+            >
+              <SvgIcon name="file" size="12" />
+              <span class="font-semibold text-base-content">{{ sf.filename }}</span>
+              <span class="text-base-content/40">—</span>
+              <span class="truncate">{{ sf.content.split('\n')[0].substring(0, 60) }}{{ sf.content.includes('\n') ? '…' : '' }}</span>
+            </div>
           </div>
         </div>
 
@@ -362,6 +386,8 @@ const diffContent = ref('')
 const diffSame = ref(false)
 const diffError = ref('')
 const generatedNewConfig = ref('')
+const decomposedSubFiles = ref<Array<{filename: string, content: string}>>([])
+const decomposeMode = ref(false)
 
 // Tab definitions
 const tabs = [
@@ -580,6 +606,8 @@ async function onImportConfig() {
 async function openDeployDialog() {
   showDeployDialog.value = true
   deployComment.value = ''
+  decomposeMode.value = false
+  decomposedSubFiles.value = []
   // Reset diff state
   diffLoading.value = true
   diffContent.value = ''
@@ -596,6 +624,8 @@ function closeDeployDialog() {
   diffSame.value = false
   diffError.value = ''
   generatedNewConfig.value = ''
+  decomposedSubFiles.value = []
+  decomposeMode.value = false
 }
 
 async function computeConfigDiff() {
@@ -605,18 +635,27 @@ async function computeConfigDiff() {
     return
   }
   try {
-    const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
-    const newConfig = result?.data || result || ''
-    generatedNewConfig.value = newConfig
+    if (decomposeMode.value) {
+      const result = await getTauriAPI().generateNginxConfigDecomposed(currentPreset.value.id)
+      const data = result?.data || result
+      const newConfig = data?.main_config || ''
+      decomposedSubFiles.value = data?.sub_files || []
+      generatedNewConfig.value = newConfig
+    } else {
+      const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
+      const newConfig = result?.data || result || ''
+      generatedNewConfig.value = newConfig
+      decomposedSubFiles.value = []
+    }
     const oldConfig = configContent.value || ''
 
-    if (oldConfig === newConfig) {
+    if (oldConfig === generatedNewConfig.value) {
       diffSame.value = true
       diffContent.value = ''
       return
     }
 
-    diffContent.value = computeUnifiedDiff(oldConfig, newConfig)
+    diffContent.value = computeUnifiedDiff(oldConfig, generatedNewConfig.value)
   } catch (err: any) {
     console.error('计算配置差异失败:', err)
     diffError.value = err?.message || '计算差异失败'
@@ -714,15 +753,39 @@ async function onDeploy() {
   if (generatedNewConfig.value && !diffSame.value) {
     configContent.value = generatedNewConfig.value
   }
-  const result = await deployConfig(deployComment.value)
-  if (result?.success) {
+
+  let result: any
+  if (decomposeMode.value && decomposedSubFiles.value.length > 0) {
+    // Decomposed deploy: write main config + sub-files to conf.d/
+    const p = currentPreset.value
+    result = await getTauriAPI().deployNginxConfigDecomposed(
+      p.serverId, p.configPath, generatedNewConfig.value, decomposedSubFiles.value, deployComment.value
+    )
+  } else {
+    result = await deployConfig(deployComment.value)
+  }
+
+  if (result?.success || result?.data?.success) {
     showDeployDialog.value = false
     deployComment.value = ''
     diffContent.value = ''
     diffSame.value = false
     diffError.value = ''
     generatedNewConfig.value = ''
+    decomposedSubFiles.value = []
+    decomposeMode.value = false
   }
+}
+
+async function onDecomposeChange() {
+  if (!currentPreset.value) return
+  diffLoading.value = true
+  diffContent.value = ''
+  diffSame.value = false
+  diffError.value = ''
+  generatedNewConfig.value = ''
+  decomposedSubFiles.value = []
+  await computeConfigDiff()
 }
 
 async function onRollback(versionId: string) {

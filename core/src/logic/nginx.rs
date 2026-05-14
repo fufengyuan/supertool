@@ -1029,7 +1029,15 @@ impl CoreService {
                 }).map_err(|e| e.to_string())?;
             }
 
-            // 3. Upstreams + their servers
+            // 3. Delete existing entity data for this preset, then insert new
+            // Must delete child rows first (locations before servers, upstream_servers before upstreams)
+            conn.execute("DELETE FROM nginx_locations WHERE serverId IN (SELECT id FROM nginx_servers WHERE presetId = ?1)", rusqlite::params![&pid]).ok();
+            conn.execute("DELETE FROM nginx_servers WHERE presetId = ?1", rusqlite::params![&pid]).ok();
+            conn.execute("DELETE FROM nginx_upstream_servers WHERE upstreamId IN (SELECT id FROM nginx_upstreams WHERE presetId = ?1)", rusqlite::params![&pid]).ok();
+            conn.execute("DELETE FROM nginx_upstreams WHERE presetId = ?1", rusqlite::params![&pid]).ok();
+            conn.execute("DELETE FROM nginx_streams WHERE presetId = ?1", rusqlite::params![&pid]).ok();
+
+            // 4. Upstreams + their servers (insert new)
             for up in &parsed.upstreams {
                 let up_id = format!("up_{}", uuid::Uuid::new_v4().simple());
                 crate::db::nginx::add_nginx_upstream(conn, &NginxUpstream {
@@ -1065,7 +1073,7 @@ impl CoreService {
                 }
             }
 
-            // 4. Servers + locations
+            // 5. Servers + locations
             // Collect unique certs from imported SSL servers, insert into nginx_certs
             let mut cert_map: Vec<(String, String, String)> = Vec::new(); // (pem|key key, pem, key)
             for srv in &parsed.servers {
