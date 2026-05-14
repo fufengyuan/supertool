@@ -484,7 +484,7 @@ impl LanService {
                 let peer = Peer {
                     id: peer_id.to_string(),
                     name: peer_name.clone(),
-                    avatar: preserved_avatar.or(peer_avatar),
+                    avatar: preserved_avatar.or(peer_avatar.clone()),
                     address: addr.ip().to_string(),
                     message_port,
                     version: peer_version,
@@ -494,10 +494,63 @@ impl LanService {
                 };
                 peers_map.insert(peer_id.to_string(), peer);
 
+                // Get peer reference for further use
+                let peer_ref = peers_map.get(peer_id).unwrap();
+
+                // Request avatar image if peer has image avatar and we don't have it locally
+                if let Some(ref peer_avatar_ref) = peer_ref.avatar {
+                    if peer_avatar_ref.starts_with("avatar:") && !peer_avatar_ref.starts_with("avatar:peer_") {
+                        // Peer has image avatar (not emoji or already-saved peer avatar)
+                        // Check if we have the local copy
+                        let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+                        let filename = peer_avatar_ref.strip_prefix("avatar:").unwrap_or("");
+                        let local_path = data_dir.join("avatars").join(filename);
+
+                        if !local_path.exists() {
+                            // We don't have the image, request it from peer
+                            Self::add_log_static(
+                                log,
+                                "info",
+                                &format!(
+                                    "Requesting avatar from {} (we don't have {} locally)",
+                                    peer_id, peer_avatar_ref
+                                ),
+                            );
+
+                            let request = serde_json::json!({
+                                "type": "avatar_request",
+                                "from": my_user_id,
+                                "fromName": if my_nick.is_empty() { my_user_id } else { my_nick },
+                                "targetAvatar": peer_avatar_ref,
+                                "timestamp": chrono::Utc::now().timestamp_millis(),
+                            });
+
+                            if let Ok(msg) = serde_json::to_string(&request) {
+                                // Use the main UDP socket to send request to peer's message port
+                                // Note: we need to get the socket from the outer scope
+                                // For now, we'll emit an event and let the main loop handle it
+                                if let Some(app) = app_handle {
+                                    let _ = app.emit(
+                                        "lan-avatar-request-needed",
+                                        serde_json::json!({
+                                            "peerId": peer_id,
+                                            "peerAddress": addr.ip().to_string(),
+                                            "peerPort": message_port,
+                                            "message": msg,
+                                        }),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if is_new {
-                    Self::add_log_static(log, "info", &format!("Peer discovered: {} ({})", peer_id, addr.ip()));
-                    // Get the just-inserted peer for payload (values already moved into Peer struct)
-                    let peer_ref = peers_map.get(peer_id).unwrap();
+                    Self::add_log_static(
+                        log,
+                        "info",
+                        &format!("Peer discovered: {} ({})", peer_id, addr.ip()),
+                    );
                     if let Some(app) = app_handle {
                         let payload = serde_json::json!({
                             "id": peer_id,
@@ -626,6 +679,71 @@ impl LanService {
                                     "avatar": local_avatar_ref,
                                     "avatarPath": local_path.to_string_lossy().to_string(),
                                 }));
+                            }
+                        }
+                    }
+                }
+            }
+            "avatar_request" => {
+                // 收到头像请求，需要发送自己的头像图片给请求者
+                let from_id = data["from"].as_str().unwrap_or("");
+                if from_id.is_empty() || from_id == my_user_id {
+                    return; // 忽略自己发出的请求
+                }
+
+                let from_name = data["fromName"].as_str().unwrap_or(from_id);
+                let target_avatar = data["targetAvatar"].as_str().unwrap_or("");
+
+                Self::add_log_static(
+                    log,
+                    "info",
+                    &format!(
+                        "Received avatar_request from {} for {}",
+                        from_name, target_avatar
+                    ),
+                );
+
+                // Check if the requested avatar matches my current avatar
+                if target_avatar == my_avatar && my_avatar.starts_with("avatar:") {
+                    // Read my avatar file and send to requester
+                    let filename = my_avatar.strip_prefix("avatar:").unwrap_or("");
+                    let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+                    let avatar_path = data_dir.join("avatars").join(filename);
+
+                    if avatar_path.exists() {
+                        if let Ok(image_data) = fs::read(&avatar_path) {
+                            let base64_data = BASE64.encode(&image_data);
+                            let ext = avatar_path
+                                .extension()
+                                .and_then(|e| e.to_str())
+                                .unwrap_or("png");
+
+                            let reply = serde_json::json!({
+                                "type": "avatar_update",
+                                "from": my_user_id,
+                                "fromName": if my_nick.is_empty() { my_user_id } else { my_nick },
+                                "avatar": my_avatar,
+                                "avatarData": base64_data,
+                                "avatarExt": ext,
+                                "timestamp": chrono::Utc::now().timestamp_millis(),
+                            });
+
+                            if let Ok(msg) = serde_json::to_string(&reply) {
+                                // Reply directly to sender's address
+                                if let Ok(reply_sock) = UdpSocket::bind("0.0.0.0:0") {
+                                    let _ = reply_sock.send_to(
+                                        msg.as_bytes(),
+                                        format!("{}:{}", addr.ip(), addr.port()),
+                                    );
+                                    Self::add_log_static(
+                                        log,
+                                        "info",
+                                        &format!(
+                                            "Sent avatar {} to {}",
+                                            my_avatar, from_name
+                                        ),
+                                    );
+                                }
                             }
                         }
                     }
