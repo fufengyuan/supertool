@@ -63,10 +63,10 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-3xl">
+      <div class="modal-box max-w-7xl max-h-[85vh] overflow-y-auto">
         <h3 class="font-bold text-lg">{{ editingUpstream ? '编辑 Upstream' : '新增 Upstream' }}</h3>
 
-        <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-4">
+        <div class="grid grid-cols-2 gap-x-8 gap-y-4 mt-4">
           <!-- 名称 -->
           <div class="flex flex-col gap-1">
             <label class="text-sm font-medium">名称</label>
