@@ -9,15 +9,17 @@ use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
-// Global process state
-static PROCESS_COUNTER: AtomicU64 = AtomicU64::new(0);
-static PROCESSES: Mutex<HashMap<u64, Arc<Mutex<Option<Child>>>>> = Mutex::new(HashMap::new());
-static ABORT_FLAGS: Mutex<HashMap<u64, Arc<AtomicBool>>> = Mutex::new(HashMap::new());
+// Global process state - use lazy_static for HashMap initialization
+lazy_static::lazy_static! {
+    static ref PROCESS_COUNTER: AtomicU64 = AtomicU64::new(0);
+    static ref PROCESSES: Mutex<HashMap<u64, Arc<Mutex<Option<Child>>>>> = Mutex::new(HashMap::new());
+    static ref ABORT_FLAGS: Mutex<HashMap<u64, Arc<AtomicBool>>> = Mutex::new(HashMap::new());
+    static ref CURRENT_CHAT_PROCESS_ID: Mutex<Option<u64>> = Mutex::new(None);
+}
 
 /// Input command to Python bridge
 #[derive(Debug, Serialize, Deserialize)]
@@ -183,6 +185,12 @@ pub async fn hermes_chat(
 ) -> Result<serde_json::Value, String> {
     let (process_id, mut child, abort_flag) = start_bridge_process()?;
 
+    // Record current chat process ID for abort functionality
+    {
+        let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+        *current = Some(process_id);
+    }
+
     // Send command
     let cmd = BridgeCommand::Chat {
         session_id,
@@ -268,6 +276,13 @@ pub async fn hermes_chat(
     {
         let mut flags = ABORT_FLAGS.lock().unwrap();
         flags.remove(&process_id);
+    }
+    // Clear current chat process ID
+    {
+        let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+        if current.as_ref() == Some(&process_id) {
+            *current = None;
+        }
     }
 
     // Return result
@@ -407,24 +422,50 @@ pub async fn hermes_delete_session(session_id: String) -> Result<serde_json::Val
 /// Abort current chat
 #[tauri::command]
 pub async fn hermes_abort_chat() -> Result<serde_json::Value, String> {
-    let (_, mut child, abort_flag) = start_bridge_process()?;
+    // Get current chat process ID
+    let current_process_id = {
+        let current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+        current.clone()
+    };
 
-    // Set abort flag
-    abort_flag.store(true, Ordering::SeqCst);
+    if let Some(pid) = current_process_id {
+        // Find and set the abort flag for the running chat process
+        let abort_flag = {
+            let flags = ABORT_FLAGS.lock().unwrap();
+            flags.get(&pid).cloned()
+        };
 
-    // Send abort command to Python
-    let cmd = BridgeCommand::Abort {};
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+        if let Some(flag) = abort_flag {
+            // Set abort flag - this will break the read loop in hermes_chat
+            flag.store(true, Ordering::SeqCst);
 
-    {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
+            // Also try to kill the process directly for immediate termination
+            let process = {
+                let processes = PROCESSES.lock().unwrap();
+                processes.get(&pid).cloned()
+            };
+
+            if let Some(arc_child) = process {
+                if let Some(mut child) = arc_child.lock().unwrap().take() {
+                    // Kill the Python bridge process
+                    child.kill().ok();
+                }
+            }
+
+            // Clear current chat process ID
+            {
+                let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+                *current = None;
+            }
+
+            Ok(serde_json::json!({ "aborted": true, "process_id": pid }))
+        } else {
+            Err("No abort flag found for current chat process".to_string())
+        }
+    } else {
+        // No chat is running
+        Ok(serde_json::json!({ "aborted": false, "message": "No active chat to abort" }))
     }
-
-    child.wait().ok();
-    Ok(serde_json::json!({ "aborted": true }))
 }
 
 /// Check Hermes availability
@@ -456,7 +497,7 @@ except ImportError as e:
         "available": stdout == "OK",
         "script_found": script.is_some(),
         "python": python,
-        "error": if stdout.starts_with("ERROR") { stdout } else { None },
+        "error": if stdout.starts_with("ERROR") { Some(stdout) } else { None },
     }))
 }
 
