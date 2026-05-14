@@ -155,6 +155,8 @@ pub struct NginxUpstreamServer {
     pub backup: bool,
     pub down: bool,
     pub sort: i64,
+    pub enabled: bool,
+    pub param: String,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -347,6 +349,8 @@ pub fn row_to_nginx_upstream_server(row: &rusqlite::Row<'_>) -> rusqlite::Result
         backup: row.get::<_, i64>("backup")? == 1,
         down: row.get::<_, i64>("down")? == 1,
         sort: row.get("sort")?,
+        enabled: row.get::<_, i64>("enabled")? == 1,
+        param: row.get("param")?,
     })
 }
 
@@ -732,18 +736,18 @@ pub fn get_upstream_servers(conn: &rusqlite::Connection, upstream_id: &str) -> r
 
 pub fn add_nginx_upstream_server(conn: &rusqlite::Connection, s: &NginxUpstreamServer) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+        "INSERT INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort, enabled, param)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
         params![s.id, s.upstream_id, s.address, s.port, s.weight, s.max_fails, s.fail_timeout,
-                s.max_conns, bool_int(s.backup), bool_int(s.down), s.sort],
+                s.max_conns, bool_int(s.backup), bool_int(s.down), s.sort, bool_int(s.enabled), s.param],
     )?;
     Ok(())
 }
 
 pub fn update_nginx_upstream_server(conn: &rusqlite::Connection, s: &NginxUpstreamServer) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE nginx_upstream_servers SET address=?2, port=?3, weight=?4, maxFails=?5, failTimeout=?6, maxConns=?7, backup=?8, down=?9, sort=?10 WHERE id=?1",
-        params![s.id, s.address, s.port, s.weight, s.max_fails, s.fail_timeout, s.max_conns, bool_int(s.backup), bool_int(s.down), s.sort],
+        "UPDATE nginx_upstream_servers SET address=?2, port=?3, weight=?4, maxFails=?5, failTimeout=?6, maxConns=?7, backup=?8, down=?9, sort=?10, enabled=?11, param=?12 WHERE id=?1",
+        params![s.id, s.address, s.port, s.weight, s.max_fails, s.fail_timeout, s.max_conns, bool_int(s.backup), bool_int(s.down), s.sort, bool_int(s.enabled), s.param],
     )?;
     Ok(())
 }

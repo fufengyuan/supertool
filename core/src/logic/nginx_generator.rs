@@ -108,9 +108,10 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
     }
 
     // Upstream servers
-    let servers = crate::db::nginx::get_upstream_servers(conn, &u.id)
-        .map_err(|e| e.to_string())?;
+    // Upstream servers
+    let servers = crate::db::nginx::get_upstream_servers(conn, &u.id).map_err(|e| e.to_string())?;
     for srv in &servers {
+        if !srv.enabled { continue; }
         out.push_str(&format!("        server {}:{}", srv.address, srv.port));
         if srv.weight > 1 { out.push_str(&format!(" weight={}", srv.weight)); }
         if srv.max_fails != 3 { out.push_str(&format!(" max_fails={}", srv.max_fails)); }
@@ -120,6 +121,7 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         if srv.max_conns > 0 { out.push_str(&format!(" max_conns={}", srv.max_conns)); }
         if srv.backup { out.push_str(" backup"); }
         if srv.down { out.push_str(" down"); }
+        if !srv.param.is_empty() { out.push_str(&format!(" {}", srv.param)); }
         out.push_str(";\n");
     }
 

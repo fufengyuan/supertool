@@ -404,8 +404,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         CREATE TABLE IF NOT EXISTS nginx_upstream_servers (
             id TEXT PRIMARY KEY,
             upstreamId TEXT NOT NULL,
-            address TEXT NOT NULL DEFAULT '',
-            port INTEGER NOT NULL DEFAULT 0,
+            address TEXT NOT NULL,
+            port INTEGER NOT NULL,
             weight INTEGER NOT NULL DEFAULT 1,
             maxFails INTEGER NOT NULL DEFAULT 3,
             failTimeout TEXT NOT NULL DEFAULT '10s',
@@ -413,6 +413,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             backup INTEGER NOT NULL DEFAULT 0,
             down INTEGER NOT NULL DEFAULT 0,
             sort INTEGER NOT NULL DEFAULT 0,
+            enabled INTEGER NOT NULL DEFAULT 1,
+            param TEXT NOT NULL DEFAULT '',
             FOREIGN KEY (upstreamId) REFERENCES nginx_upstreams(id) ON DELETE CASCADE
         );
 
