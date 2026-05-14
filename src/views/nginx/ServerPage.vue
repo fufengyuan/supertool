@@ -286,11 +286,11 @@
                     <th class="w-8 text-center"><input type="checkbox" @change="toggleAllLocations($event)" class="checkbox checkbox-xs" /></th>
                     <th class="w-28">路径</th>
                     <th class="w-28">类型</th>
-                    <th>目标</th>
-                    <th class="w-52">Upstream</th>
+                    <th class="w-44">目标</th>
+                    <th class="w-48">Upstream</th>
                     <th class="w-20 text-center">功能</th>
                     <th class="w-16 text-center">排序</th>
-                    <th class="w-16 text-center">操作</th>
+                    <th class="w-20 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -336,11 +336,40 @@
                       </div>
                     </td>
                     <td class="text-center">
-                      <button @click="onDeleteLocation(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="x" size="14" /></button>
+                      <div class="flex items-center justify-center gap-0.5">
+                        <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="list" size="12" /></button>
+                        <button @click="onDeleteLocation(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="x" size="14" /></button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          <!-- Location 额外参数弹窗 -->
+          <div v-if="showLocParamDialog" class="fixed inset-0 z-[60]">
+            <div class="fixed inset-0 bg-black/40" @click="showLocParamDialog = false"></div>
+            <div class="fixed inset-y-0 right-0 w-[40%] min-w-[400px] bg-base-100 shadow-2xl flex flex-col">
+              <div class="flex items-center justify-between px-5 py-3.5 border-b border-base-content/10 shrink-0">
+                <h4 class="font-semibold text-sm">Location 额外参数</h4>
+                <button @click="showLocParamDialog = false" class="btn btn-ghost btn-xs btn-square"><SvgIcon name="x" size="16" /></button>
+              </div>
+              <div class="flex-1 overflow-y-auto px-5 py-4">
+                <div v-if="locParamEntries.length === 0" class="text-sm text-base-content/50 text-center py-6">暂无额外参数</div>
+                <div v-for="(entry, ei) in locParamEntries" :key="ei" class="flex items-center gap-2 mb-2">
+                  <input v-model="entry.name" placeholder="指令名" class="input input-bordered input-sm w-36 font-mono text-xs" />
+                  <input v-model="entry.value" placeholder="值" class="input input-bordered input-sm flex-1 font-mono text-xs" />
+                  <button @click="locParamEntries.splice(ei, 1)" class="btn btn-ghost btn-xs btn-square text-error"><SvgIcon name="x" size="12" /></button>
+                </div>
+              </div>
+              <div class="flex items-center justify-between px-5 py-3 border-t border-base-content/10 shrink-0">
+                <button @click="locParamEntries.push({ name: '', value: '' })" class="btn btn-ghost btn-xs"><SvgIcon name="plus" size="12" /> 添加参数</button>
+                <div class="flex gap-2">
+                  <button @click="showLocParamDialog = false" class="btn btn-ghost btn-sm">关闭</button>
+                  <button @click="saveLocationParams" class="btn btn-primary btn-sm">保存</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -433,6 +462,9 @@ function toggleProtocol(val: string) {
 
 // Locations 子表
 const locations = ref<any[]>([])
+const showLocParamDialog = ref(false)
+const locParamEntries = ref<Array<{name: string, value: string}>>([])
+let editingLocIndex = -1
 
 // 搜索过滤
 const filteredServers = computed(() => {
@@ -738,8 +770,28 @@ function onAddLocation() {
     cros: false,
     returnUrl: '',
     sort: locations.value.length + 1,
+    paramJson: '',
     _key: crypto.randomUUID(),
   })
+}
+
+function openLocationParams(idx: number) {
+  editingLocIndex = idx
+  const loc = locations.value[idx]
+  try {
+    const parsed = loc.paramJson ? JSON.parse(loc.paramJson) : []
+    locParamEntries.value = Array.isArray(parsed) ? parsed.map((p: any) => ({ name: p.name || '', value: p.value || '' })) : []
+  } catch {
+    locParamEntries.value = []
+  }
+  showLocParamDialog.value = true
+}
+
+function saveLocationParams() {
+  if (editingLocIndex >= 0 && editingLocIndex < locations.value.length) {
+    locations.value[editingLocIndex].paramJson = JSON.stringify(locParamEntries.value.filter(e => e.name.trim()))
+  }
+  showLocParamDialog.value = false
 }
 
 function onDeleteLocation(idx: number) {
