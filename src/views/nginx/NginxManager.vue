@@ -19,7 +19,8 @@
                 class="flex items-center gap-2 cursor-pointer px-3 py-2 rounded-lg hover:bg-base-200"
                 @click="toggleGroup(groupEntry.groupName)"
               >
-                <span class="text-xs text-base-content/60">{{ collapsedGroups.has(groupEntry.groupName) ? '▶' : '▼' }}</span>
+                <span v-if="collapsedGroups.has(groupEntry.groupName)" class="text-xs text-base-content/60"><SvgIcon name="chevronRight" size="10" /></span>
+                <span v-else class="text-xs text-base-content/60"><SvgIcon name="chevronDown" size="10" /></span>
                 <span class="text-sm font-medium text-base-content/80">{{ groupEntry.groupName }}</span>
                 <span class="badge badge-sm badge-ghost">{{ groupEntry.presets.length }}</span>
               </div>
