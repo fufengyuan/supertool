@@ -467,15 +467,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
 
         CREATE TABLE IF NOT EXISTS nginx_basic_settings (
             id TEXT PRIMARY KEY,
-            presetId TEXT NOT NULL UNIQUE,
-            workerProcesses TEXT NOT NULL DEFAULT 'auto',
-            workerConnections INTEGER NOT NULL DEFAULT 1024,
-            errorLog TEXT NOT NULL DEFAULT '/var/log/nginx/error.log',
-            errorLogLevel TEXT NOT NULL DEFAULT 'warn',
-            pid TEXT NOT NULL DEFAULT '/var/run/nginx.pid',
-            events TEXT NOT NULL DEFAULT '',
+            presetId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            value TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL DEFAULT (datetime('now')),
-            updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
         );
 

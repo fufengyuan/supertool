@@ -688,8 +688,8 @@ fn main() {
             commands::nginx::update_nginx_template,
             commands::nginx::delete_nginx_template,
             // NginxBasicSetting commands
-            commands::nginx::get_basic_setting,
-            commands::nginx::upsert_basic_setting,
+            commands::nginx::get_basic_settings,
+            commands::nginx::save_basic_settings,
             // Config Generation
             commands::nginx::generate_nginx_config,
             // Disk cleaner commands

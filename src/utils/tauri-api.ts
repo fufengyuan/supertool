@@ -1193,9 +1193,9 @@ export function useNginxAPI() {
     addNginxTemplate: async (template: any): Promise<any> => tauriCall('add_nginx_template', { template }),
     updateNginxTemplate: async (template: any): Promise<any> => tauriCall('update_nginx_template', { template }),
     deleteNginxTemplate: async (id: string): Promise<any> => tauriCall('delete_nginx_template', { id }),
-    // Basic Setting
-    getBasicSetting: async (presetId: string): Promise<any> => tauriCall('get_basic_setting', { presetId }),
-    upsertBasicSetting: async (setting: any): Promise<any> => tauriCall('upsert_basic_setting', { setting }),
+    // Basic Settings (key-value)
+    getBasicSettings: async (presetId: string): Promise<any> => tauriCall('get_basic_settings', { presetId }),
+    saveBasicSettings: async (presetId: string, settings: any[]): Promise<any> => tauriCall('save_basic_settings', { presetId, settings }),
   };
 }
 
@@ -1794,8 +1794,8 @@ export interface TauriAPI {
   addNginxTemplate: (template: any) => Promise<any>
   updateNginxTemplate: (template: any) => Promise<any>
   deleteNginxTemplate: (id: string) => Promise<any>
-  getBasicSetting: (presetId: string) => Promise<any>
-  upsertBasicSetting: (setting: any) => Promise<any>
+  getBasicSettings: (presetId: string) => Promise<any>
+  saveBasicSettings: (presetId: string, settings: any[]) => Promise<any>
   // Alert
   getEmailConfig: () => Promise<any>
   saveEmailConfig: (config: any) => Promise<any>
@@ -2141,8 +2141,8 @@ export function getTauriAPI(): TauriAPI {
     addNginxTemplate: nginx.addNginxTemplate,
     updateNginxTemplate: nginx.updateNginxTemplate,
     deleteNginxTemplate: nginx.deleteNginxTemplate,
-    getBasicSetting: nginx.getBasicSetting,
-    upsertBasicSetting: nginx.upsertBasicSetting,
+    getBasicSettings: nginx.getBasicSettings,
+    saveBasicSettings: nginx.saveBasicSettings,
     // Alert
     getEmailConfig: alert.getEmailConfig,
     saveEmailConfig: alert.saveEmailConfig,
