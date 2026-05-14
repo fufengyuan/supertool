@@ -471,10 +471,20 @@ impl LanService {
                 let mut peers_map = peers.lock().unwrap();
                 let is_new = !peers_map.contains_key(peer_id);
 
+                // 如果 peer 已存在且有本地保存的头像（avatar:peer_ 开头），保留本地头像
+                let preserved_avatar = if !is_new {
+                    peers_map.get(peer_id)
+                        .and_then(|p| p.avatar.as_ref())
+                        .filter(|a| a.starts_with("avatar:peer_"))
+                        .cloned()
+                } else {
+                    None
+                };
+
                 let peer = Peer {
                     id: peer_id.to_string(),
                     name: peer_name.clone(),
-                    avatar: peer_avatar,
+                    avatar: preserved_avatar.or(peer_avatar),
                     address: addr.ip().to_string(),
                     message_port,
                     version: peer_version,

@@ -146,51 +146,54 @@
           <p class="text-sm">未匹配到「{{ resourceSearch }}」</p>
         </div>
 
-        <!-- Table -->
-        <div v-else class="overflow-x-auto">
-          <table class="table table-sm w-full">
-            <thead>
-              <tr>
-                <th>名称</th>
-                <th>分类</th>
-                <th>到期时间</th>
-                <th>提前告警</th>
-                <th>剩余天数</th>
-                <th>状态</th>
-                <th class="w-24">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="res in filteredResources" :key="res.id">
-                <td class="font-medium">{{ res.name }}</td>
-                <td>
-                  <span class="badge badge-sm badge-ghost">{{ res.category || '—' }}</span>
-                </td>
-                <td>{{ formatDate(res.expireAt ?? res.expire_at) }}</td>
-                <td>{{ (res.alertAdvanceDays ?? res.alert_advance_days ?? 30) + '天前' }}</td>
-                <td>{{ remainingDays(res) }}</td>
-                <td>
-                  <span
-                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                    :class="resourceStatusClass(res)"
-                  >
-                    <span class="w-2 h-2 rounded-full inline-block" :class="resourceStatusDot(res)"></span>
-                    {{ resourceStatusLabel(res) }}
-                  </span>
-                </td>
-                <td>
-                  <div class="flex items-center gap-1">
-                    <button class="btn btn-ghost btn-xs btn-square" title="编辑" @click="openResourceModal(res)">
-                      <SvgIcon name="pencil" size="14" />
-                    </button>
-                    <button class="btn btn-ghost btn-xs btn-square text-error" title="删除" @click="confirmDeleteResource(res)">
-                      <SvgIcon name="trash" size="14" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Table (分组展示) -->
+        <div v-else class="space-y-4">
+          <div v-for="[category, items] in groupedResources" :key="category">
+            <div class="text-sm font-medium text-base-content/60 mb-2 px-1">
+              {{ category }} ({{ items.length }})
+            </div>
+            <table class="table table-sm w-full">
+              <thead>
+                <tr>
+                  <th>名称</th>
+                  <th>备注</th>
+                  <th>到期时间</th>
+                  <th>提前告警</th>
+                  <th>剩余天数</th>
+                  <th>状态</th>
+                  <th class="w-24">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="res in items" :key="res.id">
+                  <td class="font-medium">{{ res.name }}</td>
+                  <td class="text-xs text-base-content/50">{{ res.remark || '—' }}</td>
+                  <td>{{ formatDate(res.expireAt ?? res.expire_at) }}</td>
+                  <td>{{ (res.alertAdvanceDays ?? res.alert_advance_days ?? 30) + '天前' }}</td>
+                  <td>{{ remainingDays(res) }}</td>
+                  <td>
+                    <span
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="resourceStatusClass(res)"
+                    >
+                      <span class="w-2 h-2 rounded-full inline-block" :class="resourceStatusDot(res)"></span>
+                      {{ resourceStatusLabel(res) }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="flex items-center gap-1">
+                      <button class="btn btn-ghost btn-xs btn-square" title="编辑" @click="openResourceModal(res)">
+                        <SvgIcon name="pencil" size="14" />
+                      </button>
+                      <button class="btn btn-ghost btn-xs btn-square text-error" title="删除" @click="confirmDeleteResource(res)">
+                        <SvgIcon name="trash" size="14" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -426,6 +429,10 @@
               </div>
             </div>
             <div class="form-control">
+              <label class="label py-1"><span class="label-text text-xs">备注</span></label>
+              <input v-model="resourceForm.remark" type="text" placeholder="可选备注信息" class="input input-bordered input-sm" />
+            </div>
+            <div class="form-control">
               <label class="label py-1"><span class="label-text text-xs">到期时间</span></label>
               <input v-model="resourceForm.expire_at" type="date" class="input input-bordered input-sm" />
             </div>
@@ -606,6 +613,7 @@ const resourceForm = reactive({
   name: '',
   category: '',
   categoryCustom: '',
+  remark: '',
   expire_at: '',
   alert_advance_days: 30,
 })
@@ -615,8 +623,21 @@ const filteredResources = computed(() => {
   if (!q) return resources.value
   return resources.value.filter((r) =>
     r.name.toLowerCase().includes(q) ||
-    (r.category || '').toLowerCase().includes(q)
+    (r.category || '').toLowerCase().includes(q) ||
+    (r.remark || '').toLowerCase().includes(q)
   )
+})
+
+// 按分类分组展示资源
+const groupedResources = computed(() => {
+  const groups: Record<string, any[]> = {}
+  for (const res of filteredResources.value) {
+    const cat = res.category || '未分类'
+    if (!groups[cat]) groups[cat] = []
+    groups[cat].push(res)
+  }
+  // 按分类名称排序
+  return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]))
 })
 
 function getCategory(form: typeof resourceForm) {
@@ -673,6 +694,7 @@ function openResourceModal(res?: any) {
     resourceForm.category = resourceCategories.includes(cat) ? cat : '__custom__'
     resourceForm.categoryCustom = resourceCategories.includes(cat) ? '' : cat
     resourceForm.name = res.name
+    resourceForm.remark = res.remark ?? ''
     resourceForm.expire_at = toDateInputValue(res.expireAt ?? res.expire_at)
     resourceForm.alert_advance_days = res.alertAdvanceDays ?? res.alert_advance_days ?? 30
   } else {
@@ -680,6 +702,7 @@ function openResourceModal(res?: any) {
     resourceForm.name = ''
     resourceForm.category = ''
     resourceForm.categoryCustom = ''
+    resourceForm.remark = ''
     const oneYearLater = new Date()
     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1)
     resourceForm.expire_at = oneYearLater.toISOString().slice(0, 10)
@@ -713,6 +736,7 @@ async function saveResource() {
     const data = {
       name: resourceForm.name,
       category: getCategory(resourceForm),
+      remark: resourceForm.remark || null,
       expireAt: resourceForm.expire_at ? resourceForm.expire_at + 'T00:00:00+08:00' : null,
       alertAdvanceDays: resourceForm.alert_advance_days,
     }
