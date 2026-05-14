@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">配置模板</h3>
       <button @click="openAddDialog" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增模板
@@ -21,12 +21,12 @@
 
     <!-- 表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
             <th>名称</th>
             <th>创建时间</th>
-            <th class="w-28 text-center">操作</th>
+            <th class="w-20 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -34,12 +34,12 @@
             <td class="font-medium">{{ tpl.name }}</td>
             <td class="text-xs text-base-content/50">{{ tpl.createdAt ? formatDate(tpl.createdAt) : '-' }}</td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
-                <button @click="openEditDialog(tpl)" class="btn btn-ghost btn-xs" title="编辑">
-                  <SvgIcon name="pencil" size="14" />
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="openEditDialog(tpl)" class="btn btn-ghost btn-xs btn-square" title="编辑">
+                  <SvgIcon name="pencil" size="12" />
                 </button>
                 <button @click="onDeleteTemplate(tpl.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                  <SvgIcon name="trash" size="14" />
+                  <SvgIcon name="trash" size="12" />
                 </button>
               </div>
             </td>
@@ -50,31 +50,31 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-3xl max-h-[80vh] overflow-y-auto">
+      <div class="modal-box max-w-2xl max-h-[80vh] overflow-y-auto">
         <h3 class="font-bold text-lg">{{ editingTemplate ? '编辑模板' : '新增模板' }}</h3>
 
-        <div class="flex flex-col gap-3 mt-4">
+        <div class="flex flex-col gap-2 mt-3">
           <!-- 名称 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">名称</label>
-            <input v-model="form.name" placeholder="例如：location-template" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">名称</label>
+            <input v-model="form.name" placeholder="例如：location-template" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 内容 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">模板内容</label>
+            <label class="text-xs font-medium text-base-content/80">模板内容</label>
             <textarea
               v-model="form.content"
               placeholder="粘贴 Nginx 配置片段..."
-              class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
+              class="textarea textarea-bordered w-full font-mono text-xs leading-relaxed"
               rows="16"
             ></textarea>
           </div>
         </div>
 
         <div class="modal-action">
-          <button @click="closeDialog" class="btn btn-ghost">取消</button>
-          <button @click="onSave" class="btn btn-primary" :disabled="!form.name">保存</button>
+          <button @click="closeDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onSave" class="btn btn-primary btn-sm" :disabled="!form.name">保存</button>
         </div>
       </div>
     </div>

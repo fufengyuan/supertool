@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">密码文件 (auth_basic)</h3>
       <button @click="addRow" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增密码
@@ -17,45 +17,47 @@
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
-            <th class="w-36">用户名</th>
-            <th class="w-36">密码</th>
+            <th class="w-28">用户名</th>
+            <th class="w-28">密码</th>
             <th>描述</th>
             <th>文件路径</th>
-            <th class="w-24 text-center">操作</th>
+            <th class="w-16 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(item, index) in items" :key="item._key">
             <td>
-              <input v-model="item.name" placeholder="admin" class="input input-bordered input-sm w-full font-mono" />
+              <input v-model="item.name" placeholder="admin" class="input input-bordered input-xs w-full font-mono" />
             </td>
             <td>
-              <input v-model="item.pass" placeholder="密码" class="input input-bordered input-sm w-full" />
+              <input v-model="item.pass" placeholder="密码" class="input input-bordered input-xs w-full" />
             </td>
             <td>
-              <input v-model="item.descr" placeholder="Restricted Area" class="input input-bordered input-sm w-full" />
+              <input v-model="item.descr" placeholder="Restricted Area" class="input input-bordered input-xs w-full" />
             </td>
             <td>
-              <input v-model="item.path" placeholder="/etc/nginx/.htpasswd" class="input input-bordered input-sm w-full font-mono" />
+              <input v-model="item.path" placeholder="/etc/nginx/.htpasswd" class="input input-bordered input-xs w-full font-mono" />
             </td>
             <td class="text-center">
-              <button @click="items.splice(index, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                <SvgIcon name="trash" size="14" />
-              </button>
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="items.splice(index, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                  <SvgIcon name="trash" size="12" />
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="flex items-center gap-3 mt-4">
-      <button @click="onSave" class="btn btn-primary" :disabled="loading">
-        <SvgIcon name="check" size="14" /> 保存
+    <div class="flex items-center gap-2 mt-3">
+      <button @click="onSave" class="btn btn-primary btn-sm" :disabled="loading">
+        <SvgIcon name="check" size="12" /> 保存
       </button>
-      <span v-if="saved" class="text-sm text-success">已保存</span>
+      <span v-if="saved" class="text-xs text-success">已保存</span>
     </div>
   </div>
 </template>
