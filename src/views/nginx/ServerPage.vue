@@ -108,7 +108,7 @@
       <!-- 遮罩层 -->
       <div class="fixed inset-0 bg-black/50" @click="closeDialog"></div>
       <!-- 抽屉面板 -->
-      <div class="fixed inset-y-0 right-0 w-full max-w-5xl bg-base-100 shadow-2xl flex flex-col">
+      <div class="fixed inset-y-0 right-0 w-[88%] bg-base-100 shadow-2xl flex flex-col">
         <!-- 标题栏 -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-base-content/10 shrink-0">
           <h3 class="font-bold text-lg">{{ editingServer ? '编辑 Server' : '新增 Server' }}</h3>
