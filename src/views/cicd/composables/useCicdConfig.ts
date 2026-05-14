@@ -926,6 +926,43 @@ export function useCicdConfig() {
     catch (error) { handleError(error, { context: 'loadGitRepos' }); }
   }
 
+  // 切换到 Git 克隆模式并自动获取远程仓库地址
+  async function switchToGitCloneMode() {
+    config.value.buildMode = 'git_clone';
+    // 如果已选择本地仓库，自动获取其远程地址
+    if (selectedGitRepo.value?.path && !config.value.repoUrl) {
+      await fetchGitRemoteUrl();
+    }
+  }
+
+  // 从本地仓库获取 git remote URL
+  async function fetchGitRemoteUrl() {
+    const localPath = selectedGitRepo.value?.path || config.value.localPath;
+    if (!localPath) {
+      toast.warning('请先选择本地仓库');
+      return;
+    }
+    try {
+      const result = await getTauriAPI().gitRemotes?.(localPath);
+      if (result && result.remotes && Array.isArray(result.remotes)) {
+        // 优先使用 origin 的 fetchUrl
+        const origin = result.remotes.find((r: { name: string }) => r.name === 'origin');
+        if (origin && origin.fetchUrl) {
+          config.value.repoUrl = origin.fetchUrl;
+          toast.success(`已获取远程地址: ${origin.fetchUrl}`);
+        } else if (result.remotes.length > 0 && result.remotes[0].fetchUrl) {
+          // 没有 origin，使用第一个 remote
+          config.value.repoUrl = result.remotes[0].fetchUrl;
+          toast.success(`已获取远程地址: ${result.remotes[0].fetchUrl}`);
+        } else {
+          toast.warning('未找到远程仓库地址，请手动输入');
+        }
+      }
+    } catch (error) {
+      handleError(error, { context: '获取远程仓库地址' });
+    }
+  }
+
   return {
     // State
     configs, projects, gitRepos, servers, serverGroups, selectedConfigId, isNewConfig, searchQuery, sidebarCollapsed,
@@ -951,6 +988,7 @@ export function useCicdConfig() {
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
     saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
+    switchToGitCloneMode, fetchGitRemoteUrl,
     defaultConfig,
     pageLoading,
   };

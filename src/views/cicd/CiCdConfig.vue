@@ -198,7 +198,7 @@
                     :class="config.buildMode === 'git_clone'
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
-                    @click="config.buildMode = 'git_clone'"
+                    @click="switchToGitCloneMode"
                   >
                     <SvgIcon name="gitBranch" size="16" />
                     <div class="text-left">
@@ -213,15 +213,41 @@
                 <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">
                   {{ config.buildMode === 'git_clone' ? '远程仓库地址' : '本地项目目录' }}
                 </label>
-                <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
-                  <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
-                  <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>
-                  <button @click="openInFileManager(selectedGitRepo.path)" class="btn btn-ghost btn-xs px-1.5" title="打开文件夹"><SvgIcon name="externalLink" size="14" /></button>
-                </div>
-                <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
-                  <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
-                  <span>请先在上方选择 Git 仓库</span>
-                </div>
+                <!-- Git 克隆模式：显示可编辑的远程仓库地址 -->
+                <template v-if="config.buildMode === 'git_clone'">
+                  <div class="flex gap-1.5">
+                    <input
+                      v-model="config.repoUrl"
+                      class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0 font-mono"
+                      placeholder="git@git.example.com:user/repo.git 或 https://..."
+                    />
+                    <button
+                      @click="fetchGitRemoteUrl"
+                      class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap"
+                      :disabled="!selectedGitRepo?.path"
+                      title="从本地仓库获取远程地址"
+                    >
+                      <SvgIcon name="gitBranch" size="14" />
+                      <span>获取</span>
+                    </button>
+                  </div>
+                  <div v-if="!config.repoUrl && selectedGitRepo?.path" class="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 text-xs text-base-content/60">
+                    <SvgIcon name="lightbulb" size="14" />
+                    <span>点击"获取"按钮自动填充远程仓库地址</span>
+                  </div>
+                </template>
+                <!-- 本地目录模式：显示本地路径 -->
+                <template v-else>
+                  <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
+                    <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
+                    <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>
+                    <button @click="openInFileManager(selectedGitRepo.path)" class="btn btn-ghost btn-xs px-1.5" title="打开文件夹"><SvgIcon name="externalLink" size="14" /></button>
+                  </div>
+                  <div v-else class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl text-xs text-base-content/60">
+                    <SvgIcon name="folder" size="14" class="shrink-0 opacity-50" />
+                    <span>请先在上方选择 Git 仓库</span>
+                  </div>
+                </template>
               </div>
 
               <div class="mb-3.5">
@@ -824,6 +850,7 @@ const {
   addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
   addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
   saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
+  switchToGitCloneMode, fetchGitRemoteUrl,
   defaultConfig, pageLoading,
 } = cicd;
 
