@@ -254,19 +254,37 @@ export function useCicdConfig() {
   async function reDetectToolPaths() {
     detectingPaths.value = true;
     try {
-      const paths = await getTauriAPI().detectToolPaths() as typeof defaultPaths.value;
-      if (paths && typeof paths === 'object') {
-        Object.assign(defaultPaths.value, paths);
+      // 并行检测工具路径和 SDK 版本
+      const [pathsResult, sdkResult] = await Promise.all([
+        getTauriAPI().detectToolPaths?.().catch(() => null),
+        getTauriAPI().detectSdkVersions?.().catch(() => null),
+      ]);
+      
+      // 更新工具路径
+      if (pathsResult && typeof pathsResult === 'object') {
+        Object.assign(defaultPaths.value, pathsResult as typeof defaultPaths.value);
         // Always fill current config with detected paths — overwrite whatever was there
         const c = config.value;
-        if (c.buildTool === 'maven' && paths.mavenHome) c.mavenHome = paths.mavenHome;
-        if (c.buildTool === 'maven' && paths.javaHome) c.javaHome = paths.javaHome;
-        if ((c.buildTool === 'npm' || c.buildTool === 'pnpm' || c.buildTool === 'yarn') && paths.nodeHome) c.nodeHome = paths.nodeHome;
-        if (c.buildTool === 'npm' && paths.npmHome) c.npmHome = paths.npmHome;
-        if (c.buildTool === 'pnpm' && paths.pnpmHome) c.pnpmHome = paths.pnpmHome;
-        if (c.buildTool === 'yarn' && paths.yarnHome) c.yarnHome = paths.yarnHome;
-        toast.success('工具路径已自动检测并填充');
+        if (c.buildTool === 'maven' && defaultPaths.value.mavenHome) c.mavenHome = defaultPaths.value.mavenHome;
+        if (c.buildTool === 'maven' && defaultPaths.value.javaHome) c.javaHome = defaultPaths.value.javaHome;
+        if ((c.buildTool === 'npm' || c.buildTool === 'pnpm' || c.buildTool === 'yarn') && defaultPaths.value.nodeHome) c.nodeHome = defaultPaths.value.nodeHome;
+        if (c.buildTool === 'npm' && defaultPaths.value.npmHome) c.npmHome = defaultPaths.value.npmHome;
+        if (c.buildTool === 'pnpm' && defaultPaths.value.pnpmHome) c.pnpmHome = defaultPaths.value.pnpmHome;
+        if (c.buildTool === 'yarn' && defaultPaths.value.yarnHome) c.yarnHome = defaultPaths.value.yarnHome;
       }
+      
+      // 更新 SDK 版本列表
+      if (sdkResult && typeof sdkResult === 'object') {
+        sdkVersions.value = {
+          sdkman: { java: [], maven: [], gradle: [] },
+          nvm: { node: [] },
+          ...sdkResult,
+          sdkman: { java: [], maven: [], gradle: [], ...((sdkResult as any)?.sdkman || {}) },
+          nvm: { node: [], ...((sdkResult as any)?.nvm || {}) },
+        };
+      }
+      
+      toast.success('工具路径已自动检测并填充');
     } catch (error) { handleError(error, { context: '检测工具路径' }); }
     finally { detectingPaths.value = false; }
   }
