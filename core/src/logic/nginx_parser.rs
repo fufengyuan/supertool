@@ -123,6 +123,12 @@ fn tokenize(input: &str) -> Vec<Token> {
     let len = chars.len();
     let mut i = 0;
 
+    // Track whether the last emitted token was a line-ending token (start of a new directive)
+    // In nginx, '#' starts a comment ONLY when it appears at the start of a directive,
+    // not in the middle of a directive value (e.g. return 302 /h5/#/url).
+    // We consider the start of input, after ';', '{', '}' as "start of directive".
+    let mut at_directive_start = true;
+
     while i < len {
         let c = chars[i];
 
@@ -132,8 +138,9 @@ fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Comment
-        if c == '#' {
+        // Comment — only at directive start (not in the middle of a value)
+        // nginx treats '#' as comment only when it's at the start of a directive
+        if c == '#' && at_directive_start {
             while i < len && chars[i] != '\n' {
                 i += 1;
             }
@@ -144,16 +151,19 @@ fn tokenize(input: &str) -> Vec<Token> {
         if c == '{' {
             tokens.push(Token::LeftBrace);
             i += 1;
+            at_directive_start = true;
             continue;
         }
         if c == '}' {
             tokens.push(Token::RightBrace);
             i += 1;
+            at_directive_start = true;
             continue;
         }
         if c == ';' {
             tokens.push(Token::Semicolon);
             i += 1;
+            at_directive_start = true;
             continue;
         }
 
@@ -178,14 +188,15 @@ fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Regular word
+        // Regular word — don't stop at '#', let the outer loop handle it
         let mut word = String::new();
-        while i < len && !chars[i].is_whitespace() && chars[i] != '{' && chars[i] != '}' && chars[i] != ';' && chars[i] != '#' {
+        while i < len && !chars[i].is_whitespace() && chars[i] != '{' && chars[i] != '}' && chars[i] != ';' {
             word.push(chars[i]);
             i += 1;
         }
         if !word.is_empty() {
             tokens.push(Token::Word(word));
+            at_directive_start = false;
         }
     }
 

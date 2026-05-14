@@ -982,8 +982,7 @@ fn test_production_round_trip_generate() {
 ✅ Generated config written to: testdata/nginx_production_generated.conf");
 
     // Show first 20 lines of each for quick visual comparison
-    eprintln!("
-============= FIRST 20 LINES COMPARISON =============");
+    eprintln!("\n============= FIRST 20 LINES COMPARISON =============");
     eprintln!("--- ORIGINAL ---");
     for line in original.lines().take(20) {
         eprintln!("{}", line);
@@ -1008,4 +1007,75 @@ fn test_production_round_trip_generate() {
                 "Upstream {} should have same number of servers", up.name);
         }
     }
+}
+
+#[test]
+fn test_prod2_round_trip_generate() {
+    use std::io::Write;
+
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap().join("testdata");
+    let path = test_dir.join("nginx_prod2.conf");
+    let original = std::fs::read_to_string(&path)
+        .expect("Cannot read nginx_prod2.conf");
+
+    eprintln!("Loading nginx_prod2.conf: {} bytes, {} lines",
+        original.len(), original.lines().count());
+
+    // Step 1: Parse
+    let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&original)
+        .expect("nginx_prod2.conf should parse");
+
+    eprintln!("Parsed: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed.upstreams.len(), parsed.servers.len(),
+        parsed.http_params.len(), parsed.basic_settings.len());
+
+    // Step 2: Insert into DB
+    let (conn, preset_id) = setup_empty_db_for_import();
+    insert_parsed_to_db(&conn, &preset_id, &parsed);
+
+    // Step 3: Generate
+    let generated =
+        supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
+            .expect("Should generate config from imported data");
+
+    // Write generated config
+    {
+        let out_path = test_dir.join("nginx_prod2_generated.conf");
+        let mut f = std::fs::File::create(&out_path).unwrap();
+        f.write_all(generated.as_bytes()).unwrap();
+        eprintln!("✅ Generated config written to: testdata/nginx_prod2_generated.conf");
+    }
+
+    // Step 4: Parse generated config too
+    let parsed_gen = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
+        .expect("Generated config should parse");
+
+    // Report
+    eprintln!("\n============= PROD2 ROUND-TRIP REPORT =============");
+    eprintln!("Original: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed.upstreams.len(), parsed.servers.len(),
+        parsed.http_params.len(), parsed.basic_settings.len());
+    eprintln!("Generated: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed_gen.upstreams.len(), parsed_gen.servers.len(),
+        parsed_gen.http_params.len(), parsed_gen.basic_settings.len());
+
+    // Check missing upstreams
+    for up in &parsed.upstreams {
+        let found = parsed_gen.upstreams.iter().any(|g| g.name == up.name);
+        if !found { eprintln!("  ❌ MISSING upstream: {}", up.name); }
+    }
+
+    // Check missing servers
+    for srv in &parsed.servers {
+        let name = if srv.server_name.is_empty() { &srv.listen } else { &srv.server_name };
+        let found = parsed_gen.servers.iter().any(|g| g.server_name == srv.server_name);
+        if !found { eprintln!("  ❌ MISSING server: {} (listen={})", name, srv.listen); }
+    }
+
+    // Assert
+    assert_eq!(parsed_gen.upstreams.len(), parsed.upstreams.len(),
+        "Same upstream count");
+    assert_eq!(parsed_gen.servers.len(), parsed.servers.len(),
+        "Same server count");
 }
