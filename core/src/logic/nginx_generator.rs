@@ -118,6 +118,9 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
         out.push_str("\n");
     }
 
+    // Global HTTP-level IP blacklist/whitelist
+    append_global_deny_allow(conn, preset_id, "http", out)?;
+
     // Upstreams
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for u in &upstreams {
@@ -134,6 +137,94 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
     }
 
     out.push_str("}\n\n");
+    Ok(())
+}
+
+/// Add global deny/allow directives for http/stream/server blocks
+/// Uses well-known basic settings: denyAllow{Type}, denyId{Type}, allowId{Type}
+fn append_global_deny_allow(conn: &Connection, preset_id: &str, block_type: &str, out: &mut String) -> Result<(), String> {
+    let suffix = match block_type {
+        "http" => "Http",
+        "stream" => "Stream",
+        _ => return Ok(()),
+    };
+
+    let settings = get_basic_settings_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+
+    // Look up denyAllow{suffix} value
+    let deny_allow_key = format!("denyAllow{}", suffix);
+    let deny_id_key = format!("denyId{}", suffix);
+    let allow_id_key = format!("allowId{}", suffix);
+
+    let mut deny_allow_val: i64 = 0;
+    let mut deny_id = String::new();
+    let mut allow_id = String::new();
+
+    for s in &settings {
+        if s.name == deny_allow_key {
+            deny_allow_val = s.value.parse::<i64>().unwrap_or(0);
+        } else if s.name == deny_id_key {
+            deny_id = s.value.clone();
+        } else if s.name == allow_id_key {
+            allow_id = s.value.clone();
+        }
+    }
+
+    if deny_allow_val == 0 { return Ok(()); }
+
+    let indentation = "    ";
+
+    if deny_allow_val == 1 {
+        // Blacklist only
+        if !deny_id.is_empty() {
+            if let Ok(Some(da)) = get_deny_allow_by_id(conn, &deny_id) {
+                for ip in da.ip.lines() {
+                    let ip = ip.trim();
+                    if !ip.is_empty() {
+                        out.push_str(&format!("{}deny {};\n", indentation, ip));
+                    }
+                }
+            }
+        }
+        out.push_str(&format!("{}allow all;\n", indentation));
+    } else if deny_allow_val == 2 {
+        // Whitelist only
+        if !allow_id.is_empty() {
+            if let Ok(Some(da)) = get_deny_allow_by_id(conn, &allow_id) {
+                for ip in da.ip.lines() {
+                    let ip = ip.trim();
+                    if !ip.is_empty() {
+                        out.push_str(&format!("{}allow {};\n", indentation, ip));
+                    }
+                }
+            }
+        }
+        out.push_str(&format!("{}deny all;\n", indentation));
+    } else if deny_allow_val == 3 {
+        // Both blacklist and whitelist (allow first, then deny)
+        if !allow_id.is_empty() {
+            if let Ok(Some(da)) = get_deny_allow_by_id(conn, &allow_id) {
+                for ip in da.ip.lines() {
+                    let ip = ip.trim();
+                    if !ip.is_empty() {
+                        out.push_str(&format!("{}allow {};\n", indentation, ip));
+                    }
+                }
+            }
+        }
+        if !deny_id.is_empty() {
+            if let Ok(Some(da)) = get_deny_allow_by_id(conn, &deny_id) {
+                for ip in da.ip.lines() {
+                    let ip = ip.trim();
+                    if !ip.is_empty() {
+                        out.push_str(&format!("{}deny {};\n", indentation, ip));
+                    }
+                }
+            }
+        }
+    }
+
+    if !out.ends_with('\n') { out.push_str("\n"); }
     Ok(())
 }
 
@@ -158,6 +249,9 @@ fn append_http_block_decomposed(
     if !params.is_empty() {
         out.push_str("\n");
     }
+
+    // Global HTTP-level IP blacklist/whitelist
+    append_global_deny_allow(conn, preset_id, "http", out)?;
 
     // Upstreams (decomposed into separate files)
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
@@ -639,6 +733,8 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
     if streams.is_empty() { return Ok(()); }
 
     out.push_str("stream {\n");
+    // Global stream-level IP blacklist/whitelist
+    append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
         if !s.enabled { continue; }
         out.push_str(&format!("    server {{\n"));
@@ -690,6 +786,8 @@ fn append_stream_block_decomposed(
     }
 
     out.push_str("stream {\n");
+    // Global stream-level IP blacklist/whitelist
+    append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
         if !s.enabled { continue; }
 

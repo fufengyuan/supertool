@@ -144,6 +144,26 @@
           </div>
         </div>
 
+        <!-- 配置预览（可编辑） -->
+        <div v-if="currentPreset" class="bg-base-100 border border-base-content/10 rounded-xl">
+          <div
+            class="flex items-center justify-between p-3 cursor-pointer select-none"
+            @click="showConfigPreview = !showConfigPreview"
+          >
+            <span class="text-sm font-semibold"><SvgIcon name="eye" size="14" /> 配置预览</span>
+            <span class="text-xs text-base-content/50">{{ showConfigPreview ? '收起' : '展开' }}</span>
+          </div>
+          <div v-if="showConfigPreview" class="px-3 pb-3">
+            <textarea
+              v-model="configContent"
+              class="textarea textarea-bordered w-full font-mono text-xs leading-relaxed"
+              style="height: 400px; resize: vertical;"
+              spellcheck="false"
+              placeholder="点击「预览」按钮生成配置，或在此直接编辑..."
+            ></textarea>
+          </div>
+        </div>
+
         <!-- 版本历史 -->
         <div v-if="versions.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
           <h4 class="text-sm font-semibold text-base-content m-0 mb-3"><SvgIcon name="file" size="14" /> 版本历史</h4>
@@ -324,6 +344,7 @@ const confirmDeleteId = ref('')
 const confirmRollbackId = ref('')
 const deleting = ref(false)
 const currentTab = ref('server')
+const showConfigPreview = ref(false)
 
 // Config diff state
 const diffLoading = ref(false)
@@ -503,6 +524,7 @@ async function onGenerateConfig() {
     loading.value = true
     const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
     configContent.value = result?.data || result || ''
+    showConfigPreview.value = true
     // Also load version history
     const verResult = await getTauriAPI().getNginxConfigVersions(currentPreset.value.id)
     versions.value = verResult?.data || verResult || []
