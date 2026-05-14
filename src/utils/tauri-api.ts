@@ -690,6 +690,9 @@ export function useLanAPI() {
     onLanPeerLost: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
       return listen('lan-peer-lost', (event) => handler(event.payload))
     },
+    onLanPeerAvatarUpdated: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
+      return listen('lan-peer-avatar-updated', (event) => handler(event.payload))
+    },
     onLanMessage: async (handler: (payload: any) => void): Promise<UnlistenFn> => {
       return listen('lan-message-received', (event) => handler(event.payload))
     },
@@ -1613,6 +1616,7 @@ export interface TauriAPI {
   onGitSyncStatusUpdated: (callback: (data: any) => void) => () => void
   onLanPeerDiscovered: (callback: (data: any) => void) => () => void
   onLanPeerLost: (callback: (data: any) => void) => () => void
+  onLanPeerAvatarUpdated: (callback: (data: any) => void) => () => void
   onMessage: (callback: (data: any) => void) => () => void
   onServerConnected: (callback: (data: any) => void) => () => void
   onServerDisconnected: (callback: (data: any) => void) => () => void
@@ -2343,6 +2347,7 @@ export function getTauriAPI(): TauriAPI {
     onGitSyncStatusUpdated: (callback: (data: any) => void) => { return listen('git-sync-status-updated', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onLanPeerDiscovered: (callback: (data: any) => void) => { return listen('lan-peer-discovered', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onLanPeerLost: (callback: (data: any) => void) => { return listen('lan-peer-lost', (e) => callback(e.payload)) as Promise<UnlistenFn> },
+    onLanPeerAvatarUpdated: (callback: (data: any) => void) => { return listen('lan-peer-avatar-updated', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onMessage: (callback: (data: any) => void) => { return listen('message', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onServerConnected: (callback: (data: any) => void) => { return listen('server-connected', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onServerDisconnected: (callback: (data: any) => void) => { return listen('server-disconnected', (e) => callback(e.payload)) as Promise<UnlistenFn> },

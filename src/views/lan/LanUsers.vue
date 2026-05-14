@@ -410,6 +410,13 @@ onMounted(async () => {
       selectedPeer.value = null;
     }
   }));
+  cleanupIpcListeners.push(getTauriAPI().onLanPeerAvatarUpdated((data: any) => {
+    // 收到其他用户的头像更新广播，更新本地 peer 列表中的头像
+    const peer = peers.value.find(p => p.id === data.userId);
+    if (peer) {
+      peer.avatar = data.avatarRef || `file:${data.avatarPath}`;
+    }
+  }));
   cleanupIpcListeners.push(getTauriAPI().lanOnMessage((data: any) => {
     if (data && data.from) {
       const senderId = data.from;
