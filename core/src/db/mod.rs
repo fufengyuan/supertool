@@ -632,16 +632,39 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE nginx_templates ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
         [],
     );
-    // Migration: add name/value columns to nginx_basic_settings for databases
-    // still using the OLD fixed-column schema (before key-value refactor)
-    let _ = conn.execute(
-        "ALTER TABLE nginx_basic_settings ADD COLUMN name TEXT NOT NULL DEFAULT ''",
-        [],
-    );
-    let _ = conn.execute(
-        "ALTER TABLE nginx_basic_settings ADD COLUMN value TEXT NOT NULL DEFAULT ''",
-        [],
-    );
+    // Migration: drop old-style nginx_basic_settings table (had UNIQUE on presetId
+    // and fixed columns like workerProcesses, etc.) — recreate with key-value schema
+    // The old data format is incompatible with the new key-value model, so no data migration is possible.
+    {
+        // Check if the old-style table has UNIQUE constraint on presetId by
+        // querying SQLite's schema metadata for UNIQUE indexes on this table
+        let has_unique: bool = conn
+            .prepare("SELECT COUNT(*) > 0 FROM sqlite_master WHERE type='index' AND tbl_name='nginx_basic_settings' AND sql LIKE '%UNIQUE%presetId%'")
+            .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, bool>(0)))
+            .unwrap_or(false);
+
+        // Also verify the table has the name column (not the old fixed-column schema)
+        let has_name_col: bool = conn
+            .prepare("SELECT COUNT(*) > 0 FROM pragma_table_info('nginx_basic_settings') WHERE name='name'")
+            .and_then(|mut stmt| stmt.query_row([], |row| row.get::<_, bool>(0)))
+            .unwrap_or(false);
+
+        if has_unique || !has_name_col {
+            // The old table has the wrong schema — drop and recreate
+            let _ = conn.execute_batch(
+                "DROP TABLE IF EXISTS nginx_basic_settings;
+                 CREATE TABLE nginx_basic_settings (
+                     id TEXT PRIMARY KEY,
+                     presetId TEXT NOT NULL,
+                     name TEXT NOT NULL,
+                     value TEXT NOT NULL DEFAULT '',
+                     sort INTEGER NOT NULL DEFAULT 0,
+                     createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+                     FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+                 );",
+            );
+        }
+    }
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
