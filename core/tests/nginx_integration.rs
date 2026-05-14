@@ -798,8 +798,34 @@ fn insert_parsed_to_db(
     }
 
     // Servers with locations
+    // First collect unique certs from SSL servers
+    let mut cert_map: Vec<(String, String, String)> = Vec::new();
+    for srv in &config.servers {
+        if srv.ssl != 0 && !srv.pem.is_empty() && !srv.key.is_empty() {
+            let key = format!("{}|{}", srv.pem, srv.key);
+            if !cert_map.iter().any(|(k, _, _)| k == &key) {
+                cert_map.push((key, srv.pem.clone(), srv.key.clone()));
+            }
+        }
+    }
+    let mut cert_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (idx, (pem_key, pem_path, key_path)) in cert_map.iter().enumerate() {
+        let cert_id = format!("icert-{}", idx);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_certs (id, presetId, name, pem, key, domain, createdAt) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            rusqlite::params![cert_id, preset_id, format!("imported_{}", idx), pem_path, key_path, "imported", now],
+        ).unwrap();
+        cert_lookup.insert(pem_key.clone(), cert_id);
+    }
+
     for (si, srv) in config.servers.iter().enumerate() {
         let srv_id = format!("srv-{}", si);
+        let resolved_cert_id = if srv.ssl != 0 && !srv.pem.is_empty() && !srv.key.is_empty() {
+            let key = format!("{}|{}", srv.pem, srv.key);
+            cert_lookup.get(&key).cloned().unwrap_or_default()
+        } else {
+            String::new()
+        };
         conn.execute(
             "INSERT OR IGNORE INTO nginx_servers \
              (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol, serverName, ssl, \
@@ -813,7 +839,7 @@ fn insert_parsed_to_db(
                 if srv.ipv6 { 1 } else { 0 },
                 0,
                 srv.server_name, srv.ssl,
-                "", 0, "", srv.http2, srv.protocols,
+                resolved_cert_id, 0, "", srv.http2, srv.protocols,
                 "", srv.deny_allow, "", "",
                 "", "", 1, si as i64, "", now, now,
             ],
