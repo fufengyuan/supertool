@@ -1066,9 +1066,44 @@ impl CoreService {
             }
 
             // 4. Servers + locations
+            // Collect unique certs from imported SSL servers, insert into nginx_certs
+            let mut cert_map: Vec<(String, String, String)> = Vec::new(); // (pem|key key, pem, key)
+            for srv in &parsed.servers {
+                if srv.ssl != 0 && !srv.pem.is_empty() && !srv.key.is_empty() {
+                    let key = format!("{}|{}", srv.pem, srv.key);
+                    if !cert_map.iter().any(|(k, _, _)| k == &key) {
+                        cert_map.push((key, srv.pem.clone(), srv.key.clone()));
+                    }
+                }
+            }
+            // Insert cert records — reuse imported_cert_ prefix for the original cert_id
+            let mut cert_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new(); // pem|key -> cert_id
+            for (idx, (pem_key, pem_path, key_path)) in cert_map.iter().enumerate() {
+                let cert_id = format!("icert_{}", uuid::Uuid::new_v4().simple());
+                let domain = format!("imported_{}", idx);
+                crate::db::nginx::add_nginx_cert(conn, &NginxCert {
+                    id: cert_id.clone(),
+                    preset_id: pid.clone(),
+                    name: format!("导入证书 #{}", idx + 1),
+                    pem: pem_path.clone(),
+                    key: key_path.clone(),
+                    domain: domain.clone(),
+                    created_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+                cert_lookup.insert(pem_key.clone(), cert_id);
+            }
+
             for srv in &parsed.servers {
                 let srv_id = format!("sv_{}", uuid::Uuid::new_v4().simple());
-                crate::db::nginx::add_nginx_server(conn, &NginxServer {
+                // Resolve cert_id for imported SSL servers
+                let resolved_cert_id = if srv.ssl != 0 && !srv.pem.is_empty() && !srv.key.is_empty() {
+                    let key = format!("{}|{}", srv.pem, srv.key);
+                    cert_lookup.get(&key).cloned().unwrap_or_else(|| srv.cert_id.clone())
+                } else {
+                    srv.cert_id.clone()
+                };
+
+                let _ = crate::db::nginx::add_nginx_server(conn, &NginxServer {
                     id: srv_id.clone(),
                     preset_id: pid.clone(),
                     proxy_type: srv.proxy_type,
@@ -1079,7 +1114,7 @@ impl CoreService {
                     proxy_protocol: srv.proxy_protocol,
                     server_name: srv.server_name.clone(),
                     ssl: srv.ssl != 0,
-                    cert_id: srv.cert_id.clone(),
+                    cert_id: resolved_cert_id,
                     rewrite: srv.rewrite,
                     rewrite_listen: srv.rewrite_listen.clone(),
                     http2: srv.http2,
