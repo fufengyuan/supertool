@@ -156,7 +156,7 @@
                       @contextmenu.prevent="onFolderContext($event, conn)"
                     >
                       <SvgIcon :name="areDbTablesExpanded(conn.id, dbName) ? 'chevronDown' : 'chevronRight'" size="12" class="text-base-content/30 flex-shrink-0" />
-                      <SvgIcon name="table" size="12" class="text-green-600 flex-shrink-0" />
+                      <SvgIcon name="grid" size="12" class="text-green-600 flex-shrink-0" />
                       <span class="flex-1 truncate text-sm leading-tight min-w-0 font-medium">Tables</span>
                       <span v-if="dbTables[dbKey(conn.id, dbName)] !== undefined" class="text-xs text-base-content/40 tabular-nums flex-shrink-0 ml-auto">
                         {{ dbTables[dbKey(conn.id, dbName)]?.length ?? 0 }}
@@ -263,7 +263,7 @@
                     @contextmenu.prevent="onFolderContext($event, conn)"
                   >
                     <SvgIcon :name="areDbTablesExpanded(conn.id, 'sqlite_main') ? 'chevronDown' : 'chevronRight'" size="12" class="text-base-content/30 flex-shrink-0" />
-                    <SvgIcon name="table" size="12" class="text-green-600 flex-shrink-0" />
+                    <SvgIcon name="grid" size="12" class="text-green-600 flex-shrink-0" />
                     <span class="flex-1 truncate text-sm leading-tight min-w-0 font-medium">Tables</span>
                     <span v-if="dbTables[dbKey(conn.id, 'sqlite_main')] !== undefined" class="text-xs text-base-content/40 tabular-nums flex-shrink-0 ml-auto">
                       {{ dbTables[dbKey(conn.id, 'sqlite_main')]?.length ?? 0 }}

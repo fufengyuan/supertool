@@ -16,7 +16,7 @@
     </div>
 
     <div v-else-if="items.length === 0" class="flex flex-col items-center justify-center py-8 text-base-content/50">
-      <SvgIcon name="list" size="24" class="mb-2 opacity-50" />
+      <SvgIcon name="menu" size="24" class="mb-2 opacity-50" />
       <p class="text-sm">暂无额外参数</p>
     </div>
 

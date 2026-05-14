@@ -110,7 +110,7 @@
               <span class="text-xs font-medium text-base-content/80">上游服务器</span>
               <div class="flex items-center gap-2">
                 <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
-                  <SvgIcon name="list" size="12" /> 批添加
+                  <SvgIcon name="menu" size="12" /> 批添加
                 </button>
                 <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
                   <SvgIcon name="plus" size="12" /> 新增服务器
