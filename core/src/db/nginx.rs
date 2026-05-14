@@ -133,6 +133,7 @@ pub struct NginxUpstream {
     pub descr: String,
     #[serde(rename = "paramJson")]
     pub param_json: String,
+    pub sort: i64,
     #[serde(rename = "createdAt")]
     pub created_at: String,
     #[serde(rename = "updatedAt")]
@@ -378,6 +379,7 @@ pub fn row_to_nginx_upstream(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxU
         strategy: row.get("strategy")?,
         descr: row.get("descr")?,
         param_json: row.get("paramJson")?,
+        sort: row.get("sort")?,
         created_at: row.get("createdAt")?,
         updated_at: row.get("updatedAt")?,
     })
@@ -794,17 +796,17 @@ pub fn get_upstream_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Re
 
 pub fn add_nginx_upstream(conn: &rusqlite::Connection, u: &NginxUpstream) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT INTO nginx_upstreams (id, presetId, name, proxyType, strategy, descr, paramJson, createdAt, updatedAt)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-        params![u.id, u.preset_id, u.name, u.proxy_type, u.strategy, u.descr, u.param_json, u.created_at, u.updated_at],
+        "INSERT INTO nginx_upstreams (id, presetId, name, proxyType, strategy, descr, paramJson, sort, createdAt, updatedAt)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+        params![u.id, u.preset_id, u.name, u.proxy_type, u.strategy, u.descr, u.param_json, u.sort, u.created_at, u.updated_at],
     )?;
     Ok(())
 }
 
 pub fn update_nginx_upstream(conn: &rusqlite::Connection, u: &NginxUpstream) -> rusqlite::Result<()> {
     conn.execute(
-        "UPDATE nginx_upstreams SET name=?2, proxyType=?3, strategy=?4, descr=?5, paramJson=?6, updatedAt=?7 WHERE id=?1",
-        params![u.id, u.name, u.proxy_type, u.strategy, u.descr, u.param_json, u.updated_at],
+        "UPDATE nginx_upstreams SET name=?2, proxyType=?3, strategy=?4, descr=?5, paramJson=?6, sort=?7, updatedAt=?8 WHERE id=?1",
+        params![u.id, u.name, u.proxy_type, u.strategy, u.descr, u.param_json, u.sort, u.updated_at],
     )?;
     Ok(())
 }

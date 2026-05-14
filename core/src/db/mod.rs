@@ -397,6 +397,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             strategy TEXT NOT NULL DEFAULT 'polling',
             descr TEXT NOT NULL DEFAULT '',
             paramJson TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL DEFAULT (datetime('now')),
             updatedAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
