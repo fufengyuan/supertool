@@ -644,6 +644,12 @@ function onTableContext(event: MouseEvent, conn: DBConnection, table: string, db
       icon: '📝',
       label: '生成 SELECT 查询',
       action: () => { emit('open-sql', conn.id, table, dbName); closeContextMenu() }
+    },
+    { separator: true },
+    {
+      icon: '🗑️',
+      label: '删除表',
+      action: () => { emit('delete-table', conn.id, table, dbName); closeContextMenu() }
     }
   ]
   showContextMenu(event.clientX, event.clientY, items)

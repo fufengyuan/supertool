@@ -94,6 +94,7 @@
           @open-table-structure="handleOpenTableStructure"
           @open-sql="handleOpenSql"
           @refresh-tables="handleRefreshTables"
+          @delete-table="handleDeleteTable"
           @toggle="db.toggleConnection"
           @edit="db.openEditForm"
           @toggle-tables="db.toggleTables"
@@ -690,6 +691,48 @@ function handleOpenRedisKey(connId: string, dbIndex: number, key: string) {
 function handleRefreshTables(connId: string) {
   treeRef.value?.refreshTables(connId)
   toast.info('表列表已刷新')
+}
+
+async function handleDeleteTable(connId: string, table: string, dbName?: string) {
+  const conn = db.connections.value.find(c => c.id === connId)
+  if (!conn) return
+
+  // Check if connection requires approval
+  if ((conn as any).requiresApproval) {
+    toast.error('此连接已开启安全审核，删除表操作被禁止')
+    return
+  }
+
+  const confirmed = confirm(`确定要删除表「${table}」吗？\n\n此操作不可撤销，表中的所有数据都将被永久删除。`)
+  if (!confirmed) return
+
+  try {
+    // Build DROP TABLE SQL based on database type
+    let sql: string
+    if (conn.type === 'mysql') {
+      const tableRef = dbName ? `\`${dbName}\`.\`${table}\`` : `\`${table}\``
+      sql = `DROP TABLE ${tableRef}`
+    } else if (conn.type === 'postgresql') {
+      const tableRef = dbName ? `${dbName}.${table}` : table
+      sql = `DROP TABLE ${tableRef}`
+    } else if (conn.type === 'sqlite') {
+      sql = `DROP TABLE "${table}"`
+    } else {
+      toast.error('不支持此数据库类型的删除表操作')
+      return
+    }
+
+    const result = await getTauriAPI().dbQuery(connId, sql)
+    if (result && typeof result === 'object' && 'success' in result && (result as any).success) {
+      toast.success(`表「${table}」已删除`)
+      // Refresh table list
+      treeRef.value?.refreshTables(connId)
+    } else {
+      toast.error('删除失败: ' + ((result as any)?.error || '未知错误'))
+    }
+  } catch (e: any) {
+    toast.error('删除失败: ' + (e?.message || '未知错误'))
+  }
 }
 
 async function fetchColumnComments(connId: string, table: string, dbName?: string) {
