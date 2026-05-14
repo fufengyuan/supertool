@@ -526,18 +526,19 @@ impl LanService {
                             });
 
                             if let Ok(msg) = serde_json::to_string(&request) {
-                                // Use the main UDP socket to send request to peer's message port
-                                // Note: we need to get the socket from the outer scope
-                                // For now, we'll emit an event and let the main loop handle it
-                                if let Some(app) = app_handle {
-                                    let _ = app.emit(
-                                        "lan-avatar-request-needed",
-                                        serde_json::json!({
-                                            "peerId": peer_id,
-                                            "peerAddress": addr.ip().to_string(),
-                                            "peerPort": message_port,
-                                            "message": msg,
-                                        }),
+                                // Send request directly using a temporary UDP socket
+                                if let Ok(request_sock) = UdpSocket::bind("0.0.0.0:0") {
+                                    let _ = request_sock.send_to(
+                                        msg.as_bytes(),
+                                        format!("{}:{}", addr.ip(), message_port),
+                                    );
+                                    Self::add_log_static(
+                                        log,
+                                        "info",
+                                        &format!(
+                                            "Sent avatar_request to {} for {}",
+                                            peer_id, peer_avatar_ref
+                                        ),
                                     );
                                 }
                             }
