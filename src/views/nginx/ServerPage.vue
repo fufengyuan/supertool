@@ -105,10 +105,10 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-4xl max-h-[80vh] overflow-y-auto">
+      <div class="modal-box max-w-7xl max-h-[85vh] overflow-y-auto">
         <h3 class="font-bold text-lg">{{ editingServer ? '编辑 Server' : '新增 Server' }}</h3>
 
-        <div class="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
+        <div class="grid grid-cols-2 gap-x-8 gap-y-4 mt-4">
           <!-- 左列 -->
           <div class="flex flex-col gap-3">
             <!-- 代理类型 -->
