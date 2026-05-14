@@ -81,10 +81,21 @@ impl super::CoreService {
             // Skip if not enough time has passed since last check
             if let Some(ref last_check) = service.last_check_at {
                 if let Ok(last) = chrono::DateTime::parse_from_rfc3339(last_check) {
-                    let elapsed = now.signed_duration_since(last).num_seconds();
+                    let last_utc = last.with_timezone(&chrono::Utc);
+                    let elapsed = now.signed_duration_since(last_utc).num_seconds();
+                    log::debug!(
+                        "[Alert] Service {} last_check {}s ago (interval {}s)",
+                        service.name, elapsed, service.check_interval
+                    );
                     if elapsed < service.check_interval {
+                        log::debug!("[Alert] Skipping service {} - not due yet", service.name);
                         continue;
                     }
+                } else {
+                    log::warn!(
+                        "[Alert] Failed to parse last_check_at for service {}: {}",
+                        service.name, last_check
+                    );
                 }
             }
 
