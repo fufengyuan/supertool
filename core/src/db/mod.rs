@@ -350,7 +350,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             http2 INTEGER NOT NULL DEFAULT 0,
             protocols TEXT NOT NULL DEFAULT '',
             passwordId TEXT NOT NULL DEFAULT '',
-            denyAllow TEXT NOT NULL DEFAULT '0',
+            denyAllow INTEGER NOT NULL DEFAULT 0,
             denyId TEXT NOT NULL DEFAULT '',
             allowId TEXT NOT NULL DEFAULT '',
             proxyUpstreamId TEXT NOT NULL DEFAULT '',
@@ -379,11 +379,12 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             header INTEGER NOT NULL DEFAULT 0,
             websocket INTEGER NOT NULL DEFAULT 0,
             cros INTEGER NOT NULL DEFAULT 0,
-            headerHost TEXT NOT NULL DEFAULT 'default',
+            headerHost TEXT NOT NULL DEFAULT '',
             returnUrl TEXT NOT NULL DEFAULT '',
             returnPath INTEGER NOT NULL DEFAULT 0,
             paramJson TEXT NOT NULL DEFAULT '',
             sort INTEGER NOT NULL DEFAULT 0,
+            descr TEXT NOT NULL DEFAULT '',
             createdAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (serverId) REFERENCES nginx_servers(id) ON DELETE CASCADE
         );
