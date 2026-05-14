@@ -194,7 +194,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { open } from '@tauri-apps/plugin-shell';
+import { Command } from '@tauri-apps/plugin-shell';
 import SvgIcon from '../../components/SvgIcon.vue';
 
 interface HermesSession {
@@ -300,8 +300,8 @@ function sourceIcon(source: string): string {
 }
 
 function openNewSession() {
-  // Open Hermes CLI in terminal
-  open('hermes chat');
+  // Open Hermes CLI in new Terminal window (macOS)
+  Command.create('osascript', ['-e', 'tell application "Terminal" to do script "hermes chat"']).execute();
 }
 
 async function openSession(session: HermesSession) {
@@ -323,7 +323,8 @@ async function openSession(session: HermesSession) {
 
 function resumeSession() {
   if (currentSession.value) {
-    open(`hermes chat --resume ${currentSession.value.id}`);
+    const cmd = `hermes chat --resume ${currentSession.value.id}`;
+    Command.create('osascript', ['-e', `tell application "Terminal" to do script "${cmd}"`]).execute();
     showDetail.value = false;
   }
 }
