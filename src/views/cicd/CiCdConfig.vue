@@ -183,8 +183,43 @@
                 </div>
               </div>
 
+              <!-- 打包模式 -->
               <div class="mb-3.5">
-                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">本地项目目录 <span class="text-xs font-normal text-base-content/60 normal-case tracking-normal ml-1">（根据所选仓库自动加载）</span></label>
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">打包模式</label>
+                <div class="flex gap-2">
+                  <button
+                    class="flex-1 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                    :class="config.buildMode === 'local'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
+                    @click="config.buildMode = 'local'"
+                  >
+                    <SvgIcon name="folder" size="16" />
+                    <div class="text-left">
+                      <div class="font-semibold">本地目录</div>
+                      <div class="text-[10px] opacity-70 font-normal">在项目目录直接构建</div>
+                    </div>
+                  </button>
+                  <button
+                    class="flex-1 px-3 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-150 flex items-center gap-2"
+                    :class="config.buildMode === 'git_clone'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-base-content/10 text-base-content/60 hover:border-base-content/30'"
+                    @click="config.buildMode = 'git_clone'"
+                  >
+                    <SvgIcon name="gitBranch" size="16" />
+                    <div class="text-left">
+                      <div class="font-semibold">Git 克隆</div>
+                      <div class="text-[10px] opacity-70 font-normal">克隆到隔离工作空间</div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div class="mb-3.5">
+                <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">
+                  {{ config.buildMode === 'git_clone' ? '远程仓库地址' : '本地项目目录' }}
+                </label>
                 <div v-if="selectedGitRepo" class="flex items-center gap-2 px-3 py-2.5 bg-base-200 rounded-xl border border-base-content/10 text-sm font-mono text-base-content">
                   <SvgIcon name="folder" size="14" class="shrink-0 text-base-content/60" />
                   <span class="flex-1 truncate">{{ selectedGitRepo.path }}</span>

@@ -114,6 +114,7 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
     let migrations = [
         "ALTER TABLE cicd_configs ADD COLUMN pnpmHome TEXT DEFAULT ''",
         "ALTER TABLE cicd_configs ADD COLUMN yarnHome TEXT DEFAULT ''",
+        "ALTER TABLE cicd_configs ADD COLUMN buildMode TEXT DEFAULT 'local'",
     ];
     for sql in migrations {
         let _ = conn.execute(sql, []); // ignore "duplicate column" errors
@@ -152,7 +153,8 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
             parentBuildPath TEXT DEFAULT '',
             requiresApproval INTEGER NOT NULL DEFAULT 0,
             pnpmHome TEXT,
-            yarnHome TEXT
+            yarnHome TEXT,
+            buildMode TEXT NOT NULL DEFAULT 'local'
         );
 
         CREATE TABLE IF NOT EXISTS deploy_modules (
