@@ -568,6 +568,59 @@ impl LanService {
                     }
                 }
             }
+            "avatar_update" => {
+                // 处理其他用户的头像更新
+                let from_id = data["from"].as_str().unwrap_or("");
+                if from_id.is_empty() || from_id == my_user_id {
+                    return;
+                }
+                
+                let from_name = data["fromName"].as_str().unwrap_or(from_id);
+                let avatar_ref = data["avatar"].as_str();
+                let avatar_data = data["avatarData"].as_str();
+                let avatar_ext = data["avatarExt"].as_str().unwrap_or("png");
+                
+                if let (Some(_avatar_ref), Some(avatar_data)) = (avatar_ref, avatar_data) {
+                    // 保存头像图片到本地 avatars 目录，使用发送者 user_id 标识
+                    let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+                    let avatars_dir = data_dir.join("avatars");
+                    
+                    if !avatars_dir.exists() {
+                        let _ = fs::create_dir_all(&avatars_dir);
+                    }
+                    
+                    // 使用 peer_id 作为文件名，避免冲突
+                    let local_filename = format!("peer_{}.{}", from_id, avatar_ext);
+                    let local_path = avatars_dir.join(&local_filename);
+                    
+                    // 解码 base64 并保存
+                    if let Ok(decoded) = BASE64.decode(avatar_data) {
+                        if let Ok(_) = fs::write(&local_path, decoded) {
+                            // 更新 peer 的 avatar 字段
+                            let local_avatar_ref = format!("avatar:{}", local_filename);
+                            if let Ok(mut peers_map) = peers.lock() {
+                                if let Some(peer) = peers_map.get_mut(from_id) {
+                                    peer.avatar = Some(local_avatar_ref.clone());
+                                }
+                            }
+                            
+                            Self::add_log_static(log, "info", &format!(
+                                "Avatar update from {}: saved to {}", from_name, local_path.display()
+                            ));
+                            
+                            // 发送前端事件通知更新
+                            if let Some(app) = app_handle {
+                                let _ = app.emit("lan-peer-avatar-updated", serde_json::json!({
+                                    "userId": from_id,
+                                    "name": from_name,
+                                    "avatar": local_avatar_ref,
+                                    "avatarPath": local_path.to_string_lossy().to_string(),
+                                }));
+                            }
+                        }
+                    }
+                }
+            }
             "file_start" => {
                 let file_id = data["id"].as_str()
                     .or_else(|| data["fileId"].as_str());
@@ -1103,11 +1156,70 @@ impl LanService {
         }
     }
 
-    pub fn set_avatar(&self, emoji: String) {
-        *self.avatar.lock().unwrap() = emoji.clone();
+    pub fn set_avatar(&self, avatar: String) {
+        *self.avatar.lock().unwrap() = avatar.clone();
         if let Ok(conn) = self.db_conn.lock() {
-            let _ = lan::save_lan_setting(&conn, &format!("avatar:{}", self.user_id), &emoji);
+            let _ = lan::save_lan_setting(&conn, &format!("avatar:{}", self.user_id), &avatar);
         }
+        
+        // 如果是图片头像，广播给其他用户
+        if avatar.starts_with("avatar:") {
+            if let Err(e) = self.broadcast_avatar_update(&avatar) {
+                log::warn!("[LAN] Failed to broadcast avatar update: {}", e);
+            }
+        }
+    }
+
+    /// 广播头像更新到所有在线 peer（包含 base64 图片数据）
+    pub fn broadcast_avatar_update(&self, avatar_ref: &str) -> Result<usize, String> {
+        if !self.is_running.load(Ordering::SeqCst) {
+            return Err("LAN service not running".to_string());
+        }
+
+        // 解析 avatar:filename 格式，读取图片文件
+        let filename = avatar_ref.strip_prefix("avatar:")
+            .ok_or("Invalid avatar format")?;
+        let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
+        let avatar_path = data_dir.join("avatars").join(filename);
+
+        // 读取图片文件并转为 base64
+        let image_data = fs::read(&avatar_path)
+            .map_err(|e| format!("读取头像图片失败: {}", e))?;
+        let base64_data = BASE64.encode(&image_data);
+
+        // 获取图片扩展名用于接收方保存
+        let ext = avatar_path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("png");
+
+        let nick = self.nick_name.lock().unwrap().clone();
+        let msg = serde_json::json!({
+            "type": "avatar_update",
+            "from": self.user_id,
+            "fromName": if nick.is_empty() { &self.user_id } else { &nick },
+            "avatar": avatar_ref,
+            "avatarData": base64_data,
+            "avatarExt": ext,
+            "timestamp": chrono::Utc::now().timestamp_millis(),
+        });
+
+        let data_str = serde_json::to_string(&msg)
+            .map_err(|e| format!("序列化失败: {}", e))?;
+
+        // 广播给所有在线 peer
+        let peers = self.peers.lock().unwrap();
+        let mut sent_count = 0;
+        if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
+            for peer in peers.values() {
+                if peer.online {
+                    let _ = udp.send_to(data_str.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                    sent_count += 1;
+                }
+            }
+        }
+        
+        log::info!("[LAN] Broadcasted avatar update to {} peers", sent_count);
+        Ok(sent_count)
     }
 
     pub fn set_status(&self, status: String) {
