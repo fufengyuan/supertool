@@ -121,12 +121,8 @@
 
         <!-- 选项卡内容 -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1 min-h-[400px]">
-          <div
-            v-for="tab in tabs"
-            :key="tab.key"
-            v-if="currentTab === tab.key"
-            class="p-4"
-          >
+          <template v-for="tab in tabs" :key="tab.key">
+            <div v-if="currentTab === tab.key" class="p-4">
             <!-- 未选择预设时显示提示 -->
             <div v-if="!currentPreset" class="flex items-center justify-center h-32 text-base-content/50">
               <p>请先选择一个预设</p>
@@ -147,6 +143,7 @@
               <p class="text-xs mt-2">请在 <code>src/views/nginx/</code> 下创建此组件</p>
             </div>
           </div>
+          </template>
         </div>
 
         <!-- 配置预览（可编辑） -->
