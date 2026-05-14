@@ -450,10 +450,10 @@ impl super::CoreService {
     pub async fn add_alert_resource(&self, resource: alert::AlertResource) -> Result<(), String> {
         self.db_write(|conn| {
             conn.execute(
-                "INSERT INTO alert_resources (id, name, category, expire_at, alert_advance_days, enabled, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+                "INSERT INTO alert_resources (id, name, category, remark, expire_at, alert_advance_days, enabled, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
                 rusqlite::params![
-                    resource.id, resource.name, resource.category, resource.expire_at,
+                    resource.id, resource.name, resource.category, resource.remark, resource.expire_at,
                     resource.alert_advance_days, if resource.enabled { 1 } else { 0 },
                 ],
             ).map(|_| ()).map_err(|e| format!("添加资源失败: {}", e))
@@ -464,9 +464,9 @@ impl super::CoreService {
     pub async fn update_alert_resource(&self, resource: alert::AlertResource) -> Result<(), String> {
         self.db_write(|conn| {
             conn.execute(
-                "UPDATE alert_resources SET name=?2, category=?3, expire_at=?4, alert_advance_days=?5, enabled=?6 WHERE id=?1",
+                "UPDATE alert_resources SET name=?2, category=?3, remark=?4, expire_at=?5, alert_advance_days=?6, enabled=?7 WHERE id=?1",
                 rusqlite::params![
-                    resource.id, resource.name, resource.category, resource.expire_at,
+                    resource.id, resource.name, resource.category, resource.remark, resource.expire_at,
                     resource.alert_advance_days, if resource.enabled { 1 } else { 0 },
                 ],
             ).map(|_| ()).map_err(|e| format!("更新资源失败: {}", e))
