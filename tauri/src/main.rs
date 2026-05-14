@@ -690,6 +690,21 @@ fn main() {
             // NginxBasicSetting commands
             commands::nginx::get_basic_settings,
             commands::nginx::save_basic_settings,
+            // NginxParam commands
+            commands::nginx::get_params_by_preset,
+            commands::nginx::add_nginx_param,
+            commands::nginx::update_nginx_param,
+            commands::nginx::delete_nginx_param,
+            // NginxDenyAllow commands
+            commands::nginx::get_deny_allows_by_preset,
+            commands::nginx::add_nginx_deny_allow,
+            commands::nginx::update_nginx_deny_allow,
+            commands::nginx::delete_nginx_deny_allow,
+            // NginxPassword commands
+            commands::nginx::get_passwords_by_preset,
+            commands::nginx::add_nginx_password,
+            commands::nginx::update_nginx_password,
+            commands::nginx::delete_nginx_password,
             // Config Generation
             commands::nginx::generate_nginx_config,
             // Disk cleaner commands

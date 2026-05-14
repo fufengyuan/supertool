@@ -3,6 +3,7 @@ use crate::db::ApiResponse;
 use crate::db::nginx::{
     NginxServer, NginxLocation, NginxUpstream, NginxUpstreamServer,
     NginxHttpParam, NginxStream, NginxCert, NginxTemplate, NginxBasicSetting,
+    NginxParam, NginxDenyAllow, NginxPassword,
 };
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -691,6 +692,135 @@ impl CoreService {
                 crate::db::nginx::add_nginx_basic_setting(conn, s).map_err(|e| e.to_string())?;
             }
             Ok(())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxParam CRUD ============
+
+    pub async fn get_params_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxParam>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxParam>, String> {
+            crate::db::nginx::get_params_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_param(
+        &self,
+        param: &NginxParam,
+    ) -> Result<ApiResponse<()>, String> {
+        let p = param.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_param(conn, &p).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_param(
+        &self,
+        param: &NginxParam,
+    ) -> Result<ApiResponse<()>, String> {
+        let p = param.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_param(conn, &p).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_param(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let pid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_param(conn, &pid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxDenyAllow CRUD ============
+
+    pub async fn get_deny_allows_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxDenyAllow>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxDenyAllow>, String> {
+            crate::db::nginx::get_deny_allows_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_deny_allow(
+        &self,
+        deny_allow: &NginxDenyAllow,
+    ) -> Result<ApiResponse<()>, String> {
+        let d = deny_allow.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_deny_allow(conn, &d).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_deny_allow(
+        &self,
+        deny_allow: &NginxDenyAllow,
+    ) -> Result<ApiResponse<()>, String> {
+        let d = deny_allow.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_deny_allow(conn, &d).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_deny_allow(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let did = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_deny_allow(conn, &did).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    // ============ NginxPassword CRUD ============
+
+    pub async fn get_passwords_by_preset(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<Vec<NginxPassword>>, String> {
+        let pid = preset_id.to_string();
+        let result = self.db_read(move |conn| -> Result<Vec<NginxPassword>, String> {
+            crate::db::nginx::get_passwords_by_preset(conn, &pid).map_err(|e| e.to_string())
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
+    pub async fn add_nginx_password(
+        &self,
+        password: &NginxPassword,
+    ) -> Result<ApiResponse<()>, String> {
+        let pw = password.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::add_nginx_password(conn, &pw).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_nginx_password(
+        &self,
+        password: &NginxPassword,
+    ) -> Result<ApiResponse<()>, String> {
+        let pw = password.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_password(conn, &pw).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_nginx_password(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let pid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_password(conn, &pid).map_err(|e| e.to_string())
         })??)
         .map(|_| ApiResponse::ok(()))
     }
