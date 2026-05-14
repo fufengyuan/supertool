@@ -4,7 +4,45 @@
 use crate::db::nginx::*;
 use rusqlite::Connection;
 
-/// Generate the full nginx config for a preset
+/// Parse a listen string into a list of port numbers.
+/// Supports: "80", "80,443", "8080-8090", "127.0.0.1:80", "127.0.0.1:8080-8090"
+fn parse_ports(listen: &str) -> Vec<String> {
+    let mut result = Vec::new();
+
+    // Extract host prefix if present (e.g., "127.0.0.1:80" -> host="127.0.0.1:", port="80")
+    let (host_prefix, port_part) = if let Some(idx) = listen.rfind(':') {
+        // Check for IPv6
+        if listen.contains('[') {
+            ("".to_string(), listen.to_string())
+        } else {
+            (format!("{}:", &listen[..idx]), listen[idx+1..].to_string())
+        }
+    } else {
+        ("".to_string(), listen.to_string())
+    };
+
+    // Split by comma and expand ranges
+    for part in port_part.split(',') {
+        let part = part.trim();
+        if part.is_empty() { continue; }
+        if let Some(idx) = part.find('-') {
+            let start: u16 = part[..idx].parse().unwrap_or(80);
+            let end: u16 = part[idx+1..].parse().unwrap_or(start);
+            for p in start..=end {
+                if p <= end {
+                    result.push(format!("{}{}", host_prefix, p));
+                }
+            }
+        } else {
+            result.push(format!("{}{}", host_prefix, part));
+        }
+    }
+
+    if result.is_empty() {
+        result.push(listen.to_string());
+    }
+    result
+}
 pub fn generate_nginx_config(conn: &Connection, preset_id: &str) -> Result<String, String> {
     let mut output = String::new();
 
@@ -165,21 +203,26 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
             out.push_str(&format!("        server_name  {};\n", s.server_name));
         }
 
-        // listen directive
-        let mut listen_val = format!("listen {}", s.listen);
-        if s.def { listen_val += " default_server"; }
-        if s.proxy_protocol { listen_val += " proxy_protocol"; }
-        if s.ssl {
-            listen_val += " ssl";
-            if s.http2 == 1 { listen_val += " http2"; } // old-style http2
+        // listen directive (with port range support)
+        let ports = parse_ports(&s.listen);
+        for port in &ports {
+            let mut listen_val = format!("listen {}", port);
+            if s.def { listen_val += " default_server"; }
+            if s.proxy_protocol { listen_val += " proxy_protocol"; }
+            if s.ssl {
+                listen_val += " ssl";
+                if s.http2 == 1 { listen_val += " http2"; } // old-style http2
+            }
+            out.push_str(&format!("        {};\n", listen_val));
         }
-        out.push_str(&format!("        {};\n", listen_val));
         if s.ipv6 {
-            let mut listen_ipv6 = format!("listen [::]:{}", s.listen);
-            if s.def { listen_ipv6 += " default_server"; }
-            if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
-            if s.ssl { listen_ipv6 += " ssl"; }
-            out.push_str(&format!("        {};\n", listen_ipv6));
+            for port in &ports {
+                let mut listen_ipv6 = format!("listen [::]:{}", port);
+                if s.def { listen_ipv6 += " default_server"; }
+                if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
+                if s.ssl { listen_ipv6 += " ssl"; }
+                out.push_str(&format!("        {};\n", listen_ipv6));
+            }
         }
 
         // HTTP2 new-style (http2 on;)
