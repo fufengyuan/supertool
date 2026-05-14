@@ -393,6 +393,7 @@ const emit = defineEmits<{
   'open-table-structure': [connId: string, table: string, dbName?: string]
   'open-sql': [connId: string, table?: string, dbName?: string]
   'refresh-tables': [connId: string]
+  'delete-table': [connId: string, table: string, dbName?: string]
   toggle: [id: string]
   'toggle-tables': [id: string]
   'toggle-database': [connId: string, dbName: string]
