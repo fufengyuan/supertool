@@ -631,3 +631,53 @@ fn test_real_world_config_parse() {
     assert!(mysql_stream.proxy_upstream_id.is_empty());
     assert_eq!(mysql_stream.proxy_pass, "10.0.10.1:3306");
 }
+
+fn parse_and_count(name: &str, text: &str) -> supertool_core::logic::nginx_parser::ParsedNginxConfig {
+    let config = supertool_core::logic::nginx_parser::parse_nginx_config(text)
+        .unwrap_or_else(|e| panic!("{}: parse failed: {}", name, e));
+    eprintln!("[{}] basic={} http={} upstream={} server={} stream={}",
+        name, config.basic_settings.len(), config.http_params.len(),
+        config.upstreams.len(), config.servers.len(), config.streams.len());
+    config
+}
+
+#[test]
+fn test_all_scenario_configs() {
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("testdata");
+    let files = [
+        ("nginx_simple.conf",      1, 0, 0, 1, 0),
+        ("nginx_single_domain.conf",0, 0, 0, 2, 0),
+        ("nginx_multi_domain.conf", 0, 0, 4, 3, 0),
+        ("nginx_port_forward.conf", 0, 0, 0, 1, 6),
+        ("nginx_reverse_proxy.conf",0, 0, 4, 2, 0),
+        ("nginx_complex_app.conf",  0, 0, 3, 5, 1),
+    ];
+
+    let mut total = 0;
+    for (filename, min_bs, min_hp, exact_up, exact_srv, exact_st) in &files {
+        let path = test_dir.join(filename);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("Cannot read {}: {}", filename, e));
+        let config = parse_and_count(filename, &text);
+
+        if *min_bs > 0 { assert!(config.basic_settings.len() >= *min_bs, "{}: expected basic_settings >= {}", filename, min_bs); }
+        if *min_hp > 0 { assert!(config.http_params.len() >= *min_hp, "{}: expected http_params >= {}", filename, min_hp); }
+        if *exact_up > 0 { assert_eq!(config.upstreams.len(), *exact_up, "{}: upstream count mismatch", filename); }
+        if *exact_srv > 0 { assert_eq!(config.servers.len(), *exact_srv, "{}: server count mismatch", filename); }
+        if *exact_st > 0 { assert_eq!(config.streams.len(), *exact_st, "{}: stream count mismatch", filename); }
+
+        // Verify no server has empty listen unless it's a redirect-only server
+        for srv in &config.servers {
+            if srv.server_name.is_empty() {
+                // Stream servers parsed as HTTP servers would have no server_name — skip
+                continue;
+            }
+            assert!(!srv.listen.is_empty(), "{}: server {} should have listen port", filename, srv.server_name);
+        }
+
+        total += 1;
+    }
+
+    eprintln!("✅ All {} scenario configs parsed successfully", total);
+    assert_eq!(total, 6, "Should have tested exactly 6 files");
+}
