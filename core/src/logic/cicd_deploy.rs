@@ -577,20 +577,73 @@ async fn do_git_sync(
             }
         }
 
-        // Pull latest
-        let output = Command::new(crate::logic::git::find_git())
-            .args(["pull", "origin", branch, "--no-edit", "--rebase"])
+        // Pull latest - 本地模式智能合并（不强制要求提交）
+        // 先检查是否有未提交改动
+        let status_output = Command::new(crate::logic::git::find_git())
+            .args(["status", "--porcelain"])
+            .current_dir(&path)
+            .output()
+            .await
+            .map_err(|e| format!("git status 失败: {}", e))?;
+
+        let has_changes = !status_output.stdout.is_empty();
+
+        if has_changes {
+            // 有未提交改动，先 stash
+            emit("git", "info", "检测到未提交改动，暂存后拉取...");
+
+            let stash_output = Command::new(crate::logic::git::find_git())
+                .args(["stash", "push", "-m", "supertool-auto-stash"])
+                .current_dir(&path)
+                .output()
+                .await
+                .map_err(|e| format!("git stash 失败: {}", e))?;
+
+            if !stash_output.status.success() {
+                let err = String::from_utf8_lossy(&stash_output.stderr);
+                // stash 失败可能是因为没有实际改动（如空文件），继续尝试 pull
+                emit("git", "warning", &format!("stash 跳过: {}", err.trim()));
+            }
+        }
+
+        // 执行 pull（不使用 rebase，避免冲突）
+        let pull_output = Command::new(crate::logic::git::find_git())
+            .args(["pull", "origin", branch, "--no-edit"])
             .current_dir(&path)
             .output()
             .await
             .map_err(|e| format!("git pull 失败: {}", e))?;
 
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("git pull 失败: {}", err.trim()));
+        if !pull_output.status.success() {
+            let err = String::from_utf8_lossy(&pull_output.stderr);
+            // pull 失败，可能是冲突，尝试恢复 stash 后继续
+            emit("git", "warning", &format!("pull 有警告: {}", err.trim()));
         }
 
-        emit("git", "success", &format!("使用本地目录: {} (已切换到 {})", local_path, branch));
+        // 如果之前有改动，恢复 stash
+        if has_changes {
+            let pop_output = Command::new(crate::logic::git::find_git())
+                .args(["stash", "pop"])
+                .current_dir(&path)
+                .output()
+                .await;
+
+            match pop_output {
+                Ok(o) if o.status.success() => {
+                    emit("git", "info", "已恢复本地改动");
+                }
+                Ok(o) => {
+                    let err = String::from_utf8_lossy(&o.stderr);
+                    // stash pop 有冲突，给警告但不阻塞构建
+                    emit("git", "warning", &format!("恢复改动有冲突，请手动处理: {}", err.trim()));
+                }
+                Err(e) => {
+                    emit("git", "warning", &format!("stash pop 失败: {}", e));
+                }
+            }
+        }
+
+        emit("git", "success", &format!("使用本地目录: {} (已同步 {})", local_path, branch));
         return Ok(path);
     }
     }
