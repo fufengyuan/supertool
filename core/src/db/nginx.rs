@@ -753,7 +753,7 @@ pub fn add_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> r
         "INSERT INTO nginx_locations (id, serverId, enabled, path, locType, value,
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
          header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21)",
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
         params![loc.id, loc.server_id, bool_int(loc.enabled), loc.path, loc.loc_type, loc.value,
                 loc.upstream_type, loc.upstream_id, loc.upstream_path,
                 loc.root_path, loc.root_page, loc.root_type,
