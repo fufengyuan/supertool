@@ -635,26 +635,62 @@ impl CoreService {
         .map(|_| ApiResponse::ok(()))
     }
 
-    // ============ NginxBasicSetting CRUD ============
+    // ============ NginxBasicSetting CRUD (key-value) ============
 
-    pub async fn get_basic_setting(
+    pub async fn get_basic_settings(
         &self,
         preset_id: &str,
-    ) -> Result<ApiResponse<Option<NginxBasicSetting>>, String> {
+    ) -> Result<ApiResponse<Vec<NginxBasicSetting>>, String> {
         let pid = preset_id.to_string();
-        let result = self.db_read(move |conn| -> Result<Option<NginxBasicSetting>, String> {
-            crate::db::nginx::get_basic_setting(conn, &pid).map_err(|e| e.to_string())
+        let result = self.db_read(move |conn| -> Result<Vec<NginxBasicSetting>, String> {
+            crate::db::nginx::get_basic_settings_by_preset(conn, &pid).map_err(|e| e.to_string())
         })??;
         Ok(ApiResponse::ok(result))
     }
 
-    pub async fn upsert_basic_setting(
+    pub async fn add_basic_setting(
         &self,
         setting: &NginxBasicSetting,
     ) -> Result<ApiResponse<()>, String> {
         let s = setting.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
-            crate::db::nginx::upsert_nginx_basic_setting(conn, &s).map_err(|e| e.to_string())
+            crate::db::nginx::add_nginx_basic_setting(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn update_basic_setting(
+        &self,
+        setting: &NginxBasicSetting,
+    ) -> Result<ApiResponse<()>, String> {
+        let s = setting.clone();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::update_nginx_basic_setting(conn, &s).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn delete_basic_setting(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let sid = id.to_string();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_nginx_basic_setting(conn, &sid).map_err(|e| e.to_string())
+        })??)
+        .map(|_| ApiResponse::ok(()))
+    }
+
+    pub async fn save_basic_settings(
+        &self,
+        preset_id: &str,
+        settings: &[NginxBasicSetting],
+    ) -> Result<ApiResponse<()>, String> {
+        let pid = preset_id.to_string();
+        let items = settings.to_vec();
+        Ok(self.db_write(move |conn| -> Result<(), String> {
+            crate::db::nginx::delete_basic_settings_by_preset(conn, &pid).map_err(|e| e.to_string())?;
+            for s in &items {
+                crate::db::nginx::add_nginx_basic_setting(conn, s).map_err(|e| e.to_string())?;
+            }
+            Ok(())
         })??)
         .map(|_| ApiResponse::ok(()))
     }

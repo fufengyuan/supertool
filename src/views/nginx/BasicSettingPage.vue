@@ -1,77 +1,93 @@
 <template>
   <div>
-    <!-- 标题 -->
-    <h3 class="text-base font-semibold mb-4">基本设置</h3>
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold m-0">全局基础参数</h3>
+      <button @click="addRow" class="btn btn-primary btn-sm">
+        <SvgIcon name="plus" size="14" /> 新增参数
+      </button>
+    </div>
+
+    <div class="text-xs text-base-content/50 mb-3">
+      此处添加任意 nginx 全局指令，例如：<code>sendfile on</code>、<code>tcp_nopush on</code>、<code>keepalive_timeout 65</code>
+    </div>
 
     <!-- 加载中 -->
     <div v-if="loading" class="flex items-center justify-center py-8 text-base-content/50">
       <SvgIcon name="clock" size="14" /> 加载中...
     </div>
 
-    <!-- 表单 -->
-    <div v-else class="max-w-2xl">
-      <div class="grid grid-cols-2 gap-x-6 gap-y-4">
-        <!-- workerProcesses -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">workerProcesses</label>
-          <input v-model="form.workerProcesses" placeholder="auto" class="input input-bordered w-full" />
-        </div>
+    <!-- 空状态 -->
+    <div v-else-if="settings.length === 0" class="flex flex-col items-center justify-center py-8 text-base-content/50">
+      <SvgIcon name="tool" size="24" class="mb-2 opacity-50" />
+      <p class="text-sm">暂无全局参数，点击上方按钮添加</p>
+    </div>
 
-        <!-- workerConnections -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">workerConnections</label>
-          <input v-model.number="form.workerConnections" type="number" placeholder="1024" class="input input-bordered w-full" />
-        </div>
+    <!-- 参数表格 -->
+    <div v-else class="overflow-x-auto">
+      <table class="table table-zebra table-sm">
+        <thead>
+          <tr>
+            <th class="w-12 text-center">#</th>
+            <th class="w-1/3">参数名</th>
+            <th>参数值</th>
+            <th class="w-24 text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in settings" :key="item._key">
+            <td class="text-center text-base-content/50 text-xs">{{ index + 1 }}</td>
+            <td>
+              <input
+                v-model="item.name"
+                placeholder="参数名 (如 worker_processes)"
+                class="input input-bordered input-sm w-full font-mono text-sm"
+                @input="markDirty"
+              />
+            </td>
+            <td>
+              <input
+                v-model="item.value"
+                placeholder="参数值 (如 auto)"
+                class="input input-bordered input-sm w-full font-mono text-sm"
+                @input="markDirty"
+              />
+            </td>
+            <td class="text-center">
+              <div class="flex items-center justify-center gap-1">
+                <div class="flex flex-col gap-0">
+                  <button
+                    @click="moveUp(index)"
+                    :disabled="index === 0"
+                    class="btn btn-ghost btn-xs btn-square"
+                    title="上移"
+                  >
+                    <SvgIcon name="chevronUp" size="10" />
+                  </button>
+                  <button
+                    @click="moveDown(index)"
+                    :disabled="index === settings.length - 1"
+                    class="btn btn-ghost btn-xs btn-square"
+                    title="下移"
+                  >
+                    <SvgIcon name="chevronDown" size="10" />
+                  </button>
+                </div>
+                <button @click="removeRow(index)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                  <SvgIcon name="trash" size="14" />
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-        <!-- errorLog -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">错误日志路径</label>
-          <input v-model="form.errorLog" placeholder="/var/log/nginx/error.log" class="input input-bordered w-full" />
-        </div>
-
-        <!-- errorLogLevel -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">错误日志级别</label>
-          <select v-model="form.errorLogLevel" class="select select-bordered w-full">
-            <option value="debug">debug</option>
-            <option value="info">info</option>
-            <option value="notice">notice</option>
-            <option value="warn">warn</option>
-            <option value="error">error</option>
-            <option value="crit">crit</option>
-            <option value="alert">alert</option>
-            <option value="emerg">emerg</option>
-          </select>
-        </div>
-
-        <!-- pid -->
-        <div class="flex flex-col gap-1">
-          <label class="text-sm font-medium">PID 文件路径</label>
-          <input v-model="form.pid" placeholder="/var/run/nginx.pid" class="input input-bordered w-full" />
-        </div>
-      </div>
-
-      <!-- events -->
-      <div class="flex flex-col gap-1 mt-4">
-        <label class="text-sm font-medium">Events 自定义配置</label>
-        <textarea
-          v-model="form.events"
-          placeholder="可在此填写自定义 events 块内容，例如：&#10;use epoll;&#10;multi_accept on;"
-          class="textarea textarea-bordered w-full font-mono text-sm leading-relaxed"
-          rows="6"
-        ></textarea>
-      </div>
-
-      <!-- 操作按钮 -->
-      <div class="flex items-center gap-3 mt-6">
-        <button @click="onSave" class="btn btn-primary" :disabled="loading || !loaded">
-          <SvgIcon name="check" size="14" /> 保存设置
-        </button>
-        <button v-if="loaded && !initialLoading" @click="resetToDefaults" class="btn btn-ghost">
-          恢复默认
-        </button>
-        <span v-if="saved" class="text-sm text-success">已保存</span>
-      </div>
+    <!-- 操作按钮 -->
+    <div class="flex items-center gap-3 mt-4">
+      <button @click="onSave" class="btn btn-primary" :disabled="loading || !loaded">
+        <SvgIcon name="check" size="14" /> 保存设置
+      </button>
+      <span v-if="saved" class="text-sm text-success">已保存</span>
     </div>
   </div>
 </template>
@@ -86,87 +102,127 @@ const props = defineProps<{ presetId: string }>()
 
 const toast = useToast()
 const loading = ref(false)
-const initialLoading = ref(false)
 const loaded = ref(false)
 const saved = ref(false)
+const dirty = ref(false)
 const api = getTauriAPI()
 
-// 表单
-const form = ref({
-  id: '',
-  presetId: '',
-  workerProcesses: 'auto',
-  workerConnections: 1024,
-  errorLog: '/var/log/nginx/error.log',
-  errorLogLevel: 'warn',
-  pid: '/var/run/nginx.pid',
-  events: '',
-  createdAt: '',
-  updatedAt: '',
-})
+interface BasicItem {
+  id: string
+  presetId: string
+  name: string
+  value: string
+  sort: number
+  _key: number
+}
 
-function getDefaultForm() {
+let keyCounter = 0
+const settings = ref<BasicItem[]>([])
+
+function createItem(name = '', value = '', sort = 0): BasicItem {
   return {
     id: crypto.randomUUID(),
     presetId: props.presetId,
-    workerProcesses: 'auto',
-    workerConnections: 1024,
-    errorLog: '/var/log/nginx/error.log',
-    errorLogLevel: 'warn',
-    pid: '/var/run/nginx.pid',
-    events: '',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    name,
+    value,
+    sort,
+    _key: keyCounter++,
   }
 }
 
-function resetToDefaults() {
-  form.value = getDefaultForm()
-  saved.value = false
-  toast.info('已恢复默认值')
+function addRow() {
+  settings.value.push(createItem('', '', settings.value.length))
+  dirty.value = true
 }
 
-async function loadSetting() {
+function removeRow(index: number) {
+  settings.value.splice(index, 1)
+  updateSort()
+  dirty.value = true
+}
+
+function moveUp(index: number) {
+  if (index <= 0) return
+  const arr = settings.value
+  const temp = arr[index]
+  arr[index] = arr[index - 1]
+  arr[index - 1] = temp
+  updateSort()
+  dirty.value = true
+}
+
+function moveDown(index: number) {
+  if (index >= settings.value.length - 1) return
+  const arr = settings.value
+  const temp = arr[index]
+  arr[index] = arr[index + 1]
+  arr[index + 1] = temp
+  updateSort()
+  dirty.value = true
+}
+
+function updateSort() {
+  settings.value.forEach((item, i) => {
+    item.sort = i
+  })
+}
+
+function markDirty() {
+  dirty.value = true
+}
+
+async function loadSettings() {
   if (!props.presetId) return
-  initialLoading.value = true
   loading.value = true
   try {
-    const result = await api.getBasicSetting(props.presetId)
-    const data = result?.data ?? result
-    if (data) {
-      form.value = { ...data }
+    const data = await api.getBasicSettings(props.presetId)
+    if (data && Array.isArray(data)) {
+      settings.value = data.map((item: any, i: number) => ({
+        id: item.id || crypto.randomUUID(),
+        presetId: props.presetId,
+        name: item.name || '',
+        value: item.value || '',
+        sort: item.sort ?? i,
+        _key: keyCounter++,
+      }))
+      updateSort()
     } else {
-      // 首次使用，初始化为默认值
-      form.value = getDefaultForm()
+      settings.value = []
     }
     loaded.value = true
   } catch (err: any) {
     toast.error('加载基本设置失败: ' + (err?.message || err))
-    form.value = getDefaultForm()
+    settings.value = []
     loaded.value = true
   } finally {
     loading.value = false
-    initialLoading.value = false
   }
 }
 
 watch(() => props.presetId, () => {
   loaded.value = false
-  loadSetting()
+  dirty.value = false
+  settings.value = []
+  loadSettings()
 }, { immediate: true })
 
 async function onSave() {
   saved.value = false
   loading.value = true
   try {
-    const data = {
-      ...form.value,
-      presetId: props.presetId,
-      workerConnections: Number(form.value.workerConnections) || 1024,
-      updatedAt: new Date().toISOString(),
-    }
-    await api.upsertBasicSetting(data)
-    form.value = { ...data }
+    // Filter out empty rows
+    const items = settings.value
+      .filter(item => item.name.trim() !== '')
+      .map(item => ({
+        id: item.id,
+        presetId: props.presetId,
+        name: item.name.trim(),
+        value: item.value,
+        sort: item.sort,
+        createdAt: new Date().toISOString(),
+      }))
+    await api.saveBasicSettings(props.presetId, items)
+    dirty.value = false
     saved.value = true
     toast.success('基本设置已保存')
     setTimeout(() => { saved.value = false }, 3000)

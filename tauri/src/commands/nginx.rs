@@ -482,27 +482,30 @@ pub async fn delete_nginx_template(
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
-// ============ NginxBasicSetting Commands ============
+// ============ NginxBasicSetting Commands (key-value) ============
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_basic_setting(
+pub async fn get_basic_settings(
     core: State<'_, CoreService>,
     preset_id: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_basic_setting() called");
-    let result = core.get_basic_setting(&preset_id).await?;
+    log::info!("[Tauri CMD] get_basic_settings() called");
+    let result = core.get_basic_settings(&preset_id).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn upsert_basic_setting(
+pub async fn save_basic_settings(
     core: State<'_, CoreService>,
-    setting: serde_json::Value,
+    preset_id: String,
+    settings: Vec<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] upsert_basic_setting() called");
-    let s: supertool_core::db::nginx::NginxBasicSetting =
-        serde_json::from_value(setting).map_err(|e| e.to_string())?;
-    let result = core.upsert_basic_setting(&s).await?;
+    log::info!("[Tauri CMD] save_basic_settings() called");
+    let items: Vec<supertool_core::db::nginx::NginxBasicSetting> = settings
+        .into_iter()
+        .map(|v| serde_json::from_value(v).map_err(|e| e.to_string()))
+        .collect::<Result<Vec<_>, _>>()?;
+    let result = core.save_basic_settings(&preset_id, &items).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 

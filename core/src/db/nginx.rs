@@ -224,20 +224,11 @@ pub struct NginxBasicSetting {
     pub id: String,
     #[serde(rename = "presetId")]
     pub preset_id: String,
-    #[serde(rename = "workerProcesses")]
-    pub worker_processes: String,
-    #[serde(rename = "workerConnections")]
-    pub worker_connections: i64,
-    #[serde(rename = "errorLog")]
-    pub error_log: String,
-    #[serde(rename = "errorLogLevel")]
-    pub error_log_level: String,
-    pub pid: String,
-    pub events: String,
+    pub name: String,
+    pub value: String,
+    pub sort: i64,
     #[serde(rename = "createdAt")]
     pub created_at: String,
-    #[serde(rename = "updatedAt")]
-    pub updated_at: String,
 }
 
 // ============ Row Mappers (Existing) ============
@@ -416,14 +407,10 @@ pub fn row_to_nginx_basic_setting(row: &rusqlite::Row<'_>) -> rusqlite::Result<N
     Ok(NginxBasicSetting {
         id: row.get("id")?,
         preset_id: row.get("presetId")?,
-        worker_processes: row.get("workerProcesses")?,
-        worker_connections: row.get("workerConnections")?,
-        error_log: row.get("errorLog")?,
-        error_log_level: row.get("errorLogLevel")?,
-        pid: row.get("pid")?,
-        events: row.get("events")?,
+        name: row.get("name")?,
+        value: row.get("value")?,
+        sort: row.get("sort")?,
         created_at: row.get("createdAt")?,
-        updated_at: row.get("updatedAt")?,
     })
 }
 
@@ -880,30 +867,33 @@ pub fn delete_nginx_template(conn: &rusqlite::Connection, id: &str) -> rusqlite:
     delete_by_id(conn, "nginx_templates", id)
 }
 
-// ============ NginxBasicSetting CRUD ============
+// ============ NginxBasicSetting CRUD (key-value) ============
 
-pub fn get_basic_setting(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Option<NginxBasicSetting>> {
-    let sql = "SELECT * FROM nginx_basic_settings WHERE presetId = ?1";
-    query_one(conn, sql, rusqlite::params![preset_id], row_to_nginx_basic_setting)
+pub fn get_basic_settings_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxBasicSetting>> {
+    get_all_by_preset(conn, "nginx_basic_settings", preset_id, row_to_nginx_basic_setting)
 }
 
-pub fn upsert_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSetting) -> rusqlite::Result<()> {
-    let existing: bool = conn.query_row(
-        "SELECT COUNT(*) FROM nginx_basic_settings WHERE presetId = ?1",
-        params![s.preset_id],
-        |row| row.get(0),
-    ).unwrap_or(false);
-    if existing {
-        conn.execute(
-            "UPDATE nginx_basic_settings SET workerProcesses=?2, workerConnections=?3, errorLog=?4, errorLogLevel=?5, pid=?6, events=?7, updatedAt=?8 WHERE presetId=?1",
-            params![s.preset_id, s.worker_processes, s.worker_connections, s.error_log, s.error_log_level, s.pid, s.events, s.updated_at],
-        )?;
-    } else {
-        conn.execute(
-            "INSERT INTO nginx_basic_settings (id, presetId, workerProcesses, workerConnections, errorLog, errorLogLevel, pid, events, createdAt, updatedAt)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-            params![s.id, s.preset_id, s.worker_processes, s.worker_connections, s.error_log, s.error_log_level, s.pid, s.events, s.created_at, s.updated_at],
-        )?;
-    }
+pub fn add_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSetting) -> rusqlite::Result<()> {
+    conn.execute(
+        "INSERT INTO nginx_basic_settings (id, presetId, name, value, sort, createdAt)
+         VALUES (?1,?2,?3,?4,?5,?6)",
+        params![s.id, s.preset_id, s.name, s.value, s.sort, s.created_at],
+    )?;
     Ok(())
+}
+
+pub fn update_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSetting) -> rusqlite::Result<()> {
+    conn.execute(
+        "UPDATE nginx_basic_settings SET name=?2, value=?3, sort=?4 WHERE id=?1",
+        params![s.id, s.name, s.value, s.sort],
+    )?;
+    Ok(())
+}
+
+pub fn delete_nginx_basic_setting(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<()> {
+    delete_by_id(conn, "nginx_basic_settings", id)
+}
+
+pub fn delete_basic_settings_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<()> {
+    delete_by_fk(conn, "nginx_basic_settings", "presetId", preset_id)
 }

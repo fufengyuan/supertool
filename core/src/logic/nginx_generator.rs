@@ -21,27 +21,13 @@ pub fn generate_nginx_config(conn: &Connection, preset_id: &str) -> Result<Strin
 }
 
 fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
-    let basic = get_basic_setting(conn, preset_id).map_err(|e| e.to_string())?;
-    if let Some(b) = basic {
-        out.push_str(&format!("worker_processes  {};\n", b.worker_processes));
-        out.push_str(&format!("error_log  {} {};\n", b.error_log, b.error_log_level));
-        out.push_str(&format!("pid        {};\n", b.pid));
-        out.push_str("events {\n");
-        if !b.events.is_empty() {
-            for line in b.events.lines() {
-                out.push_str(&format!("    {}\n", line));
-            }
-        } else {
-            out.push_str(&format!("    worker_connections  {};\n", b.worker_connections));
+    let settings = get_basic_settings_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for s in &settings {
+        if !s.name.is_empty() {
+            out.push_str(&format!("{} {};\n", s.name, s.value));
         }
-        out.push_str("}\n\n");
-    } else {
-        // Defaults
-        out.push_str("worker_processes  auto;\n");
-        out.push_str("error_log  /var/log/nginx/error.log warn;\n");
-        out.push_str("pid        /var/run/nginx.pid;\n");
-        out.push_str("events {\n    worker_connections  1024;\n}\n\n");
     }
+    out.push_str("\n");
     Ok(())
 }
 
