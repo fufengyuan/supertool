@@ -686,3 +686,16 @@ pub async fn generate_nginx_config_decomposed(
     let result = core.generate_nginx_config_decomposed(&preset_id).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
+
+// ============ Config Import ============
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn import_nginx_config(
+    core: State<'_, CoreService>,
+    preset_id: String,
+    config_text: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] import_nginx_config() called");
+    let result = core.import_nginx_config(&preset_id, &config_text).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}

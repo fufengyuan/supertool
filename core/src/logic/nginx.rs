@@ -964,4 +964,200 @@ impl CoreService {
         })??;
         Ok(ApiResponse::ok(result))
     }
+
+    // ============ Config Import ============
+
+    /// Parse nginx config text and import into database.
+    /// Returns a summary of what was imported.
+    pub async fn import_nginx_config(
+        &self,
+        preset_id: &str,
+        config_text: &str,
+    ) -> Result<ApiResponse<serde_json::Value>, String> {
+        let pid = preset_id.to_string();
+        let text = config_text.to_string();
+
+        // Parse the config
+        let parsed = crate::logic::nginx_parser::parse_nginx_config(&text)
+            .map_err(|e| format!("解析失败: {}", e))?;
+
+        let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let mut summary = serde_json::json!({
+            "basic_settings": parsed.basic_settings.len(),
+            "http_params": parsed.http_params.len(),
+            "upstreams": parsed.upstreams.len(),
+            "servers": parsed.servers.len(),
+            "streams": parsed.streams.len(),
+        });
+
+        // Import in a single transaction
+        self.db_write(move |conn| -> Result<(), String> {
+            // 1. Basic settings (replace all for this preset)
+            crate::db::nginx::delete_basic_settings_by_preset(conn, &pid).map_err(|e| e.to_string())?;
+            for bs in &parsed.basic_settings {
+                let id = format!("bs_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_basic_setting(conn, &NginxBasicSetting {
+                    id,
+                    preset_id: pid.clone(),
+                    name: bs.name.clone(),
+                    value: bs.value.clone(),
+                    sort: 0,
+                    created_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+            }
+
+            // 2. HTTP params (replace all)
+            // Delete existing http params for this preset
+            {
+                let existing = crate::db::nginx::get_http_params_by_preset(conn, &pid)
+                    .map_err(|e| e.to_string())?;
+                for p in &existing {
+                    crate::db::nginx::delete_nginx_http_param(conn, &p.id)
+                        .map_err(|e| e.to_string())?;
+                }
+            }
+            for hp in &parsed.http_params {
+                let id = format!("hp_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_http_param(conn, &NginxHttpParam {
+                    id,
+                    preset_id: pid.clone(),
+                    name: hp.name.clone(),
+                    value: hp.value.clone(),
+                    enabled: true,
+                    sort: 0,
+                    created_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+            }
+
+            // 3. Upstreams + their servers
+            for up in &parsed.upstreams {
+                let up_id = format!("up_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_upstream(conn, &NginxUpstream {
+                    id: up_id.clone(),
+                    preset_id: pid.clone(),
+                    name: up.name.clone(),
+                    proxy_type: 0,
+                    strategy: up.strategy.clone(),
+                    descr: up.descr.clone(),
+                    param_json: String::new(),
+                    sort: 0,
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+
+                for us in &up.servers {
+                    let us_id = format!("us_{}", uuid::Uuid::new_v4().simple());
+                    crate::db::nginx::add_nginx_upstream_server(conn, &NginxUpstreamServer {
+                        id: us_id,
+                        upstream_id: up_id.clone(),
+                        address: us.address.clone(),
+                        port: us.port,
+                        weight: us.weight,
+                        max_fails: us.max_fails,
+                        fail_timeout: if us.fail_timeout.is_empty() { "10s".to_string() } else { us.fail_timeout.clone() },
+                        max_conns: us.max_conns,
+                        backup: us.backup,
+                        down: us.down,
+                        sort: 0,
+                        enabled: true,
+                        param: us.param.clone(),
+                    }).map_err(|e| e.to_string())?;
+                }
+            }
+
+            // 4. Servers + locations
+            for srv in &parsed.servers {
+                let srv_id = format!("sv_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_server(conn, &NginxServer {
+                    id: srv_id.clone(),
+                    preset_id: pid.clone(),
+                    proxy_type: srv.proxy_type,
+                    listen: srv.listen.clone(),
+                    ip: srv.ip.clone(),
+                    def: srv.def,
+                    ipv6: srv.ipv6,
+                    proxy_protocol: srv.proxy_protocol,
+                    server_name: srv.server_name.clone(),
+                    ssl: srv.ssl != 0,
+                    cert_id: srv.cert_id.clone(),
+                    rewrite: srv.rewrite,
+                    rewrite_listen: srv.rewrite_listen.clone(),
+                    http2: srv.http2,
+                    protocols: srv.protocols.clone(),
+                    password_id: srv.password_id.clone(),
+                    deny_allow: srv.deny_allow,
+                    deny_id: srv.deny_id.clone(),
+                    allow_id: srv.allow_id.clone(),
+                    proxy_upstream_id: srv.proxy_upstream_id.clone(),
+                    descr: srv.descr.clone(),
+                    enabled: true,
+                    sort: 0,
+                    param_json: String::new(),
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+
+                for loc in &srv.locations {
+                    let loc_id = format!("loc_{}", uuid::Uuid::new_v4().simple());
+                    let loc_type_val: i64 = match loc.loc_type.as_str() {
+                        "proxy_pass" => 0,
+                        "root" => 1,
+                        "upstream" => 2,
+                        "blank" => 3,
+                        "return" => 4,
+                        _ => 0,
+                    };
+                    crate::db::nginx::add_nginx_location(conn, &NginxLocation {
+                        id: loc_id,
+                        server_id: srv_id.clone(),
+                        enabled: true,
+                        path: loc.path.clone(),
+                        loc_type: loc_type_val,
+                        value: loc.value.clone(),
+                        upstream_type: 0,
+                        upstream_id: loc.upstream_id.clone(),
+                        upstream_path: loc.upstream_path.clone(),
+                        root_path: loc.root_path.clone(),
+                        root_page: String::new(),
+                        root_type: String::new(),
+                        header: loc.header,
+                        header_host: String::new(),
+                        websocket: loc.websocket,
+                        cros: loc.cros,
+                        return_url: loc.return_url.clone(),
+                        return_path: false,
+                        param_json: String::new(),
+                        sort: 0,
+                        descr: loc.descr.clone(),
+                        created_at: now.clone(),
+                    }).map_err(|e| e.to_string())?;
+                }
+            }
+
+            // 5. Streams
+            for st in &parsed.streams {
+                let st_id = format!("st_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_stream(conn, &NginxStream {
+                    id: st_id,
+                    preset_id: pid.clone(),
+                    listen: st.listen.clone(),
+                    proxy_upstream_id: st.proxy_upstream_id.clone(),
+                    proxy_pass: st.proxy_pass.clone(),
+                    ssl: st.ssl != 0,
+                    cert_id: st.cert_id.clone(),
+                    protocol: st.protocol.clone(),
+                    descr: st.descr.clone(),
+                    enabled: true,
+                    sort: 0,
+                    param_json: String::new(),
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+            }
+
+            Ok(())
+        })??;
+
+        Ok(ApiResponse::ok(summary))
+    }
 }

@@ -83,6 +83,14 @@
                 <template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
               </button>
               <button
+                @click="onImportConfig"
+                :disabled="!currentPreset || loading || !configContent"
+                class="btn btn-outline btn-sm"
+              >
+                <template v-if="loading"><SvgIcon name="clock" size="14" /> 导入中...</template>
+                <template v-else><SvgIcon name="upload" size="14" /> 导入配置</template>
+              </button>
+              <button
                 @click="openDeployDialog"
                 :disabled="!currentPreset || loading"
                 class="btn btn-primary btn-sm">
@@ -532,6 +540,25 @@ async function onGenerateConfig() {
     versions.value = verResult?.data || verResult || []
   } catch (err) {
     console.error('生成配置失败:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function onImportConfig() {
+  if (!currentPreset.value || !configContent.value) return
+  if (!confirm('此操作将解析当前配置预览中的内容并导入到表单中。现有数据将被替换。确定继续？')) return
+
+  loading.value = true
+  try {
+    const result = await getTauriAPI().importNginxConfig(currentPreset.value.id, configContent.value)
+    const summary = result?.data || result
+    alert(`导入完成!\n\n基本设置: ${summary.basic_settings}\nHTTP参数: ${summary.http_params}\nUpstreams: ${summary.upstreams}\nServers: ${summary.servers}\nStreams: ${summary.streams}\n\n请切换到各标签页查看详情。`)
+    // Refresh all data
+    await loadPresets()
+    // The user will need to reload the tab data, so we can just show a message
+  } catch (err: any) {
+    alert('导入失败: ' + (err?.message || err))
   } finally {
     loading.value = false
   }
