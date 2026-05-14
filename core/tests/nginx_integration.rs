@@ -632,6 +632,61 @@ fn test_real_world_config_parse() {
     assert_eq!(mysql_stream.proxy_pass, "10.0.10.1:3306");
 }
 
+#[test]
+fn test_production_config() {
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("testdata");
+    let path = test_dir.join("nginx_production.conf");
+    let text = std::fs::read_to_string(&path).expect("Cannot read nginx_production.conf");
+
+    let config = supertool_core::logic::nginx_parser::parse_nginx_config(&text)
+        .expect("Production config should parse");
+
+    eprintln!("[production] basic={} http={} upstream={} server={} stream={}",
+        config.basic_settings.len(), config.http_params.len(),
+        config.upstreams.len(), config.servers.len(), config.streams.len());
+
+    // Basic settings: worker_processes, events block, load_module
+    assert!(config.basic_settings.len() >= 3, "Should have basic settings");
+
+    // HTTP params: include, default_type, log_format (geo blocks are block directives, not http_param entries)
+    assert!(config.http_params.len() >= 3, "Should have at least 3 http params (include, default_type, log_format)");
+
+    // Upstreams: 10 (5 prod + 5 gray)
+    assert_eq!(config.upstreams.len(), 10, "Should have 10 upstreams");
+
+    // Servers: 9
+    assert_eq!(config.servers.len(), 9, "Should have 9 server blocks");
+
+    // Streams: 0
+    assert_eq!(config.streams.len(), 0, "Should have 0 streams");
+
+    // Verify regex server_name server
+    let topup = config.servers.iter().find(|s| s.server_name.starts_with('~'));
+    assert!(topup.is_some(), "Regex server_name should exist");
+    if let Some(p) = topup {
+        assert_eq!(p.locations.len(), 6, "topup server should have 6 locations");
+        assert_eq!(p.ssl, 1, "topup should have SSL");
+        assert_eq!(p.http2, 1, "topup should have http2");
+    }
+
+    // Verify api-shop server
+    let api_shop = config.servers.iter().find(|s| s.server_name == "api-shop.example.net");
+    assert!(api_shop.is_some(), "api-shop.example.net should exist");
+    if let Some(a) = api_shop {
+        assert_eq!(a.locations.len(), 4, "api-shop should have 4 locations");
+        assert_eq!(a.ssl, 1, "api-shop should have SSL");
+        assert_eq!(a.http2, 0, "api-shop should NOT have http2 (listen 443 ssl)");
+    }
+
+    // All servers should have listen port
+    for srv in &config.servers {
+        if !srv.server_name.starts_with('~') && !srv.server_name.is_empty() {
+            assert!(!srv.listen.is_empty(),
+                "server {} should have listen port", srv.server_name);
+        }
+    }
+}
+
 fn parse_and_count(name: &str, text: &str) -> supertool_core::logic::nginx_parser::ParsedNginxConfig {
     let config = supertool_core::logic::nginx_parser::parse_nginx_config(text)
         .unwrap_or_else(|e| panic!("{}: parse failed: {}", name, e));
