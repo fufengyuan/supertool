@@ -848,27 +848,31 @@ export function useCicdConfig() {
   let _cleanupDataChanged: (() => void) | undefined;
 
   // ─── Init ───
-  const pageLoading = ref(true);
+  // 移除阻塞式 loading，页面立即渲染
+  const pageLoading = ref(false);
+  const dataLoading = ref(true); // 仅用于显示骨架屏/空状态
+
   onMounted(async () => {
-    try {
-      // 第一步：加载共享数据（模块级缓存，DeployPanel 复用不再重复请求）
-      await shared.load();
-
+    // 第一步：立即加载共享数据（不阻塞页面框架渲染）
+    shared.load().then(() => {
       // CICD 独有分组数据
-      groups.value = (await getTauriAPI().getCicdGroups?.()) as string[] || [];
-      initExpandedGroups();
-
-      pageLoading.value = false;
-
+      getTauriAPI().getCicdGroups?.().then(groupsResult => {
+        groups.value = (groupsResult as string[]) || [];
+        initExpandedGroups();
+      }).catch(() => {});
+      
+      dataLoading.value = false;
+      
       // 第二步：延迟加载第一个配置详情（不阻塞首次渲染）
       if (configs.value.length > 0) {
         selectedConfigId.value = configs.value[0].id;
         isNewConfig.value = false;
-        // 使用 nextTick 确保 UI 已渲染后再加载配置详情
-        await new Promise(resolve => setTimeout(resolve, 50));
         loadConfig(configs.value[0].id).catch(() => {});
       }
-    } catch (error) { handleError(error, { context: '加载CI/CD配置' }); pageLoading.value = false; }
+    }).catch(err => {
+      handleError(err, { context: '加载CI/CD配置' });
+      dataLoading.value = false;
+    });
 
     // 后台异步检测工具路径与 SDK 版本（不阻塞页面渲染）
     getTauriAPI().detectBuildTools?.().then(tools => {
