@@ -744,6 +744,13 @@ fn main() {
             // HTTP Fetch (HTML to Markdown tool)
             commands::fetch::fetch_page_content,
             commands::fetch::convert_html_to_md,
+            // Hermes Agent commands
+            commands::agent::hermes_installed,
+            commands::agent::list_hermes_sessions_cmd,
+            commands::agent::get_hermes_session_cmd,
+            commands::agent::list_hermes_messages_cmd,
+            commands::agent::get_hermes_stats_cmd,
+            commands::agent::delete_hermes_session_cmd,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

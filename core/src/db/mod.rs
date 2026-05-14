@@ -13,6 +13,7 @@ pub mod lan;
 pub mod nginx;
 pub mod alert;
 pub mod git_repo;
+pub mod agent;
 pub use cicd::*;
 
 /// Initialize SQLite database with all required tables
