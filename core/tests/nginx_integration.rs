@@ -736,3 +736,276 @@ fn test_all_scenario_configs() {
     eprintln!("✅ All {} scenario configs parsed successfully", total);
     assert_eq!(total, 6, "Should have tested exactly 6 files");
 }
+
+/// Full round-trip test: parse production config -> insert into DB -> generate -> compare
+fn setup_empty_db_for_import() -> (rusqlite::Connection, String) {
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    supertool_core::db::init_db(&conn).unwrap();
+    let preset_id = "prod-test-1";
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+    conn.execute(
+        "INSERT INTO nginx_presets (id, name, serverId, configPath, description, groupName, isActive, createdAt, updatedAt) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        rusqlite::params![preset_id, "prod-test", "", "/etc/nginx/nginx.conf", "", "default", 0, now, now],
+    ).unwrap();
+    (conn, preset_id.to_string())
+}
+
+/// Insert parsed config into DB using direct SQL (simplified import)
+fn insert_parsed_to_db(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+    config: &supertool_core::logic::nginx_parser::ParsedNginxConfig,
+) {
+    let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+
+    // Basic settings
+    for (i, bs) in config.basic_settings.iter().enumerate() {
+        let id = format!("bs-{}", i);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_basic_settings (id, presetId, name, value, sort, createdAt) VALUES (?1,?2,?3,?4,?5,?6)",
+            rusqlite::params![id, preset_id, bs.name, bs.value, i as i64, now],
+        ).unwrap();
+    }
+
+    // HTTP params
+    for (i, p) in config.http_params.iter().enumerate() {
+        let id = format!("hp-{}", i);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+            rusqlite::params![id, preset_id, p.name, p.value, 1, i as i64, now],
+        ).unwrap();
+    }
+
+    // Upstreams
+    for (ui, up) in config.upstreams.iter().enumerate() {
+        let up_id = format!("up-{}", ui);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_upstreams (id, presetId, name, strategy, proxyType, descr, paramJson, sort, createdAt, updatedAt) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![up_id, preset_id, up.name, up.strategy, 0, "", "", ui as i64, now, now],
+        ).unwrap();
+        for (si, srv) in up.servers.iter().enumerate() {
+            let srv_id = format!("up-{}-srv-{}", ui, si);
+            let (host, port) = if let Some(pos) = srv.address.rfind(':') {
+                (&srv.address[..pos], &srv.address[pos+1..])
+            } else {
+                (srv.address.as_str(), "80")
+            };
+            conn.execute(
+            "INSERT OR IGNORE INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort, enabled, param) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
+                rusqlite::params![srv_id, up_id, srv.address, srv.port, srv.weight, srv.max_fails, srv.fail_timeout, srv.max_conns, if srv.backup { 1 } else { 0 }, if srv.down { 1 } else { 0 }, si as i64, 1, ""],
+            ).unwrap();
+        }
+    }
+
+    // Servers with locations
+    for (si, srv) in config.servers.iter().enumerate() {
+        let srv_id = format!("srv-{}", si);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_servers \
+             (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol, serverName, ssl, \
+              certId, rewrite, rewriteListen, http2, protocols, passwordId, denyAllow, denyId, allowId, \
+              proxyUpstreamId, descr, enabled, sort, paramJson, createdAt, updatedAt) \
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
+            rusqlite::params![
+                srv_id, preset_id, 0,
+                srv.listen, srv.ip,
+                if srv.def { 1 } else { 0 },
+                if srv.ipv6 { 1 } else { 0 },
+                0,
+                srv.server_name, srv.ssl,
+                "", 0, "", srv.http2, srv.protocols,
+                "", srv.deny_allow, "", "",
+                "", "", 1, si as i64, "", now, now,
+            ],
+        ).unwrap();
+
+        for (li, loc) in srv.locations.iter().enumerate() {
+            let loc_id = format!("srv-{}-loc-{}", si, li);
+            let loc_path = if loc.path.starts_with('@') {
+                loc.path.clone()
+            } else {
+                loc.path.clone()
+            };
+            conn.execute(
+                "INSERT OR IGNORE INTO nginx_locations \
+                 (id, serverId, enabled, path, locType, value, upstreamType, upstreamId, upstreamPath, \
+                  rootPath, rootPage, rootType, header, websocket, cros, headerHost, returnUrl, returnPath, \
+                  paramJson, sort, descr, createdAt) \
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
+                rusqlite::params![
+                    loc_id, srv_id, 1,
+                    loc_path, {
+                        let t = loc.loc_type.as_str();
+                        if t == "^~" { 1 } else if t == "=" { 2 } else if t == "~" { 3 } else if t == "~*" { 4 } else { 0 }
+                    }, loc.value, 0,
+                    loc.upstream_id, loc.upstream_path,
+                     loc.root_path, "", "",
+                    if loc.header { 1 } else { 0 },
+                    if loc.websocket { 1 } else { 0 },
+                    if loc.cros { 1 } else { 0 },
+                     "", loc.return_url, 0,
+                     "", li as i64, loc.descr, now,
+                ],
+            ).unwrap();
+        }
+    }
+
+    // Streams
+    for (sti, st) in config.streams.iter().enumerate() {
+        let st_id = format!("stream-{}", sti);
+        conn.execute(
+            "INSERT OR IGNORE INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass, ssl, certId, protocol, descr, enabled, sort, paramJson, createdAt, updatedAt) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
+rusqlite::params![st_id, preset_id, st.listen, st.proxy_upstream_id, st.proxy_pass, if st.ssl != 0 { 1 } else { 0 }, "", st.protocol, "", 1, "", sti as i64, now, now],
+        ).unwrap();
+    }
+}
+
+#[test]
+fn test_production_round_trip_generate() {
+    use std::io::Write;
+
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent().unwrap().join("testdata");
+    let path = test_dir.join("nginx_production.conf");
+    let original = std::fs::read_to_string(&path)
+        .expect("Cannot read nginx_production.conf");
+
+    // Step 1: Parse
+    let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&original)
+        .expect("Production config should parse");
+
+    // Step 2: Insert into DB
+    let (conn, preset_id) = setup_empty_db_for_import();
+    insert_parsed_to_db(&conn, &preset_id, &parsed);
+
+    let generated =
+        supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
+            .expect("Should generate config from imported data");
+
+    // Write generated config BEFORE parsing (so we can inspect it if parsing fails)
+    {
+        let out_path = test_dir.join("nginx_production_generated.conf");
+        let mut f = std::fs::File::create(&out_path).unwrap();
+        f.write_all(generated.as_bytes()).unwrap();
+        eprintln!("\n✅ Generated config written to: testdata/nginx_production_generated.conf");
+    }
+
+    // Show first 30 lines for debugging
+    eprintln!("--- GENERATED (first 30 lines) ---");
+    for line in generated.lines().take(30) {
+        eprintln!("{}", line);
+    }
+
+    // Step 4: Parse generated config too for structural comparison
+    let parsed_gen = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
+        .expect("Generated config should parse");
+
+    // Print comparison report
+    eprintln!("
+============= PRODUCTION CONFIG ROUND-TRIP REPORT =============");
+    eprintln!("Original size: {} bytes, {} lines", original.len(), original.lines().count());
+    eprintln!("Generated size: {} bytes, {} lines", generated.len(), generated.lines().count());
+    eprintln!();
+
+    // Basic settings
+    eprintln!("--- Basic Settings ---");
+    eprintln!("  Original: {}", parsed.basic_settings.len());
+    eprintln!("  Generated: {}", parsed_gen.basic_settings.len());
+    for bs in &parsed.basic_settings {
+        let in_gen = parsed_gen.basic_settings.iter().any(|g| g.name == bs.name);
+        if !in_gen {
+            eprintln!("  ❌ MISSING: {} {};", bs.name, bs.value);
+        }
+    }
+    for gs in &parsed_gen.basic_settings {
+        let in_orig = parsed.basic_settings.iter().any(|b| b.name == gs.name);
+        if !in_orig {
+            eprintln!("  ❌ EXTRA: {} {};", gs.name, gs.value);
+        }
+    }
+
+    // HTTP params
+    eprintln!("
+--- HTTP Params ---");
+    eprintln!("  Original: {} (including geo blocks)", parsed.http_params.len());
+    eprintln!("  Generated: {}", parsed_gen.http_params.len());
+
+    // Upstreams comparison
+    eprintln!("
+--- Upstreams ---");
+    eprintln!("  Original: {} upstreams", parsed.upstreams.len());
+    eprintln!("  Generated: {} upstreams", parsed_gen.upstreams.len());
+    for up in &parsed.upstreams {
+        let matched = parsed_gen.upstreams.iter().find(|g| g.name == up.name);
+        match matched {
+            Some(g) => {
+                let srv_match = if g.servers.len() == up.servers.len() { "✅" } else { "❌" };
+                let strategy = if g.strategy == up.strategy { "✅" } else { "❌" };
+                eprintln!("  {} {} ({} servers, strategy={})",
+                    if srv_match == "✅" && strategy == "✅" { "✅" } else { "❌" },
+                    up.name, up.servers.len(), strategy);
+            }
+            None => eprintln!("  ❌ MISSING: {}", up.name),
+        }
+    }
+
+    // Servers comparison
+    eprintln!("
+--- Servers ---");
+    eprintln!("  Original: {} servers", parsed.servers.len());
+    eprintln!("  Generated: {} servers", parsed_gen.servers.len());
+    for srv in &parsed.servers {
+        let name = if srv.server_name.starts_with('~') { "(regex preay)" } else { &srv.server_name };
+        let matched = parsed_gen.servers.iter().find(|g|
+            g.server_name == srv.server_name);
+        match matched {
+            Some(g) => {
+                let ssl = if g.ssl == srv.ssl { "✅" } else { "❌" };
+                let locs = if g.locations.len() == srv.locations.len() { "✅" } else { "❌" };
+                eprintln!("  ✅ {} SSL={} locations={} ({})", name, ssl, locs, srv.locations.len());
+            }
+            None => eprintln!("  ❌ MISSING: {} ({} locations)", name, srv.locations.len()),
+        }
+    }
+
+    // Streams
+    eprintln!("
+--- Streams ---");
+    eprintln!("  Original: {} streams", parsed.streams.len());
+    eprintln!("  Generated: {} streams", parsed_gen.streams.len());
+
+    // Write the generated config to a file for manual inspection
+    let out_path = test_dir.join("nginx_production_generated.conf");
+    let mut f = std::fs::File::create(&out_path).unwrap();
+    f.write_all(generated.as_bytes()).unwrap();
+    eprintln!("
+✅ Generated config written to: testdata/nginx_production_generated.conf");
+
+    // Show first 20 lines of each for quick visual comparison
+    eprintln!("
+============= FIRST 20 LINES COMPARISON =============");
+    eprintln!("--- ORIGINAL ---");
+    for line in original.lines().take(20) {
+        eprintln!("{}", line);
+    }
+    eprintln!("--- GENERATED ---");
+    for line in generated.lines().take(20) {
+        eprintln!("{}", line);
+    }
+
+    // Key structural assertions
+    assert_eq!(parsed_gen.upstreams.len(), parsed.upstreams.len(),
+        "Generated should have same number of upstreams");
+    assert_eq!(parsed_gen.servers.len(), parsed.servers.len(),
+        "Generated should have same number of servers");
+
+    // Verify each original upstream exists in generated
+    for up in &parsed.upstreams {
+        let gen_up = parsed_gen.upstreams.iter().find(|g| g.name == up.name);
+        assert!(gen_up.is_some(), "Upstream {} should be in generated config", up.name);
+        if let Some(g) = gen_up {
+            assert_eq!(g.servers.len(), up.servers.len(),
+                "Upstream {} should have same number of servers", up.name);
+        }
+    }
+}
