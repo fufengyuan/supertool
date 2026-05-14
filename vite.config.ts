@@ -43,4 +43,8 @@ export default defineConfig({
       ignored: ['**/tauri/**'],
     },
   },
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+  },
 })
