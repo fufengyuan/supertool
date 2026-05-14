@@ -709,6 +709,7 @@ fn main() {
             // Config Generation
             commands::nginx::generate_nginx_config,
             commands::nginx::generate_nginx_config_decomposed,
+            commands::nginx::import_nginx_config,
             // Disk cleaner commands
             commands::disk_cleaner::get_home_dir,
             commands::disk_cleaner::get_disk_info,

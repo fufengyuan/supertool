@@ -1214,6 +1214,8 @@ export function useNginxAPI() {
     addNginxPassword: async (password: any): Promise<any> => tauriCall('add_nginx_password', { password }),
     updateNginxPassword: async (password: any): Promise<any> => tauriCall('update_nginx_password', { password }),
     deleteNginxPassword: async (id: string): Promise<any> => tauriCall('delete_nginx_password', { id }),
+    // Import config
+    importNginxConfig: async (presetId: string, configText: string): Promise<any> => tauriCall('import_nginx_config', { presetId, configText }),
   };
 }
 
@@ -1828,6 +1830,7 @@ export interface TauriAPI {
   addNginxPassword: (password: any) => Promise<any>
   updateNginxPassword: (password: any) => Promise<any>
   deleteNginxPassword: (id: string) => Promise<any>
+  importNginxConfig: (presetId: string, configText: string) => Promise<any>
   // Alert
   getEmailConfig: () => Promise<any>
   saveEmailConfig: (config: any) => Promise<any>
@@ -2189,6 +2192,7 @@ export function getTauriAPI(): TauriAPI {
     addNginxPassword: nginx.addNginxPassword,
     updateNginxPassword: nginx.updateNginxPassword,
     deleteNginxPassword: nginx.deleteNginxPassword,
+    importNginxConfig: nginx.importNginxConfig,
     // Alert
     getEmailConfig: alert.getEmailConfig,
     saveEmailConfig: alert.saveEmailConfig,
