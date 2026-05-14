@@ -1,13 +1,13 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">全局基础参数</h3>
       <button @click="addRow" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增参数
       </button>
     </div>
 
-    <div class="text-xs text-base-content/50 mb-3">
+    <div class="text-xs text-base-content/50 mb-2">
       此处添加任意 nginx 全局指令，例如：<code>sendfile on</code>、<code>tcp_nopush on</code>、<code>keepalive_timeout 65</code>
     </div>
 
@@ -24,13 +24,13 @@
 
     <!-- 参数表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
-            <th class="w-12 text-center">#</th>
+            <th class="w-8 text-center">#</th>
             <th class="w-1/3">参数名</th>
             <th>参数值</th>
-            <th class="w-24 text-center">操作</th>
+            <th class="w-20 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -40,7 +40,7 @@
               <input
                 v-model="item.name"
                 placeholder="参数名 (如 worker_processes)"
-                class="input input-bordered input-sm w-full font-mono text-sm"
+                class="input input-bordered input-xs w-full font-mono"
                 @input="markDirty"
               />
             </td>
@@ -48,12 +48,12 @@
               <input
                 v-model="item.value"
                 placeholder="参数值 (如 auto)"
-                class="input input-bordered input-sm w-full font-mono text-sm"
+                class="input input-bordered input-xs w-full font-mono"
                 @input="markDirty"
               />
             </td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
+              <div class="flex items-center justify-center gap-0.5">
                 <div class="flex flex-col gap-0">
                   <button
                     @click="moveUp(index)"
@@ -73,7 +73,7 @@
                   </button>
                 </div>
                 <button @click="removeRow(index)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                  <SvgIcon name="trash" size="14" />
+                  <SvgIcon name="trash" size="12" />
                 </button>
               </div>
             </td>
@@ -83,11 +83,11 @@
     </div>
 
     <!-- 操作按钮 -->
-    <div class="flex items-center gap-3 mt-4">
-      <button @click="onSave" class="btn btn-primary" :disabled="loading || !loaded">
-        <SvgIcon name="check" size="14" /> 保存设置
+    <div class="flex items-center gap-2 mt-3">
+      <button @click="onSave" class="btn btn-primary btn-sm" :disabled="loading || !loaded">
+        <SvgIcon name="check" size="12" /> 保存设置
       </button>
-      <span v-if="saved" class="text-sm text-success">已保存</span>
+      <span v-if="saved" class="text-xs text-success">已保存</span>
     </div>
   </div>
 </template>

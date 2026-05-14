@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">Stream 配置</h3>
       <button @click="openAddDialog" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增 Stream
@@ -21,45 +21,45 @@
 
     <!-- 表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
             <th>监听</th>
             <th>协议</th>
             <th>代理目标</th>
             <th class="text-center">SSL</th>
-            <th class="w-20 text-center">启用</th>
-            <th class="w-32 text-center">操作</th>
+            <th class="w-16 text-center">启用</th>
+            <th class="w-24 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="stream in streams" :key="stream.id">
-            <td class="font-mono text-sm">{{ stream.listen || '-' }}</td>
+            <td class="font-mono text-xs">{{ stream.listen || '-' }}</td>
             <td>
-              <span class="badge badge-sm" :class="stream.protocol === 'UDP' ? 'badge-warning' : 'badge-info'">
+              <span class="badge badge-xs" :class="stream.protocol === 'UDP' ? 'badge-warning' : 'badge-info'">
                 {{ stream.protocol || 'TCP' }}
               </span>
             </td>
-            <td class="text-sm">{{ stream.proxyPass || stream.proxyUpstreamId || '-' }}</td>
+            <td class="text-xs">{{ stream.proxyPass || stream.proxyUpstreamId || '-' }}</td>
             <td class="text-center">
-              <span v-if="stream.ssl" class="badge badge-sm badge-success">SSL</span>
-              <span v-else class="badge badge-sm badge-ghost">否</span>
+              <span v-if="stream.ssl" class="badge badge-xs badge-success">SSL</span>
+              <span v-else class="badge badge-xs badge-ghost">否</span>
             </td>
             <td class="text-center">
               <input
                 type="checkbox"
                 :checked="stream.enabled !== false"
                 @change="toggleEnabled(stream)"
-                class="checkbox checkbox-sm"
+                class="checkbox checkbox-xs"
               />
             </td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
-                <button @click="openEditDialog(stream)" class="btn btn-ghost btn-xs" title="编辑">
-                  <SvgIcon name="pencil" size="14" />
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="openEditDialog(stream)" class="btn btn-ghost btn-xs btn-square" title="编辑">
+                  <SvgIcon name="pencil" size="12" />
                 </button>
                 <button @click="onDeleteStream(stream.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                  <SvgIcon name="trash" size="14" />
+                  <SvgIcon name="trash" size="12" />
                 </button>
               </div>
             </td>
@@ -70,20 +70,20 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-2xl">
+      <div class="modal-box max-w-xl">
         <h3 class="font-bold text-lg">{{ editingStream ? '编辑 Stream' : '新增 Stream' }}</h3>
 
-        <div class="grid grid-cols-2 gap-x-4 gap-y-3 mt-4">
+        <div class="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
           <!-- 监听地址 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">监听地址</label>
-            <input v-model="form.listen" placeholder="0.0.0.0:80" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">监听地址</label>
+            <input v-model="form.listen" placeholder="0.0.0.0:80" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 协议 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">协议</label>
-            <select v-model="form.protocol" class="select select-bordered w-full">
+            <label class="text-xs font-medium text-base-content/80">协议</label>
+            <select v-model="form.protocol" class="select select-sm select-bordered w-full">
               <option value="TCP">TCP</option>
               <option value="UDP">UDP</option>
             </select>
@@ -91,42 +91,42 @@
 
           <!-- 代理目标 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">代理目标 (proxyPass)</label>
-            <input v-model="form.proxyPass" placeholder="例如：127.0.0.1:3000" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">代理目标 (proxyPass)</label>
+            <input v-model="form.proxyPass" placeholder="例如：127.0.0.1:3000" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 代理 Upstream ID -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">代理 Upstream ID</label>
-            <input v-model="form.proxyUpstreamId" placeholder="关联的 upstream ID" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">代理 Upstream ID</label>
+            <input v-model="form.proxyUpstreamId" placeholder="关联的 upstream ID" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- SSL -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">SSL</label>
-            <label class="flex items-center gap-2 text-sm cursor-pointer mt-1">
-              <input type="checkbox" v-model="form.ssl" class="checkbox checkbox-sm" />
+            <label class="text-xs font-medium text-base-content/80">SSL</label>
+            <label class="flex items-center gap-2 text-xs cursor-pointer mt-0.5">
+              <input type="checkbox" v-model="form.ssl" class="checkbox checkbox-xs" />
               开启 SSL
             </label>
           </div>
 
           <!-- certId (仅 SSL 开启时显示) -->
           <div v-if="form.ssl" class="flex flex-col gap-1">
-            <label class="text-sm font-medium">证书 ID</label>
-            <input v-model="form.certId" placeholder="证书 ID" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">证书 ID</label>
+            <input v-model="form.certId" placeholder="证书 ID" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 描述 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">描述</label>
-            <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">描述</label>
+            <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 启用 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">启用</label>
-            <label class="flex items-center gap-2 text-sm cursor-pointer mt-1">
-              <input type="checkbox" v-model="form.enabled" class="checkbox checkbox-sm" />
+            <label class="text-xs font-medium text-base-content/80">启用</label>
+            <label class="flex items-center gap-2 text-xs cursor-pointer mt-0.5">
+              <input type="checkbox" v-model="form.enabled" class="checkbox checkbox-xs" />
               启用
             </label>
           </div>
@@ -136,8 +136,8 @@
         <textarea v-model="form.paramJson" class="hidden"></textarea>
 
         <div class="modal-action">
-          <button @click="closeDialog" class="btn btn-ghost">取消</button>
-          <button @click="onSave" class="btn btn-primary" :disabled="!form.listen">保存</button>
+          <button @click="closeDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onSave" class="btn btn-primary btn-sm" :disabled="!form.listen">保存</button>
         </div>
       </div>
     </div>

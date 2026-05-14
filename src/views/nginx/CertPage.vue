@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">SSL 证书管理</h3>
       <button @click="openAddDialog" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增证书
@@ -21,7 +21,7 @@
 
     <!-- 表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
             <th>名称</th>
@@ -29,23 +29,23 @@
             <th>PEM 路径</th>
             <th>Key 路径</th>
             <th>创建时间</th>
-            <th class="w-28 text-center">操作</th>
+            <th class="w-20 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="cert in certs" :key="cert.id">
             <td class="font-medium">{{ cert.name }}</td>
-            <td class="text-sm font-mono">{{ cert.domain || '-' }}</td>
-            <td class="text-xs font-mono text-base-content/70 truncate max-w-[180px]" :title="cert.pem">{{ cert.pem || '-' }}</td>
-            <td class="text-xs font-mono text-base-content/70 truncate max-w-[180px]" :title="cert.key">{{ cert.key || '-' }}</td>
+            <td class="text-xs font-mono">{{ cert.domain || '-' }}</td>
+            <td class="text-xs font-mono text-base-content/70 truncate max-w-[160px]" :title="cert.pem">{{ cert.pem || '-' }}</td>
+            <td class="text-xs font-mono text-base-content/70 truncate max-w-[160px]" :title="cert.key">{{ cert.key || '-' }}</td>
             <td class="text-xs text-base-content/50">{{ cert.createdAt ? formatDate(cert.createdAt) : '-' }}</td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
-                <button @click="openEditDialog(cert)" class="btn btn-ghost btn-xs" title="编辑">
-                  <SvgIcon name="pencil" size="14" />
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="openEditDialog(cert)" class="btn btn-ghost btn-xs btn-square" title="编辑">
+                  <SvgIcon name="pencil" size="12" />
                 </button>
                 <button @click="onDeleteCert(cert.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                  <SvgIcon name="trash" size="14" />
+                  <SvgIcon name="trash" size="12" />
                 </button>
               </div>
             </td>
@@ -59,35 +59,35 @@
       <div class="modal-box max-w-lg">
         <h3 class="font-bold text-lg">{{ editingCert ? '编辑证书' : '新增证书' }}</h3>
 
-        <div class="flex flex-col gap-3 mt-4">
+        <div class="flex flex-col gap-2 mt-3">
           <!-- 名称 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">名称</label>
-            <input v-model="form.name" placeholder="例如：example-com-cert" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">名称</label>
+            <input v-model="form.name" placeholder="例如：example-com-cert" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 域名 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">域名</label>
-            <input v-model="form.domain" placeholder="example.com" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">域名</label>
+            <input v-model="form.domain" placeholder="example.com" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- PEM 路径 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">PEM 路径</label>
-            <input v-model="form.pem" placeholder="/etc/nginx/ssl/cert.pem" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">PEM 路径</label>
+            <input v-model="form.pem" placeholder="/etc/nginx/ssl/cert.pem" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- Key 路径 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">Key 路径</label>
-            <input v-model="form.key" placeholder="/etc/nginx/ssl/cert.key" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">Key 路径</label>
+            <input v-model="form.key" placeholder="/etc/nginx/ssl/cert.key" class="input input-sm input-bordered w-full" />
           </div>
         </div>
 
         <div class="modal-action">
-          <button @click="closeDialog" class="btn btn-ghost">取消</button>
-          <button @click="onSave" class="btn btn-primary" :disabled="!form.name">保存</button>
+          <button @click="closeDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onSave" class="btn btn-primary btn-sm" :disabled="!form.name">保存</button>
         </div>
       </div>
     </div>

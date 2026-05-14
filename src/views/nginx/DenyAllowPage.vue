@@ -1,6 +1,6 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">IP 黑白名单</h3>
       <button @click="addRow" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增名单
@@ -17,42 +17,44 @@
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
-            <th class="w-44">名称</th>
+            <th class="w-36">名称</th>
             <th>IP 列表 (每行一个)</th>
-            <th class="w-24 text-center">操作</th>
+            <th class="w-16 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(item, index) in items" :key="item._key">
             <td>
-              <input v-model="item.name" placeholder="名单名称" class="input input-bordered input-sm w-full" />
+              <input v-model="item.name" placeholder="名单名称" class="input input-bordered input-xs w-full" />
             </td>
             <td>
               <textarea
                 v-model="item.ip"
                 placeholder="10.0.0.1&#10;192.168.1.0/24&#10;..."
-                class="textarea textarea-bordered textarea-sm w-full font-mono"
+                class="textarea textarea-bordered textarea-xs w-full font-mono"
                 rows="3"
               ></textarea>
             </td>
             <td class="text-center">
-              <button @click="onDelete(index)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                <SvgIcon name="trash" size="14" />
-              </button>
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="onDelete(index)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                  <SvgIcon name="trash" size="12" />
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="flex items-center gap-3 mt-4">
-      <button @click="onSave" class="btn btn-primary" :disabled="loading">
-        <SvgIcon name="check" size="14" /> 保存
+    <div class="flex items-center gap-2 mt-3">
+      <button @click="onSave" class="btn btn-primary btn-sm" :disabled="loading">
+        <SvgIcon name="check" size="12" /> 保存
       </button>
-      <span v-if="saved" class="text-sm text-success">已保存</span>
+      <span v-if="saved" class="text-xs text-success">已保存</span>
     </div>
   </div>
 </template>

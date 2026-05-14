@@ -1,13 +1,13 @@
 <template>
   <div>
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">额外参数</h3>
       <button @click="addRow" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增参数
       </button>
     </div>
 
-    <div class="text-xs text-base-content/50 mb-3">
+    <div class="text-xs text-base-content/50 mb-2">
       添加自定义 nginx 参数，可附加到 Server / Location / Upstream。position=1 时参数出现在指令之前，=0 时追加到末尾。
     </div>
 
@@ -21,44 +21,46 @@
     </div>
 
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
             <th>参数名</th>
             <th>参数值</th>
-            <th class="w-20 text-center">位置</th>
-            <th class="w-20 text-center">排序</th>
-            <th class="w-24 text-center">操作</th>
+            <th class="w-16 text-center">位置</th>
+            <th class="w-16 text-center">排序</th>
+            <th class="w-16 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(item, index) in items" :key="item._key">
-            <td><input v-model="item.name" placeholder="sendfile" class="input input-bordered input-sm w-full font-mono" /></td>
-            <td><input v-model="item.value" placeholder="on" class="input input-bordered input-sm w-full font-mono" /></td>
+            <td><input v-model="item.name" placeholder="sendfile" class="input input-bordered input-xs w-full font-mono" /></td>
+            <td><input v-model="item.value" placeholder="on" class="input input-bordered input-xs w-full font-mono" /></td>
             <td class="text-center">
-              <select v-model.number="item.position" class="select select-bordered select-sm">
+              <select v-model.number="item.position" class="select select-bordered select-xs">
                 <option :value="0">追加</option>
                 <option :value="1">前置</option>
               </select>
             </td>
             <td class="text-center">
-              <input v-model.number="item.sort" type="number" class="input input-bordered input-sm w-16 text-center" />
+              <input v-model.number="item.sort" type="number" class="input input-bordered input-xs w-14 text-center" />
             </td>
             <td class="text-center">
-              <button @click="items.splice(index, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                <SvgIcon name="trash" size="14" />
-              </button>
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="items.splice(index, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                  <SvgIcon name="trash" size="12" />
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="flex items-center gap-3 mt-4">
-      <button @click="onSave" class="btn btn-primary" :disabled="loading">
-        <SvgIcon name="check" size="14" /> 保存
+    <div class="flex items-center gap-2 mt-3">
+      <button @click="onSave" class="btn btn-primary btn-sm" :disabled="loading">
+        <SvgIcon name="check" size="12" /> 保存
       </button>
-      <span v-if="saved" class="text-sm text-success">已保存</span>
+      <span v-if="saved" class="text-xs text-success">已保存</span>
     </div>
   </div>
 </template>

@@ -57,30 +57,39 @@
       </div>
 
       <!-- 右侧：选项卡布局 -->
-      <div class="flex-1 flex flex-col gap-4 min-w-0">
+      <div class="flex-1 flex flex-col gap-3 min-w-0">
         <!-- 工具栏 -->
-        <div class="bg-base-100 border border-base-content/10 rounded-xl p-4">
+        <div class="bg-base-100 border border-base-content/10 rounded-xl p-3">
           <div class="flex items-center justify-between">
-            <div>
-              <span v-if="currentPreset" class="font-semibold text-base text-base-content">{{ currentPreset.name }}</span>
-              <span v-else class="text-sm text-base-content/50">请先选择预设</span>
+            <div class="flex items-center gap-3">
+              <span v-if="currentPreset" class="font-semibold text-sm text-base-content">{{ currentPreset.name }}</span>
+              <span v-else class="text-xs text-base-content/50">请先选择预设</span>
+              <!-- 状态信息 -->
+              <div v-if="currentPreset" class="flex items-center gap-2 text-xs text-base-content/50 border-l border-base-content/10 pl-3">
+                <span class="flex items-center gap-1">
+                  <SvgIcon name="clock" size="10" /> 上次发布：
+                  <span v-if="lastDeployTime">{{ lastDeployTime }}</span>
+                  <span v-else class="text-base-content/30">暂无</span>
+                </span>
+              </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-1.5">
               <button
                 @click="onGenerateConfig"
                 :disabled="!currentPreset || loading"
-                class="btn btn-ghost btn-sm"
+                class="btn btn-ghost btn-sm btn-square"
+                title="预览"
               >
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 生成中...</template>
-                <template v-else><SvgIcon name="eye" size="14" /> 预览</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /></template>
+                <template v-else><SvgIcon name="eye" size="14" /></template>
               </button>
               <button
                 @click="onTestConfig"
                 :disabled="!currentPreset || loading"
                 class="btn btn-outline btn-sm"
               >
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 检测中...</template>
-                <template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /></template>
+                <template v-else><SvgIcon name="lightbulb" size="14" /> 预检测试</template>
               </button>
               <button
                 @click="onImportConfig"
@@ -94,7 +103,7 @@
                 @click="openDeployDialog"
                 :disabled="!currentPreset || loading"
                 class="btn btn-primary btn-sm">
-                <template v-if="loading"><SvgIcon name="clock" size="14" /> 发布中...</template>
+                <template v-if="loading"><SvgIcon name="clock" size="14" /></template>
                 <template v-else><SvgIcon name="rocket" size="14" /> 发布</template>
               </button>
             </div>
@@ -102,16 +111,16 @@
         </div>
 
         <!-- 选项卡导航 -->
-        <div class="tabs tabs-boxed bg-base-100 border border-base-content/10">
+        <div class="tabs tabs-boxed bg-base-100 border border-base-content/10 p-0.5 gap-0">
           <button
             v-for="tab in tabs"
             :key="tab.key"
-            class="tab"
+            class="tab tab-xs"
             :class="{ 'tab-active': currentTab === tab.key }"
             :disabled="!currentPreset"
             @click="switchTab(tab.key)"
           >
-            <SvgIcon :name="tab.icon" size="14" class="mr-1" />
+            <SvgIcon :name="tab.icon" size="12" />
             {{ tab.label }}
           </button>
         </div>
@@ -119,18 +128,18 @@
         <!-- 测试结果提示 -->
         <div
           v-if="testResult"
-          class="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm"
+          class="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
           :class="testResult.passed ? 'bg-success/10 text-success' : 'bg-error/10 text-error'"
         >
-          <span><template v-if="testResult.passed"><SvgIcon name="check" size="14" /> 配置检测通过</template><template v-else><SvgIcon name="x" size="14" /> 配置检测失败</template></span>
-          <span v-if="testResult.message" class="text-xs opacity-70">{{ testResult.message }}</span>
-          <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto"><SvgIcon name="x" size="14" /></button>
+          <span><template v-if="testResult.passed"><SvgIcon name="check" size="12" /> 配置检测通过</template><template v-else><SvgIcon name="x" size="12" /> 配置检测失败</template></span>
+          <span v-if="testResult.message" class="opacity-70">{{ testResult.message }}</span>
+          <button @click="testResult = null" class="btn btn-ghost btn-xs ml-auto"><SvgIcon name="x" size="12" /></button>
         </div>
 
         <!-- 选项卡内容 -->
         <div class="bg-base-100 border border-base-content/10 rounded-xl flex-1 min-h-[400px]">
           <template v-for="tab in tabs" :key="tab.key">
-            <div v-if="currentTab === tab.key" class="p-4">
+            <div v-if="currentTab === tab.key" class="p-3">
             <!-- 未选择预设时显示提示 -->
             <div v-if="!currentPreset" class="flex items-center justify-center h-32 text-base-content/50">
               <p>请先选择一个预设</p>
@@ -175,17 +184,17 @@
         </div>
 
         <!-- 版本历史 -->
-        <div v-if="versions.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-4">
-          <h4 class="text-sm font-semibold text-base-content m-0 mb-3"><SvgIcon name="file" size="14" /> 版本历史</h4>
+        <div v-if="versions.length > 0" class="bg-base-100 border border-base-content/10 rounded-xl p-3">
+          <h4 class="text-xs font-semibold text-base-content m-0 mb-2"><SvgIcon name="file" size="12" /> 版本历史</h4>
           <div class="flex flex-col">
             <div
               v-for="version in versions"
               :key="version.id"
-              class="flex items-center justify-between py-2.5 border-b border-base-content/5 last:border-b-0"
+              class="flex items-center justify-between py-2 border-b border-base-content/5 last:border-b-0"
             >
               <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm text-base-content">{{ version.comment || '无备注' }}</span>
-                <span v-if="version.isCurrent" class="badge badge-success badge-sm">当前生效</span>
+                <span class="text-xs text-base-content">{{ version.comment || '无备注' }}</span>
+                <span v-if="version.isCurrent" class="badge badge-success badge-xs">当前生效</span>
                 <span class="text-xs text-base-content/50">{{ formatDate(version.createdAt) }}</span>
                 <span v-if="version.checksum" class="text-xs text-base-content/30 font-mono">{{ version.checksum }}</span>
               </div>
@@ -194,7 +203,7 @@
                 :disabled="loading"
                 class="btn btn-ghost btn-xs"
                 title="回滚到此版本"
-              ><SvgIcon name="refresh" size="14" />  回滚</button>
+              ><SvgIcon name="refresh" size="12" /> 回滚</button>
             </div>
           </div>
         </div>
@@ -205,17 +214,17 @@
     <div v-if="showPresetForm" class="modal modal-open" @click.self="showPresetForm = false">
       <div class="modal-box">
         <h3 class="font-bold text-lg">{{ editingPreset ? '编辑预设' : '新增预设' }}</h3>
-        <div class="flex flex-col gap-1 mt-4">
-          <label class="text-sm font-medium">预设名称</label>
-          <input v-model="presetForm.name" placeholder="例如：生产环境API配置" class="input input-bordered w-full" />
-        </div>
         <div class="flex flex-col gap-1 mt-3">
-          <label class="text-sm font-medium">分组</label>
+          <label class="text-xs font-medium text-base-content/80">预设名称</label>
+          <input v-model="presetForm.name" placeholder="例如：生产环境API配置" class="input input-sm input-bordered w-full" />
+        </div>
+        <div class="flex flex-col gap-1 mt-2">
+          <label class="text-xs font-medium text-base-content/80">分组</label>
           <input
             v-model="presetForm.groupName"
             list="group-suggestions"
             placeholder="例如：生产 / 测试"
-            class="input input-bordered w-full"
+            class="input input-sm input-bordered w-full"
           />
           <datalist id="group-suggestions">
             <option value="生产" />
@@ -224,8 +233,8 @@
             <option value="预发" />
           </datalist>
         </div>
-        <div class="flex flex-col gap-1 mt-3">
-          <label class="text-sm font-medium">服务器</label>
+        <div class="flex flex-col gap-1 mt-2">
+          <label class="text-xs font-medium text-base-content/80">服务器</label>
           <div>
             <GroupedServerSelector
               :servers="servers"
@@ -235,13 +244,13 @@
             />
           </div>
         </div>
-        <div class="flex flex-col gap-1 mt-3">
-          <label class="text-sm font-medium">配置文件路径</label>
-          <input v-model="presetForm.configPath" placeholder="例如：/etc/nginx/nginx.conf" class="input input-bordered w-full" />
+        <div class="flex flex-col gap-1 mt-2">
+          <label class="text-xs font-medium text-base-content/80">配置文件路径</label>
+          <input v-model="presetForm.configPath" placeholder="例如：/etc/nginx/nginx.conf" class="input input-sm input-bordered w-full" />
         </div>
-        <div class="flex flex-col gap-1 mt-3">
-          <label class="text-sm font-medium">描述</label>
-          <textarea v-model="presetForm.description" placeholder="可选描述信息" class="textarea textarea-bordered w-full" rows="2"></textarea>
+        <div class="flex flex-col gap-1 mt-2">
+          <label class="text-xs font-medium text-base-content/80">描述</label>
+          <textarea v-model="presetForm.description" placeholder="可选描述信息" class="textarea textarea-bordered w-full text-xs" rows="2"></textarea>
         </div>
         <div class="modal-action">
           <button @click="showPresetForm = false" class="btn btn-ghost">取消</button>
@@ -254,48 +263,48 @@
 
     <!-- 发布弹窗 -->
     <div v-if="showDeployDialog" class="modal modal-open" @click.self="showDeployDialog = false">
-      <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
 
         <!-- 分解模式开关 -->
-        <div class="mt-4 flex items-center gap-3">
-          <label class="text-sm font-medium cursor-pointer" for="decompose-switch">分解模式（conf.d/）</label>
-          <input id="decompose-switch" type="checkbox" v-model="decomposeMode" class="toggle toggle-sm toggle-primary" @change="onDecomposeChange" />
-          <span class="text-xs text-base-content/50">将 Server / Upstream 拆分为独立子文件，通过 include 引入</span>
+        <div class="mt-3 flex items-center gap-2">
+          <label class="text-xs font-medium cursor-pointer" for="decompose-switch">分解模式（conf.d/）</label>
+          <input id="decompose-switch" type="checkbox" v-model="decomposeMode" class="toggle toggle-xs toggle-primary" @change="onDecomposeChange" />
+          <span class="text-xs text-base-content/50">将 Server / Upstream 拆分为独立子文件</span>
         </div>
 
         <!-- 配置差异 -->
-        <div class="mt-4">
-          <label class="text-sm font-medium mb-1 block">配置差异对比</label>
+        <div class="mt-3">
+          <label class="text-xs font-medium mb-1 block">配置差异对比</label>
           <div class="border border-base-content/10 rounded-lg overflow-hidden">
             <!-- 加载中 -->
-            <div v-if="diffLoading" class="flex items-center justify-center h-20 text-sm text-base-content/50">
-              <SvgIcon name="clock" size="14" class="mr-2" /> 正在生成配置并计算差异…
+            <div v-if="diffLoading" class="flex items-center justify-center h-16 text-xs text-base-content/50">
+              <SvgIcon name="clock" size="12" class="mr-1" /> 正在生成配置并计算差异…
             </div>
             <!-- 无差异 -->
-            <div v-else-if="diffSame" class="flex items-center justify-center h-12 text-sm text-success gap-2">
-              <SvgIcon name="check" size="14" /> 生成配置与当前配置一致，无变更
+            <div v-else-if="diffSame" class="flex items-center justify-center h-10 text-xs text-success gap-1">
+              <SvgIcon name="check" size="12" /> 生成配置与当前配置一致，无变更
             </div>
             <!-- 失败 -->
-            <div v-else-if="diffError" class="flex items-center justify-center h-12 text-sm text-error gap-2">
-              <SvgIcon name="alertTriangle" size="14" /> {{ diffError }}
+            <div v-else-if="diffError" class="flex items-center justify-center h-10 text-xs text-error gap-1">
+              <SvgIcon name="alertTriangle" size="12" /> {{ diffError }}
             </div>
             <!-- 差异内容 -->
-            <pre v-else-if="diffContent" class="text-xs leading-relaxed overflow-auto max-h-80 m-0 p-3 bg-base-200/50 font-mono whitespace-pre-wrap">{{ diffContent }}</pre>
-            <div v-else class="flex items-center justify-center h-12 text-sm text-base-content/50">点击"预览"生成配置后再发布可查看差异</div>
+            <pre v-else-if="diffContent" class="text-xs leading-relaxed overflow-auto max-h-72 m-0 p-2 bg-base-200/50 font-mono whitespace-pre-wrap">{{ diffContent }}</pre>
+            <div v-else class="flex items-center justify-center h-10 text-xs text-base-content/50">点击"预览"生成配置后再发布可查看差异</div>
           </div>
         </div>
 
         <!-- 分解后的子文件列表 -->
-        <div v-if="decomposeMode && decomposedSubFiles.length > 0" class="mt-4">
-          <label class="text-sm font-medium mb-1 block">分解子文件（{{ decomposedSubFiles.length }} 个）</label>
-          <div class="border border-base-content/10 rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+        <div v-if="decomposeMode && decomposedSubFiles.length > 0" class="mt-3">
+          <label class="text-xs font-medium mb-1 block">分解子文件（{{ decomposedSubFiles.length }} 个）</label>
+          <div class="border border-base-content/10 rounded-lg overflow-hidden max-h-40 overflow-y-auto">
             <div
               v-for="(sf, idx) in decomposedSubFiles"
               :key="idx"
-              class="px-3 py-2 border-b border-base-content/5 last:border-b-0 text-xs font-mono text-base-content/70 hover:bg-base-200/50 flex items-center gap-2"
+              class="px-2 py-1.5 border-b border-base-content/5 last:border-b-0 text-xs font-mono text-base-content/70 hover:bg-base-200/50 flex items-center gap-1"
             >
-              <SvgIcon name="file" size="12" />
+              <SvgIcon name="file" size="10" />
               <span class="font-semibold text-base-content">{{ sf.filename }}</span>
               <span class="text-base-content/40">—</span>
               <span class="truncate">{{ sf.content.split('\n')[0].substring(0, 60) }}{{ sf.content.includes('\n') ? '…' : '' }}</span>
@@ -303,18 +312,18 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-1 mt-4">
-          <label class="text-sm font-medium">备注</label>
+        <div class="flex flex-col gap-1 mt-3">
+          <label class="text-xs font-medium">备注</label>
           <input
             v-model="deployComment"
             placeholder="请输入发布说明"
-            class="input input-bordered w-full"
+            class="input input-sm input-bordered w-full"
             @keyup.enter="onDeploy"
           />
         </div>
         <div class="modal-action">
-          <button @click="closeDeployDialog" class="btn btn-ghost">取消</button>
-          <button @click="onDeploy" class="btn btn-primary" :disabled="!deployComment.trim() || diffLoading">
+          <button @click="closeDeployDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onDeploy" class="btn btn-primary btn-sm" :disabled="!deployComment.trim() || diffLoading">
             确认发布
           </button>
         </div>
@@ -379,6 +388,7 @@ const confirmRollbackId = ref('')
 const deleting = ref(false)
 const currentTab = ref('server')
 const showConfigPreview = ref(false)
+const lastDeployTime = ref('')
 
 // Config diff state
 const diffLoading = ref(false)

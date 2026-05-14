@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">Upstream 配置</h3>
       <button @click="openAddDialog" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增 Upstream
@@ -21,14 +21,14 @@
 
     <!-- 表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
             <th>代理类型</th>
             <th>名称</th>
             <th>策略</th>
             <th>描述</th>
-            <th class="w-36 text-center">操作</th>
+            <th class="w-28 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -44,11 +44,11 @@
             </td>
             <td class="text-base-content/60 text-sm">{{ upstream.descr || '-' }}</td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
-                <button @click="openEditDialog(upstream)" class="btn btn-ghost btn-xs" title="编辑">
+              <div class="flex items-center justify-center gap-0.5">
+                <button @click="openEditDialog(upstream)" class="btn btn-ghost btn-xs btn-square" title="编辑">
                   <SvgIcon name="pencil" size="14" />
                 </button>
-                <button @click="onCloneUpstream(upstream)" class="btn btn-ghost btn-xs" title="克隆">
+                <button @click="onCloneUpstream(upstream)" class="btn btn-ghost btn-xs btn-square" title="克隆">
                   <SvgIcon name="copy" size="14" />
                 </button>
                 <button @click="onDeleteUpstream(upstream.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
@@ -63,20 +63,20 @@
 
     <!-- 新增/编辑弹窗 -->
     <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-7xl max-h-[85vh] overflow-y-auto">
+      <div class="modal-box max-w-5xl max-h-[85vh] overflow-y-auto">
         <h3 class="font-bold text-lg">{{ editingUpstream ? '编辑 Upstream' : '新增 Upstream' }}</h3>
 
-        <div class="grid grid-cols-2 gap-x-8 gap-y-4 mt-4">
+        <div class="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
           <!-- 名称 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">名称</label>
-            <input v-model="form.name" placeholder="例如：backend-api" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">名称</label>
+            <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
           </div>
 
           <!-- 代理类型 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">代理类型</label>
-            <select v-model="form.proxyType" class="select select-bordered w-full">
+            <label class="text-xs font-medium text-base-content/80">代理类型</label>
+            <select v-model="form.proxyType" class="select select-sm select-bordered w-full">
               <option :value="0">HTTP</option>
               <option :value="1">TCP</option>
               <option :value="2">UDP</option>
@@ -85,8 +85,8 @@
 
           <!-- 策略 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">负载均衡策略</label>
-            <select v-model="form.strategy" class="select select-bordered w-full">
+            <label class="text-xs font-medium text-base-content/80">负载均衡策略</label>
+            <select v-model="form.strategy" class="select select-sm select-bordered w-full">
               <option value="polling">轮询 (polling)</option>
               <option value="ip_hash">IP Hash</option>
               <option value="least_conn">最小连接 (least_conn)</option>
@@ -96,8 +96,8 @@
 
           <!-- 描述 -->
           <div class="flex flex-col gap-1">
-            <label class="text-sm font-medium">描述</label>
-            <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">描述</label>
+            <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
           </div>
         </div>
 
@@ -105,12 +105,17 @@
         <textarea v-model="form.paramJson" class="hidden"></textarea>
 
         <!-- 上游服务器列表 -->
-        <div class="mt-6">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-sm font-medium">上游服务器</span>
-            <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
-              <SvgIcon name="plus" size="12" /> 新增服务器
-            </button>
+        <div class="mt-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-medium text-base-content/80">上游服务器</span>
+            <div class="flex items-center gap-2">
+              <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
+                <SvgIcon name="list" size="12" /> 批添加
+              </button>
+              <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
+                <SvgIcon name="plus" size="12" /> 新增服务器
+              </button>
+            </div>
           </div>
 
           <div v-if="upstreamServers.length === 0" class="text-center py-4 text-base-content/50 text-sm">
@@ -169,6 +174,24 @@
           </div>
         </div>
 
+        <!-- 批添加弹窗 -->
+        <div v-if="showBatchAdd" class="modal modal-open" @click.self="showBatchAdd = false">
+          <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg">批添加上游服务器</h3>
+            <p class="text-xs text-base-content/60 mt-1">每行一个服务器，格式：<code>ip:port</code>，可选 <code>weight=N max_fails=N fail_timeout=T max_conns=N backup down</code></p>
+            <textarea
+              v-model="batchAddText"
+              class="textarea textarea-bordered w-full font-mono text-xs mt-3"
+              rows="10"
+              placeholder="127.0.0.1:8080 weight=5 max_fails=2&#10;192.168.1.10:9090 weight=3 backup&#10;10.0.0.1:3000 down"
+            ></textarea>
+            <div class="modal-action">
+              <button @click="showBatchAdd = false" class="btn btn-ghost btn-sm">取消</button>
+              <button @click="onBatchAddServers" class="btn btn-primary btn-sm" :disabled="!batchAddText.trim()">确认添加</button>
+            </div>
+          </div>
+        </div>
+
         <div class="modal-action">
           <button @click="closeDialog" class="btn btn-ghost">取消</button>
           <button @click="onSave" class="btn btn-primary" :disabled="!form.name">保存</button>
@@ -189,6 +212,8 @@ const props = defineProps<{ presetId: string }>()
 const toast = useToast()
 const loading = ref(false)
 const showDialog = ref(false)
+const showBatchAdd = ref(false)
+const batchAddText = ref('')
 const editingUpstream = ref<any>(null)
 const api = getTauriAPI()
 
@@ -290,6 +315,79 @@ function onAddUpstreamServer() {
     down: false,
     _key: crypto.randomUUID(),
   })
+}
+
+function onBatchAddServers() {
+  const lines = batchAddText.value.trim().split('\n').filter(l => l.trim())
+  for (const line of lines) {
+    const parsed = parseServerLine(line.trim())
+    if (parsed) {
+      upstreamServers.value.push({
+        id: crypto.randomUUID(),
+        upstreamId: form.value.id,
+        address: parsed.address,
+        port: parsed.port,
+        weight: parsed.weight ?? 1,
+        maxFails: parsed.maxFails ?? 3,
+        failTimeout: parsed.failTimeout ?? '10s',
+        maxConns: parsed.maxConns ?? 0,
+        backup: parsed.backup ?? false,
+        down: parsed.down ?? false,
+        _key: crypto.randomUUID(),
+      })
+    }
+  }
+  showBatchAdd.value = false
+  batchAddText.value = ''
+  toast.success(`已添加 ${lines.length} 个上游服务器`)
+}
+
+function parseServerLine(line: string): { address: string; port: number; weight?: number; maxFails?: number; failTimeout?: string; maxConns?: number; backup?: boolean; down?: boolean } | null {
+  // Remove comments
+  line = line.replace(/#.*$/, '').trim()
+  if (!line) return null
+
+  let address = ''
+  let port = 80
+  let weight: number | undefined
+  let maxFails: number | undefined
+  let failTimeout: string | undefined
+  let maxConns: number | undefined
+  let backup: boolean | undefined
+  let down: boolean | undefined
+
+  // Parse flags
+  const backupMatch = line.match(/\bbackup\b/i)
+  if (backupMatch) { backup = true; line = line.replace(/\bbackup\b/gi, '') }
+
+  const downMatch = line.match(/\bdown\b/i)
+  if (downMatch) { down = true; line = line.replace(/\bdown\b/gi, '') }
+
+  // Parse key=value params
+  const weightMatch = line.match(/weight\s*=\s*(\d+)/i)
+  if (weightMatch) { weight = parseInt(weightMatch[1]); line = line.replace(/weight\s*=\s*\d+/gi, '') }
+
+  const maxFailsMatch = line.match(/max_fails\s*=\s*(\d+)/i)
+  if (maxFailsMatch) { maxFails = parseInt(maxFailsMatch[1]); line = line.replace(/max_fails\s*=\s*\d+/gi, '') }
+
+  const failTimeoutMatch = line.match(/fail_timeout\s*=\s*(\S+)/i)
+  if (failTimeoutMatch) { failTimeout = failTimeoutMatch[1]; line = line.replace(/fail_timeout\s*=\s*\S+/gi, '') }
+
+  const maxConnsMatch = line.match(/max_conns\s*=\s*(\d+)/i)
+  if (maxConnsMatch) { maxConns = parseInt(maxConnsMatch[1]); line = line.replace(/max_conns\s*=\s*\d+/gi, '') }
+
+  // Clean and parse address:port
+  line = line.trim()
+  const parts = line.split(':')
+  if (parts.length >= 2) {
+    address = parts[0].trim()
+    port = parseInt(parts[1].trim()) || 80
+  } else {
+    address = parts[0].trim()
+  }
+
+  if (!address) return null
+  return { address, port, weight, maxFails, failTimeout, maxConns, backup, down }
 }
 
 async function onSave() {

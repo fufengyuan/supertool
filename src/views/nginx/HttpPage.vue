@@ -1,11 +1,43 @@
 <template>
   <div>
     <!-- 工具栏 -->
-    <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center justify-between mb-3">
       <h3 class="text-base font-semibold m-0">HTTP 全局参数</h3>
       <button @click="onAddParam" class="btn btn-primary btn-sm">
         <SvgIcon name="plus" size="14" /> 新增参数
       </button>
+    </div>
+
+    <!-- 常用参数快捷设置 -->
+    <div class="bg-base-200/50 border border-base-content/10 rounded-lg mb-3 overflow-hidden">
+      <div
+        class="flex items-center justify-between px-3 py-2 cursor-pointer select-none hover:bg-base-200"
+        @click="showGuide = !showGuide"
+      >
+        <span class="text-xs font-semibold text-base-content/80 flex items-center gap-1">
+          <SvgIcon name="settings" size="12" /> 常用参数快捷设置
+        </span>
+        <span class="text-xs text-base-content/50">{{ showGuide ? '收起' : '展开' }}</span>
+      </div>
+      <div v-if="showGuide" class="px-3 pb-3 grid grid-cols-2 gap-2">
+        <div v-for="item in commonParams" :key="item.key" class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-base-100 border border-base-content/5">
+          <input
+            type="checkbox"
+            :checked="isParamEnabled(item.key)"
+            @change="toggleCommonParam(item)"
+            class="checkbox checkbox-xs"
+          />
+          <span class="text-xs font-mono text-base-content/70 min-w-[100px]">{{ item.key }}</span>
+          <input
+            v-if="item.hasValue !== false"
+            :value="getParamValue(item.key)"
+            @change="updateCommonParamValue(item.key, ($event.target as HTMLInputElement).value)"
+            class="input input-xs input-bordered w-24 font-mono"
+            :placeholder="item.defaultValue"
+          />
+          <span v-else class="text-xs text-base-content/40">开/关</span>
+        </div>
+      </div>
     </div>
 
     <!-- 加载中 -->
@@ -21,14 +53,14 @@
 
     <!-- 参数表格 -->
     <div v-else class="overflow-x-auto">
-      <table class="table table-zebra table-sm">
+      <table class="table table-zebra table-xs">
         <thead>
           <tr>
-            <th class="w-16 text-center">排序</th>
-            <th class="w-16 text-center">启用</th>
+            <th class="w-12 text-center">排序</th>
+            <th class="w-12 text-center">启用</th>
             <th>参数名</th>
             <th>参数值</th>
-            <th class="w-32 text-center">操作</th>
+            <th class="w-24 text-center">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -41,16 +73,16 @@
                   class="btn btn-ghost btn-xs btn-square"
                   title="上移"
                 >
-                  <SvgIcon name="chevronUp" size="12" />
+                  <SvgIcon name="chevronUp" size="10" />
                 </button>
-                <span class="text-xs text-base-content/60 w-4 text-center">{{ param.sort ?? index + 1 }}</span>
+                <span class="text-xs text-base-content/60 w-3 text-center">{{ param.sort ?? index + 1 }}</span>
                 <button
                   @click="moveDown(index)"
                   :disabled="index === params.length - 1"
                   class="btn btn-ghost btn-xs btn-square"
                   title="下移"
                 >
-                  <SvgIcon name="chevronDown" size="12" />
+                  <SvgIcon name="chevronDown" size="10" />
                 </button>
               </div>
             </td>
@@ -59,7 +91,7 @@
                 type="checkbox"
                 :checked="param.enabled !== false"
                 @change="toggleEnabled(param)"
-                class="checkbox checkbox-sm"
+                class="checkbox checkbox-xs"
               />
             </td>
             <td>
@@ -79,7 +111,7 @@
               />
             </td>
             <td class="text-center">
-              <div class="flex items-center justify-center gap-1">
+              <div class="flex items-center justify-center gap-0.5">
                 <button
                   @click="onDeleteParam(param.id)"
                   class="btn btn-ghost btn-xs btn-square text-error"
@@ -107,6 +139,78 @@ const props = defineProps<{ presetId: string }>()
 const toast = useToast()
 const loading = ref(false)
 const params = ref<any[]>([])
+const showGuide = ref(false)
+
+interface CommonParam {
+  key: string
+  label: string
+  defaultValue: string
+  hasValue?: boolean
+}
+
+const commonParams: CommonParam[] = [
+  { key: 'keepalive_timeout', label: 'keepalive_timeout', defaultValue: '65s' },
+  { key: 'client_max_body_size', label: 'client_max_body_size', defaultValue: '100m' },
+  { key: 'client_header_buffer_size', label: 'client_header_buffer_size', defaultValue: '32k' },
+  { key: 'sendfile', label: 'sendfile', defaultValue: 'on', hasValue: false },
+  { key: 'gzip', label: 'gzip', defaultValue: 'on', hasValue: false },
+  { key: 'gzip_min_length', label: 'gzip_min_length', defaultValue: '1k' },
+  { key: 'gzip_types', label: 'gzip_types', defaultValue: 'text/plain application/javascript application/x-javascript text/css application/xml text/javascript application/json' },
+]
+
+function findParam(key: string) {
+  return params.value.find(p => p.name === key)
+}
+
+function isParamEnabled(key: string): boolean {
+  const p = findParam(key)
+  return p ? p.enabled !== false : false
+}
+
+function getParamValue(key: string): string {
+  const p = findParam(key)
+  return p ? p.value || '' : ''
+}
+
+async function toggleCommonParam(item: CommonParam) {
+  const existing = findParam(item.key)
+  if (existing) {
+    if (existing.enabled !== false) {
+      existing.enabled = false
+    } else {
+      existing.enabled = true
+    }
+    await onUpdateParam(existing)
+  } else {
+    // Add new param
+    const newParam = {
+      id: crypto.randomUUID(),
+      presetId: props.presetId,
+      name: item.key,
+      value: item.hasValue !== false ? item.defaultValue : '',
+      sort: params.value.length + 1,
+      enabled: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    try {
+      const result = await api.addNginxHttpParam(newParam)
+      const saved = result?.data ?? result
+      params.value.push({ ...newParam, ...saved })
+      toast.success(`已添加 ${item.key}`)
+    } catch (err: any) {
+      toast.error('添加参数失败: ' + (err?.message || err))
+    }
+  }
+}
+
+async function updateCommonParamValue(key: string, value: string) {
+  const p = findParam(key)
+  if (p) {
+    p.value = value
+    await onUpdateParam(p)
+  }
+}
 
 const api = getTauriAPI()
 
