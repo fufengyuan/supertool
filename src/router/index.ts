@@ -103,6 +103,11 @@ const routes = [
         component: () => import('../views/devtools/DevTools.vue'),
       },
       {
+        path: 'agent',
+        name: 'Agent',
+        component: () => import('../views/agent/AgentManager.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),
