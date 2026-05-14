@@ -1196,6 +1196,21 @@ export function useNginxAPI() {
     // Basic Settings (key-value)
     getBasicSettings: async (presetId: string): Promise<any> => tauriCall('get_basic_settings', { presetId }),
     saveBasicSettings: async (presetId: string, settings: any[]): Promise<any> => tauriCall('save_basic_settings', { presetId, settings }),
+    // Params
+    getParamsByPreset: async (presetId: string): Promise<any> => tauriCall('get_params_by_preset', { presetId }),
+    addNginxParam: async (param: any): Promise<any> => tauriCall('add_nginx_param', { param }),
+    updateNginxParam: async (param: any): Promise<any> => tauriCall('update_nginx_param', { param }),
+    deleteNginxParam: async (id: string): Promise<any> => tauriCall('delete_nginx_param', { id }),
+    // Deny/Allow
+    getDenyAllowsByPreset: async (presetId: string): Promise<any> => tauriCall('get_deny_allows_by_preset', { presetId }),
+    addNginxDenyAllow: async (denyAllow: any): Promise<any> => tauriCall('add_nginx_deny_allow', { denyAllow }),
+    updateNginxDenyAllow: async (denyAllow: any): Promise<any> => tauriCall('update_nginx_deny_allow', { denyAllow }),
+    deleteNginxDenyAllow: async (id: string): Promise<any> => tauriCall('delete_nginx_deny_allow', { id }),
+    // Passwords
+    getPasswordsByPreset: async (presetId: string): Promise<any> => tauriCall('get_passwords_by_preset', { presetId }),
+    addNginxPassword: async (password: any): Promise<any> => tauriCall('add_nginx_password', { password }),
+    updateNginxPassword: async (password: any): Promise<any> => tauriCall('update_nginx_password', { password }),
+    deleteNginxPassword: async (id: string): Promise<any> => tauriCall('delete_nginx_password', { id }),
   };
 }
 
@@ -1796,6 +1811,18 @@ export interface TauriAPI {
   deleteNginxTemplate: (id: string) => Promise<any>
   getBasicSettings: (presetId: string) => Promise<any>
   saveBasicSettings: (presetId: string, settings: any[]) => Promise<any>
+  getParamsByPreset: (presetId: string) => Promise<any>
+  addNginxParam: (param: any) => Promise<any>
+  updateNginxParam: (param: any) => Promise<any>
+  deleteNginxParam: (id: string) => Promise<any>
+  getDenyAllowsByPreset: (presetId: string) => Promise<any>
+  addNginxDenyAllow: (denyAllow: any) => Promise<any>
+  updateNginxDenyAllow: (denyAllow: any) => Promise<any>
+  deleteNginxDenyAllow: (id: string) => Promise<any>
+  getPasswordsByPreset: (presetId: string) => Promise<any>
+  addNginxPassword: (password: any) => Promise<any>
+  updateNginxPassword: (password: any) => Promise<any>
+  deleteNginxPassword: (id: string) => Promise<any>
   // Alert
   getEmailConfig: () => Promise<any>
   saveEmailConfig: (config: any) => Promise<any>
@@ -2143,6 +2170,18 @@ export function getTauriAPI(): TauriAPI {
     deleteNginxTemplate: nginx.deleteNginxTemplate,
     getBasicSettings: nginx.getBasicSettings,
     saveBasicSettings: nginx.saveBasicSettings,
+    getParamsByPreset: nginx.getParamsByPreset,
+    addNginxParam: nginx.addNginxParam,
+    updateNginxParam: nginx.updateNginxParam,
+    deleteNginxParam: nginx.deleteNginxParam,
+    getDenyAllowsByPreset: nginx.getDenyAllowsByPreset,
+    addNginxDenyAllow: nginx.addNginxDenyAllow,
+    updateNginxDenyAllow: nginx.updateNginxDenyAllow,
+    deleteNginxDenyAllow: nginx.deleteNginxDenyAllow,
+    getPasswordsByPreset: nginx.getPasswordsByPreset,
+    addNginxPassword: nginx.addNginxPassword,
+    updateNginxPassword: nginx.updateNginxPassword,
+    deleteNginxPassword: nginx.deleteNginxPassword,
     // Alert
     getEmailConfig: alert.getEmailConfig,
     saveEmailConfig: alert.saveEmailConfig,

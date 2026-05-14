@@ -614,7 +614,8 @@ pub fn delete_nginx_preset(db: &mut Database, id: &str) -> ApiResponse<()> {
     // Delete all related records
     for table in &["nginx_config_versions", "nginx_basic_settings", "nginx_servers",
                     "nginx_upstreams", "nginx_http_params", "nginx_certs",
-                    "nginx_templates", "nginx_streams"] {
+                    "nginx_templates", "nginx_streams", "nginx_params",
+                    "nginx_deny_allows", "nginx_passwords"] {
         let sql = format!("DELETE FROM {} WHERE presetId = ?1", table);
         if let Err(e) = tx.execute(&sql, params![id]) {
             let _ = tx.rollback();

@@ -509,6 +509,144 @@ pub async fn save_basic_settings(
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
+// ============ NginxParam Commands ============
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_params_by_preset(
+    core: State<'_, CoreService>,
+    preset_id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_params_by_preset() called");
+    let result = core.get_params_by_preset(&preset_id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn add_nginx_param(
+    core: State<'_, CoreService>,
+    param: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] add_nginx_param() called");
+    let p: supertool_core::db::nginx::NginxParam =
+        serde_json::from_value(param).map_err(|e| e.to_string())?;
+    let result = core.add_nginx_param(&p).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn update_nginx_param(
+    core: State<'_, CoreService>,
+    param: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] update_nginx_param() called");
+    let p: supertool_core::db::nginx::NginxParam =
+        serde_json::from_value(param).map_err(|e| e.to_string())?;
+    let result = core.update_nginx_param(&p).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_nginx_param(
+    core: State<'_, CoreService>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] delete_nginx_param() called");
+    let result = core.delete_nginx_param(&id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+// ============ NginxDenyAllow Commands ============
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_deny_allows_by_preset(
+    core: State<'_, CoreService>,
+    preset_id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_deny_allows_by_preset() called");
+    let result = core.get_deny_allows_by_preset(&preset_id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn add_nginx_deny_allow(
+    core: State<'_, CoreService>,
+    deny_allow: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] add_nginx_deny_allow() called");
+    let d: supertool_core::db::nginx::NginxDenyAllow =
+        serde_json::from_value(deny_allow).map_err(|e| e.to_string())?;
+    let result = core.add_nginx_deny_allow(&d).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn update_nginx_deny_allow(
+    core: State<'_, CoreService>,
+    deny_allow: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] update_nginx_deny_allow() called");
+    let d: supertool_core::db::nginx::NginxDenyAllow =
+        serde_json::from_value(deny_allow).map_err(|e| e.to_string())?;
+    let result = core.update_nginx_deny_allow(&d).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_nginx_deny_allow(
+    core: State<'_, CoreService>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] delete_nginx_deny_allow() called");
+    let result = core.delete_nginx_deny_allow(&id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+// ============ NginxPassword Commands ============
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_passwords_by_preset(
+    core: State<'_, CoreService>,
+    preset_id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_passwords_by_preset() called");
+    let result = core.get_passwords_by_preset(&preset_id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn add_nginx_password(
+    core: State<'_, CoreService>,
+    password: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] add_nginx_password() called");
+    let pw: supertool_core::db::nginx::NginxPassword =
+        serde_json::from_value(password).map_err(|e| e.to_string())?;
+    let result = core.add_nginx_password(&pw).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn update_nginx_password(
+    core: State<'_, CoreService>,
+    password: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] update_nginx_password() called");
+    let pw: supertool_core::db::nginx::NginxPassword =
+        serde_json::from_value(password).map_err(|e| e.to_string())?;
+    let result = core.update_nginx_password(&pw).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_nginx_password(
+    core: State<'_, CoreService>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] delete_nginx_password() called");
+    let result = core.delete_nginx_password(&id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
 // ============ Config Generation ============
 
 #[tauri::command(rename_all = "camelCase")]

@@ -188,7 +188,17 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
         }
 
         // Password auth
-        // TODO: Password support when model is added
+        if !s.password_id.is_empty() {
+            // Look up Password by ID
+            if let Ok(Some(pw)) = get_password_by_id(conn, &s.password_id) {
+                if !pw.descr.is_empty() {
+                    out.push_str(&format!("        auth_basic           \"{}\";\n", pw.descr));
+                }
+                if !pw.path.is_empty() {
+                    out.push_str(&format!("        auth_basic_user_file {};\n", pw.path));
+                }
+            }
+        }
 
         // SSL certs
         if s.ssl && !s.cert_id.is_empty() {
@@ -203,6 +213,27 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
 
         // Custom params - prepend mode
         append_param_json_prepend(s, out);
+
+        // IP blacklist/whitelist
+        if s.deny_allow > 0 {
+            if !s.deny_id.is_empty() || s.deny_allow == 2 || s.deny_allow == 3 {
+                if let Ok(Some(da)) = get_deny_allow_by_id(conn, if s.deny_allow == 2 { &s.allow_id } else { &s.deny_id }) {
+                    for ip in da.ip.lines() {
+                        let ip = ip.trim();
+                        if !ip.is_empty() {
+                            if s.deny_allow == 1 || s.deny_allow == 3 {
+                                out.push_str(&format!("        deny {};\n", ip));
+                            }
+                            if s.deny_allow == 2 || s.deny_allow == 3 {
+                                out.push_str(&format!("        allow {};\n", ip));
+                            }
+                        }
+                    }
+                }
+            }
+            if s.deny_allow == 1 { out.push_str("        allow all;\n"); }
+            if s.deny_allow == 2 { out.push_str("        deny all;\n"); }
+        }
 
         // Locations
         let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
