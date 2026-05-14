@@ -456,6 +456,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             pem TEXT NOT NULL DEFAULT '',
             key TEXT NOT NULL DEFAULT '',
             domain TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
         );
@@ -465,6 +466,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             presetId TEXT NOT NULL,
             name TEXT NOT NULL DEFAULT '',
             content TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
             createdAt TEXT NOT NULL DEFAULT (datetime('now')),
             FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
         );
@@ -611,6 +613,23 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add remark column to alert_resources for databases created before v4.1
     let _ = conn.execute(
         "ALTER TABLE alert_resources ADD COLUMN remark TEXT",
+        [],
+    );
+    // Migration: add sort column to nginx_* tables for databases created before sort was added
+    let _ = conn.execute(
+        "ALTER TABLE nginx_basic_settings ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE nginx_upstreams ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE nginx_certs ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE nginx_templates ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
         [],
     );
     cicd_tables::init_cicd_tables(conn)?;
