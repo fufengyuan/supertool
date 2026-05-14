@@ -5141,6 +5141,7 @@ dependencies = [
  "html2md",
  "if-addrs",
  "jwalk",
+ "lazy_static",
  "lettre",
  "libc",
  "log",
