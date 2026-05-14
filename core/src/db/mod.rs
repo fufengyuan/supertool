@@ -487,6 +487,45 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_nginx_templates_preset ON nginx_templates(presetId);
         CREATE INDEX IF NOT EXISTS idx_nginx_basic_settings_preset ON nginx_basic_settings(presetId);
 
+        CREATE TABLE IF NOT EXISTS nginx_params (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL,
+            serverId TEXT NOT NULL DEFAULT '',
+            locationId TEXT NOT NULL DEFAULT '',
+            upstreamId TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL DEFAULT '',
+            value TEXT NOT NULL DEFAULT '',
+            position INTEGER NOT NULL DEFAULT 0,
+            templateValue TEXT NOT NULL DEFAULT '',
+            sort INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_deny_allows (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL,
+            ip TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS nginx_passwords (
+            id TEXT PRIMARY KEY,
+            presetId TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL,
+            pass TEXT NOT NULL DEFAULT '',
+            descr TEXT NOT NULL DEFAULT '',
+            path TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (presetId) REFERENCES nginx_presets(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_nginx_params_preset ON nginx_params(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_deny_allows_preset ON nginx_deny_allows(presetId);
+        CREATE INDEX IF NOT EXISTS idx_nginx_passwords_preset ON nginx_passwords(presetId);
+
         CREATE TABLE IF NOT EXISTS alert_email_config (
             id INTEGER PRIMARY KEY CHECK (id = 1),
             smtp_host TEXT,
