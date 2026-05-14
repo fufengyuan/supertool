@@ -61,140 +61,120 @@
       </table>
     </div>
 
-    <!-- 新增/编辑弹窗 -->
-    <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-5xl max-h-[85vh] overflow-y-auto">
-        <h3 class="font-bold text-lg">{{ editingUpstream ? '编辑 Upstream' : '新增 Upstream' }}</h3>
-
-        <div class="grid grid-cols-2 gap-x-6 gap-y-3 mt-4">
-          <!-- 名称 -->
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-base-content/80">名称</label>
-            <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
-          </div>
-
-          <!-- 代理类型 -->
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-base-content/80">代理类型</label>
-            <select v-model="form.proxyType" class="select select-sm select-bordered w-full">
-              <option :value="0">HTTP</option>
-              <option :value="1">TCP</option>
-              <option :value="2">UDP</option>
-            </select>
-          </div>
-
-          <!-- 策略 -->
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-base-content/80">负载均衡策略</label>
-            <select v-model="form.strategy" class="select select-sm select-bordered w-full">
-              <option value="polling">轮询 (polling)</option>
-              <option value="ip_hash">IP Hash</option>
-              <option value="least_conn">最小连接 (least_conn)</option>
-              <option value="random">随机 (random)</option>
-            </select>
-          </div>
-
-          <!-- 描述 -->
-          <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-base-content/80">描述</label>
-            <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
-          </div>
+    <!-- 新增/编辑弹窗 - 抽屉式 -->
+    <div v-if="showDialog" class="fixed inset-0 z-50">
+      <div class="fixed inset-0 bg-black/50" @click="closeDialog"></div>
+      <div class="fixed inset-y-0 right-0 w-full max-w-5xl bg-base-100 shadow-2xl flex flex-col">
+        <!-- 标题栏 -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-base-content/10 shrink-0">
+          <h3 class="font-bold text-lg">{{ editingUpstream ? '编辑 Upstream' : '新增 Upstream' }}</h3>
+          <button @click="closeDialog" class="btn btn-ghost btn-sm btn-square">
+            <SvgIcon name="x" size="18" />
+          </button>
         </div>
-
-        <!-- 隐藏 paramJson -->
-        <textarea v-model="form.paramJson" class="hidden"></textarea>
-
-        <!-- 上游服务器列表 -->
-        <div class="mt-4">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-xs font-medium text-base-content/80">上游服务器</span>
-            <div class="flex items-center gap-2">
-              <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
-                <SvgIcon name="list" size="12" /> 批添加
-              </button>
-              <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
-                <SvgIcon name="plus" size="12" /> 新增服务器
-              </button>
+        <!-- 内容区 -->
+        <div class="flex-1 overflow-y-auto px-6 py-5">
+          <div class="grid grid-cols-2 gap-x-8 gap-y-3">
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-base-content/80">名称</label>
+              <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-base-content/80">代理类型</label>
+              <select v-model="form.proxyType" class="select select-sm select-bordered w-full">
+                <option :value="0">HTTP</option>
+                <option :value="1">TCP</option>
+                <option :value="2">UDP</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-base-content/80">负载均衡策略</label>
+              <select v-model="form.strategy" class="select select-sm select-bordered w-full">
+                <option value="polling">轮询 (polling)</option>
+                <option value="ip_hash">IP Hash</option>
+                <option value="least_conn">最小连接 (least_conn)</option>
+                <option value="random">随机 (random)</option>
+              </select>
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="text-xs font-medium text-base-content/80">描述</label>
+              <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
             </div>
           </div>
 
-          <div v-if="upstreamServers.length === 0" class="text-center py-4 text-base-content/50 text-sm">
-            暂无上游服务器，请点击上方按钮添加
+          <textarea v-model="form.paramJson" class="hidden"></textarea>
+
+          <!-- 上游服务器列表 -->
+          <div class="mt-4">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-medium text-base-content/80">上游服务器</span>
+              <div class="flex items-center gap-2">
+                <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
+                  <SvgIcon name="list" size="12" /> 批添加
+                </button>
+                <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
+                  <SvgIcon name="plus" size="12" /> 新增服务器
+                </button>
+              </div>
+            </div>
+            <div v-if="upstreamServers.length === 0" class="text-center py-4 text-base-content/50 text-sm">
+              暂无上游服务器，请点击上方按钮添加
+            </div>
+            <div v-else class="overflow-x-auto">
+              <table class="table table-zebra table-xs">
+                <thead>
+                  <tr>
+                    <th>地址</th>
+                    <th>端口</th>
+                    <th>权重</th>
+                    <th>最大失败</th>
+                    <th>超时</th>
+                    <th>最大连接</th>
+                    <th class="text-center">备用</th>
+                    <th class="text-center">下线</th>
+                    <th class="w-16 text-center">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(svr, idx) in upstreamServers" :key="svr._key || idx">
+                    <td><input v-model="svr.address" placeholder="127.0.0.1" class="input input-bordered input-xs w-28" /></td>
+                    <td><input v-model.number="svr.port" type="number" placeholder="80" class="input input-bordered input-xs w-16" /></td>
+                    <td><input v-model.number="svr.weight" type="number" placeholder="1" class="input input-bordered input-xs w-14" /></td>
+                    <td><input v-model.number="svr.maxFails" type="number" placeholder="3" class="input input-bordered input-xs w-14" /></td>
+                    <td><input v-model="svr.failTimeout" placeholder="10s" class="input input-bordered input-xs w-16" /></td>
+                    <td><input v-model.number="svr.maxConns" type="number" placeholder="0" class="input input-bordered input-xs w-14" /></td>
+                    <td class="text-center"><input type="checkbox" v-model="svr.backup" class="checkbox checkbox-xs" /></td>
+                    <td class="text-center"><input type="checkbox" v-model="svr.down" class="checkbox checkbox-xs" /></td>
+                    <td class="text-center">
+                      <button @click="upstreamServers.splice(idx, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
+                        <SvgIcon name="x" size="12" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          <div v-else class="overflow-x-auto">
-            <table class="table table-zebra table-xs">
-              <thead>
-                <tr>
-                  <th>地址</th>
-                  <th>端口</th>
-                  <th>权重</th>
-                  <th>最大失败</th>
-                  <th>超时</th>
-                  <th>最大连接</th>
-                  <th class="text-center">备用</th>
-                  <th class="text-center">下线</th>
-                  <th class="w-16 text-center">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(svr, idx) in upstreamServers" :key="svr._key || idx">
-                  <td>
-                    <input v-model="svr.address" placeholder="127.0.0.1" class="input input-bordered input-xs w-28" />
-                  </td>
-                  <td>
-                    <input v-model.number="svr.port" type="number" placeholder="80" class="input input-bordered input-xs w-16" />
-                  </td>
-                  <td>
-                    <input v-model.number="svr.weight" type="number" placeholder="1" class="input input-bordered input-xs w-14" />
-                  </td>
-                  <td>
-                    <input v-model.number="svr.maxFails" type="number" placeholder="3" class="input input-bordered input-xs w-14" />
-                  </td>
-                  <td>
-                    <input v-model="svr.failTimeout" placeholder="10s" class="input input-bordered input-xs w-16" />
-                  </td>
-                  <td>
-                    <input v-model.number="svr.maxConns" type="number" placeholder="0" class="input input-bordered input-xs w-14" />
-                  </td>
-                  <td class="text-center">
-                    <input type="checkbox" v-model="svr.backup" class="checkbox checkbox-xs" />
-                  </td>
-                  <td class="text-center">
-                    <input type="checkbox" v-model="svr.down" class="checkbox checkbox-xs" />
-                  </td>
-                  <td class="text-center">
-                    <button @click="upstreamServers.splice(idx, 1)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
-                      <SvgIcon name="x" size="12" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <!-- 批添加弹窗 -->
-        <div v-if="showBatchAdd" class="modal modal-open" @click.self="showBatchAdd = false">
-          <div class="modal-box max-w-lg">
-            <h3 class="font-bold text-lg">批添加上游服务器</h3>
-            <p class="text-xs text-base-content/60 mt-1">每行一个服务器，格式：<code>ip:port</code>，可选 <code>weight=N max_fails=N fail_timeout=T max_conns=N backup down</code></p>
-            <textarea
-              v-model="batchAddText"
-              class="textarea textarea-bordered w-full font-mono text-xs mt-3"
-              rows="10"
-              placeholder="127.0.0.1:8080 weight=5 max_fails=2&#10;192.168.1.10:9090 weight=3 backup&#10;10.0.0.1:3000 down"
-            ></textarea>
-            <div class="modal-action">
-              <button @click="showBatchAdd = false" class="btn btn-ghost btn-sm">取消</button>
-              <button @click="onBatchAddServers" class="btn btn-primary btn-sm" :disabled="!batchAddText.trim()">确认添加</button>
+          <!-- 批添加弹窗 -->
+          <div v-if="showBatchAdd" class="modal modal-open" @click.self="showBatchAdd = false">
+            <div class="modal-box max-w-lg">
+              <h3 class="font-bold text-lg">批添加上游服务器</h3>
+              <p class="text-xs text-base-content/60 mt-1">每行一个服务器，格式：<code>ip:port</code>，可选 <code>weight=N max_fails=N fail_timeout=T max_conns=N backup down</code></p>
+              <textarea v-model="batchAddText" class="textarea textarea-bordered w-full font-mono text-xs mt-3" rows="10"
+                placeholder="127.0.0.1:8080 weight=5 max_fails=2&#10;192.168.1.10:9090 weight=3 backup&#10;10.0.0.1:3000 down"
+              ></textarea>
+              <div class="modal-action">
+                <button @click="showBatchAdd = false" class="btn btn-ghost btn-sm">取消</button>
+                <button @click="onBatchAddServers" class="btn btn-primary btn-sm" :disabled="!batchAddText.trim()">确认添加</button>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="modal-action">
-          <button @click="closeDialog" class="btn btn-ghost">取消</button>
-          <button @click="onSave" class="btn btn-primary" :disabled="!form.name">保存</button>
+        <!-- 底部操作栏 -->
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-base-content/10 shrink-0">
+          <button @click="closeDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onSave" class="btn btn-primary btn-sm" :disabled="!form.name">保存</button>
         </div>
       </div>
     </div>
