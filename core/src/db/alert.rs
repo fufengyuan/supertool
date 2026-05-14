@@ -50,7 +50,7 @@ pub struct AlertService {
     pub last_check_at: Option<String>,
     #[serde(rename = "lastStatus")]
     pub last_status: Option<i64>,
-    #[serde(rename = "consecutiveFailures")]
+    #[serde(rename = "consecutiveFailures", default)]
     pub consecutive_failures: i64,
     #[serde(rename = "alertSentAt")]
     pub alert_sent_at: Option<String>,
@@ -64,6 +64,7 @@ pub struct AlertResource {
     pub id: String,
     pub name: String,
     pub category: Option<String>,
+    pub remark: Option<String>,
     #[serde(rename = "expireAt")]
     pub expire_at: Option<String>,
     #[serde(rename = "alertAdvanceDays")]
@@ -236,6 +237,7 @@ fn row_to_alert_resource(row: &rusqlite::Row<'_>) -> rusqlite::Result<AlertResou
         id: row.get("id")?,
         name: row.get("name")?,
         category: row.get("category").ok(),
+        remark: row.get("remark").ok(),
         expire_at: row.get("expire_at").ok(),
         alert_advance_days: row.get("alert_advance_days")?,
         enabled: enabled == 1,
@@ -265,12 +267,13 @@ pub fn get_alert_resources(db: &mut Database) -> ApiResponse<Vec<AlertResource>>
 
 pub fn add_alert_resource(db: &mut Database, resource: AlertResource) -> ApiResponse<()> {
     let result = db.conn_mut().execute(
-        "INSERT INTO alert_resources (id, name, category, expire_at, alert_advance_days, enabled, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))",
+        "INSERT INTO alert_resources (id, name, category, remark, expire_at, alert_advance_days, enabled, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, datetime('now'))",
         params![
             resource.id,
             resource.name,
             resource.category,
+            resource.remark,
             resource.expire_at,
             resource.alert_advance_days,
             if resource.enabled { 1 } else { 0 },
@@ -284,11 +287,12 @@ pub fn add_alert_resource(db: &mut Database, resource: AlertResource) -> ApiResp
 
 pub fn update_alert_resource(db: &mut Database, resource: AlertResource) -> ApiResponse<()> {
     let result = db.conn_mut().execute(
-        "UPDATE alert_resources SET name=?2, category=?3, expire_at=?4, alert_advance_days=?5, enabled=?6 WHERE id=?1",
+        "UPDATE alert_resources SET name=?2, category=?3, remark=?4, expire_at=?5, alert_advance_days=?6, enabled=?7 WHERE id=?1",
         params![
             resource.id,
             resource.name,
             resource.category,
+            resource.remark,
             resource.expire_at,
             resource.alert_advance_days,
             if resource.enabled { 1 } else { 0 },

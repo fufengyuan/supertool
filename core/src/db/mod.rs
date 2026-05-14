@@ -521,6 +521,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             id TEXT PRIMARY KEY,
             name TEXT,
             category TEXT,
+            remark TEXT,
             expire_at TEXT,
             alert_advance_days INTEGER DEFAULT 30,
             enabled INTEGER DEFAULT 1,
@@ -566,6 +567,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     // Migration: add gitRepoId column to cicd_configs
     let _ = conn.execute(
         "ALTER TABLE cicd_configs ADD COLUMN gitRepoId TEXT DEFAULT ''",
+        [],
+    );
+    // Migration: add remark column to alert_resources for databases created before v4.1
+    let _ = conn.execute(
+        "ALTER TABLE alert_resources ADD COLUMN remark TEXT",
         [],
     );
     cicd_tables::init_cicd_tables(conn)?;

@@ -124,8 +124,9 @@
       >
         <div v-if="unreadCounts[peer.id] > 0" class="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-3/5 rounded-r-sm bg-gradient-to-b from-[#667eea] to-[#764ba2]"></div>
         <div class="relative shrink-0">
-          <div class="size-11 rounded-xl bg-gradient-to-br from-[#667eea]/30 to-[#764ba2]/30 flex items-center justify-center text-2xl">
-            <span>{{ peer.avatar || '😀' }}</span>
+          <div class="size-11 rounded-xl bg-gradient-to-br from-[#667eea]/30 to-[#764ba2]/30 flex items-center justify-center text-2xl overflow-hidden">
+            <img v-if="peer.avatar && peer.avatar.startsWith('avatar:') && peer.avatarPath" :src="convertFileSrc(peer.avatarPath)" class="size-full rounded-xl object-cover" />
+            <span v-else>{{ peer.avatar || '😀' }}</span>
           </div>
           <span class="absolute -bottom-px -right-px size-3 rounded-full border-[2.5px] border-base-100 transition-all duration-300"
                 :class="{
@@ -219,6 +220,7 @@ interface LanPeer {
   id: string;
   name: string;
   avatar?: string;
+  avatarPath?: string;
   address: string;
   messagePort?: number;
   version?: string;
@@ -414,7 +416,8 @@ onMounted(async () => {
     // 收到其他用户的头像更新广播，更新本地 peer 列表中的头像
     const peer = peers.value.find(p => p.id === data.userId);
     if (peer) {
-      peer.avatar = data.avatarRef || `file:${data.avatarPath}`;
+      peer.avatar = data.avatar;
+      peer.avatarPath = data.avatarPath;
     }
   }));
   cleanupIpcListeners.push(getTauriAPI().lanOnMessage((data: any) => {
