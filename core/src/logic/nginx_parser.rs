@@ -367,7 +367,20 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
                 name: d.name.clone(),
                 value: d.args.join(" "),
             });
-        } else if !d.is_block {
+        } else if d.is_block {
+            // Block directive (like geo, map) — render value as "args {\n  body\n}"
+            let args = d.args.join(" ");
+            let body: Vec<String> = d.block.iter().map(|child| {
+                format!("    {} {};", child.name, child.args.join(" "))
+            }).collect();
+            let block_value = format!("{} {{\n{}\n}}", args, body.join("\n"));
+            if !block_value.trim().is_empty() {
+                config.http_params.push(ParsedHttpParam {
+                    name: d.name.clone(),
+                    value: block_value,
+                });
+            }
+        } else {
             let value = d.args.join(" ");
             if !value.is_empty() {
                 config.http_params.push(ParsedHttpParam {
@@ -376,7 +389,6 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
                 });
             }
         }
-        // Block directives that aren't upstream/server (like geo, map) — skip
     }
 }
 
@@ -552,10 +564,17 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
 
                 if is_ipv6 {
                     srv.ipv6 = true;
-                    // IPv6 listen uses the same port
                     if srv.listen.is_empty() {
                         srv.listen = listen_val;
                     }
+                } else if !srv.listen.is_empty() && srv.listen != listen_val && srv.ssl == 1 {
+                    // Second listen on a different port — HTTP→HTTPS redirect
+                    srv.rewrite = true;
+                    srv.rewrite_listen = listen_val;
+                } else if !srv.listen.is_empty() && srv.listen == listen_val && has_ssl {
+                    // Same port but with ssl — update ssl/http2 flags
+                    srv.ssl = 1;
+                    if has_http2 { srv.http2 = 1; }
                 } else {
                     srv.listen = listen_val;
                 }
@@ -651,7 +670,17 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
     if d.name != "location" || !d.is_block {
         return None;
     }
-    let path = d.args.first().cloned().unwrap_or_default();
+    let (path, modifier) = {
+        let first = d.args.first().cloned().unwrap_or_default();
+        match first.as_str() {
+            "^~" | "=" | "~" | "~*" => {
+                let p = d.args.get(1).cloned().unwrap_or_default();
+                let m = first.clone();
+                (if p.is_empty() { m.clone() } else { format!("{} {}", m, p) }, m)
+            }
+            _ => (first, String::new()),
+        }
+    };
     let mut loc = ParsedLocation {
         path,
         loc_type: String::new(),
