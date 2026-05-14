@@ -146,7 +146,7 @@
             </button>
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
-            <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="fileDownload" size="14" /> 下载日志</button>
+            <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="download" size="14" /> 下载日志</button>
           </div>
         </div>
 
