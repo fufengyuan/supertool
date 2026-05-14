@@ -311,6 +311,9 @@ const tabs = [
   { key: 'cert', label: 'Cert', icon: 'shield' },
   { key: 'template', label: '模板', icon: 'file' },
   { key: 'basic', label: '基本设置', icon: 'settings' },
+  { key: 'param', label: '额外参数', icon: 'list' },
+  { key: 'deny', label: '黑白名单', icon: 'shield' },
+  { key: 'password', label: '密码文件', icon: 'lock' },
 ]
 
 // Map tab keys to component file names
@@ -322,6 +325,9 @@ const tabComponentMap = {
   cert: 'CertPage.vue',
   template: 'TemplatePage.vue',
   basic: 'BasicSettingPage.vue',
+  param: 'ParamPage.vue',
+  deny: 'DenyAllowPage.vue',
+  password: 'PasswordPage.vue',
 }
 
 // Dynamically loaded components cache
@@ -333,6 +339,9 @@ const loadedComponents = reactive<Record<string, any>>({
   cert: null,
   template: null,
   basic: null,
+  param: null,
+  deny: null,
+  password: null,
 })
 
 function switchTab(tabKey: string) {
