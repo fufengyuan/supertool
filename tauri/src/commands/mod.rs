@@ -24,3 +24,4 @@ pub mod cli_installer;
 pub mod alert;
 pub mod git_repo;
 pub mod agent;
+pub mod hermes_chat;
