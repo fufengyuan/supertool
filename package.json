@@ -11,6 +11,8 @@
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "prettier --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "build:app": "pnpm tauri build --bundles app",
     "build:dmg": "pnpm tauri build --bundles dmg",
     "build:dmg:app": "pnpm tauri build --bundles dmg,app",
@@ -86,12 +88,15 @@
     "@tauri-apps/cli": "^2",
     "@types/node": "^25.6.0",
     "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/test-utils": "^2.4.10",
     "daisyui": "^5.0.46",
+    "happy-dom": "^20.9.0",
     "oxlint": "^1.6.0",
     "prettier": "^3.6.2",
     "prettier-plugin-tailwindcss": "^0.6.13",
     "typescript": "^6.0.3",
     "vite": "^8.0.10",
+    "vitest": "^4.1.6",
     "vue-tsc": "^3.2.7"
   }
 }
