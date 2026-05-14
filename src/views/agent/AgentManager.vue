@@ -193,9 +193,12 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { Command } from '@tauri-apps/plugin-shell';
-import SvgIcon from '../../components/SvgIcon.vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+const router = useRouter();
 
 interface HermesSession {
   id: string;
@@ -300,25 +303,13 @@ function sourceIcon(source: string): string {
 }
 
 function openNewSession() {
-  // Open Hermes CLI in new Terminal window (macOS)
-  Command.create('osascript', ['-e', 'tell application "Terminal" to do script "hermes chat"']).execute();
+  // 跳转到内嵌聊天页面
+  router.push('/agent/chat');
 }
 
 async function openSession(session: HermesSession) {
-  currentSession.value = session;
-  showDetail.value = true;
-  loadingMessages.value = true;
-  messages.value = [];
-
-  try {
-    const result = await invoke<{ success: boolean; messages: HermesMessage[] }>('list_hermes_messages_cmd', {
-      sessionId: session.id,
-    });
-    messages.value = result.messages || [];
-  } catch (e) {
-    console.error('Failed to load messages:', e);
-  }
-  loadingMessages.value = false;
+  // 跳转到聊天页面并传递session ID
+  router.push({ path: '/agent/chat', query: { sessionId: session.id } });
 }
 
 function resumeSession() {

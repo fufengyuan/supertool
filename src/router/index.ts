@@ -108,6 +108,11 @@ const routes = [
         component: () => import('../views/agent/AgentManager.vue'),
       },
       {
+        path: 'agent/chat',
+        name: 'AgentChat',
+        component: () => import('../views/agent/HermesChat.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),
