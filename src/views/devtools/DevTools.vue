@@ -103,6 +103,7 @@ const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = 
   crontab: defineAsyncComponent(() => import('./tools/CrontabTool.vue')),
   qrcode: defineAsyncComponent(() => import('./tools/QrCodeTool.vue')),
   barcode: defineAsyncComponent(() => import('./tools/BarcodeTool.vue')),
+  calculator: defineAsyncComponent(() => import('./tools/CalculatorTool.vue')),
   pinyin: defineAsyncComponent(() => import('./tools/PinyinTool.vue')),
   ip: defineAsyncComponent(() => import('./tools/IpTool.vue')),
   ipcalc: defineAsyncComponent(() => import('./tools/IpCalcTool.vue')),
