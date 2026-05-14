@@ -15,7 +15,7 @@
 
     <!-- 空状态 -->
     <div v-else-if="streams.length === 0" class="flex flex-col items-center justify-center py-8 text-base-content/50">
-      <SvgIcon name="activity" size="24" class="mb-2 opacity-50" />
+      <SvgIcon name="zap" size="24" class="mb-2 opacity-50" />
       <p class="text-sm">暂无 Stream 配置</p>
     </div>
 
