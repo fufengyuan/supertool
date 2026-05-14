@@ -43,7 +43,8 @@
       "../resources/openvpn/macos-arm64",
       "../resources/openvpn/macos-x64",
       "../target/release/stool",
-      "../skills/**/*"
+      "../skills/**/*",
+      "../scripts/hermes_bridge.py"
     ]
   }
 }
