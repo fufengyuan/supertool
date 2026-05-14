@@ -1195,4 +1195,30 @@ impl CoreService {
 
         Ok(ApiResponse::ok(summary))
     }
+
+    /// Get existing data stats for a preset (for import dedup check).
+    pub async fn get_nginx_preset_stats(
+        &self,
+        preset_id: &str,
+    ) -> Result<ApiResponse<serde_json::Value>, String> {
+        let pid = preset_id.to_string();
+        let stats = self.db_read(move |conn| -> Result<serde_json::Value, String> {
+            let server_count = crate::db::nginx::get_servers_by_preset(conn, &pid)
+                .map(|v| v.len()).unwrap_or(0);
+            let upstream_count = crate::db::nginx::get_upstreams_by_preset(conn, &pid)
+                .map(|v| v.len()).unwrap_or(0);
+            let stream_count = crate::db::nginx::get_streams_by_preset(conn, &pid)
+                .map(|v| v.len()).unwrap_or(0);
+            let basic_count = crate::db::nginx::get_basic_settings_by_preset(conn, &pid)
+                .map(|v| v.len()).unwrap_or(0);
+            Ok(serde_json::json!({
+                "hasData": server_count > 0 || upstream_count > 0 || stream_count > 0 || basic_count > 0,
+                "servers": server_count,
+                "upstreams": upstream_count,
+                "streams": stream_count,
+                "basicSettings": basic_count,
+            }))
+        })??;
+        Ok(ApiResponse::ok(stats))
+    }
 }

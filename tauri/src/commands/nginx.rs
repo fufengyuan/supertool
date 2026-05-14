@@ -687,6 +687,18 @@ pub async fn generate_nginx_config_decomposed(
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
+// ============ Preset Stats (for import de-duplication) ============
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_nginx_preset_stats(
+    core: State<'_, CoreService>,
+    preset_id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_nginx_preset_stats() called");
+    let result = core.get_nginx_preset_stats(&preset_id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
 // ============ Config Import ============
 
 #[tauri::command(rename_all = "camelCase")]
