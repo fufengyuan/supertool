@@ -347,11 +347,12 @@ const sendMessage = async () => {
       refreshSessions();
     }
 
-    // 添加完整的 assistant 消息（如果流式文本不完整）
-    if (streamingText.value && !messages.value.some(m => m.role === 'assistant' && m.content === streamingText.value)) {
+    // 添加 assistant 消息 - 使用流式文本或完整响应
+    const finalContent = streamingText.value || result.response;
+    if (finalContent && !messages.value.some(m => m.role === 'assistant' && m.content === finalContent)) {
       messages.value.push({
         role: 'assistant',
-        content: streamingText.value,
+        content: finalContent,
         timestamp: Date.now() / 1000,
         toolName: null,
         toolCalls: currentToolCalls,
@@ -471,10 +472,11 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (unlistenDelta) unlistenDelta();
-  if (unlistenToolStart) unlistenToolStart();
-  if (unlistenToolComplete) unlistenToolComplete();
-  if (unlistenError) unlistenError();
+  // Properly clean up event listeners
+  unlistenDelta?.();
+  unlistenToolStart?.();
+  unlistenToolComplete?.();
+  unlistenError?.();
 });
 
 // Watch streamingText to auto-scroll
