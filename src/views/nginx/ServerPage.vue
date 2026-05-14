@@ -195,7 +195,8 @@
             <div class="flex flex-col gap-1">
               <label class="text-sm font-medium">描述</label>
               <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
-<!-- rewrite -->
+            </div>
+            <!-- rewrite -->
             <div class="flex flex-col gap-1">
               <label class="text-sm font-medium">HTTP→HTTPS 重写</label>
               <select v-model.number="form.rewrite" class="select select-bordered w-full">
