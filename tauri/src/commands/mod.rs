@@ -23,3 +23,4 @@ pub mod disk_cleaner;
 pub mod cli_installer;
 pub mod alert;
 pub mod git_repo;
+pub mod agent;
