@@ -96,6 +96,7 @@ export interface ConfigForm {
   parentBuildPath: string;
   requiresApproval: boolean;
   showAdvanced: boolean;
+  buildMode: string;
 }
 
 export function useCicdConfig() {
@@ -209,7 +210,7 @@ export function useCicdConfig() {
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
-      parentBuildMode: false, parentBuildPath: '', requiresApproval: false, showAdvanced: false,
+      parentBuildMode: false, parentBuildPath: '', requiresApproval: false, showAdvanced: false, buildMode: 'local',
     };
   }
 

@@ -1284,6 +1284,7 @@ fn build_deploy_config(
             Some(cicd_config.restart_script.clone())
         },
         lib_separate: cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven"),
+        build_mode: cicd_config.build_mode.clone(),
     })
 }
 

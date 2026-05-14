@@ -66,6 +66,8 @@ pub struct CicdConfig {
     pub requires_approval: bool,
     #[serde(rename = "gitRepoId")]
     pub git_repo_id: Option<String>,
+    #[serde(rename = "buildMode")]
+    pub build_mode: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -186,6 +188,7 @@ pub fn row_to_cicd_config(row: &rusqlite::Row) -> rusqlite::Result<CicdConfig> {
         pnpm_home: row.get("pnpmHome").ok(),
         yarn_home: row.get("yarnHome").ok(),
         git_repo_id: row.get("gitRepoId").ok(),
+        build_mode: row.get("buildMode").unwrap_or("local".to_string()),
     })
 }
 
@@ -280,8 +283,8 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
          deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, \
          updatedAt, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, \
          npmCustomScript, mavenHome, npmHome, pnpmHome, yarnHome, javaHome, nodeHome, servers, groupName, \
-         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId) \
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+         parentBuildMode, parentBuildPath, requiresApproval, gitRepoId, buildMode) \
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
             c.id, &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script, c.health_check_url,
@@ -290,7 +293,7 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
             c.maven_home, c.npm_home, c.pnpm_home, c.yarn_home, c.java_home, c.node_home, c.servers, c.group_name,
             if c.parent_build_mode { 1 } else { 0 }, c.parent_build_path,
             if c.requires_approval { 1 } else { 0 },
-            c.git_repo_id
+            c.git_repo_id, c.build_mode
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id).map(|opt| opt.unwrap())
@@ -303,7 +306,7 @@ pub fn update_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<Option<Ci
          healthCheckTimeout=?, updatedAt=?, buildTool=?, buildCommand=?, buildPath=?, \
          repoUrl=?, localPath=?, npmScript=?, npmCustomScript=?, mavenHome=?, npmHome=?, pnpmHome=?, yarnHome=?, \
          javaHome=?, nodeHome=?, servers=?, groupName=?, parentBuildMode=?, \
-         parentBuildPath=?, requiresApproval=?, gitRepoId=? WHERE id=?",
+         parentBuildPath=?, requiresApproval=?, gitRepoId=?, buildMode=? WHERE id=?",
         params![
             &c.name, c.deploy_branch, c.maven_settings, c.maven_profile,
             c.deploy_path, if c.lib_separate { 1 } else { 0 }, c.restart_script,
@@ -312,7 +315,7 @@ pub fn update_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<Option<Ci
             c.npm_custom_script, c.maven_home, c.npm_home, c.pnpm_home, c.yarn_home,
             c.java_home, c.node_home, c.servers, c.group_name, if c.parent_build_mode { 1 } else { 0 },
             c.parent_build_path, if c.requires_approval { 1 } else { 0 },
-            c.git_repo_id, c.id
+            c.git_repo_id, c.build_mode, c.id
         ],
     )?;
     get_cicd_config_by_config_id(conn, &c.id)

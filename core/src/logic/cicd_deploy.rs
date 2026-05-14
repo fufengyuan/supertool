@@ -249,6 +249,8 @@ pub struct DeployConfig {
     pub restart_script: Option<String>,
     #[serde(rename = "libSeparate")]
     pub lib_separate: bool,
+    #[serde(rename = "buildMode")]
+    pub build_mode: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -518,8 +520,10 @@ async fn do_git_sync(
     config: &DeployConfig,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<PathBuf, String> {
-    // Use local path
-    if let Some(ref local_path) = config.local_path {
+    // Determine working directory based on build mode
+    if config.build_mode == "local" {
+        // Local mode: use local project directory
+        if let Some(ref local_path) = config.local_path {
         let path = PathBuf::from(local_path);
         if !path.exists() {
             return Err(format!("本地路径不存在: {}", local_path));
@@ -589,8 +593,9 @@ async fn do_git_sync(
         emit("git", "success", &format!("使用本地目录: {} (已切换到 {})", local_path, branch));
         return Ok(path);
     }
+    }
 
-    // Clone from remote
+    // Clone from remote (git_clone mode or fallback)
     let repo_url = &config.repo_url;
     let repo_name = get_repo_name(repo_url);
     let workspace = crate::logic::data_dir::cicd_workspace_dir();
