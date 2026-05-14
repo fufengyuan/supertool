@@ -644,6 +644,7 @@ fn main() {
             commands::nginx::fetch_nginx_config,
             commands::nginx::test_nginx_config,
             commands::nginx::deploy_nginx_config,
+            commands::nginx::deploy_nginx_config_decomposed,
             commands::nginx::get_nginx_config_versions,
             commands::nginx::save_nginx_config_version,
             commands::nginx::set_active_nginx_version,
@@ -707,6 +708,7 @@ fn main() {
             commands::nginx::delete_nginx_password,
             // Config Generation
             commands::nginx::generate_nginx_config,
+            commands::nginx::generate_nginx_config_decomposed,
             // Disk cleaner commands
             commands::disk_cleaner::get_home_dir,
             commands::disk_cleaner::get_disk_info,

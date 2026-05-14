@@ -83,7 +83,7 @@
                 <template v-else><SvgIcon name="lightbulb" size="14" />  预检测试</template>
               </button>
               <button
-                @click="showDeployDialog = true"
+                @click="openDeployDialog"
                 :disabled="!currentPreset || loading"
                 class="btn btn-primary btn-sm">
                 <template v-if="loading"><SvgIcon name="clock" size="14" /> 发布中...</template>
@@ -224,8 +224,31 @@
 
     <!-- 发布弹窗 -->
     <div v-if="showDeployDialog" class="modal modal-open" @click.self="showDeployDialog = false">
-      <div class="modal-box">
+      <div class="modal-box max-w-4xl max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
+
+        <!-- 配置差异 -->
+        <div class="mt-4">
+          <label class="text-sm font-medium mb-1 block">配置差异对比</label>
+          <div class="border border-base-content/10 rounded-lg overflow-hidden">
+            <!-- 加载中 -->
+            <div v-if="diffLoading" class="flex items-center justify-center h-20 text-sm text-base-content/50">
+              <SvgIcon name="clock" size="14" class="mr-2" /> 正在生成配置并计算差异…
+            </div>
+            <!-- 无差异 -->
+            <div v-else-if="diffSame" class="flex items-center justify-center h-12 text-sm text-success gap-2">
+              <SvgIcon name="check" size="14" /> 生成配置与当前配置一致，无变更
+            </div>
+            <!-- 失败 -->
+            <div v-else-if="diffError" class="flex items-center justify-center h-12 text-sm text-error gap-2">
+              <SvgIcon name="alertTriangle" size="14" /> {{ diffError }}
+            </div>
+            <!-- 差异内容 -->
+            <pre v-else-if="diffContent" class="text-xs leading-relaxed overflow-auto max-h-80 m-0 p-3 bg-base-200/50 font-mono whitespace-pre-wrap">{{ diffContent }}</pre>
+            <div v-else class="flex items-center justify-center h-12 text-sm text-base-content/50">点击"预览"生成配置后再发布可查看差异</div>
+          </div>
+        </div>
+
         <div class="flex flex-col gap-1 mt-4">
           <label class="text-sm font-medium">备注</label>
           <input
@@ -236,8 +259,8 @@
           />
         </div>
         <div class="modal-action">
-          <button @click="showDeployDialog = false" class="btn btn-ghost">取消</button>
-          <button @click="onDeploy" class="btn btn-primary" :disabled="!deployComment.trim()">
+          <button @click="closeDeployDialog" class="btn btn-ghost">取消</button>
+          <button @click="onDeploy" class="btn btn-primary" :disabled="!deployComment.trim() || diffLoading">
             确认发布
           </button>
         </div>
@@ -301,6 +324,13 @@ const confirmDeleteId = ref('')
 const confirmRollbackId = ref('')
 const deleting = ref(false)
 const currentTab = ref('server')
+
+// Config diff state
+const diffLoading = ref(false)
+const diffContent = ref('')
+const diffSame = ref(false)
+const diffError = ref('')
+const generatedNewConfig = ref('')
 
 // Tab definitions
 const tabs = [
@@ -483,12 +513,152 @@ async function onGenerateConfig() {
   }
 }
 
+// Config diff functions
+async function openDeployDialog() {
+  showDeployDialog.value = true
+  deployComment.value = ''
+  // Reset diff state
+  diffLoading.value = true
+  diffContent.value = ''
+  diffSame.value = false
+  diffError.value = ''
+  generatedNewConfig.value = ''
+  // Auto-generate config for diff comparison
+  await computeConfigDiff()
+}
+
+function closeDeployDialog() {
+  showDeployDialog.value = false
+  diffContent.value = ''
+  diffSame.value = false
+  diffError.value = ''
+  generatedNewConfig.value = ''
+}
+
+async function computeConfigDiff() {
+  if (!currentPreset.value) {
+    diffError.value = '未选择预设'
+    diffLoading.value = false
+    return
+  }
+  try {
+    const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
+    const newConfig = result?.data || result || ''
+    generatedNewConfig.value = newConfig
+    const oldConfig = configContent.value || ''
+
+    if (oldConfig === newConfig) {
+      diffSame.value = true
+      diffContent.value = ''
+      return
+    }
+
+    diffContent.value = computeUnifiedDiff(oldConfig, newConfig)
+  } catch (err: any) {
+    console.error('计算配置差异失败:', err)
+    diffError.value = err?.message || '计算差异失败'
+  } finally {
+    diffLoading.value = false
+  }
+}
+
+function computeUnifiedDiff(oldText: string, newText: string): string {
+  const oldLines = oldText.split('\n')
+  const newLines = newText.split('\n')
+
+  // Build LCS table
+  const m = oldLines.length
+  const n = newLines.length
+  const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+  for (let i = 1; i <= m; i++) {
+    const oi = oldLines[i - 1]
+    for (let j = 1; j <= n; j++) {
+      if (oi === newLines[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1] + 1
+      } else {
+        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1])
+      }
+    }
+  }
+
+  // Backtrack to get diff ops
+  const ops: Array<{ prefix: string; text: string }> = []
+  let i = m, j = n
+  while (i > 0 || j > 0) {
+    if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
+      ops.push({ prefix: ' ', text: oldLines[i - 1] })
+      i--; j--
+    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+      ops.push({ prefix: '+', text: newLines[j - 1] })
+      j--
+    } else {
+      ops.push({ prefix: '-', text: oldLines[i - 1] })
+      i--
+    }
+  }
+  ops.reverse()
+
+  // Group into hunks with context
+  const result: string[] = []
+  let hunkStart = -1
+  const hunkLines: Array<{ prefix: string; text: string }> = []
+  const ctxBefore = 2
+
+  for (let idx = 0; idx < ops.length; idx++) {
+    const op = ops[idx]
+    if (op.prefix !== ' ') {
+      // Start or extend a hunk
+      if (hunkStart === -1) {
+        hunkStart = Math.max(0, idx - ctxBefore)
+      }
+      hunkLines.push(op)
+    } else {
+      if (hunkStart !== -1) {
+        // Add trailing context
+        const end = Math.min(ops.length, idx + ctxBefore + 1)
+        for (let k = idx; k < end; k++) {
+          hunkLines.push(ops[k])
+        }
+        // Emit hunk
+        if (hunkLines.length > 0) {
+          result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
+          for (const hl of hunkLines) {
+            result.push(hl.prefix + ' ' + hl.text)
+          }
+        }
+        hunkStart = -1
+        hunkLines.length = 0
+        // Skip ahead past the context we just emitted
+        idx += ctxBefore
+      }
+    }
+  }
+
+  // Emit remaining hunk
+  if (hunkStart !== -1 && hunkLines.length > 0) {
+    result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
+    for (const hl of hunkLines) {
+      result.push(hl.prefix + ' ' + hl.text)
+    }
+  }
+
+  return result.join('\n')
+}
+
 async function onDeploy() {
   if (!deployComment.value.trim()) return
+  // If we generated a new config for diffing and it differs, deploy the new config
+  if (generatedNewConfig.value && !diffSame.value) {
+    configContent.value = generatedNewConfig.value
+  }
   const result = await deployConfig(deployComment.value)
   if (result?.success) {
     showDeployDialog.value = false
     deployComment.value = ''
+    diffContent.value = ''
+    diffSame.value = false
+    diffError.value = ''
+    generatedNewConfig.value = ''
   }
 }
 

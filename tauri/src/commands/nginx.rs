@@ -1,4 +1,6 @@
 use supertool_core::logic::CoreService;
+#[allow(unused_imports)]
+use supertool_core::logic::nginx_generator::NginxSubFile;
 use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
@@ -77,6 +79,22 @@ pub async fn deploy_nginx_config(
     log::info!("[Tauri CMD] deploy_nginx_config() called");
     let result = core
         .deploy_nginx_config(&server_id, &config_path, &content)
+        .await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn deploy_nginx_config_decomposed(
+    core: State<'_, CoreService>,
+    server_id: String,
+    config_path: String,
+    main_content: String,
+    sub_files: Vec<NginxSubFile>,
+    _comment: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] deploy_nginx_config_decomposed() called");
+    let result = core
+        .deploy_nginx_config_decomposed(&server_id, &config_path, &main_content, sub_files)
         .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
@@ -656,5 +674,15 @@ pub async fn generate_nginx_config(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] generate_nginx_config() called");
     let result = core.generate_nginx_config(&preset_id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn generate_nginx_config_decomposed(
+    core: State<'_, CoreService>,
+    preset_id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] generate_nginx_config_decomposed() called");
+    let result = core.generate_nginx_config_decomposed(&preset_id).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
