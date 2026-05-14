@@ -379,19 +379,38 @@ onMounted(async () => {
   // Check macOS Local Network Privacy permission
   await checkNetworkPermission()
 
-  peers.value.forEach(p => {
+  // 为每个 peer 获取头像路径
+  for (const p of peers.value) {
     if (p.lastSeen) {
       lastSeenTimes.value[p.id] = p.lastSeen;
     } else {
       lastSeenTimes.value[p.id] = Date.now();
     }
-  });
+    // 如果 avatar 以 avatar: 开头，获取完整路径
+    if (p.avatar && p.avatar.startsWith('avatar:')) {
+      try {
+        const res = await getTauriAPI().lanGetAvatarPath(p.avatar);
+        if (!res.isEmoji) {
+          p.avatarPath = res.path;
+        }
+      } catch {}
+    }
+  }
 
   await loadUnreadCounts();
   window.addEventListener('lan:reload-unread', loadUnreadCounts);
 
-  cleanupIpcListeners.push(getTauriAPI().onLanPeerDiscovered((peer: any) => {
+  cleanupIpcListeners.push(getTauriAPI().onLanPeerDiscovered(async (peer: any) => {
     const exists = peers.value.find(p => p.id === peer.id);
+    // 如果 avatar 以 avatar: 开头，获取完整路径
+    if (peer.avatar && peer.avatar.startsWith('avatar:')) {
+      try {
+        const res = await getTauriAPI().lanGetAvatarPath(peer.avatar);
+        if (!res.isEmoji) {
+          peer.avatarPath = res.path;
+        }
+      } catch {}
+    }
     if (!exists) {
       peers.value.push(peer);
       lastSeenTimes.value[peer.id] = Date.now();
@@ -400,6 +419,7 @@ onMounted(async () => {
       exists.lastSeen = peer.lastSeen;
       exists.online = peer.online;
       if (peer.avatar) exists.avatar = peer.avatar;
+      if (peer.avatarPath) exists.avatarPath = peer.avatarPath;
       if (peer.status) exists.status = peer.status;
       if (peer.version) exists.version = peer.version;
       if (peer.messagePort) exists.messagePort = peer.messagePort;
