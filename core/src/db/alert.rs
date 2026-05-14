@@ -39,12 +39,13 @@ pub struct AlertService {
     pub name: String,
     pub host: String,
     pub port: i64,
-    #[serde(rename = "checkInterval")]
+    #[serde(rename = "checkInterval", default = "default_check_interval")]
     pub check_interval: i64,
-    #[serde(rename = "timeoutSeconds")]
+    #[serde(rename = "timeoutSeconds", default = "default_timeout")]
     pub timeout_seconds: i64,
-    #[serde(rename = "maxRetries")]
+    #[serde(rename = "maxRetries", default = "default_max_retries")]
     pub max_retries: i64,
+    #[serde(default)]
     pub enabled: bool,
     #[serde(rename = "lastCheckAt")]
     pub last_check_at: Option<String>,
@@ -54,8 +55,15 @@ pub struct AlertService {
     pub consecutive_failures: i64,
     #[serde(rename = "alertSentAt")]
     pub alert_sent_at: Option<String>,
-    #[serde(rename = "createdAt")]
+    #[serde(rename = "createdAt", default = "default_created_at")]
     pub created_at: String,
+}
+
+fn default_check_interval() -> i64 { 60 }
+fn default_timeout() -> i64 { 5 }
+fn default_max_retries() -> i64 { 3 }
+fn default_created_at() -> String {
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
