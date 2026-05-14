@@ -138,6 +138,7 @@ import {
   IconTrash,
   IconNetwork,
   IconBell,
+  IconRobot,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<string, any> = {
@@ -158,6 +159,7 @@ const iconMap: Record<string, any> = {
   'vpn': IconShieldLock,
   'data-backup': IconCloudDownload,
   'disk-cleaner': IconTrash,
+  'agent': IconRobot,
 }
 
 const router = useRouter()
@@ -184,6 +186,7 @@ const navGroups = {
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
+    { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
     { path: '/alert', icon: '🔔', label: '告警', viewId: 'alert' },
     { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
@@ -249,7 +252,7 @@ onMounted(async () => {
     const routeMap: Record<string, string> = {
       'todo': '/', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
-      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'alert': '/alert', 'devtools': '/devtools',
+      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
     }
