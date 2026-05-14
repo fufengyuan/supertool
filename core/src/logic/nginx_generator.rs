@@ -95,7 +95,13 @@ fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -
     let settings = get_basic_settings_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for s in &settings {
         if !s.name.is_empty() {
-            out.push_str(&format!("{} {};\n", s.name, s.value));
+            let trimmed = s.value.trim();
+            if trimmed.starts_with('{') {
+                // Block-style basic setting (e.g. events { ... })
+                out.push_str(&format!("{} {}\n", s.name, trimmed));
+            } else {
+                out.push_str(&format!("{} {};\n", s.name, s.value));
+            }
         }
     }
     out.push_str("\n");
@@ -111,7 +117,12 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
     let params = get_http_params_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for p in &params {
         if p.enabled {
-            out.push_str(&format!("    {} {};\n", p.name, p.value));
+            if p.value.contains("{\n") || p.value.contains("{ ") {
+                // Block-style param (like geo/map) — no trailing semicolon
+                out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else {
+                out.push_str(&format!("    {} {};\n", p.name, p.value));
+            }
         }
     }
     if !params.is_empty() {
@@ -243,7 +254,12 @@ fn append_http_block_decomposed(
     let params = get_http_params_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for p in &params {
         if p.enabled {
-            out.push_str(&format!("    {} {};\n", p.name, p.value));
+            if p.value.contains("{\n") || p.value.contains("{ ") {
+                // Block-style param (like geo/map) — no trailing semicolon
+                out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else {
+                out.push_str(&format!("    {} {};\n", p.name, p.value));
+            }
         }
     }
     if !params.is_empty() {
