@@ -632,6 +632,16 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE nginx_templates ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration: add name/value columns to nginx_basic_settings for databases
+    // still using the OLD fixed-column schema (before key-value refactor)
+    let _ = conn.execute(
+        "ALTER TABLE nginx_basic_settings ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE nginx_basic_settings ADD COLUMN value TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
