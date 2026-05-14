@@ -522,8 +522,10 @@ async function selectAndQuery(preset: any) {
   recalculateMatched()
   if (isStreaming.value) {
     await stopQuery()
+    // 小幅延迟，确保后端旧流完全清理后再启动新流
+    await new Promise(r => setTimeout(r, 100))
   }
-  startQueryFromPreset(preset)
+  await startQueryFromPreset(preset)
 }
 
 // 停止查询
