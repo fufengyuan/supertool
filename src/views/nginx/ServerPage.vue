@@ -298,18 +298,18 @@
                     <td class="text-center"><input type="checkbox" v-model="loc.enabled" class="checkbox checkbox-xs" /></td>
                     <td><input v-model="loc.path" placeholder="/api" class="input input-bordered input-xs w-full" /></td>
                     <td>
-                      <select v-model="loc.type" class="select select-xs select-bordered w-full">
-                        <option value="proxy_pass">proxy_pass</option>
-                        <option value="root">root</option>
-                        <option value="upstream">upstream</option>
-                        <option value="blank">blank</option>
-                        <option value="return">return</option>
+                      <select v-model="loc.locType" class="select select-xs select-bordered w-full">
+                        <option :value="0">反向代理 (proxy_pass)</option>
+                        <option :value="1">静态文件 (root)</option>
+                        <option :value="2">上游代理 (upstream)</option>
+                        <option :value="3">空白 (blank)</option>
+                        <option :value="4">重定向 (return)</option>
                       </select>
                     </td>
                     <td>
-                      <input v-if="loc.type === 'proxy_pass'" v-model="loc.value" placeholder="http://..." class="input input-bordered input-xs w-full" />
-                      <input v-else-if="loc.type === 'root'" v-model="loc.rootPath" placeholder="root 路径" class="input input-bordered input-xs w-full" />
-                      <input v-else-if="loc.type === 'return'" v-model="loc.returnUrl" placeholder="URL" class="input input-bordered input-xs w-full" />
+                      <input v-if="loc.locType === 0" v-model="loc.value" placeholder="http://..." class="input input-bordered input-xs w-full" />
+                      <input v-else-if="loc.locType === 1" v-model="loc.rootPath" placeholder="root 路径" class="input input-bordered input-xs w-full" />
+                      <input v-else-if="loc.locType === 4" v-model="loc.returnUrl" placeholder="URL" class="input input-bordered input-xs w-full" />
                       <span v-else class="text-xs text-base-content/40">自动</span>
                     </td>
                     <td>
@@ -760,7 +760,7 @@ function onAddLocation() {
     serverId: form.value.id,
     enabled: true,
     path: '',
-    type: 'proxy_pass',
+    locType: 0,
     value: '',
     rootPath: '',
     upstreamId: '',
