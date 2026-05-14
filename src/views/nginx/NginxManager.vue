@@ -547,7 +547,19 @@ async function onGenerateConfig() {
 
 async function onImportConfig() {
   if (!currentPreset.value || !configContent.value) return
-  if (!confirm('此操作将解析当前配置预览中的内容并导入到表单中。现有数据将被替换。确定继续？')) return
+
+  // Check for existing data first
+  try {
+    const stats = await getTauriAPI().getNginxPresetStats(currentPreset.value.id)
+    const data = stats?.data || stats
+    if (data?.hasData) {
+      const parts: string[] = []
+      if (data.servers > 0) parts.push(`Server ${data.servers} 个`)
+      if (data.upstreams > 0) parts.push(`Upstream ${data.upstreams} 个`)
+      if (data.streams > 0) parts.push(`Stream ${data.streams} 个`)
+      if (!confirm(`该预设已有 ${parts.join('、')}，导入将覆盖现有数据。确定继续？`)) return
+    }
+  } catch { /* if stats fails, proceed anyway */ }
 
   loading.value = true
   try {
