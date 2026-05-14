@@ -751,6 +751,13 @@ fn main() {
             commands::agent::list_hermes_messages_cmd,
             commands::agent::get_hermes_stats_cmd,
             commands::agent::delete_hermes_session_cmd,
+            // Hermes Chat Bridge commands
+            commands::hermes_chat::hermes_chat,
+            commands::hermes_chat::hermes_list_sessions,
+            commands::hermes_chat::hermes_get_session,
+            commands::hermes_chat::hermes_delete_session,
+            commands::hermes_chat::hermes_abort_chat,
+            commands::hermes_chat::hermes_check_available,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
