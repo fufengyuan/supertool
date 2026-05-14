@@ -356,6 +356,21 @@ pub async fn execute_deploy(
         });
     }
 
+    // Step 1.5: Install dependencies (git_clone mode only)
+    if config.build_mode == "git_clone" {
+        if let Err(e) = install_dependencies(config, &project_path, &emit).await {
+            emit("deps", "failed", &e);
+            return Ok(DeployResult {
+                deploy_id: deploy_id.to_string(),
+                success: false,
+                log_file_path: log_file.to_string_lossy().to_string(),
+                artifact_paths: vec![],
+                error: Some(e),
+                cancelled: None,
+            });
+        }
+    }
+
     // Step 2: Build
     if let Err(e) = do_build(config, &project_path, &emit).await {
         emit("build", "failed", &e);
@@ -709,6 +724,106 @@ fn get_repo_name(url: &str) -> String {
         .unwrap_or("repo")
         .trim_end_matches(".git");
     name.to_string()
+}
+
+// =================== Dependencies ===================
+
+/// Install dependencies for git_clone mode (npm/pnpm/yarn install)
+/// Only runs when node_modules is missing or empty
+async fn install_dependencies(
+    config: &DeployConfig,
+    project_path: &PathBuf,
+    emit: &impl Fn(&str, &str, &str),
+) -> Result<(), String> {
+    // Determine build path (where package.json should be)
+    let build_path = if let Some(ref bp) = config.build_path {
+        project_path.join(bp)
+    } else {
+        project_path.clone()
+    };
+
+    // Check if package.json exists (frontend project)
+    let package_json = build_path.join("package.json");
+    if !package_json.exists() {
+        // Not a frontend project, skip dependency installation
+        emit("deps", "skipped", "非前端项目，跳过依赖安装");
+        return Ok(());
+    }
+
+    // Check if node_modules exists and is non-empty
+    let node_modules = build_path.join("node_modules");
+    let needs_install = if node_modules.exists() {
+        // Check if node_modules has any content
+        match fs::read_dir(&node_modules) {
+            Ok(entries) => entries.count() == 0,
+            Err(_) => true,
+        }
+    } else {
+        true
+    };
+
+    if !needs_install {
+        emit("deps", "skipped", "node_modules 已存在，跳过安装");
+        return Ok(());
+    }
+
+    // Determine install tool from build_tool config
+    let tool = config.build_tool.as_deref()
+        .unwrap_or("npm");
+
+    let install_cmd = match tool {
+        "pnpm" => "pnpm install",
+        "yarn" => "yarn",
+        _ => "npm install", // npm or unknown fallback to npm
+    };
+
+    emit("deps", "installing", &format!("安装依赖: {}", install_cmd));
+
+    let mut cmd = user_shell_cmd("sh");
+    cmd.arg("-c").arg(install_cmd).current_dir(&build_path)
+        .stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    // Inject NODE_HOME and npm paths
+    if let Some(ref node_home) = config.node_home {
+        cmd.env("NODE_HOME", node_home);
+    }
+    extend_path_npm(&mut cmd, &config.node_home, &config.npm_home);
+
+    let mut child = cmd.spawn()
+        .map_err(|e| format!("依赖安装启动失败: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 stderr")?;
+
+    // Stream output
+    let stdout_fut = async {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() { emit("deps", "installing", trimmed); }
+            line.clear();
+        }
+    };
+    let stderr_fut = async {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() { emit("deps", "installing", trimmed); }
+            line.clear();
+        }
+    };
+    let status_fut = child.wait();
+    let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, status_fut);
+    let status = status.map_err(|e| format!("等待安装进程失败: {}", e))?;
+
+    if !status.success() {
+        return Err(format!("依赖安装失败 (exit {})", status.code().unwrap_or(-1)));
+    }
+
+    emit("deps", "success", "依赖安装完成");
+    Ok(())
 }
 
 // =================== Build ===================
