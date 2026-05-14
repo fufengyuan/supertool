@@ -53,6 +53,7 @@ export const DEV_TOOL_REGISTRY: DevTool[] = [
   // === 其他工具 ===
   { id: 'qrcode', name: '二维码', icon: 'camera', category: 'misc', description: '生成, 解析', offline: true },
   { id: 'barcode', name: '条形码', icon: 'grid', category: 'misc', description: '生成多种格式条形码', offline: true },
+  { id: 'calculator', name: '计算器', icon: 'calculator', category: 'misc', description: '基本运算, 科学计算, 历史记录', offline: true },
   { id: 'random', name: '随机生成器', icon: 'sparkles', category: 'misc', description: '批量生成, 特殊字符', offline: true },
   { id: 'uuid', name: 'UUID生成', icon: 'plus', category: 'misc', description: '在线生成 UUID v4', offline: true },
   { id: 'html2md', name: 'HTML转Markdown', icon: 'download', category: 'misc', description: '输入网址或粘贴HTML，转换为 Markdown', offline: false },
