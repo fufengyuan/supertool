@@ -318,7 +318,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, markRaw } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import { getTauriAPI } from '../../utils/tauri-api'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
@@ -407,7 +407,7 @@ async function loadTabComponent(tabKey: string) {
   const fileName = tabComponentMap[tabKey]
   try {
     const mod = await import(`./${fileName}`)
-    loadedComponents[tabKey] = mod.default || mod
+    loadedComponents[tabKey] = markRaw(mod.default || mod)
   } catch (err: any) {
     console.warn(`[NginxManager] 未能加载 ${fileName}:`, err?.message || err)
     // Mark as null so the template shows the fallback placeholder
