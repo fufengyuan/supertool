@@ -263,28 +263,6 @@
                     </div>
                   </div>
                 </div>
-                
-                <!-- 操作按钮 -->
-                <div class="flex items-center gap-2 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <!-- 复制按钮 -->
-                  <button
-                    class="btn btn-ghost btn-xs btn-square"
-                    @click="copyMessageContent(msg.content)"
-                    title="复制"
-                  >
-                    <SvgIcon name="copy" size="12" />
-                  </button>
-                  <!-- 重试按钮 - 仅对错误消息显示 -->
-                  <button
-                    v-if="msg.isError && msg.retryContent"
-                    class="btn btn-xs btn-ghost text-error"
-                    @click="retryMessage(msg.retryContent!)"
-                    :disabled="isStreaming"
-                  >
-                    <SvgIcon name="refresh" size="12" class="mr-1" />
-                    重试
-                  </button>
-                </div>
               </div>
             </div>
           </div>
