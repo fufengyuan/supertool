@@ -195,6 +195,14 @@ interface Message {
   toolCalls?: { name: string; durationMs: number }[];
 }
 
+// Raw message from backend (matches MessageInfo in Rust)
+interface RawMessage {
+  role: string;
+  content: string | null;
+  timestamp: number | null;
+  toolName: string | null;
+}
+
 // State
 const sessions = ref<Session[]>([]);
 const currentSessionId = ref<string | null>(null);
@@ -271,30 +279,17 @@ const selectSession = async (session: Session) => {
   messages.value = [];
 
   try {
-    const result = await invoke<{ session_id: string; messages: Message[] }>('agent_get_session', {
+    const result = await invoke<{ session_id: string; messages: RawMessage[] }>('agent_get_session', {
       sessionId: session.id,
     });
-    // 转换消息格式
-    const formattedMsgs: Message[] = [];
-    for (const m of result.messages) {
-      if (m.role === 'user') {
-        formattedMsgs.push({
-          role: 'user',
-          content: m.content,
-          timestamp: m.timestamp,
-          toolName: null,
-        });
-      } else if (m.role === 'assistant') {
-        formattedMsgs.push({
-          role: 'assistant',
-          content: m.content,
-          timestamp: m.timestamp,
-          toolName: m.toolName,
-          toolCalls: [],
-        });
-      }
-    }
-    messages.value = formattedMsgs;
+    // 直接使用返回的消息，无需过滤
+    messages.value = result.messages.map((m: RawMessage) => ({
+      role: m.role,
+      content: m.content,
+      timestamp: m.timestamp,
+      toolName: m.toolName,
+      toolCalls: [],
+    }));
   } catch (e) {
     console.error('Failed to get session:', e);
   }
