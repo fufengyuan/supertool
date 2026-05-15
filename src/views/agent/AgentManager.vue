@@ -257,7 +257,12 @@ async function loadSessions() {
     const result = await invoke<{ sessions: HermesSession[]; total: number }>('agent_list_sessions', {
       limit: 50,
     });
-    sessions.value = result.sessions || [];
+    // 按 lastActive 降序排序（最近活跃的在前）
+    sessions.value = (result.sessions || []).sort((a, b) => {
+      const aTime = a.lastActive || a.startedAt;
+      const bTime = b.lastActive || b.startedAt;
+      return bTime - aTime;
+    });
   } catch (e) {
     console.error('Failed to load sessions:', e);
   }
