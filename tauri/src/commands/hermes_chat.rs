@@ -246,6 +246,15 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
         }
     }
 
+    // 禁用系统代理（避免 GNOME 代理配置干扰）
+    // Python requests 库在 Linux 上会读取 GNOME 代理配置，可能导致连接失败
+    cmd.env("http_proxy", "");
+    cmd.env("https_proxy", "");
+    cmd.env("HTTP_PROXY", "");
+    cmd.env("HTTPS_PROXY", "");
+    cmd.env("all_proxy", "");
+    cmd.env("ALL_PROXY", "");
+
     let child = cmd.spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
 
