@@ -396,16 +396,21 @@ hljs.registerLanguage('json', json);
 hljs.registerLanguage('sql', sql);
 hljs.registerLanguage('typescript', typescript);
 
-// 配置 marked 使用 highlight.js
+// 配置 marked 使用 highlight.js - 使用新的 renderer 方式
+const renderer = new marked.Renderer();
+renderer.code = function({ text, lang }: { text: string; lang?: string }): string {
+  const language = lang || '';
+  if (language && hljs.getLanguage(language)) {
+    try {
+      const highlighted = hljs.highlight(text, { language }).value;
+      return `<pre class="hljs"><code class="language-${language}">${highlighted}</code></pre>`;
+    } catch {}
+  }
+  return `<pre class="hljs"><code>${hljs.highlightAuto(text).value}</code></pre>`;
+};
+
 marked.setOptions({
-  highlight: function(code: string, lang: string) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value;
-      } catch {}
-    }
-    return hljs.highlightAuto(code).value;
-  },
+  renderer,
   breaks: true, // 支持 GFM 换行
   gfm: true, // GitHub Flavored Markdown
 });
@@ -597,10 +602,10 @@ const renderMarkdown = (text: string | null): string => {
   try {
     // 自定义渲染器，为代码块添加复制按钮
     const renderer = new marked.Renderer();
-    renderer.code = function(code: string, language: string | undefined) {
-      const lang = language || 'plaintext';
-      const highlighted = lang && hljs.getLanguage(lang) 
-        ? hljs.highlight(code, { language: lang }).value 
+    renderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
+      const language = lang || 'plaintext';
+      const highlighted = language && hljs.getLanguage(language) 
+        ? hljs.highlight(code, { language }).value 
         : hljs.highlightAuto(code).value;
       
       // 生成唯一 ID 用于复制功能
@@ -608,7 +613,7 @@ const renderMarkdown = (text: string | null): string => {
       
       return `<div class="code-block-wrapper">
         <div class="code-header">
-          <span class="code-lang">${lang}</span>
+          <span class="code-lang">${language}</span>
           <button class="copy-btn" onclick="copyCode('${codeId}')" title="复制代码">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -768,7 +773,11 @@ const sendMessage = async () => {
           id: result.session_id,
           title: autoTitle,
           model: modelToUse || 'unknown',
+          source: 'unknown',
           startedAt: Date.now() / 1000,
+          endedAt: null,
+          messageCount: 1,
+          preview: text.slice(0, 50),
           lastActive: Date.now() / 1000,
         };
       } catch (e) {
@@ -810,17 +819,6 @@ const sendMessage = async () => {
   inputRef.value?.focus();
 };
 
-const abortChat = async () => {
-  try {
-    await invoke('agent_abort_chat');
-    isStreaming.value = false;
-    streamingText.value = '';
-    thinkingText.value = '';
-  } catch (e) {
-    console.error('Abort error:', e);
-  }
-};
-
 // 重试发送消息
 const retryMessage = async (retryContent: string) => {
   if (isStreaming.value || !retryContent.trim()) return;
@@ -845,13 +843,7 @@ const abortChat = async () => {
     streamingText.value = '';
     thinkingText.value = '';
     currentToolCalls.value = [];
-    
-    // 标记当前正在 running 的工具为 error
-    currentToolCalls.value.forEach(t => {
-      if (t.status === 'running') {
-        t.status = 'error';
-      }
-    });
+    toolStartTimes.clear();
   } catch (e) {
     console.error('Abort error:', e);
   }
