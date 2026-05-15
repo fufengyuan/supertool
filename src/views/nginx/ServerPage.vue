@@ -301,11 +301,11 @@
                 <thead>
                   <tr>
                     <th class="w-8 text-center"><input type="checkbox" @change="toggleAllLocations($event)" class="checkbox checkbox-xs" /></th>
-                    <th class="w-28">路径</th>
-                    <th class="w-20">类型</th>
-                    <th>目标/配置</th>
-                    <th class="w-20">排序</th>
-                    <th class="w-20 text-center">操作</th>
+                    <th class="w-36">路径</th>
+                    <th class="w-24">类型</th>
+                    <th class="w-1/2">目标/配置</th>
+                    <th class="w-14 text-center">排序</th>
+                    <th class="w-16 text-center">操作</th>
                   </tr>
                 </thead>
                 <tbody>
