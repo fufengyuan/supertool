@@ -193,7 +193,7 @@
                             <SvgIcon name="bot" size="14" class="text-info" />
                             <span class="text-info text-xs font-medium">子 Agent</span>
                             <span class="text-base-content/50 text-xs">
-                              {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 80) + '...' : '执行任务' }}
+                              {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 160) + '...' : '执行任务' }}
                             </span>
                             <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1">
                               <SvgIcon name="check" size="10" />完成
@@ -237,7 +237,7 @@
                             <SvgIcon name="tool" size="12" class="text-warning" />
                             <span class="text-warning text-xs font-medium">{{ tool.name }}</span>
                             <!-- 参数摘要：显示关键参数的一行摘要 -->
-                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/50 text-xs truncate max-w-[400px]">
+                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/50 text-xs truncate flex-1">
                               {{ formatArgsSummary(tool.args) }}
                             </span>
                             <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1 ml-auto">
@@ -319,7 +319,7 @@
                   <SvgIcon v-if="tool.isSubAgent" name="bot" size="12" class="text-info animate-pulse" />
                   <SvgIcon v-else name="tool" size="12" class="text-warning animate-pulse" />
                   <span class="text-warning font-medium">{{ tool.name }}</span>
-                  <span v-if="tool.args" class="text-base-content/50 truncate max-w-[300px]">{{ formatArgsSummary(tool.args) }}</span>
+                  <span v-if="tool.args" class="text-base-content/50 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
                   <span class="text-base-content/40 ml-auto">执行中...</span>
                 </div>
               </div>
@@ -652,7 +652,7 @@ const formatArgsSummary = (args: Record<string, unknown>): string => {
   for (const key of priorityKeys) {
     if (args[key]) {
       const value = String(args[key]);
-      return `${key}: ${value.length > 100 ? value.slice(0, 100) + '...' : value}`;
+      return `${key}: ${value.length > 200 ? value.slice(0, 200) + '...' : value}`;
     }
   }
   
@@ -660,7 +660,7 @@ const formatArgsSummary = (args: Record<string, unknown>): string => {
   const firstKey = Object.keys(args)[0];
   if (firstKey) {
     const value = String(args[firstKey]);
-    return `${firstKey}: ${value.length > 100 ? value.slice(0, 100) + '...' : value}`;
+    return `${firstKey}: ${value.length > 200 ? value.slice(0, 200) + '...' : value}`;
   }
   
   return '';
