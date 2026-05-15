@@ -390,16 +390,16 @@
               class="textarea textarea-bordered w-full resize-none text-sm"
               style="min-height: 52px; max-height: 200px;"
               placeholder="输入消息..."
-              :disabled="isStreaming"
               @keydown.enter.exact.prevent="sendMessage"
             ></textarea>
             <!-- 发送按钮 -->
             <button
               class="btn btn-primary self-end"
-              :disabled="!inputText.trim() || isStreaming"
+              :disabled="!inputText.trim()"
               @click="sendMessage"
+              :title="isStreaming ? '发送新消息将打断当前处理' : '发送'"
             >
-              <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
+              <SvgIcon v-if="isStreaming" name="send" size="14" class="text-warning" />
               <SvgIcon v-else name="send" size="14" />
             </button>
           </div>
@@ -832,7 +832,14 @@ const generateSessionTitle = (firstMessage: string): string => {
 };
 
 const sendMessage = async () => {
-  if (!inputText.value.trim() || isStreaming.value) return;
+  if (!inputText.value.trim()) return;
+
+  // 如果正在处理，先打断当前处理
+  if (isStreaming.value) {
+    await abortChat();
+    // 等待一小段时间让 abort 完成
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
 
   // 构建消息
   const text = inputText.value.trim();
