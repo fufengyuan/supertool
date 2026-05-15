@@ -138,7 +138,7 @@ def _create_agent(
 
     def tool_start_callback(tool_call_id: str, tool_name: str, tool_args: Dict) -> None:
         if not _abort_flag:
-            _output({"type": "tool_start", "name": tool_name, "args": tool_args})
+            _output({"type": "tool_start", "id": tool_call_id, "name": tool_name, "args": tool_args})
 
     def tool_complete_callback(tool_call_id: str, tool_name: str, tool_args: Dict, result: Any) -> None:
         if not _abort_flag:
@@ -149,6 +149,7 @@ def _create_agent(
                 result_str = result_str[:5000] + "..."
             _output({
                 "type": "tool_complete",
+                "id": tool_call_id,
                 "name": tool_name,
                 "result": result_str,
                 "duration_ms": 0  # Duration not provided by Hermes callback
@@ -156,10 +157,12 @@ def _create_agent(
 
     def thinking_callback(text: str) -> None:
         if not _abort_flag:
-            # Truncate long thinking blocks
+            # Truncate long thinking blocks with truncation marker
+            truncated = False
             if len(text) > 2000:
-                text = text[:2000] + "..."
-            _output({"type": "thinking", "text": text})
+                text = text[:2000] + "\n...[思考内容过长，已截断]"
+                truncated = True
+            _output({"type": "thinking", "text": text, "truncated": truncated})
 
     # Get session DB
     session_db = _ensure_session_db()
