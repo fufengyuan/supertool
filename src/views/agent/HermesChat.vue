@@ -455,6 +455,16 @@ interface RawMessage {
   timestamp: number | null;
   toolName: string | null;
   toolCallId: string | null;  // 工具调用 ID（tool 消息才有）
+  toolCalls?: RawToolCall[];  // assistant 消息的 tool_calls
+}
+
+// Raw tool call from backend
+interface RawToolCall {
+  id: string;
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 // State
@@ -682,12 +692,20 @@ const selectSession = async (session: Session) => {
       sessionId: session.id,
     });
     
-    // 处理消息：过滤 tool 消息，只保留 user 和 assistant
+    // 处理消息：关联 tool_calls 和 tool 结果
     const processedMessages: Message[] = [];
+    const toolResultsMap = new Map<string, string>();
     
+    // 先收集所有 tool 消息的结果
     for (const m of result.messages) {
-      // 跳过 tool 消息（工具结果是给 AI 看的，不是给用户看的）
-      if (m.role === 'tool') continue;
+      if (m.role === 'tool' && m.toolCallId) {
+        toolResultsMap.set(m.toolCallId, m.content || '');
+      }
+    }
+    
+    // 再处理 user 和 assistant 消息
+    for (const m of result.messages) {
+      if (m.role === 'tool') continue; // tool 消息不单独显示，合并到 assistant
       
       const msg: Message = {
         role: m.role,
@@ -696,6 +714,24 @@ const selectSession = async (session: Session) => {
         toolName: m.toolName,
         toolCalls: [],
       };
+      
+      // 如果是 assistant 消息且有 tool_calls，解析并关联结果
+      if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
+        for (const tc of m.toolCalls) {
+          const toolName = tc.function?.name || 'unknown';
+          const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+          const toolResult = toolResultsMap.get(tc.id) || '';
+          
+          msg.toolCalls.push({
+            name: toolName,
+            args: toolArgs,
+            result: toolResult,
+            durationMs: 0, // 历史消息没有时长信息
+            isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
+            status: 'completed',
+          });
+        }
+      }
       
       processedMessages.push(msg);
     }
