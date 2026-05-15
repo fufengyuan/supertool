@@ -325,8 +325,8 @@
             <div class="flex-1 max-w-[85%] bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
-              <!-- 流式输出 -->
-              <div v-else-if="streamingText" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(streamingText)"></div>
+              <!-- 流式输出（使用纯文本避免不完整 markdown 渲染异常） -->
+              <div v-else-if="streamingText" class="text-sm text-base-content whitespace-pre-wrap break-words">{{ streamingText }}</div>
               <!-- 等待状态 -->
               <p v-else class="text-sm text-base-content/60 animate-pulse">等待响应...</p>
               
