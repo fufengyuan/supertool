@@ -12,7 +12,7 @@
 
       <!-- 新会话按钮 -->
       <div class="px-2 py-2">
-        <button class="btn btn-primary btn-sm w-full gap-1.5" @click="startNewChat">
+        <button class="btn btn-primary btn-sm w-full gap-1.5" @click="startNewChat" title="快捷键: Cmd+K">
           <SvgIcon name="plus" size="14" />
           新对话
         </button>
@@ -84,7 +84,10 @@
             <SvgIcon name="stop" size="12" />
             停止
           </button>
-          <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession">
+          <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
+            <SvgIcon name="download" size="12" />
+          </button>
+          <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
         </div>
@@ -101,7 +104,7 @@
         <template v-else-if="messages.length > 0">
           <div v-for="(msg, idx) in messages" :key="idx" class="flex gap-3">
             <!-- 用户消息 -->
-            <div v-if="msg.role === 'user'" class="flex gap-3 w-full">
+            <div v-if="msg.role === 'user'" class="flex gap-3 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
@@ -109,15 +112,34 @@
                 <div class="bg-base-200 rounded-xl px-3 py-2">
                   <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
-                <!-- 消息时间 -->
-                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1">
-                  {{ formatMessageTime(msg.timestamp) }}
+                <!-- 消息时间和操作按钮 -->
+                <div class="flex items-center gap-2 mt-1">
+                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
+                    {{ formatMessageTime(msg.timestamp) }}
+                  </span>
+                  <!-- 复制按钮 -->
+                  <button
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="copyMessageContent(msg.content)"
+                    title="复制"
+                  >
+                    <SvgIcon name="copy" size="12" />
+                  </button>
+                  <!-- 编辑按钮 -->
+                  <button
+                    v-if="!isStreaming"
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="editUserMessage(idx)"
+                    title="编辑并重新发送"
+                  >
+                    <SvgIcon name="edit" size="12" />
+                  </button>
                 </div>
               </div>
             </div>
 
             <!-- Assistant 消息 -->
-            <div v-else class="flex gap-3 w-full">
+            <div v-else class="flex gap-3 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
@@ -138,20 +160,30 @@
                     </div>
                   </div>
                 </div>
-                <!-- 消息时间 -->
-                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1 ml-1">
-                  {{ formatMessageTime(msg.timestamp) }}
+                <!-- 消息时间和操作按钮 -->
+                <div class="flex items-center gap-2 mt-1 ml-1">
+                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
+                    {{ formatMessageTime(msg.timestamp) }}
+                  </span>
+                  <!-- 复制按钮 -->
+                  <button
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="copyMessageContent(msg.content)"
+                    title="复制"
+                  >
+                    <SvgIcon name="copy" size="12" />
+                  </button>
+                  <!-- 重试按钮 - 仅对错误消息显示 -->
+                  <button
+                    v-if="msg.isError && msg.retryContent"
+                    class="btn btn-xs btn-ghost text-error"
+                    @click="retryMessage(msg.retryContent!)"
+                    :disabled="isStreaming"
+                  >
+                    <SvgIcon name="refresh" size="12" class="mr-1" />
+                    重试
+                  </button>
                 </div>
-                <!-- 重试按钮 - 仅对 assistant 错误消息显示 -->
-                <button
-                  v-if="msg.isError && msg.retryContent"
-                  class="btn btn-xs btn-ghost text-error mt-1"
-                  @click="retryMessage(msg.retryContent!)"
-                  :disabled="isStreaming"
-                >
-                  <SvgIcon name="refresh" size="12" class="mr-1" />
-                  重试
-                </button>
               </div>
             </div>
           </div>
@@ -581,6 +613,97 @@ const retryMessage = async (retryContent: string) => {
   await sendMessage();
 };
 
+// 复制消息内容
+const copyMessageContent = async (content: string | null) => {
+  if (!content) return;
+  try {
+    await navigator.clipboard.writeText(content);
+    // 可选：显示复制成功提示（用 toast 或临时状态）
+  } catch (e) {
+    console.error('Copy failed:', e);
+  }
+};
+
+// 编辑用户消息并重新发送
+const editUserMessage = (msgIndex: number) => {
+  if (isStreaming.value) return;
+  
+  const msg = messages.value[msgIndex];
+  if (!msg || msg.role !== 'user' || !msg.content) return;
+  
+  // 删除该消息及其后所有消息
+  messages.value = messages.value.slice(0, msgIndex);
+  
+  // 设置输入框内容
+  inputText.value = msg.content;
+  inputRef.value?.focus();
+};
+
+// 全局快捷键处理
+const handleGlobalKeydown = (e: KeyboardEvent) => {
+  // Cmd/Ctrl + K: 新对话
+  if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+    e.preventDefault();
+    startNewChat();
+    return;
+  }
+  
+  // Cmd/Ctrl + S: 保存/导出当前会话
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    exportSession();
+    return;
+  }
+  
+  // Escape: 如果正在编辑标题，取消编辑
+  if (e.key === 'Escape' && isEditingTitle.value) {
+    cancelEditTitle();
+    return;
+  }
+  
+  // Escape: 如果正在流式输出，停止
+  if (e.key === 'Escape' && isStreaming.value) {
+    abortChat();
+    return;
+  }
+};
+
+// 导出会话为 Markdown
+const exportSession = () => {
+  if (messages.value.length === 0) return;
+  
+  const title = currentSession.value?.title || '新对话';
+  const timestamp = new Date().toISOString().split('T')[0];
+  
+  let markdown = `# ${title}\n\n`;
+  markdown += `> 导出时间: ${timestamp}\n> 模型: ${currentSession.value?.model || 'unknown'}\n\n---\n\n`;
+  
+  for (const msg of messages.value) {
+    const time = msg.timestamp ? formatMessageTime(msg.timestamp) : '';
+    if (msg.role === 'user') {
+      markdown += `## 用户 (${time})\n\n${msg.content || ''}\n\n`;
+    } else if (msg.role === 'assistant') {
+      markdown += `## Hermes (${time})\n\n${msg.content || ''}\n\n`;
+      if (msg.toolCalls && msg.toolCalls.length > 0) {
+        markdown += `**工具调用:**\n`;
+        for (const tool of msg.toolCalls) {
+          markdown += `- ${tool.name} (${tool.durationMs}ms)\n`;
+        }
+        markdown += '\n';
+      }
+    }
+  }
+  
+  // 下载文件
+  const blob = new Blob([markdown], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${title.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_')}_${timestamp}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 const deleteCurrentSession = async () => {
   if (!currentSessionId.value) return;
 
@@ -669,6 +792,9 @@ const scrollToBottom = () => {
 
 // Lifecycle
 onMounted(async () => {
+  // 全局快捷键
+  document.addEventListener('keydown', handleGlobalKeydown);
+  
   // 监听流式事件
   unlistenDelta = await listen<string>('agent-delta', (event) => {
     // 收到实际内容时清空思考动画
@@ -752,6 +878,8 @@ onUnmounted(() => {
   unlistenToolComplete?.();
   unlistenThinking?.();
   unlistenError?.();
+  // 移除快捷键监听
+  document.removeEventListener('keydown', handleGlobalKeydown);
 });
 
 // Watch streamingText to auto-scroll
