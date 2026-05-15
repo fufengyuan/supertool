@@ -753,6 +753,7 @@ fn main() {
             // Agent Chat Bridge commands (Python bridge for AI interaction)
             commands::hermes_chat::agent_chat,
             commands::hermes_chat::agent_list_sessions,
+            commands::hermes_chat::agent_search_sessions,
             commands::hermes_chat::agent_get_session,
             commands::hermes_chat::agent_delete_session,
             commands::hermes_chat::agent_rename_session,
