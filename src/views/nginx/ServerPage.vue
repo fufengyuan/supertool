@@ -370,7 +370,16 @@
                             <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="Host 转发">
                               <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />Host
                             </label>
-                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-20 font-mono" />
+                            <template v-if="loc.header">
+                              <select :value="getHeaderHostSelectValue(loc)" @change="onHeaderHostSelect(loc, ($event.target as HTMLSelectElement).value)" class="select select-xs select-bordered w-22 font-mono">
+                                <option value="$host">$host</option>
+                                <option value="$http_host">$http_host</option>
+                                <option value="$proxy_host">$proxy_host</option>
+                                <option value="$server_name">$server_name</option>
+                                <option value="__custom__">其他...</option>
+                              </select>
+                              <input v-if="isCustomHeaderHost(loc.headerHost)" v-model="loc.headerHost" placeholder="自定义值" class="input input-bordered input-xs w-20 font-mono" />
+                            </template>
                           </div>
                           <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
                         </div>
@@ -393,7 +402,16 @@
                             <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="Host 转发">
                               <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />Host
                             </label>
-                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-20 font-mono" />
+                            <template v-if="loc.header">
+                              <select :value="getHeaderHostSelectValue(loc)" @change="onHeaderHostSelect(loc, ($event.target as HTMLSelectElement).value)" class="select select-xs select-bordered w-22 font-mono">
+                                <option value="$host">$host</option>
+                                <option value="$http_host">$http_host</option>
+                                <option value="$proxy_host">$proxy_host</option>
+                                <option value="$server_name">$server_name</option>
+                                <option value="__custom__">其他...</option>
+                              </select>
+                              <input v-if="isCustomHeaderHost(loc.headerHost)" v-model="loc.headerHost" placeholder="自定义值" class="input input-bordered input-xs w-20 font-mono" />
+                            </template>
                           </div>
                           <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
                         </div>
@@ -585,6 +603,20 @@ const showDialog = ref(false)
 const editingServer = ref<any>(null)
 const searchText = ref('')
 const api = getTauriAPI()
+
+// Host 转发下拉选项
+const HEADER_HOST_OPTIONS = ['$host', '$http_host', '$proxy_host', '$server_name']
+
+function getHeaderHostSelectValue(loc: any): string {
+  if (!loc.headerHost || HEADER_HOST_OPTIONS.includes(loc.headerHost)) return loc.headerHost || '$host'
+  return '__custom__'
+}
+function isCustomHeaderHost(val: string): boolean {
+  return !!val && !HEADER_HOST_OPTIONS.includes(val)
+}
+function onHeaderHostSelect(loc: any, val: string) {
+  if (val !== '__custom__') loc.headerHost = val
+}
 
 // 主数据
 const servers = ref<any[]>([])
