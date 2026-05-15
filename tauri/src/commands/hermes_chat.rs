@@ -45,6 +45,10 @@ pub enum BridgeCommand {
     DeleteSession {
         session_id: String,
     },
+    RenameSession {
+        session_id: String,
+        title: String,
+    },
     Abort {},
 }
 
@@ -66,6 +70,7 @@ pub enum BridgeMessage {
     Sessions { data: Vec<SessionInfo>, total: usize },
     Session { session_id: String, messages: Vec<MessageInfo> },
     Deleted { session_id: String },
+    Renamed { session_id: String, title: String },
     Aborted { session_id: Option<String> },
 }
 
@@ -418,6 +423,46 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
         if let BridgeMessage::Deleted { session_id } = msg {
             child.wait().ok();
             return Ok(serde_json::json!({ "deleted": session_id }));
+        } else if let BridgeMessage::Error { message } = msg {
+            child.wait().ok();
+            return Err(message);
+        }
+    }
+
+    child.wait().ok();
+    Err("No response from bridge".to_string())
+}
+
+/// Rename session
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_rename_session(session_id: String, title: String) -> Result<serde_json::Value, String> {
+    let (_, mut child, _) = start_bridge_process()?;
+
+    let cmd = BridgeCommand::RenameSession { session_id, title };
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() {
+            continue;
+        }
+
+        let msg: BridgeMessage = serde_json::from_str(&line)
+            .map_err(|e| format!("Failed to parse: {}", e))?;
+
+        if let BridgeMessage::Renamed { session_id, title } = msg {
+            child.wait().ok();
+            return Ok(serde_json::json!({ "session_id": session_id, "title": title }));
         } else if let BridgeMessage::Error { message } = msg {
             child.wait().ok();
             return Err(message);
