@@ -76,13 +76,13 @@ pub struct SessionInfo {
     pub title: Option<String>,
     pub model: String,
     pub source: String,
-    pub started_at: Option<i64>,
+    pub started_at: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ended_at: Option<i64>,
+    pub ended_at: Option<f64>,
     pub message_count: usize,
     pub preview: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub last_active: Option<i64>,
+    pub last_active: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -91,7 +91,7 @@ pub struct MessageInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub timestamp: Option<i64>,
+    pub timestamp: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
 }
