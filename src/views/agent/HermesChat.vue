@@ -170,27 +170,79 @@
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
               <div class="flex-1">
+                <!-- 思考过程（如果有） -->
+                <div v-if="msg.thinking" class="mb-2 bg-base-200/50 rounded-lg px-3 py-2 text-xs text-base-content/60 italic">
+                  💭 {{ msg.thinking }}
+                </div>
+                
                 <div class="bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
                   <!-- Markdown 渲染的消息内容 -->
-                  <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
-                  <!-- 工具调用显示 -->
-                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-2 space-y-1">
-                    <div v-for="(tool, idx) in msg.toolCalls" :key="`${tool.name}-${idx}`" class="flex items-center gap-2 text-xs">
-                      <!-- 子 agent 使用不同图标 -->
-                      <SvgIcon v-if="tool.name === 'delegate_task'" name="bot" size="12" class="text-info" />
-                      <SvgIcon v-else name="tool" size="12" class="text-warning" />
-                      <!-- 子 agent 显示不同文字 -->
-                      <span v-if="tool.name === 'delegate_task'" class="text-info">子 Agent</span>
-                      <span v-else class="text-base-content/70">{{ tool.name }}</span>
-                      <span class="text-base-content/40">{{ tool.durationMs }}ms</span>
+                  <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
+                  
+                  <!-- 工具调用卡片 -->
+                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-3 space-y-2">
+                    <div v-for="(tool, tIdx) in msg.toolCalls" :key="`${tool.name}-${tIdx}`">
+                      <!-- 子 Agent 卡片（特殊样式） -->
+                      <div v-if="tool.isSubAgent" class="collapse collapse-arrow bg-info/10 border border-info/20 rounded-lg">
+                        <input 
+                          type="checkbox" 
+                          :checked="isToolCallExpanded(`${idx}-${tIdx}`)"
+                          @change="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                        />
+                        <div class="collapse-title text-xs font-medium flex items-center gap-2">
+                          <SvgIcon name="bot" size="14" class="text-info" />
+                          <span class="text-info">子 Agent</span>
+                          <span class="text-base-content/40 ml-auto">{{ tool.durationMs }}ms</span>
+                        </div>
+                        <div class="collapse-content bg-info/5 text-xs">
+                          <!-- 任务参数 -->
+                          <div v-if="tool.args" class="mb-2">
+                            <span class="text-base-content/60">任务：</span>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                          </div>
+                          <!-- 执行结果 -->
+                          <div v-if="tool.result" class="mt-2">
+                            <span class="text-base-content/60">输出：</span>
+                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs whitespace-pre-wrap">{{ tool.result }}</div>
+                          </div>
+                          <div v-else class="text-base-content/40">等待执行...</div>
+                        </div>
+                      </div>
+                      
+                      <!-- 普通工具卡片 -->
+                      <div v-else class="collapse collapse-arrow bg-warning/5 border border-warning/10 rounded-lg">
+                        <input 
+                          type="checkbox" 
+                          :checked="isToolCallExpanded(`${idx}-${tIdx}`)"
+                          @change="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                        />
+                        <div class="collapse-title text-xs flex items-center gap-2">
+                          <SvgIcon name="tool" size="12" class="text-warning" />
+                          <span class="text-warning font-medium">{{ tool.name }}</span>
+                          <span class="text-base-content/40 ml-auto">{{ tool.durationMs }}ms</span>
+                        </div>
+                        <div class="collapse-content bg-warning/5 text-xs">
+                          <!-- 参数 -->
+                          <div v-if="tool.args" class="mb-1">
+                            <span class="text-base-content/60">参数：</span>
+                            <pre class="bg-base-200 rounded p-1 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                          </div>
+                          <!-- 结果 -->
+                          <div v-if="tool.result" class="mt-1">
+                            <span class="text-base-content/60">结果：</span>
+                            <pre class="bg-base-200 rounded p-1 mt-1 overflow-auto text-xs max-h-32">{{ tool.result }}</pre>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
+                
                 <!-- 操作按钮 -->
                 <div class="flex items-center gap-2 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <!-- 复制按钮 -->
                   <button
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    class="btn btn-ghost btn-xs btn-square"
                     @click="copyMessageContent(msg.content)"
                     title="复制"
                   >
@@ -211,25 +263,36 @@
             </div>
           </div>
 
-          <!-- 思考动画 - 显示在流式输出前 -->
-          <div v-if="isStreaming && thinkingText && !streamingText" class="flex gap-3">
+          <!-- 思考/处理中状态 - 带取消按钮 -->
+          <div v-if="isStreaming" class="flex gap-3">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
             <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-              <p class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
+              <!-- 思考文本 -->
+              <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
+              <!-- 流式输出 -->
+              <div v-else-if="streamingText" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(streamingText)"></div>
+              <!-- 等待状态 -->
+              <p v-else class="text-sm text-base-content/60 animate-pulse">等待响应...</p>
+              
+              <!-- 当前运行中的工具 -->
+              <div v-if="currentToolCalls && currentToolCalls.length > 0" class="mt-2 space-y-1">
+                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs">
+                  <SvgIcon v-if="tool.isSubAgent" name="bot" size="12" class="text-info animate-pulse" />
+                  <SvgIcon v-else name="tool" size="12" class="text-warning animate-pulse" />
+                  <span class="text-base-content/60">{{ tool.isSubAgent ? '子 Agent 处理中...' : `${tool.name} 执行中...` }}</span>
+                </div>
+              </div>
             </div>
-          </div>
-
-          <!-- 流式输出中的临时消息 -->
-          <div v-if="isStreaming && streamingText" class="flex gap-3">
-            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
-              <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
-            </div>
-            <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-              <!-- 流式输出实时渲染 markdown -->
-              <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(streamingText)"></div>
-            </div>
+            <!-- 取消按钮 -->
+            <button 
+              class="btn btn-ghost btn-sm btn-square self-center text-error hover:bg-error/10"
+              @click="abortChat"
+              title="取消处理"
+            >
+              <SvgIcon name="close" size="16" />
+            </button>
           </div>
         </template>
 
@@ -362,12 +425,23 @@ interface Session {
   lastActive?: number; // 最近活跃时间（可选）
 }
 
+// 工具调用详情
+interface ToolCall {
+  name: string;
+  args?: unknown; // 工具参数
+  result?: string; // 工具返回结果
+  durationMs: number;
+  isSubAgent?: boolean; // 是否是子 agent
+  status?: 'running' | 'completed' | 'error'; // 状态
+}
+
 interface Message {
   role: string;
   content: string | null;
   timestamp: number | null;
   toolName: string | null;
-  toolCalls?: { name: string; durationMs: number }[];
+  toolCalls?: ToolCall[];
+  thinking?: string; // 思考过程
   isError?: boolean; // 是否是错误消息
   retryContent?: string; // 用于重试的原始消息内容
   tokens?: { input: number; output: number }; // token 使用量
@@ -437,6 +511,23 @@ const toggleToolset = (toolset: string) => {
 const searchQuery = ref('');
 const filteredMessages = ref<Message[]>([]);
 
+// 工具调用展开状态 (key: `${msgIdx}-${toolIdx}`)
+const expandedToolCalls = ref<Set<string>>(new Set());
+
+// 切换工具调用展开
+const toggleToolCallExpand = (key: string) => {
+  if (expandedToolCalls.value.has(key)) {
+    expandedToolCalls.value.delete(key);
+  } else {
+    expandedToolCalls.value.add(key);
+  }
+};
+
+// 检查是否展开
+const isToolCallExpanded = (key: string): boolean => {
+  return expandedToolCalls.value.has(key);
+};
+
 // Refs
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
@@ -472,7 +563,7 @@ let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
-let currentToolCalls: { name: string; durationMs: number }[] = [];
+const currentToolCalls = ref<ToolCall[]>([]);
 
 // 自动调整输入框高度
 const adjustTextareaHeight = () => {
@@ -643,7 +734,7 @@ const sendMessage = async () => {
   isStreaming.value = true;
   streamingText.value = '';
   thinkingText.value = '';
-  currentToolCalls = [];
+  currentToolCalls.value = [];
 
   try {
     // 使用选择的模型（如果有）
@@ -692,7 +783,7 @@ const sendMessage = async () => {
         content: finalContent,
         timestamp: Date.now() / 1000,
         toolName: null,
-        toolCalls: currentToolCalls,
+        toolCalls: currentToolCalls.value.length > 0 ? [...currentToolCalls.value] : undefined,
       });
     }
     streamingText.value = '';
@@ -739,6 +830,28 @@ const retryMessage = async (retryContent: string) => {
   // 设置输入文本并重新发送
   inputText.value = retryContent;
   await sendMessage();
+};
+
+// 取消当前处理
+const abortChat = async () => {
+  if (!isStreaming.value) return;
+  
+  try {
+    await invoke('agent_abort_chat');
+    isStreaming.value = false;
+    streamingText.value = '';
+    thinkingText.value = '';
+    currentToolCalls.value = [];
+    
+    // 标记当前正在 running 的工具为 error
+    currentToolCalls.value.forEach(t => {
+      if (t.status === 'running') {
+        t.status = 'error';
+      }
+    });
+  } catch (e) {
+    console.error('Abort error:', e);
+  }
 };
 
 // 复制消息内容
@@ -988,21 +1101,46 @@ onMounted(async () => {
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    // 工具开始，显示工具调用状态（区分子 agent）
+    // 工具开始，保存参数信息
     const toolName = event.payload.name;
-    if (toolName === 'delegate_task') {
-      thinkingText.value = '启动子 Agent 处理任务...';
+    const isSubAgent = toolName === 'delegate_task';
+    
+    // 添加到 currentToolCalls（状态为 running）
+    currentToolCalls.value.push({
+      name: toolName,
+      args: event.payload.args,
+      durationMs: 0, // 还未完成
+      isSubAgent,
+      status: 'running',
+    });
+    
+    // 显示提示
+    if (isSubAgent) {
+      thinkingText.value = '🤖 启动子 Agent 处理任务...';
     } else {
-      thinkingText.value = `调用工具: ${toolName}...`;
+      thinkingText.value = `🔧 调用工具: ${toolName}...`;
     }
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
     thinkingText.value = '';
-    currentToolCalls.push({
-      name: event.payload.name,
-      durationMs: event.payload.duration_ms,
-    });
+    
+    // 找到对应的工具调用，更新结果和状态
+    const toolCall = currentToolCalls.value.find(t => t.name === event.payload.name && t.status === 'running');
+    if (toolCall) {
+      toolCall.result = event.payload.result;
+      toolCall.durationMs = event.payload.duration_ms;
+      toolCall.status = 'completed';
+    } else {
+      // 如果没找到 running 的，添加新的 completed
+      currentToolCalls.value.push({
+        name: event.payload.name,
+        result: event.payload.result,
+        durationMs: event.payload.duration_ms,
+        isSubAgent: event.payload.name === 'delegate_task',
+        status: 'completed',
+      });
+    }
   });
 
   // 思考动画事件
