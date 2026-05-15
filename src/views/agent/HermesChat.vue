@@ -671,9 +671,9 @@ let unlistenDone: UnlistenFn | null = null;
 // 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
 let lastAssistantRoundEnded = false;
 
-// 调试日志函数（同时输出到 console 和日志文件）
+// 调试日志函数（写入日志文件）
 const agentLog = async (message: string) => {
-  console.log(message);
+  // 直接写入 DEBUG 日志，不再调用 console.log（会被 main.ts 拦截写入 INFO，导致双重记录）
   try {
     const api = getTauriAPI();
     await api.writeSystemLog('debug', 'agent-chat', message);
