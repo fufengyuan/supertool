@@ -255,15 +255,21 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
         # Format sessions
         formatted = []
         for s in sessions:
+            started_at = s.get("started_at")
+            ended_at = s.get("ended_at")
+            # last_active: use ended_at if available, else started_at
+            last_active = ended_at or started_at
+            
             formatted.append({
                 "id": s.get("id", ""),
                 "title": s.get("title"),
                 "model": s.get("model", ""),
                 "source": s.get("source", ""),
-                "started_at": s.get("started_at"),
-                "ended_at": s.get("ended_at"),
+                "started_at": started_at,
+                "ended_at": ended_at,
                 "message_count": s.get("message_count", 0),
                 "preview": s.get("preview", "")[:200],
+                "last_active": last_active,
             })
 
         _output({"type": "sessions", "data": formatted, "total": len(formatted)})
