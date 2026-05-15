@@ -18,10 +18,34 @@
         </button>
       </div>
 
+      <!-- 会话搜索框 -->
+      <div class="px-2 py-1">
+        <div class="relative">
+          <input
+            v-model="sessionSearchQuery"
+            type="text"
+            class="input input-sm input-bordered w-full pl-7 text-xs"
+            placeholder="搜索会话..."
+          />
+          <SvgIcon name="search" size="12" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40" />
+          <button
+            v-if="sessionSearchQuery"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content"
+            @click="sessionSearchQuery = ''"
+          >
+            <SvgIcon name="close" size="12" />
+          </button>
+        </div>
+      </div>
+
       <!-- 会话列表 -->
       <div class="flex-1 overflow-y-auto">
         <div v-if="loadingSessions" class="flex items-center justify-center py-8">
           <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
+        </div>
+        <div v-else-if="filteredSessions.length === 0 && sessions.length > 0" class="flex flex-col items-center justify-center py-8 text-center">
+          <SvgIcon name="search" size="24" class="text-base-content/30" />
+          <p class="mt-2 text-xs text-base-content/50">未找到匹配的会话</p>
         </div>
         <div v-else-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
           <SvgIcon name="chat" size="24" class="text-base-content/30" />
@@ -29,7 +53,7 @@
         </div>
         <div v-else class="flex flex-col gap-1 px-2 py-1">
           <div
-            v-for="session in sessions"
+            v-for="session in filteredSessions"
             :key="session.id"
             class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
             :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
@@ -475,6 +499,7 @@ interface RawToolCall {
 
 // State
 const sessions = ref<Session[]>([]);
+const sessionSearchQuery = ref(''); // 会话搜索关键词
 const currentSessionId = ref<string | null>(null);
 const currentSession = ref<Session | null>(null);
 const messages = ref<Message[]>([]);
@@ -597,6 +622,23 @@ const adjustTextareaHeight = () => {
 };
 
 // Computed
+// 过滤后的会话列表（搜索）
+const filteredSessions = computed(() => {
+  const query = sessionSearchQuery.value.trim().toLowerCase();
+  if (!query) return sessions.value;
+  
+  return sessions.value.filter(session => {
+    // 搜索标题
+    const title = session.title?.toLowerCase() || '';
+    // 搜索 preview（第一条消息摘要）
+    const preview = session.preview?.toLowerCase() || '';
+    // 搜索模型名称
+    const model = session.model?.toLowerCase() || '';
+    
+    return title.includes(query) || preview.includes(query) || model.includes(query);
+  });
+});
+
 const sourceIcon = (source: string) => {
   const icons: Record<string, string> = {
     cli: 'terminal',
