@@ -310,15 +310,18 @@ pub async fn agent_chat(
                 if let Some(t) = &text {
                     accumulated_text.push_str(t);
                 }
+                eprintln!("[DEBUG] agent-delta: {:?}", text);
                 app.emit("agent-delta", &text).ok();
             }
             BridgeMessage::ToolStart { name, args } => {
+                eprintln!("[DEBUG] agent-tool-start: {} {:?}", name, args);
                 app.emit("agent-tool-start", serde_json::json!({
                     "name": name,
                     "args": args
                 })).ok();
             }
             BridgeMessage::ToolComplete { name, result, duration_ms } => {
+                eprintln!("[DEBUG] agent-tool-complete: {} (duration: {}ms)", name, duration_ms);
                 app.emit("agent-tool-complete", serde_json::json!({
                     "name": name,
                     "result": result,

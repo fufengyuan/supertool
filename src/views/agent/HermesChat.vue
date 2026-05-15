@@ -1403,6 +1403,7 @@ onMounted(async () => {
   
 // 监听流式事件
   unlistenDelta = await listen<string | null>('agent-delta', (event) => {
+    console.log('[agent-delta] 收到事件:', event.payload);
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
     
@@ -1410,6 +1411,7 @@ onMounted(async () => {
       // 查找最后一个 assistant 消息
       const messagesCopy = [...messages.value].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
+      console.log('[agent-delta] 当前 assistant 消息:', currentMsg ? '存在' : '不存在', 'lastAssistantRoundEnded:', lastAssistantRoundEnded);
       
       // 如果没有 assistant 消息，或上一轮已结束，创建新消息
       if (!currentMsg || lastAssistantRoundEnded) {
@@ -1422,17 +1424,20 @@ onMounted(async () => {
         };
         messages.value.push(currentMsg);
         lastAssistantRoundEnded = false;
+        console.log('[agent-delta] 创建新 assistant 消息, messages.length:', messages.value.length);
       }
       
       // 添加 delta 内容
       if (currentMsg) {
-        currentMsg.content += event.payload;
+        currentMsg.content = (currentMsg.content || '') + event.payload;
+        console.log('[agent-delta] 添加内容, currentMsg.content 长度:', currentMsg.content?.length);
       }
       scrollToBottom();
     }
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
+    console.log('[agent-tool-start] 收到事件:', event.payload);
     // 工具开始
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
@@ -1440,6 +1445,8 @@ onMounted(async () => {
     // 获取当前消息（如果没有 assistant 消息，创建一个）
     const messagesCopy = [...messages.value].reverse();
     let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
+    console.log('[agent-tool-start] 当前 assistant 消息:', currentMsg ? '存在' : '不存在');
+    
     if (!currentMsg) {
       currentMsg = {
         role: 'assistant',
@@ -1449,6 +1456,7 @@ onMounted(async () => {
         toolCalls: [],
       };
       messages.value.push(currentMsg);
+      console.log('[agent-tool-start] 创建新 assistant 消息, messages.length:', messages.value.length);
     }
     
     // 确保 toolCalls 数组存在
@@ -1464,6 +1472,7 @@ onMounted(async () => {
       isSubAgent,
       status: 'running',
     });
+    console.log('[agent-tool-start] 添加工具调用:', toolName, 'toolCalls.length:', currentMsg.toolCalls.length);
     
     // 显示提示
     if (isSubAgent) {
@@ -1475,11 +1484,14 @@ onMounted(async () => {
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
+    console.log('[agent-tool-complete] 收到事件:', event.payload);
     thinkingText.value = '';
     
     // 获取当前 assistant 消息
     const messagesCopy = [...messages.value].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
+    console.log('[agent-tool-complete] 当前 assistant 消息:', currentMsg ? '存在' : '不存在', 'toolCalls:', currentMsg?.toolCalls?.length);
+    
     if (currentMsg && currentMsg.toolCalls) {
       const toolCall = currentMsg.toolCalls.find(
         (t: ToolCall) => t.name === event.payload.name && t.status === 'running'
@@ -1488,11 +1500,15 @@ onMounted(async () => {
         toolCall.result = event.payload.result ?? '';
         toolCall.durationMs = event.payload.duration_ms || 0;
         toolCall.status = 'completed';
+        console.log('[agent-tool-complete] 更新工具调用:', event.payload.name, 'status: completed');
+      } else {
+        console.log('[agent-tool-complete] 未找到匹配的 running 工具调用');
       }
     }
     
     // 标记当前轮次结束（下一次 delta 将创建新消息）
     lastAssistantRoundEnded = true;
+    console.log('[agent-tool-complete] 设置 lastAssistantRoundEnded = true');
     scrollToBottom();
   });
 
@@ -1515,11 +1531,13 @@ onMounted(async () => {
 
   // 流式结束事件
   unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
+    console.log('[agent-done] 收到事件:', event.payload);
     // 清空思考动画
     thinkingText.value = '';
     
     // 清空流式状态
     lastAssistantRoundEnded = false;
+    console.log('[agent-done] messages.length:', messages.value.length, '最后一条:', messages.value[messages.value.length - 1]?.role);
     
     // 恢复 UI 状态
     isStreaming.value = false;
