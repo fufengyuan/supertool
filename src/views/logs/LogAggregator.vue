@@ -988,7 +988,7 @@ onMounted(async () => {
   cleanupLogsError = await getTauriAPI().onLogsError(onErrorHandler);
   cleanupStreamStopped = await getTauriAPI().onLogsStreamStopped(onStreamStoppedHandler);
 
-  _cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }: { type: string }) => {
+  _cleanupDataChanged = await getTauriAPI().onDataChanged?.(({ type }: { type: string }) => {
     if (type === 'servers') loadServers()
   })
 })
