@@ -1099,9 +1099,11 @@ const sendMessage = async () => {
       refreshSessions();
     }
 
-    // 添加 assistant 消息 - 使用流式文本或完整响应
+    // 添加 assistant 消息（如果 agent-done 事件没有添加）
     const finalContent = streamingText.value || result.response;
-    if (finalContent && !messages.value.some(m => m.role === 'assistant' && m.content === finalContent)) {
+    // 检查是否已经添加过（agent-done 事件可能已经添加）
+    const alreadyAdded = messages.value.some(m => m.role === 'assistant' && m.content === finalContent);
+    if (finalContent && !alreadyAdded) {
       messages.value.push({
         role: 'assistant',
         content: finalContent,
@@ -1110,8 +1112,10 @@ const sendMessage = async () => {
         toolCalls: currentToolCalls.value.length > 0 ? [...currentToolCalls.value] : undefined,
       });
     }
+    // 清空流式状态（如果 agent-done 还没清空）
     streamingText.value = '';
     thinkingText.value = '';
+    currentToolCalls.value = [];
   } catch (e) {
     console.error('Chat error:', e);
     // 添加错误消息，保存原始内容以便重试
@@ -1480,12 +1484,28 @@ onMounted(async () => {
     streamingText.value += `\n[错误: ${event.payload}]`;
   });
 
-  // 流式结束事件 - 立即恢复状态
+  // 流式结束事件 - 立即将内容添加到消息列表
   unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
-    // 清空临时状态
+    // 清空思考动画
     thinkingText.value = '';
-    // 不清空 streamingText，让 sendMessage 处理最终消息
-    // 立即恢复 UI 状态
+    
+    // 立即将流式内容添加到消息列表（避免空白）
+    const finalContent = streamingText.value || event.payload.response || '';
+    if (finalContent && !messages.value.some(m => m.role === 'assistant' && m.content === finalContent)) {
+      messages.value.push({
+        role: 'assistant',
+        content: finalContent,
+        timestamp: Date.now() / 1000,
+        toolName: null,
+        toolCalls: currentToolCalls.value.length > 0 ? [...currentToolCalls.value] : undefined,
+      });
+    }
+    
+    // 清空流式状态
+    streamingText.value = '';
+    currentToolCalls.value = [];
+    
+    // 恢复 UI 状态
     isStreaming.value = false;
     scrollToBottom();
   });
