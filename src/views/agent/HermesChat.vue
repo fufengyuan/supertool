@@ -150,17 +150,6 @@
                   <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
                   <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
-                <!-- 操作按钮 -->
-                <div class="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <!-- 复制按钮 -->
-                  <button
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="copyMessageContent(msg.content)"
-                    title="复制"
-                  >
-                    <SvgIcon name="copy" size="12" />
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -667,10 +656,21 @@ const formatArgsSummary = (args: Record<string, unknown>): string => {
   return '';
 };
 
-// Markdown 渲染函数 - 添加代码块复制按钮
+// Markdown 渲染函数 - 添加代码块复制按钮和特殊格式处理
 const renderMarkdown = (text: string | null): string => {
   if (!text) return '';
   try {
+    // 预处理：处理特殊格式的警告框
+    // [IMPORTANT: ...] -> 警告框
+    // [WARNING: ...] -> 警告框
+    // [NOTE: ...] -> 信息框
+    let processedText = text
+      .replace(/^\[IMPORTANT:\s*([^\]]+)\]/gm, '<div class="alert-box alert-important">⚠️ <strong>重要:</strong> $1</div>')
+      .replace(/^\[WARNING:\s*([^\]]+)\]/gm, '<div class="alert-box alert-warning">⚠️ <strong>警告:</strong> $1</div>')
+      .replace(/^\[NOTE:\s*([^\]]+)\]/gm, '<div class="alert-box alert-note">📝 <strong>注意:</strong> $1</div>')
+      .replace(/^\[SILENT\]/gm, '<div class="alert-box alert-silent">🔇 <strong>静默模式</strong></div>')
+      .replace(/^\[CONTEXT:/gm, '<div class="alert-box alert-context">📋 <strong>上下文压缩摘要</strong><br>');
+
     // 自定义渲染器，为代码块添加复制按钮
     const renderer = new marked.Renderer();
     renderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
@@ -697,10 +697,10 @@ const renderMarkdown = (text: string | null): string => {
     };
     
     marked.setOptions({ renderer });
-    const html = marked.parse(text) as string;
+    const html = marked.parse(processedText) as string;
     return DOMPurify.sanitize(html, {
       ADD_ATTR: ['target', 'onclick', 'id', 'title'],
-      ADD_TAGS: ['button', 'svg', 'rect', 'path'],
+      ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div'],
     });
   } catch {
     return text;
@@ -1547,9 +1547,65 @@ watch(searchQuery, () => {
 .markdown-content :deep(h4) {
   margin: 1em 0 0.5em;
   font-weight: 600;
+  line-height: 1.3;
 }
 
-.markdown-content :deep(h1) { font-size: 1.4em; }
+.markdown-content :deep(h1) { font-size: 1.4em; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 0.3em; }
 .markdown-content :deep(h2) { font-size: 1.2em; }
 .markdown-content :deep(h3) { font-size: 1.1em; }
+.markdown-content :deep(h4) { font-size: 1em; }
+
+/* 加粗和斜体 */
+.markdown-content :deep(strong) {
+  font-weight: 600;
+}
+
+.markdown-content :deep(em) {
+  font-style: italic;
+}
+
+/* 分隔线 */
+.markdown-content :deep(hr) {
+  border: none;
+  border-top: 1px solid rgba(0,0,0,0.1);
+  margin: 1em 0;
+}
+
+/* 特殊警告框样式 */
+.markdown-content :deep(.alert-box) {
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin: 0.8em 0;
+  font-size: 0.9em;
+}
+
+.markdown-content :deep(.alert-important) {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #dc2626;
+}
+
+.markdown-content :deep(.alert-warning) {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #d97706;
+}
+
+.markdown-content :deep(.alert-note) {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #2563eb;
+}
+
+.markdown-content :deep(.alert-silent) {
+  background: rgba(107, 114, 128, 0.1);
+  border: 1px solid rgba(107, 114, 128, 0.3);
+  color: #4b5563;
+}
+
+.markdown-content :deep(.alert-context) {
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: #7c3aed;
+}
 </style>
