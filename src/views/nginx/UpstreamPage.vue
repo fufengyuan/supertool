@@ -73,50 +73,61 @@
           </button>
         </div>
         <!-- 内容区 -->
-        <div class="flex-1 overflow-y-auto px-6 py-5">
-          <div class="grid grid-cols-3 gap-x-8 gap-y-4">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">名称 <span class="text-error">*</span></label>
-              <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <!-- 基本配置 -->
+          <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+            <div class="px-5 py-2.5 border-b border-base-content/10">
+              <h4 class="text-sm font-semibold">基本配置</h4>
             </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">代理类型</label>
-              <select v-model="form.proxyType" class="select select-sm select-bordered w-24">
-                <option :value="0">HTTP</option>
-                <option :value="1">TCP</option>
-                <option :value="2">UDP</option>
-              </select>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">负载均衡策略</label>
-              <select v-model="form.strategy" class="select select-sm select-bordered w-full">
-                <option value="polling">轮询 (polling)</option>
-                <option value="ip_hash">IP Hash</option>
-                <option value="least_conn">最小连接</option>
-                <option value="random">随机</option>
-              </select>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">描述</label>
-              <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
+            <div class="p-5">
+              <div class="grid grid-cols-3 gap-x-5 gap-y-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">名称 <span class="text-error">*</span></label>
+                  <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">代理类型</label>
+                  <select v-model="form.proxyType" class="select select-sm select-bordered">
+                    <option :value="0">HTTP</option>
+                    <option :value="1">TCP</option>
+                    <option :value="2">UDP</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">负载均衡策略</label>
+                  <select v-model="form.strategy" class="select select-sm select-bordered w-full">
+                    <option value="polling">轮询 (polling)</option>
+                    <option value="ip_hash">IP Hash</option>
+                    <option value="least_conn">最小连接</option>
+                    <option value="random">随机</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1 col-span-3">
+                  <label class="text-xs text-base-content/70">描述</label>
+                  <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
+                </div>
+              </div>
             </div>
           </div>
 
           <textarea v-model="form.paramJson" class="hidden"></textarea>
 
           <!-- 上游服务器列表 -->
-          <div class="mt-4">
-            <div class="flex items-center justify-between mb-2">
-              <span class="text-xs font-medium text-base-content/80">上游服务器</span>
-              <div class="flex items-center gap-2">
-                <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
-                  <SvgIcon name="menu" size="12" /> 批添加
-                </button>
-                <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
-                  <SvgIcon name="plus" size="12" /> 新增服务器
-                </button>
+          <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+            <div class="px-5 py-2.5 border-b border-base-content/10">
+              <div class="flex items-center justify-between">
+                <h4 class="text-sm font-semibold">上游服务器</h4>
+                <div class="flex items-center gap-2">
+                  <button @click="showBatchAdd = true" class="btn btn-ghost btn-xs">
+                    <SvgIcon name="menu" size="12" /> 批添加
+                  </button>
+                  <button @click="onAddUpstreamServer" class="btn btn-primary btn-xs">
+                    <SvgIcon name="plus" size="12" /> 新增
+                  </button>
+                </div>
               </div>
             </div>
+            <div class="p-4">
             <div v-if="upstreamServers.length === 0" class="text-center py-4 text-base-content/50 text-sm">
               暂无上游服务器，请点击上方按钮添加
             </div>
@@ -153,6 +164,7 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
             </div>
           </div>
 

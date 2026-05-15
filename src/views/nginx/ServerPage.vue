@@ -117,160 +117,183 @@
           </button>
         </div>
         <!-- 内容区 -->
-        <div class="flex-1 overflow-y-auto px-6 py-5">
-          <!-- 基础字段：3 列布局 -->
-          <div class="grid grid-cols-3 gap-x-8 gap-y-4">
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">代理类型</label>
-              <select v-model="form.proxyType" class="select select-sm select-bordered w-24">
-                <option :value="0">HTTP</option>
-                <option :value="1">TCP</option>
-                <option :value="2">UDP</option>
-              </select>
+        <div class="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+          <!-- 基本配置 -->
+          <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+            <div class="px-5 py-2.5 border-b border-base-content/10">
+              <h4 class="text-sm font-semibold">基本配置</h4>
             </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">监听 IP</label>
-              <input v-model="form.ip" placeholder="0.0.0.0" class="input input-sm input-bordered w-full" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">端口 <span class="text-error">*</span></label>
-              <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">serverName</label>
-              <input v-model="form.serverName" placeholder="example.com" class="input input-sm input-bordered w-full" />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">密码验证</label>
-              <select v-model="form.passwordId" class="select select-sm select-bordered w-full">
-                <option value="">无</option>
-                <option v-for="pw in passwords" :key="pw.id" :value="pw.id">{{ pw.name || pw.path }}</option>
-              </select>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">代理 Upstream</label>
-              <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
-                <option value="">无</option>
-                <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
-              </select>
-            </div>
-            <div class="flex flex-col gap-1.5 col-span-2">
-              <label class="text-sm font-medium">描述</label>
-              <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
-            </div>
-            <div class="flex items-end gap-4 pb-1">
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" v-model="form.def" class="checkbox checkbox-xs" /> default_server
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-xs" /> proxy protocol
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" v-model="form.ipv6" class="checkbox checkbox-xs" /> IPv6
-              </label>
-              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-xs" /> HTTP→HTTPS
-              </label>
+            <div class="p-5">
+              <div class="grid grid-cols-4 gap-x-5 gap-y-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">代理类型</label>
+                  <select v-model="form.proxyType" class="select select-sm select-bordered">
+                    <option :value="0">HTTP</option>
+                    <option :value="1">TCP</option>
+                    <option :value="2">UDP</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">监听 IP</label>
+                  <input v-model="form.ip" placeholder="0.0.0.0" class="input input-sm input-bordered" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">端口 <span class="text-error">*</span></label>
+                  <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
+                </div>
+                <div class="flex items-end gap-3 pb-1">
+                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" v-model="form.def" class="checkbox checkbox-xs" /> default
+                  </label>
+                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-xs" /> proxy proto
+                  </label>
+                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" v-model="form.ipv6" class="checkbox checkbox-xs" /> IPv6
+                  </label>
+                </div>
+                <div class="flex flex-col gap-1 col-span-3">
+                  <label class="text-xs text-base-content/70">serverName</label>
+                  <input v-model="form.serverName" placeholder="example.com" class="input input-sm input-bordered w-full" />
+                </div>
+                <div class="flex flex-col gap-1 col-span-4">
+                  <label class="text-xs text-base-content/70">描述</label>
+                  <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- 中间区域：SSL + 黑白名单 横排双卡片 -->
-          <div class="grid grid-cols-2 gap-6 mt-6">
-            <!-- SSL 卡片 -->
-            <div class="border border-base-content/10 rounded-xl p-5 bg-base-200/30">
-              <div class="flex items-center justify-between mb-4">
+          <!-- 代理上游 & 安全 -->
+          <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+            <div class="px-5 py-2.5 border-b border-base-content/10">
+              <h4 class="text-sm font-semibold">代理上游 & 安全</h4>
+            </div>
+            <div class="p-5">
+              <div class="grid grid-cols-2 gap-x-5 gap-y-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">代理 Upstream</label>
+                  <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
+                    <option value="">无</option>
+                    <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">密码验证</label>
+                  <select v-model="form.passwordId" class="select select-sm select-bordered w-full">
+                    <option value="">无</option>
+                    <option v-for="pw in passwords" :key="pw.id" :value="pw.id">{{ pw.name || pw.path }}</option>
+                  </select>
+                </div>
+                <div class="col-span-2 flex items-center gap-2">
+                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-xs" />
+                    HTTP → HTTPS 重定向
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SSL 配置 + IP 黑白名单 横排双卡片 -->
+          <div class="grid grid-cols-2 gap-5">
+            <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+              <div class="flex items-center justify-between px-5 py-2.5 border-b border-base-content/10">
                 <h4 class="text-sm font-semibold">SSL 配置</h4>
-                <select v-model.number="form.ssl" class="select select-sm select-bordered w-20">
+                <select v-model.number="form.ssl" class="select select-xs select-bordered w-16">
                   <option :value="0">关闭</option>
                   <option :value="1">开启</option>
                 </select>
               </div>
-              <template v-if="form.ssl == 1">
-                <div class="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div class="flex flex-col gap-1 col-span-2">
-                    <label class="text-sm text-base-content/70">证书</label>
-                    <select v-model="form.certId" class="select select-bordered w-full">
-                      <option value="">无</option>
-                      <option v-for="c in certs" :key="c.id" :value="c.id">{{ c.name || c.domain || c.pem }}</option>
-                    </select>
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-sm text-base-content/70">PEM 路径</label>
-                    <input v-model="form.pem" placeholder="/etc/nginx/ssl/cert.pem" class="input input-bordered w-full" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-sm text-base-content/70">Key 路径</label>
-                    <input v-model="form.key" placeholder="/etc/nginx/ssl/cert.key" class="input input-bordered w-full" />
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-sm text-base-content/70">HTTP/2</label>
-                    <select v-model.number="form.http2" class="select select-sm select-bordered w-28">
-                      <option :value="0">禁用</option>
-                      <option :value="1">旧版</option>
-                      <option :value="2">新版</option>
-                    </select>
-                  </div>
-                  <div class="flex flex-col gap-1">
-                    <label class="text-sm text-base-content/70">重定向端口</label>
-                    <input v-model="form.rewriteListen" type="number" placeholder="80" class="input input-bordered w-full" />
-                  </div>
-                  <div class="col-span-2 flex items-center gap-2">
-                    <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-sm" id="ssl-rewrite" />
-                    <label for="ssl-rewrite" class="text-sm cursor-pointer">HTTP → HTTPS 重定向</label>
-                  </div>
-                  <div class="col-span-2">
-                    <label class="text-sm text-base-content/70 block mb-1.5">TLS 协议</label>
-                    <div class="flex flex-wrap gap-3">
-                      <label v-for="proto in tlsOptions" :key="proto.value" class="flex items-center gap-1.5 text-sm cursor-pointer">
-                        <input type="checkbox" :checked="selectedProtocols.includes(proto.value)" @change="toggleProtocol(proto.value)" class="checkbox checkbox-sm" />
-                        {{ proto.label }}
-                      </label>
+              <div class="p-4">
+                <template v-if="form.ssl == 1">
+                  <div class="flex flex-col gap-3">
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-base-content/70">证书</label>
+                      <select v-model="form.certId" class="select select-sm select-bordered w-full">
+                        <option value="">无</option>
+                        <option v-for="c in certs" :key="c.id" :value="c.id">{{ c.name || c.domain || c.pem }}</option>
+                      </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs text-base-content/70">PEM 路径</label>
+                        <input v-model="form.pem" placeholder="/etc/nginx/ssl/cert.pem" class="input input-sm input-bordered w-full" />
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs text-base-content/70">Key 路径</label>
+                        <input v-model="form.key" placeholder="/etc/nginx/ssl/cert.key" class="input input-sm input-bordered w-full" />
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs text-base-content/70">HTTP/2</label>
+                        <select v-model.number="form.http2" class="select select-sm select-bordered w-28">
+                          <option :value="0">禁用</option>
+                          <option :value="1">旧版</option>
+                          <option :value="2">新版</option>
+                        </select>
+                      </div>
+                      <div class="flex flex-col gap-1">
+                        <label class="text-xs text-base-content/70">重定向端口</label>
+                        <input v-model="form.rewriteListen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
+                      </div>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                      <label class="text-xs text-base-content/70">TLS 协议</label>
+                      <div class="flex flex-wrap gap-3">
+                        <label v-for="proto in tlsOptions" :key="proto.value" class="flex items-center gap-1 text-xs cursor-pointer">
+                          <input type="checkbox" :checked="selectedProtocols.includes(proto.value)" @change="toggleProtocol(proto.value)" class="checkbox checkbox-xs" />
+                          {{ proto.label }}
+                        </label>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </template>
-              <template v-else>
-                <p class="text-sm text-base-content/40 text-center py-4">SSL 已关闭</p>
-              </template>
+                </template>
+                <p v-else class="text-xs text-base-content/40 text-center py-3">SSL 已关闭</p>
+              </div>
             </div>
 
-            <!-- IP 黑白名单 + HTTP 重写 卡片 -->
-            <div class="border border-base-content/10 rounded-xl p-5 bg-base-200/30">
-              <h4 class="text-sm font-semibold mb-4">IP 黑白名单</h4>
-              <div class="flex items-center gap-3 mb-4">
-                <span class="text-sm text-base-content/70">策略</span>
-                <select v-model.number="form.denyAllow" class="select select-sm select-bordered w-28">
-                  <option :value="0">无</option>
-                  <option :value="1">仅拒绝</option>
-                  <option :value="2">仅允许</option>
-                  <option :value="3">同时</option>
-                </select>
+            <div class="border border-base-content/10 rounded-xl bg-base-200/20">
+              <div class="px-5 py-2.5 border-b border-base-content/10">
+                <h4 class="text-sm font-semibold">IP 黑白名单</h4>
               </div>
-              <div v-if="form.denyAllow > 0" class="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div class="flex flex-col gap-1">
-                  <label class="text-sm text-base-content/70">拒绝规则</label>
-                  <select v-model="form.denyId" class="select select-bordered w-full">
-                    <option value="">无</option>
-                    <option v-for="da in denyAllows" :key="da.id" :value="da.id">{{ da.name || da.ip }}</option>
+              <div class="p-4">
+                <div class="flex items-center gap-3 mb-3">
+                  <span class="text-xs text-base-content/70">策略</span>
+                  <select v-model.number="form.denyAllow" class="select select-xs select-bordered w-28">
+                    <option :value="0">无</option>
+                    <option :value="1">仅拒绝</option>
+                    <option :value="2">仅允许</option>
+                    <option :value="3">同时</option>
                   </select>
                 </div>
-                <div class="flex flex-col gap-1">
-                  <label class="text-sm text-base-content/70">允许规则</label>
-                  <select v-model="form.allowId" class="select select-bordered w-full">
-                    <option value="">无</option>
-                    <option v-for="da in denyAllows" :key="da.id" :value="da.id">{{ da.name || da.ip }}</option>
-                  </select>
+                <div v-if="form.denyAllow > 0" class="grid grid-cols-2 gap-3">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-base-content/70">拒绝规则</label>
+                    <select v-model="form.denyId" class="select select-sm select-bordered w-full">
+                      <option value="">无</option>
+                      <option v-for="da in denyAllows" :key="da.id" :value="da.id">{{ da.name || da.ip }}</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-xs text-base-content/70">允许规则</label>
+                    <select v-model="form.allowId" class="select select-sm select-bordered w-full">
+                      <option value="">无</option>
+                      <option v-for="da in denyAllows" :key="da.id" :value="da.id">{{ da.name || da.ip }}</option>
+                    </select>
+                  </div>
                 </div>
+                <p v-if="form.denyAllow === 0" class="text-xs text-base-content/40 text-center py-2">未启用黑白名单</p>
               </div>
-              <div v-if="form.denyAllow === 0" class="text-sm text-base-content/40 text-center py-3">未启用黑白名单</div>
             </div>
+          </div>
 
-            <!-- Server 额外参数 -->
-            <div class="mt-4 flex justify-end">
-              <button @click="openServerParams" class="btn btn-ghost btn-xs gap-1">
-                <SvgIcon name="menu" size="12" /> 额外参数
-              </button>
-            </div>
+          <!-- Server 额外参数 -->
+          <div class="flex justify-end">
+            <button @click="openServerParams" class="btn btn-ghost btn-xs gap-1">
+              <SvgIcon name="menu" size="12" /> 额外参数
+            </button>
           </div>
 
           <!-- Locations 子表 -->
