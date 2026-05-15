@@ -480,8 +480,8 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
             }
         }
 
-        // Custom params - prepend mode
-        append_param_json_prepend(s, out);
+    // Custom params - prepend mode
+    append_param_json_prepend(conn, s, out);
 
         // IP blacklist/whitelist
         if s.deny_allow > 0 {
@@ -519,6 +519,17 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
                 for extra in &extras {
                     let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
                     if pos == 0 {
+                        // Check if this entry references a template
+                        if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                            if !tid.is_empty() {
+                                if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                    for line in tpl.content.lines() {
+                                        out.push_str(&format!("        {}\n", line));
+                                    }
+                                    continue;
+                                }
+                            }
+                        }
                         let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                         let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                         if !name.is_empty() {
@@ -585,7 +596,7 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
     out.push_str(&format!("        location {} {{\n", loc.path));
 
     // Custom params - prepend mode
-    append_location_param_json_prepend(loc, out);
+    append_location_param_json_prepend(conn, loc, out);
 
     match loc.loc_type {
         0 | 2 => {
@@ -669,18 +680,29 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
     }
 
     // Custom params - append mode
-    append_location_param_json_append(loc, out);
+    append_location_param_json_append(conn, loc, out);
 
     out.push_str("        }\n\n");
     Ok(())
 }
 
-fn append_param_json_prepend(s: &NginxServer, out: &mut String) {
+fn append_param_json_prepend(conn: &Connection, s: &NginxServer, out: &mut String) {
     if !s.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
             for extra in &extras {
                 let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
                 if pos == 1 {
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("        {}\n", line));
+                                }
+                                continue;
+                            }
+                        }
+                    }
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
@@ -692,12 +714,47 @@ fn append_param_json_prepend(s: &NginxServer, out: &mut String) {
     }
 }
 
-fn append_location_param_json_prepend(loc: &NginxLocation, out: &mut String) {
+fn append_stream_param_json_prepend(conn: &Connection, s: &NginxStream, out: &mut String) {
+    if !s.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+            for extra in &extras {
+                if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                    if !tid.is_empty() {
+                        if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                            for line in tpl.content.lines() {
+                                out.push_str(&format!("        {}\n", line));
+                            }
+                            continue;
+                        }
+                    }
+                }
+                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                if !name.is_empty() {
+                    out.push_str(&format!("        {} {};\n", name, value));
+                }
+            }
+        }
+    }
+}
+
+fn append_location_param_json_prepend(conn: &Connection, loc: &NginxLocation, out: &mut String) {
     if !loc.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&loc.param_json) {
             for extra in &extras {
                 let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
                 if pos == 1 {
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("            {}\n", line));
+                                }
+                                continue;
+                            }
+                        }
+                    }
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
@@ -709,13 +766,24 @@ fn append_location_param_json_prepend(loc: &NginxLocation, out: &mut String) {
     }
 }
 
-fn append_location_param_json_append(loc: &NginxLocation, out: &mut String) {
+fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out: &mut String) {
     if !loc.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&loc.param_json) {
             for extra in &extras {
                 let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
                 // Default position 0 = append
                 if pos == 0 || pos == 2 {
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("            {}\n", line));
+                                }
+                                continue;
+                            }
+                        }
+                    }
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
@@ -773,6 +841,8 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
         } else if !s.proxy_pass.is_empty() {
             out.push_str(&format!("        proxy_pass {};\n", s.proxy_pass));
         }
+        // Custom params - prepend mode
+        append_stream_param_json_prepend(conn, s, out);
         out.push_str("    }\n\n");
     }
     out.push_str("}\n\n");
@@ -829,6 +899,8 @@ fn append_stream_block_decomposed(
         } else if !s.proxy_pass.is_empty() {
             sub.push_str(&format!("        proxy_pass {};\n", s.proxy_pass));
         }
+        // Custom params - prepend mode
+        append_stream_param_json_prepend(conn, s, &mut sub);
         sub.push_str("    }\n\n");
 
         let name = format!("stream-{}", s.listen);

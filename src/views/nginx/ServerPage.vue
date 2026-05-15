@@ -268,6 +268,13 @@
               </div>
               <div v-if="form.denyAllow === 0" class="text-sm text-base-content/40 text-center py-3">未启用黑白名单</div>
             </div>
+
+            <!-- Server 额外参数 -->
+            <div class="mt-4 flex justify-end">
+              <button @click="openServerParams" class="btn btn-ghost btn-xs gap-1">
+                <SvgIcon name="menu" size="12" /> 额外参数
+              </button>
+            </div>
           </div>
 
           <!-- Locations 子表 -->
@@ -285,11 +292,9 @@
                   <tr>
                     <th class="w-8 text-center"><input type="checkbox" @change="toggleAllLocations($event)" class="checkbox checkbox-xs" /></th>
                     <th class="w-28">路径</th>
-                    <th class="w-28">类型</th>
-                    <th class="w-44">目标</th>
-                    <th class="w-48">Upstream</th>
-                    <th class="w-20 text-center">功能</th>
-                    <th class="w-16 text-center">排序</th>
+                    <th class="w-20">类型</th>
+                    <th>目标/配置</th>
+                    <th class="w-20">排序</th>
                     <th class="w-20 text-center">操作</th>
                   </tr>
                 </thead>
@@ -306,29 +311,101 @@
                         <option :value="4">重定向 (return)</option>
                       </select>
                     </td>
-                    <td>
-                      <input v-if="loc.locType === 0" v-model="loc.value" placeholder="http://..." class="input input-bordered input-xs w-full" />
-                      <input v-else-if="loc.locType === 1" v-model="loc.rootPath" placeholder="root 路径" class="input input-bordered input-xs w-full" />
-                      <input v-else-if="loc.locType === 4" v-model="loc.returnUrl" placeholder="URL" class="input input-bordered input-xs w-full" />
-                      <span v-else class="text-xs text-base-content/40">自动</span>
+                    <td class="min-w-[280px]">
+                      <!-- proxy_pass type -->
+                      <template v-if="loc.locType === 0">
+                        <div class="flex flex-col gap-1.5">
+                          <div class="flex items-center gap-1">
+                            <input v-model="loc.value" placeholder="http://127.0.0.1:8080" class="input input-bordered input-xs flex-1 font-mono" />
+                            <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
+                          </div>
+                          <div class="flex items-center gap-2">
+                            <select v-model="loc.upstreamId" class="select select-xs select-bordered flex-1">
+                              <option value="">无 Upstream</option>
+                              <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                            </select>
+                            <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-20 font-mono" />
+                          </div>
+                          <div class="flex items-center gap-3 flex-wrap">
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />
+                              WebSocket
+                            </label>
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />
+                              跨域 (CORS)
+                            </label>
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />
+                              Host 转发
+                            </label>
+                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-24 font-mono" />
+                          </div>
+                        </div>
+                      </template>
+                      <!-- upstream type (same as proxy_pass) -->
+                      <template v-else-if="loc.locType === 2">
+                        <div class="flex flex-col gap-1.5">
+                          <div class="flex items-center gap-1">
+                            <select v-model="loc.upstreamId" class="select select-xs select-bordered flex-1">
+                              <option value="">选择 Upstream</option>
+                              <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                            </select>
+                            <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-20 font-mono" />
+                            <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
+                          </div>
+                          <div class="flex items-center gap-3 flex-wrap">
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />
+                              WebSocket
+                            </label>
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />
+                              跨域 (CORS)
+                            </label>
+                            <label class="flex items-center gap-1 text-xs cursor-pointer">
+                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />
+                              Host 转发
+                            </label>
+                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-24 font-mono" />
+                          </div>
+                        </div>
+                      </template>
+                      <!-- root type -->
+                      <template v-else-if="loc.locType === 1">
+                        <div class="flex items-center gap-1">
+                          <select v-model="loc.rootType" class="select select-xs select-bordered w-16">
+                            <option value="root">root</option>
+                            <option value="alias">alias</option>
+                          </select>
+                          <input v-model="loc.rootPath" placeholder="/var/www/html" class="input input-bordered input-xs flex-1 font-mono" />
+                          <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
+                        </div>
+                        <div class="mt-1">
+                          <input v-model="loc.rootPage" placeholder="index.html index.htm" class="input input-bordered input-xs w-full font-mono" />
+                        </div>
+                      </template>
+                      <!-- return type -->
+                      <template v-else-if="loc.locType === 4">
+                        <div class="flex items-center gap-1">
+                          <select v-model="loc.value" class="select select-xs select-bordered w-16">
+                            <option value="301">301</option>
+                            <option value="302">302</option>
+                            <option value="307">307</option>
+                            <option value="308">308</option>
+                          </select>
+                          <input v-model="loc.returnUrl" placeholder="https://example.com$request_uri" class="input input-bordered input-xs flex-1 font-mono" />
+                          <label class="flex items-center gap-1 text-xs cursor-pointer shrink-0">
+                            <input type="checkbox" v-model="loc.returnPath" class="checkbox checkbox-xs" />
+                            追加路径
+                          </label>
+                          <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
+                        </div>
+                      </template>
+                      <!-- blank -->
+                      <span v-else class="text-xs text-base-content/40">无配置</span>
                     </td>
                     <td>
-                      <div class="flex items-center gap-1">
-                        <select v-model="loc.upstreamId" class="select select-xs select-bordered flex-1 min-w-0">
-                          <option value="">无</option>
-                          <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
-                        </select>
-                        <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/" class="input input-bordered input-xs w-16" />
-                      </div>
-                    </td>
-                    <td class="text-center">
-                      <div class="flex items-center justify-center gap-1">
-                        <span v-if="loc.header" class="tooltip" data-tip="Header"><span class="badge badge-sm badge-info">H</span></span>
-                        <span v-if="loc.websocket" class="tooltip" data-tip="WebSocket"><span class="badge badge-sm badge-success">WS</span></span>
-                        <span v-if="loc.cros" class="tooltip" data-tip="CROS"><span class="badge badge-sm badge-warning">C</span></span>
-                      </div>
-                    </td>
-                    <td class="text-center">
                       <div class="flex items-center gap-0.5 justify-center">
                         <button @click="moveLocationUp(idx)" :disabled="idx === 0" class="btn btn-ghost btn-xs btn-square"><SvgIcon name="chevronUp" size="12" /></button>
                         <span class="text-xs text-base-content/50 w-4">{{ loc.sort ?? idx + 1 }}</span>
@@ -336,10 +413,7 @@
                       </div>
                     </td>
                     <td class="text-center">
-                      <div class="flex items-center justify-center gap-0.5">
-                        <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
-                        <button @click="onDeleteLocation(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="x" size="14" /></button>
-                      </div>
+                      <button @click="onDeleteLocation(idx)" class="btn btn-ghost btn-xs btn-square text-error" title="删除"><SvgIcon name="x" size="14" /></button>
                     </td>
                   </tr>
                 </tbody>
@@ -357,17 +431,71 @@
               </div>
               <div class="flex-1 overflow-y-auto px-5 py-4">
                 <div v-if="locParamEntries.length === 0" class="text-sm text-base-content/50 text-center py-6">暂无额外参数</div>
-                <div v-for="(entry, ei) in locParamEntries" :key="ei" class="flex items-center gap-2 mb-2">
-                  <input v-model="entry.name" placeholder="指令名" class="input input-bordered input-sm w-36 font-mono text-xs" />
-                  <input v-model="entry.value" placeholder="值" class="input input-bordered input-sm flex-1 font-mono text-xs" />
-                  <button @click="locParamEntries.splice(ei, 1)" class="btn btn-ghost btn-xs btn-square text-error"><SvgIcon name="x" size="12" /></button>
+                <div v-for="(entry, ei) in locParamEntries" :key="ei" class="flex flex-col gap-1 mb-3 p-2 rounded-lg border border-base-content/10">
+                  <div class="flex items-center gap-2">
+                    <select v-model="entry.templateId" class="select select-bordered select-xs flex-1 font-mono text-xs">
+                      <option value="">— 自定义参数 —</option>
+                      <option v-for="tpl in locParamTemplates" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+                    </select>
+                    <button @click="locParamEntries.splice(ei, 1)" class="btn btn-ghost btn-xs btn-square text-error shrink-0"><SvgIcon name="x" size="12" /></button>
+                  </div>
+                  <div v-if="!entry.templateId" class="flex items-center gap-2">
+                    <input v-model="entry.name" placeholder="指令名" class="input input-bordered input-sm w-36 font-mono text-xs" />
+                    <input v-model="entry.value" placeholder="值" class="input input-bordered input-sm flex-1 font-mono text-xs" />
+                  </div>
+                  <div v-else class="text-xs text-base-content/50 pl-1">
+                    使用模板: <span class="text-primary font-medium">{{ getTemplateName(entry.templateId) }}</span>
+                  </div>
                 </div>
               </div>
               <div class="flex items-center justify-between px-5 py-3 border-t border-base-content/10 shrink-0">
-                <button @click="locParamEntries.push({ name: '', value: '' })" class="btn btn-ghost btn-xs"><SvgIcon name="plus" size="12" /> 添加参数</button>
+                <button @click="locParamEntries.push({ name: '', value: '', templateId: '' })" class="btn btn-ghost btn-xs"><SvgIcon name="plus" size="12" /> 添加参数</button>
                 <div class="flex gap-2">
                   <button @click="showLocParamDialog = false" class="btn btn-ghost btn-sm">关闭</button>
                   <button @click="saveLocationParams" class="btn btn-primary btn-sm">保存</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Server 额外参数弹窗 -->
+          <div v-if="showServerParamDialog" class="fixed inset-0 z-[60]">
+            <div class="fixed inset-0 bg-black/40" @click="showServerParamDialog = false"></div>
+            <div class="fixed inset-y-0 right-0 w-[40%] min-w-[400px] bg-base-100 shadow-2xl flex flex-col">
+              <div class="flex items-center justify-between px-5 py-3.5 border-b border-base-content/10 shrink-0">
+                <h4 class="font-semibold text-sm">Server 额外参数</h4>
+                <button @click="showServerParamDialog = false" class="btn btn-ghost btn-xs btn-square"><SvgIcon name="x" size="16" /></button>
+              </div>
+              <div class="flex-1 overflow-y-auto px-5 py-4">
+                <div class="text-xs text-base-content/50 mb-3">自定义参数会注入到 server {} 块中，position=1 前置（在 listen 之后），=0 后置（在 Location 之后）</div>
+                <div v-if="serverParamEntries.length === 0" class="text-sm text-base-content/50 text-center py-6">暂无额外参数</div>
+                <div v-for="(entry, ei) in serverParamEntries" :key="ei" class="flex flex-col gap-1 mb-3 p-2 rounded-lg border border-base-content/10">
+                  <div class="flex items-center gap-2">
+                    <select v-model="entry.templateId" class="select select-bordered select-xs flex-1 font-mono text-xs">
+                      <option value="">— 自定义参数 —</option>
+                      <option v-for="tpl in serverParamTemplates" :key="tpl.id" :value="tpl.id">{{ tpl.name }}</option>
+                    </select>
+                    <label class="text-xs text-base-content/50 shrink-0">位置</label>
+                    <select v-model.number="entry.position" class="select select-bordered select-xs w-16">
+                      <option :value="0">后置</option>
+                      <option :value="1">前置</option>
+                    </select>
+                    <button @click="serverParamEntries.splice(ei, 1)" class="btn btn-ghost btn-xs btn-square text-error shrink-0"><SvgIcon name="x" size="12" /></button>
+                  </div>
+                  <div v-if="!entry.templateId" class="flex items-center gap-2">
+                    <input v-model="entry.name" placeholder="指令名" class="input input-bordered input-sm w-36 font-mono text-xs" />
+                    <input v-model="entry.value" placeholder="值" class="input input-bordered input-sm flex-1 font-mono text-xs" />
+                  </div>
+                  <div v-else class="text-xs text-base-content/50 pl-1">
+                    使用模板: <span class="text-primary font-medium">{{ getServerTemplateName(entry.templateId) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-between px-5 py-3 border-t border-base-content/10 shrink-0">
+                <button @click="serverParamEntries.push({ name: '', value: '', position: 0, templateId: '' })" class="btn btn-ghost btn-xs"><SvgIcon name="plus" size="12" /> 添加参数</button>
+                <div class="flex gap-2">
+                  <button @click="showServerParamDialog = false" class="btn btn-ghost btn-sm">关闭</button>
+                  <button @click="saveServerParams" class="btn btn-primary btn-sm">保存</button>
                 </div>
               </div>
             </div>
@@ -463,8 +591,14 @@ function toggleProtocol(val: string) {
 // Locations 子表
 const locations = ref<any[]>([])
 const showLocParamDialog = ref(false)
-const locParamEntries = ref<Array<{name: string, value: string}>>([])
+const locParamEntries = ref<Array<{name: string, value: string, templateId: string}>>([])
+const locParamTemplates = ref<any[]>([])
 let editingLocIndex = -1
+
+// Server 额外参数
+const showServerParamDialog = ref(false)
+const serverParamEntries = ref<Array<{name: string, value: string, position: number, templateId: string}>>([])
+const serverParamTemplates = ref<any[]>([])
 
 // 搜索过滤
 const filteredServers = computed(() => {
@@ -631,18 +765,9 @@ async function onSave() {
       toast.success('Server 已添加')
     }
 
-    // 保存 locations - 新增
-    const LOC_TYPE_MAP: Record<string, number> = {
-      proxy_pass: 0,
-      root: 1,
-      upstream: 2,
-      blank: 3,
-      return: 4,
-    }
+    // 保存 locations
     for (const loc of locations.value) {
       loc.serverId = form.value.id
-      loc.locType = typeof loc.type === 'string' ? (LOC_TYPE_MAP[loc.type] ?? 0) : (loc.locType ?? loc.type ?? 0)
-      delete loc.type
       if (loc._key && !loc.id) {
         // 新增
         const newLoc = {
@@ -650,16 +775,22 @@ async function onSave() {
           serverId: form.value.id,
           enabled: loc.enabled !== false,
           path: loc.path || '',
-          type: loc.type || 'proxy_pass',
           value: loc.value || '',
           rootPath: loc.rootPath || '',
+          rootPage: loc.rootPage || '',
+          rootType: loc.rootType || 'root',
           upstreamId: loc.upstreamId || '',
           upstreamPath: loc.upstreamPath || '',
           header: loc.header || false,
+          headerHost: loc.headerHost || '',
           websocket: loc.websocket || false,
           cros: loc.cros || false,
           returnUrl: loc.returnUrl || '',
+          returnPath: loc.returnPath || false,
+          descr: loc.descr || '',
           sort: loc.sort ?? 0,
+          locType: loc.locType ?? 0,
+          paramJson: loc.paramJson || '',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }
@@ -763,33 +894,81 @@ function onAddLocation() {
     locType: 0,
     value: '',
     rootPath: '',
+    rootPage: '',
+    rootType: 'root',
     upstreamId: '',
     upstreamPath: '',
     header: false,
+    headerHost: '',
     websocket: false,
     cros: false,
     returnUrl: '',
+    returnPath: false,
     sort: locations.value.length + 1,
     paramJson: '',
     _key: crypto.randomUUID(),
   })
 }
 
-function openLocationParams(idx: number) {
+async function openLocationParams(idx: number) {
   editingLocIndex = idx
   const loc = locations.value[idx]
+  // Load templates for template selector
+  try {
+    const result = await api.getTemplatesByPreset(props.presetId)
+    locParamTemplates.value = result?.data ?? result ?? []
+  } catch {
+    locParamTemplates.value = []
+  }
   try {
     const parsed = loc.paramJson ? JSON.parse(loc.paramJson) : []
-    locParamEntries.value = Array.isArray(parsed) ? parsed.map((p: any) => ({ name: p.name || '', value: p.value || '' })) : []
+    locParamEntries.value = Array.isArray(parsed) ? parsed.map((p: any) => ({ name: p.name || '', value: p.value || '', templateId: p.templateId || '' })) : []
   } catch {
     locParamEntries.value = []
   }
   showLocParamDialog.value = true
 }
 
+function getTemplateName(templateId: string): string {
+  const tpl = locParamTemplates.value.find(t => t.id === templateId)
+  return tpl?.name || templateId
+}
+
+function getServerTemplateName(templateId: string): string {
+  const tpl = serverParamTemplates.value.find(t => t.id === templateId)
+  return tpl?.name || templateId
+}
+
+async function openServerParams() {
+  // Load templates
+  try {
+    const result = await api.getTemplatesByPreset(props.presetId)
+    serverParamTemplates.value = result?.data ?? result ?? []
+  } catch {
+    serverParamTemplates.value = []
+  }
+  try {
+    const parsed = form.value.paramJson ? JSON.parse(form.value.paramJson) : []
+    serverParamEntries.value = Array.isArray(parsed) ? parsed.map((p: any) => ({
+      name: p.name || '',
+      value: p.value || '',
+      position: p.position ?? 0,
+      templateId: p.templateId || '',
+    })) : []
+  } catch {
+    serverParamEntries.value = []
+  }
+  showServerParamDialog.value = true
+}
+
+function saveServerParams() {
+  form.value.paramJson = JSON.stringify(serverParamEntries.value.filter(e => e.name.trim() || e.templateId))
+  showServerParamDialog.value = false
+}
+
 function saveLocationParams() {
   if (editingLocIndex >= 0 && editingLocIndex < locations.value.length) {
-    locations.value[editingLocIndex].paramJson = JSON.stringify(locParamEntries.value.filter(e => e.name.trim()))
+    locations.value[editingLocIndex].paramJson = JSON.stringify(locParamEntries.value.filter(e => e.name.trim() || e.templateId))
   }
   showLocParamDialog.value = false
 }

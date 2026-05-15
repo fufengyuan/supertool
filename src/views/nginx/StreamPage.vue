@@ -95,10 +95,13 @@
             <input v-model="form.proxyPass" placeholder="例如：127.0.0.1:3000" class="input input-sm input-bordered w-full" />
           </div>
 
-          <!-- 代理 Upstream ID -->
+          <!-- 代理 Upstream -->
           <div class="flex flex-col gap-1">
-            <label class="text-xs font-medium text-base-content/80">代理 Upstream ID</label>
-            <input v-model="form.proxyUpstreamId" placeholder="关联的 upstream ID" class="input input-sm input-bordered w-full" />
+            <label class="text-xs font-medium text-base-content/80">代理 Upstream</label>
+            <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
+              <option value="">无</option>
+              <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }} ({{ up.proxyType === 1 ? 'TCP' : up.proxyType === 2 ? 'UDP' : 'HTTP' }})</option>
+            </select>
           </div>
 
           <!-- SSL -->
@@ -157,6 +160,7 @@ const loading = ref(false)
 const showDialog = ref(false)
 const editingStream = ref<any>(null)
 const api = getTauriAPI()
+const upstreams = ref<any[]>([])
 
 // 主数据
 const streams = ref<any[]>([])
@@ -182,8 +186,12 @@ async function loadStreams() {
   if (!props.presetId) return
   loading.value = true
   try {
-    const result = await api.getStreamsByPreset(props.presetId)
-    streams.value = result?.data ?? result ?? []
+    const [strResult, upResult] = await Promise.all([
+      api.getStreamsByPreset(props.presetId),
+      api.getUpstreamsByPreset(props.presetId),
+    ])
+    streams.value = strResult?.data ?? strResult ?? []
+    upstreams.value = upResult?.data ?? upResult ?? []
   } catch (err: any) {
     toast.error('加载 Stream 失败: ' + (err?.message || err))
   } finally {

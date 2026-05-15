@@ -955,6 +955,10 @@ pub fn update_nginx_template(conn: &rusqlite::Connection, t: &NginxTemplate) -> 
     Ok(())
 }
 
+pub fn get_nginx_template_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxTemplate>> {
+    get_by_id_internal(conn, "nginx_templates", id, row_to_nginx_template)
+}
+
 pub fn delete_nginx_template(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<()> {
     delete_by_id(conn, "nginx_templates", id)
 }
