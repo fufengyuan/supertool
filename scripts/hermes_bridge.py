@@ -90,6 +90,10 @@ except ImportError as e:
     HERMES_AVAILABLE = False
     _IMPORT_ERROR = str(e)
     _DEFAULT_MODEL = ""
+    
+    # 检查是否缺少 fire 模块，给出安装指引
+    if "fire" in str(e):
+        _IMPORT_ERROR = "Missing 'fire' dependency. Install Hermes Agent with: pip install -e ~/.hermes/hermes-agent '[all]' --break-system-packages"
 
 # Global state
 _current_agent: Optional[AIAgent] = None
