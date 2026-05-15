@@ -70,6 +70,7 @@ pub enum BridgeMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
     pub id: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -86,6 +87,7 @@ pub struct SessionInfo {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct MessageInfo {
     pub role: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -476,20 +478,26 @@ pub async fn agent_check_available() -> Result<serde_json::Value, String> {
     let script = find_bridge_script();
     let python = find_python();
     
+    // Expand home directory path
+    let hermes_path = dirs::home_dir()
+        .map(|h| h.join(".hermes").join("hermes-agent"))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "~/.hermes/hermes-agent".to_string());
+    
     // Try to import Hermes
-    let check_script = r#"
+    let check_script = format!(r#"
 import sys
-sys.path.insert(0, "~/.hermes/hermes-agent")
+sys.path.insert(0, "{}")
 try:
     from run_agent import AIAgent
     print("OK")
 except ImportError as e:
-    print(f"ERROR: {e}")
-"#;
+    print(f"ERROR: {{e}}")
+"#, hermes_path);
 
     let output = Command::new(&python)
         .arg("-c")
-        .arg(check_script)
+        .arg(&check_script)
         .output()
         .map_err(|e| format!("Failed to check Agent: {}", e))?;
 
