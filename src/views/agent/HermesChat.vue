@@ -93,7 +93,7 @@
                   <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
                 <!-- 消息时间 -->
-                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1 ml-1">
+                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1">
                   {{ formatMessageTime(msg.timestamp) }}
                 </div>
               </div>
@@ -125,6 +125,16 @@
                 <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1 ml-1">
                   {{ formatMessageTime(msg.timestamp) }}
                 </div>
+                <!-- 重试按钮 - 仅对 assistant 错误消息显示 -->
+                <button
+                  v-if="msg.isError && msg.retryContent"
+                  class="btn btn-xs btn-ghost text-error mt-1"
+                  @click="retryMessage(msg.retryContent!)"
+                  :disabled="isStreaming"
+                >
+                  <SvgIcon name="refresh" size="12" class="mr-1" />
+                  重试
+                </button>
               </div>
             </div>
           </div>
@@ -254,6 +264,8 @@ interface Message {
   timestamp: number | null;
   toolName: string | null;
   toolCalls?: { name: string; durationMs: number }[];
+  isError?: boolean; // 是否是错误消息
+  retryContent?: string; // 用于重试的原始消息内容
 }
 
 // Raw message from backend (matches MessageInfo in Rust)
@@ -505,11 +517,14 @@ const sendMessage = async () => {
     thinkingText.value = '';
   } catch (e) {
     console.error('Chat error:', e);
+    // 添加错误消息，保存原始内容以便重试
     messages.value.push({
       role: 'assistant',
       content: `错误: ${e}`,
       timestamp: Date.now() / 1000,
       toolName: null,
+      isError: true,
+      retryContent: text, // 保存原始消息用于重试
     });
   }
 
@@ -528,6 +543,20 @@ const abortChat = async () => {
   } catch (e) {
     console.error('Abort error:', e);
   }
+};
+
+// 重试发送消息
+const retryMessage = async (retryContent: string) => {
+  if (isStreaming.value || !retryContent.trim()) return;
+
+  // 移除最后一条错误消息
+  if (messages.value.length > 0 && messages.value[messages.value.length - 1].isError) {
+    messages.value.pop();
+  }
+
+  // 设置输入文本并重新发送
+  inputText.value = retryContent;
+  await sendMessage();
 };
 
 const deleteCurrentSession = async () => {
