@@ -744,14 +744,11 @@ fn main() {
             // HTTP Fetch (HTML to Markdown tool)
             commands::fetch::fetch_page_content,
             commands::fetch::convert_html_to_md,
-            // Hermes Agent commands
+            // Hermes Agent commands (direct DB access)
             commands::agent::hermes_installed,
-            commands::agent::list_hermes_sessions_cmd,
-            commands::agent::get_hermes_session_cmd,
-            commands::agent::list_hermes_messages_cmd,
-            commands::agent::get_hermes_stats_cmd,
-            commands::agent::delete_hermes_session_cmd,
-            // Hermes Chat Bridge commands
+            commands::agent::hermes_list_messages,
+            commands::agent::hermes_get_stats,
+            // Hermes Chat Bridge commands (Python bridge for AI interaction)
             commands::hermes_chat::hermes_chat,
             commands::hermes_chat::hermes_list_sessions,
             commands::hermes_chat::hermes_get_session,
