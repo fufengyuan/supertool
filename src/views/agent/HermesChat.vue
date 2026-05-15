@@ -317,28 +317,33 @@
             </div>
           </div>
 
-          <!-- 思考/处理中状态 - 带取消按钮 -->
-          <div v-if="isStreaming" class="flex gap-2">
+          <!-- 流式响应中的当前消息 + 思考动画 -->
+          <div v-if="isStreaming && (currentStreamingMessage || thinkingText)" class="flex gap-2">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
             <div class="flex-1 max-w-[85%] bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
-              <!-- 流式输出（使用纯文本避免不完整 markdown 渲染异常） -->
-              <div v-else-if="streamingText" class="text-sm text-base-content whitespace-pre-wrap break-words">{{ streamingText }}</div>
+              <!-- 当前流式消息 -->
+              <template v-else-if="currentStreamingMessage">
+                <!-- 文本内容 -->
+                <div v-if="currentStreamingMessage.content" class="text-sm text-base-content whitespace-pre-wrap break-words">
+                  {{ currentStreamingMessage.content }}
+                </div>
+                <!-- 工具调用 -->
+                <div v-if="currentStreamingMessage.toolCalls && currentStreamingMessage.toolCalls.length > 0" class="mt-2 space-y-1">
+                  <div v-for="(tool, idx) in currentStreamingMessage.toolCalls" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
+                    <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="tool.status === 'running' ? getToolIcon(tool.name).color + ' animate-pulse' : getToolIcon(tool.name).color" />
+                    <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
+                    <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
+                    <span v-if="tool.status === 'running'" class="text-base-content/60 ml-auto animate-pulse">执行中...</span>
+                    <span v-else class="text-success ml-auto">完成</span>
+                  </div>
+                </div>
+              </template>
               <!-- 等待状态 -->
               <p v-else class="text-sm text-base-content/60 animate-pulse">等待响应...</p>
-              
-              <!-- 当前运行中的工具 -->
-              <div v-if="currentToolCalls && currentToolCalls.length > 0" class="mt-2 space-y-1">
-                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
-                  <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="getToolIcon(tool.name).color + ' animate-pulse'" />
-                  <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
-                  <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
-                  <span class="text-base-content/60 ml-auto">执行中...</span>
-                </div>
-              </div>
             </div>
             <!-- 取消按钮 -->
             <button 
@@ -426,7 +431,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -548,7 +553,6 @@ const inputText = ref('');
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const isStreaming = ref(false);
-const streamingText = ref('');
 const thinkingText = ref(''); // 思考动画文本
 const hermesAvailable = ref(false);
 
@@ -648,9 +652,10 @@ let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
-const currentToolCalls = ref<ToolCall[]>([]);
-// 工具开始时间记录（用于计算 duration）
-const toolStartTimes = new Map<string, number>();
+// 流式响应期间动态构建的 assistant 消息
+const currentStreamingMessage: Ref<Message | null> = ref(null);
+// 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
+let lastAssistantRoundEnded = false;
 
 // 自动调整输入框高度
 const adjustTextareaHeight = () => {
@@ -930,7 +935,7 @@ const jumpToSearchResult = async (result: SearchResult) => {
         source: result.source,
         messageCount: sessionResult.messages.length,
         preview: '',
-        lastActive: result.timestamp,
+        lastActive: result.timestamp || Date.now() / 1000,
       };
       sessions.value.unshift(tempSession);
       await selectSession(tempSession);
@@ -1010,7 +1015,6 @@ const startNewChat = () => {
   currentSession.value = null;
   messages.value = [];
   inputText.value = '';
-  streamingText.value = '';
   thinkingText.value = '';
   isStreaming.value = false;
 };
@@ -1051,10 +1055,9 @@ const sendMessage = async () => {
 
   // 开始流式输出
   isStreaming.value = true;
-  streamingText.value = '';
   thinkingText.value = '';
-  currentToolCalls.value = [];
-  toolStartTimes.clear();
+  currentStreamingMessage.value = null;
+  lastAssistantRoundEnded = false;
 
   try {
     // 使用选择的模型（如果有）
@@ -1099,23 +1102,18 @@ const sendMessage = async () => {
       refreshSessions();
     }
 
-    // 添加 assistant 消息（如果 agent-done 事件没有添加）
-    const finalContent = streamingText.value || result.response;
-    // 检查是否已经添加过（agent-done 事件可能已经添加）
-    const alreadyAdded = messages.value.some(m => m.role === 'assistant' && m.content === finalContent);
-    if (finalContent && !alreadyAdded) {
-      messages.value.push({
-        role: 'assistant',
-        content: finalContent,
-        timestamp: Date.now() / 1000,
-        toolName: null,
-        toolCalls: currentToolCalls.value.length > 0 ? [...currentToolCalls.value] : undefined,
-      });
-    }
+    // invoke 返回后，消息已通过事件处理添加
     // 清空流式状态（如果 agent-done 还没清空）
-    streamingText.value = '';
+    if (currentStreamingMessage.value) {
+      const msg = currentStreamingMessage.value as Message;
+      // 如果还有未保存的消息，保存它
+      if (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) {
+        messages.value.push(msg);
+      }
+      currentStreamingMessage.value = null;
+      lastAssistantRoundEnded = false;
+    }
     thinkingText.value = '';
-    currentToolCalls.value = [];
   } catch (e) {
     console.error('Chat error:', e);
     // 添加错误消息，保存原始内容以便重试
@@ -1161,11 +1159,16 @@ const abortChat = async () => {
   
   try {
     await invoke('agent_abort_chat');
+    // 保存当前正在构建的消息（如果有内容）
+    if (currentStreamingMessage.value && 
+        (currentStreamingMessage.value.content || 
+         (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
+      messages.value.push(currentStreamingMessage.value);
+    }
     isStreaming.value = false;
-    streamingText.value = '';
+    currentStreamingMessage.value = null;
+    lastAssistantRoundEnded = false;
     thinkingText.value = '';
-    currentToolCalls.value = [];
-    toolStartTimes.clear();
   } catch (e) {
     console.error('Abort error:', e);
   }
@@ -1413,26 +1416,60 @@ onMounted(async () => {
   unlistenDelta = await listen<string | null>('agent-delta', (event) => {
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
+    
     if (event.payload) {
-      streamingText.value += event.payload;
+      // 如果上一轮已结束，或者还没有当前消息，创建新消息
+      if (lastAssistantRoundEnded || !currentStreamingMessage.value) {
+        // 先保存之前的消息（如果有内容）
+        if (currentStreamingMessage.value && 
+            (currentStreamingMessage.value.content || 
+             (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
+          messages.value.push(currentStreamingMessage.value);
+        }
+        // 创建新消息
+        currentStreamingMessage.value = {
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now() / 1000,
+          toolName: null,
+          toolCalls: [],
+        };
+        lastAssistantRoundEnded = false;
+      }
+      // 追加内容
+      if (currentStreamingMessage.value) {
+        currentStreamingMessage.value.content += event.payload;
+      }
       scrollToBottom();
     }
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    // 工具开始，保存参数信息和开始时间
+    // 工具开始
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
-    const startTime = Date.now();
     
-    // 记录开始时间
-    toolStartTimes.set(toolName, startTime);
+    // 如果还没有当前消息，创建一个
+    if (!currentStreamingMessage.value) {
+      currentStreamingMessage.value = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now() / 1000,
+        toolName: null,
+        toolCalls: [],
+      };
+    }
     
-    // 添加到 currentToolCalls（状态为 running）
-    currentToolCalls.value.push({
+    // 确保 toolCalls 数组存在
+    if (!currentStreamingMessage.value.toolCalls) {
+      currentStreamingMessage.value.toolCalls = [];
+    }
+    
+    // 添加工具调用
+    currentStreamingMessage.value.toolCalls.push({
       name: toolName,
       args: event.payload.args as Record<string, unknown> || {},
-      durationMs: 0, // 还未完成
+      durationMs: 0,
       isSubAgent,
       status: 'running',
     });
@@ -1443,32 +1480,27 @@ onMounted(async () => {
     } else {
       thinkingText.value = `🔧 调用工具: ${toolName}...`;
     }
+    scrollToBottom();
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
     thinkingText.value = '';
     
-    // 计算实际执行时间
-    const startTime = toolStartTimes.get(event.payload.name);
-    const durationMs = startTime ? Date.now() - startTime : event.payload.duration_ms || 0;
-    toolStartTimes.delete(event.payload.name);
-    
     // 找到对应的工具调用，更新结果和状态
-    const toolCall = currentToolCalls.value.find(t => t.name === event.payload.name && t.status === 'running');
-    if (toolCall) {
-      toolCall.result = event.payload.result ?? '';
-      toolCall.durationMs = durationMs;
-      toolCall.status = 'completed';
-    } else {
-      // 如果没找到 running 的，添加新的 completed
-      currentToolCalls.value.push({
-        name: event.payload.name,
-        result: event.payload.result ?? '',
-        durationMs: durationMs,
-        isSubAgent: event.payload.name === 'delegate_task',
-        status: 'completed',
-      });
+    if (currentStreamingMessage.value && currentStreamingMessage.value.toolCalls) {
+      const toolCall = currentStreamingMessage.value.toolCalls.find(
+        t => t.name === event.payload.name && t.status === 'running'
+      );
+      if (toolCall) {
+        toolCall.result = event.payload.result ?? '';
+        toolCall.durationMs = event.payload.duration_ms || 0;
+        toolCall.status = 'completed';
+      }
     }
+    
+    // 标记当前轮次结束（下一次 delta 将创建新消息）
+    lastAssistantRoundEnded = true;
+    scrollToBottom();
   });
 
   // 思考动画事件
@@ -1481,29 +1513,26 @@ onMounted(async () => {
 
   unlistenError = await listen<string>('agent-error', (event) => {
     thinkingText.value = '';
-    streamingText.value += `\n[错误: ${event.payload}]`;
+    if (currentStreamingMessage.value) {
+      currentStreamingMessage.value.content += `\n[错误: ${event.payload}]`;
+    }
   });
 
-  // 流式结束事件 - 立即将内容添加到消息列表
+  // 流式结束事件
   unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
     // 清空思考动画
     thinkingText.value = '';
     
-    // 立即将流式内容添加到消息列表（避免空白）
-    const finalContent = streamingText.value || event.payload.response || '';
-    if (finalContent && !messages.value.some(m => m.role === 'assistant' && m.content === finalContent)) {
-      messages.value.push({
-        role: 'assistant',
-        content: finalContent,
-        timestamp: Date.now() / 1000,
-        toolName: null,
-        toolCalls: currentToolCalls.value.length > 0 ? [...currentToolCalls.value] : undefined,
-      });
+    // 保存最后的消息（如果有内容）
+    if (currentStreamingMessage.value && 
+        (currentStreamingMessage.value.content || 
+         (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
+      messages.value.push(currentStreamingMessage.value);
     }
     
     // 清空流式状态
-    streamingText.value = '';
-    currentToolCalls.value = [];
+    currentStreamingMessage.value = null;
+    lastAssistantRoundEnded = false;
     
     // 恢复 UI 状态
     isStreaming.value = false;
@@ -1559,11 +1588,6 @@ onUnmounted(() => {
   unlistenDone?.();
   // 移除快捷键监听
   document.removeEventListener('keydown', handleGlobalKeydown);
-});
-
-// Watch streamingText to auto-scroll
-watch(streamingText, () => {
-  scrollToBottom();
 });
 
 // Watch inputText to auto-adjust textarea height
