@@ -759,6 +759,7 @@ fn main() {
             commands::hermes_chat::agent_rename_session,
             commands::hermes_chat::agent_abort_chat,
             commands::hermes_chat::agent_check_available,
+            commands::hermes_chat::agent_preload,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

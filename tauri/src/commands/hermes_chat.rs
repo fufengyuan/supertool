@@ -57,6 +57,7 @@ pub enum BridgeCommand {
         offset: usize,
     },
     Abort {},
+    Preload {},
 }
 
 fn default_limit() -> usize {
@@ -80,6 +81,7 @@ pub enum BridgeMessage {
     Deleted { session_id: String },
     Renamed { session_id: String, title: String },
     Aborted { session_id: Option<String> },
+    Preloaded { duration_ms: u64 },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -735,6 +737,61 @@ except ImportError as e:
         "python": python,
         "error": if stdout.starts_with("ERROR") { Some(stdout) } else { None },
     }))
+}
+
+/// Preload Hermes modules (load modules in background for faster first chat)
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_preload(app: AppHandle) -> Result<serde_json::Value, String> {
+    use std::time::Instant;
+    let start_time = Instant::now();
+    
+    let (process_id, mut child, _abort_flag) = start_bridge_process()?;
+    
+    // Send preload command
+    let cmd = BridgeCommand::Preload {};
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+    
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+    
+    // Read response
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() || !line.trim_start().starts_with('{') {
+            continue;
+        }
+        
+        let msg: BridgeMessage = match serde_json::from_str(&line) {
+            Ok(m) => m,
+            Err(e) => {
+                eprintln!("[DEBUG] preload parse error: {} - line: {}", e, line);
+                continue;
+            }
+        };
+        
+        match msg {
+            BridgeMessage::Preloaded { duration_ms } => {
+                eprintln!("[DEBUG] preload completed in {}ms (total {}ms)", duration_ms, start_time.elapsed().as_millis());
+                return Ok(serde_json::json!({
+                    "success": true,
+                    "duration_ms": start_time.elapsed().as_millis(),
+                }));
+            }
+            BridgeMessage::Error { message } => {
+                return Err(message);
+            }
+            _ => {}
+        }
+    }
+    
+    Err("No response from preload".to_string())
 }
 
 #[cfg(test)]
