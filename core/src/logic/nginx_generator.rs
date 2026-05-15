@@ -458,6 +458,11 @@ fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[Ng
             }
         }
 
+        // Rewrite listen (HTTP→HTTPS redirect second port)
+        if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
+            out.push_str(&format!("        listen {};\n", s.rewrite_listen));
+        }
+
         // HTTP2 new-style (http2 on;)
         if s.ssl && s.http2 == 2 {
             out.push_str("        http2 on;\n");

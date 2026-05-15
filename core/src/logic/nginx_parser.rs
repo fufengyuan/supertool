@@ -692,6 +692,14 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                 }
             }
             _ => {
+                // Skip if ($scheme = http) { return 301 ... } — handled by generator's rewrite logic
+                if child.name == "if" && srv.rewrite {
+                    if let Some(cond) = child.args.first() {
+                        if cond.contains("$scheme") && child.block.iter().any(|c| c.name == "return") {
+                            continue;
+                        }
+                    }
+                }
                 let value = child.args.join(" ");
                 srv.extra_params.push(ParsedParamEntry {
                     name: child.name.clone(),
@@ -778,8 +786,31 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 // 1.1 — websocket support
             }
             "proxy_set_body" => {}
-            "add_header" => {}
+            "add_header" => {
+                // Non-CORS add_header should be saved as extra param
+                let first_arg = child.args.first().map(|s| s.as_str()).unwrap_or("");
+                if first_arg != "Access-Control-Allow-Origin" {
+                    let value = child.args.join(" ");
+                    if !value.is_empty() && !loc.extra_params.iter().any(|e| e.name == "add_header" && e.value == value) {
+                        loc.extra_params.push(ParsedParamEntry {
+                            name: child.name.clone(),
+                            value,
+                            position: 0,
+                        });
+                    }
+                }
+            }
+            "proxy_redirect" => {
+                // proxy_redirect is handled by the generator's hardcoded logic
+                // (server.ssl && server.rewrite → output proxy_redirect http:// https://;)
+                // Don't capture as extra_param to avoid duplication in round-trip.
+            }
             _ => {
+                // Skip block directives that can't be serialized as simple name+value;
+                // e.g., if (...) { ... } blocks need braces not semicolons.
+                if child.is_block {
+                    continue;
+                }
                 let value = child.args.join(" ");
                 if !value.is_empty() {
                     loc.extra_params.push(ParsedParamEntry {
