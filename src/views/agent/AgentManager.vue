@@ -281,7 +281,9 @@ async function refreshSessions() {
   loading.value = false;
 }
 
-function formatTime(ts: number): string {
+function formatTime(ts: number | null | undefined): string {
+  if (!ts) return '未知时间';
+  
   const now = Date.now() / 1000;
   const diff = now - ts;
 
