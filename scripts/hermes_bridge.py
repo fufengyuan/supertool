@@ -9,6 +9,7 @@ Hermes Agent Bridge Script
      {"action": "chat", "session_id": "...", "message": "...", "model": "...", "toolsets": [...]}
      {"action": "resume", "session_id": "..."}
      {"action": "list_sessions", "limit": 20}
+     {"action": "search_sessions", "query": "...", "limit": 20, "offset": 0}
      {"action": "get_session", "session_id": "..."}
      {"action": "delete_session", "session_id": "..."}
      {"action": "abort"}
@@ -21,6 +22,7 @@ Hermes Agent Bridge Script
      {"type": "done", "response": "...", "session_id": "...", "message_count": ...}
      {"type": "error", "message": "..."}
      {"type": "sessions", "data": [...]}     # For list_sessions
+     {"type": "search_results", "data": [...], "query": "..."}  # For search_sessions
      {"type": "session", "data": {...}}      # For get_session
      {"type": "deleted", "session_id": "..."} # For delete_session
      {"type": "aborted", "session_id": "..."}
@@ -293,6 +295,49 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
         _output({"type": "error", "message": str(e)})
 
 
+def _handle_search_sessions(params: Dict[str, Any]) -> None:
+    """Handle search_sessions action - search across all session content."""
+    if not HERMES_AVAILABLE:
+        _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
+        return
+
+    query = params.get("query", "")
+    if not query.strip():
+        _output({"type": "error", "message": "Missing 'query' field"})
+        return
+
+    limit = params.get("limit", 20)
+    offset = params.get("offset", 0)
+
+    try:
+        session_db = _ensure_session_db()
+        matches = session_db.search_messages(
+            query=query,
+            limit=limit,
+            offset=offset,
+        )
+
+        # Format results with session info
+        formatted = []
+        for m in matches:
+            formatted.append({
+                "session_id": m.get("session_id", ""),
+                "session_title": m.get("session_title", ""),
+                "message_id": m.get("id", ""),
+                "role": m.get("role", ""),
+                "snippet": m.get("snippet", ""),
+                "content": m.get("content", ""),
+                "timestamp": m.get("timestamp"),
+                "source": m.get("source", ""),
+                "model": m.get("model", ""),
+            })
+
+        _output({"type": "search_results", "data": formatted, "total": len(formatted), "query": query})
+
+    except Exception as e:
+        _output({"type": "error", "message": str(e)})
+
+
 def _handle_get_session(params: Dict[str, Any]) -> None:
     """Handle get_session action."""
     if not HERMES_AVAILABLE:
@@ -403,6 +448,7 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
     handlers = {
         "chat": _handle_chat,
         "list_sessions": _handle_list_sessions,
+        "search_sessions": _handle_search_sessions,
         "get_session": _handle_get_session,
         "delete_session": _handle_delete_session,
         "rename_session": _handle_rename_session,

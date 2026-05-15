@@ -38,35 +38,61 @@
         </div>
       </div>
 
-      <!-- 会话列表 -->
+      <!-- 会话列表/搜索结果 -->
       <div class="flex-1 overflow-y-auto">
-        <div v-if="loadingSessions" class="flex items-center justify-center py-8">
-          <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
-        </div>
-        <div v-else-if="filteredSessions.length === 0 && sessions.length > 0" class="flex flex-col items-center justify-center py-8 text-center">
-          <SvgIcon name="search" size="24" class="text-base-content/30" />
-          <p class="mt-2 text-xs text-base-content/50">未找到匹配的会话</p>
-        </div>
-        <div v-else-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
-          <SvgIcon name="chat" size="24" class="text-base-content/30" />
-          <p class="mt-2 text-xs text-base-content/50">暂无会话</p>
-        </div>
-        <div v-else class="flex flex-col gap-1 px-2 py-1">
-          <div
-            v-for="session in filteredSessions"
-            :key="session.id"
-            class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
-            :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
-            @click="selectSession(session)"
-          >
-            <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
-            <div class="flex flex-col min-w-0 flex-1">
-              <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
-              <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
-            </div>
-            <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
+        <!-- 搜索结果 -->
+        <template v-if="isSearchMode">
+          <div v-if="isSearching" class="flex items-center justify-center py-8">
+            <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
           </div>
-        </div>
+          <div v-else-if="searchResults.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
+            <SvgIcon name="search" size="24" class="text-base-content/30" />
+            <p class="mt-2 text-xs text-base-content/50">未找到匹配的内容</p>
+          </div>
+          <div v-else class="flex flex-col gap-1 px-2 py-1">
+            <div
+              v-for="result in searchResults"
+              :key="result.messageId"
+              class="group flex flex-col gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-colors hover:bg-base-200"
+              @click="jumpToSearchResult(result)"
+            >
+              <div class="flex items-center gap-2">
+                <SvgIcon :name="sourceIcon(result.source)" size="12" class="shrink-0 text-base-content/50" />
+                <span class="text-xs text-base-content/60">{{ result.sessionTitle || '新会话' }}</span>
+                <span class="text-xs text-base-content/40">•</span>
+                <span class="text-xs text-base-content/50">{{ result.role }}</span>
+              </div>
+              <div class="text-xs text-base-content line-clamp-2" v-html="highlightSnippet(result.snippet, sessionSearchQuery)"></div>
+            </div>
+          </div>
+        </template>
+        
+        <!-- 正常会话列表 -->
+        <template v-else>
+          <div v-if="loadingSessions" class="flex items-center justify-center py-8">
+            <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
+          </div>
+          <div v-else-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
+            <SvgIcon name="chat" size="24" class="text-base-content/30" />
+            <p class="mt-2 text-xs text-base-content/50">暂无会话</p>
+          </div>
+          <div v-else class="flex flex-col gap-1 px-2 py-1">
+            <div
+              v-for="session in sessions"
+              :key="session.id"
+              class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
+              :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
+              @click="selectSession(session)"
+            >
+              <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
+              <div class="flex flex-col min-w-0 flex-1">
+                <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
+                <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
+              </div>
+              <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -456,6 +482,19 @@ interface Session {
   lastActive?: number; // 可选
 }
 
+// 搜索结果（来自 Hermes FTS5 搜索）
+interface SearchResult {
+  sessionId: string;
+  sessionTitle: string | null;
+  messageId: string;
+  role: string;
+  snippet: string;
+  content: string | null;
+  timestamp: number | null;
+  source: string;
+  model: string;
+}
+
 // 工具调用详情
 interface ToolCall {
   name: string;
@@ -500,6 +539,8 @@ interface RawToolCall {
 // State
 const sessions = ref<Session[]>([]);
 const sessionSearchQuery = ref(''); // 会话搜索关键词
+const searchResults = ref<SearchResult[]>([]); // 搜索结果
+const isSearching = ref(false); // 搜索中状态
 const currentSessionId = ref<string | null>(null);
 const currentSession = ref<Session | null>(null);
 const messages = ref<Message[]>([]);
@@ -622,21 +663,50 @@ const adjustTextareaHeight = () => {
 };
 
 // Computed
-// 过滤后的会话列表（搜索）
-const filteredSessions = computed(() => {
-  const query = sessionSearchQuery.value.trim().toLowerCase();
-  if (!query) return sessions.value;
+// 是否处于搜索模式
+const isSearchMode = computed(() => sessionSearchQuery.value.trim().length > 0);
+
+// 搜索会话内容
+const searchSessions = async () => {
+  const query = sessionSearchQuery.value.trim();
+  if (!query) {
+    searchResults.value = [];
+    return;
+  }
   
-  return sessions.value.filter(session => {
-    // 搜索标题
-    const title = session.title?.toLowerCase() || '';
-    // 搜索 preview（第一条消息摘要）
-    const preview = session.preview?.toLowerCase() || '';
-    // 搜索模型名称
-    const model = session.model?.toLowerCase() || '';
-    
-    return title.includes(query) || preview.includes(query) || model.includes(query);
-  });
+  isSearching.value = true;
+  try {
+    const result = await invoke<{ results: SearchResult[]; total: number; query: string }>('agent_search_sessions', {
+      query,
+      limit: 20,
+    });
+    searchResults.value = result.results;
+  } catch (e) {
+    console.error('Search failed:', e);
+    searchResults.value = [];
+  } finally {
+    isSearching.value = false;
+  }
+};
+
+// 搜索防抖
+let searchDebounceTimer: number | null = null;
+const debouncedSearch = () => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+  searchDebounceTimer = window.setTimeout(() => {
+    searchSessions();
+  }, 300);
+};
+
+// 监听搜索输入变化
+watch(sessionSearchQuery, () => {
+  if (sessionSearchQuery.value.trim()) {
+    debouncedSearch();
+  } else {
+    searchResults.value = [];
+  }
 });
 
 const sourceIcon = (source: string) => {
@@ -824,6 +894,49 @@ const refreshSessions = async () => {
     console.error('Failed to list sessions:', e);
   }
   loadingSessions.value = false;
+};
+
+// 高亮搜索关键词
+const highlightSnippet = (snippet: string, query: string) => {
+  if (!query) return snippet;
+  // FTS5 already marks matches with >>>...<<<
+  // Convert to <mark> tags
+  return snippet
+    .replace(/>>>/g, '<mark class="bg-warning/30 text-warning px-0.5 rounded">')
+    .replace(/<<</g, '</mark>');
+};
+
+// 点击搜索结果，跳转到对应会话和消息
+const jumpToSearchResult = async (result: SearchResult) => {
+  // 清空搜索，回到正常模式
+  sessionSearchQuery.value = '';
+  
+  // 查找会话是否在列表中
+  const session = sessions.value.find(s => s.id === result.sessionId);
+  if (session) {
+    await selectSession(session);
+  } else {
+    // 会话不在列表中，需要加载
+    try {
+      const sessionResult = await invoke<{ sessionId: string; messages: RawMessage[] }>('agent_get_session', {
+        sessionId: result.sessionId,
+      });
+      // 创建临时 Session 对象
+      const tempSession: Session = {
+        id: result.sessionId,
+        title: result.sessionTitle,
+        model: result.model,
+        source: result.source,
+        messageCount: sessionResult.messages.length,
+        preview: '',
+        lastActive: result.timestamp,
+      };
+      sessions.value.unshift(tempSession);
+      await selectSession(tempSession);
+    } catch (e) {
+      console.error('Failed to load session:', e);
+    }
+  }
 };
 
 const selectSession = async (session: Session) => {

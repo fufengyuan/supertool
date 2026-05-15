@@ -49,6 +49,13 @@ pub enum BridgeCommand {
         session_id: String,
         title: String,
     },
+    SearchSessions {
+        query: String,
+        #[serde(default = "default_limit")]
+        limit: usize,
+        #[serde(default)]
+        offset: usize,
+    },
     Abort {},
 }
 
@@ -68,6 +75,7 @@ pub enum BridgeMessage {
     Done { response: Option<String>, session_id: String, message_count: usize },
     Error { message: String },
     Sessions { data: Vec<SessionInfo>, total: usize },
+    SearchResults { data: Vec<SearchResult>, total: usize, query: String },
     Session { session_id: String, messages: Vec<MessageInfo> },
     Deleted { session_id: String },
     Renamed { session_id: String, title: String },
@@ -94,6 +102,29 @@ pub struct SessionInfo {
     pub preview: String,
     #[serde(rename = "lastActive", alias = "last_active", skip_serializing_if = "Option::is_none")]
     pub last_active: Option<f64>,
+}
+
+/// Search result from FTS5 search
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SearchResult {
+    #[serde(rename = "sessionId", alias = "session_id")]
+    pub session_id: String,
+    #[serde(rename = "sessionTitle", alias = "session_title", skip_serializing_if = "Option::is_none")]
+    pub session_title: Option<String>,
+    #[serde(rename = "messageId", alias = "message_id")]
+    pub message_id: String,
+    #[serde(rename = "role")]
+    pub role: String,
+    #[serde(rename = "snippet")]
+    pub snippet: String,
+    #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(rename = "timestamp", skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<f64>,
+    #[serde(rename = "source")]
+    pub source: String,
+    #[serde(rename = "model")]
+    pub model: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -495,6 +526,54 @@ pub async fn agent_rename_session(session_id: String, title: String) -> Result<s
         if let BridgeMessage::Renamed { session_id, title } = msg {
             child.wait().ok();
             return Ok(serde_json::json!({ "session_id": session_id, "title": title }));
+        } else if let BridgeMessage::Error { message } = msg {
+            child.wait().ok();
+            return Err(message);
+        }
+    }
+
+    child.wait().ok();
+    Err("No response from bridge".to_string())
+}
+
+/// Search sessions by content
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_search_sessions(query: String, limit: Option<usize>, offset: Option<usize>) -> Result<serde_json::Value, String> {
+    let (_, mut child, _) = start_bridge_process()?;
+
+    let cmd = BridgeCommand::SearchSessions {
+        query,
+        limit: limit.unwrap_or(20),
+        offset: offset.unwrap_or(0),
+    };
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() {
+            continue;
+        }
+
+        let msg: BridgeMessage = serde_json::from_str(&line)
+            .map_err(|e| format!("Failed to parse: {}", e))?;
+
+        if let BridgeMessage::SearchResults { data, total, query } = msg {
+            child.wait().ok();
+            return Ok(serde_json::json!({
+                "results": data,
+                "total": total,
+                "query": query,
+            }));
         } else if let BridgeMessage::Error { message } = msg {
             child.wait().ok();
             return Err(message);
