@@ -134,49 +134,24 @@
                   </select>
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="text-xs text-base-content/70">监听 IP</label>
-                  <input v-model="form.ip" placeholder="0.0.0.0" class="input input-sm input-bordered" />
+                  <label class="text-xs text-base-content/70">监听端口 <span class="text-error">*</span></label>
+                  <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
                 </div>
                 <div class="flex flex-col gap-1">
-                  <label class="text-xs text-base-content/70">端口 <span class="text-error">*</span></label>
-                  <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
+                  <label class="text-xs text-base-content/70">serverName</label>
+                  <input v-model="form.serverName" placeholder="example.com" class="input input-sm input-bordered w-full" />
                 </div>
                 <div class="flex items-end gap-3 pb-1">
                   <label class="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input type="checkbox" v-model="form.def" class="checkbox checkbox-xs" /> default
                   </label>
                   <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-xs" /> proxy proto
-                  </label>
-                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
                     <input type="checkbox" v-model="form.ipv6" class="checkbox checkbox-xs" /> IPv6
                   </label>
-                </div>
-                <div class="flex flex-col gap-1 col-span-3">
-                  <label class="text-xs text-base-content/70">serverName</label>
-                  <input v-model="form.serverName" placeholder="example.com" class="input input-sm input-bordered w-full" />
                 </div>
                 <div class="flex flex-col gap-1 col-span-4">
                   <label class="text-xs text-base-content/70">描述</label>
                   <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 代理上游 & 安全 -->
-          <div class="border border-base-content/10 rounded-xl bg-base-200/20">
-            <div class="px-5 py-2.5 border-b border-base-content/10">
-              <h4 class="text-sm font-semibold">代理上游 & 安全</h4>
-            </div>
-            <div class="p-5">
-              <div class="grid grid-cols-2 gap-x-5 gap-y-3">
-                <div class="flex flex-col gap-1">
-                  <label class="text-xs text-base-content/70">代理 Upstream</label>
-                  <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
-                    <option value="">无</option>
-                    <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
-                  </select>
                 </div>
                 <div class="flex flex-col gap-1">
                   <label class="text-xs text-base-content/70">密码验证</label>
@@ -185,11 +160,27 @@
                     <option v-for="pw in passwords" :key="pw.id" :value="pw.id">{{ pw.name || pw.path }}</option>
                   </select>
                 </div>
-                <div class="col-span-2 flex items-center gap-2">
+                <div class="flex items-center gap-4 pt-1">
                   <label class="flex items-center gap-1.5 text-xs cursor-pointer">
-                    <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-xs" />
-                    HTTP → HTTPS 重定向
+                    <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-xs" /> HTTP→HTTPS
                   </label>
+                  <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                    <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-xs" /> proxy protocol
+                  </label>
+                </div>
+              </div>
+              <!-- TCP/UDP proxy: show upstream/proxy_pass -->
+              <div v-if="form.proxyType !== 0" class="mt-3 pt-3 border-t border-base-content/10 grid grid-cols-2 gap-x-5 gap-y-3">
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">代理 Upstream</label>
+                  <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
+                    <option value="">无</option>
+                    <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1">
+                  <label class="text-xs text-base-content/70">监听 IP</label>
+                  <input v-model="form.ip" placeholder="0.0.0.0" class="input input-sm input-bordered" />
                 </div>
               </div>
             </div>
