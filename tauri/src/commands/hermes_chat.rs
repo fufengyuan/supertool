@@ -81,6 +81,8 @@ pub struct SessionInfo {
     pub ended_at: Option<i64>,
     pub message_count: usize,
     pub preview: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_active: Option<i64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
