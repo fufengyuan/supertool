@@ -12,9 +12,6 @@
         <button @click="openAddDialog" class="btn btn-primary btn-sm">
           <SvgIcon name="plus" size="14" /> 新增 Server
         </button>
-        <button @click="onListPreview" class="btn btn-ghost btn-sm gap-1">
-          <SvgIcon name="eye" size="14" /> 配置预览
-        </button>
       </div>
     </div>
 
@@ -98,6 +95,9 @@
                 </button>
                 <button @click="onDeleteServer(svr.id)" class="btn btn-ghost btn-xs btn-square text-error" title="删除">
                   <SvgIcon name="trash" size="12" />
+                </button>
+                <button @click="onRowPreview(svr)" class="btn btn-ghost btn-xs btn-square" title="配置预览">
+                  <SvgIcon name="eye" size="12" />
                 </button>
               </div>
             </td>
@@ -1141,12 +1141,16 @@ const listHighlightedPreview = computed(() => {
   }
 })
 
-async function onListPreview() {
+async function onRowPreview(svr: any) {
   showListPreview.value = true
   listPreviewContent.value = ''
   listPreviewLoading.value = true
   try {
-    const result = await api.generateNginxConfig(props.presetId)
+    // Load locations for this server
+    const locResult = await api.getLocationsByServer(svr.id)
+    const locationsData = locResult?.data ?? locResult ?? []
+
+    const result = await api.previewNginxServer(props.presetId, svr, locationsData)
     const content = result?.data ?? result
     listPreviewContent.value = typeof content === 'string' ? content : JSON.stringify(content, null, 2)
   } catch (err: any) {
