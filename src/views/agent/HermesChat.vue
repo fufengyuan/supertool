@@ -318,7 +318,7 @@
           </div>
 
           <!-- 流式响应中的当前消息 + 思考动画 -->
-          <div v-if="isStreaming && (currentStreamingMessage || thinkingText)" class="flex gap-2">
+          <div v-if="isStreaming && (currentStreamingMsg || thinkingText)" class="flex gap-2">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
@@ -326,14 +326,14 @@
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 当前流式消息 -->
-              <template v-else-if="currentStreamingMessage">
+              <template v-else-if="currentStreamingMsg">
                 <!-- 文本内容 -->
-                <div v-if="currentStreamingMessage.content" class="text-sm text-base-content whitespace-pre-wrap break-words">
-                  {{ currentStreamingMessage.content }}
+                <div v-if="currentStreamingMsg.content" class="text-sm text-base-content whitespace-pre-wrap break-words">
+                  {{ currentStreamingMsg.content }}
                 </div>
                 <!-- 工具调用 -->
-                <div v-if="currentStreamingMessage.toolCalls && currentStreamingMessage.toolCalls.length > 0" class="mt-2 space-y-1">
-                  <div v-for="(tool, idx) in currentStreamingMessage.toolCalls" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
+                <div v-if="currentStreamingMsg.toolCalls && currentStreamingMsg.toolCalls.length > 0" class="mt-2 space-y-1">
+                  <div v-for="(tool, idx) in currentStreamingMsg.toolCalls" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
                     <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="tool.status === 'running' ? getToolIcon(tool.name).color + ' animate-pulse' : getToolIcon(tool.name).color" />
                     <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
                     <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
@@ -556,6 +556,12 @@ const isStreaming = ref(false);
 const thinkingText = ref(''); // 思考动画文本
 const hermesAvailable = ref(false);
 
+// 当前流式响应的 assistant 消息（数组最后一个 assistant 消息）
+const currentStreamingMsg = computed(() => {
+  const lastMsg = messages.value[messages.value.length - 1];
+  return lastMsg?.role === 'assistant' ? lastMsg : null;
+});
+
 // 模型选择
 const selectedModel = ref('');
 const availableModels = ref([
@@ -652,8 +658,6 @@ let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
-// 流式响应期间动态构建的 assistant 消息
-const currentStreamingMessage: Ref<Message | null> = ref(null);
 // 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
 let lastAssistantRoundEnded = false;
 
@@ -1056,7 +1060,6 @@ const sendMessage = async () => {
   // 开始流式输出
   isStreaming.value = true;
   thinkingText.value = '';
-  currentStreamingMessage.value = null;
   lastAssistantRoundEnded = false;
 
   try {
@@ -1102,18 +1105,10 @@ const sendMessage = async () => {
       refreshSessions();
     }
 
-    // invoke 返回后，消息已通过事件处理添加
-    // 清空流式状态（如果 agent-done 还没清空）
-    if (currentStreamingMessage.value) {
-      const msg = currentStreamingMessage.value as Message;
-      // 如果还有未保存的消息，保存它
-      if (msg.content || (msg.toolCalls && msg.toolCalls.length > 0)) {
-        messages.value.push(msg);
-      }
-      currentStreamingMessage.value = null;
-      lastAssistantRoundEnded = false;
-    }
+    // invoke 返回后，消息已通过事件处理添加到 messages 数组
+    // 清空流式状态
     thinkingText.value = '';
+    lastAssistantRoundEnded = false;
   } catch (e) {
     console.error('Chat error:', e);
     // 添加错误消息，保存原始内容以便重试
@@ -1159,14 +1154,8 @@ const abortChat = async () => {
   
   try {
     await invoke('agent_abort_chat');
-    // 保存当前正在构建的消息（如果有内容）
-    if (currentStreamingMessage.value && 
-        (currentStreamingMessage.value.content || 
-         (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
-      messages.value.push(currentStreamingMessage.value);
-    }
+    // 清空流式状态（消息已在 messages 数组中）
     isStreaming.value = false;
-    currentStreamingMessage.value = null;
     lastAssistantRoundEnded = false;
     thinkingText.value = '';
   } catch (e) {
@@ -1412,33 +1401,28 @@ onMounted(async () => {
   // 全局快捷键
   document.addEventListener('keydown', handleGlobalKeydown);
   
-  // 监听流式事件
+// 监听流式事件
   unlistenDelta = await listen<string | null>('agent-delta', (event) => {
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
     
     if (event.payload) {
-      // 如果上一轮已结束，或者还没有当前消息，创建新消息
-      if (lastAssistantRoundEnded || !currentStreamingMessage.value) {
-        // 先保存之前的消息（如果有内容）
-        if (currentStreamingMessage.value && 
-            (currentStreamingMessage.value.content || 
-             (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
-          messages.value.push(currentStreamingMessage.value);
-        }
-        // 创建新消息
-        currentStreamingMessage.value = {
+      // 如果上一轮已结束，创建新消息并添加到数组
+      if (lastAssistantRoundEnded) {
+        // 创建新消息并直接添加到数组（Vue 能追踪数组变化）
+        messages.value.push({
           role: 'assistant',
           content: '',
           timestamp: Date.now() / 1000,
           toolName: null,
           toolCalls: [],
-        };
+        });
         lastAssistantRoundEnded = false;
       }
-      // 追加内容
-      if (currentStreamingMessage.value) {
-        currentStreamingMessage.value.content += event.payload;
+      // 获取当前消息（数组最后一个）
+      const currentMsg = messages.value[messages.value.length - 1];
+      if (currentMsg && currentMsg.role === 'assistant') {
+        currentMsg.content += event.payload;
       }
       scrollToBottom();
     }
@@ -1449,24 +1433,27 @@ onMounted(async () => {
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
     
-    // 如果还没有当前消息，创建一个
-    if (!currentStreamingMessage.value) {
-      currentStreamingMessage.value = {
+    // 获取当前消息（如果没有 assistant 消息，创建一个）
+    const messagesCopy = [...messages.value].reverse();
+    let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
+    if (!currentMsg) {
+      currentMsg = {
         role: 'assistant',
         content: '',
         timestamp: Date.now() / 1000,
         toolName: null,
         toolCalls: [],
       };
+      messages.value.push(currentMsg);
     }
     
     // 确保 toolCalls 数组存在
-    if (!currentStreamingMessage.value.toolCalls) {
-      currentStreamingMessage.value.toolCalls = [];
+    if (!currentMsg.toolCalls) {
+      currentMsg.toolCalls = [];
     }
     
     // 添加工具调用
-    currentStreamingMessage.value.toolCalls.push({
+    currentMsg.toolCalls.push({
       name: toolName,
       args: event.payload.args as Record<string, unknown> || {},
       durationMs: 0,
@@ -1486,10 +1473,12 @@ onMounted(async () => {
   unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
     thinkingText.value = '';
     
-    // 找到对应的工具调用，更新结果和状态
-    if (currentStreamingMessage.value && currentStreamingMessage.value.toolCalls) {
-      const toolCall = currentStreamingMessage.value.toolCalls.find(
-        t => t.name === event.payload.name && t.status === 'running'
+    // 获取当前 assistant 消息
+    const messagesCopy = [...messages.value].reverse();
+    const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
+    if (currentMsg && currentMsg.toolCalls) {
+      const toolCall = currentMsg.toolCalls.find(
+        (t: ToolCall) => t.name === event.payload.name && t.status === 'running'
       );
       if (toolCall) {
         toolCall.result = event.payload.result ?? '';
@@ -1513,8 +1502,10 @@ onMounted(async () => {
 
   unlistenError = await listen<string>('agent-error', (event) => {
     thinkingText.value = '';
-    if (currentStreamingMessage.value) {
-      currentStreamingMessage.value.content += `\n[错误: ${event.payload}]`;
+    const messagesCopy = [...messages.value].reverse();
+    const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
+    if (currentMsg) {
+      currentMsg.content += `\n[错误: ${event.payload}]`;
     }
   });
 
@@ -1523,15 +1514,7 @@ onMounted(async () => {
     // 清空思考动画
     thinkingText.value = '';
     
-    // 保存最后的消息（如果有内容）
-    if (currentStreamingMessage.value && 
-        (currentStreamingMessage.value.content || 
-         (currentStreamingMessage.value.toolCalls && currentStreamingMessage.value.toolCalls.length > 0))) {
-      messages.value.push(currentStreamingMessage.value);
-    }
-    
     // 清空流式状态
-    currentStreamingMessage.value = null;
     lastAssistantRoundEnded = false;
     
     // 恢复 UI 状态

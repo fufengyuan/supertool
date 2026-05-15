@@ -122,7 +122,6 @@ def _create_agent(
     session_id: Optional[str] = None,
     model: Optional[str] = None,
     toolsets: Optional[List[str]] = None,
-    conversation_history: Optional[List[Dict]] = None,
 ) -> AIAgent:
     """Create an AIAgent instance."""
     global _current_agent, _current_session_id
@@ -184,10 +183,6 @@ def _create_agent(
         quiet_mode=True,
     )
 
-    # Load conversation history for resume
-    if conversation_history:
-        agent.conversation_history = conversation_history
-
     _current_agent = agent
     _current_session_id = session_id
 
@@ -232,11 +227,10 @@ def _handle_chat(params: Dict[str, Any]) -> None:
             session_id=session_id,
             model=model,
             toolsets=toolsets,
-            conversation_history=conversation_history,
         )
 
-        # Run conversation
-        result = agent.run_conversation(message)
+        # Run conversation with history
+        result = agent.run_conversation(message, conversation_history=conversation_history)
 
         if _abort_flag:
             _output({"type": "aborted", "session_id": _current_session_id})
