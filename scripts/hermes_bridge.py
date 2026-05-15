@@ -131,12 +131,13 @@ def _create_agent(
         if not _abort_flag:
             _output({"type": "delta", "text": delta})
 
-    def tool_start_callback(tool_name: str, tool_args: Dict) -> None:
+    def tool_start_callback(tool_call_id: str, tool_name: str, tool_args: Dict) -> None:
         if not _abort_flag:
             _output({"type": "tool_start", "name": tool_name, "args": tool_args})
 
-    def tool_complete_callback(tool_name: str, result: Any, duration_ms: float) -> None:
+    def tool_complete_callback(tool_call_id: str, tool_name: str, tool_args: Dict, result: Any) -> None:
         if not _abort_flag:
+            # Calculate duration (approximate, since we don't have start time here)
             # Truncate large results
             result_str = str(result)
             if len(result_str) > 5000:
@@ -145,7 +146,7 @@ def _create_agent(
                 "type": "tool_complete",
                 "name": tool_name,
                 "result": result_str,
-                "duration_ms": round(duration_ms, 2)
+                "duration_ms": 0  # Duration not provided by Hermes callback
             })
 
     def thinking_callback(text: str) -> None:
