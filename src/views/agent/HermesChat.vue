@@ -785,6 +785,7 @@ const selectSession = async (session: Session) => {
           const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
           const toolResult = toolResultsMap.get(tc.id) || '';
           
+          if (!msg.toolCalls) msg.toolCalls = [];
           msg.toolCalls.push({
             name: toolName,
             args: toolArgs,
