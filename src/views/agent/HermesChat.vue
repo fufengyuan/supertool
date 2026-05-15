@@ -150,11 +150,8 @@
                   <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
                   <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
-                <!-- 消息时间和操作按钮 -->
-                <div class="flex items-center gap-2 mt-1">
-                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
-                    {{ formatMessageTime(msg.timestamp) }}
-                  </span>
+                <!-- 操作按钮 -->
+                <div class="flex items-center gap-2 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <!-- 复制按钮 -->
                   <button
                     class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
@@ -162,23 +159,6 @@
                     title="复制"
                   >
                     <SvgIcon name="copy" size="12" />
-                  </button>
-                  <!-- 引用按钮 -->
-                  <button
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="quoteMessage(msg.content)"
-                    title="引用"
-                  >
-                    <SvgIcon name="quote" size="12" />
-                  </button>
-                  <!-- 编辑按钮 -->
-                  <button
-                    v-if="!isStreaming"
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="editUserMessage(idx)"
-                    title="编辑并重新发送"
-                  >
-                    <SvgIcon name="edit" size="12" />
                   </button>
                 </div>
               </div>
@@ -206,11 +186,8 @@
                     </div>
                   </div>
                 </div>
-                <!-- 消息时间和操作按钮 -->
-                <div class="flex items-center gap-2 mt-1 ml-1">
-                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
-                    {{ formatMessageTime(msg.timestamp) }}
-                  </span>
+                <!-- 操作按钮 -->
+                <div class="flex items-center gap-2 mt-1 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <!-- 复制按钮 -->
                   <button
                     class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
@@ -218,23 +195,6 @@
                     title="复制"
                   >
                     <SvgIcon name="copy" size="12" />
-                  </button>
-                  <!-- 引用按钮 -->
-                  <button
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="quoteMessage(msg.content)"
-                    title="引用"
-                  >
-                    <SvgIcon name="quote" size="12" />
-                  </button>
-                  <!-- 删除按钮 -->
-                  <button
-                    v-if="!isStreaming"
-                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity text-error"
-                    @click="deleteMessage(idx)"
-                    title="删除"
-                  >
-                    <SvgIcon name="trash" size="12" />
                   </button>
                   <!-- 重试按钮 - 仅对错误消息显示 -->
                   <button
@@ -319,14 +279,6 @@
                 </button>
               </div>
             </div>
-            <!-- 引用消息提示 -->
-            <div v-if="quotedMessage" class="flex items-center gap-1 text-xs text-base-content/60">
-              <SvgIcon name="quote" size="12" />
-              <span class="truncate max-w-32">{{ quotedMessage.slice(0, 30) }}...</span>
-              <button class="btn btn-ghost btn-xs btn-square" @click="quotedMessage = null">
-                <SvgIcon name="close" size="10" />
-              </button>
-            </div>
           </div>
           <!-- 输入框 -->
           <div class="flex gap-2">
@@ -335,31 +287,19 @@
               v-model="inputText"
               class="textarea textarea-bordered w-full resize-none text-sm"
               style="min-height: 52px; max-height: 200px;"
-              :placeholder="quotedMessage ? '回复引用的消息...' : '输入消息...'"
+              placeholder="输入消息..."
               :disabled="isStreaming"
               @keydown.enter.exact.prevent="sendMessage"
             ></textarea>
-            <!-- 操作按钮组 -->
-            <div class="flex items-center gap-1 self-end">
-              <!-- 撤回按钮 -->
-              <button
-                v-if="messages.length > 0 && !isStreaming"
-                class="btn btn-ghost btn-sm"
-                @click="undoLastMessage"
-                title="撤回最后一条消息"
-              >
-                <SvgIcon name="undo" size="14" />
-              </button>
-              <!-- 发送按钮 -->
-              <button
-                class="btn btn-primary"
-                :disabled="!inputText.trim() || isStreaming"
-                @click="sendMessage"
-              >
-                <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
-                <SvgIcon v-else name="send" size="14" />
-              </button>
-            </div>
+            <!-- 发送按钮 -->
+            <button
+              class="btn btn-primary self-end"
+              :disabled="!inputText.trim() || isStreaming"
+              @click="sendMessage"
+            >
+              <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
+              <SvgIcon v-else name="send" size="14" />
+            </button>
           </div>
         </div>
       </div>
@@ -465,7 +405,6 @@ const availableModels = ref([
   'claude-sonnet-4',
   'claude-opus-4',
 ]);
-const quotedMessage = ref<string | null>(null); // 引用的消息
 
 // 工具集选择
 const availableToolsets = ref([
@@ -599,13 +538,6 @@ const renderMarkdown = (text: string | null): string => {
   }
 };
 
-// 格式化消息时间（显示具体时间）
-const formatMessageTime = (ts: number | null): string => {
-  if (!ts) return '';
-  const date = new Date(ts * 1000);
-  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-};
-
 const formatTime = (ts: number | null) => {
   if (!ts) return '';
   const date = new Date(ts * 1000);
@@ -694,12 +626,8 @@ const generateSessionTitle = (firstMessage: string): string => {
 const sendMessage = async () => {
   if (!inputText.value.trim() || isStreaming.value) return;
 
-  // 构建消息（包含引用）
-  let text = inputText.value.trim();
-  if (quotedMessage.value) {
-    text = `> ${quotedMessage.value}\n\n${text}`;
-    quotedMessage.value = null; // 清除引用
-  }
+  // 构建消息
+  const text = inputText.value.trim();
   inputText.value = '';
 
   // 添加用户消息
@@ -850,13 +778,6 @@ const sessionStats = computed(() => {
   };
 });
 
-// 引用消息
-const quoteMessage = (content: string | null) => {
-  if (!content) return;
-  quotedMessage.value = content.slice(0, 200); // 限制引用长度
-  inputRef.value?.focus();
-};
-
 // 搜索消息
 const searchMessages = () => {
   if (!searchQuery.value.trim()) {
@@ -873,21 +794,6 @@ const searchMessages = () => {
 const clearSearch = () => {
   searchQuery.value = '';
   filteredMessages.value = messages.value;
-};
-
-// 编辑用户消息并重新发送
-const editUserMessage = (msgIndex: number) => {
-  if (isStreaming.value) return;
-  
-  const msg = messages.value[msgIndex];
-  if (!msg || msg.role !== 'user' || !msg.content) return;
-  
-  // 删除该消息及其后所有消息
-  messages.value = messages.value.slice(0, msgIndex);
-  
-  // 设置输入框内容
-  inputText.value = msg.content;
-  inputRef.value?.focus();
 };
 
 // 全局快捷键处理
@@ -942,11 +848,10 @@ const exportSession = () => {
   markdown += `> 导出时间: ${timestamp}\n> 模型: ${currentSession.value?.model || 'unknown'}\n\n---\n\n`;
   
   for (const msg of messages.value) {
-    const time = msg.timestamp ? formatMessageTime(msg.timestamp) : '';
     if (msg.role === 'user') {
-      markdown += `## 用户 (${time})\n\n${msg.content || ''}\n\n`;
+      markdown += `## 用户\n\n${msg.content || ''}\n\n`;
     } else if (msg.role === 'assistant') {
-      markdown += `## Hermes (${time})\n\n${msg.content || ''}\n\n`;
+      markdown += `## Hermes\n\n${msg.content || ''}\n\n`;
       if (msg.toolCalls && msg.toolCalls.length > 0) {
         markdown += `**工具调用:**\n`;
         for (const tool of msg.toolCalls) {
@@ -996,21 +901,6 @@ const deleteCurrentSession = async () => {
   } catch (e) {
     console.error('Delete error:', e);
   }
-};
-
-// 删除单条消息
-const deleteMessage = (msgIndex: number) => {
-  if (isStreaming.value) return;
-  if (msgIndex < 0 || msgIndex >= messages.value.length) return;
-  
-  // 删除该消息
-  messages.value.splice(msgIndex, 1);
-};
-
-// 撤回最后一条消息
-const undoLastMessage = () => {
-  if (messages.value.length === 0 || isStreaming.value) return;
-  messages.value.pop();
 };
 
 // 标题编辑功能
