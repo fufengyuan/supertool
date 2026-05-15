@@ -1154,6 +1154,7 @@ export function useNginxAPI() {
     setActiveNginxVersion: async (presetId: string, versionId: string): Promise<any> => tauriCall('set_active_nginx_version', { presetId, versionId }),
     generateNginxConfig: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config', { presetId }),
     generateNginxConfigDecomposed: async (presetId: string): Promise<any> => tauriCall('generate_nginx_config_decomposed', { presetId }),
+    previewNginxServer: async (presetId: string, server: any, locations: any[]): Promise<any> => tauriCall('preview_nginx_server', { presetId, server, locations }),
     deployNginxConfigDecomposed: async (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string): Promise<any> =>
       tauriCall('deploy_nginx_config_decomposed', { serverId, configPath, mainContent, subFiles, comment }),
     // Servers
@@ -1784,6 +1785,7 @@ export interface TauriAPI {
   setActiveNginxVersion: (presetId: string, versionId: string) => Promise<any>
   generateNginxConfig: (presetId: string) => Promise<any>
   generateNginxConfigDecomposed: (presetId: string) => Promise<any>
+  previewNginxServer: (presetId: string, server: any, locations: any[]) => Promise<any>
   deployNginxConfigDecomposed: (serverId: string, configPath: string, mainContent: string, subFiles: Array<{filename: string, content: string}>, comment: string) => Promise<any>
   getServersByPreset: (presetId: string) => Promise<any>
   addNginxServer: (server: any) => Promise<any>
@@ -2147,6 +2149,7 @@ export function getTauriAPI(): TauriAPI {
     setActiveNginxVersion: nginx.setActiveNginxVersion,
     generateNginxConfig: nginx.generateNginxConfig,
     generateNginxConfigDecomposed: nginx.generateNginxConfigDecomposed,
+    previewNginxServer: nginx.previewNginxServer,
     deployNginxConfigDecomposed: nginx.deployNginxConfigDecomposed,
     getServersByPreset: nginx.getServersByPreset,
     addNginxServer: nginx.addNginxServer,

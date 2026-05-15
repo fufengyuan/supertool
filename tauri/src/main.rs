@@ -688,6 +688,8 @@ fn main() {
             commands::nginx::add_nginx_template,
             commands::nginx::update_nginx_template,
             commands::nginx::delete_nginx_template,
+            // NginxPreview commands
+            commands::nginx::preview_nginx_server,
             // NginxBasicSetting commands
             commands::nginx::get_basic_settings,
             commands::nginx::save_basic_settings,

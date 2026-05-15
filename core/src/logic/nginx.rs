@@ -440,6 +440,24 @@ impl CoreService {
         .map(|_| ApiResponse::ok(()))
     }
 
+    /// Preview a single server block config (without saving to DB).
+    /// Accepts the full server object + locations array as JSON,
+    /// generates the config text using the same generator logic.
+    pub async fn preview_nginx_server(
+        &self,
+        preset_id: &str,
+        server: serde_json::Value,
+        locations: serde_json::Value,
+    ) -> Result<ApiResponse<String>, String> {
+        let pid = preset_id.to_string();
+        let s: NginxServer = serde_json::from_value(server).map_err(|e| e.to_string())?;
+        let locs: Vec<NginxLocation> = serde_json::from_value(locations).map_err(|e| e.to_string())?;
+        let result = self.db_read(move |conn| {
+            crate::logic::nginx_generator::generate_server_block_preview(conn, &s, &locs)
+        })??;
+        Ok(ApiResponse::ok(result))
+    }
+
     // ============ NginxLocation CRUD ============
 
     pub async fn get_locations_by_server(
