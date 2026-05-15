@@ -164,7 +164,7 @@
           </template>
         </div>
 
-        <!-- 配置预览（可编辑） -->
+        <!-- 配置预览（语法高亮） -->
         <div v-if="currentPreset" class="bg-base-100 border border-base-content/10 rounded-xl">
           <div
             class="flex items-center justify-between p-3 cursor-pointer select-none"
@@ -174,13 +174,9 @@
             <span class="text-xs text-base-content/50">{{ showConfigPreview ? '收起' : '展开' }}</span>
           </div>
           <div v-if="showConfigPreview" class="px-3 pb-3">
-            <textarea
-              v-model="configContent"
-              class="textarea textarea-bordered w-full font-mono text-xs leading-relaxed"
-              style="height: 400px; resize: vertical;"
-              spellcheck="false"
-              placeholder="点击「预览」按钮生成配置，或在此直接编辑..."
-            ></textarea>
+            <div class="nginx-preview text-xs font-mono leading-relaxed bg-base-200 rounded-lg overflow-auto" style="height: 600px; resize: vertical; padding: 12px;">
+              <pre class="m-0 h-full whitespace-pre-wrap"><code v-html="highlightedConfig"></code></pre>
+            </div>
           </div>
         </div>
 
@@ -367,6 +363,9 @@ import { useNginxConfig } from '../../composables/useNginxConfig'
 import { getTauriAPI } from '../../utils/tauri-api'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import hljs from 'highlight.js/lib/core'
+import nginxLang from 'highlight.js/lib/languages/nginx'
+hljs.registerLanguage('nginx', nginxLang)
 
 const {
   loading, presets, currentPreset, configContent, versions, testResult,
@@ -399,6 +398,15 @@ const diffError = ref('')
 const generatedNewConfig = ref('')
 const decomposedSubFiles = ref<Array<{filename: string, content: string}>>([])
 const decomposeMode = ref(false)
+
+const highlightedConfig = computed(() => {
+  if (!configContent.value) return ''
+  try {
+    return hljs.highlight(configContent.value, { language: 'nginx' }).value
+  } catch {
+    return configContent.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+})
 
 // Tab definitions
 const tabs = [
@@ -840,3 +848,18 @@ function formatDate(dateStr: string) {
   }
 }
 </script>
+
+<style scoped>
+/* highlight.js token colors — Catppuccin Mocha */
+.nginx-preview :deep(.hljs-keyword) { color: #cba6f7; font-weight: 500; }
+.nginx-preview :deep(.hljs-attr) { color: #89b4fa; }
+.nginx-preview :deep(.hljs-string) { color: #a6e3a1; }
+.nginx-preview :deep(.hljs-number) { color: #fab387; }
+.nginx-preview :deep(.hljs-comment) { color: #6c7086; font-style: italic; }
+.nginx-preview :deep(.hljs-variable) { color: #f38ba8; }
+.nginx-preview :deep(.hljs-title) { color: #f9e2af; }
+.nginx-preview :deep(.hljs-literal) { color: #fab387; }
+.nginx-preview :deep(.hljs-built_in) { color: #a6e3a1; }
+.nginx-preview :deep(.hljs-section) { color: #89b4fa; }
+.nginx-preview code { font-family: inherit; background: transparent; padding: 0; }
+</style>

@@ -514,7 +514,7 @@
     <!-- 预览弹窗 -->
     <div v-if="showPreview" class="fixed inset-0 z-[70]">
       <div class="fixed inset-0 bg-black/50" @click="showPreview = false"></div>
-      <div class="fixed inset-y-0 right-0 w-[55%] min-w-[500px] bg-base-100 shadow-2xl flex flex-col">
+      <div class="fixed inset-y-0 right-0 w-[75%] min-w-[700px] max-w-[1100px] bg-base-100 shadow-2xl flex flex-col">
         <div class="flex items-center justify-between px-6 py-4 border-b border-base-content/10 shrink-0">
           <h3 class="font-bold text-sm">配置预览</h3>
           <button @click="showPreview = false" class="btn btn-ghost btn-sm btn-square">
@@ -628,7 +628,7 @@ const showServerParamDialog = ref(false)
 const serverParamEntries = ref<Array<{name: string, value: string, position: number, templateId: string}>>([])
 const serverParamTemplates = ref<any[]>([])
 
-// 预览
+// 编辑弹窗预览
 const showPreview = ref(false)
 const previewContent = ref('')
 const previewLoading = ref(false)
