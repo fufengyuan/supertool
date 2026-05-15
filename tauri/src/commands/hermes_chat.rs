@@ -302,8 +302,20 @@ pub async fn agent_chat(
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse bridge message: {} - line: {}", e, line))?;
+        // 跳过非 JSON 行（日志、警告等）
+        if !line.trim_start().starts_with('{') {
+            eprintln!("[DEBUG] bridge log: {}", line);
+            continue;
+        }
+
+        let msg: BridgeMessage = match serde_json::from_str(&line) {
+            Ok(m) => m,
+            Err(e) => {
+                // JSON 解析失败，记录日志但继续处理下一行
+                eprintln!("[DEBUG] bridge parse error: {} - line: {}", e, line);
+                continue;
+            }
+        };
 
         match msg {
             BridgeMessage::Delta { text } => {
