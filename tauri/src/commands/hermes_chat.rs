@@ -57,6 +57,13 @@ pub enum BridgeCommand {
         offset: usize,
     },
     Abort {},
+    GetModels {},
+    AddModel {
+        model: String,
+    },
+    RemoveModel {
+        model: String,
+    },
 }
 
 fn default_limit() -> usize {
@@ -80,6 +87,9 @@ pub enum BridgeMessage {
     Deleted { session_id: String },
     Renamed { session_id: String, title: String },
     Aborted { session_id: Option<String> },
+    Models { custom_models: Vec<String>, default_model: Option<String> },
+    ModelAdded { model: String, custom_models: Vec<String> },
+    ModelRemoved { model: String, custom_models: Vec<String> },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -731,6 +741,180 @@ except ImportError as e:
         "python": python,
         "error": if stdout.starts_with("ERROR") { Some(stdout) } else { None },
     }))
+}
+
+/// Get custom models from Hermes config
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_get_models() -> Result<serde_json::Value, String> {
+    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
+    let python = find_python();
+    
+    let mut child = Command::new(&python)
+        .arg(&script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
+    
+    // Send get_models command
+    let cmd = BridgeCommand::GetModels {};
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+    
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+    
+    // Read response
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() || !line.trim_start().starts_with('{') {
+            continue;
+        }
+        
+        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+        
+        match msg {
+            BridgeMessage::Models { custom_models, default_model } => {
+                // Wait for process to finish
+                child.wait().ok();
+                return Ok(serde_json::json!({
+                    "customModels": custom_models,
+                    "defaultModel": default_model,
+                }));
+            }
+            BridgeMessage::Error { message } => {
+                child.wait().ok();
+                return Err(message);
+            }
+            _ => continue,
+        }
+    }
+    
+    child.wait().ok();
+    Err("No response from bridge".to_string())
+}
+
+/// Add a model to Hermes config
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String> {
+    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
+    let python = find_python();
+    
+    let mut child = Command::new(&python)
+        .arg(&script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
+    
+    // Send add_model command
+    let cmd = BridgeCommand::AddModel { model };
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+    
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+    
+    // Read response
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() || !line.trim_start().starts_with('{') {
+            continue;
+        }
+        
+        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+        
+        match msg {
+            BridgeMessage::ModelAdded { model, custom_models } => {
+                child.wait().ok();
+                return Ok(serde_json::json!({
+                    "success": true,
+                    "model": model,
+                    "customModels": custom_models,
+                }));
+            }
+            BridgeMessage::Error { message } => {
+                child.wait().ok();
+                return Err(message);
+            }
+            _ => continue,
+        }
+    }
+    
+    child.wait().ok();
+    Err("No response from bridge".to_string())
+}
+
+/// Remove a model from Hermes config
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, String> {
+    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
+    let python = find_python();
+    
+    let mut child = Command::new(&python)
+        .arg(&script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
+    
+    // Send remove_model command
+    let cmd = BridgeCommand::RemoveModel { model };
+    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+    
+    {
+        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
+        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
+        stdin.flush().map_err(|e| e.to_string())?;
+    }
+    
+    // Read response
+    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let reader = BufReader::new(stdout);
+    
+    for line in reader.lines() {
+        let line = line.map_err(|e| e.to_string())?;
+        if line.is_empty() || !line.trim_start().starts_with('{') {
+            continue;
+        }
+        
+        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
+        
+        match msg {
+            BridgeMessage::ModelRemoved { model, custom_models } => {
+                child.wait().ok();
+                return Ok(serde_json::json!({
+                    "success": true,
+                    "model": model,
+                    "customModels": custom_models,
+                }));
+            }
+            BridgeMessage::Error { message } => {
+                child.wait().ok();
+                return Err(message);
+            }
+            _ => continue,
+        }
+    }
+    
+    child.wait().ok();
+    Err("No response from bridge".to_string())
 }
 
 #[cfg(test)]
