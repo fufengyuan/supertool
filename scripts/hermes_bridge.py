@@ -76,10 +76,20 @@ try:
     from hermes_state import SessionDB, get_hermes_home
     from model_tools import get_tool_definitions
     from toolsets import resolve_multiple_toolsets
+    from cli import load_cli_config
     HERMES_AVAILABLE = True
+    
+    # 加载配置获取默认模型
+    _CLI_CONFIG = load_cli_config()
+    _MODEL_CONFIG = _CLI_CONFIG.get("model", {})
+    if isinstance(_MODEL_CONFIG, dict):
+        _DEFAULT_MODEL = _MODEL_CONFIG.get("default") or _MODEL_CONFIG.get("model") or ""
+    else:
+        _DEFAULT_MODEL = _MODEL_CONFIG or ""
 except ImportError as e:
     HERMES_AVAILABLE = False
     _IMPORT_ERROR = str(e)
+    _DEFAULT_MODEL = ""
 
 # Global state
 _current_agent: Optional[AIAgent] = None
@@ -154,7 +164,7 @@ def _create_agent(
 
     # Create agent
     agent = AIAgent(
-        model=model or "anthropic/claude-sonnet-4",
+        model=model or _DEFAULT_MODEL,
         session_id=session_id,
         session_db=session_db,
         enabled_toolsets=enabled_toolsets,
