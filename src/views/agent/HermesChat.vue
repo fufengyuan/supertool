@@ -1407,21 +1407,25 @@ onMounted(async () => {
     thinkingText.value = '';
     
     if (event.payload) {
-      // 如果上一轮已结束，创建新消息并添加到数组
-      if (lastAssistantRoundEnded) {
-        // 创建新消息并直接添加到数组（Vue 能追踪数组变化）
-        messages.value.push({
+      // 查找最后一个 assistant 消息
+      const messagesCopy = [...messages.value].reverse();
+      let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
+      
+      // 如果没有 assistant 消息，或上一轮已结束，创建新消息
+      if (!currentMsg || lastAssistantRoundEnded) {
+        currentMsg = {
           role: 'assistant',
           content: '',
           timestamp: Date.now() / 1000,
           toolName: null,
           toolCalls: [],
-        });
+        };
+        messages.value.push(currentMsg);
         lastAssistantRoundEnded = false;
       }
-      // 获取当前消息（数组最后一个）
-      const currentMsg = messages.value[messages.value.length - 1];
-      if (currentMsg && currentMsg.role === 'assistant') {
+      
+      // 添加 delta 内容
+      if (currentMsg) {
         currentMsg.content += event.payload;
       }
       scrollToBottom();
