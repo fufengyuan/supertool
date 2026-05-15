@@ -144,8 +144,8 @@
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
-              <div class="flex-1">
-                <div class="bg-base-200 rounded-xl px-3 py-2">
+              <div class="flex-1 max-w-[85%]">
+                <div class="bg-base-200 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
                   <!-- 搜索时高亮显示 -->
                   <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
                   <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
@@ -169,13 +169,13 @@
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
-              <div class="flex-1">
+              <div class="flex-1 max-w-[85%]">
                 <!-- 思考过程（如果有） -->
-                <div v-if="msg.thinking" class="mb-2 bg-base-200/50 rounded-lg px-3 py-2 text-xs text-base-content/60 italic">
+                <div v-if="msg.thinking" class="mb-2 bg-base-200/50 rounded-lg px-3 py-2 text-xs text-base-content/60 italic break-words">
                   💭 {{ msg.thinking }}
                 </div>
                 
-                <div class="bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+                <div class="bg-primary/5 border border-primary/10 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
                   <!-- Markdown 渲染的消息内容 -->
                   <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                   
@@ -305,7 +305,7 @@
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
-            <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+            <div class="flex-1 max-w-[85%] bg-primary/5 border border-primary/10 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 流式输出 -->
@@ -1353,9 +1353,17 @@ watch(searchQuery, () => {
 </script>
 
 <style scoped>
+/* 强制换行样式 */
+.overflow-wrap-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .markdown-content :deep(p) {
