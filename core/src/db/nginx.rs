@@ -92,7 +92,7 @@ pub struct NginxLocation {
     #[serde(rename = "locType")]
     pub loc_type: i64,
     pub value: String,
-    #[serde(rename = "upstreamType")]
+    #[serde(rename = "upstreamType", default)]
     pub upstream_type: i64,
     #[serde(rename = "upstreamId")]
     pub upstream_id: String,
