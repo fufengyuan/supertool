@@ -117,19 +117,19 @@
       </div>
 
       <!-- 消息列表 -->
-      <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
         <!-- 加载消息状态 - 骨架屏 -->
-        <div v-if="loadingMessages" class="space-y-3">
-          <div class="flex gap-3">
+        <div v-if="loadingMessages" class="space-y-1">
+          <div class="flex gap-2">
             <div class="h-8 w-8 rounded-full bg-base-200 shrink-0 animate-pulse"></div>
-            <div class="flex-1 space-y-2">
+            <div class="flex-1 space-y-1">
               <div class="h-4 bg-base-200 rounded w-3/4 animate-pulse"></div>
               <div class="h-4 bg-base-200 rounded w-1/2 animate-pulse"></div>
             </div>
           </div>
-          <div class="flex gap-3">
+          <div class="flex gap-2">
             <div class="h-8 w-8 rounded-full bg-primary/20 shrink-0 animate-pulse"></div>
-            <div class="flex-1 space-y-2">
+            <div class="flex-1 space-y-1">
               <div class="h-4 bg-primary/10 rounded w-full animate-pulse"></div>
               <div class="h-4 bg-primary/10 rounded w-2/3 animate-pulse"></div>
             </div>
@@ -138,9 +138,9 @@
 
         <!-- 消息列表 -->
         <template v-else-if="messages.length > 0">
-          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : messages)" :key="idx" class="flex gap-3">
+          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : messages)" :key="idx" class="flex gap-2">
             <!-- 用户消息 -->
-            <div v-if="msg.role === 'user'" class="flex gap-3 w-full group">
+            <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
@@ -165,7 +165,7 @@
             </div>
 
             <!-- Assistant 消息 -->
-            <div v-else class="flex gap-3 w-full group">
+            <div v-else class="flex gap-2 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
@@ -301,7 +301,7 @@
           </div>
 
           <!-- 思考/处理中状态 - 带取消按钮 -->
-          <div v-if="isStreaming" class="flex gap-3">
+          <div v-if="isStreaming" class="flex gap-2">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
