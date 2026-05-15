@@ -77,11 +77,11 @@
           <div class="grid grid-cols-3 gap-x-8 gap-y-4">
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">名称 <span class="text-error">*</span></label>
-              <input v-model="form.name" placeholder="例如：backend-api" class="input input-bordered w-full" />
+              <input v-model="form.name" placeholder="例如：backend-api" class="input input-sm input-bordered w-full" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">代理类型</label>
-              <select v-model="form.proxyType" class="select select-bordered w-full">
+              <select v-model="form.proxyType" class="select select-sm select-bordered w-24">
                 <option :value="0">HTTP</option>
                 <option :value="1">TCP</option>
                 <option :value="2">UDP</option>
@@ -89,16 +89,16 @@
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">负载均衡策略</label>
-              <select v-model="form.strategy" class="select select-bordered w-full">
+              <select v-model="form.strategy" class="select select-sm select-bordered w-full">
                 <option value="polling">轮询 (polling)</option>
                 <option value="ip_hash">IP Hash</option>
-                <option value="least_conn">最小连接 (least_conn)</option>
-                <option value="random">随机 (random)</option>
+                <option value="least_conn">最小连接</option>
+                <option value="random">随机</option>
               </select>
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">描述</label>
-              <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
+              <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
             </div>
           </div>
 

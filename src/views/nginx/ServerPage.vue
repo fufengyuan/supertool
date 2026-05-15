@@ -122,7 +122,7 @@
           <div class="grid grid-cols-3 gap-x-8 gap-y-4">
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">代理类型</label>
-              <select v-model="form.proxyType" class="select select-bordered w-full">
+              <select v-model="form.proxyType" class="select select-sm select-bordered w-24">
                 <option :value="0">HTTP</option>
                 <option :value="1">TCP</option>
                 <option :value="2">UDP</option>
@@ -130,50 +130,46 @@
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">监听 IP</label>
-              <input v-model="form.ip" placeholder="0.0.0.0" class="input input-bordered w-full" />
+              <input v-model="form.ip" placeholder="0.0.0.0" class="input input-sm input-bordered w-full" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">端口 <span class="text-error">*</span></label>
-              <input v-model="form.listen" type="number" placeholder="80" class="input input-bordered w-full" />
+              <input v-model="form.listen" type="number" placeholder="80" class="input input-sm input-bordered w-28" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">serverName</label>
-              <input v-model="form.serverName" placeholder="example.com" class="input input-bordered w-full" />
+              <input v-model="form.serverName" placeholder="example.com" class="input input-sm input-bordered w-full" />
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">密码验证</label>
-              <select v-model="form.passwordId" class="select select-bordered w-full">
+              <select v-model="form.passwordId" class="select select-sm select-bordered w-full">
                 <option value="">无</option>
                 <option v-for="pw in passwords" :key="pw.id" :value="pw.id">{{ pw.name || pw.path }}</option>
               </select>
             </div>
             <div class="flex flex-col gap-1.5">
               <label class="text-sm font-medium">代理 Upstream</label>
-              <select v-model="form.proxyUpstreamId" class="select select-bordered w-full">
+              <select v-model="form.proxyUpstreamId" class="select select-sm select-bordered w-full">
                 <option value="">无</option>
                 <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
               </select>
             </div>
-            <div class="flex flex-col gap-1.5">
+            <div class="flex flex-col gap-1.5 col-span-2">
               <label class="text-sm font-medium">描述</label>
-              <input v-model="form.descr" placeholder="可选描述" class="input input-bordered w-full" />
+              <input v-model="form.descr" placeholder="可选描述" class="input input-sm input-bordered w-full" />
             </div>
-            <div class="flex flex-col gap-1.5">
-              <label class="text-sm font-medium">HTTP→HTTPS 重写</label>
-              <select v-model.number="form.rewrite" class="select select-bordered w-full">
-                <option :value="0">关闭</option>
-                <option :value="1">开启</option>
-              </select>
-            </div>
-            <div class="flex items-end gap-4 pb-2">
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" v-model="form.def" class="checkbox checkbox-sm" /> default_server
+            <div class="flex items-end gap-4 pb-1">
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" v-model="form.def" class="checkbox checkbox-xs" /> default_server
               </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-sm" /> proxy protocol
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" v-model="form.proxyProtocol" class="checkbox checkbox-xs" /> proxy protocol
               </label>
-              <label class="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" v-model="form.ipv6" class="checkbox checkbox-sm" /> IPv6
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" v-model="form.ipv6" class="checkbox checkbox-xs" /> IPv6
+              </label>
+              <label class="flex items-center gap-1.5 text-xs cursor-pointer">
+                <input type="checkbox" v-model="form.rewrite" class="checkbox checkbox-xs" /> HTTP→HTTPS
               </label>
             </div>
           </div>
@@ -208,10 +204,10 @@
                   </div>
                   <div class="flex flex-col gap-1">
                     <label class="text-sm text-base-content/70">HTTP/2</label>
-                    <select v-model.number="form.http2" class="select select-bordered w-full">
+                    <select v-model.number="form.http2" class="select select-sm select-bordered w-28">
                       <option :value="0">禁用</option>
-                      <option :value="1">旧版 (h2)</option>
-                      <option :value="2">新版 (h2c)</option>
+                      <option :value="1">旧版</option>
+                      <option :value="2">新版</option>
                     </select>
                   </div>
                   <div class="flex flex-col gap-1">
@@ -304,11 +300,11 @@
                     <td><input v-model="loc.path" placeholder="/api" class="input input-bordered input-xs w-full" /></td>
                     <td>
                       <select v-model="loc.locType" class="select select-xs select-bordered w-full">
-                        <option :value="0">反向代理 (proxy_pass)</option>
-                        <option :value="1">静态文件 (root)</option>
-                        <option :value="2">上游代理 (upstream)</option>
-                        <option :value="3">空白 (blank)</option>
-                        <option :value="4">重定向 (return)</option>
+                        <option :value="0">proxy_pass</option>
+                        <option :value="1">root</option>
+                        <option :value="2">upstream</option>
+                        <option :value="3">blank</option>
+                        <option :value="4">return</option>
                       </select>
                     </td>
                     <td class="min-w-[280px]">

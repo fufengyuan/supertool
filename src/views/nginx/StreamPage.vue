@@ -83,7 +83,7 @@
           <!-- 协议 -->
           <div class="flex flex-col gap-1">
             <label class="text-xs font-medium text-base-content/80">协议</label>
-            <select v-model="form.protocol" class="select select-sm select-bordered w-full">
+            <select v-model="form.protocol" class="select select-sm select-bordered w-28">
               <option value="TCP">TCP</option>
               <option value="UDP">UDP</option>
             </select>
