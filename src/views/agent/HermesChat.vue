@@ -112,6 +112,16 @@
             </div>
           </div>
 
+          <!-- 思考动画 - 显示在流式输出前 -->
+          <div v-if="isStreaming && thinkingText && !streamingText" class="flex gap-3">
+            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
+              <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
+            </div>
+            <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+              <p class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
+            </div>
+          </div>
+
           <!-- 流式输出中的临时消息 -->
           <div v-if="isStreaming && streamingText" class="flex gap-3">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
@@ -213,6 +223,7 @@ const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const isStreaming = ref(false);
 const streamingText = ref('');
+const thinkingText = ref(''); // 思考动画文本
 const hermesAvailable = ref(false);
 
 // Refs
@@ -223,6 +234,7 @@ const inputRef = ref<HTMLTextAreaElement | null>(null);
 let unlistenDelta: UnlistenFn | null = null;
 let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
+let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let currentToolCalls: { name: string; durationMs: number }[] = [];
 
@@ -325,6 +337,7 @@ const sendMessage = async () => {
   // 开始流式输出
   isStreaming.value = true;
   streamingText.value = '';
+  thinkingText.value = '';
   currentToolCalls = [];
 
   try {
@@ -354,6 +367,7 @@ const sendMessage = async () => {
       });
     }
     streamingText.value = '';
+    thinkingText.value = '';
   } catch (e) {
     console.error('Chat error:', e);
     messages.value.push({
@@ -373,6 +387,7 @@ const abortChat = async () => {
     await invoke('agent_abort_chat');
     isStreaming.value = false;
     streamingText.value = '';
+    thinkingText.value = '';
   } catch (e) {
     console.error('Abort error:', e);
   }
@@ -411,22 +426,33 @@ const scrollToBottom = () => {
 onMounted(async () => {
   // 监听流式事件
   unlistenDelta = await listen<string>('agent-delta', (event) => {
+    // 收到实际内容时清空思考动画
+    thinkingText.value = '';
     streamingText.value += event.payload;
     scrollToBottom();
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    // 工具开始，可以显示进度
+    // 工具开始，显示工具调用状态
+    thinkingText.value = `调用工具: ${event.payload.name}...`;
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
+    thinkingText.value = '';
     currentToolCalls.push({
       name: event.payload.name,
       durationMs: event.payload.duration_ms,
     });
   });
 
+  // 思考动画事件
+  unlistenThinking = await listen<string>('agent-thinking', (event) => {
+    thinkingText.value = event.payload;
+    scrollToBottom();
+  });
+
   unlistenError = await listen<string>('agent-error', (event) => {
+    thinkingText.value = '';
     streamingText.value += `\n[错误: ${event.payload}]`;
   });
 
@@ -471,6 +497,7 @@ onUnmounted(() => {
   unlistenDelta?.();
   unlistenToolStart?.();
   unlistenToolComplete?.();
+  unlistenThinking?.();
   unlistenError?.();
 });
 
