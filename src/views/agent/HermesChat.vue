@@ -1250,11 +1250,13 @@ onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown);
   
   // 监听流式事件
-  unlistenDelta = await listen<string>('agent-delta', (event) => {
+  unlistenDelta = await listen<string | null>('agent-delta', (event) => {
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
-    streamingText.value += event.payload;
-    scrollToBottom();
+    if (event.payload) {
+      streamingText.value += event.payload;
+      scrollToBottom();
+    }
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
@@ -1283,7 +1285,7 @@ onMounted(async () => {
     }
   });
 
-  unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
+  unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
     thinkingText.value = '';
     
     // 计算实际执行时间
@@ -1294,14 +1296,14 @@ onMounted(async () => {
     // 找到对应的工具调用，更新结果和状态
     const toolCall = currentToolCalls.value.find(t => t.name === event.payload.name && t.status === 'running');
     if (toolCall) {
-      toolCall.result = event.payload.result;
+      toolCall.result = event.payload.result ?? '';
       toolCall.durationMs = durationMs;
       toolCall.status = 'completed';
     } else {
       // 如果没找到 running 的，添加新的 completed
       currentToolCalls.value.push({
         name: event.payload.name,
-        result: event.payload.result,
+        result: event.payload.result ?? '',
         durationMs: durationMs,
         isSubAgent: event.payload.name === 'delegate_task',
         status: 'completed',
@@ -1310,9 +1312,11 @@ onMounted(async () => {
   });
 
   // 思考动画事件
-  unlistenThinking = await listen<string>('agent-thinking', (event) => {
-    thinkingText.value = event.payload;
-    scrollToBottom();
+  unlistenThinking = await listen<string | null>('agent-thinking', (event) => {
+    if (event.payload) {
+      thinkingText.value = event.payload;
+      scrollToBottom();
+    }
   });
 
   unlistenError = await listen<string>('agent-error', (event) => {

@@ -61,10 +61,10 @@ fn default_limit() -> usize {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMessage {
-    Delta { text: String },
+    Delta { text: Option<String> },
     ToolStart { name: String, args: serde_json::Value },
-    ToolComplete { name: String, result: String, duration_ms: f64 },
-    Thinking { text: String },
+    ToolComplete { name: String, result: Option<String>, duration_ms: f64 },
+    Thinking { text: Option<String> },
     Done { response: Option<String>, session_id: String, message_count: usize },
     Error { message: String },
     Sessions { data: Vec<SessionInfo>, total: usize },
@@ -276,8 +276,9 @@ pub async fn agent_chat(
 
         match msg {
             BridgeMessage::Delta { text } => {
-                accumulated_text.push_str(&text);
-                // Emit event for frontend streaming display
+                if let Some(t) = &text {
+                    accumulated_text.push_str(t);
+                }
                 app.emit("agent-delta", &text).ok();
             }
             BridgeMessage::ToolStart { name, args } => {
@@ -614,7 +615,17 @@ mod tests {
         let json = "{\"type\":\"delta\",\"text\":\"Hello\"}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Delta { text } => assert_eq!(text, "Hello"),
+            BridgeMessage::Delta { text } => assert_eq!(text, Some("Hello".to_string())),
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_delta_null_text() {
+        let json = "{\"type\":\"delta\",\"text\":null}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Delta { text } => assert!(text.is_none()),
             _ => panic!("Wrong type"),
         }
     }
@@ -639,7 +650,21 @@ mod tests {
         match msg {
             BridgeMessage::ToolComplete { name, result, duration_ms } => {
                 assert_eq!(name, "terminal");
-                assert_eq!(result, "file1.txt\nfile2.txt");
+                assert_eq!(result, Some("file1.txt\nfile2.txt".to_string()));
+                assert_eq!(duration_ms, 150.0);
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_tool_complete_null_result() {
+        let json = r#"{"type":"tool_complete","name":"terminal","result":null,"duration_ms":150}"#;
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+                assert_eq!(name, "terminal");
+                assert!(result.is_none());
                 assert_eq!(duration_ms, 150.0);
             },
             _ => panic!("Wrong type"),
@@ -1094,7 +1119,7 @@ mod tests {
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
             BridgeMessage::Delta { text } => {
-                assert_eq!(text, "Hello ");
+                assert_eq!(text, Some("Hello ".to_string()));
             },
             _ => panic!("Wrong type"),
         }
@@ -1122,7 +1147,7 @@ mod tests {
         match msg {
             BridgeMessage::ToolComplete { name, result, duration_ms } => {
                 assert_eq!(name, "web_search");
-                assert_eq!(result, "Search results");
+                assert_eq!(result, Some("Search results".to_string()));
                 assert_eq!(duration_ms, 150.5);
             },
             _ => panic!("Wrong type"),
