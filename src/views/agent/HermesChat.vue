@@ -102,7 +102,7 @@
                 <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 <!-- 工具调用显示 -->
                 <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-2 space-y-1">
-                  <div v-for="tool in msg.toolCalls" :key="tool.name" class="flex items-center gap-2 text-xs">
+                  <div v-for="(tool, idx) in msg.toolCalls" :key="`${tool.name}-${idx}`" class="flex items-center gap-2 text-xs">
                     <SvgIcon name="tool" size="12" class="text-warning" />
                     <span class="text-base-content/70">{{ tool.name }}</span>
                     <span class="text-base-content/40">{{ tool.durationMs }}ms</span>
