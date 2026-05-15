@@ -188,7 +188,7 @@
 
         <!-- 消息列表 -->
         <template v-else-if="messages.length > 0">
-          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : messages)" :key="idx" class="flex gap-2">
+          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2">
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
@@ -561,6 +561,15 @@ const hermesAvailable = ref(false);
 const currentStreamingMsg = computed(() => {
   const lastMsg = messages.value[messages.value.length - 1];
   return lastMsg?.role === 'assistant' ? lastMsg : null;
+});
+
+// 用于渲染的消息列表（流式输出时跳过最后一个 assistant 消息，避免与实时气泡重复）
+const displayMessages = computed(() => {
+  if (!isStreaming.value || !currentStreamingMsg.value) {
+    return messages.value;
+  }
+  // 流式输出时，跳过最后一个 assistant 消息
+  return messages.value.slice(0, -1);
 });
 
 // 模型选择
