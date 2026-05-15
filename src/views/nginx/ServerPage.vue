@@ -321,7 +321,7 @@
                         <option :value="4">return</option>
                       </select>
                     </td>
-                    <td class="min-w-[280px]">
+                    <td>
                       <!-- proxy_pass type -->
                       <template v-if="loc.locType === 0">
                         <div class="flex flex-col gap-1.5">
