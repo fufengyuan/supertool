@@ -277,7 +277,12 @@ const refreshSessions = async () => {
   loadingSessions.value = true;
   try {
     const result = await invoke<{ sessions: Session[]; total: number }>('agent_list_sessions', { limit: 50 });
-    sessions.value = result.sessions;
+    // 按 lastActive 降序排序（最近活跃的在前）
+    sessions.value = result.sessions.sort((a, b) => {
+      const aTime = a.lastActive || a.startedAt;
+      const bTime = b.lastActive || b.startedAt;
+      return bTime - aTime;
+    });
   } catch (e) {
     console.error('Failed to list sessions:', e);
   }
@@ -381,6 +386,8 @@ const sendMessage = async () => {
 
   isStreaming.value = false;
   scrollToBottom();
+  // 自动聚焦输入框，方便继续输入
+  inputRef.value?.focus();
 };
 
 const abortChat = async () => {
@@ -396,6 +403,9 @@ const abortChat = async () => {
 
 const deleteCurrentSession = async () => {
   if (!currentSessionId.value) return;
+
+  // 简单确认对话框
+  if (!confirm('确定要删除当前会话吗？此操作不可撤销。')) return;
 
   try {
     await invoke('agent_delete_session', { sessionId: currentSessionId.value });
@@ -491,6 +501,9 @@ onMounted(async () => {
       }
     }
   }
+
+  // 自动聚焦输入框，方便立即开始对话
+  inputRef.value?.focus();
 });
 
 onUnmounted(() => {
