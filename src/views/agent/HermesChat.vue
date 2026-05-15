@@ -564,6 +564,8 @@ let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 const currentToolCalls = ref<ToolCall[]>([]);
+// 工具开始时间记录（用于计算 duration）
+const toolStartTimes = new Map<string, number>();
 
 // 自动调整输入框高度
 const adjustTextareaHeight = () => {
@@ -735,6 +737,7 @@ const sendMessage = async () => {
   streamingText.value = '';
   thinkingText.value = '';
   currentToolCalls.value = [];
+  toolStartTimes.clear();
 
   try {
     // 使用选择的模型（如果有）
@@ -1101,9 +1104,13 @@ onMounted(async () => {
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    // 工具开始，保存参数信息
+    // 工具开始，保存参数信息和开始时间
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
+    const startTime = Date.now();
+    
+    // 记录开始时间
+    toolStartTimes.set(toolName, startTime);
     
     // 添加到 currentToolCalls（状态为 running）
     currentToolCalls.value.push({
@@ -1125,18 +1132,23 @@ onMounted(async () => {
   unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
     thinkingText.value = '';
     
+    // 计算实际执行时间
+    const startTime = toolStartTimes.get(event.payload.name);
+    const durationMs = startTime ? Date.now() - startTime : event.payload.duration_ms || 0;
+    toolStartTimes.delete(event.payload.name);
+    
     // 找到对应的工具调用，更新结果和状态
     const toolCall = currentToolCalls.value.find(t => t.name === event.payload.name && t.status === 'running');
     if (toolCall) {
       toolCall.result = event.payload.result;
-      toolCall.durationMs = event.payload.duration_ms;
+      toolCall.durationMs = durationMs;
       toolCall.status = 'completed';
     } else {
       // 如果没找到 running 的，添加新的 completed
       currentToolCalls.value.push({
         name: event.payload.name,
         result: event.payload.result,
-        durationMs: event.payload.duration_ms,
+        durationMs: durationMs,
         isSubAgent: event.payload.name === 'delegate_task',
         status: 'completed',
       });

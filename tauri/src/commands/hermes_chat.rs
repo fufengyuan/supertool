@@ -589,6 +589,33 @@ mod tests {
     }
 
     #[test]
+    fn test_tool_start_message() {
+        let json = r#"{"type":"tool_start","name":"terminal","args":{"command":"ls"}}"#;
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::ToolStart { name, args } => {
+                assert_eq!(name, "terminal");
+                assert_eq!(args["command"], "ls");
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
+    fn test_tool_complete_message() {
+        let json = r#"{"type":"tool_complete","name":"terminal","result":"file1.txt\nfile2.txt","duration_ms":150}"#;
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+                assert_eq!(name, "terminal");
+                assert_eq!(result, "file1.txt\nfile2.txt");
+                assert_eq!(duration_ms, 150.0);
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    #[test]
     fn test_find_python() {
         let python = find_python();
         assert!(python == "python3" || python == "python");
