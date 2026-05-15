@@ -244,7 +244,7 @@ const messages = ref<HermesMessage[]>([]);
 // Methods
 async function checkInstalled() {
   try {
-    const result = await invoke<{ success: boolean; installed: boolean }>('hermes_installed');
+    const result = await invoke<{ success: boolean; installed: boolean }>('agent_installed');
     installed.value = result.installed;
   } catch {
     installed.value = false;
@@ -254,7 +254,7 @@ async function checkInstalled() {
 async function loadSessions() {
   loading.value = true;
   try {
-    const result = await invoke<{ success: boolean; sessions: HermesSession[] }>('hermes_list_sessions', {
+    const result = await invoke<{ success: boolean; sessions: HermesSession[] }>('agent_list_sessions', {
       limit: 50,
     });
     sessions.value = result.sessions || [];
@@ -266,7 +266,7 @@ async function loadSessions() {
 
 async function loadStats() {
   try {
-    const result = await invoke<{ success: boolean; stats: HermesStats }>('hermes_get_stats');
+    const result = await invoke<{ success: boolean; stats: HermesStats }>('agent_get_stats');
     stats.value = result.stats;
   } catch {
     stats.value = null;
@@ -328,7 +328,7 @@ async function deleteSession() {
   if (!deleteTarget.value) return;
   const targetId = deleteTarget.value.id;
   try {
-    await invoke('hermes_delete_session', { sessionId: targetId });
+    await invoke('agent_delete_session', { sessionId: targetId });
     sessions.value = sessions.value.filter(s => s.id !== targetId);
     if (stats.value) {
       stats.value.totalSessions--;

@@ -1,4 +1,4 @@
-//! Hermes Chat Bridge - communicate with Hermes Agent via Python bridge script
+//! Agent Chat Bridge - communicate with AI Agent via Python bridge script
 //!
 //! Uses stdin/stdout JSON protocol for bidirectional communication.
 //! Supports streaming text deltas via Tauri events.
@@ -138,7 +138,7 @@ fn find_python() -> String {
 /// Start a new bridge process
 fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
     let script = find_bridge_script()
-        .ok_or_else(|| "Hermes bridge script not found. Please ensure scripts/hermes_bridge.py exists.")?;
+        .ok_or_else(|| "Agent bridge script not found. Please ensure scripts/hermes_bridge.py exists.")?;
 
     let python = find_python();
 
@@ -176,7 +176,7 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
 
 /// Send chat message with streaming events
 #[tauri::command]
-pub async fn hermes_chat(
+pub async fn agent_chat(
     app: AppHandle,
     message: String,
     session_id: Option<String>,
@@ -233,23 +233,23 @@ pub async fn hermes_chat(
             BridgeMessage::Delta { text } => {
                 accumulated_text.push_str(&text);
                 // Emit event for frontend streaming display
-                app.emit("hermes-delta", &text).ok();
+                app.emit("agent-delta", &text).ok();
             }
             BridgeMessage::ToolStart { name, args } => {
-                app.emit("hermes-tool-start", serde_json::json!({
+                app.emit("agent-tool-start", serde_json::json!({
                     "name": name,
                     "args": args
                 })).ok();
             }
             BridgeMessage::ToolComplete { name, result, duration_ms } => {
-                app.emit("hermes-tool-complete", serde_json::json!({
+                app.emit("agent-tool-complete", serde_json::json!({
                     "name": name,
                     "result": result,
                     "duration_ms": duration_ms
                 })).ok();
             }
             BridgeMessage::Thinking { text } => {
-                app.emit("hermes-thinking", &text).ok();
+                app.emit("agent-thinking", &text).ok();
             }
             BridgeMessage::Done { response, session_id, message_count } => {
                 final_response = Some(response);
@@ -257,7 +257,7 @@ pub async fn hermes_chat(
                 final_message_count = message_count;
             }
             BridgeMessage::Error { message } => {
-                app.emit("hermes-error", &message).ok();
+                app.emit("agent-error", &message).ok();
                 return Err(message);
             }
             BridgeMessage::Aborted { .. } => {
@@ -293,9 +293,9 @@ pub async fn hermes_chat(
     }))
 }
 
-/// List Hermes sessions
+/// List Agent sessions
 #[tauri::command]
-pub async fn hermes_list_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
+pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
     let cmd = BridgeCommand::ListSessions { limit: limit.unwrap_or(20) };
@@ -338,7 +338,7 @@ pub async fn hermes_list_sessions(limit: Option<usize>) -> Result<serde_json::Va
 
 /// Get session messages
 #[tauri::command]
-pub async fn hermes_get_session(session_id: String) -> Result<serde_json::Value, String> {
+pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
     let cmd = BridgeCommand::GetSession { session_id };
@@ -381,7 +381,7 @@ pub async fn hermes_get_session(session_id: String) -> Result<serde_json::Value,
 
 /// Delete session
 #[tauri::command]
-pub async fn hermes_delete_session(session_id: String) -> Result<serde_json::Value, String> {
+pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
     let cmd = BridgeCommand::DeleteSession { session_id };
@@ -421,7 +421,7 @@ pub async fn hermes_delete_session(session_id: String) -> Result<serde_json::Val
 
 /// Abort current chat
 #[tauri::command]
-pub async fn hermes_abort_chat() -> Result<serde_json::Value, String> {
+pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     // Get current chat process ID
     let current_process_id = {
         let current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
@@ -436,7 +436,7 @@ pub async fn hermes_abort_chat() -> Result<serde_json::Value, String> {
         };
 
         if let Some(flag) = abort_flag {
-            // Set abort flag - this will break the read loop in hermes_chat
+/// Abort current chat - this will break the read loop in agent_chat
             flag.store(true, Ordering::SeqCst);
 
             // Also try to kill the process directly for immediate termination
@@ -468,9 +468,9 @@ pub async fn hermes_abort_chat() -> Result<serde_json::Value, String> {
     }
 }
 
-/// Check Hermes availability
+/// Check Agent availability
 #[tauri::command]
-pub async fn hermes_check_available() -> Result<serde_json::Value, String> {
+pub async fn agent_check_available() -> Result<serde_json::Value, String> {
     let script = find_bridge_script();
     let python = find_python();
     
@@ -489,7 +489,7 @@ except ImportError as e:
         .arg("-c")
         .arg(check_script)
         .output()
-        .map_err(|e| format!("Failed to check Hermes: {}", e))?;
+        .map_err(|e| format!("Failed to check Agent: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     
