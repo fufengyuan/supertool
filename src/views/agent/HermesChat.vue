@@ -91,6 +91,9 @@
           <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
             <SvgIcon name="download" size="12" />
           </button>
+          <button v-if="messages.length > 0" class="btn btn-ghost btn-xs" @click="clearMessages" title="清空消息">
+            <SvgIcon name="clear" size="12" />
+          </button>
           <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
@@ -903,6 +906,18 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     return;
   }
   
+  // Home: 滚动到顶部
+  if (e.key === 'Home' && messages.value.length > 0) {
+    scrollToTop();
+    return;
+  }
+  
+  // End: 滚动到底部
+  if (e.key === 'End' && messages.value.length > 0) {
+    scrollToBottom();
+    return;
+  }
+  
   // Escape: 如果正在编辑标题，取消编辑
   if (e.key === 'Escape' && isEditingTitle.value) {
     cancelEditTitle();
@@ -951,6 +966,22 @@ const exportSession = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+// 清空当前会话消息
+const clearMessages = () => {
+  if (messages.value.length === 0) return;
+  if (!confirm('确定清空所有消息？此操作不可撤销。')) return;
+  messages.value = [];
+};
+
+// 滚动到顶部
+const scrollToTop = () => {
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = 0;
+  }
+};
+
+// 滚动到底部（已有 scrollToBottom 函数）
 
 const deleteCurrentSession = async () => {
   if (!currentSessionId.value) return;
