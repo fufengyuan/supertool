@@ -343,8 +343,13 @@ pub async fn agent_chat(
         let msg: BridgeMessage = match serde_json::from_str(&line) {
             Ok(m) => m,
             Err(e) => {
-                // JSON 解析失败，记录日志但继续处理下一行
+                // JSON 解析失败，通知前端
                 eprintln!("[DEBUG] bridge parse error: {} - line: {}", e, line);
+                app.emit("agent-error", serde_json::json!({
+                    "type": "parse_error",
+                    "message": format!("JSON parse error: {}", e),
+                    "raw": line.chars().take(100).collect::<String>()
+                })).ok();
                 continue;
             }
         };
@@ -665,8 +670,9 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
 
             if let Some(arc_child) = process {
                 if let Some(mut child) = arc_child.lock().unwrap().take() {
-                    // Kill the Python bridge process
+                    // Kill the Python bridge process and wait to avoid zombie
                     child.kill().ok();
+                    child.wait().ok(); // 避免僵尸进程
                 }
             }
 
