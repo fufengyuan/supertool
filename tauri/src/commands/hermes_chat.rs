@@ -218,12 +218,35 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
 
     let python = find_python();
 
-    let child = Command::new(&python)
-        .arg(&script)
+    // 加载 Hermes .env 文件的环境变量
+    let hermes_env_path = dirs::home_dir()
+        .map(|h| h.join(".hermes").join(".env"))
+        .filter(|p| p.exists());
+
+    let mut cmd = Command::new(&python);
+    cmd.arg(&script)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
+        .stderr(Stdio::piped());
+
+    // 注入 Hermes 环境变量
+    if let Some(env_path) = hermes_env_path {
+        if let Ok(content) = std::fs::read_to_string(&env_path) {
+            for line in content.lines() {
+                let line = line.trim();
+                // 跳过注释和空行
+                if line.is_empty() || line.starts_with('#') {
+                    continue;
+                }
+                // 解析 KEY=VALUE
+                if let Some((key, value)) = line.split_once('=') {
+                    cmd.env(key.trim(), value.trim());
+                }
+            }
+        }
+    }
+
+    let child = cmd.spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
 
     let process_id = PROCESS_COUNTER.fetch_add(1, Ordering::SeqCst);
