@@ -322,90 +322,76 @@
                       </select>
                     </td>
                     <td>
-                      <!-- proxy_pass type -->
+                      <!-- proxy_pass type: all inline -->
                       <template v-if="loc.locType === 0">
-                        <div class="flex flex-col gap-1.5">
-                          <div class="flex items-center gap-1">
-                            <input v-model="loc.value" placeholder="http://127.0.0.1:8080" class="input input-bordered input-xs flex-1 font-mono" />
-                            <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
-                          </div>
-                          <div class="flex items-center gap-2">
-                            <select v-model="loc.upstreamId" class="select select-xs select-bordered flex-1">
-                              <option value="">无 Upstream</option>
-                              <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
-                            </select>
-                            <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-20 font-mono" />
-                          </div>
-                          <div class="flex items-center gap-3 flex-wrap">
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />
-                              WebSocket
+                        <div class="flex items-center gap-1">
+                          <input v-model="loc.value" placeholder="http://127.0.0.1:8080" class="input input-bordered input-xs w-52 font-mono" />
+                          <select v-model="loc.upstreamId" class="select select-xs select-bordered w-36">
+                            <option value="">无 Upstream</option>
+                            <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                          </select>
+                          <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-16 font-mono" />
+                          <div class="flex items-center gap-2 ml-1">
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="WebSocket">
+                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />WS
                             </label>
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />
-                              跨域 (CORS)
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="CORS">
+                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />CORS
                             </label>
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />
-                              Host 转发
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="Host 转发">
+                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />Host
                             </label>
-                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-24 font-mono" />
+                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-20 font-mono" />
                           </div>
+                          <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
                         </div>
                       </template>
-                      <!-- upstream type (same as proxy_pass) -->
+                      <!-- upstream type -->
                       <template v-else-if="loc.locType === 2">
-                        <div class="flex flex-col gap-1.5">
-                          <div class="flex items-center gap-1">
-                            <select v-model="loc.upstreamId" class="select select-xs select-bordered flex-1">
-                              <option value="">选择 Upstream</option>
-                              <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
-                            </select>
-                            <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-20 font-mono" />
-                            <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
+                        <div class="flex items-center gap-1">
+                          <select v-model="loc.upstreamId" class="select select-xs select-bordered w-36">
+                            <option value="">选择 Upstream</option>
+                            <option v-for="up in upstreams" :key="up.id" :value="up.id">{{ up.name }}</option>
+                          </select>
+                          <input v-if="loc.upstreamId" v-model="loc.upstreamPath" placeholder="/path" class="input input-bordered input-xs w-16 font-mono" />
+                          <div class="flex items-center gap-2 ml-1">
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="WebSocket">
+                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />WS
+                            </label>
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="CORS">
+                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />CORS
+                            </label>
+                            <label class="flex items-center gap-0.5 text-[11px] cursor-pointer" title="Host 转发">
+                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />Host
+                            </label>
+                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-20 font-mono" />
                           </div>
-                          <div class="flex items-center gap-3 flex-wrap">
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.websocket" class="checkbox checkbox-xs" />
-                              WebSocket
-                            </label>
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.cros" class="checkbox checkbox-xs" />
-                              跨域 (CORS)
-                            </label>
-                            <label class="flex items-center gap-1 text-xs cursor-pointer">
-                              <input type="checkbox" v-model="loc.header" class="checkbox checkbox-xs" />
-                              Host 转发
-                            </label>
-                            <input v-if="loc.header" v-model="loc.headerHost" placeholder="$host" class="input input-bordered input-xs w-24 font-mono" />
-                          </div>
+                          <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
                         </div>
                       </template>
                       <!-- root type -->
                       <template v-else-if="loc.locType === 1">
                         <div class="flex items-center gap-1">
-                          <select v-model="loc.rootType" class="select select-xs select-bordered w-16">
+                          <select v-model="loc.rootType" class="select select-xs select-bordered w-14">
                             <option value="root">root</option>
                             <option value="alias">alias</option>
                           </select>
-                          <input v-model="loc.rootPath" placeholder="/var/www/html" class="input input-bordered input-xs flex-1 font-mono" />
+                          <input v-model="loc.rootPath" placeholder="/var/www/html" class="input input-bordered input-xs w-48 font-mono" />
+                          <input v-model="loc.rootPage" placeholder="index.html" class="input input-bordered input-xs w-36 font-mono" />
                           <button @click="openLocationParams(idx)" class="btn btn-ghost btn-xs btn-square" title="额外参数"><SvgIcon name="menu" size="12" /></button>
-                        </div>
-                        <div class="mt-1">
-                          <input v-model="loc.rootPage" placeholder="index.html index.htm" class="input input-bordered input-xs w-full font-mono" />
                         </div>
                       </template>
                       <!-- return type -->
                       <template v-else-if="loc.locType === 4">
                         <div class="flex items-center gap-1">
-                          <select v-model="loc.value" class="select select-xs select-bordered w-16">
+                          <select v-model="loc.value" class="select select-xs select-bordered w-14">
                             <option value="301">301</option>
                             <option value="302">302</option>
                             <option value="307">307</option>
                             <option value="308">308</option>
                           </select>
-                          <input v-model="loc.returnUrl" placeholder="https://example.com$request_uri" class="input input-bordered input-xs flex-1 font-mono" />
-                          <label class="flex items-center gap-1 text-xs cursor-pointer shrink-0">
+                          <input v-model="loc.returnUrl" placeholder="https://example.com$request_uri" class="input input-bordered input-xs w-80 font-mono" />
+                          <label class="flex items-center gap-0.5 text-[11px] cursor-pointer shrink-0">
                             <input type="checkbox" v-model="loc.returnPath" class="checkbox checkbox-xs" />
                             追加路径
                           </label>
@@ -413,7 +399,7 @@
                         </div>
                       </template>
                       <!-- blank -->
-                      <span v-else class="text-xs text-base-content/40">无配置</span>
+                      <span v-else class="text-xs text-base-content/40">—</span>
                     </td>
                     <td>
                       <div class="flex items-center gap-0.5 justify-center">
