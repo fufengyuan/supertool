@@ -329,6 +329,12 @@ pub async fn agent_chat(
                 app.emit("agent-thinking", &text).ok();
             }
             BridgeMessage::Done { response, session_id, message_count } => {
+                // 立即发送 agent-done 事件，让前端恢复状态
+                app.emit("agent-done", serde_json::json!({
+                    "response": response,
+                    "session_id": session_id,
+                    "message_count": message_count,
+                })).ok();
                 final_response = response;
                 final_session_id = Some(session_id);
                 final_message_count = message_count;

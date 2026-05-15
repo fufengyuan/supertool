@@ -647,6 +647,7 @@ let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
+let unlistenDone: UnlistenFn | null = null;
 const currentToolCalls = ref<ToolCall[]>([]);
 // 工具开始时间记录（用于计算 duration）
 const toolStartTimes = new Map<string, number>();
@@ -1479,6 +1480,16 @@ onMounted(async () => {
     streamingText.value += `\n[错误: ${event.payload}]`;
   });
 
+  // 流式结束事件 - 立即恢复状态
+  unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
+    // 清空临时状态
+    thinkingText.value = '';
+    // 不清空 streamingText，让 sendMessage 处理最终消息
+    // 立即恢复 UI 状态
+    isStreaming.value = false;
+    scrollToBottom();
+  });
+
   // 初始化
   await checkHermes();
   await refreshSessions();
@@ -1525,6 +1536,7 @@ onUnmounted(() => {
   unlistenToolComplete?.();
   unlistenThinking?.();
   unlistenError?.();
+  unlistenDone?.();
   // 移除快捷键监听
   document.removeEventListener('keydown', handleGlobalKeydown);
 });
