@@ -938,7 +938,13 @@ const sendMessage = async () => {
 
 // 重试发送消息
 const retryMessage = async (retryContent: string) => {
-  if (isStreaming.value || !retryContent.trim()) return;
+  if (!retryContent.trim()) return;
+
+  // 如果正在处理，先打断当前处理
+  if (isStreaming.value) {
+    await abortChat();
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
 
   // 移除最后一条错误消息
   if (messages.value.length > 0 && messages.value[messages.value.length - 1].isError) {
