@@ -753,6 +753,7 @@ fn main() {
             commands::hermes_chat::agent_list_sessions,
             commands::hermes_chat::agent_get_session,
             commands::hermes_chat::agent_delete_session,
+            commands::hermes_chat::agent_rename_session,
             commands::hermes_chat::agent_abort_chat,
             commands::hermes_chat::agent_check_available,
         ])

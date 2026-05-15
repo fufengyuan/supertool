@@ -351,6 +351,32 @@ def _handle_delete_session(params: Dict[str, Any]) -> None:
         _output({"type": "error", "message": str(e)})
 
 
+def _handle_rename_session(params: Dict[str, Any]) -> None:
+    """Handle rename_session action."""
+    if not HERMES_AVAILABLE:
+        _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
+        return
+
+    session_id = params.get("session_id")
+    title = params.get("title")
+    if not session_id or not title:
+        _output({"type": "error", "message": "Missing 'session_id' or 'title' field"})
+        return
+
+    try:
+        session_db = _ensure_session_db()
+        # Resolve short ID
+        resolved_id = session_db.resolve_resume_session_id(session_id)
+        if resolved_id:
+            session_id = resolved_id
+
+        session_db.set_session_title(session_id, title)
+        _output({"type": "renamed", "session_id": session_id, "title": title})
+
+    except Exception as e:
+        _output({"type": "error", "message": str(e)})
+
+
 def _handle_abort(params: Dict[str, Any]) -> None:
     """Handle abort action."""
     global _abort_flag, _current_agent
@@ -372,6 +398,7 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
         "list_sessions": _handle_list_sessions,
         "get_session": _handle_get_session,
         "delete_session": _handle_delete_session,
+        "rename_session": _handle_rename_session,
         "abort": _handle_abort,
     }
 
