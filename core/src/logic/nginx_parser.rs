@@ -39,6 +39,7 @@ pub struct ParsedUpstream {
     pub strategy: String,
     pub descr: String,
     pub servers: Vec<ParsedUpstreamServer>,
+    pub extra_params: Vec<ParsedParamEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,6 +53,14 @@ pub struct ParsedUpstreamServer {
     pub backup: bool,
     pub down: bool,
     pub param: String,
+}
+
+/// An unrecognized directive captured as an extra parameter entry.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ParsedParamEntry {
+    pub name: String,
+    pub value: String,
+    pub position: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -78,6 +87,7 @@ pub struct ParsedServer {
     pub proxy_upstream_id: String,
     pub descr: String,
     pub locations: Vec<ParsedLocation>,
+    pub extra_params: Vec<ParsedParamEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +103,7 @@ pub struct ParsedLocation {
     pub cros: bool,
     pub return_url: String,
     pub descr: String,
+    pub extra_params: Vec<ParsedParamEntry>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -423,6 +434,7 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
     let mut strategy = String::new();
     let mut descr = String::new();
     let mut servers = Vec::new();
+    let mut extra_params: Vec<ParsedParamEntry> = Vec::new();
 
     for child in &d.block {
         if child.name == "server" && !child.is_block {
@@ -495,6 +507,14 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
             strategy = "least_time".to_string();
         } else if child.name.starts_with('#') {
             // Comment-like directives (not standard, but we can store descr)
+        } else if child.name != "ip_hash" && child.name != "least_conn" && child.name != "random" && child.name != "sticky" && child.name != "least_time" {
+            // Capture unrecognized upstream directives as extra params
+            let value = child.args.join(" ");
+            extra_params.push(ParsedParamEntry {
+                name: child.name.clone(),
+                value,
+                position: 0,
+            });
         }
     }
 
@@ -503,6 +523,7 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
         strategy,
         descr,
         servers,
+        extra_params,
     })
 }
 
@@ -534,6 +555,7 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
         proxy_upstream_id: String::new(),
         descr: String::new(),
         locations: Vec::new(),
+        extra_params: Vec::new(),
     };
 
     for child in &d.block {
@@ -669,7 +691,14 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                     }
                 }
             }
-            _ => {}
+            _ => {
+                let value = child.args.join(" ");
+                srv.extra_params.push(ParsedParamEntry {
+                    name: child.name.clone(),
+                    value,
+                    position: 0,
+                });
+            }
         }
     }
 
@@ -704,6 +733,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
         cros: false,
         return_url: String::new(),
         descr: String::new(),
+        extra_params: Vec::new(),
     };
 
     for child in &d.block {
@@ -749,7 +779,16 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
             }
             "proxy_set_body" => {}
             "add_header" => {}
-            _ => {}
+            _ => {
+                let value = child.args.join(" ");
+                if !value.is_empty() {
+                    loc.extra_params.push(ParsedParamEntry {
+                        name: child.name.clone(),
+                        value,
+                        position: 0,
+                    });
+                }
+            }
         }
     }
 
