@@ -440,6 +440,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import { markedHighlight } from 'marked-highlight';
 import javascript from 'highlight.js/lib/languages/javascript';
+import { getTauriAPI } from '../../utils/tauri-api';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
@@ -660,6 +661,17 @@ let unlistenError: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
 // 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
 let lastAssistantRoundEnded = false;
+
+// 调试日志函数（同时输出到 console 和日志文件）
+const agentLog = async (message: string) => {
+  console.log(message);
+  try {
+    const api = getTauriAPI();
+    await api.writeSystemLog('debug', 'agent-chat', message);
+  } catch (e) {
+    // 忽略日志写入失败
+  }
+};
 
 // 自动调整输入框高度
 const adjustTextareaHeight = () => {
@@ -1403,7 +1415,7 @@ onMounted(async () => {
   
 // 监听流式事件
   unlistenDelta = await listen<string | null>('agent-delta', (event) => {
-    console.log('[agent-delta] 收到事件:', event.payload);
+    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.slice(0, 50)));
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
     
@@ -1411,7 +1423,7 @@ onMounted(async () => {
       // 查找最后一个 assistant 消息
       const messagesCopy = [...messages.value].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-      console.log('[agent-delta] 当前 assistant 消息:', currentMsg ? '存在' : '不存在', 'lastAssistantRoundEnded:', lastAssistantRoundEnded);
+      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded);
       
       // 如果没有 assistant 消息，或上一轮已结束，创建新消息
       if (!currentMsg || lastAssistantRoundEnded) {
@@ -1424,20 +1436,19 @@ onMounted(async () => {
         };
         messages.value.push(currentMsg);
         lastAssistantRoundEnded = false;
-        console.log('[agent-delta] 创建新 assistant 消息, messages.length:', messages.value.length);
+        void agentLog('[agent-delta] 创建新 assistant 消息, messages.length: ' + messages.value.length);
       }
       
       // 添加 delta 内容
       if (currentMsg) {
         currentMsg.content = (currentMsg.content || '') + event.payload;
-        console.log('[agent-delta] 添加内容, currentMsg.content 长度:', currentMsg.content?.length);
       }
       scrollToBottom();
     }
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    console.log('[agent-tool-start] 收到事件:', event.payload);
+    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload));
     // 工具开始
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
@@ -1445,7 +1456,7 @@ onMounted(async () => {
     // 获取当前消息（如果没有 assistant 消息，创建一个）
     const messagesCopy = [...messages.value].reverse();
     let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-    console.log('[agent-tool-start] 当前 assistant 消息:', currentMsg ? '存在' : '不存在');
+    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在'));
     
     if (!currentMsg) {
       currentMsg = {
@@ -1456,7 +1467,7 @@ onMounted(async () => {
         toolCalls: [],
       };
       messages.value.push(currentMsg);
-      console.log('[agent-tool-start] 创建新 assistant 消息, messages.length:', messages.value.length);
+      void agentLog('[agent-tool-start] 创建新 assistant 消息, messages.length: ' + messages.value.length);
     }
     
     // 确保 toolCalls 数组存在
@@ -1472,7 +1483,7 @@ onMounted(async () => {
       isSubAgent,
       status: 'running',
     });
-    console.log('[agent-tool-start] 添加工具调用:', toolName, 'toolCalls.length:', currentMsg.toolCalls.length);
+    void agentLog('[agent-tool-start] 添加工具调用: ' + toolName + ' toolCalls.length: ' + currentMsg.toolCalls.length);
     
     // 显示提示
     if (isSubAgent) {
@@ -1484,13 +1495,13 @@ onMounted(async () => {
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
-    console.log('[agent-tool-complete] 收到事件:', event.payload);
+    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({name: event.payload.name, duration_ms: event.payload.duration_ms}));
     thinkingText.value = '';
     
     // 获取当前 assistant 消息
     const messagesCopy = [...messages.value].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
-    console.log('[agent-tool-complete] 当前 assistant 消息:', currentMsg ? '存在' : '不存在', 'toolCalls:', currentMsg?.toolCalls?.length);
+    void agentLog('[agent-tool-complete] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + ' toolCalls: ' + (currentMsg?.toolCalls?.length || 0));
     
     if (currentMsg && currentMsg.toolCalls) {
       const toolCall = currentMsg.toolCalls.find(
@@ -1500,15 +1511,15 @@ onMounted(async () => {
         toolCall.result = event.payload.result ?? '';
         toolCall.durationMs = event.payload.duration_ms || 0;
         toolCall.status = 'completed';
-        console.log('[agent-tool-complete] 更新工具调用:', event.payload.name, 'status: completed');
+        void agentLog('[agent-tool-complete] 更新工具调用: ' + event.payload.name + ' status: completed');
       } else {
-        console.log('[agent-tool-complete] 未找到匹配的 running 工具调用');
+        void agentLog('[agent-tool-complete] 未找到匹配的 running 工具调用');
       }
     }
     
     // 标记当前轮次结束（下一次 delta 将创建新消息）
     lastAssistantRoundEnded = true;
-    console.log('[agent-tool-complete] 设置 lastAssistantRoundEnded = true');
+    void agentLog('[agent-tool-complete] 设置 lastAssistantRoundEnded = true');
     scrollToBottom();
   });
 
@@ -1521,23 +1532,24 @@ onMounted(async () => {
   });
 
   unlistenError = await listen<string>('agent-error', (event) => {
+    void agentLog('[agent-error] 收到事件: ' + event.payload);
     thinkingText.value = '';
     const messagesCopy = [...messages.value].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
     if (currentMsg) {
-      currentMsg.content += `\n[错误: ${event.payload}]`;
+      currentMsg.content = (currentMsg.content || '') + `\n[错误: ${event.payload}]`;
     }
   });
 
   // 流式结束事件
   unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
-    console.log('[agent-done] 收到事件:', event.payload);
+    void agentLog('[agent-done] 收到事件: ' + JSON.stringify(event.payload));
     // 清空思考动画
     thinkingText.value = '';
     
     // 清空流式状态
     lastAssistantRoundEnded = false;
-    console.log('[agent-done] messages.length:', messages.value.length, '最后一条:', messages.value[messages.value.length - 1]?.role);
+    void agentLog('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
     
     // 恢复 UI 状态
     isStreaming.value = false;
