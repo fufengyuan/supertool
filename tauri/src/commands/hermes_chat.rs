@@ -70,31 +70,36 @@ pub enum BridgeMessage {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct SessionInfo {
+    #[serde(rename = "id")]
     pub id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "title", alias = "title", skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(rename = "model")]
     pub model: String,
+    #[serde(rename = "source")]
     pub source: String,
+    #[serde(rename = "startedAt", alias = "started_at", skip_serializing_if = "Option::is_none")]
     pub started_at: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "endedAt", alias = "ended_at", skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<f64>,
+    #[serde(rename = "messageCount", alias = "message_count")]
     pub message_count: usize,
+    #[serde(rename = "preview")]
     pub preview: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "lastActive", alias = "last_active", skip_serializing_if = "Option::is_none")]
     pub last_active: Option<f64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct MessageInfo {
+    #[serde(rename = "role")]
     pub role: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "timestamp", alias = "timestamp", skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "toolName", alias = "tool_name", skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
 }
 
@@ -542,5 +547,258 @@ mod tests {
     fn test_find_python() {
         let python = find_python();
         assert!(python == "python3" || python == "python");
+    }
+
+    /// 测试 SessionInfo 可以解析 Python bridge 返回的 snake_case 格式
+    #[test]
+    fn test_session_info_deserialize_snake_case() {
+        // Python bridge 返回的格式（snake_case）
+        let json = r#"{
+            "id": "test-123",
+            "title": "Test Session",
+            "model": "claude-sonnet-4",
+            "source": "anthropic",
+            "started_at": 1778752839.745,
+            "ended_at": null,
+            "message_count": 5,
+            "preview": "Hello world",
+            "last_active": 1778752900.0
+        }"#;
+        
+        let session: SessionInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(session.id, "test-123");
+        assert_eq!(session.title, Some("Test Session".to_string()));
+        assert_eq!(session.model, "claude-sonnet-4");
+        assert_eq!(session.source, "anthropic");
+        assert_eq!(session.message_count, 5);
+        assert_eq!(session.preview, "Hello world");
+    }
+
+    /// 测试 SessionInfo 也可以解析 camelCase 格式
+    #[test]
+    fn test_session_info_deserialize_camel_case() {
+        let json = r#"{
+            "id": "test-456",
+            "title": "Another Session",
+            "model": "claude-opus-4",
+            "source": "anthropic",
+            "startedAt": 1778752839.745,
+            "endedAt": 1778752900.0,
+            "messageCount": 10,
+            "preview": "Another preview",
+            "lastActive": 1778752950.0
+        }"#;
+        
+        let session: SessionInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(session.id, "test-456");
+        assert_eq!(session.message_count, 10);
+    }
+
+    /// 测试 SessionInfo 序列化输出为 camelCase（前端期望格式）
+    #[test]
+    fn test_session_info_serialize_camel_case() {
+        let session = SessionInfo {
+            id: "test-789".to_string(),
+            title: Some("My Session".to_string()),
+            model: "claude-sonnet-4".to_string(),
+            source: "anthropic".to_string(),
+            started_at: Some(1778752839.745),
+            ended_at: None,
+            message_count: 3,
+            preview: "Test message".to_string(),
+            last_active: Some(1778752900.0),
+        };
+        
+        let json = serde_json::to_string(&session).unwrap();
+        // 输出必须是 camelCase
+        assert!(json.contains("\"messageCount\":3"));
+        assert!(json.contains("\"startedAt\":"));
+        assert!(json.contains("\"lastActive\":"));
+        // 不应出现 snake_case
+        assert!(!json.contains("message_count"));
+        assert!(!json.contains("started_at"));
+    }
+
+    /// 测试 MessageInfo 解析 snake_case
+    #[test]
+    fn test_message_info_deserialize_snake_case() {
+        let json = r#"{
+            "role": "user",
+            "content": "Hello",
+            "timestamp": 1778752839.0,
+            "tool_name": null
+        }"#;
+        
+        let msg: MessageInfo = serde_json::from_str(json).unwrap();
+        assert_eq!(msg.role, "user");
+        assert_eq!(msg.content, Some("Hello".to_string()));
+    }
+
+    /// 测试 MessageInfo 序列化为 camelCase
+    #[test]
+    fn test_message_info_serialize_camel_case() {
+        let msg = MessageInfo {
+            role: "assistant".to_string(),
+            content: Some("Response".to_string()),
+            timestamp: Some(1778752839.0),
+            tool_name: Some("web_search".to_string()),
+        };
+        
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("\"toolName\":\"web_search\""));
+        assert!(!json.contains("tool_name"));
+    }
+
+    /// 测试 BridgeMessage::Sessions 解析
+    #[test]
+    fn test_sessions_response_deserialize() {
+        let json = r#"{
+            "type": "sessions",
+            "data": [
+                {
+                    "id": "sess-1",
+                    "title": "First",
+                    "model": "claude-sonnet-4",
+                    "source": "anthropic",
+                    "started_at": 1778752839.0,
+                    "message_count": 2,
+                    "preview": "Preview text"
+                }
+            ],
+            "total": 1
+        }"#;
+        
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Sessions { data, total } => {
+                assert_eq!(total, 1);
+                assert_eq!(data.len(), 1);
+                assert_eq!(data[0].id, "sess-1");
+                assert_eq!(data[0].message_count, 2);
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::Session 解析
+    #[test]
+    fn test_session_response_deserialize() {
+        let json = r#"{
+            "type": "session",
+            "session_id": "sess-123",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Hello",
+                    "timestamp": 1778752839.0
+                }
+            ]
+        }"#;
+        
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Session { session_id, messages } => {
+                assert_eq!(session_id, "sess-123");
+                assert_eq!(messages.len(), 1);
+                assert_eq!(messages[0].role, "user");
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试实际调用 Python bridge 获取会话列表
+    #[test]
+    fn test_real_list_sessions_via_bridge() {
+        // 检查 bridge script 是否存在
+        let script = find_bridge_script();
+        if script.is_none() {
+            // 如果脚本不存在，跳过此测试
+            eprintln!("Skipping: bridge script not found");
+            return;
+        }
+
+        let python = find_python();
+        let script_path = script.unwrap();
+        
+        // 发送 list_sessions 命令
+        let cmd = BridgeCommand::ListSessions { limit: 5 };
+        let cmd_json = serde_json::to_string(&cmd).unwrap();
+        
+        let output = std::process::Command::new(&python)
+            .arg(&script_path)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn();
+        
+        if output.is_err() {
+            eprintln!("Skipping: cannot spawn Python bridge");
+            return;
+        }
+        
+        let mut child = output.unwrap();
+        
+        // 写入命令
+        if let Some(stdin) = child.stdin.as_mut() {
+            use std::io::Write;
+            stdin.write_all(cmd_json.as_bytes()).unwrap();
+            stdin.write_all(b"\n").unwrap();
+        }
+        
+        // 读取响应
+        let result = child.wait_with_output().unwrap();
+        let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
+        
+        // 解析响应
+        if stdout.is_empty() {
+            eprintln!("Skipping: empty response from bridge");
+            return;
+        }
+        
+        let msg: BridgeMessage = serde_json::from_str(&stdout).unwrap_or_else(|e| {
+            panic!("Failed to parse bridge response: {} - stdout: {}", e, stdout);
+        });
+        
+        match msg {
+            BridgeMessage::Sessions { data, total } => {
+                // 验证返回数据格式正确
+                println!("Got {} sessions (total: {})", data.len(), total);
+                for s in &data {
+                    println!("  Session: {} - {} messages", s.id, s.message_count);
+                    assert!(!s.id.is_empty());
+                    assert!(!s.model.is_empty());
+                }
+            },
+            BridgeMessage::Error { message } => {
+                // Hermes 未安装是可接受的错误
+                if message.contains("Hermes not available") {
+                    eprintln!("Skipping: Hermes not installed");
+                } else {
+                    panic!("Unexpected error: {}", message);
+                }
+            },
+            _ => panic!("Unexpected response type"),
+        }
+    }
+
+    /// 测试 agent_check_available 实际调用
+    #[test]
+    fn test_real_check_available() {
+        // 在 tokio runtime 中执行异步函数
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(agent_check_available());
+        
+        match result {
+            Ok(json) => {
+                println!("Check available result: {}", serde_json::to_string_pretty(&json).unwrap());
+                // 验证返回格式
+                assert!(json.get("available").is_some());
+                assert!(json.get("python").is_some());
+            },
+            Err(e) => {
+                // 路径问题可能导致错误，但不应该 crash
+                eprintln!("Check available failed: {}", e);
+            }
+        }
     }
 }
