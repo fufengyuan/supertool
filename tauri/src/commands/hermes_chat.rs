@@ -857,12 +857,12 @@ mod tests {
         let script = find_bridge_script().expect("Bridge script should exist");
         let python = find_python();
         
-        // 发送一个简单的测试消息
+        // 发送一个简单的测试消息，不指定模型让 Hermes 从配置读取默认模型
         let cmd = BridgeCommand::Chat {
             session_id: None,
-            message: "请回复：你好，世界".to_string(),
-            model: Some("anthropic/claude-sonnet-4".to_string()),
-            toolsets: None, // 不启用任何工具，加快响应
+            message: "你好，请用一句话介绍你自己".to_string(),
+            model: None, // 使用配置中的默认模型
+            toolsets: None,
         };
         let cmd_json = serde_json::to_string(&cmd).unwrap();
         println!("Sending chat command: {}", cmd_json);
