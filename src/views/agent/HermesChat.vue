@@ -183,54 +183,91 @@
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-3 space-y-2">
                     <div v-for="(tool, tIdx) in msg.toolCalls" :key="`${tool.name}-${tIdx}`">
                       <!-- 子 Agent 卡片（特殊样式） -->
-                      <div v-if="tool.isSubAgent" class="collapse collapse-arrow bg-info/10 border border-info/20 rounded-lg">
-                        <input 
-                          type="checkbox" 
-                          :checked="isToolCallExpanded(`${idx}-${tIdx}`)"
-                          @change="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                        />
-                        <div class="collapse-title text-xs font-medium flex items-center gap-2">
-                          <SvgIcon name="bot" size="14" class="text-info" />
-                          <span class="text-info">子 Agent</span>
-                          <span class="text-base-content/40 ml-auto">{{ tool.durationMs }}ms</span>
+                      <div v-if="tool.isSubAgent" class="bg-info/10 border border-info/20 rounded-lg">
+                        <!-- 外层：工具名 + 参数摘要 -->
+                        <div 
+                          class="px-3 py-2 cursor-pointer hover:bg-info/15 transition-colors"
+                          @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                        >
+                          <div class="flex items-center gap-2">
+                            <SvgIcon name="bot" size="14" class="text-info" />
+                            <span class="text-info text-xs font-medium">子 Agent</span>
+                            <span class="text-base-content/50 text-xs">
+                              {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 50) + '...' : '执行任务' }}
+                            </span>
+                            <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1">
+                              <SvgIcon name="check" size="10" />完成
+                            </span>
+                            <span v-else-if="tool.status === 'running'" class="badge badge-xs badge-warning gap-1 animate-pulse">
+                              <SvgIcon name="refresh" size="10" />运行
+                            </span>
+                            <span v-else-if="tool.status === 'error'" class="badge badge-xs badge-error gap-1">
+                              <SvgIcon name="close" size="10" />失败
+                            </span>
+                            <SvgIcon 
+                              :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
+                              size="12" 
+                              class="text-base-content/40 ml-auto"
+                            />
+                          </div>
                         </div>
-                        <div class="collapse-content bg-info/5 text-xs">
+                        <!-- 折叠内容：详细结果 -->
+                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-info/5 border-t border-info/15 text-xs">
                           <!-- 任务参数 -->
                           <div v-if="tool.args" class="mb-2">
-                            <span class="text-base-content/60">任务：</span>
-                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            <span class="text-base-content/60">参数：</span>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 执行结果 -->
                           <div v-if="tool.result" class="mt-2">
-                            <span class="text-base-content/60">输出：</span>
+                            <span class="text-base-content/60">结果：</span>
                             <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs whitespace-pre-wrap">{{ tool.result }}</div>
                           </div>
-                          <div v-else class="text-base-content/40">等待执行...</div>
                         </div>
                       </div>
                       
                       <!-- 普通工具卡片 -->
-                      <div v-else class="collapse collapse-arrow bg-warning/5 border border-warning/10 rounded-lg">
-                        <input 
-                          type="checkbox" 
-                          :checked="isToolCallExpanded(`${idx}-${tIdx}`)"
-                          @change="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                        />
-                        <div class="collapse-title text-xs flex items-center gap-2">
-                          <SvgIcon name="tool" size="12" class="text-warning" />
-                          <span class="text-warning font-medium">{{ tool.name }}</span>
-                          <span class="text-base-content/40 ml-auto">{{ tool.durationMs }}ms</span>
+                      <div v-else class="bg-warning/5 border border-warning/10 rounded-lg">
+                        <!-- 外层：工具名 + 参数摘要 -->
+                        <div 
+                          class="px-3 py-2 cursor-pointer hover:bg-warning/10 transition-colors"
+                          @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                        >
+                          <div class="flex items-center gap-2">
+                            <SvgIcon name="tool" size="12" class="text-warning" />
+                            <span class="text-warning text-xs font-medium">{{ tool.name }}</span>
+                            <!-- 参数摘要：显示关键参数的一行摘要 -->
+                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/50 text-xs truncate max-w-[200px]">
+                              {{ formatArgsSummary(tool.args) }}
+                            </span>
+                            <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1 ml-auto">
+                              <SvgIcon name="check" size="10" />完成
+                            </span>
+                            <span v-else-if="tool.status === 'running'" class="badge badge-xs badge-warning gap-1 ml-auto animate-pulse">
+                              <SvgIcon name="refresh" size="10" />运行
+                            </span>
+                            <span v-else-if="tool.status === 'error'" class="badge badge-xs badge-error gap-1 ml-auto">
+                              <SvgIcon name="close" size="10" />失败
+                            </span>
+                            <SvgIcon 
+                              v-else
+                              :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
+                              size="12" 
+                              class="text-base-content/40 ml-auto"
+                            />
+                          </div>
                         </div>
-                        <div class="collapse-content bg-warning/5 text-xs">
+                        <!-- 折叠内容：详细结果 -->
+                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-warning/5 border-t border-warning/15 text-xs">
                           <!-- 参数 -->
-                          <div v-if="tool.args" class="mb-1">
+                          <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-2">
                             <span class="text-base-content/60">参数：</span>
-                            <pre class="bg-base-200 rounded p-1 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 结果 -->
-                          <div v-if="tool.result" class="mt-1">
+                          <div v-if="tool.result" class="mt-2">
                             <span class="text-base-content/60">结果：</span>
-                            <pre class="bg-base-200 rounded p-1 mt-1 overflow-auto text-xs max-h-32">{{ tool.result }}</pre>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-48 whitespace-pre-wrap">{{ tool.result }}</pre>
                           </div>
                         </div>
                       </div>
@@ -278,10 +315,12 @@
               
               <!-- 当前运行中的工具 -->
               <div v-if="currentToolCalls && currentToolCalls.length > 0" class="mt-2 space-y-1">
-                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs">
+                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-warning/10 rounded px-2 py-1">
                   <SvgIcon v-if="tool.isSubAgent" name="bot" size="12" class="text-info animate-pulse" />
                   <SvgIcon v-else name="tool" size="12" class="text-warning animate-pulse" />
-                  <span class="text-base-content/60">{{ tool.isSubAgent ? '子 Agent 处理中...' : `${tool.name} 执行中...` }}</span>
+                  <span class="text-warning font-medium">{{ tool.name }}</span>
+                  <span v-if="tool.args" class="text-base-content/50 truncate max-w-[150px]">{{ formatArgsSummary(tool.args) }}</span>
+                  <span class="text-base-content/40 ml-auto">执行中...</span>
                 </div>
               </div>
             </div>
@@ -601,6 +640,30 @@ const sourceIcon = (source: string) => {
     cron: 'clock',
   };
   return icons[source] || 'chat';
+};
+
+// 格式化工具参数摘要（显示关键参数的一行）
+const formatArgsSummary = (args: Record<string, unknown>): string => {
+  if (!args || typeof args !== 'object') return '';
+  
+  // 优先显示的关键参数名
+  const priorityKeys = ['path', 'url', 'message', 'query', 'command', 'file', 'text', 'pattern', 'name', 'target'];
+  
+  for (const key of priorityKeys) {
+    if (args[key]) {
+      const value = String(args[key]);
+      return `${key}: ${value.length > 40 ? value.slice(0, 40) + '...' : value}`;
+    }
+  }
+  
+  // 没有优先参数，显示第一个参数
+  const firstKey = Object.keys(args)[0];
+  if (firstKey) {
+    const value = String(args[firstKey]);
+    return `${firstKey}: ${value.length > 40 ? value.slice(0, 40) + '...' : value}`;
+  }
+  
+  return '';
 };
 
 // Markdown 渲染函数 - 添加代码块复制按钮
