@@ -78,6 +78,10 @@
           <span v-if="currentSession" class="badge badge-ghost badge-xs">
             {{ currentSession.model }}
           </span>
+          <!-- 会话统计 -->
+          <span v-if="messages.length > 0" class="text-xs text-base-content/40">
+            {{ sessionStats.totalMessages }} 条消息
+          </span>
         </div>
         <div class="flex items-center gap-2">
           <button v-if="isStreaming" class="btn btn-error btn-xs gap-1" @click="abortChat">
@@ -139,7 +143,9 @@
               </div>
               <div class="flex-1">
                 <div class="bg-base-200 rounded-xl px-3 py-2">
-                  <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
+                  <!-- 搜索时高亮显示 -->
+                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
+                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
                 <!-- 消息时间和操作按钮 -->
                 <div class="flex items-center gap-2 mt-1">
@@ -274,17 +280,33 @@
 
         <!-- 正常输入 -->
         <div v-else class="space-y-2">
-          <!-- 模型选择和引用消息显示 -->
+          <!-- 模型选择、工具集和引用消息显示 -->
           <div class="flex items-center justify-between">
-            <!-- 模型选择 -->
-            <select
-              v-model="selectedModel"
-              class="select select-bordered select-xs w-auto"
-              :disabled="isStreaming"
-            >
-              <option value="">默认模型</option>
-              <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
-            </select>
+            <div class="flex items-center gap-2">
+              <!-- 模型选择 -->
+              <select
+                v-model="selectedModel"
+                class="select select-bordered select-xs w-auto"
+                :disabled="isStreaming"
+              >
+                <option value="">默认模型</option>
+                <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
+              </select>
+              <!-- 工具集选择 -->
+              <div class="flex items-center gap-1">
+                <button
+                  v-for="toolset in availableToolsets"
+                  :key="toolset"
+                  class="btn btn-xs"
+                  :class="selectedToolsets.includes(toolset) ? 'btn-primary' : 'btn-ghost'"
+                  @click="toggleToolset(toolset)"
+                  :disabled="isStreaming"
+                  :title="toolsetLabels[toolset]"
+                >
+                  {{ toolsetLabels[toolset] }}
+                </button>
+              </div>
+            </div>
             <!-- 引用消息提示 -->
             <div v-if="quotedMessage" class="flex items-center gap-1 text-xs text-base-content/60">
               <SvgIcon name="quote" size="12" />
@@ -321,7 +343,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -383,6 +405,7 @@ interface Message {
   toolCalls?: { name: string; durationMs: number }[];
   isError?: boolean; // 是否是错误消息
   retryContent?: string; // 用于重试的原始消息内容
+  tokens?: { input: number; output: number }; // token 使用量
 }
 
 // Raw message from backend (matches MessageInfo in Rust)
@@ -418,6 +441,33 @@ const availableModels = ref([
   'claude-opus-4',
 ]);
 const quotedMessage = ref<string | null>(null); // 引用的消息
+
+// 工具集选择
+const availableToolsets = ref([
+  'web',       // 网络搜索
+  'terminal',  // 终端命令
+  'file',      // 文件操作
+  'browser',   // 浏览器操作
+  'vision',    // 图像分析
+]);
+const selectedToolsets = ref<string[]>([]);
+const toolsetLabels: Record<string, string> = {
+  web: '搜索',
+  terminal: '终端',
+  file: '文件',
+  browser: '浏览器',
+  vision: '图像',
+};
+
+// 切换工具集选择
+const toggleToolset = (toolset: string) => {
+  const index = selectedToolsets.value.indexOf(toolset);
+  if (index === -1) {
+    selectedToolsets.value.push(toolset);
+  } else {
+    selectedToolsets.value.splice(index, 1);
+  }
+};
 
 // 搜索状态
 const searchQuery = ref('');
@@ -634,12 +684,14 @@ const sendMessage = async () => {
   try {
     // 使用选择的模型（如果有）
     const modelToUse = selectedModel.value || null;
+    // 使用选择的工具集（如果有）
+    const toolsetsToUse = selectedToolsets.value.length > 0 ? selectedToolsets.value : null;
     
     const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message: text,
       sessionId: currentSessionId.value,
       model: modelToUse,
-      toolsets: null,
+      toolsets: toolsetsToUse,
     });
 
     // 更新 session ID
@@ -716,6 +768,32 @@ const copyMessageContent = async (content: string | null) => {
     console.error('Copy failed:', e);
   }
 };
+
+// 高亮搜索匹配文本
+const highlightText = (text: string | null, query: string): string => {
+  if (!text || !query.trim()) return text || '';
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(escapedQuery, 'gi');
+  return text.replace(regex, '<mark class="bg-warning/30 text-inherit px-0.5 rounded">$&</mark>');
+};
+
+// 计算会话统计
+const sessionStats = computed(() => {
+  const userMessages = messages.value.filter(m => m.role === 'user');
+  const assistantMessages = messages.value.filter(m => m.role === 'assistant');
+  
+  const totalInputTokens = messages.value.reduce((sum, m) => sum + (m.tokens?.input || 0), 0);
+  const totalOutputTokens = messages.value.reduce((sum, m) => sum + (m.tokens?.output || 0), 0);
+  
+  return {
+    userCount: userMessages.length,
+    assistantCount: assistantMessages.length,
+    totalMessages: messages.value.length,
+    totalTokens: totalInputTokens + totalOutputTokens,
+    inputTokens: totalInputTokens,
+    outputTokens: totalOutputTokens,
+  };
+});
 
 // 引用消息
 const quoteMessage = (content: string | null) => {
