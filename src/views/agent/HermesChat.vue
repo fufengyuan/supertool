@@ -224,6 +224,15 @@
                   >
                     <SvgIcon name="quote" size="12" />
                   </button>
+                  <!-- 删除按钮 -->
+                  <button
+                    v-if="!isStreaming"
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity text-error"
+                    @click="deleteMessage(idx)"
+                    title="删除"
+                  >
+                    <SvgIcon name="trash" size="12" />
+                  </button>
                   <!-- 重试按钮 - 仅对错误消息显示 -->
                   <button
                     v-if="msg.isError && msg.retryContent"
@@ -327,14 +336,27 @@
               :disabled="isStreaming"
               @keydown.enter.exact.prevent="sendMessage"
             ></textarea>
-            <button
-              class="btn btn-primary self-end"
-              :disabled="!inputText.trim() || isStreaming"
-              @click="sendMessage"
-            >
-              <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
-              <SvgIcon v-else name="send" size="14" />
-            </button>
+            <!-- 操作按钮组 -->
+            <div class="flex items-center gap-1 self-end">
+              <!-- 撤回按钮 -->
+              <button
+                v-if="messages.length > 0 && !isStreaming"
+                class="btn btn-ghost btn-sm"
+                @click="undoLastMessage"
+                title="撤回最后一条消息"
+              >
+                <SvgIcon name="undo" size="14" />
+              </button>
+              <!-- 发送按钮 -->
+              <button
+                class="btn btn-primary"
+                :disabled="!inputText.trim() || isStreaming"
+                @click="sendMessage"
+              >
+                <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
+                <SvgIcon v-else name="send" size="14" />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -655,6 +677,17 @@ const startNewChat = () => {
   isStreaming.value = false;
 };
 
+// 自动生成会话标题（基于第一条用户消息）
+const generateSessionTitle = (firstMessage: string): string => {
+  // 截取前30个字符作为标题
+  let title = firstMessage.trim().slice(0, 30);
+  // 如果截断，添加省略号
+  if (firstMessage.trim().length > 30) {
+    title += '...';
+  }
+  return title;
+};
+
 const sendMessage = async () => {
   if (!inputText.value.trim() || isStreaming.value) return;
 
@@ -697,6 +730,25 @@ const sendMessage = async () => {
     // 更新 session ID
     if (result.session_id && !currentSessionId.value) {
       currentSessionId.value = result.session_id;
+      // 自动生成标题（如果是第一条消息）
+      const autoTitle = generateSessionTitle(text);
+      // 尝试重命名会话
+      try {
+        await invoke('agent_rename_session', {
+          sessionId: result.session_id,
+          newTitle: autoTitle,
+        });
+        // 更新本地 session 信息
+        currentSession.value = {
+          id: result.session_id,
+          title: autoTitle,
+          model: modelToUse || 'unknown',
+          startedAt: Date.now() / 1000,
+          lastActive: Date.now() / 1000,
+        };
+      } catch (e) {
+        console.warn('Auto-title failed:', e);
+      }
       // 刷新会话列表
       refreshSessions();
     }
@@ -913,6 +965,21 @@ const deleteCurrentSession = async () => {
   } catch (e) {
     console.error('Delete error:', e);
   }
+};
+
+// 删除单条消息
+const deleteMessage = (msgIndex: number) => {
+  if (isStreaming.value) return;
+  if (msgIndex < 0 || msgIndex >= messages.value.length) return;
+  
+  // 删除该消息
+  messages.value.splice(msgIndex, 1);
+};
+
+// 撤回最后一条消息
+const undoLastMessage = () => {
+  if (messages.value.length === 0 || isStreaming.value) return;
+  messages.value.pop();
 };
 
 // 标题编辑功能
