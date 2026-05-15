@@ -175,7 +175,7 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
 }
 
 /// Send chat message with streaming events
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_chat(
     app: AppHandle,
     message: String,
@@ -294,7 +294,7 @@ pub async fn agent_chat(
 }
 
 /// List Agent sessions
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
@@ -337,7 +337,7 @@ pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Val
 }
 
 /// Get session messages
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
@@ -380,7 +380,7 @@ pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, 
 }
 
 /// Delete session
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
@@ -420,7 +420,7 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
 }
 
 /// Abort current chat
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     // Get current chat process ID
     let current_process_id = {
@@ -436,7 +436,7 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
         };
 
         if let Some(flag) = abort_flag {
-/// Abort current chat - this will break the read loop in agent_chat
+            // Set abort flag to break the read loop in agent_chat
             flag.store(true, Ordering::SeqCst);
 
             // Also try to kill the process directly for immediate termination
@@ -469,7 +469,7 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
 }
 
 /// Check Agent availability
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {
     let script = find_bridge_script();
     let python = find_python();

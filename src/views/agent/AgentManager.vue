@@ -254,7 +254,7 @@ async function checkInstalled() {
 async function loadSessions() {
   loading.value = true;
   try {
-    const result = await invoke<{ success: boolean; sessions: HermesSession[] }>('agent_list_sessions', {
+    const result = await invoke<{ sessions: HermesSession[]; total: number }>('agent_list_sessions', {
       limit: 50,
     });
     sessions.value = result.sessions || [];
