@@ -384,9 +384,18 @@
                 class="select select-bordered select-xs w-auto"
                 :disabled="isStreaming"
               >
-                <option value="">默认模型</option>
+                <option value="">{{ defaultModel || '默认模型' }}</option>
                 <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
               </select>
+              <!-- 添加模型按钮 -->
+              <button
+                class="btn btn-ghost btn-xs btn-square"
+                @click="showAddModelDialog = true"
+                :disabled="isStreaming"
+                title="添加模型"
+              >
+                <SvgIcon name="plus" size="14" />
+              </button>
               <!-- 工具集选择 -->
               <div class="flex items-center gap-1">
                 <button
@@ -425,6 +434,24 @@
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加模型对话框 -->
+  <div v-if="showAddModelDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-base-100 rounded-lg p-4 w-80 shadow-xl">
+      <h3 class="text-sm font-medium mb-3">添加模型</h3>
+      <input
+        v-model="newModelName"
+        type="text"
+        class="input input-bordered input-sm w-full"
+        placeholder="输入模型名称"
+        @keyup.enter="addModel"
+      />
+      <div class="flex justify-end gap-2 mt-3">
+        <button class="btn btn-ghost btn-sm" @click="showAddModelDialog = false; newModelName = ''">取消</button>
+        <button class="btn btn-primary btn-sm" @click="addModel" :disabled="!newModelName.trim()">添加</button>
       </div>
     </div>
   </div>
@@ -575,15 +602,58 @@ const displayMessages = computed(() => {
 
 // 模型选择
 const selectedModel = ref('');
-const availableModels = ref([
-  'glm-4',
-  'glm-4-flash',
-  'glm-5',
-  'qwen-plus',
-  'qwen-max',
-  'claude-sonnet-4',
-  'claude-opus-4',
-]);
+const availableModels = ref<string[]>([]); // 从 Hermes 配置读取
+const defaultModel = ref<string>(''); // 默认模型
+
+// 加载模型列表
+const loadModels = async () => {
+  try {
+    const result = await invoke<{ customModels: string[]; defaultModel: string | null }>('agent_get_models');
+    availableModels.value = result.customModels || [];
+    defaultModel.value = result.defaultModel || '';
+  } catch (e) {
+    console.error('Failed to load models:', e);
+    availableModels.value = [];
+  }
+};
+
+// 添加模型
+const showAddModelDialog = ref(false);
+const newModelName = ref('');
+
+const addModel = async () => {
+  if (!newModelName.value.trim()) return;
+  try {
+    const result = await invoke<{ success: boolean; customModels: string[] }>('agent_add_model', {
+      model: newModelName.value.trim(),
+    });
+    if (result.success) {
+      availableModels.value = result.customModels;
+      newModelName.value = '';
+      showAddModelDialog.value = false;
+    }
+  } catch (e) {
+    console.error('Failed to add model:', e);
+  }
+};
+
+// 删除模型
+const removeModel = async (model: string) => {
+  try {
+    const result = await invoke<{ success: boolean; customModels: string[] }>('agent_remove_model', {
+      model,
+    });
+    if (result.success) {
+      availableModels.value = result.customModels;
+      // 如果删除的是当前选中的模型，重置选择
+      if (selectedModel.value === model) {
+        selectedModel.value = '';
+      }
+    }
+  } catch (e) {
+    console.error('Failed to remove model:', e);
+  }
+};
 
 // 工具集选择
 const availableToolsets = ref([
@@ -1604,6 +1674,7 @@ onMounted(async () => {
   });
 
   // 初始化
+  await loadModels(); // 加载模型列表
   await checkHermes();
   await refreshSessions();
 

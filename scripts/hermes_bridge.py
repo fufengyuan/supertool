@@ -438,6 +438,100 @@ def _handle_abort(params: Dict[str, Any]) -> None:
     _output({"type": "aborted", "session_id": _current_session_id})
 
 
+def _handle_get_models(params: Dict[str, Any]) -> None:
+    """Handle get_models action - read custom models from Hermes config."""
+    try:
+        # 重新加载配置（可能有外部修改）
+        config = load_cli_config()
+        
+        # 从配置读取用户自定义模型列表
+        custom_models = config.get("custom_models", [])
+        
+        # 同时返回默认模型
+        default_model = ""
+        model_config = config.get("model", {})
+        if isinstance(model_config, dict):
+            default_model = model_config.get("default") or model_config.get("model") or ""
+        
+        _output({
+            "type": "models",
+            "custom_models": custom_models,
+            "default_model": default_model,
+        })
+    except Exception as e:
+        _output({"type": "error", "message": str(e)})
+
+
+def _handle_add_model(params: Dict[str, Any]) -> None:
+    """Handle add_model action - add a model to Hermes config."""
+    model = params.get("model")
+    if not model or not model.strip():
+        _output({"type": "error", "message": "Missing 'model' field"})
+        return
+    
+    model = model.strip()
+    
+    try:
+        config = load_cli_config()
+        
+        # 获取现有自定义模型列表
+        custom_models = config.get("custom_models", [])
+        
+        # 检查是否已存在
+        if model in custom_models:
+            _output({"type": "error", "message": f"Model '{model}' already exists"})
+            return
+        
+        # 添加新模型
+        custom_models.append(model)
+        config["custom_models"] = custom_models
+        
+        # 写回配置文件
+        import yaml
+        config_path = _hermes_home / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        _output({"type": "model_added", "model": model, "custom_models": custom_models})
+    except Exception as e:
+        _output({"type": "error", "message": str(e)})
+
+
+def _handle_remove_model(params: Dict[str, Any]) -> None:
+    """Handle remove_model action - remove a model from Hermes config."""
+    model = params.get("model")
+    if not model or not model.strip():
+        _output({"type": "error", "message": "Missing 'model' field"})
+        return
+    
+    model = model.strip()
+    
+    try:
+        config = load_cli_config()
+        
+        # 获取现有自定义模型列表
+        custom_models = config.get("custom_models", [])
+        
+        # 检查是否存在
+        if model not in custom_models:
+            _output({"type": "error", "message": f"Model '{model}' not found"})
+            return
+        
+        # 移除模型
+        custom_models.remove(model)
+        config["custom_models"] = custom_models
+        
+        # 写回配置文件
+        import yaml
+        config_path = _hermes_home / "config.yaml"
+        with open(config_path, "w") as f:
+            yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        
+        _output({"type": "model_removed", "model": model, "custom_models": custom_models})
+    except Exception as e:
+        _output({"type": "error", "message": str(e)})
+
+
 def _handle_command(cmd: Dict[str, Any]) -> None:
     """Process a single command."""
     action = cmd.get("action")
@@ -450,6 +544,9 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
         "delete_session": _handle_delete_session,
         "rename_session": _handle_rename_session,
         "abort": _handle_abort,
+        "get_models": _handle_get_models,
+        "add_model": _handle_add_model,
+        "remove_model": _handle_remove_model,
     }
 
     handler = handlers.get(action)
