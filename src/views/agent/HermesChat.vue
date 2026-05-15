@@ -88,8 +88,14 @@
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
-              <div class="flex-1 bg-base-200 rounded-xl px-3 py-2">
-                <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
+              <div class="flex-1">
+                <div class="bg-base-200 rounded-xl px-3 py-2">
+                  <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
+                </div>
+                <!-- 消息时间 -->
+                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1 ml-1">
+                  {{ formatMessageTime(msg.timestamp) }}
+                </div>
               </div>
             </div>
 
@@ -98,20 +104,26 @@
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
-              <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-                <!-- Markdown 渲染的消息内容 -->
-                <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
-                <!-- 工具调用显示 -->
-                <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-2 space-y-1">
-                  <div v-for="(tool, idx) in msg.toolCalls" :key="`${tool.name}-${idx}`" class="flex items-center gap-2 text-xs">
-                    <!-- 子 agent 使用不同图标 -->
-                    <SvgIcon v-if="tool.name === 'delegate_task'" name="bot" size="12" class="text-info" />
-                    <SvgIcon v-else name="tool" size="12" class="text-warning" />
-                    <!-- 子 agent 显示不同文字 -->
-                    <span v-if="tool.name === 'delegate_task'" class="text-info">子 Agent</span>
-                    <span v-else class="text-base-content/70">{{ tool.name }}</span>
-                    <span class="text-base-content/40">{{ tool.durationMs }}ms</span>
+              <div class="flex-1">
+                <div class="bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
+                  <!-- Markdown 渲染的消息内容 -->
+                  <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
+                  <!-- 工具调用显示 -->
+                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-2 space-y-1">
+                    <div v-for="(tool, idx) in msg.toolCalls" :key="`${tool.name}-${idx}`" class="flex items-center gap-2 text-xs">
+                      <!-- 子 agent 使用不同图标 -->
+                      <SvgIcon v-if="tool.name === 'delegate_task'" name="bot" size="12" class="text-info" />
+                      <SvgIcon v-else name="tool" size="12" class="text-warning" />
+                      <!-- 子 agent 显示不同文字 -->
+                      <span v-if="tool.name === 'delegate_task'" class="text-info">子 Agent</span>
+                      <span v-else class="text-base-content/70">{{ tool.name }}</span>
+                      <span class="text-base-content/40">{{ tool.durationMs }}ms</span>
+                    </div>
                   </div>
+                </div>
+                <!-- 消息时间 -->
+                <div v-if="msg.timestamp" class="text-xs text-base-content/40 mt-1 ml-1">
+                  {{ formatMessageTime(msg.timestamp) }}
                 </div>
               </div>
             </div>
@@ -162,7 +174,7 @@
             ref="inputRef"
             v-model="inputText"
             class="textarea textarea-bordered w-full resize-none text-sm"
-            rows="2"
+            style="min-height: 52px; max-height: 200px;"
             placeholder="输入消息..."
             :disabled="isStreaming"
             @keydown.enter.exact.prevent="sendMessage"
@@ -269,6 +281,26 @@ const hermesAvailable = ref(false);
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
 
+// 复制代码功能（全局函数）
+const copyCode = (codeId: string) => {
+  const codeElement = document.getElementById(codeId);
+  if (codeElement) {
+    const text = codeElement.textContent || '';
+    navigator.clipboard.writeText(text).then(() => {
+      // 显示复制成功提示
+      const btn = codeElement.closest('.code-block-wrapper')?.querySelector('.copy-btn');
+      if (btn) {
+        btn.classList.add('copied');
+        setTimeout(() => btn.classList.remove('copied'), 2000);
+      }
+    });
+  }
+};
+// 挂载到 window 以便 onclick 调用
+if (typeof window !== 'undefined') {
+  (window as any).copyCode = copyCode;
+}
+
 // Event listeners
 let unlistenDelta: UnlistenFn | null = null;
 let unlistenToolStart: UnlistenFn | null = null;
@@ -276,6 +308,17 @@ let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let currentToolCalls: { name: string; durationMs: number }[] = [];
+
+// 自动调整输入框高度
+const adjustTextareaHeight = () => {
+  if (inputRef.value) {
+    inputRef.value.style.height = 'auto';
+    // 限制最大高度为 200px（约 8 行）
+    const maxHeight = 200;
+    const newHeight = Math.min(inputRef.value.scrollHeight, maxHeight);
+    inputRef.value.style.height = `${newHeight}px`;
+  }
+};
 
 // Computed
 const sourceIcon = (source: string) => {
@@ -290,18 +333,51 @@ const sourceIcon = (source: string) => {
   return icons[source] || 'chat';
 };
 
-// Markdown 渲染函数
+// Markdown 渲染函数 - 添加代码块复制按钮
 const renderMarkdown = (text: string | null): string => {
   if (!text) return '';
   try {
+    // 自定义渲染器，为代码块添加复制按钮
+    const renderer = new marked.Renderer();
+    renderer.code = function(code: string, language: string | undefined) {
+      const lang = language || 'plaintext';
+      const highlighted = lang && hljs.getLanguage(lang) 
+        ? hljs.highlight(code, { language: lang }).value 
+        : hljs.highlightAuto(code).value;
+      
+      // 生成唯一 ID 用于复制功能
+      const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
+      
+      return `<div class="code-block-wrapper">
+        <div class="code-header">
+          <span class="code-lang">${lang}</span>
+          <button class="copy-btn" onclick="copyCode('${codeId}')" title="复制代码">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+        <pre><code id="${codeId}" class="hljs">${highlighted}</code></pre>
+      </div>`;
+    };
+    
+    marked.setOptions({ renderer });
     const html = marked.parse(text) as string;
     return DOMPurify.sanitize(html, {
-      ADD_ATTR: ['target'], // 允许链接的 target 属性
-      ADD_TAGS: ['mark'], // 允许 mark 标签
+      ADD_ATTR: ['target', 'onclick', 'id', 'title'],
+      ADD_TAGS: ['button', 'svg', 'rect', 'path'],
     });
   } catch {
     return text;
   }
+};
+
+// 格式化消息时间（显示具体时间）
+const formatMessageTime = (ts: number | null): string => {
+  if (!ts) return '';
+  const date = new Date(ts * 1000);
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatTime = (ts: number | null) => {
@@ -577,6 +653,11 @@ onUnmounted(() => {
 watch(streamingText, () => {
   scrollToBottom();
 });
+
+// Watch inputText to auto-adjust textarea height
+watch(inputText, () => {
+  adjustTextareaHeight();
+});
 </script>
 
 <style scoped>
@@ -589,7 +670,8 @@ watch(streamingText, () => {
   margin: 0.5em 0;
 }
 
-.markdown-content :deep(code) {
+/* 行内代码样式 */
+.markdown-content :deep(code:not(.hljs)) {
   background: rgba(0, 0, 0, 0.1);
   padding: 2px 6px;
   border-radius: 4px;
@@ -597,7 +679,75 @@ watch(streamingText, () => {
   font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
 }
 
-.markdown-content :deep(pre) {
+/* 代码块包装器 */
+.markdown-content :deep(.code-block-wrapper) {
+  position: relative;
+  margin: 0.8em 0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* 代码块头部 */
+.markdown-content :deep(.code-header) {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* 语言标签 */
+.markdown-content :deep(.code-lang) {
+  font-size: 0.75em;
+  color: var(--color-base-content, #666);
+  opacity: 0.7;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* 复制按钮 */
+.markdown-content :deep(.copy-btn) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: all 0.2s;
+  color: var(--color-base-content, #666);
+}
+
+.markdown-content :deep(.copy-btn:hover) {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.markdown-content :deep(.copy-btn.copied) {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+/* 代码块内容 */
+.markdown-content :deep(.code-block-wrapper pre) {
+  margin: 0;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 0;
+  overflow-x: auto;
+}
+
+.markdown-content :deep(.code-block-wrapper pre code) {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85em;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+}
+
+/* 旧版 pre 样式（兼容无包装器的代码块） */
+.markdown-content :deep(pre:not(.code-block-wrapper pre)) {
   background: rgba(0, 0, 0, 0.05);
   padding: 12px;
   border-radius: 8px;
@@ -605,7 +755,7 @@ watch(streamingText, () => {
   margin: 0.8em 0;
 }
 
-.markdown-content :deep(pre code) {
+.markdown-content :deep(pre:not(.code-block-wrapper pre) code) {
   background: transparent;
   padding: 0;
   font-size: 0.85em;
