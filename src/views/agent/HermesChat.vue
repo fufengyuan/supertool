@@ -1410,13 +1410,6 @@ const scrollToBottom = () => {
 
 // Lifecycle
 onMounted(async () => {
-  // 预热 Hermes 模块（后台执行，不阻塞）
-  invoke('agent_preload').then((result) => {
-    console.log('[agent] preload completed:', result);
-  }).catch((e) => {
-    console.warn('[agent] preload failed:', e);
-  });
-  
   // 全局快捷键
   document.addEventListener('keydown', handleGlobalKeydown);
   
