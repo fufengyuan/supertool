@@ -164,7 +164,7 @@
                   💭 {{ msg.thinking }}
                 </div>
                 
-                <div class="bg-primary/5 border border-primary/10 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
+                <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
                   <!-- Markdown 渲染的消息内容 -->
                   <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                   
@@ -272,7 +272,7 @@
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
-            <div class="flex-1 max-w-[85%] bg-primary/5 border border-primary/10 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
+            <div class="flex-1 max-w-[85%] bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 流式输出 -->
