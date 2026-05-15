@@ -522,7 +522,7 @@
           </button>
         </div>
         <div class="flex-1 overflow-auto p-5">
-          <pre v-if="previewContent" class="text-xs font-mono leading-relaxed whitespace-pre-wrap bg-base-200 rounded-lg p-4 overflow-x-auto">{{ previewContent }}</pre>
+          <pre v-if="previewContent" class="nginx-highlight text-xs font-mono leading-relaxed whitespace-pre-wrap bg-base-200 rounded-lg p-4 overflow-x-auto"><code v-html="highlightedPreview"></code></pre>
           <div v-else-if="previewLoading" class="flex items-center justify-center h-full text-base-content/50 text-sm">
             <SvgIcon name="clock" size="14" class="mr-2" /> 生成中...
           </div>
@@ -544,6 +544,9 @@ import { ref, computed, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import hljs from 'highlight.js/lib/core'
+import nginxLang from 'highlight.js/lib/languages/nginx'
+hljs.registerLanguage('nginx', nginxLang)
 
 const props = defineProps<{ presetId: string }>()
 
@@ -629,6 +632,19 @@ const serverParamTemplates = ref<any[]>([])
 const showPreview = ref(false)
 const previewContent = ref('')
 const previewLoading = ref(false)
+
+const highlightedPreview = computed(() => {
+  if (!previewContent.value) return ''
+  try {
+    return hljs.highlight(previewContent.value, { language: 'nginx' }).value
+  } catch {
+    return escapeHtml(previewContent.value)
+  }
+})
+
+function escapeHtml(text: string) {
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
 
 // 搜索过滤
 const filteredServers = computed(() => {
@@ -1117,3 +1133,18 @@ function moveLocationDown(idx: number) {
   locations.value = [...arr]
 }
 </script>
+
+<style scoped>
+/* highlight.js token colors — Catppuccin Mocha */
+.nginx-highlight :deep(.hljs-keyword) { color: #cba6f7; font-weight: 500; }
+.nginx-highlight :deep(.hljs-attr) { color: #89b4fa; }
+.nginx-highlight :deep(.hljs-string) { color: #a6e3a1; }
+.nginx-highlight :deep(.hljs-number) { color: #fab387; }
+.nginx-highlight :deep(.hljs-comment) { color: #6c7086; font-style: italic; }
+.nginx-highlight :deep(.hljs-variable) { color: #f38ba8; }
+.nginx-highlight :deep(.hljs-title) { color: #f9e2af; }
+.nginx-highlight :deep(.hljs-literal) { color: #fab387; }
+.nginx-highlight :deep(.hljs-built_in) { color: #a6e3a1; }
+.nginx-highlight :deep(.hljs-section) { color: #89b4fa; }
+.nginx-highlight code { font-family: inherit; background: transparent; padding: 0; }
+</style>
