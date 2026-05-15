@@ -1423,23 +1423,33 @@ onMounted(async () => {
       // 查找最后一个 assistant 消息
       const messagesCopy = [...messages.value].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded);
       
-      // 如果没有 assistant 消息，或上一轮已结束，创建新消息
-      if (!currentMsg || lastAssistantRoundEnded) {
-        currentMsg = {
+      // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
+      const lastMsg = messages.value[messages.value.length - 1];
+      const needsNewMsg = lastMsg?.role === 'user';
+      
+      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
+        ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded + 
+        ' 最后一条: ' + (lastMsg?.role || 'none') +
+        ' needsNewMsg: ' + needsNewMsg);
+      
+      // 如果没有 assistant 消息，或上一轮已结束，或最后一条是 user（需要新消息），创建新消息
+      if (!currentMsg || lastAssistantRoundEnded || needsNewMsg) {
+        const newMsg: Message = {
           role: 'assistant',
           content: '',
           timestamp: Date.now() / 1000,
           toolName: null,
           toolCalls: [],
         };
-        messages.value.push(currentMsg);
+        messages.value.push(newMsg);
+        // 从 messages.value 获取 Vue 的 reactive proxy，确保响应式触发
+        currentMsg = messages.value[messages.value.length - 1];
         lastAssistantRoundEnded = false;
         void agentLog('[agent-delta] 创建新 assistant 消息, messages.length: ' + messages.value.length);
       }
       
-      // 添加 delta 内容
+      // 添加 delta 内容（currentMsg 是 Vue reactive proxy，修改会触发响应式）
       if (currentMsg) {
         currentMsg.content = (currentMsg.content || '') + event.payload;
       }
@@ -1456,21 +1466,30 @@ onMounted(async () => {
     // 获取当前消息（如果没有 assistant 消息，创建一个）
     const messagesCopy = [...messages.value].reverse();
     let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在'));
     
-    if (!currentMsg) {
-      currentMsg = {
+    // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
+    const lastMsg = messages.value[messages.value.length - 1];
+    const needsNewMsg = lastMsg?.role === 'user';
+    
+    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
+      ' 最后一条: ' + (lastMsg?.role || 'none') +
+      ' needsNewMsg: ' + needsNewMsg);
+    
+    if (!currentMsg || needsNewMsg) {
+      const newMsg: Message = {
         role: 'assistant',
         content: '',
         timestamp: Date.now() / 1000,
         toolName: null,
         toolCalls: [],
       };
-      messages.value.push(currentMsg);
+      messages.value.push(newMsg);
+      // 从 messages.value 获取 Vue 的 reactive proxy
+      currentMsg = messages.value[messages.value.length - 1];
       void agentLog('[agent-tool-start] 创建新 assistant 消息, messages.length: ' + messages.value.length);
     }
     
-    // 确保 toolCalls 数组存在
+    // 确保 toolCalls 数组存在（currentMsg 是 Vue reactive proxy）
     if (!currentMsg.toolCalls) {
       currentMsg.toolCalls = [];
     }
