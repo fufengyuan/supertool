@@ -69,8 +69,8 @@ fn default_limit() -> usize {
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMessage {
     Delta { text: Option<String> },
-    ToolStart { name: String, args: serde_json::Value },
-    ToolComplete { name: String, result: Option<String>, duration_ms: f64 },
+    ToolStart { id: Option<String>, name: String, args: serde_json::Value },
+    ToolComplete { id: Option<String>, name: String, result: Option<String>, duration_ms: f64 },
     Thinking { text: Option<String> },
     Done { response: Option<String>, session_id: String, message_count: usize },
     Error { message: String },
@@ -362,16 +362,18 @@ pub async fn agent_chat(
                 eprintln!("[DEBUG] agent-delta: {:?}", text);
                 app.emit("agent-delta", &text).ok();
             }
-            BridgeMessage::ToolStart { name, args } => {
-                eprintln!("[DEBUG] agent-tool-start: {} {:?}", name, args);
+            BridgeMessage::ToolStart { id, name, args } => {
+                eprintln!("[DEBUG] agent-tool-start: {} {:?} (id: {:?})", name, args, id);
                 app.emit("agent-tool-start", serde_json::json!({
+                    "id": id,
                     "name": name,
                     "args": args
                 })).ok();
             }
-            BridgeMessage::ToolComplete { name, result, duration_ms } => {
-                eprintln!("[DEBUG] agent-tool-complete: {} (duration: {}ms)", name, duration_ms);
+            BridgeMessage::ToolComplete { id, name, result, duration_ms } => {
+                eprintln!("[DEBUG] agent-tool-complete: {} (id: {:?}, duration: {}ms)", name, id, duration_ms);
                 app.emit("agent-tool-complete", serde_json::json!({
+                    "id": id,
                     "name": name,
                     "result": result,
                     "duration_ms": duration_ms

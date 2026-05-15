@@ -503,6 +503,7 @@ interface SearchResult {
 
 // 工具调用详情
 interface ToolCall {
+  id?: string; // 工具调用唯一 ID
   name: string;
   args?: Record<string, unknown>; // 工具参数
   result?: string; // 工具返回结果
@@ -1061,8 +1062,13 @@ const sendMessage = async () => {
   // 如果正在处理，先打断当前处理
   if (isStreaming.value) {
     await abortChat();
-    // 等待一小段时间让 abort 完成
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // 等待足够时间让 abort 完成（Python 进程被 kill）
+    await new Promise(resolve => setTimeout(resolve, 200));
+    // 确认状态已恢复
+    if (isStreaming.value) {
+      void agentLog('[sendMessage] abort 后状态仍为 streaming，强制重置');
+      isStreaming.value = false;
+    }
   }
 
   // 构建消息
@@ -1437,13 +1443,18 @@ onMounted(async () => {
       const lastMsg = messages.value[messages.value.length - 1];
       const needsNewMsg = lastMsg?.role === 'user';
       
+      // 检查是否已有空内容的 assistant 消息（由 tool_start 创建），避免重复创建
+      const hasEmptyAssistant = currentMsg && !currentMsg.content && currentMsg.toolCalls && currentMsg.toolCalls.length > 0;
+      
       void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
         ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded + 
         ' 最后一条: ' + (lastMsg?.role || 'none') +
-        ' needsNewMsg: ' + needsNewMsg);
+        ' needsNewMsg: ' + needsNewMsg +
+        ' hasEmptyAssistant: ' + hasEmptyAssistant);
       
       // 如果没有 assistant 消息，或上一轮已结束，或最后一条是 user（需要新消息），创建新消息
-      if (!currentMsg || lastAssistantRoundEnded || needsNewMsg) {
+      // 但如果已有空内容的 assistant 消息（由 tool_start 创建），则复用
+      if (!currentMsg || (lastAssistantRoundEnded && !hasEmptyAssistant) || needsNewMsg) {
         const newMsg: Message = {
           role: 'assistant',
           content: '',
@@ -1456,6 +1467,10 @@ onMounted(async () => {
         currentMsg = messages.value[messages.value.length - 1];
         lastAssistantRoundEnded = false;
         void agentLog('[agent-delta] 创建新 assistant 消息, messages.length: ' + messages.value.length);
+      } else if (hasEmptyAssistant) {
+        // 复用已有的空内容 assistant 消息
+        lastAssistantRoundEnded = false;
+        void agentLog('[agent-delta] 复用已有空 assistant 消息');
       }
       
       // 添加 delta 内容（currentMsg 是 Vue reactive proxy，修改会触发响应式）
@@ -1466,9 +1481,10 @@ onMounted(async () => {
     }
   });
 
-  unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
+  unlistenToolStart = await listen<{ id?: string; name: string; args: unknown }>('agent-tool-start', (event) => {
     void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload));
     // 工具开始
+    const toolId = event.payload.id;
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
     
@@ -1480,9 +1496,9 @@ onMounted(async () => {
     const lastMsg = messages.value[messages.value.length - 1];
     const needsNewMsg = lastMsg?.role === 'user';
     
-    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
+    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
       ' 最后一条: ' + (lastMsg?.role || 'none') +
-      ' needsNewMsg: ' + needsNewMsg);
+      ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
     
     if (!currentMsg || needsNewMsg) {
       const newMsg: Message = {
@@ -1503,15 +1519,16 @@ onMounted(async () => {
       currentMsg.toolCalls = [];
     }
     
-    // 添加工具调用
+    // 添加工具调用（包含 id 用于精确匹配）
     currentMsg.toolCalls.push({
+      id: toolId,
       name: toolName,
       args: event.payload.args as Record<string, unknown> || {},
       durationMs: 0,
       isSubAgent,
       status: 'running',
     });
-    void agentLog('[agent-tool-start] 添加工具调用: ' + toolName + ' toolCalls.length: ' + currentMsg.toolCalls.length);
+    void agentLog('[agent-tool-start] 添加工具调用: ' + toolName + ' id: ' + (toolId || 'none') + ' toolCalls.length: ' + currentMsg.toolCalls.length);
     
     // 显示提示
     if (isSubAgent) {
@@ -1522,8 +1539,8 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  unlistenToolComplete = await listen<{ name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
-    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({name: event.payload.name, duration_ms: event.payload.duration_ms}));
+  unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
+    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms}));
     thinkingText.value = '';
     
     // 获取当前 assistant 消息
@@ -1532,16 +1549,18 @@ onMounted(async () => {
     void agentLog('[agent-tool-complete] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + ' toolCalls: ' + (currentMsg?.toolCalls?.length || 0));
     
     if (currentMsg && currentMsg.toolCalls) {
-      const toolCall = currentMsg.toolCalls.find(
-        (t: ToolCall) => t.name === event.payload.name && t.status === 'running'
-      );
+      const toolId = event.payload.id;
+      // 优先用 id 精确匹配，如果没有 id 则用 name 匹配（向后兼容）
+      const toolCall = toolId
+        ? currentMsg.toolCalls.find((t: ToolCall) => t.id === toolId)
+        : currentMsg.toolCalls.find((t: ToolCall) => t.name === event.payload.name && t.status === 'running');
       if (toolCall) {
         toolCall.result = event.payload.result ?? '';
         toolCall.durationMs = event.payload.duration_ms || 0;
         toolCall.status = 'completed';
-        void agentLog('[agent-tool-complete] 更新工具调用: ' + event.payload.name + ' status: completed');
+        void agentLog('[agent-tool-complete] 更新工具调用: ' + event.payload.name + ' id: ' + (toolId || 'none') + ' status: completed');
       } else {
-        void agentLog('[agent-tool-complete] 未找到匹配的 running 工具调用');
+        void agentLog('[agent-tool-complete] 未找到匹配的 running 工具调用, id: ' + (toolId || 'none'));
       }
     }
     
