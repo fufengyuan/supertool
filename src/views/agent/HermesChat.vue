@@ -55,9 +55,26 @@
             <SvgIcon name="arrowLeft" size="14" />
           </button>
           <SvgIcon name="bot" size="16" class="text-primary" />
-          <span class="text-sm font-semibold text-base-content">
-            {{ currentSession?.title || '新对话' }}
-          </span>
+          <!-- 标题显示/编辑 -->
+          <template v-if="isEditingTitle">
+            <input
+              ref="titleInputRef"
+              v-model="editingTitle"
+              class="input input-sm input-bordered w-48 text-sm"
+              placeholder="输入标题..."
+              @keydown.enter.exact="saveTitle"
+              @keydown.escape="cancelEditTitle"
+              @blur="saveTitle"
+            />
+          </template>
+          <template v-else>
+            <span class="text-sm font-semibold text-base-content cursor-pointer hover:opacity-80" @click="startEditTitle">
+              {{ currentSession?.title || '新对话' }}
+            </span>
+            <button v-if="currentSession" class="btn btn-ghost btn-xs btn-square" @click="startEditTitle">
+              <SvgIcon name="edit" size="12" />
+            </button>
+          </template>
           <span v-if="currentSession" class="badge badge-ghost badge-xs">
             {{ currentSession.model }}
           </span>
@@ -292,6 +309,11 @@ const hermesAvailable = ref(false);
 // Refs
 const messagesContainer = ref<HTMLElement | null>(null);
 const inputRef = ref<HTMLTextAreaElement | null>(null);
+const titleInputRef = ref<HTMLInputElement | null>(null);
+
+// 标题编辑状态
+const isEditingTitle = ref(false);
+const editingTitle = ref('');
 
 // 复制代码功能（全局函数）
 const copyCode = (codeId: string) => {
@@ -571,6 +593,60 @@ const deleteCurrentSession = async () => {
     startNewChat();
   } catch (e) {
     console.error('Delete error:', e);
+  }
+};
+
+// 标题编辑功能
+const startEditTitle = () => {
+  if (!currentSession.value) return;
+  isEditingTitle.value = true;
+  editingTitle.value = currentSession.value.title || '';
+  nextTick(() => {
+    titleInputRef.value?.focus();
+  });
+};
+
+const cancelEditTitle = () => {
+  isEditingTitle.value = false;
+  editingTitle.value = '';
+};
+
+const saveTitle = async () => {
+  if (!isEditingTitle.value || !currentSessionId.value) return;
+  
+  const newTitle = editingTitle.value.trim();
+  if (!newTitle) {
+    cancelEditTitle();
+    return;
+  }
+  
+  // 如果标题没有变化，直接取消编辑
+  if (newTitle === currentSession.value?.title) {
+    cancelEditTitle();
+    return;
+  }
+  
+  isEditingTitle.value = false;
+  
+  try {
+    await invoke('agent_rename_session', {
+      sessionId: currentSessionId.value,
+      title: newTitle,
+    });
+    
+    // 更新本地状态
+    if (currentSession.value) {
+      currentSession.value.title = newTitle;
+    }
+    // 更新会话列表中的标题
+    const session = sessions.value.find(s => s.id === currentSessionId.value);
+    if (session) {
+      session.title = newTitle;
+    }
+  } catch (e) {
+    console.error('Rename error:', e);
+    // 恢复原标题
+    editingTitle.value = currentSession.value?.title || '';
   }
 };
 
