@@ -135,6 +135,32 @@ impl super::CoreService {
                     }).unwrap_or(true);
 
                     if !recent {
+                        let now_local = chrono::Local::now();
+                        let recovery_time = now_local.format("%Y-%m-%d %H:%M:%S").to_string();
+                        let mut msg = format!(
+                            "服务 {} ({}:{}) 已恢复\n恢复时间：{}",
+                            service.name, service.host, service.port, recovery_time
+                        );
+                        // alert_sent_at was set when the down alert was triggered
+                        if let Some(ref alert_sent) = service.alert_sent_at {
+                            if let Ok(down_dt) = chrono::DateTime::parse_from_rfc3339(alert_sent) {
+                                let down_local = down_dt.with_timezone(&chrono::Local);
+                                let down_time = down_local.format("%Y-%m-%d %H:%M:%S").to_string();
+                                let dur = now_local.signed_duration_since(down_local);
+                                let total_secs = dur.num_seconds().abs();
+                                let hours = total_secs / 3600;
+                                let mins = (total_secs % 3600) / 60;
+                                let secs = total_secs % 60;
+                                let dur_str = if hours > 0 {
+                                    format!("{}小时{}分钟{}秒", hours, mins, secs)
+                                } else if mins > 0 {
+                                    format!("{}分钟{}秒", mins, secs)
+                                } else {
+                                    format!("{}秒", secs)
+                                };
+                                msg.push_str(&format!("\n下线时间：{}\n持续时长：{}", down_time, dur_str));
+                            }
+                        }
                         results.push(AlertResult {
                             alert_type: "service_recovered".to_string(),
                             ref_id: service.id.clone(),
@@ -142,7 +168,7 @@ impl super::CoreService {
                             host: Some(service.host.clone()),
                             port: Some(service.port),
                             category: None,
-                            message: format!("服务 {} ({}:{}) 已恢复", service.name, service.host, service.port),
+                            message: msg,
                         });
                     }
                 }
@@ -170,6 +196,8 @@ impl super::CoreService {
                     }).unwrap_or(true);
 
                     if !recent_alert {
+                        let now_local = chrono::Local::now();
+                        let offline_time = now_local.format("%Y-%m-%d %H:%M:%S").to_string();
                         results.push(AlertResult {
                             alert_type: "service_down".to_string(),
                             ref_id: service.id.clone(),
@@ -177,7 +205,7 @@ impl super::CoreService {
                             host: Some(service.host.clone()),
                             port: Some(service.port),
                             category: None,
-                            message: format!("服务 {} ({}:{}) 无法连接（连续 {} 次失败）", service.name, service.host, service.port, current_failures),
+                            message: format!("服务 {} ({}:{}) 无法连接（连续 {} 次失败）\n下线时间：{}", service.name, service.host, service.port, current_failures, offline_time),
                         });
                         if let Err(e) = self.db_write(|conn| {
                             conn.execute(
