@@ -453,7 +453,22 @@ function switchTab(tabKey: string) {
 async function loadTabComponent(tabKey: string) {
   const fileName = tabComponentMap[tabKey]
   try {
-    const mod = await import(`./${fileName}`)
+    // Vite needs static import paths for code-splitting in production builds
+    const MODULE_MAP: Record<string, () => Promise<any>> = {
+      'ServerPage.vue': () => import('./ServerPage.vue'),
+      'UpstreamPage.vue': () => import('./UpstreamPage.vue'),
+      'HttpPage.vue': () => import('./HttpPage.vue'),
+      'StreamPage.vue': () => import('./StreamPage.vue'),
+      'CertPage.vue': () => import('./CertPage.vue'),
+      'TemplatePage.vue': () => import('./TemplatePage.vue'),
+      'BasicSettingPage.vue': () => import('./BasicSettingPage.vue'),
+      'ParamPage.vue': () => import('./ParamPage.vue'),
+      'DenyAllowPage.vue': () => import('./DenyAllowPage.vue'),
+      'PasswordPage.vue': () => import('./PasswordPage.vue'),
+    }
+    const loader = MODULE_MAP[fileName]
+    if (!loader) throw new Error(`Unknown component: ${fileName}`)
+    const mod = await loader()
     loadedComponents[tabKey] = markRaw(mod.default || mod)
   } catch (err: any) {
     console.warn(`[NginxManager] 未能加载 ${fileName}:`, err?.message || err)
