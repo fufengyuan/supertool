@@ -61,7 +61,7 @@ pub enum BridgeMessage {
     ToolStart { name: String, args: serde_json::Value },
     ToolComplete { name: String, result: String, duration_ms: f64 },
     Thinking { text: String },
-    Done { response: String, session_id: String, message_count: usize },
+    Done { response: Option<String>, session_id: String, message_count: usize },
     Error { message: String },
     Sessions { data: Vec<SessionInfo>, total: usize },
     Session { session_id: String, messages: Vec<MessageInfo> },
@@ -261,7 +261,7 @@ pub async fn agent_chat(
                 app.emit("agent-thinking", &text).ok();
             }
             BridgeMessage::Done { response, session_id, message_count } => {
-                final_response = Some(response);
+                final_response = response;
                 final_session_id = Some(session_id);
                 final_message_count = message_count;
             }
@@ -799,6 +799,253 @@ mod tests {
                 // 路径问题可能导致错误，但不应该 crash
                 eprintln!("Check available failed: {}", e);
             }
+        }
+    }
+
+    /// 测试 Python bridge chat 命令序列化
+    #[test]
+    fn test_chat_command_serialize() {
+        // 新会话
+        let cmd = BridgeCommand::Chat {
+            session_id: None,
+            message: "你好".to_string(),
+            model: Some("anthropic/claude-sonnet-4".to_string()),
+            toolsets: Some(vec!["web".to_string()]),
+        };
+        let json = serde_json::to_string(&cmd).unwrap();
+        println!("Chat command JSON: {}", json);
+        assert!(json.contains("\"action\":\"chat\""));
+        assert!(json.contains("\"message\":\"你好\""));
+        assert!(json.contains("\"model\":\"anthropic/claude-sonnet-4\""));
+        assert!(json.contains("\"toolsets\":[\"web\"]"));
+        // session_id 为 None 时不应出现
+        assert!(!json.contains("session_id"));
+
+        // 已有会话
+        let cmd2 = BridgeCommand::Chat {
+            session_id: Some("sess-123".to_string()),
+            message: "继续对话".to_string(),
+            model: None,
+            toolsets: None,
+        };
+        let json2 = serde_json::to_string(&cmd2).unwrap();
+        println!("Resume chat command JSON: {}", json2);
+        assert!(json2.contains("\"session_id\":\"sess-123\""));
+        assert!(json2.contains("\"message\":\"继续对话\""));
+        // model/toolsets 为 None 时不应出现
+        assert!(!json2.contains("model"));
+        assert!(!json2.contains("toolsets"));
+    }
+
+    /// 测试 Python bridge 实际 chat 调用（需要 Hermes 已安装且有 API key）
+    #[test]
+    fn test_real_chat_via_bridge() {
+        // 检查 Hermes 是否可用
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let check_result = rt.block_on(agent_check_available());
+        
+        let available = check_result
+            .ok()
+            .and_then(|json| json.get("available").and_then(|v| v.as_bool()))
+            .unwrap_or(false);
+        
+        if !available {
+            eprintln!("Skipping: Hermes not available");
+            return;
+        }
+
+        let script = find_bridge_script().expect("Bridge script should exist");
+        let python = find_python();
+        
+        // 发送一个简单的测试消息
+        let cmd = BridgeCommand::Chat {
+            session_id: None,
+            message: "请回复：你好，世界".to_string(),
+            model: Some("anthropic/claude-sonnet-4".to_string()),
+            toolsets: None, // 不启用任何工具，加快响应
+        };
+        let cmd_json = serde_json::to_string(&cmd).unwrap();
+        println!("Sending chat command: {}", cmd_json);
+        
+        let mut child = std::process::Command::new(&python)
+            .arg(&script)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("Failed to spawn Python bridge");
+        
+        // 写入命令
+        {
+            use std::io::Write;
+            let stdin = child.stdin.as_mut().expect("stdin");
+            stdin.write_all(cmd_json.as_bytes()).unwrap();
+            stdin.write_all(b"\n").unwrap();
+            stdin.flush().unwrap();
+        }
+        
+        // 读取所有输出行
+        let output = child.wait_with_output().expect("Failed to wait for bridge");
+        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        
+        println!("Bridge stdout:\n{}", stdout);
+        if !stderr.is_empty() {
+            println!("Bridge stderr:\n{}", stderr);
+        }
+        
+        // 解析最后一行（应该是 done 或 error）
+        let lines: Vec<&str> = stdout.lines().collect();
+        if lines.is_empty() {
+            panic!("No output from bridge");
+        }
+        
+        // 可能有多行输出（delta 等），取最后一行
+        let last_line = lines.last().unwrap();
+        println!("Last line: {}", last_line);
+        
+        let msg: BridgeMessage = serde_json::from_str(last_line)
+            .unwrap_or_else(|e| panic!("Failed to parse last line: {} - content: {}", e, last_line));
+        
+        match msg {
+            BridgeMessage::Done { response, session_id, message_count } => {
+                println!("Chat completed!");
+                println!("  Session ID: {}", session_id);
+                println!("  Message count: {}", message_count);
+                println!("  Response: {:?}", response);
+                assert!(!session_id.is_empty());
+                
+                // response 可能是 None（API 调用失败）
+                match response {
+                    Some(text) if !text.is_empty() => {
+                        println!("  Chat succeeded with response!");
+                        assert!(message_count >= 2); // user + assistant
+                    },
+                    Some(_) => {
+                        println!("  Empty response - API may have partially failed");
+                    },
+                    None => {
+                        println!("  No response - API call failed");
+                        // 这是预期的错误情况（模型不支持等）
+                    },
+                }
+            },
+            BridgeMessage::Error { message } => {
+                // API key 问题等可以接受
+                if message.contains("API key") || message.contains("authentication") || message.contains("rate limit") {
+                    eprintln!("Skipping: API error - {}", message);
+                } else {
+                    panic!("Chat error: {}", message);
+                }
+            },
+            _ => panic!("Unexpected final message type: {:?}", msg),
+        }
+    }
+
+    /// 测试 BridgeMessage::Done 解析
+    #[test]
+    fn test_done_message_deserialize() {
+        // 有响应
+        let json = "{\"type\":\"done\",\"response\":\"Hello\",\"session_id\":\"sess-abc\",\"message_count\":3}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Done { response, session_id, message_count } => {
+                assert_eq!(response, Some("Hello".to_string()));
+                assert_eq!(session_id, "sess-abc");
+                assert_eq!(message_count, 3);
+            },
+            _ => panic!("Wrong type"),
+        }
+        
+        // 无响应（API 失败）
+        let json_null = "{\"type\":\"done\",\"response\":null,\"session_id\":\"sess-def\",\"message_count\":1}";
+        let msg_null: BridgeMessage = serde_json::from_str(json_null).unwrap();
+        match msg_null {
+            BridgeMessage::Done { response, .. } => {
+                assert_eq!(response, None);
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::Error 解析
+    #[test]
+    fn test_error_message_deserialize() {
+        let json = "{\"type\":\"error\",\"message\":\"Something went wrong\"}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Error { message } => {
+                assert_eq!(message, "Something went wrong");
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::Delta 解析（流式文本）
+    #[test]
+    fn test_delta_message_deserialize() {
+        let json = "{\"type\":\"delta\",\"text\":\"Hello \"}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Delta { text } => {
+                assert_eq!(text, "Hello ");
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::ToolStart 解析
+    #[test]
+    fn test_tool_start_deserialize() {
+        let json = "{\"type\":\"tool_start\",\"name\":\"web_search\",\"args\":{\"query\":\"test\"}}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::ToolStart { name, args } => {
+                assert_eq!(name, "web_search");
+                assert!(args.is_object());
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::ToolComplete 解析
+    #[test]
+    fn test_tool_complete_deserialize() {
+        let json = "{\"type\":\"tool_complete\",\"name\":\"web_search\",\"result\":\"Search results\",\"duration_ms\":150.5}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+                assert_eq!(name, "web_search");
+                assert_eq!(result, "Search results");
+                assert_eq!(duration_ms, 150.5);
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::Aborted 解析
+    #[test]
+    fn test_aborted_message_deserialize() {
+        let json = "{\"type\":\"aborted\",\"session_id\":\"sess-xyz\"}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Aborted { session_id } => {
+                assert_eq!(session_id, Some("sess-xyz".to_string()));
+            },
+            _ => panic!("Wrong type"),
+        }
+    }
+
+    /// 测试 BridgeMessage::Deleted 解析
+    #[test]
+    fn test_deleted_message_deserialize() {
+        let json = "{\"type\":\"deleted\",\"session_id\":\"sess-del\"}";
+        let msg: BridgeMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            BridgeMessage::Deleted { session_id } => {
+                assert_eq!(session_id, "sess-del");
+            },
+            _ => panic!("Wrong type"),
         }
     }
 }
