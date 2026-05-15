@@ -254,9 +254,8 @@ async function checkInstalled() {
 async function loadSessions() {
   loading.value = true;
   try {
-    const result = await invoke<{ success: boolean; sessions: HermesSession[] }>('list_hermes_sessions_cmd', {
+    const result = await invoke<{ success: boolean; sessions: HermesSession[] }>('hermes_list_sessions', {
       limit: 50,
-      offset: 0,
     });
     sessions.value = result.sessions || [];
   } catch (e) {
@@ -267,7 +266,7 @@ async function loadSessions() {
 
 async function loadStats() {
   try {
-    const result = await invoke<{ success: boolean; stats: HermesStats }>('get_hermes_stats_cmd');
+    const result = await invoke<{ success: boolean; stats: HermesStats }>('hermes_get_stats');
     stats.value = result.stats;
   } catch {
     stats.value = null;
@@ -329,7 +328,7 @@ async function deleteSession() {
   if (!deleteTarget.value) return;
   const targetId = deleteTarget.value.id;
   try {
-    await invoke('delete_hermes_session_cmd', { sessionId: targetId });
+    await invoke('hermes_delete_session', { sessionId: targetId });
     sessions.value = sessions.value.filter(s => s.id !== targetId);
     if (stats.value) {
       stats.value.totalSessions--;
