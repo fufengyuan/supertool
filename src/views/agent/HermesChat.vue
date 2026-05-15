@@ -216,15 +216,15 @@
                       </div>
                       
                       <!-- 普通工具卡片 -->
-                      <div v-else class="bg-warning/5 border border-warning/10 rounded-lg">
+                      <div v-else class="bg-base-200/50 border border-base-300/50 rounded-lg">
                         <!-- 外层：工具名 + 参数摘要 -->
                         <div 
-                          class="px-3 py-2 cursor-pointer hover:bg-warning/10 transition-colors"
+                          class="px-3 py-2 cursor-pointer hover:bg-base-200/70 transition-colors"
                           @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
                         >
                           <div class="flex items-center gap-2">
-                            <SvgIcon name="tool" size="12" class="text-warning" />
-                            <span class="text-warning text-xs font-medium">{{ tool.name }}</span>
+                            <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="getToolIcon(tool.name).color" />
+                            <span :class="getToolIcon(tool.name).color" class="text-xs font-medium">{{ tool.name }}</span>
                             <!-- 参数摘要：显示关键参数的一行摘要 -->
                             <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/70 text-xs truncate flex-1">
                               {{ formatArgsSummary(tool.args) }}
@@ -247,7 +247,7 @@
                           </div>
                         </div>
                         <!-- 折叠内容：详细结果 -->
-                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-warning/5 border-t border-warning/15 text-xs">
+                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-base-200/30 border-t border-base-300/30 text-xs">
                           <!-- 参数 -->
                           <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-2">
                             <span class="text-base-content/70">参数：</span>
@@ -282,10 +282,9 @@
               
               <!-- 当前运行中的工具 -->
               <div v-if="currentToolCalls && currentToolCalls.length > 0" class="mt-2 space-y-1">
-                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-warning/10 rounded px-2 py-1">
-                  <SvgIcon v-if="tool.isSubAgent" name="bot" size="12" class="text-info animate-pulse" />
-                  <SvgIcon v-else name="tool" size="12" class="text-warning animate-pulse" />
-                  <span class="text-warning font-medium">{{ tool.name }}</span>
+                <div v-for="(tool, idx) in currentToolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
+                  <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="getToolIcon(tool.name).color + ' animate-pulse'" />
+                  <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
                   <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
                   <span class="text-base-content/60 ml-auto">执行中...</span>
                 </div>
@@ -608,6 +607,68 @@ const sourceIcon = (source: string) => {
     cron: 'clock',
   };
   return icons[source] || 'chat';
+};
+
+// 工具图标映射
+const toolIconMap: Record<string, { icon: string; color: string }> = {
+  // 搜索类
+  'search_files': { icon: 'search', color: 'text-info' },
+  'web_search': { icon: 'search', color: 'text-info' },
+  'browser_*': { icon: 'browser', color: 'text-info' },
+  
+  // 文件操作
+  'read_file': { icon: 'file', color: 'text-success' },
+  'write_file': { icon: 'fileEdit', color: 'text-warning' },
+  'patch': { icon: 'tool', color: 'text-warning' },
+  
+  // 终端/代码
+  'terminal': { icon: 'terminal', color: 'text-error' },
+  'execute_code': { icon: 'code', color: 'text-primary' },
+  
+  // Agent/技能
+  'delegate_task': { icon: 'bot', color: 'text-info' },
+  'skill_view': { icon: 'skill', color: 'text-secondary' },
+  'skill_manage': { icon: 'skill', color: 'text-secondary' },
+  'skills_list': { icon: 'list', color: 'text-secondary' },
+  
+  // 会话/记忆
+  'session_search': { icon: 'history', color: 'text-accent' },
+  'memory': { icon: 'brain', color: 'text-accent' },
+  
+  // 浏览器操作
+  'browser_navigate': { icon: 'browser', color: 'text-info' },
+  'browser_click': { icon: 'mouse', color: 'text-info' },
+  'browser_snapshot': { icon: 'camera', color: 'text-info' },
+  'browser_vision': { icon: 'eye', color: 'text-info' },
+  
+  // Cron
+  'cronjob': { icon: 'clock', color: 'text-warning' },
+  
+  // 其他
+  'clarify': { icon: 'question', color: 'text-warning' },
+  'todo': { icon: 'checklist', color: 'text-success' },
+  'image_generate': { icon: 'image', color: 'text-secondary' },
+  'text_to_speech': { icon: 'audio', color: 'text-secondary' },
+  'vision_analyze': { icon: 'eye', color: 'text-info' },
+  'send_message': { icon: 'send', color: 'text-success' },
+};
+
+// 获取工具图标信息
+const getToolIcon = (toolName: string): { icon: string; color: string } => {
+  // 精确匹配
+  if (toolIconMap[toolName]) {
+    return toolIconMap[toolName];
+  }
+  
+  // 通配符匹配 (browser_*)
+  for (const [pattern, info] of Object.entries(toolIconMap)) {
+    if (pattern.endsWith('*') && toolName.startsWith(pattern.slice(0, -1))) {
+      return info;
+    }
+  }
+  
+  // 默认
+  return { icon: 'tool', color: 'text-warning' };
 };
 
 // 格式化工具参数摘要（显示关键参数的一行）
