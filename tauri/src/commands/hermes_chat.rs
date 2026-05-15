@@ -5,7 +5,7 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -137,15 +137,26 @@ fn find_bridge_script() -> Option<PathBuf> {
 
 /// Find Python executable
 fn find_python() -> String {
-    // Try python3 first
+    // 优先使用 Hermes Agent venv 的 Python（因为依赖都在 venv 里）
+    let hermes_venv_python = dirs::home_dir()
+        .map(|h| h.join(".hermes").join("hermes-agent").join("venv").join("bin").join("python3"))
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_else(|| "~/.hermes/hermes-agent/venv/bin/python3".to_string());
+    
+    // 检查 venv Python 是否存在且可执行
+    if Path::new(&hermes_venv_python).exists() {
+        if Command::new(&hermes_venv_python).arg("--version").output().is_ok() {
+            return hermes_venv_python;
+        }
+    }
+    
+    // Fallback 到系统 Python
     if Command::new("python3").arg("--version").output().is_ok() {
         return "python3".to_string();
     }
-    // Fallback to python
     if Command::new("python").arg("--version").output().is_ok() {
         return "python".to_string();
     }
-    // Default
     "python3".to_string()
 }
 
@@ -618,7 +629,8 @@ mod tests {
     #[test]
     fn test_find_python() {
         let python = find_python();
-        assert!(python == "python3" || python == "python");
+        // 可以是系统 python3/python，也可以是 Hermes venv 的 Python
+        assert!(python == "python3" || python == "python" || python.contains("venv/bin/python3"));
     }
 
     /// 测试 SessionInfo 可以解析 Python bridge 返回的 snake_case 格式
