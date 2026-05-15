@@ -503,7 +503,36 @@
         <!-- 底部操作栏 -->
         <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-base-content/10 shrink-0">
           <button @click="closeDialog" class="btn btn-ghost btn-sm">取消</button>
+          <button @click="onPreview" class="btn btn-ghost btn-sm gap-1">
+            <SvgIcon name="eye" size="14" /> 预览
+          </button>
           <button @click="onSave" class="btn btn-primary btn-sm" :disabled="!form.serverName && !form.listen && !form.ip">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 预览弹窗 -->
+    <div v-if="showPreview" class="fixed inset-0 z-[70]">
+      <div class="fixed inset-0 bg-black/50" @click="showPreview = false"></div>
+      <div class="fixed inset-y-0 right-0 w-[55%] min-w-[500px] bg-base-100 shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-base-content/10 shrink-0">
+          <h3 class="font-bold text-sm">配置预览</h3>
+          <button @click="showPreview = false" class="btn btn-ghost btn-sm btn-square">
+            <SvgIcon name="x" size="18" />
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto p-5">
+          <pre v-if="previewContent" class="text-xs font-mono leading-relaxed whitespace-pre-wrap bg-base-200 rounded-lg p-4 overflow-x-auto">{{ previewContent }}</pre>
+          <div v-else-if="previewLoading" class="flex items-center justify-center h-full text-base-content/50 text-sm">
+            <SvgIcon name="clock" size="14" class="mr-2" /> 生成中...
+          </div>
+          <div v-else class="flex items-center justify-center h-full text-base-content/50 text-sm">点击「预览」生成配置</div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-base-content/10 shrink-0">
+          <button @click="copyPreview" v-if="previewContent" class="btn btn-ghost btn-sm gap-1">
+            <SvgIcon name="clipboard" size="14" /> 复制
+          </button>
+          <button @click="showPreview = false" class="btn btn-primary btn-sm">关闭</button>
         </div>
       </div>
     </div>
@@ -595,6 +624,11 @@ let editingLocIndex = -1
 const showServerParamDialog = ref(false)
 const serverParamEntries = ref<Array<{name: string, value: string, position: number, templateId: string}>>([])
 const serverParamTemplates = ref<any[]>([])
+
+// 预览
+const showPreview = ref(false)
+const previewContent = ref('')
+const previewLoading = ref(false)
 
 // 搜索过滤
 const filteredServers = computed(() => {
@@ -967,6 +1001,85 @@ function saveLocationParams() {
     locations.value[editingLocIndex].paramJson = JSON.stringify(locParamEntries.value.filter(e => e.name.trim() || e.templateId))
   }
   showLocParamDialog.value = false
+}
+
+async function onPreview() {
+  // 构建完整的 server 对象（同 onSave 的逻辑）
+  const serverData = {
+    id: form.value.id || crypto.randomUUID(),
+    presetId: form.value.presetId,
+    proxyType: form.value.proxyType,
+    listen: form.value.listen,
+    ip: form.value.ip,
+    def: form.value.def,
+    ipv6: form.value.ipv6,
+    proxyProtocol: form.value.proxyProtocol,
+    serverName: form.value.serverName,
+    ssl: form.value.ssl,
+    certId: form.value.certId,
+    pem: form.value.pem,
+    key: form.value.key,
+    rewrite: form.value.rewrite,
+    rewriteListen: form.value.rewriteListen,
+    http2: form.value.http2,
+    protocols: form.value.protocols,
+    passwordId: form.value.passwordId,
+    denyAllow: form.value.denyAllow,
+    denyId: form.value.denyId,
+    allowId: form.value.allowId,
+    proxyUpstreamId: form.value.proxyUpstreamId,
+    descr: form.value.descr,
+    enabled: true,
+    sort: form.value.sort ?? 0,
+    paramJson: form.value.paramJson || '',
+    createdAt: form.value.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+
+  // 构建 locations（新增标记用 _key）
+  const locData = locations.value.map((loc: any) => ({
+    id: loc.id || crypto.randomUUID(),
+    serverId: form.value.id || '',
+    enabled: loc.enabled !== false,
+    path: loc.path || '',
+    value: loc.value || '',
+    rootPath: loc.rootPath || '',
+    rootPage: loc.rootPage || '',
+    rootType: loc.rootType || 'root',
+    upstreamId: loc.upstreamId || '',
+    upstreamPath: loc.upstreamPath || '',
+    header: loc.header || false,
+    headerHost: loc.headerHost || '',
+    websocket: loc.websocket || false,
+    cros: loc.cros || false,
+    returnUrl: loc.returnUrl || '',
+    returnPath: loc.returnPath || false,
+    descr: loc.descr || '',
+    sort: loc.sort ?? 0,
+    locType: loc.locType ?? 0,
+    paramJson: loc.paramJson || '',
+    createdAt: loc.createdAt || new Date().toISOString(),
+  }))
+
+  showPreview.value = true
+  previewContent.value = ''
+  previewLoading.value = true
+  try {
+    const result = await api.previewNginxServer(props.presetId, serverData, locData)
+    const content = result?.data ?? result
+    previewContent.value = typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+  } catch (err: any) {
+    previewContent.value = '生成预览失败: ' + (err?.message || err)
+  } finally {
+    previewLoading.value = false
+  }
+}
+
+function copyPreview() {
+  if (!previewContent.value) return
+  navigator.clipboard.writeText(previewContent.value)
+    .then(() => toast.success('已复制到剪贴板'))
+    .catch(() => toast.error('复制失败'))
 }
 
 function onDeleteLocation(idx: number) {

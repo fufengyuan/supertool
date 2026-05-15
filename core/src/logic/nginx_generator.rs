@@ -410,6 +410,13 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
 }
 
 fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> Result<(), String> {
+    let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
+        .map_err(|e| e.to_string())?;
+    append_server_block_inner(conn, s, &locations, out)
+}
+
+/// Shared server block generation logic used by both DB-backed and preview paths
+fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[NginxLocation], out: &mut String) -> Result<(), String> {
     // Description as comments
     if !s.descr.is_empty() {
         for line in s.descr.lines() {
@@ -504,11 +511,8 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
             if s.deny_allow == 2 { out.push_str("        deny all;\n"); }
         }
 
-        // Locations
-        let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
-            .map_err(|e| e.to_string())?;
-
-        for loc in &locations {
+        // Locations (passed in for preview support)
+        for loc in locations {
             if !loc.enabled { continue; }
             append_location_block(conn, loc, s, out)?;
         }
@@ -581,6 +585,19 @@ fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> 
 
     out.push_str("    }\n\n");
     Ok(())
+}
+
+/// Generate a single server block for preview (without saving to DB).
+/// All DB lookups for reference data (certs, templates, etc.) still work
+/// since those entities are already saved.
+pub fn generate_server_block_preview(
+    conn: &Connection,
+    server: &NginxServer,
+    locations: &[NginxLocation],
+) -> Result<String, String> {
+    let mut out = String::new();
+    append_server_block_inner(conn, server, locations, &mut out)?;
+    Ok(out)
 }
 
 fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxServer, out: &mut String) -> Result<(), String> {
