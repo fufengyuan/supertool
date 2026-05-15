@@ -426,6 +426,7 @@ import typescript from 'highlight.js/lib/languages/typescript';
 import bash from 'highlight.js/lib/languages/bash';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -468,7 +469,7 @@ interface Session {
 // 工具调用详情
 interface ToolCall {
   name: string;
-  args?: unknown; // 工具参数
+  args?: Record<string, unknown>; // 工具参数
   result?: string; // 工具返回结果
   durationMs: number;
   isSubAgent?: boolean; // 是否是子 agent
@@ -1216,7 +1217,7 @@ onMounted(async () => {
     // 添加到 currentToolCalls（状态为 running）
     currentToolCalls.value.push({
       name: toolName,
-      args: event.payload.args,
+      args: event.payload.args as Record<string, unknown> || {},
       durationMs: 0, // 还未完成
       isSubAgent,
       status: 'running',
