@@ -181,7 +181,7 @@
                           <div class="flex items-center gap-2">
                             <SvgIcon name="bot" size="14" class="text-info" />
                             <span class="text-info text-xs font-medium">子 Agent</span>
-                            <span class="text-base-content/50 text-xs">
+                            <span class="text-base-content/70 text-xs">
                               {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 160) + '...' : '执行任务' }}
                             </span>
                             <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1">
@@ -204,12 +204,12 @@
                         <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-info/5 border-t border-info/15 text-xs">
                           <!-- 任务参数 -->
                           <div v-if="tool.args" class="mb-2">
-                            <span class="text-base-content/60">参数：</span>
+                            <span class="text-base-content/70">参数：</span>
                             <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 执行结果 -->
                           <div v-if="tool.result" class="mt-2">
-                            <span class="text-base-content/60">结果：</span>
+                            <span class="text-base-content/70">结果：</span>
                             <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs whitespace-pre-wrap">{{ tool.result }}</div>
                           </div>
                         </div>
@@ -226,7 +226,7 @@
                             <SvgIcon name="tool" size="12" class="text-warning" />
                             <span class="text-warning text-xs font-medium">{{ tool.name }}</span>
                             <!-- 参数摘要：显示关键参数的一行摘要 -->
-                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/50 text-xs truncate flex-1">
+                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/70 text-xs truncate flex-1">
                               {{ formatArgsSummary(tool.args) }}
                             </span>
                             <span v-if="tool.status === 'completed'" class="badge badge-xs badge-success gap-1 ml-auto">
@@ -250,12 +250,12 @@
                         <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-warning/5 border-t border-warning/15 text-xs">
                           <!-- 参数 -->
                           <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-2">
-                            <span class="text-base-content/60">参数：</span>
+                            <span class="text-base-content/70">参数：</span>
                             <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 结果 -->
                           <div v-if="tool.result" class="mt-2">
-                            <span class="text-base-content/60">结果：</span>
+                            <span class="text-base-content/70">结果：</span>
                             <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-48 whitespace-pre-wrap">{{ tool.result }}</pre>
                           </div>
                         </div>
@@ -286,8 +286,8 @@
                   <SvgIcon v-if="tool.isSubAgent" name="bot" size="12" class="text-info animate-pulse" />
                   <SvgIcon v-else name="tool" size="12" class="text-warning animate-pulse" />
                   <span class="text-warning font-medium">{{ tool.name }}</span>
-                  <span v-if="tool.args" class="text-base-content/50 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
-                  <span class="text-base-content/40 ml-auto">执行中...</span>
+                  <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
+                  <span class="text-base-content/60 ml-auto">执行中...</span>
                 </div>
               </div>
             </div>
