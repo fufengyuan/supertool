@@ -12,6 +12,9 @@
         <button @click="openAddDialog" class="btn btn-primary btn-sm">
           <SvgIcon name="plus" size="14" /> 新增 Server
         </button>
+        <button @click="onListPreview" class="btn btn-ghost btn-sm gap-1">
+          <SvgIcon name="eye" size="14" /> 配置预览
+        </button>
       </div>
     </div>
 
@@ -101,6 +104,32 @@
           </tr>
         </tbody>
       </table>
+    </div>
+
+    <!-- 列表页配置预览弹窗 -->
+    <div v-if="showListPreview" class="fixed inset-0 z-[70]">
+      <div class="fixed inset-0 bg-black/50" @click="showListPreview = false"></div>
+      <div class="fixed inset-y-0 right-0 w-[75%] min-w-[700px] max-w-[1100px] bg-base-100 shadow-2xl flex flex-col">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-base-content/10 shrink-0">
+          <h3 class="font-bold text-sm">Server 配置预览</h3>
+          <button @click="showListPreview = false" class="btn btn-ghost btn-sm btn-square">
+            <SvgIcon name="x" size="18" />
+          </button>
+        </div>
+        <div class="flex-1 overflow-auto p-5">
+          <pre v-if="listPreviewContent" class="nginx-highlight text-xs font-mono leading-relaxed whitespace-pre-wrap bg-base-200 rounded-lg p-4 overflow-x-auto"><code v-html="listHighlightedPreview"></code></pre>
+          <div v-else-if="listPreviewLoading" class="flex items-center justify-center h-full text-base-content/50 text-sm">
+            <SvgIcon name="clock" size="14" class="mr-2" /> 生成中...
+          </div>
+          <div v-else class="flex items-center justify-center h-full text-base-content/50 text-sm">点击「配置预览」按钮生成配置</div>
+        </div>
+        <div class="flex items-center justify-end gap-2 px-6 py-4 border-t border-base-content/10 shrink-0">
+          <button @click="copyListPreview" v-if="listPreviewContent" class="btn btn-ghost btn-sm gap-1">
+            <SvgIcon name="clipboard" size="14" /> 复制
+          </button>
+          <button @click="showListPreview = false" class="btn btn-primary btn-sm">关闭</button>
+        </div>
+      </div>
     </div>
 
     <!-- 新增/编辑弹窗 - 抽屉式 -->
@@ -633,6 +662,11 @@ const showPreview = ref(false)
 const previewContent = ref('')
 const previewLoading = ref(false)
 
+// 列表页配置预览
+const showListPreview = ref(false)
+const listPreviewContent = ref('')
+const listPreviewLoading = ref(false)
+
 const highlightedPreview = computed(() => {
   if (!previewContent.value) return ''
   try {
@@ -1094,6 +1128,37 @@ async function onPreview() {
 function copyPreview() {
   if (!previewContent.value) return
   navigator.clipboard.writeText(previewContent.value)
+    .then(() => toast.success('已复制到剪贴板'))
+    .catch(() => toast.error('复制失败'))
+}
+
+const listHighlightedPreview = computed(() => {
+  if (!listPreviewContent.value) return ''
+  try {
+    return hljs.highlight(listPreviewContent.value, { language: 'nginx' }).value
+  } catch {
+    return listPreviewContent.value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  }
+})
+
+async function onListPreview() {
+  showListPreview.value = true
+  listPreviewContent.value = ''
+  listPreviewLoading.value = true
+  try {
+    const result = await api.generateNginxConfig(props.presetId)
+    const content = result?.data ?? result
+    listPreviewContent.value = typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+  } catch (err: any) {
+    listPreviewContent.value = '生成预览失败: ' + (err?.message || err)
+  } finally {
+    listPreviewLoading.value = false
+  }
+}
+
+function copyListPreview() {
+  if (!listPreviewContent.value) return
+  navigator.clipboard.writeText(listPreviewContent.value)
     .then(() => toast.success('已复制到剪贴板'))
     .catch(() => toast.error('复制失败'))
 }
