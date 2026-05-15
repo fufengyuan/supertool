@@ -311,9 +311,11 @@ def _handle_get_session(params: Dict[str, Any]) -> None:
         # Format messages
         formatted = []
         for m in messages:
+            content = m.get("content")
+            # 不截断历史消息内容，用户可能需要完整上下文
             formatted.append({
                 "role": m.get("role", ""),
-                "content": m.get("content", "")[:1000] if m.get("content") else None,
+                "content": content,
                 "timestamp": m.get("timestamp"),
                 "tool_name": m.get("tool_name"),
             })
