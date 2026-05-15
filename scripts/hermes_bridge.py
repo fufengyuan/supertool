@@ -72,86 +72,43 @@ except ImportError:
                     key, val = line.split("=", 1)
                     os.environ[key.strip()] = val.strip()
 
-# Global state - Hermes modules loaded lazily
-_HERMES_MODULES_LOADED = False
-_HERMES_AVAILABLE = False
-_IMPORT_ERROR = ""
-_DEFAULT_MODEL = ""
-_AIAgent = None
-_SessionDB = None
-_resolve_multiple_toolsets = None
-_load_cli_config = None
+# Now import Hermes modules
+try:
+    from run_agent import AIAgent
+    from hermes_state import SessionDB, get_hermes_home
+    from model_tools import get_tool_definitions
+    from toolsets import resolve_multiple_toolsets
+    from cli import load_cli_config
+    HERMES_AVAILABLE = True
+    
+    # 加载配置获取默认模型
+    _CLI_CONFIG = load_cli_config()
+    _MODEL_CONFIG = _CLI_CONFIG.get("model", {})
+    if isinstance(_MODEL_CONFIG, dict):
+        _DEFAULT_MODEL = _MODEL_CONFIG.get("default") or _MODEL_CONFIG.get("model") or ""
+    else:
+        _DEFAULT_MODEL = _MODEL_CONFIG or ""
+except ImportError as e:
+    HERMES_AVAILABLE = False
+    _IMPORT_ERROR = str(e)
+    _DEFAULT_MODEL = ""
+    
+    # 检查是否缺少 fire 模块，给出安装指引
+    if "fire" in str(e):
+        _IMPORT_ERROR = "Missing 'fire' dependency. Install Hermes Agent with: pip install -e ~/.hermes/hermes-agent '[all]' --break-system-packages"
 
-_current_agent: Optional[Any] = None
+# Global state
+_current_agent: Optional[AIAgent] = None
 _current_session_id: Optional[str] = None
 _abort_flag: bool = False
-_session_db: Optional[Any] = None
+_session_db: Optional[SessionDB] = None
 
 
-def _load_hermes_modules() -> bool:
-    """Load Hermes modules lazily on first use."""
-    global _HERMES_MODULES_LOADED, _HERMES_AVAILABLE, _IMPORT_ERROR, _DEFAULT_MODEL
-    global _AIAgent, _SessionDB, _resolve_multiple_toolsets, _load_cli_config
-    
-    if _HERMES_MODULES_LOADED:
-        return _HERMES_AVAILABLE
-    
-    _HERMES_MODULES_LOADED = True
-    import time
-    start = time.time()
-    
-    try:
-        from run_agent import AIAgent
-        from hermes_state import SessionDB, get_hermes_home
-        from model_tools import get_tool_definitions
-        from toolsets import resolve_multiple_toolsets
-        from cli import load_cli_config
-        
-        _AIAgent = AIAgent
-        _SessionDB = SessionDB
-        _resolve_multiple_toolsets = resolve_multiple_toolsets
-        _load_cli_config = load_cli_config
-        
-        _HERMES_AVAILABLE = True
-        
-        # 加载配置获取默认模型
-        _CLI_CONFIG = load_cli_config()
-        _MODEL_CONFIG = _CLI_CONFIG.get("model", {})
-        if isinstance(_MODEL_CONFIG, dict):
-            _DEFAULT_MODEL = _MODEL_CONFIG.get("default") or _MODEL_CONFIG.get("model") or ""
-        else:
-            _DEFAULT_MODEL = _MODEL_CONFIG or ""
-        
-        elapsed = time.time() - start
-        # 输出加载时间日志（通过 stderr，不干扰 JSON 协议）
-        import sys
-        sys.stderr.write(f"[bridge] Hermes modules loaded in {elapsed:.1f}s\n")
-        sys.stderr.flush()
-        
-        return True
-    except ImportError as e:
-        _HERMES_AVAILABLE = False
-        _IMPORT_ERROR = str(e)
-        _DEFAULT_MODEL = ""
-        
-        # 检查是否缺少 fire 模块，给出安装指引
-        if "fire" in str(e):
-            _IMPORT_ERROR = "Missing 'fire' dependency. Install Hermes Agent with: pip install -e ~/.hermes/hermes-agent '[all]' --break-system-packages"
-        
-        import sys
-        sys.stderr.write(f"[bridge] Hermes import failed: {_IMPORT_ERROR}\n")
-        sys.stderr.flush()
-        
-        return False
-
-
-def _ensure_session_db() -> Any:
+def _ensure_session_db() -> SessionDB:
     """Get or create SessionDB instance."""
     global _session_db
     if _session_db is None:
-        if not _load_hermes_modules():
-            raise RuntimeError(f"Hermes not available: {_IMPORT_ERROR}")
-        _session_db = _SessionDB()
+        _session_db = SessionDB()
     return _session_db
 
 
@@ -165,18 +122,14 @@ def _create_agent(
     session_id: Optional[str] = None,
     model: Optional[str] = None,
     toolsets: Optional[List[str]] = None,
-) -> Any:
+) -> AIAgent:
     """Create an AIAgent instance."""
     global _current_agent, _current_session_id
-    
-    # Ensure Hermes modules loaded
-    if not _load_hermes_modules():
-        raise RuntimeError(f"Hermes not available: {_IMPORT_ERROR}")
 
     # Resolve toolsets
     enabled_toolsets = None
     if toolsets:
-        enabled_toolsets = _resolve_multiple_toolsets(toolsets)
+        enabled_toolsets = resolve_multiple_toolsets(toolsets)
 
     # Create callbacks for streaming
     def stream_callback(delta: str) -> None:
@@ -216,7 +169,7 @@ def _create_agent(
         session_id = str(uuid.uuid4())
 
     # Create agent
-    agent = _AIAgent(
+    agent = AIAgent(
         model=model or _DEFAULT_MODEL,
         session_id=session_id,
         session_db=session_db,
@@ -240,8 +193,7 @@ def _handle_chat(params: Dict[str, Any]) -> None:
     """Handle chat action."""
     global _abort_flag
 
-    # Try to load Hermes modules (lazy loading)
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -301,7 +253,7 @@ def _handle_chat(params: Dict[str, Any]) -> None:
 
 def _handle_list_sessions(params: Dict[str, Any]) -> None:
     """Handle list_sessions action."""
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -339,7 +291,7 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
 
 def _handle_search_sessions(params: Dict[str, Any]) -> None:
     """Handle search_sessions action - search across all session content."""
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -382,7 +334,7 @@ def _handle_search_sessions(params: Dict[str, Any]) -> None:
 
 def _handle_get_session(params: Dict[str, Any]) -> None:
     """Handle get_session action."""
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -422,7 +374,7 @@ def _handle_get_session(params: Dict[str, Any]) -> None:
 
 def _handle_delete_session(params: Dict[str, Any]) -> None:
     """Handle delete_session action."""
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -447,7 +399,7 @@ def _handle_delete_session(params: Dict[str, Any]) -> None:
 
 def _handle_rename_session(params: Dict[str, Any]) -> None:
     """Handle rename_session action."""
-    if not _load_hermes_modules():
+    if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
         return
 
@@ -483,14 +435,6 @@ def _handle_abort(params: Dict[str, Any]) -> None:
     _output({"type": "aborted", "session_id": _current_session_id})
 
 
-def _handle_preload(params: Dict[str, Any]) -> None:
-    """Preload Hermes modules for faster first chat."""
-    if _load_hermes_modules():
-        _output({"type": "preloaded", "duration_ms": 0})
-    else:
-        _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
-
-
 def _handle_command(cmd: Dict[str, Any]) -> None:
     """Process a single command."""
     action = cmd.get("action")
@@ -503,7 +447,6 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
         "delete_session": _handle_delete_session,
         "rename_session": _handle_rename_session,
         "abort": _handle_abort,
-        "preload": _handle_preload,
     }
 
     handler = handlers.get(action)
@@ -529,8 +472,10 @@ def main():
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    # Hermes modules are loaded lazily on first use
-    # No preloading here to avoid startup delay
+    # Check Hermes availability
+    if not HERMES_AVAILABLE:
+        _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}. Please install Hermes first."})
+        # Still continue to handle other non-agent commands
 
     # Read commands from stdin line by line
     for line in sys.stdin:
