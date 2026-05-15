@@ -378,39 +378,35 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
+import { markedHighlight } from 'marked-highlight';
 import javascript from 'highlight.js/lib/languages/javascript';
 import python from 'highlight.js/lib/languages/python';
-import rust from 'highlight.js/lib/languages/rust';
-import bash from 'highlight.js/lib/languages/bash';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
 import typescript from 'highlight.js/lib/languages/typescript';
-import SvgIcon from '@/components/ui/SvgIcon.vue';
+import bash from 'highlight.js/lib/languages/bash';
+import xml from 'highlight.js/lib/languages/xml';
+import yaml from 'highlight.js/lib/languages/yaml';
 
-// 注册代码高亮语言
-hljs.registerLanguage('javascript', javascript);
-hljs.registerLanguage('python', python);
-hljs.registerLanguage('rust', rust);
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
 hljs.registerLanguage('sql', sql);
 hljs.registerLanguage('typescript', typescript);
+hljs.registerLanguage('xml', xml);
+hljs.registerLanguage('yaml', yaml);
 
-// 配置 marked 使用 highlight.js - 使用新的 renderer 方式
-const renderer = new marked.Renderer();
-renderer.code = function({ text, lang }: { text: string; lang?: string }): string {
-  const language = lang || '';
-  if (language && hljs.getLanguage(language)) {
-    try {
-      const highlighted = hljs.highlight(text, { language }).value;
-      return `<pre class="hljs"><code class="language-${language}">${highlighted}</code></pre>`;
-    } catch {}
-  }
-  return `<pre class="hljs"><code>${hljs.highlightAuto(text).value}</code></pre>`;
-};
-
+// 配置 marked 使用 highlight.js
+marked.use(markedHighlight({
+  highlight(code: string, lang: string | undefined) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value;
+      } catch {}
+    }
+    return hljs.highlightAuto(code).value;
+  },
+}));
 marked.setOptions({
-  renderer,
   breaks: true, // 支持 GFM 换行
   gfm: true, // GitHub Flavored Markdown
 });
