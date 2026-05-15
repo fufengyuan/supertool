@@ -419,11 +419,11 @@ interface Session {
   title: string | null;
   model: string;
   source: string;
-  startedAt: number;
-  endedAt: number | null;
+  startedAt?: number; // 可选，因为 Python bridge 可能不返回
+  endedAt?: number | null; // 可选
   messageCount: number;
   preview: string;
-  lastActive?: number; // 最近活跃时间（可选）
+  lastActive?: number; // 可选
 }
 
 // 工具调用详情
@@ -632,7 +632,7 @@ const renderMarkdown = (text: string | null): string => {
   }
 };
 
-const formatTime = (ts: number | null) => {
+const formatTime = (ts: number | null | undefined) => {
   if (!ts) return '';
   const date = new Date(ts * 1000);
   const now = new Date();
@@ -660,8 +660,8 @@ const refreshSessions = async () => {
     const result = await invoke<{ sessions: Session[]; total: number }>('agent_list_sessions', { limit: 50 });
     // 按 lastActive 降序排序（最近活跃的在前）
     sessions.value = result.sessions.sort((a, b) => {
-      const aTime = a.lastActive || a.startedAt;
-      const bTime = b.lastActive || b.startedAt;
+      const aTime = a.lastActive || a.startedAt || 0;
+      const bTime = b.lastActive || b.startedAt || 0;
       return bTime - aTime;
     });
   } catch (e) {

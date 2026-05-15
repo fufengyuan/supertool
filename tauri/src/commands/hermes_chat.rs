@@ -78,13 +78,13 @@ pub enum BridgeMessage {
 pub struct SessionInfo {
     #[serde(rename = "id")]
     pub id: String,
-    #[serde(rename = "title", alias = "title", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "title", skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     #[serde(rename = "model")]
     pub model: String,
     #[serde(rename = "source")]
     pub source: String,
-    #[serde(rename = "startedAt", alias = "started_at", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "startedAt", alias = "started_at")]
     pub started_at: Option<f64>,
     #[serde(rename = "endedAt", alias = "ended_at", skip_serializing_if = "Option::is_none")]
     pub ended_at: Option<f64>,
