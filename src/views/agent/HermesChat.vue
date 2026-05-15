@@ -99,12 +99,17 @@
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
               <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-                <p class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
+                <!-- Markdown 渲染的消息内容 -->
+                <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                 <!-- 工具调用显示 -->
                 <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-2 space-y-1">
                   <div v-for="(tool, idx) in msg.toolCalls" :key="`${tool.name}-${idx}`" class="flex items-center gap-2 text-xs">
-                    <SvgIcon name="tool" size="12" class="text-warning" />
-                    <span class="text-base-content/70">{{ tool.name }}</span>
+                    <!-- 子 agent 使用不同图标 -->
+                    <SvgIcon v-if="tool.name === 'delegate_task'" name="bot" size="12" class="text-info" />
+                    <SvgIcon v-else name="tool" size="12" class="text-warning" />
+                    <!-- 子 agent 显示不同文字 -->
+                    <span v-if="tool.name === 'delegate_task'" class="text-info">子 Agent</span>
+                    <span v-else class="text-base-content/70">{{ tool.name }}</span>
                     <span class="text-base-content/40">{{ tool.durationMs }}ms</span>
                   </div>
                 </div>
@@ -128,7 +133,8 @@
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
             <div class="flex-1 bg-primary/5 border border-primary/10 rounded-xl px-3 py-2">
-              <p class="text-sm text-base-content whitespace-pre-wrap">{{ streamingText }}</p>
+              <!-- 流式输出实时渲染 markdown -->
+              <div class="markdown-content text-sm text-base-content" v-html="renderMarkdown(streamingText)"></div>
             </div>
           </div>
         </template>
@@ -180,7 +186,40 @@ import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
+import hljs from 'highlight.js/lib/core';
+import javascript from 'highlight.js/lib/languages/javascript';
+import python from 'highlight.js/lib/languages/python';
+import rust from 'highlight.js/lib/languages/rust';
+import bash from 'highlight.js/lib/languages/bash';
+import json from 'highlight.js/lib/languages/json';
+import sql from 'highlight.js/lib/languages/sql';
+import typescript from 'highlight.js/lib/languages/typescript';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+// 注册代码高亮语言
+hljs.registerLanguage('javascript', javascript);
+hljs.registerLanguage('python', python);
+hljs.registerLanguage('rust', rust);
+hljs.registerLanguage('bash', bash);
+hljs.registerLanguage('json', json);
+hljs.registerLanguage('sql', sql);
+hljs.registerLanguage('typescript', typescript);
+
+// 配置 marked 使用 highlight.js
+marked.setOptions({
+  highlight: function(code: string, lang: string) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value;
+      } catch {}
+    }
+    return hljs.highlightAuto(code).value;
+  },
+  breaks: true, // 支持 GFM 换行
+  gfm: true, // GitHub Flavored Markdown
+});
 
 const route = useRoute();
 const router = useRouter();
@@ -249,6 +288,20 @@ const sourceIcon = (source: string) => {
     cron: 'clock',
   };
   return icons[source] || 'chat';
+};
+
+// Markdown 渲染函数
+const renderMarkdown = (text: string | null): string => {
+  if (!text) return '';
+  try {
+    const html = marked.parse(text) as string;
+    return DOMPurify.sanitize(html, {
+      ADD_ATTR: ['target'], // 允许链接的 target 属性
+      ADD_TAGS: ['mark'], // 允许 mark 标签
+    });
+  } catch {
+    return text;
+  }
 };
 
 const formatTime = (ts: number | null) => {
@@ -444,8 +497,13 @@ onMounted(async () => {
   });
 
   unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
-    // 工具开始，显示工具调用状态
-    thinkingText.value = `调用工具: ${event.payload.name}...`;
+    // 工具开始，显示工具调用状态（区分子 agent）
+    const toolName = event.payload.name;
+    if (toolName === 'delegate_task') {
+      thinkingText.value = '启动子 Agent 处理任务...';
+    } else {
+      thinkingText.value = `调用工具: ${toolName}...`;
+    }
   });
 
   unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
@@ -520,3 +578,128 @@ watch(streamingText, () => {
   scrollToBottom();
 });
 </script>
+
+<style scoped>
+/* Markdown 内容样式 */
+.markdown-content {
+  line-height: 1.6;
+}
+
+.markdown-content :deep(p) {
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(code) {
+  background: rgba(0, 0, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-family: 'Fira Code', 'Monaco', 'Consolas', monospace;
+}
+
+.markdown-content :deep(pre) {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 0.8em 0;
+}
+
+.markdown-content :deep(pre code) {
+  background: transparent;
+  padding: 0;
+  font-size: 0.85em;
+}
+
+/* 代码高亮主题 - 适配 daisyUI 主题 */
+.markdown-content :deep(.hljs-keyword),
+.markdown-content :deep(.hljs-selector-tag) {
+  color: #e91e63;
+}
+
+.markdown-content :deep(.hljs-string),
+.markdown-content :deep(.hljs-attr) {
+  color: #4caf50;
+}
+
+.markdown-content :deep(.hljs-number),
+.markdown-content :deep(.hljs-literal) {
+  color: #2196f3;
+}
+
+.markdown-content :deep(.hljs-comment) {
+  color: #9e9e9e;
+}
+
+.markdown-content :deep(.hljs-function),
+.markdown-content :deep(.hljs-title) {
+  color: #ff9800;
+}
+
+.markdown-content :deep(.hljs-variable),
+.markdown-content :deep(.hljs-params) {
+  color: #673ab7;
+}
+
+/* 链接样式 */
+.markdown-content :deep(a) {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.markdown-content :deep(a:hover) {
+  opacity: 0.8;
+}
+
+/* 列表样式 */
+.markdown-content :deep(ul),
+.markdown-content :deep(ol) {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-content :deep(li) {
+  margin: 0.3em 0;
+}
+
+/* 表格样式 */
+.markdown-content :deep(table) {
+  border-collapse: collapse;
+  margin: 0.8em 0;
+  width: 100%;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid var(--color-base-content, #ccc);
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.markdown-content :deep(th) {
+  background: rgba(0, 0, 0, 0.05);
+  font-weight: 600;
+}
+
+/* 引用块样式 */
+.markdown-content :deep(blockquote) {
+  border-left: 3px solid var(--color-primary);
+  padding-left: 1em;
+  margin: 0.8em 0;
+  color: var(--color-base-content);
+  opacity: 0.8;
+}
+
+/* 标题样式 */
+.markdown-content :deep(h1),
+.markdown-content :deep(h2),
+.markdown-content :deep(h3),
+.markdown-content :deep(h4) {
+  margin: 1em 0 0.5em;
+  font-weight: 600;
+}
+
+.markdown-content :deep(h1) { font-size: 1.4em; }
+.markdown-content :deep(h2) { font-size: 1.2em; }
+.markdown-content :deep(h3) { font-size: 1.1em; }
+</style>
