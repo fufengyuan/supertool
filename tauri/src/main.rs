@@ -744,17 +744,17 @@ fn main() {
             // HTTP Fetch (HTML to Markdown tool)
             commands::fetch::fetch_page_content,
             commands::fetch::convert_html_to_md,
-            // Hermes Agent commands (direct DB access)
-            commands::agent::hermes_installed,
-            commands::agent::hermes_list_messages,
-            commands::agent::hermes_get_stats,
-            // Hermes Chat Bridge commands (Python bridge for AI interaction)
-            commands::hermes_chat::hermes_chat,
-            commands::hermes_chat::hermes_list_sessions,
-            commands::hermes_chat::hermes_get_session,
-            commands::hermes_chat::hermes_delete_session,
-            commands::hermes_chat::hermes_abort_chat,
-            commands::hermes_chat::hermes_check_available,
+            // Agent commands (direct DB access)
+            commands::agent::agent_installed,
+            commands::agent::agent_list_messages,
+            commands::agent::agent_get_stats,
+            // Agent Chat Bridge commands (Python bridge for AI interaction)
+            commands::hermes_chat::agent_chat,
+            commands::hermes_chat::agent_list_sessions,
+            commands::hermes_chat::agent_get_session,
+            commands::hermes_chat::agent_delete_session,
+            commands::hermes_chat::agent_abort_chat,
+            commands::hermes_chat::agent_check_available,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

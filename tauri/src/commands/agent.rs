@@ -1,11 +1,11 @@
-//! Hermes Agent management commands for Tauri GUI
+//! Agent management commands for Tauri GUI
 //!
 //! Provides IPC commands for direct database access (no Python bridge):
-//! - Check Hermes installation
+//! - Check Agent installation
 //! - List session messages
 //! - Get statistics
 //!
-//! Agent interaction commands (chat, abort) are in hermes_chat.rs
+//! Agent interaction commands (chat, abort) are in agent_chat.rs
 
 use serde_json::json;
 
@@ -14,9 +14,9 @@ use supertool_core::db::agent::{
     list_hermes_messages,
 };
 
-/// Check if Hermes is installed
+/// Check if Agent is installed
 #[tauri::command(rename_all = "camelCase")]
-pub fn hermes_installed() -> Result<serde_json::Value, String> {
+pub fn agent_installed() -> Result<serde_json::Value, String> {
     let installed = hermes_is_installed();
     Ok(json!({
         "success": true,
@@ -24,9 +24,9 @@ pub fn hermes_installed() -> Result<serde_json::Value, String> {
     }))
 }
 
-/// List Hermes messages for a session
+/// List Agent messages for a session
 #[tauri::command(rename_all = "camelCase")]
-pub fn hermes_list_messages(
+pub fn agent_list_messages(
     session_id: String,
 ) -> Result<serde_json::Value, String> {
     let messages = list_hermes_messages(&session_id)?;
@@ -37,9 +37,9 @@ pub fn hermes_list_messages(
     }))
 }
 
-/// Get Hermes statistics
+/// Get Agent statistics
 #[tauri::command(rename_all = "camelCase")]
-pub fn hermes_get_stats() -> Result<serde_json::Value, String> {
+pub fn agent_get_stats() -> Result<serde_json::Value, String> {
     let stats = get_hermes_stats()?;
     Ok(json!({
         "success": true,
@@ -55,10 +55,10 @@ pub fn hermes_get_stats() -> Result<serde_json::Value, String> {
 mod tests {
     use super::*;
 
-    /// Test hermes_installed command - simulates frontend invoke("hermesInstalled")
+    /// Test agent_installed command - simulates frontend invoke("agentInstalled")
     #[test]
-    fn test_hermes_installed() {
-        let result = hermes_installed();
+    fn test_agent_installed() {
+        let result = agent_installed();
         assert!(result.is_ok());
 
         let json = result.unwrap();
@@ -66,10 +66,10 @@ mod tests {
         assert!(json["installed"].is_boolean());
     }
 
-    /// Test hermes_list_messages command - simulates frontend invoke("hermesListMessages", { sessionId })
+    /// Test agent_list_messages command - simulates frontend invoke("agentListMessages", { sessionId })
     #[test]
-    fn test_hermes_list_messages() {
-        let result = hermes_list_messages("test-session-id".to_string());
+    fn test_agent_list_messages() {
+        let result = agent_list_messages("test-session-id".to_string());
         if result.is_ok() {
             let json = result.unwrap();
             assert_eq!(json["success"], true);
@@ -78,10 +78,10 @@ mod tests {
         }
     }
 
-    /// Test hermes_get_stats command - simulates frontend invoke("hermesGetStats")
+    /// Test agent_get_stats command - simulates frontend invoke("agentGetStats")
     #[test]
-    fn test_hermes_get_stats() {
-        let result = hermes_get_stats();
+    fn test_agent_get_stats() {
+        let result = agent_get_stats();
         if result.is_ok() {
             let json = result.unwrap();
             assert_eq!(json["success"], true);
@@ -93,9 +93,9 @@ mod tests {
     #[test]
     fn test_all_commands_return_json_with_success() {
         let tests: Vec<(String, Result<serde_json::Value, String>)> = vec![
-            ("hermes_installed".to_string(), hermes_installed()),
-            ("hermes_list_messages".to_string(), hermes_list_messages("test".to_string())),
-            ("hermes_get_stats".to_string(), hermes_get_stats()),
+            ("agent_installed".to_string(), agent_installed()),
+            ("agent_list_messages".to_string(), agent_list_messages("test".to_string())),
+            ("agent_get_stats".to_string(), agent_get_stats()),
         ];
 
         for (name, result) in tests {
@@ -108,10 +108,10 @@ mod tests {
     /// Test camelCase response keys
     #[test]
     fn test_camel_case_response_keys() {
-        let json = hermes_installed().unwrap();
+        let json = agent_installed().unwrap();
         assert!(json.get("success").is_some());
 
-        let messages_json = hermes_list_messages("test".to_string());
+        let messages_json = agent_list_messages("test".to_string());
         if let Ok(json) = messages_json {
             assert!(json.get("sessionId").is_some());
         }

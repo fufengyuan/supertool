@@ -256,7 +256,7 @@ const formatTime = (ts: number | null) => {
 const refreshSessions = async () => {
   loadingSessions.value = true;
   try {
-    const result = await invoke<{ sessions: Session[]; total: number }>('hermes_list_sessions', { limit: 50 });
+    const result = await invoke<{ sessions: Session[]; total: number }>('agent_list_sessions', { limit: 50 });
     sessions.value = result.sessions;
   } catch (e) {
     console.error('Failed to list sessions:', e);
@@ -271,7 +271,7 @@ const selectSession = async (session: Session) => {
   messages.value = [];
 
   try {
-    const result = await invoke<{ session_id: string; messages: Message[] }>('hermes_get_session', {
+    const result = await invoke<{ session_id: string; messages: Message[] }>('agent_get_session', {
       sessionId: session.id,
     });
     // 转换消息格式
@@ -333,7 +333,7 @@ const sendMessage = async () => {
   currentToolCalls = [];
 
   try {
-    const result = await invoke<{ response: string; session_id: string; message_count: number }>('hermes_chat', {
+    const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message: text,
       sessionId: currentSessionId.value,
       model: null,
@@ -375,7 +375,7 @@ const sendMessage = async () => {
 
 const abortChat = async () => {
   try {
-    await invoke('hermes_abort_chat');
+    await invoke('agent_abort_chat');
     isStreaming.value = false;
     streamingText.value = '';
   } catch (e) {
@@ -387,7 +387,7 @@ const deleteCurrentSession = async () => {
   if (!currentSessionId.value) return;
 
   try {
-    await invoke('hermes_delete_session', { sessionId: currentSessionId.value });
+    await invoke('agent_delete_session', { sessionId: currentSessionId.value });
     sessions.value = sessions.value.filter(s => s.id !== currentSessionId.value);
     startNewChat();
   } catch (e) {
@@ -397,7 +397,7 @@ const deleteCurrentSession = async () => {
 
 const checkHermes = async () => {
   try {
-    const result = await invoke<{ available: boolean; error: string | null }>('hermes_check_available');
+    const result = await invoke<{ available: boolean; error: string | null }>('agent_check_available');
     hermesAvailable.value = result.available;
   } catch (e) {
     hermesAvailable.value = false;
@@ -415,23 +415,23 @@ const scrollToBottom = () => {
 // Lifecycle
 onMounted(async () => {
   // 监听流式事件
-  unlistenDelta = await listen<string>('hermes-delta', (event) => {
+  unlistenDelta = await listen<string>('agent-delta', (event) => {
     streamingText.value += event.payload;
     scrollToBottom();
   });
 
-  unlistenToolStart = await listen<{ name: string; args: unknown }>('hermes-tool-start', (event) => {
+  unlistenToolStart = await listen<{ name: string; args: unknown }>('agent-tool-start', (event) => {
     // 工具开始，可以显示进度
   });
 
-  unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('hermes-tool-complete', (event) => {
+  unlistenToolComplete = await listen<{ name: string; result: string; duration_ms: number }>('agent-tool-complete', (event) => {
     currentToolCalls.push({
       name: event.payload.name,
       durationMs: event.payload.duration_ms,
     });
   });
 
-  unlistenError = await listen<string>('hermes-error', (event) => {
+  unlistenError = await listen<string>('agent-error', (event) => {
     streamingText.value += `\n[错误: ${event.payload}]`;
   });
 
@@ -448,7 +448,7 @@ onMounted(async () => {
     } else {
       // 会话不存在，尝试直接加载
       try {
-        const result = await invoke<{ session_id: string; messages: Message[] }>('hermes_get_session', {
+        const result = await invoke<{ session_id: string; messages: Message[] }>('agent_get_session', {
           sessionId: sessionIdFromQuery,
         });
         currentSessionId.value = sessionIdFromQuery;
