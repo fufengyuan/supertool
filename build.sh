@@ -335,9 +335,7 @@ case "$MODE" in
   pkg)
     # 只生成 pkg installer（含 CLI + Skills），跳过 dmg
     build_cli "$ARCH"
-    pnpm tauri build --bundles app
-    
-    local arch_label=""
+    pnpm tauri build --bundles app\n    \n    arch_label=""
     if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
         arch_label="-x64"
     elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
