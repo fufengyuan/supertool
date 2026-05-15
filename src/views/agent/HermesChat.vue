@@ -50,7 +50,7 @@
     <div class="flex-1 flex flex-col">
       <!-- 聊天头部 -->
       <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100">
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-1">
           <button class="btn btn-ghost btn-xs btn-circle" @click="router.back()" title="返回">
             <SvgIcon name="arrowLeft" size="14" />
           </button>
@@ -90,19 +90,48 @@
           <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
+          <!-- 搜索按钮 -->
+          <div v-if="messages.length > 0" class="relative">
+            <input
+              v-model="searchQuery"
+              type="text"
+              class="input input-xs input-bordered w-20 focus:w-40 transition-all"
+              placeholder="搜索..."
+            />
+            <button
+              v-if="searchQuery"
+              class="btn btn-ghost btn-xs btn-square absolute right-0"
+              @click="clearSearch"
+            >
+              <SvgIcon name="close" size="10" />
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- 消息列表 -->
       <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        <!-- 加载消息状态 -->
-        <div v-if="loadingMessages" class="flex items-center justify-center py-8">
-          <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
+        <!-- 加载消息状态 - 骨架屏 -->
+        <div v-if="loadingMessages" class="space-y-3">
+          <div class="flex gap-3">
+            <div class="h-8 w-8 rounded-full bg-base-200 shrink-0 animate-pulse"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-4 bg-base-200 rounded w-3/4 animate-pulse"></div>
+              <div class="h-4 bg-base-200 rounded w-1/2 animate-pulse"></div>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="h-8 w-8 rounded-full bg-primary/20 shrink-0 animate-pulse"></div>
+            <div class="flex-1 space-y-2">
+              <div class="h-4 bg-primary/10 rounded w-full animate-pulse"></div>
+              <div class="h-4 bg-primary/10 rounded w-2/3 animate-pulse"></div>
+            </div>
+          </div>
         </div>
 
         <!-- 消息列表 -->
         <template v-else-if="messages.length > 0">
-          <div v-for="(msg, idx) in messages" :key="idx" class="flex gap-3">
+          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : messages)" :key="idx" class="flex gap-3">
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="flex gap-3 w-full group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
@@ -124,6 +153,14 @@
                     title="复制"
                   >
                     <SvgIcon name="copy" size="12" />
+                  </button>
+                  <!-- 引用按钮 -->
+                  <button
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="quoteMessage(msg.content)"
+                    title="引用"
+                  >
+                    <SvgIcon name="quote" size="12" />
                   </button>
                   <!-- 编辑按钮 -->
                   <button
@@ -172,6 +209,14 @@
                     title="复制"
                   >
                     <SvgIcon name="copy" size="12" />
+                  </button>
+                  <!-- 引用按钮 -->
+                  <button
+                    class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="quoteMessage(msg.content)"
+                    title="引用"
+                  >
+                    <SvgIcon name="quote" size="12" />
                   </button>
                   <!-- 重试按钮 - 仅对错误消息显示 -->
                   <button
@@ -228,24 +273,47 @@
         </div>
 
         <!-- 正常输入 -->
-        <div v-else class="flex gap-2">
-          <textarea
-            ref="inputRef"
-            v-model="inputText"
-            class="textarea textarea-bordered w-full resize-none text-sm"
-            style="min-height: 52px; max-height: 200px;"
-            placeholder="输入消息..."
-            :disabled="isStreaming"
-            @keydown.enter.exact.prevent="sendMessage"
-          ></textarea>
-          <button
-            class="btn btn-primary self-end"
-            :disabled="!inputText.trim() || isStreaming"
-            @click="sendMessage"
-          >
-            <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
-            <SvgIcon v-else name="send" size="14" />
-          </button>
+        <div v-else class="space-y-2">
+          <!-- 模型选择和引用消息显示 -->
+          <div class="flex items-center justify-between">
+            <!-- 模型选择 -->
+            <select
+              v-model="selectedModel"
+              class="select select-bordered select-xs w-auto"
+              :disabled="isStreaming"
+            >
+              <option value="">默认模型</option>
+              <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
+            </select>
+            <!-- 引用消息提示 -->
+            <div v-if="quotedMessage" class="flex items-center gap-1 text-xs text-base-content/60">
+              <SvgIcon name="quote" size="12" />
+              <span class="truncate max-w-32">{{ quotedMessage.slice(0, 30) }}...</span>
+              <button class="btn btn-ghost btn-xs btn-square" @click="quotedMessage = null">
+                <SvgIcon name="close" size="10" />
+              </button>
+            </div>
+          </div>
+          <!-- 输入框 -->
+          <div class="flex gap-2">
+            <textarea
+              ref="inputRef"
+              v-model="inputText"
+              class="textarea textarea-bordered w-full resize-none text-sm"
+              style="min-height: 52px; max-height: 200px;"
+              :placeholder="quotedMessage ? '回复引用的消息...' : '输入消息...'"
+              :disabled="isStreaming"
+              @keydown.enter.exact.prevent="sendMessage"
+            ></textarea>
+            <button
+              class="btn btn-primary self-end"
+              :disabled="!inputText.trim() || isStreaming"
+              @click="sendMessage"
+            >
+              <SvgIcon v-if="isStreaming" name="refresh" size="14" class="animate-spin" />
+              <SvgIcon v-else name="send" size="14" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -337,6 +405,23 @@ const isStreaming = ref(false);
 const streamingText = ref('');
 const thinkingText = ref(''); // 思考动画文本
 const hermesAvailable = ref(false);
+
+// 模型选择
+const selectedModel = ref('');
+const availableModels = ref([
+  'glm-4',
+  'glm-4-flash',
+  'glm-5',
+  'qwen-plus',
+  'qwen-max',
+  'claude-sonnet-4',
+  'claude-opus-4',
+]);
+const quotedMessage = ref<string | null>(null); // 引用的消息
+
+// 搜索状态
+const searchQuery = ref('');
+const filteredMessages = ref<Message[]>([]);
 
 // Refs
 const messagesContainer = ref<HTMLElement | null>(null);
@@ -523,7 +608,12 @@ const startNewChat = () => {
 const sendMessage = async () => {
   if (!inputText.value.trim() || isStreaming.value) return;
 
-  const text = inputText.value.trim();
+  // 构建消息（包含引用）
+  let text = inputText.value.trim();
+  if (quotedMessage.value) {
+    text = `> ${quotedMessage.value}\n\n${text}`;
+    quotedMessage.value = null; // 清除引用
+  }
   inputText.value = '';
 
   // 添加用户消息
@@ -542,10 +632,13 @@ const sendMessage = async () => {
   currentToolCalls = [];
 
   try {
+    // 使用选择的模型（如果有）
+    const modelToUse = selectedModel.value || null;
+    
     const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message: text,
       sessionId: currentSessionId.value,
-      model: null,
+      model: modelToUse,
       toolsets: null,
     });
 
@@ -622,6 +715,31 @@ const copyMessageContent = async (content: string | null) => {
   } catch (e) {
     console.error('Copy failed:', e);
   }
+};
+
+// 引用消息
+const quoteMessage = (content: string | null) => {
+  if (!content) return;
+  quotedMessage.value = content.slice(0, 200); // 限制引用长度
+  inputRef.value?.focus();
+};
+
+// 搜索消息
+const searchMessages = () => {
+  if (!searchQuery.value.trim()) {
+    filteredMessages.value = messages.value;
+    return;
+  }
+  const query = searchQuery.value.toLowerCase();
+  filteredMessages.value = messages.value.filter(msg => 
+    msg.content?.toLowerCase().includes(query)
+  );
+};
+
+// 清除搜索
+const clearSearch = () => {
+  searchQuery.value = '';
+  filteredMessages.value = messages.value;
 };
 
 // 编辑用户消息并重新发送
@@ -890,6 +1008,16 @@ watch(streamingText, () => {
 // Watch inputText to auto-adjust textarea height
 watch(inputText, () => {
   adjustTextareaHeight();
+});
+
+// Watch messages to update filteredMessages
+watch(messages, () => {
+  filteredMessages.value = messages.value;
+}, { immediate: true });
+
+// Watch searchQuery to filter messages
+watch(searchQuery, () => {
+  searchMessages();
 });
 </script>
 
