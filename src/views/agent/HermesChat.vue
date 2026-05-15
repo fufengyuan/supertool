@@ -38,7 +38,7 @@
             <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
             <div class="flex flex-col min-w-0 flex-1">
               <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
-              <span class="truncate text-xs text-base-content/50">{{ formatTime(session.startedAt) }}</span>
+              <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
             </div>
             <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
           </div>
@@ -160,7 +160,6 @@
             placeholder="输入消息..."
             :disabled="isStreaming"
             @keydown.enter.exact.prevent="sendMessage"
-            @keydown.enter.shift.exact="() => {}"
           ></textarea>
           <button
             class="btn btn-primary self-end"
@@ -195,6 +194,7 @@ interface Session {
   endedAt: number | null;
   messageCount: number;
   preview: string;
+  lastActive?: number; // 最近活跃时间（可选）
 }
 
 interface Message {
@@ -316,6 +316,7 @@ const startNewChat = () => {
   messages.value = [];
   inputText.value = '';
   streamingText.value = '';
+  thinkingText.value = '';
   isStreaming.value = false;
 };
 
