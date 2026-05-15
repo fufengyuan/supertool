@@ -454,6 +454,7 @@ interface RawMessage {
   content: string | null;
   timestamp: number | null;
   toolName: string | null;
+  toolCallId: string | null;  // 工具调用 ID（tool 消息才有）
 }
 
 // State
@@ -680,14 +681,26 @@ const selectSession = async (session: Session) => {
     const result = await invoke<{ session_id: string; messages: RawMessage[] }>('agent_get_session', {
       sessionId: session.id,
     });
-    // 直接使用返回的消息，无需过滤
-    messages.value = result.messages.map((m: RawMessage) => ({
-      role: m.role,
-      content: m.content,
-      timestamp: m.timestamp,
-      toolName: m.toolName,
-      toolCalls: [],
-    }));
+    
+    // 处理消息：过滤 tool 消息，只保留 user 和 assistant
+    const processedMessages: Message[] = [];
+    
+    for (const m of result.messages) {
+      // 跳过 tool 消息（工具结果是给 AI 看的，不是给用户看的）
+      if (m.role === 'tool') continue;
+      
+      const msg: Message = {
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp,
+        toolName: m.toolName,
+        toolCalls: [],
+      };
+      
+      processedMessages.push(msg);
+    }
+    
+    messages.value = processedMessages;
   } catch (e) {
     console.error('Failed to get session:', e);
   }

@@ -102,10 +102,12 @@ pub struct MessageInfo {
     pub role: String,
     #[serde(rename = "content", skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
-    #[serde(rename = "timestamp", alias = "timestamp", skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "timestamp", skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<f64>,
     #[serde(rename = "toolName", alias = "tool_name", skip_serializing_if = "Option::is_none")]
     pub tool_name: Option<String>,
+    #[serde(rename = "toolCallId", alias = "tool_call_id", skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
 }
 
 /// Find Python bridge script location
@@ -726,6 +728,7 @@ mod tests {
             content: Some("Response".to_string()),
             timestamp: Some(1778752839.0),
             tool_name: Some("web_search".to_string()),
+            tool_call_id: None,
         };
         
         let json = serde_json::to_string(&msg).unwrap();
