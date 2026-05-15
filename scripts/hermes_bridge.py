@@ -225,7 +225,9 @@ def _handle_chat(params: Dict[str, Any]) -> None:
             _output({"type": "aborted", "session_id": _current_session_id})
         else:
             final_response = result.get("final_response", "")
-            message_count = len(agent.conversation_history) if agent.conversation_history else 0
+            # AIAgent uses _session_messages internally
+            session_messages = getattr(agent, "_session_messages", [])
+            message_count = len(session_messages) if session_messages else 0
 
             _output({
                 "type": "done",
