@@ -324,6 +324,7 @@ def _handle_get_session(params: Dict[str, Any]) -> None:
                 "timestamp": m.get("timestamp"),
                 "tool_name": m.get("name"),  # 工具名称（tool 消息的 name 字段）
                 "tool_call_id": m.get("tool_call_id"),  # 工具调用 ID
+                "tool_calls": m.get("tool_calls"),  # assistant 消息的 tool_calls
             })
 
         _output({"type": "session", "session_id": session_id, "messages": formatted})
