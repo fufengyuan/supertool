@@ -318,7 +318,8 @@ const recentTodos = computed(() => {
 const serverStats = ref({ total: 0, online: 0, offline: 0 });
 const loadServerStats = async () => {
   try {
-    const servers = await invoke<{ id: string; name: string; host: string }[]>('get_servers');
+    const result = await invoke<{ success: boolean; data: { id: string; name: string; host: string }[] }>('get_all_servers');
+    const servers = result.data || [];
     serverStats.value.total = servers.length;
     // 简化：假设全部在线（实际可以调用健康检查）
     serverStats.value.online = servers.length;
@@ -349,11 +350,11 @@ const projectStats = computed(() => {
 const alertStats = ref({ total: 0, unresolved: 0, today: 0 });
 const loadAlertStats = async () => {
   try {
-    const alerts = await invoke<{ id: string; status: string; createdAt: string }[]>('get_alerts');
+    const alerts = await invoke<{ id: string; status: string; sent_at: string }[]>('get_alert_history');
     const today = new Date().toDateString();
     alertStats.value.total = alerts.length;
-    alertStats.value.unresolved = alerts.filter(a => a.status === 'unresolved').length;
-    alertStats.value.today = alerts.filter(a => new Date(a.createdAt).toDateString() === today).length;
+    alertStats.value.unresolved = alerts.filter(a => a.status === 'pending' || a.status === 'unresolved').length;
+    alertStats.value.today = alerts.filter(a => new Date(a.sent_at).toDateString() === today).length;
   } catch (e) {
     console.error('加载告警统计失败:', e);
   }
@@ -363,16 +364,15 @@ const loadAlertStats = async () => {
 const recentDeployments = ref<{ id: string; status: string; configName?: string; projectName?: string; createdAt: string }[]>([]);
 const loadRecentDeployments = async () => {
   try {
-    const history = await invoke<{ id: string; status: string; config_name?: string; project_name?: string; created_at: string }[]>('get_deployment_history');
+    const history = await invoke<{ id: string; status: string; config_id: string; deployed_at: string }[]>('get_deploy_history');
     recentDeployments.value = history
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .sort((a, b) => new Date(b.deployed_at).getTime() - new Date(a.deployed_at).getTime())
       .slice(0, 5)
       .map(h => ({
         id: h.id,
         status: h.status,
-        configName: h.config_name,
-        projectName: h.project_name,
-        createdAt: h.created_at
+        configName: h.config_id,
+        createdAt: h.deployed_at
       }));
   } catch (e) {
     console.error('加载部署历史失败:', e);
