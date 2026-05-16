@@ -729,7 +729,13 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
     }
   }
 
-  // Backtrack to get diff ops
+  // Backtrack to get diff ops - output ALL lines, not just hunks
+  const result: string[] = []
+  result.push('diff --git a/nginx.conf b/nginx.conf')
+  result.push('--- a/nginx.conf')
+  result.push('+++ b/nginx.conf')
+  result.push('@@ -1 +' + n + ' @@')  // Single hunk header covering entire file
+
   const ops: Array<{ prefix: string; text: string }> = []
   let i = m, j = n
   while (i > 0 || j > 0) {
@@ -746,53 +752,9 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
   }
   ops.reverse()
 
-  // Group into hunks with context
-  const result: string[] = []
-  // Git diff header format for SplitDiffViewer
-  result.push('diff --git a/nginx.conf b/nginx.conf')
-  result.push('--- a/nginx.conf')
-  result.push('+++ b/nginx.conf')
-  
-  let hunkStart = -1
-  const hunkLines: Array<{ prefix: string; text: string }> = []
-  const ctxBefore = 2
-
-  for (let idx = 0; idx < ops.length; idx++) {
-    const op = ops[idx]
-    if (op.prefix !== ' ') {
-      // Start or extend a hunk
-      if (hunkStart === -1) {
-        hunkStart = Math.max(0, idx - ctxBefore)
-      }
-      hunkLines.push(op)
-    } else {
-      if (hunkStart !== -1) {
-        // Add trailing context
-        const end = Math.min(ops.length, idx + ctxBefore + 1)
-        for (let k = idx; k < end; k++) {
-          hunkLines.push(ops[k])
-        }
-        // Emit hunk
-        if (hunkLines.length > 0) {
-          result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
-          for (const hl of hunkLines) {
-            result.push(hl.prefix + hl.text)
-          }
-        }
-        hunkStart = -1
-        hunkLines.length = 0
-        // Skip ahead past the context we just emitted
-        idx += ctxBefore
-      }
-    }
-  }
-
-  // Emit remaining hunk
-  if (hunkStart !== -1 && hunkLines.length > 0) {
-    result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
-    for (const hl of hunkLines) {
-      result.push(hl.prefix + hl.text)
-    }
+  // Output all lines
+  for (const op of ops) {
+    result.push(op.prefix + op.text)
   }
 
   return result.join('\n')
