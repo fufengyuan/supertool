@@ -2,9 +2,11 @@
 
 **中文** | [English](README.md)
 
-跨平台桌面运维管理工具 —— 基于 Tauri v2 + Vue 3 + Rust 共享库架构，统一管理服务器、CI/CD 部署、数据库、日志和 Git 仓库。
+跨平台桌面运维管理工具 —— 基于 Tauri v2 + Vue 3 + Rust 共享库架构，统一管理服务器、CI/CD 部署、数据库、日志、Git 仓库，并**集成 AI Agent**。
 
 ## 特性
+
+- **AI Agent 集成**: 内嵌 Hermes AI 对话界面，实时任务面板、文件附件支持、智能 todo 跟踪
 
 - **统一架构**: `core` / `cli` / `tauri` 三 crate workspace，业务逻辑全部收敛至 `supertool-core`
 - **CLI 独立运行**: `stool` CLI 直连 core 共享库（~12MB），无需 GUI，可独立部署在服务器
@@ -127,7 +129,7 @@ vue-tsc --noEmit  # TypeScript 类型检查
 supertool/
 ├── Cargo.toml              # Workspace 配置 (core, cli, tauri)
 ├── core/                   # supertool-core 共享库
-│   ├── Cargo.toml          # version = "4.0.0", edition = "2024"
+│   ├── Cargo.toml          # version = "4.2.0", edition = "2024"
 │   └── src/
 │       ├── lib.rs              # 库入口
 │       ├── service.rs          # CoreService 主入口
@@ -150,7 +152,7 @@ supertool/
 │           ├── nginx.rs            # Nginx 配置
 │           └── log_sanitizer.rs    # 日志脱敏
 ├── cli/                    # stool CLI
-│   ├── Cargo.toml          # version = "4.0.0"
+│   ├── Cargo.toml          # version = "4.2.0"
 │   └── src/
 │       ├── main.rs             # 入口 + 命令注册
 │       ├── commands/           # todo, server, cicd, db, log, git
@@ -160,7 +162,7 @@ supertool/
 │       ├── utils.rs            # 工具函数
 │       └── guide.rs            # 使用指南
 ├── tauri/                  # Tauri GUI
-│   ├── Cargo.toml          # version = "4.0.0"
+│   ├── Cargo.toml          # version = "4.2.0"
 │   ├── tauri.conf.json     # Tauri 配置
 │   └── src/
 │       ├── main.rs             # Tauri 入口
@@ -224,6 +226,27 @@ supertool/
 ```
 
 可通过 `~/.supertool_dir` 文件自定义路径。
+
+## AI Agent
+
+SuperTool 内嵌 Hermes AI 对话界面（HermesChat.vue），提供：
+
+- **实时任务面板**: 右侧面板显示 AI 执行的 todo 任务列表，支持 pending/in_progress/completed/cancelled 四种状态
+- **文件附件**: 输入框上方附件按钮支持选择文件、文件夹、Git 仓库路径追加到对话
+- **常用文件夹**: 自动记住最近使用的 3 个文件夹，快速选择
+- **流式响应**: 实时显示 AI 思考过程和工具调用
+- **友好渲染**: todo 工具结果自动格式化为任务列表视图，底部显示汇总统计
+
+### 对话界面入口
+
+应用顶部导航栏 → **Agent** 按钮
+
+### 功能亮点
+
+1. **任务进度追踪**: 头部 checklist 按钮 + 进度计数（已完成/总数），右侧面板实时刷新
+2. **工具调用可视化**: 每个工具调用显示为折叠卡片，包含参数摘要和执行结果
+3. **消息搜索**: 内置搜索功能，快速定位历史对话
+4. **会话管理**: 多会话切换、标题编辑、导出、清空
 
 ## CLI 使用
 
