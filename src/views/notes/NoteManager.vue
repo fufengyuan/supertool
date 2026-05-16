@@ -20,56 +20,58 @@
       </div>
     </div>
     <div class="flex gap-3 flex-1 min-h-0">
-      <aside class="w-64 min-w-[220px] bg-base-100 rounded-xl border border-base-content/10 overflow-y-auto shrink-0 flex flex-col">
-        <div class="border-b border-base-content/10 shrink-0">
-          <div class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors duration-150 hover:bg-base-200" @click="groupsCollapsed = !groupsCollapsed">
-            <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 分组</span>
-            <div class="flex items-center gap-1">
-              <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-base-300 text-base-content/40 hover:text-base-content" @click.stop="showGroupManager = true" title="管理分组"><SvgIcon name="settings" size="12" /></button>
-              <SvgIcon :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" name="chevronDown" size="14" />
-            </div>
+      <aside class="w-64 min-w-[220px] bg-base-100 rounded-xl border border-base-content/10 flex flex-col shrink-0">
+        <!-- 搜索 + 新建 -->
+        <div class="p-2 border-b border-base-content/10 flex gap-1.5">
+          <div class="relative flex-1">
+            <SvgIcon name="search" size="12" class="absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none text-base-content/40" />
+            <input v-model="searchQuery" class="input input-xs w-full pl-6 rounded-lg" placeholder="搜索笔记..." @input="onSearch"/>
           </div>
-          <div v-show="!groupsCollapsed" class="px-2 pb-2 pt-1">
-            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
-              <span class="text-sm shrink-0"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /></span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">全部</span>
+          <button class="btn btn-primary btn-xs btn-square" @click="createNewNote" title="新建笔记"><SvgIcon name="plus" size="12" /></button>
+        </div>
+        <!-- 树状笔记列表 -->
+        <div class="flex-1 overflow-y-auto p-1.5 space-y-0.5">
+          <!-- 未分组 -->
+          <div>
+            <div :class="['flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer text-xs font-medium text-base-content/60 hover:bg-base-200 transition-colors', { 'bg-primary/10 text-primary': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
+              <SvgIcon name="file" size="12" class="shrink-0" />
+              <span class="flex-1 truncate">未分组</span>
+              <span class="text-[10px] text-base-content/40">{{ ungroupedNotes.length }}</span>
             </div>
-            <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === '__ungrouped__' }]" @click="selectGroup('__ungrouped__')">
-              <span class="text-sm shrink-0"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /></span><span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">未分组</span>
-            </div>
-            <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === group.id }]" @click="selectGroup(group.id)">
-              <span class="text-sm shrink-0"><template v-if="group.icon">{{ group.icon }}</template><template v-else><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /></template></span>
-              <span class="text-sm text-base-content flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ group.name }}</span>
-              <div class="flex gap-0.5 opacity-0 group-hover/item:opacity-100 transition-opacity duration-150" @click.stop>
-                <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-black/8" @click="startRenameGroup(group)" title="重命名"><SvgIcon name="pencil" size="14" class="inline-block" /></button>
-                <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-[rgba(210,15,57,0.15)]" @click="confirmDeleteGroup(group)" title="删除"><SvgIcon name="trash" size="14" class="inline-block align-text-bottom" /></button>
+            <div v-if="selectedGroupId === '__ungrouped__' || expandedGroups.has('__ungrouped__')" class="ml-1">
+              <div v-for="note in ungroupedNotes" :key="note.id" :class="['flex items-center gap-1.5 pl-5 pr-2 py-1 rounded-md cursor-pointer text-xs transition-colors hover:bg-base-200 group/tree', { 'bg-primary/10 text-primary font-medium': selectedNote?.id === note.id }]" @click="selectNote(note)">
+                <span class="text-[10px] text-base-content/30 shrink-0">{{ note.pinned ? '★' : '' }}</span>
+                <span class="flex-1 truncate" :title="note.title || '无标题'">{{ note.title || '无标题' }}</span>
+                <button class="shrink-0 opacity-0 group-hover/tree:opacity-100 text-[10px] text-base-content/30 hover:text-error transition-all" @click.stop="confirmDelete(note)" title="删除">✕</button>
               </div>
             </div>
-            <div class="flex items-center gap-1.5 px-2.5 py-[6px] rounded-lg cursor-pointer text-base-content/60 text-xs transition-all duration-150 mt-0.5 hover:bg-base-200 hover:text-primary" @click="showCreateGroup = true">
-              <SvgIcon name="plus" size="12" />
-              <span>新建分组</span>
-            </div>
           </div>
-        </div>
-        <div v-if="filteredNotes.length === 0" class="px-4 py-8 text-center text-base-content/60 text-sm">
-          <p>{{ searchQuery ? '没有匹配的笔记' : '暂无笔记' }}</p>
-        </div>
-        <div v-else class="flex flex-col overflow-y-auto flex-1">
-          <div v-for="note in filteredNotes" :key="note.id" :class="['px-3 py-2.5 cursor-pointer border-b border-base-content/10 transition-all duration-150 hover:bg-base-200 group/item', { 'bg-primary/10 border-l-[3px] border-primary': selectedNote?.id === note.id, 'bg-warning/5': note.pinned }]" @click="selectNote(note)">
-            <div class="flex items-center justify-between mb-0.5">
-              <div class="flex items-center gap-1 min-w-0 flex-1">
-                <span v-if="note.pinned" class="text-xs shrink-0"><SvgIcon name="star" size="14" class="inline-block align-text-bottom" /></span>
-                <span class="text-sm font-semibold text-base-content overflow-hidden text-ellipsis whitespace-nowrap" v-html="highlightText(note.title || '无标题')"></span>
+          <!-- 分组树 -->
+          <div v-for="group in noteGroups" :key="group.id">
+            <div :class="['flex items-center gap-1 px-2 py-1 rounded-md cursor-pointer text-xs font-medium hover:bg-base-200 transition-colors', { 'bg-primary/10 text-primary': selectedGroupId === group.id }]" @click="toggleGroupExpand(group.id)">
+              <SvgIcon :name="expandedGroups.has(group.id) ? 'chevronDown' : 'chevronRight'" size="10" class="shrink-0 text-base-content/30" />
+              <span class="text-sm shrink-0">{{ group.icon || '📁' }}</span>
+              <span class="flex-1 truncate">{{ group.name }}</span>
+              <span class="text-[10px] text-base-content/40">{{ getGroupNoteCount(group.id) }}</span>
+            </div>
+            <div v-if="expandedGroups.has(group.id)" class="ml-1">
+              <div v-for="note in getGroupNotes(group.id)" :key="note.id" :class="['flex items-center gap-1.5 pl-5 pr-2 py-1 rounded-md cursor-pointer text-xs transition-colors hover:bg-base-200 group/tree', { 'bg-primary/10 text-primary font-medium': selectedNote?.id === note.id }]" @click="selectNote(note)">
+                <span class="text-[10px] text-base-content/30 shrink-0">{{ note.pinned ? '★' : '' }}</span>
+                <span class="flex-1 truncate" :title="note.title || '无标题'">{{ note.title || '无标题' }}</span>
+                <button class="shrink-0 opacity-0 group-hover/tree:opacity-100 text-[10px] text-base-content/30 hover:text-error transition-all" @click.stop="confirmDelete(note)" title="删除">✕</button>
               </div>
-              <button class="w-5 h-5 flex items-center justify-center border-none rounded-lg bg-transparent text-base-content/60 cursor-pointer opacity-0 transition-all duration-150 shrink-0 group-hover/item:opacity-100 hover:bg-[rgba(210,15,57,0.1)] hover:text-error" @click.stop="confirmDelete(note)" title="删除">
-                <SvgIcon name="x" size="11" />
-              </button>
-            </div>
-            <div class="text-xs text-base-content/60 opacity-80 overflow-hidden text-ellipsis whitespace-nowrap mb-0.5" v-html="highlightText(getPreview(note.content))"></div>
-            <div class="flex items-center justify-between text-[11px] text-base-content/60 opacity-60">
-              <span>{{ formatDate(note.updatedAt) }}</span>
-              <span v-if="getGroupName(note.groupId)" class="badge badge-sm badge-ghost text-primary bg-[rgba(66,133,244,0.1)] border-none text-[10px]">{{ getGroupName(note.groupId) }}</span>
             </div>
           </div>
+          <!-- 空状态 -->
+          <div v-if="notes.length === 0" class="text-center py-8 text-xs text-base-content/30">
+            <p>暂无笔记</p>
+            <p class="mt-1">点击 + 新建</p>
+          </div>
+        </div>
+        <!-- 底部操作 -->
+        <div class="border-t border-base-content/10 p-1.5 flex gap-1.5">
+          <button class="btn btn-ghost btn-xs flex-1 gap-1" @click="showCreateGroup = true"><SvgIcon name="folder" size="11" /> 新建分组</button>
+          <button class="btn btn-ghost btn-xs btn-square" @click="showGroupManager = true" title="管理分组"><SvgIcon name="settings" size="11" /></button>
         </div>
       </aside>
       <main class="flex-1 min-w-0 bg-base-100 rounded-xl border border-base-content/10 flex flex-col overflow-hidden">
@@ -213,17 +215,42 @@ const notes = ref<Note[]>([])
 const noteGroups = ref<NoteGroup[]>([])
 const searchQuery = ref('')
 const selectedNote = ref<Note | null>(null)
-const selectedGroupId = ref<string>('__all__')
+const selectedGroupId = ref<string | null>(null)
 const showRawMd = ref(false)
 const editorTitle = ref('')
 const editorContent = ref('')
 const saveStatus = ref('')
 const deleteTarget = ref<Note | null>(null)
-const groupsCollapsed = ref(false)
 const showGroupSelector = ref(false)
 const previewRef = ref<HTMLDivElement | null>(null)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let isUpdatingPreview = false
+
+// 树状展开状态
+const expandedGroups = ref<Set<string>>(new Set())
+function toggleGroupExpand(groupId: string) {
+  if (expandedGroups.value.has(groupId)) expandedGroups.value.delete(groupId)
+  else expandedGroups.value.add(groupId)
+}
+
+// 未分组笔记（支持搜索过滤）
+const ungroupedNotes = computed(() => {
+  let result = notes.value.filter(n => !n.groupId)
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+  }
+  return result
+})
+// 某分组下的笔记（支持搜索过滤）
+function getGroupNotes(groupId: string): Note[] {
+  let result = notes.value.filter(n => n.groupId === groupId)
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase()
+    result = result.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
+  }
+  return result
+}
 
 const showCreateGroup = ref(false)
 const editingGroup = ref<NoteGroup | null>(null)
@@ -237,17 +264,6 @@ const showGroupManager = ref(false)
 const editingGroupId = ref<string | null>(null)
 const editingGroupName = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
-
-const filteredNotes = computed(() => {
-  let result = notes.value
-  if (selectedGroupId.value === '__ungrouped__') result = result.filter(n => !n.groupId)
-  else if (selectedGroupId.value !== '__all__') result = result.filter(n => n.groupId === selectedGroupId.value)
-  if (searchQuery.value) {
-    const q = searchQuery.value.toLowerCase()
-    result = result.filter(n => n.title.toLowerCase().includes(q) || n.content.toLowerCase().includes(q))
-  }
-  return result
-})
 
 const renderedContent = computed(() => {
   if (!editorContent.value) return '<p class="preview-empty">没有内容</p>'
@@ -311,8 +327,7 @@ watch(showRawMd, (val) => {
 
 async function loadNotes() {
   try {
-    const gid = selectedGroupId.value === '__all__' ? undefined : selectedGroupId.value
-    notes.value = await getTauriAPI().getAllNotes(searchQuery.value || undefined, gid)
+    notes.value = await getTauriAPI().getAllNotes(searchQuery.value || undefined)
   } catch { toast.error('加载笔记失败') }
 }
 
@@ -324,19 +339,26 @@ async function loadGroups() {
 function onSearch() { loadNotes() }
 
 function selectGroup(groupId: string) {
-    selectedGroupId.value = groupId; loadNotes() }
+    selectedGroupId.value = groupId
+  // 自动展开该分组
+  if (groupId !== '__ungrouped__') expandedGroups.value.add(groupId)
+}
 
 function selectNote(note: Note) {
     selectedNote.value = note; editorTitle.value = note.title; editorContent.value = note.content
   showRawMd.value = false; saveStatus.value = ''; showGroupSelector.value = false
+  // 若笔记有分组且已折叠，自动展开
+  if (note.groupId) expandedGroups.value.add(note.groupId)
   nextTick(() => renderPreview())
 }
 
 async function createNewNote() {
     try {
-    const gid = selectedGroupId.value !== '__all__' && selectedGroupId.value !== '__ungrouped__' ? selectedGroupId.value : null
+    const gid = selectedGroupId.value && selectedGroupId.value !== '__ungrouped__' ? selectedGroupId.value : null
     const note = await getTauriAPI().addNote({ title: '', content: '', pinned: false, groupId: gid })
     notes.value.unshift(note); selectNote(note); toast.success('已创建新笔记')
+    // 自动展开对应分组
+    if (gid) expandedGroups.value.add(gid)
   } catch { toast.error('创建失败') }
 }
 
@@ -422,9 +444,13 @@ async function assignGroup(groupId: string | null) {
       selectedNote.value = updated
       const idx = notes.value.findIndex(n => n.id === updated.id)
       if (idx !== -1) notes.value[idx] = updated
-      // 切换到新分组视图，让笔记可见
-      selectedGroupId.value = groupId || '__ungrouped__'
-      await loadNotes()
+      // 切换到新分组并展开
+      if (groupId) {
+        selectedGroupId.value = groupId
+        expandedGroups.value.add(groupId)
+      } else {
+        selectedGroupId.value = '__ungrouped__'
+      }
     }
     showGroupSelector.value = false
   } catch { toast.error('设置分组失败') }
@@ -484,7 +510,7 @@ async function executeDeleteGroup() {
       const updated = await getTauriAPI().updateNote(note.id, { groupId: null })
       if (updated) { const idx = notes.value.findIndex(n => n.id === updated.id); if (idx !== -1) notes.value[idx] = updated }
     }
-    if (selectedGroupId.value === deleteGroupTarget.value.id) selectedGroupId.value = '__all__'
+    if (selectedGroupId.value === deleteGroupTarget.value.id) selectedGroupId.value = null
     if (selectedNote.value?.groupId === deleteGroupTarget.value.id) selectedNote.value = { ...selectedNote.value, groupId: null }
     noteGroups.value = noteGroups.value.filter(g => g.id !== deleteGroupTarget.value!.id)
     toast.success('分组已删除')
