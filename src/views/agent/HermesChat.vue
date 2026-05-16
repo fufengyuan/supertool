@@ -423,13 +423,48 @@
               <!-- 下拉菜单 -->
               <div 
                 v-if="showAttachMenu" 
-                class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[160px]"
+                class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[200px]"
               >
-                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200 rounded-t-lg" @click="selectFile">
+                <!-- 常用文件夹 -->
+                <div v-if="favoriteFolders.length > 0" class="border-b border-base-content/10">
+                  <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium flex items-center justify-between">
+                    <span>常用文件夹</span>
+                  </div>
+                  <div 
+                    v-for="folder in favoriteFolders" 
+                    :key="folder"
+                    class="flex items-center gap-1 px-2 py-1 text-xs hover:bg-base-200 group"
+                  >
+                    <span class="truncate flex-1 text-base-content/70" :title="folder">{{ folder.split('/').pop() || folder }}</span>
+                    <button 
+                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
+                      @click.stop="selectFromFavorite(folder, 'file')"
+                      title="从此文件夹选择文件"
+                    >
+                      <SvgIcon name="file" size="10" class="text-base-content/60" />
+                    </button>
+                    <button 
+                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
+                      @click.stop="selectFromFavorite(folder, 'folder')"
+                      title="从此文件夹选择子文件夹"
+                    >
+                      <SvgIcon name="folder" size="10" class="text-base-content/60" />
+                    </button>
+                    <button 
+                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:text-error" 
+                      @click.stop="removeFavoriteFolder(folder)"
+                      title="移除"
+                    >
+                      <SvgIcon name="close" size="10" />
+                    </button>
+                  </div>
+                </div>
+                <!-- 文件/文件夹选择 -->
+                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFile()">
                   <SvgIcon name="file" size="14" class="text-base-content/60" />
                   <span>选择文件</span>
                 </button>
-                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder">
+                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder()">
                   <SvgIcon name="folder" size="14" class="text-base-content/60" />
                   <span>选择文件夹</span>
                 </button>
@@ -439,7 +474,7 @@
                   <button 
                     v-for="repo in gitRepos" 
                     :key="repo.id" 
-                    class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200"
+                    class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200 rounded-b-lg"
                     @click="selectGitRepo(repo)"
                   >
                     <SvgIcon name="github" size="12" class="text-base-content/60" />
@@ -662,6 +697,8 @@ const showTaskPanel = ref(true); // 是否显示任务面板
 const inputText = ref('');
 const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
 const showAttachMenu = ref(false); // 显示附件菜单
+const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
+const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const isStreaming = ref(false);
@@ -821,15 +858,19 @@ const adjustTextareaHeight = () => {
 };
 
 // 选择文件并追加路径到输入框
-const selectFile = async () => {
+const selectFile = async (defaultPath?: string) => {
   try {
     const selected = await open({
       multiple: false,
       title: '选择文件',
+      defaultPath: defaultPath || undefined,
     });
     if (selected) {
       const path = Array.isArray(selected) ? selected[0] : selected;
       appendPathToInput(path);
+      // 记住选择的目录作为常用文件夹
+      const dir = path.split('/').slice(0, -1).join('/') || path;
+      addFavoriteFolder(dir);
     }
   } catch (e) {
     console.error('选择文件失败:', e);
@@ -838,16 +879,19 @@ const selectFile = async () => {
 };
 
 // 选择文件夹并追加路径到输入框
-const selectFolder = async () => {
+const selectFolder = async (defaultPath?: string) => {
   try {
     const selected = await open({
       directory: true,
       multiple: false,
       title: '选择文件夹',
+      defaultPath: defaultPath || undefined,
     });
     if (selected) {
       const path = Array.isArray(selected) ? selected[0] : selected;
       appendPathToInput(path);
+      // 记住选择的目录作为常用文件夹
+      addFavoriteFolder(path);
     }
   } catch (e) {
     console.error('选择文件夹失败:', e);
@@ -861,6 +905,15 @@ const selectGitRepo = (repo: GitRepo) => {
   showAttachMenu.value = false;
 };
 
+// 从常用文件夹打开文件选择
+const selectFromFavorite = (folder: string, type: 'file' | 'folder') => {
+  if (type === 'file') {
+    selectFile(folder);
+  } else {
+    selectFolder(folder);
+  }
+};
+
 // 追加路径到输入框
 const appendPathToInput = (path: string) => {
   if (inputText.value.trim()) {
@@ -870,6 +923,48 @@ const appendPathToInput = (path: string) => {
   }
   // 调整输入框高度
   nextTick(() => adjustTextareaHeight());
+};
+
+// 添加常用文件夹（最多保留3个，按最近使用排序）
+const addFavoriteFolder = (folder: string) => {
+  if (!folder || favoriteFolders.value.includes(folder)) {
+    // 如果已存在，移到第一位（最近使用）
+    if (favoriteFolders.value.includes(folder)) {
+      favoriteFolders.value = [folder, ...favoriteFolders.value.filter(f => f !== folder)];
+    }
+    return;
+  }
+  // 添加新文件夹到第一位，最多保留3个
+  favoriteFolders.value = [folder, ...favoriteFolders.value].slice(0, 3);
+  // 持久化到 localStorage
+  saveFavoriteFolders();
+};
+
+// 删除常用文件夹
+const removeFavoriteFolder = (folder: string) => {
+  favoriteFolders.value = favoriteFolders.value.filter(f => f !== folder);
+  saveFavoriteFolders();
+};
+
+// 加载常用文件夹
+const loadFavoriteFolders = () => {
+  try {
+    const saved = localStorage.getItem(FAVORITE_KEY);
+    if (saved) {
+      favoriteFolders.value = JSON.parse(saved);
+    }
+  } catch {
+    favoriteFolders.value = [];
+  }
+};
+
+// 保存常用文件夹
+const saveFavoriteFolders = () => {
+  try {
+    localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteFolders.value));
+  } catch {
+    // localStorage 不可用
+  }
 };
 
 // 加载 Git 仓库列表
@@ -1879,6 +1974,7 @@ onMounted(async () => {
   await checkHermes();
   await refreshSessions();
   await loadGitRepos(); // 加载 Git 仓库列表
+  loadFavoriteFolders(); // 加载常用文件夹
 
   // 如果URL有sessionId参数，自动选择该会话
   const sessionIdFromQuery = route.query.sessionId as string;
