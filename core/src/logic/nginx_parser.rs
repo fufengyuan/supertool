@@ -262,7 +262,7 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
 
     // Collect arguments until we hit ';' or '{'
     let mut args = Vec::new();
-    let mut is_block = false;
+    let is_block = false;
 
     loop {
         if *pos >= tokens.len() {
@@ -275,7 +275,6 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
             }
             Token::LeftBrace => {
                 *pos += 1;
-                is_block = true;
                 let block = parse_directives(tokens, pos)?;
                 // Expect RightBrace
                 if *pos >= tokens.len() || tokens[*pos] != Token::RightBrace {
@@ -432,7 +431,7 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
     }
     let name = d.args.first()?.clone();
     let mut strategy = String::new();
-    let mut descr = String::new();
+    let descr = String::new();
     let mut servers = Vec::new();
     let mut extra_params: Vec<ParsedParamEntry> = Vec::new();
 
@@ -718,7 +717,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
     if d.name != "location" || !d.is_block {
         return None;
     }
-    let (path, modifier) = {
+    let (path, _modifier) = {
         let first = d.args.first().cloned().unwrap_or_default();
         match first.as_str() {
             "^~" | "=" | "~" | "~*" => {
