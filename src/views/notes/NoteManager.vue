@@ -24,7 +24,10 @@
         <div class="border-b border-base-content/10 shrink-0">
           <div class="flex items-center justify-between px-3 py-2 cursor-pointer select-none transition-colors duration-150 hover:bg-base-200" @click="groupsCollapsed = !groupsCollapsed">
             <span class="text-xs font-semibold text-base-content/60 uppercase tracking-wider"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 分组</span>
-            <SvgIcon :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" name="chevronDown" size="14" />
+            <div class="flex items-center gap-1">
+              <button class="w-5 h-5 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-[10px] p-0 hover:bg-base-300 text-base-content/40 hover:text-base-content" @click.stop="showGroupManager = true" title="管理分组"><SvgIcon name="settings" size="12" /></button>
+              <SvgIcon :class="['transition-transform duration-200 text-base-content/60', { '-rotate-90': groupsCollapsed }]" name="chevronDown" size="14" />
+            </div>
           </div>
           <div v-show="!groupsCollapsed" class="px-2 pb-2 pt-1">
             <div :class="['flex items-center gap-2 px-2.5 py-[6px] rounded-lg cursor-pointer transition-all duration-150 relative hover:bg-base-200 group/item', { 'bg-primary/10': selectedGroupId === '__all__' }]" @click="selectGroup('__all__')">
@@ -143,6 +146,42 @@
         </div>
       </div>
     </Teleport>
+    <Teleport to="body">
+      <div v-if="showGroupManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showGroupManager = false">
+        <div class="bg-base-100 rounded-2xl p-5 w-[420px] max-w-[90vw] max-h-[70vh] shadow-[0_16px_48px_rgba(0,0,0,0.3)] flex flex-col" @click.stop>
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold m-0 text-base-content"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 管理分组</h3>
+            <button class="btn btn-ghost btn-xs btn-square" @click="showGroupManager = false"><SvgIcon name="close" size="14" /></button>
+          </div>
+          <div class="flex-1 overflow-y-auto space-y-1 min-h-0">
+            <div v-for="group in noteGroups" :key="group.id" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-base-200 group/row">
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <template v-if="editingGroupId === group.id">
+                  <input v-model="editingGroupName" class="input input-bordered input-xs flex-1" @keyup.enter="saveGroupRename(group)" @keyup.escape="editingGroupId = null" ref="renameInputRef" />
+                  <button class="btn btn-ghost btn-xs" @click="saveGroupRename(group)">保存</button>
+                  <button class="btn btn-ghost btn-xs" @click="editingGroupId = null">取消</button>
+                </template>
+                <template v-else>
+                  <span class="text-sm shrink-0">{{ group.icon || '📁' }}</span>
+                  <span class="text-sm text-base-content flex-1 truncate">{{ group.name }}</span>
+                  <span class="text-xs text-base-content/40 shrink-0">{{ getGroupNoteCount(group.id) }} 篇</span>
+                </template>
+              </div>
+              <div v-if="editingGroupId !== group.id" class="flex gap-1 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                <button class="w-6 h-6 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-xs p-0 hover:bg-base-300" @click="startRenameGroupInline(group)" title="重命名"><SvgIcon name="pencil" size="12" /></button>
+                <button class="w-6 h-6 flex items-center justify-center border-none rounded bg-transparent cursor-pointer text-xs p-0 hover:bg-error/20 hover:text-error" @click="confirmDeleteGroup(group)" title="删除"><SvgIcon name="trash" size="12" /></button>
+              </div>
+            </div>
+            <div v-if="noteGroups.length === 0" class="text-center py-6 text-sm text-base-content/40">暂无分组</div>
+          </div>
+          <div class="border-t border-base-content/10 pt-3 mt-3">
+            <button class="btn btn-primary btn-sm w-full gap-1.5" @click="showCreateGroup = true; showGroupManager = false">
+              <SvgIcon name="plus" size="14" /> 新建分组
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -192,6 +231,12 @@ const deleteGroupTarget = ref<NoteGroup | null>(null)
 const groupForm = ref({ name: '', icon: '📁' })
 const groupInputRef = ref<HTMLInputElement | null>(null)
 const iconOptions = ['📁', '📂', '📋', '📌', '🏷️', '💼', '🎯', '📚', '🔧', '💡', '🌟', '📝', '🗂️', '🏠', '🎨', '⚙️']
+
+// 分组管理弹窗
+const showGroupManager = ref(false)
+const editingGroupId = ref<string | null>(null)
+const editingGroupName = ref('')
+const renameInputRef = ref<HTMLInputElement | null>(null)
 
 const filteredNotes = computed(() => {
   let result = notes.value
@@ -377,6 +422,9 @@ async function assignGroup(groupId: string | null) {
       selectedNote.value = updated
       const idx = notes.value.findIndex(n => n.id === updated.id)
       if (idx !== -1) notes.value[idx] = updated
+      // 切换到新分组视图，让笔记可见
+      selectedGroupId.value = groupId || '__ungrouped__'
+      await loadNotes()
     }
     showGroupSelector.value = false
   } catch { toast.error('设置分组失败') }
@@ -399,6 +447,30 @@ function startRenameGroup(group: NoteGroup) {
   editingGroup.value = group
   groupForm.value = { name: group.name, icon: group.icon || '📁' }
   nextTick(() => { groupInputRef.value?.focus() })
+}
+
+// 分组管理弹窗 - 内联重命名
+function startRenameGroupInline(group: NoteGroup) {
+  editingGroupId.value = group.id
+  editingGroupName.value = group.name
+  nextTick(() => { renameInputRef.value?.focus() })
+}
+
+async function saveGroupRename(group: NoteGroup) {
+  if (!editingGroupName.value.trim()) return
+  try {
+    const updated = await getTauriAPI().updateNoteGroup(group.id, { name: editingGroupName.value.trim() })
+    if (updated) {
+      const idx = noteGroups.value.findIndex(g => g.id === updated.id)
+      if (idx !== -1) noteGroups.value[idx] = updated
+      toast.success('分组已重命名')
+    }
+    editingGroupId.value = null
+  } catch { toast.error('重命名失败') }
+}
+
+function getGroupNoteCount(groupId: string): number {
+  return notes.value.filter(n => n.groupId === groupId).length
 }
 
 function confirmDeleteGroup(group: NoteGroup) { deleteGroupTarget.value = group }
