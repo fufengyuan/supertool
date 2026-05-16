@@ -6,19 +6,48 @@
 
 ## 特性
 
-- **AI Agent 集成**: 内嵌 Hermes AI 对话界面，实时任务面板、文件附件支持、智能 todo 跟踪
+### 核心运维
 
-- **统一架构**: `core` / `cli` / `tauri` 三 crate workspace，业务逻辑全部收敛至 `supertool-core`
-- **CLI 独立运行**: `stool` CLI 直连 core 共享库（~12MB），无需 GUI，可独立部署在服务器
-- **现代前端**: Vue 3 + TypeScript + Tailwind CSS v4 + daisyUI
-- **多数据库支持**: MySQL、PostgreSQL、Redis 直连查询与管理
-- **SSH 管理**: 远程服务器连接、命令执行、文件操作、健康检查
-- **CI/CD 部署**: 自动化构建部署、回滚、部署历史追踪
-- **日志聚合**: 多服务器日志搜索与实时 tail
+- **待办事项**: 个人待办清单，支持优先级、截止日期、子任务、周报生成（首页）
+- **项目管理**: 多项目追踪，Git 集成，部署历史
+- **服务器管理**: SSH 连接、健康检查、命令执行、文件操作
+- **数据库管理**: 直连查询/编辑 MySQL、PostgreSQL、Redis，连接预设
+- **CI/CD 部署**: 自动化构建部署流水线、回滚、历史追踪
+- **日志聚合**: 多服务器日志搜索、实时 tail、预设配置
 - **Git 管理**: 仓库状态、提交历史、分支管理
-- **OpenVPN / WireGuard**: 内网穿透与虚拟组网
+- **Nginx 管理**: 配置预设、拉取/测试/部署到多服务器
+- **VPN 管理**: OpenVPN/WireGuard 隧道管理、内网穿透
+
+### 个人工具
+
+- **笔记**: 笔记管理，支持分组和搜索
+- **记账本**: 收支记录、分类、预算、统计
+- **MFA**: TOTP 验证器，生成验证码
+- **周报**: 从待办完成和项目提交自动生成周报
+- **磁盘清理**: 查找并清理大文件、旧日志、缓存目录
+- **数据备份**: 导出/导入所有数据（SQLite + 配置）
+
+### AI Agent
+
+- **Hermes 对话**: 内嵌 AI 助手，流式响应、工具调用可视化
+- **实时任务面板**: 右侧边栏显示 AI 执行过程中的 todo 进度
+- **文件附件**: 选择文件/文件夹/Git 仓库附加到对话
+- **会话管理**: 多会话、标题编辑、导出、搜索
+
+### 基础设施
+
+- **告警管理**: 配置和查看系统告警
+- **局域网发现**: 自动发现局域网内服务器
+- **开发工具**: 调试工具、API 测试、串口工具
+- **设置**: 应用配置、主题切换、语言选择
+
+### 架构亮点
+
+- **统一架构**: `core` / `cli` / `tauri` 三 crate workspace，业务逻辑全部在 `supertool-core`
+- **独立 CLI**: `stool` CLI（~12MB）直连核心库，可独立部署在服务器
+- **现代前端**: Vue 3 + TypeScript + Tailwind CSS v4 + daisyUI
 - **国际化**: 中文 / 英文
-- **加密存储**: AES-256-GCM 加密敏感信息（SSH 密码、DB 密码）
+- **加密存储**: AES-256-GCM 加密 SSH 密码、数据库密码
 
 ## 架构
 
@@ -227,46 +256,41 @@ supertool/
 
 可通过 `~/.supertool_dir` 文件自定义路径。
 
-## AI Agent
-
-SuperTool 内嵌 Hermes AI 对话界面（HermesChat.vue），提供：
-
-- **实时任务面板**: 右侧面板显示 AI 执行的 todo 任务列表，支持 pending/in_progress/completed/cancelled 四种状态
-- **文件附件**: 输入框上方附件按钮支持选择文件、文件夹、Git 仓库路径追加到对话
-- **常用文件夹**: 自动记住最近使用的 3 个文件夹，快速选择
-- **流式响应**: 实时显示 AI 思考过程和工具调用
-- **友好渲染**: todo 工具结果自动格式化为任务列表视图，底部显示汇总统计
-
-### 对话界面入口
-
-应用顶部导航栏 → **Agent** 按钮
-
-### 功能亮点
-
-1. **任务进度追踪**: 头部 checklist 按钮 + 进度计数（已完成/总数），右侧面板实时刷新
-2. **工具调用可视化**: 每个工具调用显示为折叠卡片，包含参数摘要和执行结果
-3. **消息搜索**: 内置搜索功能，快速定位历史对话
-4. **会话管理**: 多会话切换、标题编辑、导出、清空
-
 ## CLI 使用
 
-CLI 是 AI Agent 专用运维工具，支持服务器管理、CI/CD 部署、数据库查询、日志搜索等。详见 [skills/stool-cli/SKILL.md](skills/stool-cli/SKILL.md)。
+CLI 是 AI Agent 专用运维工具，15+ 命令覆盖全部功能。详见 [skills/stool-cli/SKILL.md](skills/stool-cli/SKILL.md)。
 
 ```bash
-# 查看版本
-stool version
+stool version                 # 查看版本
 
-# 服务器列表
-stool server list -j
+# 待办 & 项目
+stool todo list               # 待办列表
+stool todo add "任务名称"     # 添加待办
+stool subtask list <todo_id>  # 子任务列表
+stool project list            # 项目列表
 
-# 部署
-stool cicd deploy <config_id> --stream
+# 服务器 & 数据库
+stool server list -j          # 服务器列表 (JSON)
+stool server health <id>      # 健康检查
+stool db query -d <id> "SQL"  # 数据库查询
+stool db list                 # 数据库连接列表
 
-# 数据库查询
-stool db query -d <db_id> "SELECT * FROM users LIMIT 10"
+# CI/CD & Git
+stool cicd deploy <id> --stream  # 流式部署
+stool cicd rollback <id>         # 回滚
+stool git status <repo_id>       # Git 状态
 
-# 日志搜索
-stool log search <preset_id> "ERROR" -l 30
+# 日志 & Nginx
+stool log search <preset> "ERROR" -l 30  # 日志搜索
+stool nginx pull <preset>               # 拉取 nginx 配置
+
+# 个人工具
+stool note list               # 笔记列表
+stool accounting list         # 记账记录
+stool mfa list                # MFA 密钥
+stool mfa code <id>           # 生成 TOTP 验证码
+stool weekly generate         # 生成周报
+stool backup export           # 导出所有数据
 ```
 
 ## 贡献
