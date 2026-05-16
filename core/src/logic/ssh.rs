@@ -558,6 +558,30 @@ impl SshService {
         server_id: &str,
         remote_path: &str,
     ) -> Result<Vec<SftpFile>, String> {
+        // SFTP readdir 偶发 WouldBlock（libssh2 通道状态残留），
+        // 检测后丢弃缓存重建 SFTP 通道重试一次
+        let result = self.list_remote_dir_inner(server_id, remote_path);
+        if let Err(ref e) = result {
+            if e.contains("Would block") {
+                log::warn!(
+                    "[SFTP] WouldBlock on {} dir {}, clearing cache and retrying",
+                    server_id,
+                    remote_path
+                );
+                if let Ok(mut cache) = self.sftp_sessions.lock() {
+                    cache.remove(server_id);
+                }
+                return self.list_remote_dir_inner(server_id, remote_path);
+            }
+        }
+        result
+    }
+
+    fn list_remote_dir_inner(
+        &self,
+        server_id: &str,
+        remote_path: &str,
+    ) -> Result<Vec<SftpFile>, String> {
         let sftp_lock = self.get_sftp(server_id)?;
         let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
