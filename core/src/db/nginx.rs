@@ -542,13 +542,6 @@ where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
     query_one(conn, &sql, rusqlite::params![id], mapper)
 }
 
-fn add_row(conn: &rusqlite::Connection, table: &str, id: &str, preset_or_fk: &str, fk_column: &str) -> rusqlite::Result<()> {
-    // Dummy — each model handles its own INSERT because columns differ
-    // This helper is just for standardized query patterns
-    let _ = (conn, table, id, preset_or_fk, fk_column);
-    Ok(())
-}
-
 fn delete_by_id(conn: &rusqlite::Connection, table: &str, id: &str) -> rusqlite::Result<()> {
     let sql = format!("DELETE FROM {} WHERE id = ?1", table);
     conn.execute(&sql, params![id])?;
