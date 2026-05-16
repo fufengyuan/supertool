@@ -88,12 +88,12 @@
           <div class="px-4 pt-3 pb-1 shrink-0">
             <input v-model="editorTitle" class="input w-full text-xl font-bold text-base-content border-none bg-transparent px-0 focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="输入标题..." @input="onTitleChange"/>
           </div>
-          <div v-if="showRawMd" class="flex-1 min-h-0 px-4 pb-4 pt-2">
+          <div :class="['flex-1 min-h-0 px-4 pb-4 pt-2', { 'hidden': !showRawMd }]">
             <textarea v-model="editorContent" class="w-full h-full min-h-[300px] text-sm leading-relaxed text-base-content bg-transparent border-none resize-none font-mono focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="开始用 Markdown 编写笔记..." @input="onContentChange" spellcheck="false"></textarea>
           </div>
-          <div v-else
+          <div
+            :class="['editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content', { 'hidden': showRawMd }]"
             ref="previewRef"
-            class="editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content"
             contenteditable="true"
             @input="onPreviewEdit"
           ></div>
@@ -250,9 +250,17 @@ function renderPreview() {
   previewRef.value.innerHTML = html
 }
 
-watch(showRawMd, (val) => {
-  if (!val && previewRef.value) {
+// 选中笔记时渲染预览
+watch(selectedNote, () => {
+  if (!showRawMd.value) {
     nextTick(() => renderPreview())
+  }
+})
+
+// 切回预览模式时同步最新内容
+watch(showRawMd, (val) => {
+  if (!val) {
+    renderPreview()
   }
 })
 
@@ -293,8 +301,14 @@ function onTitleChange() {
   saveTimer = setTimeout(() => saveNote(), 500)
 }
 
+// 预览区始终在 DOM 中（CSS hidden 切换），ref 稳定可用
+// 在 onContentChange（源码模式编辑）时同步更新预览
 function onContentChange() {
     if (!selectedNote.value) return
+  // 同步更新预览区
+  if (previewRef.value && !showRawMd.value) {
+    renderPreview()
+  }
   saveStatus.value = '保存中...'; if (saveTimer) clearTimeout(saveTimer)
   saveTimer = setTimeout(() => saveNote(), 500)
 }
