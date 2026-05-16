@@ -389,6 +389,79 @@
           <!-- 模型选择、工具集和引用消息显示 -->
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
+              <!-- 附件按钮 -->
+              <div class="relative">
+                <button
+                  class="btn btn-ghost btn-xs btn-square"
+                  @click="showAttachMenu = !showAttachMenu"
+                  title="添加文件/文件夹/Git仓库路径"
+                  :disabled="isStreaming"
+                >
+                  <SvgIcon name="attach" size="14" />
+                </button>
+                <!-- 下拉菜单 -->
+                <div 
+                  v-if="showAttachMenu" 
+                  class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[200px]"
+                >
+                  <!-- 常用文件夹 -->
+                  <div v-if="favoriteFolders.length > 0" class="border-b border-base-content/10">
+                    <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium flex items-center justify-between">
+                      <span>常用文件夹</span>
+                    </div>
+                    <div 
+                      v-for="folder in favoriteFolders" 
+                      :key="folder"
+                      class="flex items-center gap-1 px-2 py-1 text-xs hover:bg-base-200 group"
+                    >
+                      <span class="truncate flex-1 text-base-content/70" :title="folder">{{ folder.split('/').pop() || folder }}</span>
+                      <button 
+                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
+                        @click.stop="selectFromFavorite(folder, 'file')"
+                        title="从此文件夹选择文件"
+                      >
+                        <SvgIcon name="file" size="10" class="text-base-content/60" />
+                      </button>
+                      <button 
+                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
+                        @click.stop="selectFromFavorite(folder, 'folder')"
+                        title="从此文件夹选择子文件夹"
+                      >
+                        <SvgIcon name="folder" size="10" class="text-base-content/60" />
+                      </button>
+                      <button 
+                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:text-error" 
+                        @click.stop="removeFavoriteFolder(folder)"
+                        title="移除"
+                      >
+                        <SvgIcon name="close" size="10" />
+                      </button>
+                    </div>
+                  </div>
+                  <!-- 文件/文件夹选择 -->
+                  <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFile()">
+                    <SvgIcon name="file" size="14" class="text-base-content/60" />
+                    <span>选择文件</span>
+                  </button>
+                  <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder()">
+                    <SvgIcon name="folder" size="14" class="text-base-content/60" />
+                    <span>选择文件夹</span>
+                  </button>
+                  <!-- Git 仓库列表 -->
+                  <div v-if="gitRepos.length > 0" class="border-t border-base-content/10">
+                    <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium">Git 仓库</div>
+                    <button 
+                      v-for="repo in gitRepos" 
+                      :key="repo.id" 
+                      class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200 rounded-b-lg"
+                      @click="selectGitRepo(repo)"
+                    >
+                      <SvgIcon name="github" size="12" class="text-base-content/60" />
+                      <span class="truncate">{{ repo.name }}</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
               <!-- 模型选择 -->
               <select
                 v-model="selectedModel"
@@ -407,83 +480,9 @@
               >
                 <SvgIcon name="plus" size="14" />
               </button>
-              </div>
-          </div>
-          <!-- 输入框 -->
-          <!-- 附件按钮 -->
-          <div class="flex items-center gap-1 mb-1.5">
-            <div class="relative">
-              <button
-                class="btn btn-ghost btn-xs btn-square"
-                @click="showAttachMenu = !showAttachMenu"
-                title="添加文件/文件夹/Git仓库路径"
-              >
-                <SvgIcon name="plus" size="14" />
-              </button>
-              <!-- 下拉菜单 -->
-              <div 
-                v-if="showAttachMenu" 
-                class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[200px]"
-              >
-                <!-- 常用文件夹 -->
-                <div v-if="favoriteFolders.length > 0" class="border-b border-base-content/10">
-                  <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium flex items-center justify-between">
-                    <span>常用文件夹</span>
-                  </div>
-                  <div 
-                    v-for="folder in favoriteFolders" 
-                    :key="folder"
-                    class="flex items-center gap-1 px-2 py-1 text-xs hover:bg-base-200 group"
-                  >
-                    <span class="truncate flex-1 text-base-content/70" :title="folder">{{ folder.split('/').pop() || folder }}</span>
-                    <button 
-                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
-                      @click.stop="selectFromFavorite(folder, 'file')"
-                      title="从此文件夹选择文件"
-                    >
-                      <SvgIcon name="file" size="10" class="text-base-content/60" />
-                    </button>
-                    <button 
-                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
-                      @click.stop="selectFromFavorite(folder, 'folder')"
-                      title="从此文件夹选择子文件夹"
-                    >
-                      <SvgIcon name="folder" size="10" class="text-base-content/60" />
-                    </button>
-                    <button 
-                      class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:text-error" 
-                      @click.stop="removeFavoriteFolder(folder)"
-                      title="移除"
-                    >
-                      <SvgIcon name="close" size="10" />
-                    </button>
-                  </div>
-                </div>
-                <!-- 文件/文件夹选择 -->
-                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFile()">
-                  <SvgIcon name="file" size="14" class="text-base-content/60" />
-                  <span>选择文件</span>
-                </button>
-                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder()">
-                  <SvgIcon name="folder" size="14" class="text-base-content/60" />
-                  <span>选择文件夹</span>
-                </button>
-                <!-- Git 仓库列表 -->
-                <div v-if="gitRepos.length > 0" class="border-t border-base-content/10">
-                  <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium">Git 仓库</div>
-                  <button 
-                    v-for="repo in gitRepos" 
-                    :key="repo.id" 
-                    class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200 rounded-b-lg"
-                    @click="selectGitRepo(repo)"
-                  >
-                    <SvgIcon name="github" size="12" class="text-base-content/60" />
-                    <span class="truncate">{{ repo.name }}</span>
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
+          <!-- 输入框 -->
           <div class="flex gap-2">
             <textarea
               ref="inputRef"
