@@ -1935,8 +1935,19 @@ onMounted(async () => {
     if (event.payload.name === 'todo' && event.payload.result) {
       try {
         const parsed = JSON.parse(event.payload.result);
+        // 支持两种格式：直接数组 或 {todos: [...], summary: {...}}
+        let tasks: Array<{ id: string; content: string; status?: string }> = [];
+        
         if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
-          currentTasks.value = parsed.map((t: { id: string; content: string; status?: string }) => ({
+          // 直接数组格式
+          tasks = parsed;
+        } else if (parsed.todos && Array.isArray(parsed.todos) && parsed.todos.length > 0) {
+          // 对象格式 {todos, summary}
+          tasks = parsed.todos;
+        }
+        
+        if (tasks.length > 0) {
+          currentTasks.value = tasks.map((t: { id: string; content: string; status?: string }) => ({
             id: t.id,
             content: t.content,
             status: (['pending', 'in_progress', 'completed', 'cancelled'].includes(t.status || '') 
