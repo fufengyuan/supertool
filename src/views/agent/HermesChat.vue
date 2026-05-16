@@ -927,11 +927,13 @@ const appendPathToInput = (path: string) => {
 
 // 添加常用文件夹（最多保留3个，按最近使用排序）
 const addFavoriteFolder = (folder: string) => {
-  if (!folder || favoriteFolders.value.includes(folder)) {
-    // 如果已存在，移到第一位（最近使用）
-    if (favoriteFolders.value.includes(folder)) {
-      favoriteFolders.value = [folder, ...favoriteFolders.value.filter(f => f !== folder)];
-    }
+  if (!folder) {
+    return;
+  }
+  // 如果已存在，移到第一位（最近使用）
+  if (favoriteFolders.value.includes(folder)) {
+    favoriteFolders.value = [folder, ...favoriteFolders.value.filter(f => f !== folder)];
+    saveFavoriteFolders(); // 持久化顺序更新
     return;
   }
   // 添加新文件夹到第一位，最多保留3个
