@@ -410,6 +410,45 @@
               </div>
           </div>
           <!-- 输入框 -->
+          <!-- 附件按钮 -->
+          <div class="flex items-center gap-1 mb-1.5">
+            <div class="relative">
+              <button
+                class="btn btn-ghost btn-xs btn-square"
+                @click="showAttachMenu = !showAttachMenu"
+                title="添加文件/文件夹/Git仓库路径"
+              >
+                <SvgIcon name="plus" size="14" />
+              </button>
+              <!-- 下拉菜单 -->
+              <div 
+                v-if="showAttachMenu" 
+                class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[160px]"
+              >
+                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200 rounded-t-lg" @click="selectFile">
+                  <SvgIcon name="file" size="14" class="text-base-content/60" />
+                  <span>选择文件</span>
+                </button>
+                <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder">
+                  <SvgIcon name="folder" size="14" class="text-base-content/60" />
+                  <span>选择文件夹</span>
+                </button>
+                <!-- Git 仓库列表 -->
+                <div v-if="gitRepos.length > 0" class="border-t border-base-content/10">
+                  <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium">Git 仓库</div>
+                  <button 
+                    v-for="repo in gitRepos" 
+                    :key="repo.id" 
+                    class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200"
+                    @click="selectGitRepo(repo)"
+                  >
+                    <SvgIcon name="github" size="12" class="text-base-content/60" />
+                    <span class="truncate">{{ repo.name }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
           <div class="flex gap-2">
             <textarea
               ref="inputRef"
@@ -493,12 +532,14 @@ import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { open } from '@tauri-apps/plugin-dialog';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import { markedHighlight } from 'marked-highlight';
 import javascript from 'highlight.js/lib/languages/javascript';
 import { getTauriAPI } from '../../utils/tauri-api';
+import type { GitRepo } from '../../types';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
@@ -619,6 +660,8 @@ const messages = ref<Message[]>([]);
 const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
 const showTaskPanel = ref(true); // 是否显示任务面板
 const inputText = ref('');
+const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
+const showAttachMenu = ref(false); // 显示附件菜单
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const isStreaming = ref(false);
@@ -774,6 +817,70 @@ const adjustTextareaHeight = () => {
     const maxHeight = 200;
     const newHeight = Math.min(inputRef.value.scrollHeight, maxHeight);
     inputRef.value.style.height = `${newHeight}px`;
+  }
+};
+
+// 选择文件并追加路径到输入框
+const selectFile = async () => {
+  try {
+    const selected = await open({
+      multiple: false,
+      title: '选择文件',
+    });
+    if (selected) {
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      appendPathToInput(path);
+    }
+  } catch (e) {
+    console.error('选择文件失败:', e);
+  }
+  showAttachMenu.value = false;
+};
+
+// 选择文件夹并追加路径到输入框
+const selectFolder = async () => {
+  try {
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: '选择文件夹',
+    });
+    if (selected) {
+      const path = Array.isArray(selected) ? selected[0] : selected;
+      appendPathToInput(path);
+    }
+  } catch (e) {
+    console.error('选择文件夹失败:', e);
+  }
+  showAttachMenu.value = false;
+};
+
+// 选择 Git 仓库并追加路径到输入框
+const selectGitRepo = (repo: GitRepo) => {
+  appendPathToInput(repo.path);
+  showAttachMenu.value = false;
+};
+
+// 追加路径到输入框
+const appendPathToInput = (path: string) => {
+  if (inputText.value.trim()) {
+    inputText.value += '\n' + path;
+  } else {
+    inputText.value = path;
+  }
+  // 调整输入框高度
+  nextTick(() => adjustTextareaHeight());
+};
+
+// 加载 Git 仓库列表
+const loadGitRepos = async () => {
+  try {
+    const api = getTauriAPI();
+    const res = await api.getGitRepos();
+    gitRepos.value = res?.data || [];
+  } catch (e) {
+    console.error('加载 Git 仓库列表失败:', e);
+    gitRepos.value = [];
   }
 };
 
@@ -1385,6 +1492,12 @@ const clearSearch = () => {
 
 // 全局快捷键处理
 const handleGlobalKeydown = (e: KeyboardEvent) => {
+  // ESC: 关闭附件菜单
+  if (e.key === 'Escape' && showAttachMenu.value) {
+    showAttachMenu.value = false;
+    return;
+  }
+  
   // Cmd/Ctrl + K: 新对话
   if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
     e.preventDefault();
@@ -1765,6 +1878,7 @@ onMounted(async () => {
   await loadModels(); // 加载模型列表
   await checkHermes();
   await refreshSessions();
+  await loadGitRepos(); // 加载 Git 仓库列表
 
   // 如果URL有sessionId参数，自动选择该会话
   const sessionIdFromQuery = route.query.sessionId as string;
