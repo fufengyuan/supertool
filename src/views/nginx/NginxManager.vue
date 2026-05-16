@@ -260,7 +260,7 @@
 
     <!-- 发布弹窗 -->
     <div v-if="showDeployDialog" class="modal modal-open" @click.self="showDeployDialog = false">
-      <div class="modal-box max-w-3xl max-h-[90vh] overflow-y-auto">
+      <div class="modal-box max-w-5xl w-full max-h-[90vh] overflow-y-auto">
         <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
 
         <!-- 分解模式开关 -->
