@@ -199,7 +199,7 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
     }
   }
   
-  return result.slice(0, 500) // 性能限制
+  return result
 }
 
 function selectFile(idx: number) {
