@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="page-find fixed top-4 right-4 z-50 bg-base-100 border border-base-content/20 rounded-lg shadow-lg p-2 flex items-center gap-2">
+  <div v-if="visible" class="page-find fixed top-4 right-4 z-[100] bg-base-100 border border-base-content/20 rounded-lg shadow-lg p-2 flex items-center gap-2">
     <SvgIcon name="search" size="14" class="text-base-content/60" />
     <input
       ref="inputRef"
