@@ -110,7 +110,7 @@ fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -
 
 fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
     out.push_str("http {\n");
-    out.push_str("    include       /etc/nginx/mime.types;\n");
+    out.push_str("    include       mime.types;\n");
     out.push_str("    default_type  application/octet-stream;\n\n");
 
     // HTTP-level params
@@ -247,7 +247,7 @@ fn append_http_block_decomposed(
     sub_files: &mut Vec<NginxSubFile>,
 ) -> Result<(), String> {
     out.push_str("http {\n");
-    out.push_str("    include       /etc/nginx/mime.types;\n");
+    out.push_str("    include       mime.types;\n");
     out.push_str("    default_type  application/octet-stream;\n\n");
 
     // HTTP-level params
