@@ -108,10 +108,13 @@
       </aside>
     </div>
   </div>
+  <!-- 页面内查找组件 -->
+  <PageFind />
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import PageFind from '@/components/PageFind.vue'
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
