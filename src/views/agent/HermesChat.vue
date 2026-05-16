@@ -397,7 +397,7 @@
                   title="添加文件/文件夹/Git仓库路径"
                   :disabled="isStreaming"
                 >
-                  <SvgIcon name="attach" size="14" />
+                  <SvgIcon name="paperclip" size="14" />
                 </button>
                 <!-- 下拉菜单 -->
                 <div 
