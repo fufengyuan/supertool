@@ -199,7 +199,7 @@
 
         <!-- 消息列表 -->
         <template v-else-if="messages.length > 0">
-          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2">
+          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2 w-full min-w-0">
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="flex gap-2 w-full min-w-0 group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
@@ -233,7 +233,7 @@
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-3 space-y-2">
                     <div v-for="(tool, tIdx) in msg.toolCalls" :key="`${tool.name}-${tIdx}`">
                       <!-- 子 Agent 卡片（特殊样式） -->
-                      <div v-if="tool.isSubAgent" class="bg-info/10 border border-info/20 rounded-lg">
+                      <div v-if="tool.isSubAgent" class="bg-info/10 border border-info/20 rounded-lg overflow-hidden">
                         <!-- 外层：工具名 + 参数摘要 -->
                         <div 
                           class="px-3 py-2 cursor-pointer hover:bg-info/15 transition-colors"
@@ -262,22 +262,22 @@
                           </div>
                         </div>
                         <!-- 折叠内容：详细结果 -->
-                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-info/5 border-t border-info/15 text-xs">
+                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-info/5 border-t border-info/15 text-xs overflow-hidden">
                           <!-- 任务参数 -->
-                          <div v-if="tool.args" class="mb-2">
+                          <div v-if="tool.args" class="mb-2 overflow-hidden">
                             <span class="text-base-content/70">参数：</span>
-                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap break-all">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 执行结果 -->
-                          <div v-if="tool.result" class="mt-2">
+                          <div v-if="tool.result" class="mt-2 overflow-hidden">
                             <span class="text-base-content/70">结果：</span>
-                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs break-all" v-html="formatToolResult(tool.name, tool.result)"></div>
                           </div>
                         </div>
                       </div>
                       
                       <!-- 普通工具卡片 -->
-                      <div v-else class="bg-base-200/50 border border-base-300/50 rounded-lg">
+                      <div v-else class="bg-base-200/50 border border-base-300/50 rounded-lg overflow-hidden">
                         <!-- 外层：工具名 + 参数摘要 -->
                         <div 
                           class="px-3 py-2 cursor-pointer hover:bg-base-200/70 transition-colors"
@@ -308,16 +308,16 @@
                           </div>
                         </div>
                         <!-- 折叠内容：详细结果 -->
-                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-base-200/30 border-t border-base-300/30 text-xs">
+                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-3 py-2 bg-base-200/30 border-t border-base-300/30 text-xs overflow-hidden">
                           <!-- 参数 -->
-                          <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-2">
+                          <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-2 overflow-hidden">
                             <span class="text-base-content/70">参数：</span>
-                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap break-all">{{ JSON.stringify(tool.args, null, 2) }}</pre>
                           </div>
                           <!-- 结果 -->
-                          <div v-if="tool.result" class="mt-2">
+                          <div v-if="tool.result" class="mt-2 overflow-hidden">
                             <span class="text-base-content/70">结果：</span>
-                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs break-all" v-html="formatToolResult(tool.name, tool.result)"></div>
                           </div>
                         </div>
                       </div>
@@ -329,11 +329,11 @@
           </div>
 
           <!-- 流式响应中的当前消息 + 思考动画 -->
-          <div v-if="isStreaming && (currentStreamingMsg || thinkingText)" class="flex gap-2">
+          <div v-if="isStreaming && (currentStreamingMsg || thinkingText)" class="flex gap-2 w-full min-w-0">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
-            <div class="flex-1 max-w-[85%] bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
+            <div class="flex-1 min-w-0 max-w-[85%] bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-hidden">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 当前流式消息 -->
@@ -2130,6 +2130,8 @@ watch(searchQuery, () => {
   border-radius: 0;
   overflow-x: auto;
   max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .markdown-content :deep(.code-block-wrapper pre code) {
@@ -2147,6 +2149,8 @@ watch(searchQuery, () => {
   overflow-x: auto;
   margin: 0.8em 0;
   max-width: 100%;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
 
 .markdown-content :deep(pre:not(.code-block-wrapper pre) code) {
@@ -2189,6 +2193,7 @@ watch(searchQuery, () => {
 .markdown-content :deep(a) {
   color: var(--color-primary);
   text-decoration: underline;
+  word-break: break-all;
 }
 
 .markdown-content :deep(a:hover) {
@@ -2200,6 +2205,7 @@ watch(searchQuery, () => {
 .markdown-content :deep(ol) {
   margin: 0.5em 0;
   padding-left: 1.5em;
+  overflow: hidden;
 }
 
 .markdown-content :deep(li) {
@@ -2210,7 +2216,10 @@ watch(searchQuery, () => {
 .markdown-content :deep(table) {
   border-collapse: collapse;
   margin: 0.8em 0;
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .markdown-content :deep(th),
@@ -2218,6 +2227,7 @@ watch(searchQuery, () => {
   border: 1px solid var(--color-base-content, #ccc);
   padding: 6px 12px;
   text-align: left;
+  word-break: break-word;
 }
 
 .markdown-content :deep(th) {
@@ -2232,6 +2242,7 @@ watch(searchQuery, () => {
   margin: 0.8em 0;
   color: var(--color-base-content);
   opacity: 0.8;
+  overflow: hidden;
 }
 
 /* 标题样式 */
