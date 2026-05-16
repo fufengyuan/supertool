@@ -260,7 +260,7 @@
                           <!-- 执行结果 -->
                           <div v-if="tool.result" class="mt-2">
                             <span class="text-base-content/70">结果：</span>
-                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs whitespace-pre-wrap">{{ tool.result }}</div>
+                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
                           </div>
                         </div>
                       </div>
@@ -306,7 +306,7 @@
                           <!-- 结果 -->
                           <div v-if="tool.result" class="mt-2">
                             <span class="text-base-content/70">结果：</span>
-                            <pre class="bg-base-200 rounded p-2 mt-1 overflow-auto text-xs max-h-48 whitespace-pre-wrap">{{ tool.result }}</pre>
+                            <div class="bg-base-200 rounded p-2 mt-1 overflow-auto max-h-48 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
                           </div>
                         </div>
                       </div>
@@ -866,6 +866,59 @@ const formatArgsSummary = (args: Record<string, unknown>): string => {
   }
   
   return '';
+};
+
+// 任务状态图标映射
+const taskStatusIcon: Record<string, { icon: string; color: string; label: string }> = {
+  pending: { icon: 'circle', color: 'text-base-content/40', label: '待处理' },
+  in_progress: { icon: 'play', color: 'text-warning animate-pulse', label: '进行中' },
+  completed: { icon: 'check', color: 'text-success', label: '已完成' },
+  cancelled: { icon: 'close', color: 'text-base-content/30', label: '已取消' },
+};
+
+// 格式化 todo 工具返回的任务列表为友好的 HTML
+const formatTodoResult = (result: string): string => {
+  try {
+    // 尝试解析 JSON
+    const parsed = JSON.parse(result);
+    
+    // 如果是任务列表格式
+    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
+      const tasksHtml = parsed.map((task: { id: string; content: string; status?: string }) => {
+        const status = task.status || 'pending';
+        const statusInfo = taskStatusIcon[status] || taskStatusIcon.pending;
+        return `<div class="flex items-center gap-2 py-1">
+          <span class="${statusInfo.color}">●</span>
+          <span class="text-xs flex-1">${task.content}</span>
+          <span class="text-xs text-base-content/50">${statusInfo.label}</span>
+        </div>`;
+      }).join('');
+      return `<div class="space-y-1">${tasksHtml}</div>`;
+    }
+    
+    // 其他 JSON 格式，美化显示
+    return `<pre class="text-xs whitespace-pre-wrap">${JSON.stringify(parsed, null, 2)}</pre>`;
+  } catch {
+    // 非 JSON，直接显示
+    return `<div class="text-xs whitespace-pre-wrap">${result}</div>`;
+  }
+};
+
+// 格式化工具结果（根据工具类型选择渲染方式）
+const formatToolResult = (toolName: string, result: string): string => {
+  // todo 工具特殊渲染
+  if (toolName === 'todo') {
+    return formatTodoResult(result);
+  }
+  
+  // 其他工具，默认显示
+  // 尝试解析为 JSON 并美化
+  try {
+    const parsed = JSON.parse(result);
+    return `<pre class="text-xs whitespace-pre-wrap overflow-auto max-h-48">${JSON.stringify(parsed, null, 2)}</pre>`;
+  } catch {
+    return `<div class="text-xs whitespace-pre-wrap overflow-auto max-h-48">${result}</div>`;
+  }
 };
 
 // Markdown 渲染函数 - 添加代码块复制按钮和特殊格式处理
