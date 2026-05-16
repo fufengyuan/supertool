@@ -134,7 +134,7 @@
           CI/CD
         </button>
         <button class="btn btn-sm btn-ghost gap-1.5" @click="navigateTo('/logs')">
-          <SvgIcon name="file-text" size="14" />
+          <SvgIcon name="fileText" size="14" />
           日志搜索
         </button>
         <button class="btn btn-sm btn-ghost gap-1.5" @click="navigateTo('/database')">
