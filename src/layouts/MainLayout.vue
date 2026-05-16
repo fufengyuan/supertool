@@ -120,6 +120,7 @@ import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
 
 import {
+  IconLayoutDashboard,
   IconChecklist,
   IconCalendarWeek,
   IconFolder,
@@ -142,6 +143,7 @@ import {
 } from '@tabler/icons-vue'
 
 const iconMap: Record<string, any> = {
+  'dashboard': IconLayoutDashboard,
   'todo': IconChecklist,
   'weekly-report': IconCalendarWeek,
   'projects': IconFolder,
@@ -173,7 +175,8 @@ const lanStarted = ref(false)
 
 const navGroups = {
   business: [
-    { path: '/', icon: '📝', label: '任务', viewId: 'todo' },
+    { path: '/', icon: '📊', label: '综合看板', viewId: 'dashboard' },
+    { path: '/todo', icon: '📝', label: '任务', viewId: 'todo' },
     { path: '/weekly', icon: '📊', label: '周报', viewId: 'weekly-report' },
     { path: '/projects', icon: '📁', label: '项目', viewId: 'projects' },
     { path: '/accounting', icon: '💰', label: '记账本', viewId: 'accounting' },
@@ -250,7 +253,7 @@ onMounted(async () => {
 
   const unlistenNav = await api.onMenuNav((view: string) => {
     const routeMap: Record<string, string> = {
-      'todo': '/', 'weekly-report': '/weekly', 'projects': '/projects',
+      'dashboard': '/', 'todo': '/todo', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
       'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
