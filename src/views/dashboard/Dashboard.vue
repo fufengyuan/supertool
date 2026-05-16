@@ -95,21 +95,21 @@
       <!-- 告警 -->
       <div 
         class="bg-base-100 rounded-xl border border-base-content/10 p-4 cursor-pointer hover:border-primary/50 hover:bg-base-200/50 transition-all"
-        :class="{ 'border-error/30': alertStats.unresolved > 0 }"
+        :class="{ 'border-error/30': alertStats.today > 0 }"
         @click="navigateTo('/alert')"
       >
         <div class="flex items-center gap-2 mb-3">
-          <SvgIcon name="bell" size="16" :class="alertStats.unresolved > 0 ? 'text-error animate-pulse' : 'text-base-content/50'" />
+          <SvgIcon name="bell" size="16" :class="alertStats.today > 0 ? 'text-error animate-pulse' : 'text-base-content/50'" />
           <span class="text-sm font-medium text-base-content/70">告警</span>
         </div>
         <div class="flex items-end justify-between">
           <div>
-            <span class="text-2xl font-bold" :class="alertStats.unresolved > 0 ? 'text-error' : 'text-base-content'">{{ alertStats.unresolved }}</span>
-            <span class="text-xs text-base-content/50 ml-1">未处理</span>
+            <span class="text-2xl font-bold" :class="alertStats.today > 0 ? 'text-error' : 'text-base-content'">{{ alertStats.today }}</span>
+            <span class="text-xs text-base-content/50 ml-1">今日告警</span>
           </div>
         </div>
         <div class="mt-3 text-xs text-base-content/40" v-if="alertStats.total > 0">
-          今日 {{ alertStats.today }} 条告警
+          共 {{ alertStats.total }} 条告警记录
         </div>
       </div>
     </div>
@@ -201,7 +201,7 @@
               class="w-2 h-2 rounded-full shrink-0"
               :class="deploy.status === 'success' ? 'bg-success' : deploy.status === 'failed' ? 'bg-error' : 'bg-warning'"
             ></span>
-            <span class="text-sm truncate flex-1 text-base-content">{{ deploy.configName || deploy.projectName || '部署' }}</span>
+            <span class="text-sm truncate flex-1 text-base-content">{{ deploy.configName || '部署' }}</span>
             <span class="text-xs text-base-content/40">{{ formatTime(deploy.createdAt) }}</span>
           </div>
         </div>
@@ -318,8 +318,7 @@ const recentTodos = computed(() => {
 const serverStats = ref({ total: 0, online: 0, offline: 0 });
 const loadServerStats = async () => {
   try {
-    const result = await invoke<{ success: boolean; data: { id: string; name: string; host: string }[] }>('get_all_servers');
-    const servers = result.data || [];
+    const servers = await invoke<{ id: string; name: string; host: string }[]>('get_all_servers');
     serverStats.value.total = servers.length;
     // 简化：假设全部在线（实际可以调用健康检查）
     serverStats.value.online = servers.length;
@@ -347,33 +346,29 @@ const projectStats = computed(() => {
 });
 
 // 告警统计
-const alertStats = ref({ total: 0, unresolved: 0, today: 0 });
+const alertStats = ref({ total: 0, today: 0 });
 const loadAlertStats = async () => {
   try {
-    const alerts = await invoke<{ id: string; status: string; sent_at: string }[]>('get_alert_history');
+    const alerts = await invoke<{ id: string; alertType: string; sentAt: string }[]>('get_alert_history');
     const today = new Date().toDateString();
     alertStats.value.total = alerts.length;
-    alertStats.value.unresolved = alerts.filter(a => a.status === 'pending' || a.status === 'unresolved').length;
-    alertStats.value.today = alerts.filter(a => new Date(a.sent_at).toDateString() === today).length;
+    alertStats.value.today = alerts.filter(a => new Date(a.sentAt).toDateString() === today).length;
   } catch (e) {
     console.error('加载告警统计失败:', e);
   }
 };
 
 // 最近部署
-const recentDeployments = ref<{ id: string; status: string; configName?: string; projectName?: string; createdAt: string }[]>([]);
+const recentDeployments = ref<{ id: string; status: string; configName?: string; createdAt: string }[]>([]);
 const loadRecentDeployments = async () => {
   try {
-    const history = await invoke<{ id: string; status: string; configId: string; deployedAt: string }[]>('get_all_deploy_history');
-    recentDeployments.value = history
-      .sort((a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime())
-      .slice(0, 5)
-      .map(h => ({
-        id: h.id,
-        status: h.status,
-        configName: h.configId,
-        createdAt: h.deployedAt
-      }));
+    const history = await invoke<{ id: string; status: string; configName?: string; deployedAt: string }[]>('get_all_deploy_history');
+    recentDeployments.value = history.slice(0, 5).map(h => ({
+      id: h.id,
+      status: h.status,
+      configName: h.configName || '未知配置',
+      createdAt: h.deployedAt
+    }));
   } catch (e) {
     console.error('加载部署历史失败:', e);
   }
