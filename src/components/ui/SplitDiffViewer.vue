@@ -152,13 +152,6 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
         oldNum = oldStart
         newNum = newStart
       }
-      // header 行两边都显示（作为分隔）
-      result.push({
-        content: line,
-        type: 'header',
-        oldNum: '',
-        newNum: ''
-      })
       continue
     }
     
