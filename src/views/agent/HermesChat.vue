@@ -396,21 +396,7 @@
               >
                 <SvgIcon name="plus" size="14" />
               </button>
-              <!-- 工具集选择 -->
-              <div class="flex items-center gap-1">
-                <button
-                  v-for="toolset in availableToolsets"
-                  :key="toolset"
-                  class="btn btn-xs"
-                  :class="selectedToolsets.includes(toolset) ? 'btn-primary' : 'btn-ghost'"
-                  @click="toggleToolset(toolset)"
-                  :disabled="isStreaming"
-                  :title="toolsetLabels[toolset]"
-                >
-                  {{ toolsetLabels[toolset] }}
-                </button>
               </div>
-            </div>
           </div>
           <!-- 输入框 -->
           <div class="flex gap-2">
@@ -652,33 +638,6 @@ const removeModel = async (model: string) => {
     }
   } catch (e) {
     console.error('Failed to remove model:', e);
-  }
-};
-
-// 工具集选择
-const availableToolsets = ref([
-  'web',       // 网络搜索
-  'terminal',  // 终端命令
-  'file',      // 文件操作
-  'browser',   // 浏览器操作
-  'vision',    // 图像分析
-]);
-const selectedToolsets = ref<string[]>([]);
-const toolsetLabels: Record<string, string> = {
-  web: '搜索',
-  terminal: '终端',
-  file: '文件',
-  browser: '浏览器',
-  vision: '图像',
-};
-
-// 切换工具集选择
-const toggleToolset = (toolset: string) => {
-  const index = selectedToolsets.value.indexOf(toolset);
-  if (index === -1) {
-    selectedToolsets.value.push(toolset);
-  } else {
-    selectedToolsets.value.splice(index, 1);
   }
 };
 
@@ -1162,14 +1121,11 @@ const sendMessage = async () => {
   try {
     // 使用选择的模型（如果有）
     const modelToUse = selectedModel.value || null;
-    // 使用选择的工具集（如果有）
-    const toolsetsToUse = selectedToolsets.value.length > 0 ? selectedToolsets.value : null;
     
     const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message: text,
       sessionId: currentSessionId.value,
       model: modelToUse,
-      toolsets: toolsetsToUse,
     });
 
     // 更新 session ID
