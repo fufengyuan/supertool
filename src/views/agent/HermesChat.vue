@@ -178,7 +178,7 @@
       </div>
 
       <!-- 消息列表 -->
-      <div ref="messagesContainer" class="flex-1 overflow-y-auto px-4 py-2 space-y-1">
+      <div ref="messagesContainer" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-1">
         <!-- 加载消息状态 - 骨架屏 -->
         <div v-if="loadingMessages" class="space-y-1">
           <div class="flex gap-2">
@@ -201,12 +201,12 @@
         <template v-else-if="messages.length > 0">
           <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2">
             <!-- 用户消息 -->
-            <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
+            <div v-if="msg.role === 'user'" class="flex gap-2 w-full min-w-0 group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
-              <div class="flex-1 max-w-[85%]">
-                <div class="bg-base-200 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
+              <div class="flex-1 min-w-0 max-w-[85%]">
+                <div class="bg-base-200 rounded-xl px-3 py-2 break-words overflow-hidden">
                   <!-- 搜索时高亮显示 -->
                   <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
                   <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
@@ -215,17 +215,17 @@
             </div>
 
             <!-- Assistant 消息 -->
-            <div v-else class="flex gap-2 w-full group">
+            <div v-else class="flex gap-2 w-full min-w-0 group">
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
-              <div class="flex-1 max-w-[85%]">
+              <div class="flex-1 min-w-0 max-w-[85%]">
                 <!-- 思考过程（如果有） -->
-                <div v-if="msg.thinking" class="mb-2 bg-base-200/50 rounded-lg px-3 py-2 text-xs text-base-content/60 italic break-words">
+                <div v-if="msg.thinking" class="mb-2 bg-base-200/50 rounded-lg px-3 py-2 text-xs text-base-content/60 italic break-words overflow-hidden">
                   💭 {{ msg.thinking }}
                 </div>
                 
-                <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-wrap-anywhere">
+                <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2 break-words overflow-hidden">
                   <!-- Markdown 渲染的消息内容 -->
                   <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                   
@@ -2053,6 +2053,8 @@ watch(searchQuery, () => {
   line-height: 1.6;
   overflow-wrap: anywhere;
   word-break: break-word;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .markdown-content :deep(p) {
@@ -2074,6 +2076,7 @@ watch(searchQuery, () => {
   margin: 0.8em 0;
   border-radius: 8px;
   overflow: hidden;
+  max-width: 100%;
 }
 
 /* 代码块头部 */
@@ -2126,6 +2129,7 @@ watch(searchQuery, () => {
   background: rgba(0, 0, 0, 0.03);
   border-radius: 0;
   overflow-x: auto;
+  max-width: 100%;
 }
 
 .markdown-content :deep(.code-block-wrapper pre code) {
@@ -2142,6 +2146,7 @@ watch(searchQuery, () => {
   border-radius: 8px;
   overflow-x: auto;
   margin: 0.8em 0;
+  max-width: 100%;
 }
 
 .markdown-content :deep(pre:not(.code-block-wrapper pre) code) {
