@@ -8,6 +8,11 @@ const routes = [
     children: [
       {
         path: '',
+        name: 'Dashboard',
+        component: () => import('../views/dashboard/Dashboard.vue'),
+      },
+      {
+        path: 'todo',
         name: 'Todo',
         component: () => import('../views/todo/TodoList.vue'),
       },
