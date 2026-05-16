@@ -273,10 +273,10 @@
         <!-- 配置差异 -->
         <div class="mt-3">
           <label class="text-xs font-medium mb-1 block">配置差异对比</label>
-          <div class="border border-base-content/10 rounded-lg overflow-hidden">
+          <div class="border border-base-content/10 rounded-lg overflow-hidden min-h-[300px]">
             <!-- 加载中 -->
             <div v-if="diffLoading" class="flex items-center justify-center h-16 text-xs text-base-content/50">
-              <SvgIcon name="clock" size="12" class="mr-1" /> 正在生成配置并计算差异…
+              <SvgIcon name="clock" size="12" class="mr-1 animate-spin" /> 正在生成配置并计算差异…
             </div>
             <!-- 无差异 -->
             <div v-else-if="diffSame" class="flex items-center justify-center h-10 text-xs text-success gap-1">
@@ -286,8 +286,13 @@
             <div v-else-if="diffError" class="flex items-center justify-center h-10 text-xs text-error gap-1">
               <SvgIcon name="alertTriangle" size="12" /> {{ diffError }}
             </div>
-            <!-- 差异内容 -->
-            <pre v-else-if="diffContent" class="text-xs leading-relaxed overflow-auto max-h-72 m-0 p-2 bg-base-200/50 font-mono whitespace-pre-wrap">{{ diffContent }}</pre>
+            <!-- 差异内容 - 使用 SplitDiffViewer -->
+            <SplitDiffViewer
+              v-else-if="diffContent"
+              :files="diffFiles"
+              :diff="diffContent"
+              :loading="false"
+            />
             <div v-else class="flex items-center justify-center h-10 text-xs text-base-content/50">点击"预览"生成配置后再发布可查看差异</div>
           </div>
         </div>
@@ -363,6 +368,7 @@ import { useNginxConfig } from '../../composables/useNginxConfig'
 import { getTauriAPI } from '../../utils/tauri-api'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import SplitDiffViewer from '@/components/ui/SplitDiffViewer.vue'
 import hljs from 'highlight.js/lib/core'
 import nginxLang from 'highlight.js/lib/languages/nginx'
 hljs.registerLanguage('nginx', nginxLang)
@@ -398,6 +404,12 @@ const diffError = ref('')
 const generatedNewConfig = ref('')
 const decomposedSubFiles = ref<Array<{filename: string, content: string}>>([])
 const decomposeMode = ref(false)
+
+// Files list for SplitDiffViewer
+const diffFiles = computed(() => {
+  if (!diffContent.value) return null
+  return [{ path: 'nginx.conf', status: 'modified', changes: '' }]
+})
 
 const highlightedConfig = computed(() => {
   if (!configContent.value) return ''
@@ -736,6 +748,11 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
 
   // Group into hunks with context
   const result: string[] = []
+  // Git diff header format for SplitDiffViewer
+  result.push('diff --git a/nginx.conf b/nginx.conf')
+  result.push('--- a/nginx.conf')
+  result.push('+++ b/nginx.conf')
+  
   let hunkStart = -1
   const hunkLines: Array<{ prefix: string; text: string }> = []
   const ctxBefore = 2
@@ -759,7 +776,7 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
         if (hunkLines.length > 0) {
           result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
           for (const hl of hunkLines) {
-            result.push(hl.prefix + ' ' + hl.text)
+            result.push(hl.prefix + hl.text)
           }
         }
         hunkStart = -1
@@ -774,7 +791,7 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
   if (hunkStart !== -1 && hunkLines.length > 0) {
     result.push('@@ -' + (hunkStart + 1) + ' +' + (hunkStart + 1) + ' @@')
     for (const hl of hunkLines) {
-      result.push(hl.prefix + ' ' + hl.text)
+      result.push(hl.prefix + hl.text)
     }
   }
 
