@@ -1126,18 +1126,46 @@ const formatTodoResult = (result: string): string => {
     // 尝试解析 JSON
     const parsed = JSON.parse(result);
     
-    // 如果是任务列表格式
+    // 提取任务数组：支持两种格式
+    // 1. 直接数组 [{id, content, status}]
+    // 2. 对象格式 {todos: [...], summary: {...}}
+    let tasks: Array<{ id: string; content: string; status?: string }> = [];
+    let summary = null;
+    
     if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
-      const tasksHtml = parsed.map((task: { id: string; content: string; status?: string }) => {
+      // 直接数组格式
+      tasks = parsed;
+    } else if (parsed.todos && Array.isArray(parsed.todos)) {
+      // 对象格式 {todos, summary}
+      tasks = parsed.todos;
+      summary = parsed.summary;
+    }
+    
+    // 如果成功提取到任务列表
+    if (tasks.length > 0) {
+      const tasksHtml = tasks.map((task: { id: string; content: string; status?: string }) => {
         const status = task.status || 'pending';
         const statusInfo = taskStatusIcon[status] || taskStatusIcon.pending;
-        return `<div class="flex items-center gap-2 py-1">
+        return `<div class="flex items-center gap-2 py-0.5">
           <span class="${statusInfo.color}">●</span>
           <span class="text-xs flex-1">${task.content}</span>
           <span class="text-xs text-base-content/50">${statusInfo.label}</span>
         </div>`;
       }).join('');
-      return `<div class="space-y-1">${tasksHtml}</div>`;
+      
+      // 如果有汇总信息，显示在底部
+      let summaryHtml = '';
+      if (summary) {
+        summaryHtml = `<div class="flex items-center gap-3 mt-2 pt-1 border-t border-base-content/10 text-xs text-base-content/50">
+          <span>总计 ${summary.total}</span>
+          <span class="text-warning">进行中 ${summary.in_progress}</span>
+          <span class="text-base-content/40">待处理 ${summary.pending}</span>
+          <span class="text-success">已完成 ${summary.completed}</span>
+          ${summary.cancelled > 0 ? `<span class="text-base-content/30">已取消 ${summary.cancelled}</span>` : ''}
+        </div>`;
+      }
+      
+      return `<div class="space-y-0">${tasksHtml}${summaryHtml}</div>`;
     }
     
     // 其他 JSON 格式，美化显示
