@@ -230,7 +230,7 @@
                   <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                   
                   <!-- 工具调用卡片 - 次要样式 -->
-                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-3 space-y-1.5">
+                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="space-y-1.5">
                     <div v-for="(tool, tIdx) in msg.toolCalls" :key="`${tool.name}-${tIdx}`">
                       <!-- 子 Agent 卡片（次要样式） -->
                       <div v-if="tool.isSubAgent" class="bg-base-200/40 rounded-lg border border-base-content/10">
