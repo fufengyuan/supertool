@@ -251,7 +251,6 @@ impl CoreService {
 
         for sub in &sub_files {
             let sid_sub = sid.clone();
-            let sc_d = safe_conf_d.clone();
             let encoded_sub = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &sub.content);
             let safe_sub_path = shell_escape_path(&format!("{}/{}", conf_d_dir, sub.filename));
             let write_sub = self
@@ -445,11 +444,10 @@ impl CoreService {
     /// generates the config text using the same generator logic.
     pub async fn preview_nginx_server(
         &self,
-        preset_id: &str,
+        _preset_id: &str,
         server: serde_json::Value,
         locations: serde_json::Value,
     ) -> Result<ApiResponse<String>, String> {
-        let pid = preset_id.to_string();
         let s: NginxServer = serde_json::from_value(server).map_err(|e| e.to_string())?;
         let locs: Vec<NginxLocation> = serde_json::from_value(locations).map_err(|e| e.to_string())?;
         let result = self.db_read(move |conn| {
@@ -1000,7 +998,7 @@ impl CoreService {
             .map_err(|e| format!("解析失败: {}", e))?;
 
         let now = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        let mut summary = serde_json::json!({
+        let summary = serde_json::json!({
             "basic_settings": parsed.basic_settings.len(),
             "http_params": parsed.http_params.len(),
             "upstreams": parsed.upstreams.len(),
