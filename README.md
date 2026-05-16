@@ -6,19 +6,48 @@ Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 
 
 ## Features
 
-- **AI Agent Integration**: Built-in Hermes AI chat interface with real-time task panel, file attachment support, and intelligent todo tracking
+### Core Operations
 
-- **Unified Architecture**: `core` / `cli` / `tauri` three-crate workspace, all business logic consolidated into `supertool-core`
-- **Standalone CLI**: `stool` CLI directly links to the core shared library (~12MB), no GUI required, deployable on servers independently
-- **Modern Frontend**: Vue 3 + TypeScript + Tailwind CSS v4 + daisyUI
-- **Multi-Database Support**: MySQL, PostgreSQL, Redis direct query and management
-- **SSH Management**: Remote server connections, command execution, file operations, health checks
-- **CI/CD Deployment**: Automated build/deploy, rollback, deployment history tracking
-- **Log Aggregation**: Multi-server log search and real-time tail
+- **Todo Management**: Personal todo list with priorities, due dates, subtasks, and weekly reports (homepage)
+- **Project Management**: Multi-project tracking with Git integration and deployment history
+- **Server Management**: SSH connections, health checks, command execution, file operations
+- **Database Management**: Direct query/edit MySQL, PostgreSQL, Redis with connection presets
+- **CI/CD Deployment**: Automated build/deploy pipelines, rollback, history tracking
+- **Log Aggregation**: Multi-server log search, real-time tail, preset configurations
 - **Git Management**: Repository status, commit history, branch management
-- **OpenVPN / WireGuard**: Intranet穿透 and virtual networking
+- **Nginx Management**: Config presets, pull/test/deploy across servers
+- **VPN Management**: OpenVPN/WireGuard tunnel management, intranet穿透
+
+### Personal Tools
+
+- **Notes**: Note-taking with grouping and search
+- **Accounting**: Income/expense tracking, categories, budgets, statistics
+- **MFA**: TOTP authenticator, generate verification codes
+- **Weekly Report**: Auto-generate from todo completions and project commits
+- **Disk Cleaner**: Find and clean large files, old logs, cache directories
+- **Data Backup**: Export/import all data (SQLite + configs)
+
+### AI Agent
+
+- **Hermes Chat**: Built-in AI assistant with streaming responses, tool call visualization
+- **Real-time Task Panel**: Right sidebar shows todo progress during AI execution
+- **File Attachment**: Select files/folders/Git repos to attach to conversations
+- **Session Management**: Multi-session, title editing, export, search
+
+### Infrastructure
+
+- **Alert Management**: Configure and view system alerts
+- **LAN Discovery**: Auto-discover servers in local network
+- **DevTools**: Debug utilities, API testing, serial tools
+- **Settings**: Application configuration, theme switching, language selection
+
+### Architecture Highlights
+
+- **Unified Architecture**: `core` / `cli` / `tauri` three-crate workspace, all business logic in `supertool-core`
+- **Standalone CLI**: `stool` CLI (~12MB) directly links core, deployable on servers without GUI
+- **Modern Frontend**: Vue 3 + TypeScript + Tailwind CSS v4 + daisyUI
 - **Internationalization**: Chinese / English
-- **Encrypted Storage**: AES-256-GCM encryption for sensitive data (SSH passwords, DB passwords)
+- **Encrypted Storage**: AES-256-GCM for SSH passwords, DB passwords
 
 ## Architecture
 
@@ -227,46 +256,41 @@ All runtime data stored in `~/.supertool/`:
 
 Customizable via `~/.supertool_dir` file.
 
-## AI Agent
-
-SuperTool 内嵌 Hermes AI 对话界面（HermesChat.vue），提供：
-
-- **实时任务面板**: 右侧面板显示 AI 执行的 todo 任务列表，支持 pending/in_progress/completed/cancelled 四种状态
-- **文件附件**: 输入框上方附件按钮支持选择文件、文件夹、Git 仓库路径追加到对话
-- **常用文件夹**: 自动记住最近使用的 3 个文件夹，快速选择
-- **流式响应**: 实时显示 AI 思考过程和工具调用
-- **友好渲染**: todo 工具结果自动格式化为任务列表视图，底部显示汇总统计
-
-### 对话界面入口
-
-应用顶部导航栏 → **Agent** 按钮
-
-### 功能亮点
-
-1. **任务进度追踪**: 头部 checklist 按钮 + 进度计数（已完成/总数），右侧面板实时刷新
-2. **工具调用可视化**: 每个工具调用显示为折叠卡片，包含参数摘要和执行结果
-3. **消息搜索**: 内置搜索功能，快速定位历史对话
-4. **会话管理**: 多会话切换、标题编辑、导出、清空
-
 ## CLI Usage
 
-The CLI is an AI Agent operations tool supporting server management, CI/CD deployment, database queries, log search, and more. See [skills/stool-cli/SKILL.md](skills/stool-cli/SKILL.md) for details.
+The CLI is an AI Agent operations tool with 15+ commands covering all features. See [skills/stool-cli/SKILL.md](skills/stool-cli/SKILL.md) for details.
 
 ```bash
-# Check version
-stool version
+stool version                 # Check version
 
-# List servers
-stool server list -j
+# Todo & Project
+stool todo list               # Todo list
+stool todo add "Task name"    # Add todo
+stool subtask list <todo_id>  # Subtasks
+stool project list            # Projects
 
-# Deploy
-stool cicd deploy <config_id> --stream
+# Server & Database
+stool server list -j          # Server list (JSON)
+stool server health <id>      # Health check
+stool db query -d <id> "SQL"  # Database query
+stool db list                 # Database connections
 
-# Database query
-stool db query -d <db_id> "SELECT * FROM users LIMIT 10"
+# CI/CD & Git
+stool cicd deploy <id> --stream  # Deploy with streaming
+stool cicd rollback <id>         # Rollback
+stool git status <repo_id>       # Git status
 
-# Log search
-stool log search <preset_id> "ERROR" -l 30
+# Logs & Nginx
+stool log search <preset> "ERROR" -l 30  # Log search
+stool nginx pull <preset>               # Pull nginx config
+
+# Personal Tools
+stool note list               # Notes
+stool accounting list         # Accounting records
+stool mfa list                # MFA keys
+stool mfa code <id>           # Generate TOTP code
+stool weekly generate         # Generate weekly report
+stool backup export           # Export all data
 ```
 
 ## Contributing
