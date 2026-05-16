@@ -70,6 +70,7 @@ pub struct PtyTerminal {
 pub struct SshService {
     pub connections: Mutex<HashMap<String, Arc<Session>>>,
     terminals: Mutex<HashMap<String, Arc<Mutex<PtyTerminal>>>>,
+    sftp_sessions: Mutex<HashMap<String, Arc<Mutex<Sftp>>>>,
 }
 
 impl SshService {
@@ -77,6 +78,7 @@ impl SshService {
         Self {
             connections: Mutex::new(HashMap::new()),
             terminals: Mutex::new(HashMap::new()),
+            sftp_sessions: Mutex::new(HashMap::new()),
         }
     }
 
@@ -368,6 +370,10 @@ impl SshService {
                 log::info!("[SSH] Disconnected from {}", server_id);
             }
         }
+        // 清理缓存的 SFTP 会话
+        if let Ok(mut cache) = self.sftp_sessions.lock() {
+            cache.remove(server_id);
+        }
     }
 
     /// 检查是否已连接
@@ -552,7 +558,8 @@ impl SshService {
         server_id: &str,
         remote_path: &str,
     ) -> Result<Vec<SftpFile>, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         let readdir = sftp
@@ -596,7 +603,8 @@ impl SshService {
         server_id: &str,
         remote_path: &str,
     ) -> Result<String, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         let mut file = sftp
@@ -615,7 +623,8 @@ impl SshService {
 
     /// 创建远程目录
     pub fn create_remote_dir(&self, server_id: &str, remote_path: &str) -> Result<bool, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         sftp.mkdir(Path::new(&expanded_path), 0o755)
@@ -625,7 +634,8 @@ impl SshService {
 
     /// 删除远程文件
     pub fn delete_remote_file(&self, server_id: &str, remote_path: &str) -> Result<bool, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         sftp.unlink(Path::new(&expanded_path))
@@ -640,7 +650,8 @@ impl SshService {
         local_path: &str,
         remote_path: &str,
     ) -> Result<u64, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let local = Path::new(local_path);
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
@@ -674,7 +685,8 @@ impl SshService {
         remote_path: &str,
         local_path: &str,
     ) -> Result<u64, String> {
-        let sftp = self.get_sftp(server_id)?;
+        let sftp_lock = self.get_sftp(server_id)?;
+        let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
         // 打开远程文件
@@ -720,11 +732,14 @@ impl SshService {
             return Err("本地路径不是目录".to_string());
         }
 
-        let sftp = self.get_sftp(server_id)?;
-        let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
-
-        // 创建远程目录
-        let _ = sftp.mkdir(Path::new(&expanded_path), 0o755);
+        // 创建远程目录（短暂持锁）
+        let expanded_path = {
+            let sftp_lock = self.get_sftp(server_id)?;
+            let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
+            let path = Self::expand_remote_path(&sftp, remote_path)?;
+            let _ = sftp.mkdir(Path::new(&path), 0o755);
+            path
+        };
 
         let mut total_size: u64 = 0;
         for entry in std::fs::read_dir(local).map_err(|e| format!("读取本地目录失败: {}", e))? {
@@ -758,8 +773,16 @@ impl SshService {
 
     // ============ 内部辅助方法 ============
 
-    /// 获取 SFTP 会话（锁外执行所有阻塞 I/O）
-    fn get_sftp(&self, server_id: &str) -> Result<Sftp, String> {
+    /// 获取 SFTP 会话（锁外执行所有阻塞 I/O），复用缓存避免频繁创建通道
+    fn get_sftp(&self, server_id: &str) -> Result<Arc<Mutex<Sftp>>, String> {
+        // 先查缓存
+        {
+            let cache = self.sftp_sessions.lock().map_err(|e| e.to_string())?;
+            if let Some(sftp) = cache.get(server_id) {
+                return Ok(sftp.clone());
+            }
+        }
+
         let session = self.get_session(server_id)?;
 
         // 检查连接是否还活着
@@ -771,11 +794,16 @@ impl SshService {
         // 确保 session 处于阻塞模式
         session.set_blocking(true);
 
-        session.sftp().map_err(|e| {
+        let sftp = session.sftp().map_err(|e| {
             log::warn!("[SSH] SFTP creation failed for {}: {}", server_id, e);
             let _ = self.disconnect(server_id);
             format!("创建 SFTP 会话失败（连接可能已断开）: {}", e)
-        })
+        })?;
+
+        let sftp = Arc::new(Mutex::new(sftp));
+        let mut cache = self.sftp_sessions.lock().map_err(|e| e.to_string())?;
+        cache.insert(server_id.to_string(), sftp.clone());
+        Ok(sftp)
     }
 
     /// 展开远程路径中的 ~ 为实际路径（使用 SFTP realpath）
