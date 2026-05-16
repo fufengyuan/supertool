@@ -1,5 +1,5 @@
 <template>
-  <div v-if="visible" class="page-find fixed top-4 right-4 z-[100] bg-base-100 border border-base-content/20 rounded-lg shadow-lg p-2 flex items-center gap-2">
+  <div v-if="visible" class="page-find fixed top-4 right-4 z-[9999] bg-base-100 border border-base-content/20 rounded-lg shadow-xl p-2 flex items-center gap-2">
     <SvgIcon name="search" size="14" class="text-base-content/60" />
     <input
       ref="inputRef"
@@ -74,8 +74,8 @@ function highlightMatches() {
 
   clearHighlights()
 
-  // Search in visible content area (main content, excluding sidebar)
-  const contentArea = document.querySelector('.main-content') || document.body
+  // Search in entire page (including modal content)
+  const contentArea = document.body
   const walker = document.createTreeWalker(
     contentArea,
     NodeFilter.SHOW_TEXT,
@@ -85,7 +85,7 @@ function highlightMatches() {
   const textNodes: Text[] = []
   while (walker.nextNode()) {
     const node = walker.currentNode as Text
-    if (node.parentElement?.closest('.page-find, .modal, .sidebar, script, style')) continue
+    if (node.parentElement?.closest('.page-find, .sidebar, script, style')) continue
     if (node.textContent && node.textContent.toLowerCase().includes(query.value.toLowerCase())) {
       textNodes.push(node)
     }
