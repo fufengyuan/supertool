@@ -2,9 +2,11 @@
 
 [中文文档](README_CN.md) | **English**
 
-Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 + Rust shared library architecture, unifying server management, CI/CD deployment, databases, logs, and Git repositories.
+Cross-platform desktop operations management tool — built on Tauri v2 + Vue 3 + Rust shared library architecture, unifying server management, CI/CD deployment, databases, logs, Git repositories, and **AI Agent integration**.
 
 ## Features
+
+- **AI Agent Integration**: Built-in Hermes AI chat interface with real-time task panel, file attachment support, and intelligent todo tracking
 
 - **Unified Architecture**: `core` / `cli` / `tauri` three-crate workspace, all business logic consolidated into `supertool-core`
 - **Standalone CLI**: `stool` CLI directly links to the core shared library (~12MB), no GUI required, deployable on servers independently
@@ -127,7 +129,7 @@ vue-tsc --noEmit  # TypeScript type checking
 supertool/
 ├── Cargo.toml              # Workspace config (core, cli, tauri)
 ├── core/                   # supertool-core shared library
-│   ├── Cargo.toml          # version = "4.0.0", edition = "2024"
+│   ├── Cargo.toml          # version = "4.2.0", edition = "2024"
 │   └── src/
 │       ├── lib.rs              # Library entry
 │       ├── service.rs          # CoreService main entry
@@ -150,7 +152,7 @@ supertool/
 │           ├── nginx.rs            # Nginx config
 │           └── log_sanitizer.rs    # Log sanitization
 ├── cli/                    # stool CLI
-│   ├── Cargo.toml          # version = "4.0.0"
+│   ├── Cargo.toml          # version = "4.2.0"
 │   └── src/
 │       ├── main.rs             # Entry + command registration
 │       ├── commands/           # todo, server, cicd, db, log, git
@@ -160,7 +162,7 @@ supertool/
 │       ├── utils.rs            # Utility functions
 │       └── guide.rs            # Usage guide
 ├── tauri/                  # Tauri GUI
-│   ├── Cargo.toml          # version = "4.0.0"
+│   ├── Cargo.toml          # version = "4.2.0"
 │   ├── tauri.conf.json     # Tauri config
 │   └── src/
 │       ├── main.rs             # Tauri entry
@@ -224,6 +226,27 @@ All runtime data stored in `~/.supertool/`:
 ```
 
 Customizable via `~/.supertool_dir` file.
+
+## AI Agent
+
+SuperTool 内嵌 Hermes AI 对话界面（HermesChat.vue），提供：
+
+- **实时任务面板**: 右侧面板显示 AI 执行的 todo 任务列表，支持 pending/in_progress/completed/cancelled 四种状态
+- **文件附件**: 输入框上方附件按钮支持选择文件、文件夹、Git 仓库路径追加到对话
+- **常用文件夹**: 自动记住最近使用的 3 个文件夹，快速选择
+- **流式响应**: 实时显示 AI 思考过程和工具调用
+- **友好渲染**: todo 工具结果自动格式化为任务列表视图，底部显示汇总统计
+
+### 对话界面入口
+
+应用顶部导航栏 → **Agent** 按钮
+
+### 功能亮点
+
+1. **任务进度追踪**: 头部 checklist 按钮 + 进度计数（已完成/总数），右侧面板实时刷新
+2. **工具调用可视化**: 每个工具调用显示为折叠卡片，包含参数摘要和执行结果
+3. **消息搜索**: 内置搜索功能，快速定位历史对话
+4. **会话管理**: 多会话切换、标题编辑、导出、清空
 
 ## CLI Usage
 
