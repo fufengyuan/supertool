@@ -514,17 +514,13 @@
       <div class="flex-1 overflow-y-auto px-3 py-2">
         <div v-for="task in currentTasks" :key="task.id" class="flex items-center gap-2 py-1.5 border-b border-base-content/5 last:border-b-0">
           <!-- 状态图标 -->
-          <span :class="taskStatusIcon[task.status]?.color || 'text-base-content/40'" class="text-base">
-            {{ task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '●' : task.status === 'cancelled' ? '✕' : '○' }}
+          <span :class="task.status === 'completed' ? 'text-success' : task.status === 'cancelled' ? 'text-base-content/30' : 'text-base-content/40'" class="text-xs">
+            {{ task.status === 'completed' ? '✓' : task.status === 'cancelled' ? '✕' : '○' }}
           </span>
           <!-- 任务内容 -->
           <div class="flex-1 min-w-0">
             <span class="text-xs text-base-content truncate">{{ task.content }}</span>
           </div>
-          <!-- 状态标签 -->
-          <span class="text-xs text-base-content/50 shrink-0">
-            {{ taskStatusIcon[task.status]?.label || '待处理' }}
-          </span>
         </div>
       </div>
       
@@ -1118,14 +1114,6 @@ const formatArgsSummary = (args: Record<string, unknown>): string => {
   return '';
 };
 
-// 任务状态图标映射
-const taskStatusIcon: Record<string, { icon: string; color: string; label: string }> = {
-  pending: { icon: 'circle', color: 'text-base-content/40', label: '待处理' },
-  in_progress: { icon: 'play', color: 'text-warning animate-pulse', label: '进行中' },
-  completed: { icon: 'check', color: 'text-success', label: '已完成' },
-  cancelled: { icon: 'close', color: 'text-base-content/30', label: '已取消' },
-};
-
 // 格式化 todo 工具返回的任务列表为友好的 HTML
 const formatTodoResult = (result: string): string => {
   try {
@@ -1151,11 +1139,13 @@ const formatTodoResult = (result: string): string => {
     if (tasks.length > 0) {
       const tasksHtml = tasks.map((task: { id: string; content: string; status?: string }) => {
         const status = task.status || 'pending';
-        const statusInfo = taskStatusIcon[status] || taskStatusIcon.pending;
+        const isCompleted = status === 'completed';
+        const isCancelled = status === 'cancelled';
+        const symbol = isCompleted ? '✓' : isCancelled ? '✕' : '○';
+        const colorClass = isCompleted ? 'text-success' : isCancelled ? 'text-base-content/30' : 'text-base-content/40';
         return `<div class="flex items-center gap-2 py-0.5">
-          <span class="${statusInfo.color}">●</span>
+          <span class="${colorClass} text-xs">${symbol}</span>
           <span class="text-xs flex-1">${task.content}</span>
-          <span class="text-xs text-base-content/50">${statusInfo.label}</span>
         </div>`;
       }).join('');
       
