@@ -281,7 +281,10 @@
                             <SvgIcon :name="getToolIcon(tool.name).icon" size="12" class="text-base-content/50" />
                             <span class="text-base-content/60 text-xs font-medium">{{ tool.name }}</span>
                             <!-- 参数摘要：显示关键参数的一行摘要 -->
-                            <span v-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/40 text-xs truncate flex-1">
+                            <span v-if="tool.name === 'todo'" class="text-xs text-success truncate flex-1">
+                              待办任务
+                            </span>
+                            <span v-else-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/40 text-xs truncate flex-1">
                               {{ formatArgsSummary(tool.args) }}
                             </span>
                             <span v-if="tool.status === 'completed'" class="text-base-content/40 text-xs">✓</span>
@@ -294,6 +297,8 @@
                             />
                           </div>
                         </div>
+                        <!-- todo 预览：折叠时展示格式化结果 -->
+                        <div v-if="tool.name === 'todo' && tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatTodoResult(tool.result)"></div>
                         <!-- 折叠内容：详细结果 -->
                         <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
                           <!-- 参数 -->
@@ -303,8 +308,9 @@
                           </div>
                           <!-- 结果 -->
                           <div v-if="tool.result" class="mt-1">
-                            <span class="text-base-content/40">结果：</span>
-                            <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                            <span class="text-base-content/40">{{ tool.name === 'todo' ? '原始结果' : '结果' }}：</span>
+                            <div v-if="tool.name === 'todo'" class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ tool.result }}</div>
+                            <div v-else class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
                           </div>
                         </div>
                       </div>
