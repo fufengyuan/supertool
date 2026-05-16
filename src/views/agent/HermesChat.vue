@@ -144,6 +144,17 @@
           <button v-if="messages.length > 0" class="btn btn-ghost btn-xs" @click="clearMessages" title="清空消息">
             <SvgIcon name="clear" size="12" />
           </button>
+          <!-- 任务面板按钮 -->
+          <button 
+            v-if="currentTasks.length > 0" 
+            class="btn btn-xs"
+            :class="showTaskPanel ? 'btn-primary' : 'btn-ghost'"
+            @click="showTaskPanel = !showTaskPanel"
+            title="显示任务列表"
+          >
+            <SvgIcon name="checklist" size="12" />
+            <span class="text-xs">{{ completedTasksCount }}/{{ currentTasks.length }}</span>
+          </button>
           <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
@@ -422,6 +433,40 @@
         </div>
       </div>
     </div>
+
+    <!-- 右侧任务专栏 -->
+    <div v-if="showTaskPanel && currentTasks.length > 0" class="w-72 border-l border-base-content/10 flex flex-col bg-base-100">
+      <!-- 任务面板头部 -->
+      <div class="flex items-center justify-between px-3 py-2 border-b border-base-content/10">
+        <span class="text-sm font-semibold text-base-content">任务列表</span>
+        <button class="btn btn-ghost btn-xs btn-square" @click="showTaskPanel = false" title="关闭">
+          <SvgIcon name="close" size="12" />
+        </button>
+      </div>
+      
+      <!-- 任务列表 -->
+      <div class="flex-1 overflow-y-auto px-3 py-2">
+        <div v-for="task in currentTasks" :key="task.id" class="flex items-center gap-2 py-1.5 border-b border-base-content/5 last:border-b-0">
+          <!-- 状态图标 -->
+          <span :class="taskStatusIcon[task.status]?.color || 'text-base-content/40'" class="text-base">
+            {{ task.status === 'completed' ? '✓' : task.status === 'in_progress' ? '●' : task.status === 'cancelled' ? '✕' : '○' }}
+          </span>
+          <!-- 任务内容 -->
+          <div class="flex-1 min-w-0">
+            <span class="text-xs text-base-content truncate">{{ task.content }}</span>
+          </div>
+          <!-- 状态标签 -->
+          <span class="text-xs text-base-content/50 shrink-0">
+            {{ taskStatusIcon[task.status]?.label || '待处理' }}
+          </span>
+        </div>
+      </div>
+      
+      <!-- 任务统计 -->
+      <div class="px-3 py-2 border-t border-base-content/10 text-xs text-base-content/50">
+        {{ completedTasksCount }}/{{ currentTasks.length }} 已完成
+      </div>
+    </div>
   </div>
 
   <!-- 添加模型对话框 -->
@@ -556,6 +601,13 @@ interface RawToolCall {
   };
 }
 
+// Task item from todo tool
+interface TaskItem {
+  id: string;
+  content: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+}
+
 // State
 const sessions = ref<Session[]>([]);
 const sessionSearchQuery = ref(''); // 会话搜索关键词
@@ -564,6 +616,8 @@ const isSearching = ref(false); // 搜索中状态
 const currentSessionId = ref<string | null>(null);
 const currentSession = ref<Session | null>(null);
 const messages = ref<Message[]>([]);
+const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
+const showTaskPanel = ref(true); // 是否显示任务面板
 const inputText = ref('');
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
@@ -1288,6 +1342,11 @@ const highlightText = (text: string | null, query: string): string => {
   return text.replace(regex, '<mark class="bg-warning/30 text-inherit px-0.5 rounded">$&</mark>');
 };
 
+// 计算已完成任务数量
+const completedTasksCount = computed(() => {
+  return currentTasks.value.filter(t => t.status === 'completed').length;
+});
+
 // 计算会话统计
 const sessionStats = computed(() => {
   const userMessages = messages.value.filter(m => m.role === 'user');
@@ -1405,6 +1464,7 @@ const clearMessages = () => {
   if (messages.value.length === 0) return;
   if (!confirm('确定清空所有消息？此操作不可撤销。')) return;
   messages.value = [];
+  currentTasks.value = []; // 清空任务列表
 };
 
 // 滚动到顶部
@@ -1646,6 +1706,25 @@ onMounted(async () => {
     // 标记当前轮次结束（下一次 delta 将创建新消息）
     lastAssistantRoundEnded = true;
     void agentLog('[agent-tool-complete] 设置 lastAssistantRoundEnded = true');
+    
+    // 如果是 todo 工具，更新任务列表
+    if (event.payload.name === 'todo' && event.payload.result) {
+      try {
+        const parsed = JSON.parse(event.payload.result);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
+          currentTasks.value = parsed.map((t: { id: string; content: string; status?: string }) => ({
+            id: t.id,
+            content: t.content,
+            status: (['pending', 'in_progress', 'completed', 'cancelled'].includes(t.status || '') 
+              ? t.status 
+              : 'pending') as TaskItem['status'],
+          }));
+        }
+      } catch {
+        // 解析失败，忽略
+      }
+    }
+    
     scrollToBottom();
   });
 
