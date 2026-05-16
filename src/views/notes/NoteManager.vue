@@ -73,13 +73,13 @@
         <template v-if="selectedNote">
           <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 shrink-0">
             <div class="flex items-center gap-2">
-              <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': editMode }]" @click="editMode = !editMode" :title="editMode ? '预览' : '编辑'"><template v-if="editMode"><SvgIcon name="eye" size="14" class="inline-block align-text-bottom" /> 预览</template><template v-else><SvgIcon name="pencil" size="14" class="inline-block" /> 编辑</template></button>
+              <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': showRawMd }]" @click="showRawMd = !showRawMd" :title="showRawMd ? '预览' : '编辑 Markdown'"><template v-if="showRawMd"><SvgIcon name="eye" size="14" class="inline-block align-text-bottom" /> 预览</template><template v-else><SvgIcon name="file" size="14" class="inline-block" /> Markdown</template></button>
               <button :class="['px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content', { '!bg-primary !text-white !border-primary hover:!bg-primary hover:!text-white': selectedNote.pinned }]" @click="togglePin" title="置顶"><SvgIcon name="star" size="14" class="inline-block align-text-bottom" /> 置顶</button>
-              <div class="relative">
-                <button class="px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="showGroupSelector = !showGroupSelector" :title="getGroupName(selectedNote.groupId) || '选择分组'"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
-                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-lg shadow-lg z-[100] min-w-[160px] max-h-60 overflow-y-auto p-1">
-                  <div :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': selectedNote.groupId === null }]" @click="assignGroup(null)"><span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 未分组</span></div>
-                  <div v-for="group in noteGroups" :key="group.id" :class="['px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': selectedNote.groupId === group.id }]"><span><template v-if="group.icon">{{ group.icon }}</template><template v-else><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /></template> {{ group.name }}</span></div>
+              <div class="relative note-group-selector">
+                <button class="px-2.5 py-1.5 text-xs font-medium border border-base-content/10 rounded-lg bg-transparent text-base-content/60 cursor-pointer transition-all duration-150 whitespace-nowrap hover:bg-base-200 hover:text-base-content flex items-center gap-1" @click="toggleGroupSelector" title="修改分组"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> {{ getGroupName(selectedNote.groupId) || '分组' }}</button>
+                <div v-if="showGroupSelector" class="absolute top-full left-0 mt-1 bg-base-100 border border-base-content/10 rounded-lg shadow-lg z-[100] min-w-[160px] max-h-60 overflow-y-auto p-1" @click.stop>
+                  <div :class="['flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': !selectedNote.groupId }]" @click="assignGroup(null)"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 未分组</div>
+                  <div v-for="group in noteGroups" :key="group.id" :class="['flex items-center gap-2 px-3 py-1.5 text-sm cursor-pointer rounded-lg transition-colors duration-100 hover:bg-base-200', { 'bg-primary/10 text-primary font-medium': selectedNote.groupId === group.id }]"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> {{ group.name }}</div>
                 </div>
               </div>
             </div>
@@ -88,10 +88,15 @@
           <div class="px-4 pt-3 pb-1 shrink-0">
             <input v-model="editorTitle" class="input w-full text-xl font-bold text-base-content border-none bg-transparent px-0 focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="输入标题..." @input="onTitleChange"/>
           </div>
-          <div v-if="editMode" class="flex-1 min-h-0 px-4 pb-4 pt-2">
+          <div v-if="showRawMd" class="flex-1 min-h-0 px-4 pb-4 pt-2">
             <textarea v-model="editorContent" class="w-full h-full min-h-[300px] text-sm leading-relaxed text-base-content bg-transparent border-none resize-none font-mono focus:outline-none placeholder:text-base-content/60 placeholder:opacity-40" placeholder="开始用 Markdown 编写笔记..." @input="onContentChange" spellcheck="false"></textarea>
           </div>
-          <div v-else class="editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content" v-html="renderedContent"></div>
+          <div v-else
+            ref="previewRef"
+            class="editor-preview flex-1 min-h-0 px-4 pb-4 pt-2 overflow-y-auto leading-relaxed text-base-content"
+            contenteditable="true"
+            @input="onPreviewEdit"
+          ></div>
         </template>
         <div v-else class="flex-1 flex flex-col items-center justify-center text-base-content/60 opacity-50">
           <SvgIcon name="file" size="48" :strokeWidth="1.5" class="mb-3" />
@@ -143,11 +148,19 @@
 
 <script setup lang="ts">// @ts-nocheck
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { marked } from 'marked'
 import { useToast } from '../../composables/useToast'
+import TurndownService from 'turndown'
 const toast = useToast()
+
+const turndownService = new TurndownService({
+  headingStyle: 'atx',
+  codeBlockStyle: 'fenced',
+  emDelimiter: '*',
+  bulletListMarker: '-',
+})
 
 interface Note {
   id: string; title: string; content: string; tags: string;
@@ -162,14 +175,16 @@ const noteGroups = ref<NoteGroup[]>([])
 const searchQuery = ref('')
 const selectedNote = ref<Note | null>(null)
 const selectedGroupId = ref<string>('__all__')
-const editMode = ref(true)
+const showRawMd = ref(false)
 const editorTitle = ref('')
 const editorContent = ref('')
 const saveStatus = ref('')
 const deleteTarget = ref<Note | null>(null)
 const groupsCollapsed = ref(false)
 const showGroupSelector = ref(false)
+const previewRef = ref<HTMLDivElement | null>(null)
 let saveTimer: ReturnType<typeof setTimeout> | null = null
+let isUpdatingPreview = false
 
 const showCreateGroup = ref(false)
 const editingGroup = ref<NoteGroup | null>(null)
@@ -229,6 +244,18 @@ function getGroupName(groupId: string | null | undefined): string {
   return group ? group.name : ''
 }
 
+function renderPreview() {
+  if (!previewRef.value) return
+  const html = renderedContent.value
+  previewRef.value.innerHTML = html
+}
+
+watch(showRawMd, (val) => {
+  if (!val && previewRef.value) {
+    nextTick(() => renderPreview())
+  }
+})
+
 async function loadNotes() {
   try {
     const gid = selectedGroupId.value === '__all__' ? undefined : selectedGroupId.value
@@ -248,7 +275,8 @@ function selectGroup(groupId: string) {
 
 function selectNote(note: Note) {
     selectedNote.value = note; editorTitle.value = note.title; editorContent.value = note.content
-  editMode.value = false; saveStatus.value = ''; showGroupSelector.value = false
+  showRawMd.value = false; saveStatus.value = ''; showGroupSelector.value = false
+  nextTick(() => renderPreview())
 }
 
 async function createNewNote() {
@@ -294,6 +322,37 @@ async function togglePin() {
       if (idx !== -1) notes.value[idx] = updated
     }
   } catch { toast.error('操作失败') }
+}
+
+function toggleGroupSelector() {
+  showGroupSelector.value = !showGroupSelector.value
+}
+
+// 点击外部关闭分组选择器
+function onDocumentClick(e: MouseEvent) {
+  if (showGroupSelector.value) {
+    const target = e.target as HTMLElement
+    if (!target.closest('.note-group-selector')) {
+      showGroupSelector.value = false
+    }
+  }
+}
+
+// 内容可编辑预览 → 通过 turndown 转回 Markdown
+function onPreviewEdit() {
+  if (!selectedNote.value || !previewRef.value || isUpdatingPreview) return
+  isUpdatingPreview = true
+  try {
+    const html = previewRef.value.innerHTML
+    // 用 turndown 转回 Markdown
+    const md = turndownService.turndown(html)
+    editorContent.value = md
+    saveStatus.value = '保存中...'
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => saveNote(), 500)
+  } finally {
+    isUpdatingPreview = false
+  }
 }
 
 async function assignGroup(groupId: string | null) {
@@ -366,7 +425,8 @@ async function saveGroup() {
 }
 
 onMounted(() => {
-    loadGroups(); loadNotes() })
+    loadGroups(); loadNotes(); document.addEventListener('click', onDocumentClick) })
+onUnmounted(() => { document.removeEventListener('click', onDocumentClick) })
 </script>
 
 <style>
