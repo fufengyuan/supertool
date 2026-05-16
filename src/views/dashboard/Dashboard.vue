@@ -364,15 +364,15 @@ const loadAlertStats = async () => {
 const recentDeployments = ref<{ id: string; status: string; configName?: string; projectName?: string; createdAt: string }[]>([]);
 const loadRecentDeployments = async () => {
   try {
-    const history = await invoke<{ id: string; status: string; config_id: string; deployed_at: string }[]>('get_deploy_history');
+    const history = await invoke<{ id: string; status: string; configId: string; deployedAt: string }[]>('get_all_deploy_history');
     recentDeployments.value = history
-      .sort((a, b) => new Date(b.deployed_at).getTime() - new Date(a.deployed_at).getTime())
+      .sort((a, b) => new Date(b.deployedAt).getTime() - new Date(a.deployedAt).getTime())
       .slice(0, 5)
       .map(h => ({
         id: h.id,
         status: h.status,
-        configName: h.config_id,
-        createdAt: h.deployed_at
+        configName: h.configId,
+        createdAt: h.deployedAt
       }));
   } catch (e) {
     console.error('加载部署历史失败:', e);

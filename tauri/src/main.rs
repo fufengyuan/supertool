@@ -460,6 +460,7 @@ fn main() {
             commands::cicd::get_deploy_modules,
             commands::cicd::get_deploy_step_logs,
             commands::cicd::get_deploy_history,
+            commands::cicd::get_all_deploy_history,
             commands::cicd::scan_project_modules,
             commands::cicd::save_deploy_module,
             commands::cicd::update_deploy_module,

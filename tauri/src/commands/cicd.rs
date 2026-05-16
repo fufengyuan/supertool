@@ -1605,3 +1605,23 @@ pub async fn get_deploy_history(
     })??;
     Ok(history)
 }
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_all_deploy_history(
+    core: State<'_, CoreService>,
+    limit: Option<i64>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_all_deploy_history() called");
+    let lim = limit.unwrap_or(50);
+    let history = core.db_read(|conn| {
+        let mut stmt = conn
+            .prepare("SELECT * FROM deploy_history ORDER BY deployedAt DESC LIMIT ?")
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(rusqlite::params![lim], row_to_deploy_history)
+            .map_err(|e| e.to_string())?;
+        let items: Vec<DeployHistory> = rows.filter_map(|r| r.ok()).collect();
+        serde_json::to_value(&items).map_err(|e| e.to_string())
+    })??;
+    Ok(history)
+}
