@@ -1056,6 +1056,7 @@ impl LanService {
             let content = String::from_utf8_lossy(&content_buf).to_string();
 
             Self::add_log_static(log, "info", &format!("TCP MESSAGE received: {} bytes from {}", content_size, sender_id));
+            log::info!("[LAN] TCP MESSAGE received: {} bytes from {}", content_size, sender_id);
 
             // Persist to DB
             let chat_msg = ChatMessage {
