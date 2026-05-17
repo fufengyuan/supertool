@@ -1012,24 +1012,92 @@ impl LanService {
             }
         };
 
-        // Read file metadata header: FILE <name> <size> <id>\n
+        // Read header: FILE <name> <size> <id> or MESSAGE <msg_id> <size>
         let mut header = String::new();
         if reader.read_line(&mut header).is_err() {
             return;
         }
 
-        let parts: Vec<&str> = header.trim().splitn(4, ' ').collect();
-        if parts.len() < 4 || parts[0] != "FILE" {
-            Self::add_log_static(log, "error", &format!("Invalid TCP header: {}", header));
+        let parts: Vec<&str> = header.trim().split_whitespace().collect();
+        if parts.is_empty() {
+            Self::add_log_static(log, "error", &format!("Empty TCP header"));
             return;
         }
+
+        let header_type = parts[0];
 
         if sender_id != "unknown" {
             Self::add_log_static(
                 log,
                 "info",
-                &format!("TCP handshake verified: sender={}", sender_id),
+                &format!("TCP handshake verified: sender={}, type={}", sender_id, header_type),
             );
+        }
+
+        // Handle MESSAGE type (large text messages via TCP)
+        if header_type == "MESSAGE" {
+            if parts.len() < 3 {
+                Self::add_log_static(log, "error", &format!("Invalid MESSAGE header: {}", header));
+                return;
+            }
+            let msg_id = parts[1];
+            let content_size: usize = parts[2].parse().unwrap_or(0);
+            if content_size > 4096 {
+                Self::add_log_static(log, "error", &format!("MESSAGE too large: {} bytes", content_size));
+                return;
+            }
+
+            // Read message content
+            let mut content_buf = vec![0u8; content_size];
+            if let Err(e) = reader.read_exact(&mut content_buf) {
+                Self::add_log_static(log, "error", &format!("MESSAGE read failed: {}", e));
+                return;
+            }
+            let content = String::from_utf8_lossy(&content_buf).to_string();
+
+            Self::add_log_static(log, "info", &format!("TCP MESSAGE received: {} bytes from {}", content_size, sender_id));
+
+            // Persist to DB
+            let chat_msg = ChatMessage {
+                id: msg_id.to_string(),
+                from_user_id: sender_id.to_string(),
+                from_user_name: sender_id.to_string(),
+                to_user_id: my_user_id.to_string(),
+                to_user_name: my_nick.to_string(),
+                content: Some(content.clone()),
+                msg_type: "text".to_string(),
+                file_name: None,
+                file_size: None,
+                file_path: None,
+                status: "received".to_string(),
+                progress: 0,
+                created_at: chrono::Utc::now().to_rfc3339(),
+                read: false,
+            };
+            if let Ok(conn) = db_conn.lock() {
+                let _ = lan::insert_chat_message(&conn, &chat_msg);
+            }
+
+            // Emit event to frontend
+            if let Some(handle) = app_handle {
+                let _ = handle.emit("lan-message-received", serde_json::json!({
+                    "id": msg_id,
+                    "fromUserId": sender_id,
+                    "fromUserName": sender_id,
+                    "toUserId": my_user_id,
+                    "toUserName": my_nick,
+                    "content": content,
+                    "type": "text",
+                    "timestamp": chrono::Utc::now().timestamp_millis(),
+                }));
+            }
+            return;
+        }
+
+        // Handle FILE type
+        if parts.len() < 4 || header_type != "FILE" {
+            Self::add_log_static(log, "error", &format!("Invalid TCP header: {}", header));
+            return;
         }
 
         const MAX_FILE_SIZE: u64 = 500 * 1024 * 1024;
@@ -1312,9 +1380,12 @@ impl LanService {
             return Err("LAN service not running".to_string());
         }
 
-        // Prevent UDP MTU overflow — max safe UDP payload ≈ 1400 bytes (IPv4) / 1280 (IPv6)
-        // Allow up to 4KB as safety margin for LAN, but reject anything larger
+        // UDP safe payload threshold — max safe UDP payload ≈ 1400 bytes (IPv4 MTU)
+        // JSON overhead ~400 bytes, so safe content limit = 800 bytes
+        const UDP_SAFE_THRESHOLD: usize = 800;
+        // Maximum total message size (including JSON overhead) — 4KB
         const MAX_MESSAGE_BYTES: usize = 4096;
+
         if content.len() > MAX_MESSAGE_BYTES {
             return Err(format!(
                 "消息过长（{} bytes），上限 {} bytes",
@@ -1329,27 +1400,18 @@ impl LanService {
         let nick = self.nick_name.lock().unwrap().clone();
         // Use UUID for unique message ID to avoid timestamp collision
         let msg_id = format!("msg-{}", uuid::Uuid::new_v4());
-        let msg = serde_json::json!({
-            "type": "message",
-            "from": self.user_id,
-            "fromName": if nick.is_empty() { &self.user_id } else { &nick },
-            "to": peer_id,
-            "toName": peer.name.clone(),
-            "content": content,
-            "timestamp": chrono::Utc::now().timestamp_millis(),
-            "messageId": &msg_id,
-        });
-
-        // Persist to chat_messages DB
         let to_name = peer.name.clone();
+        let from_name = if nick.is_empty() {
+            self.user_id.clone()
+        } else {
+            nick.clone()
+        };
+
+        // Persist to chat_messages DB first (regardless of send method)
         let chat_msg = ChatMessage {
             id: msg_id.clone(),
             from_user_id: self.user_id.clone(),
-            from_user_name: if nick.is_empty() {
-                self.user_id.clone()
-            } else {
-                nick
-            },
+            from_user_name: from_name.clone(),
             to_user_id: peer_id.to_string(),
             to_user_name: to_name.clone(),
             content: Some(content.to_string()),
@@ -1366,24 +1428,91 @@ impl LanService {
             let _ = lan::insert_chat_message(&conn, &chat_msg);
         }
 
-        if let Ok(data) = serde_json::to_string(&msg) {
-            if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
-                let target = format!("{}:{}", peer.address, peer.message_port);
-                let data_len = data.as_bytes().len();
-                log::info!("[LAN] send_message: {} bytes -> {}", data_len, target);
-                match udp.send_to(data.as_bytes(), &target) {
-                    Ok(sent_bytes) => {
-                        log::info!("[LAN] UDP sent {} bytes (payload {})", sent_bytes, data_len);
-                        return Ok(true);
-                    }
-                    Err(e) => {
-                        log::error!("[LAN] UDP send failed: {} (payload {} bytes)", e, data_len);
-                        return Err(format!("UDP 发送失败: {}", e));
+        // Choose transport based on message size
+        if content.len() > UDP_SAFE_THRESHOLD {
+            // Use TCP for large messages (reliable delivery)
+            log::info!(
+                "[LAN] send_message: {} bytes > UDP threshold, using TCP -> {}:{}",
+                content.len(),
+                peer.address,
+                FILE_TRANSFER_PORT
+            );
+            self.send_message_tcp(&peer, &msg_id, content, &to_name)
+        } else {
+            // Use UDP for small messages (fast)
+            let msg = serde_json::json!({
+                "type": "message",
+                "from": self.user_id,
+                "fromName": &from_name,
+                "to": peer_id,
+                "toName": peer.name.clone(),
+                "content": content,
+                "timestamp": chrono::Utc::now().timestamp_millis(),
+                "messageId": &msg_id,
+            });
+
+            if let Ok(data) = serde_json::to_string(&msg) {
+                if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
+                    let target = format!("{}:{}", peer.address, peer.message_port);
+                    let data_len = data.as_bytes().len();
+                    log::info!("[LAN] send_message UDP: {} bytes -> {}", data_len, target);
+                    match udp.send_to(data.as_bytes(), &target) {
+                        Ok(sent_bytes) => {
+                            log::info!("[LAN] UDP sent {} bytes (payload {})", sent_bytes, data_len);
+                            return Ok(true);
+                        }
+                        Err(e) => {
+                            log::error!("[LAN] UDP send failed: {} (payload {} bytes)", e, data_len);
+                            return Err(format!("UDP 发送失败: {}", e));
+                        }
                     }
                 }
             }
+            Err("发送失败".to_string())
         }
-        Err("发送失败".to_string())
+    }
+
+    /// Send message via TCP (for large messages that exceed UDP MTU)
+    fn send_message_tcp(
+        &self,
+        peer: &Peer,
+        msg_id: &str,
+        content: &str,
+        to_name: &str,
+    ) -> Result<bool, String> {
+        let nick = self.nick_name.lock().unwrap().clone();
+        let from_name = if nick.is_empty() { &self.user_id } else { &nick };
+
+        let addr = format!("{}:{}", peer.address, FILE_TRANSFER_PORT);
+        let mut stream = match TcpStream::connect(&addr) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[LAN] TCP connect failed: {}", e);
+                return Err(format!("TCP 连接失败: {}", e));
+            }
+        };
+
+        // Handshake: LAN-SEND <user_id>\n
+        let handshake = format!("LAN-SEND {}\n", self.user_id);
+        if let Err(e) = stream.write_all(handshake.as_bytes()) {
+            log::error!("[LAN] TCP handshake failed: {}", e);
+            return Err(format!("TCP 握手失败: {}", e));
+        }
+
+        // Send as MESSAGE type: MESSAGE <msg_id> <size>\n<content>
+        let header = format!("MESSAGE {} {}\n", msg_id, content.len());
+        if let Err(e) = stream.write_all(header.as_bytes()) {
+            log::error!("[LAN] TCP header failed: {}", e);
+            return Err(format!("TCP 发送失败: {}", e));
+        }
+
+        if let Err(e) = stream.write_all(content.as_bytes()) {
+            log::error!("[LAN] TCP content failed: {}", e);
+            return Err(format!("TCP 发送失败: {}", e));
+        }
+
+        log::info!("[LAN] TCP message sent: {} bytes to {}", content.len(), addr);
+        Ok(true)
     }
 
     pub fn get_online_peers(&self) -> Vec<Peer> {
