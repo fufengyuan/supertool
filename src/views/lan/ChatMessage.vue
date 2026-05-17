@@ -30,7 +30,7 @@
               @click="handleFileNameClick"
             >
               <img
-                :src="imageUrl"
+                :src="imageUrlBase64"
                 :alt="message.fileName"
                 class="block max-w-[200px] max-h-[200px] w-auto h-auto object-cover rounded-lg"
                 @error="imageLoadFailed = true"
@@ -187,7 +187,7 @@
       </div>
     </div>
     <div class="flex-1 flex items-center justify-center p-5 cursor-default overflow-hidden" @click.stop="stopPropagation">
-      <img :src="imageUrl || ''" :alt="message.fileName" class="max-w-[95vw] max-h-[90vh] object-contain shadow-lg select-none" decoding="async" />
+      <img :src="imageUrlBase64 || ''" :alt="message.fileName" class="max-w-[95vw] max-h-[90vh] object-contain shadow-lg select-none" decoding="async" />
     </div>
   </div>
 </template>
@@ -195,8 +195,9 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 console.log("[components/lan/ChatMessage.vue] component loaded")
-import { computed, ref } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { readFile } from '@tauri-apps/plugin-fs';
 import { getTauriAPI } from '../../utils/tauri-api'
 
 const props = defineProps<{
@@ -251,19 +252,69 @@ const openFileInSystem = () => {
 // Track whether the image failed to load, so we can show the placeholder instead
 const imageLoadFailed = ref(false);
 
-// 图片 URL：使用 Tauri convertFileSrc 转换本地文件路径
-const imageUrl = computed(() => {
-  if (!props.message.filePath) return '';
-  const filePath = props.message.filePath;
-  console.log('[ChatMessage] filePath:', filePath);
+// 图片 base64 URL：用 fs plugin 读取文件，绕过 assetProtocol
+const imageUrlBase64 = ref('');
+const imageUrlLoading = ref(false);
+
+const loadImageAsBase64 = async () => {
+  if (!props.message.filePath || !isImageFile.value) return;
+  if (props.message.status !== 'completed') return;
+  
+  imageUrlLoading.value = true;
+  imageLoadFailed.value = false;
+  
   try {
-    const url = convertFileSrc(filePath);
-    console.log('[ChatMessage] convertFileSrc result:', url);
-    return url;
+    const fileData = await readFile(props.message.filePath);
+    const ext = props.message.fileName?.split('.').pop()?.toLowerCase() || 'jpg';
+    const mimeTypes: Record<string, string> = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      gif: 'image/gif',
+      webp: 'image/webp',
+      bmp: 'image/bmp',
+      svg: 'image/svg+xml',
+    };
+    const mimeType = mimeTypes[ext] || 'image/jpeg';
+    
+    // 转换为 base64
+    const base64 = btoa(
+      new Uint8Array(fileData).reduce(
+        (data, byte) => data + String.fromCharCode(byte),
+        ''
+      )
+    );
+    
+    imageUrlBase64.value = `data:${mimeType};base64,${base64}`;
+    console.log('[ChatMessage] Loaded image as base64, size:', fileData.length);
   } catch (e) {
-    console.error('[ChatMessage] convertFileSrc error:', e);
-    // 降级到 file:// 协议（可能在非 Tauri 环境）
-    return `file://${filePath.replace(/\\\\/g, '/')}`;
+    console.error('[ChatMessage] Failed to load image:', e);
+    imageLoadFailed.value = true;
+    // 降级：尝试 convertFileSrc
+    try {
+      imageUrlBase64.value = convertFileSrc(props.message.filePath);
+    } catch {
+      imageUrlBase64.value = '';
+    }
+  } finally {
+    imageUrlLoading.value = false;
+  }
+};
+
+// 监听文件路径变化，重新加载图片
+watch(
+  () => props.message.filePath,
+  () => {
+    if (props.message.status === 'completed') {
+      loadImageAsBase64();
+    }
+  },
+  { immediate: true }
+);
+
+onMounted(() => {
+  if (props.message.filePath && props.message.status === 'completed') {
+    loadImageAsBase64();
   }
 });
 
