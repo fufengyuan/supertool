@@ -38,10 +38,21 @@
       <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 上传文件夹</button>
     </div>
 
-    <!-- 文件列表头部 -->
+    <!-- 文件列表头部 + 搜索框 -->
     <div class="flex items-center gap-2.5 border-b border-base-content/10 bg-base-200 px-3 py-2 text-xs font-medium text-base-content/60">
       <span class="shrink-0 w-5"></span>
       <span class="flex-1">名称</span>
+      <!-- 搜索框 -->
+      <div class="relative flex items-center gap-1">
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="搜索..."
+          class="input input-bordered input-xs w-[120px] text-xs pr-6"
+          :class="[searchQuery ? 'border-primary' : '']"
+        />
+        <SvgIcon v-if="searchQuery" name="x" size="12" class="absolute right-2 cursor-pointer text-base-content/50 hover:text-base-content" @click="searchQuery = ''" />
+      </div>
       <span class="w-[70px] shrink-0 text-right">大小</span>
       <span class="w-[130px] shrink-0">修改时间</span>
       <span class="shrink-0">操作</span>
@@ -60,7 +71,7 @@
         </div>
 
         <div
-          v-for="file in files"
+          v-for="file in filteredFiles"
           :key="file.name"
           class="group flex items-center gap-2.5 rounded-md px-2.5 py-2 cursor-pointer transition-colors duration-100 hover:bg-base-200"
           :class="[selectedFile?.name === file.name ? 'bg-base-content/10' : '']"
@@ -84,6 +95,13 @@
           </div>
         </div>
 
+        <!-- 搜索无结果 -->
+        <div v-if="filteredFiles.length === 0 && files.length > 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
+          <SvgIcon name="search" size="48" stroke-width="1.5" />
+          <p>未找到匹配文件</p>
+          <p class="text-xs">尝试其他关键词</p>
+        </div>
+        <!-- 真正空目录 -->
         <div v-if="files.length === 0" class="flex flex-col items-center justify-center gap-3 py-10 text-base-content/60">
           <SvgIcon name="folder" size="48" stroke-width="1.5" />
           <p>空目录</p>
@@ -92,7 +110,8 @@
     </div>
 
     <div class="flex gap-4 rounded-b-xl border-t border-base-content/10 bg-base-200 px-4 py-2.5 text-xs text-base-content/60">
-      <span>{{ files.length }} 项</span>
+      <span v-if="searchQuery">匹配 {{ filteredFiles.length }} / {{ files.length }} 项</span>
+      <span v-else>{{ files.length }} 项</span>
       <span v-if="selectedFile">已选: {{ selectedFile.name }}</span>
     </div>
 
@@ -149,7 +168,15 @@ const { handleError } = useErrorHandler();
 const defaultPath = props.server.username === 'root' ? '/root' : `/home/${props.server.username}`;
 const currentPath = ref(defaultPath);
 const files = ref<SftpFile[]>([]);
+const searchQuery = ref(''); // 搜索关键词
 const selectedFile = ref<SftpFile | null>(null);
+
+// 搜索过滤后的文件列表
+const filteredFiles = computed(() => {
+  if (!searchQuery.value.trim()) return files.value;
+  const query = searchQuery.value.toLowerCase();
+  return files.value.filter(file => file.name.toLowerCase().includes(query));
+});
 const uploadProgress = ref<{ file: string; percent: number; speedFormatted?: string } | null>(null);
 const connectionStatus = ref('connecting'); // 'online' | 'offline' | 'connecting'
 const isDragOver = ref(false);
