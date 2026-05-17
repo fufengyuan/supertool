@@ -1079,17 +1079,17 @@ impl LanService {
                 let _ = lan::insert_chat_message(&conn, &chat_msg);
             }
 
-            // Emit event to frontend
+            // Emit event to frontend (same format as UDP)
             if let Some(handle) = app_handle {
                 let _ = handle.emit("lan-message-received", serde_json::json!({
-                    "id": msg_id,
-                    "fromUserId": sender_id,
-                    "fromUserName": sender_id,
-                    "toUserId": my_user_id,
-                    "toUserName": my_nick,
+                    "type": "message",
+                    "from": sender_id,
+                    "fromName": sender_id,
+                    "to": my_user_id,
+                    "toName": my_nick,
                     "content": content,
-                    "type": "text",
                     "timestamp": chrono::Utc::now().timestamp_millis(),
+                    "messageId": msg_id,
                 }));
             }
             return;
