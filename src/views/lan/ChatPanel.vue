@@ -674,6 +674,7 @@ onMounted(async () => {
       }
     }));
   cleanupFns.push(await getTauriAPI().lanOnFileTransferCompleted((data: any) => {
+      logger.info(`[ChatPanel][lanOnFileTransferCompleted] Received: fileId=${data.fileId}, status=${data.status}`);
       const msgIndex = messages.value.findIndex((m) => m.id === data.fileId);
       if (msgIndex !== -1) {
         messages.value[msgIndex].status = data.status;
@@ -683,6 +684,7 @@ onMounted(async () => {
         messages.value[msgIndex].fileSize = data.fileSize ?? messages.value[msgIndex].fileSize;
         messages.value[msgIndex].isImage = data.isImage ?? isImageFile(data.fileName || messages.value[msgIndex].fileName);
         triggerRef(messages);
+        logger.info(`[ChatPanel][lanOnFileTransferCompleted] Updated message at index ${msgIndex}`);
       }
       scrollToBottom();
     }));
