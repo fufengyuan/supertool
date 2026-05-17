@@ -269,7 +269,7 @@ const loadImageViaBackend = async () => {
   
   try {
     const api = getTauriAPI();
-    const result = await api.invoke?.('lan_read_image_file', { filePath: props.message.filePath });
+    const result = await api.invoke?.('lanReadImageFile', { filePath: props.message.filePath });
     
     if (result?.success && result?.data?.url) {
       imageUrlBase64.value = result.data.url;
