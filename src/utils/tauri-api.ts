@@ -2467,8 +2467,8 @@ export function getTauriAPI(): TauriAPI {
     setNickName: async (name: string) => tauriCall("lan_set_nick_name", { name }),
     setAvatar: async (avatar: string) => tauriCall("lan_set_avatar", { avatar }),
     setReceivePath: async (path: string) => tauriCall("lan_set_receive_path", { path }),
-    openFile: async (filePath: string) => tauriCall("open_file", { filePath }),
-    openFileFolder: async (filePath: string) => tauriCall("open_file_folder", { filePath }),
+    openFile: async (filePath: string) => tauriCall("lan_open_file", { filePath }),
+    openFileFolder: async (filePath: string) => tauriCall("lan_open_file_folder", { filePath }),
     saveTempFile: async (name: string, content: string) => tauriCall("save_temp_file", { name, content }),
     loadLocalFileAsBase64: async (filePath: string) => tauriCall("lan_load_local_file_as_base64", { filePath }),
     // SSH Terminal
