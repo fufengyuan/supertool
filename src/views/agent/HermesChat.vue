@@ -321,33 +321,23 @@
             </div>
           </div>
 
-          <!-- 流式响应中的当前消息 + 思考动画 -->
-          <div v-if="isStreaming && (currentStreamingMsg || thinkingText)" class="flex gap-2 w-full">
+          <!-- 流式响应中的思考动画和工具调用状态（文本内容已显示在消息列表中） -->
+          <div v-if="isStreaming && (thinkingText || (currentStreamingMsg?.toolCalls && currentStreamingMsg.toolCalls.length > 0 && currentStreamingMsg.toolCalls.some(t => t.status === 'running')))" class="flex gap-2 w-full">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
             <div class="max-w-[800px] bg-base-100 border border-base-300 rounded-xl px-3 py-2">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
-              <!-- 当前流式消息 -->
-              <template v-else-if="currentStreamingMsg">
-                <!-- 文本内容 -->
-                <div v-if="currentStreamingMsg.content" class="text-sm text-base-content whitespace-pre-wrap break-words">
-                  {{ currentStreamingMsg.content }}
+              <!-- 工具调用（只显示 running 状态的） -->
+              <div v-else-if="currentStreamingMsg?.toolCalls && currentStreamingMsg.toolCalls.length > 0" class="mt-0 space-y-1">
+                <div v-for="(tool, idx) in currentStreamingMsg.toolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
+                  <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="getToolIcon(tool.name).color + ' animate-pulse'" />
+                  <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
+                  <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
+                  <span class="text-base-content/60 ml-auto animate-pulse">执行中...</span>
                 </div>
-                <!-- 工具调用 -->
-                <div v-if="currentStreamingMsg.toolCalls && currentStreamingMsg.toolCalls.length > 0" class="mt-2 space-y-1">
-                  <div v-for="(tool, idx) in currentStreamingMsg.toolCalls" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
-                    <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="tool.status === 'running' ? getToolIcon(tool.name).color + ' animate-pulse' : getToolIcon(tool.name).color" />
-                    <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
-                    <span v-if="tool.args" class="text-base-content/70 truncate max-w-[600px]">{{ formatArgsSummary(tool.args) }}</span>
-                    <span v-if="tool.status === 'running'" class="text-base-content/60 ml-auto animate-pulse">执行中...</span>
-                    <span v-else class="text-success ml-auto">完成</span>
-                  </div>
-                </div>
-              </template>
-              <!-- 等待状态 -->
-              <p v-else class="text-sm text-base-content/60 animate-pulse">等待响应...</p>
+              </div>
             </div>
             <!-- 取消按钮 -->
             <button 
@@ -701,11 +691,9 @@ const currentStreamingMsg = computed(() => {
 
 // 用于渲染的消息列表（流式输出时跳过最后一个 assistant 消息，避免与实时气泡重复）
 const displayMessages = computed(() => {
-  if (!isStreaming.value || !currentStreamingMsg.value) {
-    return messages.value;
-  }
-  // 流式输出时，跳过最后一个 assistant 消息
-  return messages.value.slice(0, -1);
+  // 直接返回 messages，流式内容实时显示在消息列表
+  // 实时气泡仅用于显示思考动画（thinkingText）和工具调用状态
+  return messages.value;
 });
 
 // 模型选择
@@ -1858,6 +1846,9 @@ onMounted(async () => {
     void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
       ' 最后一条: ' + (lastMsg?.role || 'none') +
       ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
+    
+    // 重置轮结束标志（新的工具调用开始）
+    lastAssistantRoundEnded = false;
     
     if (!currentMsg || needsNewMsg) {
       const newMsg: Message = {
