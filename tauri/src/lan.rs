@@ -1368,11 +1368,19 @@ impl LanService {
 
         if let Ok(data) = serde_json::to_string(&msg) {
             if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
-                let _ = udp.send_to(
-                    data.as_bytes(),
-                    format!("{}:{}", peer.address, peer.message_port),
-                );
-                return Ok(true);
+                let target = format!("{}:{}", peer.address, peer.message_port);
+                let data_len = data.as_bytes().len();
+                log::info!("[LAN] send_message: {} bytes -> {}", data_len, target);
+                match udp.send_to(data.as_bytes(), &target) {
+                    Ok(sent_bytes) => {
+                        log::info!("[LAN] UDP sent {} bytes (payload {})", sent_bytes, data_len);
+                        return Ok(true);
+                    }
+                    Err(e) => {
+                        log::error!("[LAN] UDP send failed: {} (payload {} bytes)", e, data_len);
+                        return Err(format!("UDP 发送失败: {}", e));
+                    }
+                }
             }
         }
         Err("发送失败".to_string())
