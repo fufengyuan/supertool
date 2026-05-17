@@ -287,32 +287,113 @@ async fn export_all_tables(core: &CoreService) -> Result<serde_json::Value, Stri
     let lan_users = core.get_all_lan_users().await.unwrap_or(json!([]));
     let lan_msgs = core.get_all_lan_messages().await.unwrap_or(json!({}));
 
-    Ok(json!({
-        "todos": todos,
-        "subtasks": all_subtasks,
-        "tags": tags,
-        "projects": projects,
-        "servers": servers,
-        "serverGroups": server_groups,
-        "mfaSecrets": mfa_secrets,
-        "notes": notes,
-        "noteGroups": note_groups,
-        "weeklyReports": weekly_reports,
-        "accountingCategories": accounting_categories,
-        "accountingRecords": accounting_records,
-        "accountingBudgets": budgets,
-        "accountingTemplates": templates,
-        "logPresets": log_presets,
-        "cicdConfigs": cicd_data.get("cicdConfigs").cloned().unwrap_or(json!([])),
-        "deployModules": cicd_data.get("deployModules").cloned().unwrap_or(json!([])),
-        "deployLogs": cicd_data.get("deployLogs").cloned().unwrap_or(json!([])),
-        "deployHistory": cicd_data.get("deployHistory").cloned().unwrap_or(json!([])),
-        "deployStepLogs": cicd_data.get("deployStepLogs").cloned().unwrap_or(json!([])),
-        "users": lan_users,
-        "messages": lan_msgs.get("messages").cloned().unwrap_or(json!([])),
-        "chatMessages": lan_msgs.get("chatMessages").cloned().unwrap_or(json!([])),
-        "fileTransfers": lan_msgs.get("fileTransfers").cloned().unwrap_or(json!([])),
-    }))
+    // ---- Missing modules: fetch all via raw SQL ----
+    let extra = export_extra_tables(core).await?;
+
+    Ok({
+        let mut map = serde_json::Map::new();
+        map.insert("todos".into(), todos);
+        map.insert("subtasks".into(), json!(all_subtasks));
+        map.insert("tags".into(), tags);
+        map.insert("projects".into(), projects);
+        map.insert("servers".into(), servers);
+        map.insert("serverGroups".into(), server_groups);
+        map.insert("mfaSecrets".into(), mfa_secrets);
+        map.insert("notes".into(), notes);
+        map.insert("noteGroups".into(), note_groups);
+        map.insert("weeklyReports".into(), weekly_reports);
+        map.insert("accountingCategories".into(), accounting_categories);
+        map.insert("accountingRecords".into(), accounting_records);
+        map.insert("accountingBudgets".into(), budgets);
+        map.insert("accountingTemplates".into(), templates);
+        map.insert("logPresets".into(), log_presets);
+        map.insert("cicdConfigs".into(), cicd_data.get("cicdConfigs").cloned().unwrap_or(json!([])));
+        map.insert("deployModules".into(), cicd_data.get("deployModules").cloned().unwrap_or(json!([])));
+        map.insert("deployLogs".into(), cicd_data.get("deployLogs").cloned().unwrap_or(json!([])));
+        map.insert("deployHistory".into(), cicd_data.get("deployHistory").cloned().unwrap_or(json!([])));
+        map.insert("deployStepLogs".into(), cicd_data.get("deployStepLogs").cloned().unwrap_or(json!([])));
+        map.insert("users".into(), lan_users);
+        map.insert("messages".into(), lan_msgs.get("messages").cloned().unwrap_or(json!([])));
+        map.insert("chatMessages".into(), lan_msgs.get("chatMessages").cloned().unwrap_or(json!([])));
+        map.insert("fileTransfers".into(), lan_msgs.get("fileTransfers").cloned().unwrap_or(json!([])));
+        // Extra tables from missing modules
+        for (k, v) in extra.as_object().unwrap_or(&serde_json::Map::new()).clone() {
+            map.insert(k, v);
+        }
+        json!(map)
+    })
+}
+
+// Helper: bulk-export tables that don't have dedicated CoreService getters
+async fn export_extra_tables(core: &CoreService) -> Result<serde_json::Value, String> {
+    let extra = core.db_read(|conn| -> Result<serde_json::Value, String> {
+        let mut result = serde_json::Map::new();
+
+        // Settings as a JSON object (key-value pairs)
+        if let Ok(mut stmt) = conn.prepare("SELECT key, value FROM settings") {
+            let mut settings = serde_json::Map::new();
+            if let Ok(rows) = stmt.query_map([], |row| {
+                let key: String = row.get(0)?;
+                let val: String = row.get(1)?;
+                Ok((key, val))
+            }) {
+                for row in rows.flatten() {
+                    settings.insert(row.0, json!(row.1));
+                }
+            }
+            result.insert("settings".to_string(), json!(settings));
+        }
+
+        // Generic table export
+        let tables = [
+            "openvpn_configs", "wireguard_configs", "git_repos",
+            "calculator_history", "api_requests",
+            "nginx_presets", "nginx_config_versions", "nginx_servers",
+            "nginx_locations", "nginx_upstreams", "nginx_upstream_servers",
+            "nginx_http_params", "nginx_streams", "nginx_certs",
+            "nginx_templates", "nginx_basic_settings", "nginx_params",
+            "nginx_deny_allows", "nginx_passwords",
+            "alert_email_config", "alert_services", "alert_resources", "alert_history",
+        ];
+
+        for &table in &tables {
+            let sql = format!("SELECT * FROM {}", table);
+            if let Ok(mut stmt) = conn.prepare(&sql) {
+                let col_count = stmt.column_count();
+                let col_names: Vec<String> = (0..col_count)
+                    .map(|i| stmt.column_name(i).unwrap_or("?").to_string())
+                    .collect();
+                if let Ok(rows) = stmt.query_map([], |row| {
+                    let mut map = serde_json::Map::new();
+                    for (i, col) in col_names.iter().enumerate() {
+                        match row.get::<_, rusqlite::types::Value>(i) {
+                            Ok(rusqlite::types::Value::Null) => {}
+                            Ok(rusqlite::types::Value::Integer(v)) => {
+                                map.insert(col.clone(), json!(v));
+                            }
+                            Ok(rusqlite::types::Value::Real(v)) => {
+                                map.insert(col.clone(), json!(v));
+                            }
+                            Ok(rusqlite::types::Value::Text(v)) => {
+                                map.insert(col.clone(), json!(v));
+                            }
+                            Ok(rusqlite::types::Value::Blob(v)) => {
+                                map.insert(col.clone(), json!("[blob]"));
+                            }
+                            _ => {}
+                        }
+                    }
+                    Ok(json!(map))
+                }) {
+                    let arr: Vec<serde_json::Value> = rows.flatten().collect();
+                    result.insert(table.to_string(), json!(arr));
+                }
+            }
+        }
+
+        Ok(json!(result))
+    })?; // unwrap outer Result from db_read
+    extra
 }
 
 // Helper: get DB connection from CoreService for direct SQL inserts
@@ -364,6 +445,30 @@ async fn import_all_tables(
                 DELETE FROM accounting_categories;
                 DELETE FROM budgets;
                 DELETE FROM templates;
+                DELETE FROM log_presets;
+                DELETE FROM openvpn_configs;
+                DELETE FROM wireguard_configs;
+                DELETE FROM git_repos;
+                DELETE FROM calculator_history;
+                DELETE FROM api_requests;
+                DELETE FROM nginx_passwords;
+                DELETE FROM nginx_deny_allows;
+                DELETE FROM nginx_params;
+                DELETE FROM nginx_basic_settings;
+                DELETE FROM nginx_templates;
+                DELETE FROM nginx_certs;
+                DELETE FROM nginx_streams;
+                DELETE FROM nginx_http_params;
+                DELETE FROM nginx_upstream_servers;
+                DELETE FROM nginx_upstreams;
+                DELETE FROM nginx_locations;
+                DELETE FROM nginx_servers;
+                DELETE FROM nginx_config_versions;
+                DELETE FROM nginx_presets;
+                DELETE FROM alert_history;
+                DELETE FROM alert_resources;
+                DELETE FROM alert_services;
+                DELETE FROM alert_email_config;
             ") {
                 errors.push(format!("清空表失败: {}", e));
             }
@@ -876,6 +981,549 @@ async fn import_all_tables(
                     ]) {
                     Ok(_) => imported += 1,
                     Err(e) => errors.push(format!("file_transfers: {}", e)),
+                }
+            }
+        }
+
+        // ======== Extra modules (previously missing from backup) ========
+
+        let now_ts = chrono::Utc::now().to_rfc3339();
+
+        // OpenVPN configs
+        if let Some(items) = data.get("openvpnConfigs").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO openvpn_configs (id, name, filePath, content, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("filePath").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("openvpn_configs: {}", e)),
+                }
+            }
+        }
+
+        // WireGuard configs
+        if let Some(items) = data.get("wireguardConfigs").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO wireguard_configs (id, name, privateKey, publicKey, address, dns, mtu, peerPublicKey, peerEndpoint, peerAllowedIPs, peerPersistentKeepalive, presharedKey, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("privateKey").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("publicKey").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("address").and_then(|v| v.as_str()).unwrap_or("10.0.0.2/32"),
+                        item.get("dns").and_then(|v| v.as_str()),
+                        item.get("mtu").and_then(|v| v.as_i64()).unwrap_or(1420),
+                        item.get("peerPublicKey").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("peerEndpoint").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("peerAllowedIPs").and_then(|v| v.as_str()).unwrap_or("0.0.0.0/0"),
+                        item.get("peerPersistentKeepalive").and_then(|v| v.as_i64()).unwrap_or(25),
+                        item.get("presharedKey").and_then(|v| v.as_str()),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("wireguard_configs: {}", e)),
+                }
+            }
+        }
+
+        // Git repos
+        if let Some(items) = data.get("gitRepos").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO git_repos (id, name, path, remote, branch, lastCommit, lastOpened, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("path").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("remote").and_then(|v| v.as_str()),
+                        item.get("branch").and_then(|v| v.as_str()),
+                        item.get("lastCommit").and_then(|v| v.as_str()),
+                        item.get("lastOpened").and_then(|v| v.as_str()),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("git_repos: {}", e)),
+                }
+            }
+        }
+
+        // Calculator history
+        if let Some(items) = data.get("calculatorHistory").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO calculator_history (id, expression, result, createdAt)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("expression").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("result").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("calculator_history: {}", e)),
+                }
+            }
+        }
+
+        // API requests
+        if let Some(items) = data.get("apiRequests").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO api_requests (id, method, url, headers, body, statusCode, responseTime, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    rusqlite::params![
+                        item.get("id").or_else(|| item.get("id".to_string())).and_then(|v| {
+                            if v.is_i64() { Some(v.as_i64().unwrap()) } else { v.as_str().and_then(|s| s.parse().ok()) }
+                        }).unwrap_or(0),
+                        item.get("method").and_then(|v| v.as_str()).unwrap_or("GET"),
+                        item.get("url").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("headers").and_then(|v| v.as_str()).unwrap_or("{}"),
+                        item.get("body").and_then(|v| v.as_str()),
+                        item.get("statusCode").and_then(|v| v.as_i64()),
+                        item.get("responseTime").and_then(|v| v.as_i64()),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("api_requests: {}", e)),
+                }
+            }
+        }
+
+        // --- Nginx tables (order by FK dependency) ---
+
+        if let Some(items) = data.get("nginxPresets").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_presets (id, name, serverId, configPath, description, groupName, isActive, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("configPath").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("description").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("groupName").and_then(|v| v.as_str()).unwrap_or("未分组"),
+                        item.get("isActive").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_presets: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxConfigVersions").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_config_versions (id, presetId, content, checksum, comment, isCurrent, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("checksum").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("comment").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("isCurrent").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_config_versions: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxServers").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_servers (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol, serverName, ssl, certId, rewrite, rewriteListen, http2, protocols, passwordId, denyAllow, denyId, allowId, proxyUpstreamId, descr, enabled, sort, paramJson, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("proxyType").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("listen").and_then(|v| v.as_str()).unwrap_or("80"),
+                        item.get("ip").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("def").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("ipv6").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("proxyProtocol").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("serverName").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("ssl").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("certId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("rewrite").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("rewriteListen").and_then(|v| v.as_str()).unwrap_or("80"),
+                        item.get("http2").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("protocols").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("passwordId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("denyAllow").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("denyId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("allowId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("proxyUpstreamId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_servers: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxLocations").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_locations (id, serverId, enabled, path, locType, value, upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("path").and_then(|v| v.as_str()).unwrap_or("/"),
+                        item.get("locType").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("upstreamType").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("upstreamPath").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("rootPath").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("rootPage").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("rootType").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("header").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("websocket").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("cros").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("headerHost").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("returnUrl").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("returnPath").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_locations: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxUpstreams").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_upstreams (id, presetId, name, proxyType, strategy, descr, paramJson, sort, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("proxyType").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("strategy").and_then(|v| v.as_str()).unwrap_or("polling"),
+                        item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_upstreams: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxUpstreamServers").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort, enabled, param)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("address").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("port").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("weight").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("maxFails").and_then(|v| v.as_i64()).unwrap_or(3),
+                        item.get("failTimeout").and_then(|v| v.as_str()).unwrap_or("10s"),
+                        item.get("maxConns").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("backup").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("down").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("param").and_then(|v| v.as_str()).unwrap_or(""),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_upstream_servers: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxHttpParams").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_http_params: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxStreams").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass, ssl, certId, protocol, descr, enabled, paramJson, sort, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("listen").and_then(|v| v.as_str()).unwrap_or("0.0.0.0:80"),
+                        item.get("proxyUpstreamId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("proxyPass").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("ssl").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("certId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("protocol").and_then(|v| v.as_str()).unwrap_or("TCP"),
+                        item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("paramJson").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                        item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_streams: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxCerts").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_certs (id, presetId, name, pem, key, domain, sort, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("pem").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("key").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("domain").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_certs: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxTemplates").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_templates (id, presetId, name, content, sort, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("content").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_templates: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxBasicSettings").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_basic_settings (id, presetId, name, value, sort, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_basic_settings: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxParams").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_params (id, presetId, serverId, locationId, upstreamId, name, value, position, templateValue, sort, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("serverId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("locationId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("upstreamId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("value").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("position").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("templateValue").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sort").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_params: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxDenyAllows").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_deny_allows (id, presetId, name, ip, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("ip").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_deny_allows: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("nginxPasswords").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO nginx_passwords (id, presetId, name, pass, descr, path, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("presetId").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("pass").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("descr").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("path").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("nginx_passwords: {}", e)),
+                }
+            }
+        }
+
+        // --- Alert tables ---
+
+        if let Some(items) = data.get("alertEmailConfig").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or("1"),
+                        item.get("smtp_host").and_then(|v| v.as_str()),
+                        item.get("smtp_port").and_then(|v| v.as_i64()).unwrap_or(465),
+                        item.get("smtp_username").and_then(|v| v.as_str()),
+                        item.get("smtp_password").and_then(|v| v.as_str()),
+                        item.get("smtp_encryption").and_then(|v| v.as_str()).unwrap_or("starttls"),
+                        item.get("from_email").and_then(|v| v.as_str()),
+                        item.get("to_email").and_then(|v| v.as_str()),
+                        item.get("updated_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("alert_email_config: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("alertServices").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO alert_services (id, name, host, port, check_interval, timeout_seconds, max_retries, enabled, last_check_at, last_status, consecutive_failures, alert_sent_at, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("host").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("port").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("check_interval").and_then(|v| v.as_i64()).unwrap_or(60),
+                        item.get("timeout_seconds").and_then(|v| v.as_i64()).unwrap_or(5),
+                        item.get("max_retries").and_then(|v| v.as_i64()).unwrap_or(3),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("last_check_at").and_then(|v| v.as_str()),
+                        item.get("last_status").and_then(|v| v.as_i64()),
+                        item.get("consecutive_failures").and_then(|v| v.as_i64()).unwrap_or(0),
+                        item.get("alert_sent_at").and_then(|v| v.as_str()),
+                        item.get("created_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("alert_services: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("alertResources").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO alert_resources (id, name, category, remark, expire_at, alert_advance_days, enabled, last_alert_sent_at, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("category").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("remark").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("expire_at").and_then(|v| v.as_str()),
+                        item.get("alert_advance_days").and_then(|v| v.as_i64()).unwrap_or(30),
+                        item.get("enabled").and_then(|v| v.as_i64()).unwrap_or(1),
+                        item.get("last_alert_sent_at").and_then(|v| v.as_str()),
+                        item.get("created_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("alert_resources: {}", e)),
+                }
+            }
+        }
+
+        if let Some(items) = data.get("alertHistory").and_then(|v| v.as_array()) {
+            for item in items {
+                match conn.execute(
+                    "INSERT OR REPLACE INTO alert_history (id, type, ref_id, ref_name, message, sent_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    rusqlite::params![
+                        item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("type").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("ref_id").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("ref_name").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("message").and_then(|v| v.as_str()).unwrap_or(""),
+                        item.get("sent_at").and_then(|v| v.as_str()).unwrap_or(&now_ts),
+                    ]) {
+                    Ok(_) => imported += 1,
+                    Err(e) => errors.push(format!("alert_history: {}", e)),
                 }
             }
         }
