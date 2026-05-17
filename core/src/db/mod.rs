@@ -124,7 +124,9 @@ pub fn init_db(conn: &Connection) -> Result<()> {
 
         CREATE TABLE IF NOT EXISTS note_groups (
             id TEXT PRIMARY KEY,
-            name TEXT NOT NULL DEFAULT ''
+            name TEXT NOT NULL DEFAULT '',
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS weekly_reports (
