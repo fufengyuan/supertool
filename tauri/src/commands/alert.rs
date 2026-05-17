@@ -1,10 +1,10 @@
+use chrono::Timelike;
+use lettre::AsyncTransport;
 use supertool_core::db::alert::{AlertEmailConfig, AlertHistory, AlertResource, AlertService};
 use supertool_core::encryption::{encrypt_password, try_decrypt_password};
 use supertool_core::logic::CoreService;
 use tauri::{Emitter, Manager, State};
 use uuid::Uuid;
-use lettre::AsyncTransport;
-use chrono::Timelike;
 
 /// Build SMTP transport based on encryption mode
 fn build_smtp_transport(
@@ -17,9 +17,12 @@ fn build_smtp_transport(
     use lettre::transport::smtp::client::Tls;
     use lettre::transport::smtp::client::TlsParameters;
 
-    let creds = lettre::transport::smtp::authentication::Credentials::new(username.to_string(), password.to_string());
-    let tls_params = TlsParameters::new(host.to_string())
-        .map_err(|e| format!("创建 TLS 参数失败: {}", e))?;
+    let creds = lettre::transport::smtp::authentication::Credentials::new(
+        username.to_string(),
+        password.to_string(),
+    );
+    let tls_params =
+        TlsParameters::new(host.to_string()).map_err(|e| format!("创建 TLS 参数失败: {}", e))?;
 
     // Auto-detect encryption from port: 465=SSL, 587=STARTTLS, 25=none
     // Port takes priority over user config to prevent mismatches
@@ -60,12 +63,16 @@ fn build_smtp_transport(
 
 /// Build email message with multiple recipients (comma-separated)
 fn build_email(from: &str, to: &str, subject: &str, body: &str) -> Result<lettre::Message, String> {
-    let mut builder = lettre::message::Message::builder()
-        .from(from.parse().map_err(|e| format!("发件人邮箱格式错误: {}", e))?);
+    let mut builder = lettre::message::Message::builder().from(
+        from.parse()
+            .map_err(|e| format!("发件人邮箱格式错误: {}", e))?,
+    );
     for addr in to.split(',') {
         let addr = addr.trim();
         if !addr.is_empty() {
-            builder = builder.to(addr.parse().map_err(|e| format!("收件人邮箱格式错误 '{}': {}", addr, e))?);
+            builder = builder.to(addr
+                .parse()
+                .map_err(|e| format!("收件人邮箱格式错误 '{}': {}", addr, e))?);
         }
     }
     builder
@@ -78,13 +85,21 @@ fn build_email(from: &str, to: &str, subject: &str, body: &str) -> Result<lettre
 
 /// Send an alert email using SMTP config from DB.
 async fn send_alert_email(core: &CoreService, subject: &str, body: &str) -> Result<(), String> {
-    let config = core.get_email_config().await?
+    let config = core
+        .get_email_config()
+        .await?
         .ok_or_else(|| "邮件配置未设置".to_string())?;
 
-    let host = config.smtp_host.ok_or_else(|| "SMTP 主机未配置".to_string())?;
+    let host = config
+        .smtp_host
+        .ok_or_else(|| "SMTP 主机未配置".to_string())?;
     let username = config.smtp_username.unwrap_or_default();
-    let from = config.from_email.ok_or_else(|| "发件人邮箱未配置".to_string())?;
-    let to = config.to_email.ok_or_else(|| "收件人邮箱未配置".to_string())?;
+    let from = config
+        .from_email
+        .ok_or_else(|| "发件人邮箱未配置".to_string())?;
+    let to = config
+        .to_email
+        .ok_or_else(|| "收件人邮箱未配置".to_string())?;
     let port = config.smtp_port as u16;
     let encryption = &config.smtp_encryption;
     let encrypted_pw = config.smtp_password.unwrap_or_default();
@@ -93,7 +108,9 @@ async fn send_alert_email(core: &CoreService, subject: &str, body: &str) -> Resu
     let email = build_email(&from, &to, subject, body)?;
     let mailer = build_smtp_transport(&host, port, encryption, &username, &password)?;
 
-    mailer.send(email).await
+    mailer
+        .send(email)
+        .await
         .map_err(|e| format!("发送邮件失败: {}", e))?;
 
     log::info!("[Alert] Alert email sent: {}", subject);
@@ -122,16 +139,35 @@ pub async fn test_email_config(
     log::info!("[Tauri CMD] test_email_config() called");
 
     let pwd = smtp_password.unwrap_or_default();
-    let password = if pwd.starts_with("enc:") || pwd.starts_with("$argon") || (pwd.len() > 20 && pwd.chars().all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '=')) {
+    let password = if pwd.starts_with("enc:")
+        || pwd.starts_with("$argon")
+        || (pwd.len() > 20
+            && pwd
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '/' || c == '='))
+    {
         try_decrypt_password(&pwd)
     } else {
         pwd
     };
 
-    let email = build_email(&from_email, &to_email, "SuperTool 告警测试", "这是一封测试邮件，来自 SuperTool 告警系统。")?;
-    let mailer = build_smtp_transport(&smtp_host, smtp_port as u16, &smtp_encryption, &smtp_username.unwrap_or_default(), &password)?;
+    let email = build_email(
+        &from_email,
+        &to_email,
+        "SuperTool 告警测试",
+        "这是一封测试邮件，来自 SuperTool 告警系统。",
+    )?;
+    let mailer = build_smtp_transport(
+        &smtp_host,
+        smtp_port as u16,
+        &smtp_encryption,
+        &smtp_username.unwrap_or_default(),
+        &password,
+    )?;
 
-    mailer.send(email).await
+    mailer
+        .send(email)
+        .await
         .map_err(|e| format!("发送邮件失败: {}", e))?;
 
     log::info!("[Alert] Test email sent successfully");
@@ -178,9 +214,7 @@ pub async fn save_email_config(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_alert_services(
-    core: State<'_, CoreService>,
-) -> Result<Vec<AlertService>, String> {
+pub async fn get_alert_services(core: State<'_, CoreService>) -> Result<Vec<AlertService>, String> {
     log::info!("[Tauri CMD] get_alert_services() called");
     core.get_alert_services().await
 }
@@ -208,10 +242,7 @@ pub async fn update_alert_service(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn delete_alert_service(
-    core: State<'_, CoreService>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_alert_service(core: State<'_, CoreService>, id: String) -> Result<(), String> {
     log::info!("[Tauri CMD] delete_alert_service() called");
     core.delete_alert_service(&id).await
 }
@@ -247,18 +278,13 @@ pub async fn update_alert_resource(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn delete_alert_resource(
-    core: State<'_, CoreService>,
-    id: String,
-) -> Result<(), String> {
+pub async fn delete_alert_resource(core: State<'_, CoreService>, id: String) -> Result<(), String> {
     log::info!("[Tauri CMD] delete_alert_resource() called");
     core.delete_alert_resource(&id).await
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_alert_history(
-    core: State<'_, CoreService>,
-) -> Result<Vec<AlertHistory>, String> {
+pub async fn get_alert_history(core: State<'_, CoreService>) -> Result<Vec<AlertHistory>, String> {
     log::info!("[Tauri CMD] get_alert_history() called");
     core.get_alert_history().await
 }
@@ -332,15 +358,15 @@ async fn run_alert_check(core: &CoreService) -> Vec<serde_json::Value> {
         results.push(json_result);
     }
 
-        // Check resources 3x per day (9:00, 13:00, 20:00)
-        let hour = chrono::Local::now().hour();
-        let should_check_resources = matches!(hour, 9 | 13 | 20);
-        let resource_results = if should_check_resources {
-            core.check_expiring_resources().await
-        } else {
-            Vec::new()
-        };
-        for result in resource_results {
+    // Check resources 3x per day (9:00, 13:00, 20:00)
+    let hour = chrono::Local::now().hour();
+    let should_check_resources = matches!(hour, 9 | 13 | 20);
+    let resource_results = if should_check_resources {
+        core.check_expiring_resources().await
+    } else {
+        Vec::new()
+    };
+    for result in resource_results {
         let json_result = serde_json::json!({
             "alertType": result.alert_type,
             "refId": result.ref_id,
@@ -450,11 +476,13 @@ mod tests {
                     row.get::<_, i64>(1).unwrap_or(465),
                     row.get::<_, String>(2).unwrap_or_default(),
                     row.get::<_, String>(3).unwrap_or_default(),
-                    row.get::<_, String>(4).unwrap_or_else(|_| "ssl".to_string()),
+                    row.get::<_, String>(4)
+                        .unwrap_or_else(|_| "ssl".to_string()),
                     row.get::<_, String>(5).unwrap_or_default(),
                     row.get::<_, String>(6).unwrap_or_default(),
                 ))
-            }).expect("No email config in DB — run the app and save email config first")
+            })
+            .expect("No email config in DB — run the app and save email config first")
         };
 
         let (host, port, username, encrypted_pw, encryption, from, to) = config;
@@ -463,8 +491,13 @@ mod tests {
         println!("Host: {host}, Port: {port}, Encryption: {encryption}");
         println!("From: {from} → To: {to}");
 
-        let email = build_email(&from, &to, "SuperTool 单元测试", "这是一封自动化测试邮件，如果你收到说明 SMTP 配置正确。")
-            .expect("build_email failed");
+        let email = build_email(
+            &from,
+            &to,
+            "SuperTool 单元测试",
+            "这是一封自动化测试邮件，如果你收到说明 SMTP 配置正确。",
+        )
+        .expect("build_email failed");
 
         let mailer = build_smtp_transport(&host, port as u16, &encryption, &username, &password)
             .expect("build_smtp_transport failed");

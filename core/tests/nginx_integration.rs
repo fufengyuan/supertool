@@ -40,17 +40,20 @@ fn setup_full_db() -> (Connection, String) {
         "INSERT INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
         rusqlite::params!["hp-1", preset_id, "sendfile", "on", 1, 0, now],
-    ).unwrap();
+    )
+    .unwrap();
     conn.execute(
         "INSERT INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
         rusqlite::params!["hp-2", preset_id, "tcp_nopush", "on", 1, 1, now],
-    ).unwrap();
+    )
+    .unwrap();
     conn.execute(
         "INSERT INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
         rusqlite::params!["hp-3", preset_id, "keepalive_timeout", "65", 1, 2, now],
-    ).unwrap();
+    )
+    .unwrap();
 
     // Upstream 1: ip_hash, 2 servers
     let up1_id = "up-1";
@@ -92,11 +95,36 @@ fn setup_full_db() -> (Connection, String) {
          descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
                  ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        rusqlite::params![srv1_id, preset_id, 0, "443", "", 1, 1, 0,
-         "example.com", 1, "", 0, "443", 1, "TLSv1.2 TLSv1.3",
-         "", 0, "", "", "",
-         "Main HTTPS server", 1, 0, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            srv1_id,
+            preset_id,
+            0,
+            "443",
+            "",
+            1,
+            1,
+            0,
+            "example.com",
+            1,
+            "",
+            0,
+            "443",
+            1,
+            "TLSv1.2 TLSv1.3",
+            "",
+            0,
+            "",
+            "",
+            "",
+            "Main HTTPS server",
+            1,
+            0,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
 
     // Locations for server 1
     conn.execute(
@@ -145,11 +173,36 @@ fn setup_full_db() -> (Connection, String) {
          descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
                  ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        rusqlite::params![srv2_id, preset_id, 0, "80", "", 0, 0, 0,
-         "plain.example.com", 0, "", 0, "", 0, "",
-         "", 0, "", "", "",
-         "Plain HTTP server", 1, 1, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            srv2_id,
+            preset_id,
+            0,
+            "80",
+            "",
+            0,
+            0,
+            0,
+            "plain.example.com",
+            0,
+            "",
+            0,
+            "",
+            0,
+            "",
+            "",
+            0,
+            "",
+            "",
+            "",
+            "Plain HTTP server",
+            1,
+            1,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
 
     conn.execute(
         "INSERT INTO nginx_locations (id, serverId, enabled, path, locType, value,
@@ -166,16 +219,46 @@ fn setup_full_db() -> (Connection, String) {
         "INSERT INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass,
          ssl, certId, protocol, descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-        rusqlite::params!["stream-1", preset_id, "1234", "", "10.0.0.1:5678",
-         0, "", "TCP", "MySQL proxy", 1, 0, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            "stream-1",
+            preset_id,
+            "1234",
+            "",
+            "10.0.0.1:5678",
+            0,
+            "",
+            "TCP",
+            "MySQL proxy",
+            1,
+            0,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
     conn.execute(
         "INSERT INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass,
          ssl, certId, protocol, descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-        rusqlite::params!["stream-2", preset_id, "1235", "backend-stream", "",
-         1, "stream-cert-id", "TCP", "SSL stream", 1, 1, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            "stream-2",
+            preset_id,
+            "1235",
+            "backend-stream",
+            "",
+            1,
+            "stream-cert-id",
+            "TCP",
+            "SSL stream",
+            1,
+            1,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
 
     (conn, preset_id.to_string())
 }
@@ -185,25 +268,65 @@ fn test_round_trip_full_pipeline() {
     let (conn, preset_id) = setup_full_db();
 
     // STEP 1: Generate config
-    let generated = supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
-        .expect("generate_nginx_config should succeed");
+    let generated =
+        supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
+            .expect("generate_nginx_config should succeed");
 
     // Verify generated config has expected high-level structure
-    assert!(generated.contains("worker_processes auto;"), "basic settings should be present");
+    assert!(
+        generated.contains("worker_processes auto;"),
+        "basic settings should be present"
+    );
     assert!(generated.contains("http {"), "http block should exist");
-    assert!(generated.contains("sendfile on;"), "http params should be present");
-    assert!(generated.contains("upstream backend {"), "upstream backend should exist");
-    assert!(generated.contains("upstream api {"), "upstream api should exist");
-    assert!(generated.contains("ip_hash;"), "ip_hash strategy should be present");
-    assert!(generated.contains("least_conn;"), "least_conn strategy should be present");
-    assert!(generated.contains("10.0.0.1:8080"), "upstream server 1 should be present");
-    assert!(generated.contains("10.0.0.2:8080"), "upstream server 2 should be present");
+    assert!(
+        generated.contains("sendfile on;"),
+        "http params should be present"
+    );
+    assert!(
+        generated.contains("upstream backend {"),
+        "upstream backend should exist"
+    );
+    assert!(
+        generated.contains("upstream api {"),
+        "upstream api should exist"
+    );
+    assert!(
+        generated.contains("ip_hash;"),
+        "ip_hash strategy should be present"
+    );
+    assert!(
+        generated.contains("least_conn;"),
+        "least_conn strategy should be present"
+    );
+    assert!(
+        generated.contains("10.0.0.1:8080"),
+        "upstream server 1 should be present"
+    );
+    assert!(
+        generated.contains("10.0.0.2:8080"),
+        "upstream server 2 should be present"
+    );
     assert!(generated.contains("server {"), "at least one server block");
-    assert!(generated.contains("listen 443 default_server"), "server 1 should have ssl listen");
-    assert!(generated.contains("listen [::]:443 default_server"), "server 1 should have ipv6 listen");
-    assert!(generated.contains("server_name  example.com"), "server 1 server_name");
-    assert!(generated.contains("listen 80"), "server 2 should have port 80");
-    assert!(generated.contains("server_name  plain.example.com"), "server 2 server_name");
+    assert!(
+        generated.contains("listen 443 default_server"),
+        "server 1 should have ssl listen"
+    );
+    assert!(
+        generated.contains("listen [::]:443 default_server"),
+        "server 1 should have ipv6 listen"
+    );
+    assert!(
+        generated.contains("server_name  example.com"),
+        "server 1 server_name"
+    );
+    assert!(
+        generated.contains("listen 80"),
+        "server 2 should have port 80"
+    );
+    assert!(
+        generated.contains("server_name  plain.example.com"),
+        "server 2 server_name"
+    );
     assert!(generated.contains("location / {"), "root location");
     assert!(generated.contains("location /api {"), "api location");
     assert!(generated.contains("location /static {"), "static location");
@@ -222,24 +345,42 @@ fn test_round_trip_full_pipeline() {
     // Plus events block is stored as basic setting with name "events"
     // Plus include mime.types and default_type from http block
     // Let's check at least our 3 main settings are present
-    let worker_setting = parsed.basic_settings.iter().find(|s| s.name == "worker_processes");
-    assert!(worker_setting.is_some(), "worker_processes should be parsed back");
+    let worker_setting = parsed
+        .basic_settings
+        .iter()
+        .find(|s| s.name == "worker_processes");
+    assert!(
+        worker_setting.is_some(),
+        "worker_processes should be parsed back"
+    );
     if let Some(ws) = worker_setting {
         assert_eq!(ws.value, "auto");
     }
     let error_log_setting = parsed.basic_settings.iter().find(|s| s.name == "error_log");
-    assert!(error_log_setting.is_some(), "error_log should be parsed back");
+    assert!(
+        error_log_setting.is_some(),
+        "error_log should be parsed back"
+    );
     let pid_setting = parsed.basic_settings.iter().find(|s| s.name == "pid");
     assert!(pid_setting.is_some(), "pid should be parsed back");
 
     // HTTP params (sendfile, tcp_nopush, keepalive_timeout, include, default_type)
     let sendfile = parsed.http_params.iter().find(|p| p.name == "sendfile");
-    assert!(sendfile.is_some(), "sendfile http param should be parsed back");
+    assert!(
+        sendfile.is_some(),
+        "sendfile http param should be parsed back"
+    );
     if let Some(sf) = sendfile {
         assert_eq!(sf.value, "on");
     }
-    let keepalive = parsed.http_params.iter().find(|p| p.name == "keepalive_timeout");
-    assert!(keepalive.is_some(), "keepalive_timeout should be parsed back");
+    let keepalive = parsed
+        .http_params
+        .iter()
+        .find(|p| p.name == "keepalive_timeout");
+    assert!(
+        keepalive.is_some(),
+        "keepalive_timeout should be parsed back"
+    );
 
     // Upstreams
     assert_eq!(parsed.upstreams.len(), 2, "should have 2 upstreams");
@@ -266,7 +407,10 @@ fn test_round_trip_full_pipeline() {
     assert_eq!(parsed.servers.len(), 2, "should have 2 servers");
 
     // Server 1 (SSL)
-    let srv1 = parsed.servers.iter().find(|s| s.server_name == "example.com");
+    let srv1 = parsed
+        .servers
+        .iter()
+        .find(|s| s.server_name == "example.com");
     assert!(srv1.is_some(), "example.com server should exist");
     if let Some(s1) = srv1 {
         assert_eq!(s1.listen, "443");
@@ -297,7 +441,10 @@ fn test_round_trip_full_pipeline() {
     }
 
     // Server 2 (plain HTTP)
-    let srv2 = parsed.servers.iter().find(|s| s.server_name == "plain.example.com");
+    let srv2 = parsed
+        .servers
+        .iter()
+        .find(|s| s.server_name == "plain.example.com");
     assert!(srv2.is_some(), "plain.example.com server should exist");
     if let Some(s2) = srv2 {
         assert_eq!(s2.listen, "80");
@@ -322,15 +469,25 @@ fn test_round_trip_decomposed() {
     let (conn, preset_id) = setup_full_db();
 
     // Generate decomposed config
-    let result = supertool_core::logic::nginx_generator::generate_nginx_config_decomposed(&conn, &preset_id)
-        .expect("generate_nginx_config_decomposed should succeed");
+    let result =
+        supertool_core::logic::nginx_generator::generate_nginx_config_decomposed(&conn, &preset_id)
+            .expect("generate_nginx_config_decomposed should succeed");
 
     // Main config should contain includes
-    assert!(result.main_config.contains("http {"), "main config should have http block");
-    assert!(result.main_config.contains("include conf.d/"), "main should include subfiles");
+    assert!(
+        result.main_config.contains("http {"),
+        "main config should have http block"
+    );
+    assert!(
+        result.main_config.contains("include conf.d/"),
+        "main should include subfiles"
+    );
 
     // Should have sub-files
-    assert!(!result.sub_files.is_empty(), "should have sub-files in decomposed mode");
+    assert!(
+        !result.sub_files.is_empty(),
+        "should have sub-files in decomposed mode"
+    );
 
     // Parse the full combined config (main + all subfiles) to verify it's valid
     // Stream sub-files need to be wrapped in stream { } to be parsed correctly
@@ -348,10 +505,28 @@ fn test_round_trip_decomposed() {
         .expect("combined decomposed config should be parseable");
 
     // Should have the same number of servers and upstreams
-    assert_eq!(parsed.servers.len(), 2, "should have 2 servers after combining");
-    assert_eq!(parsed.upstreams.len(), 2, "should have 2 upstreams after combining");
-    assert!(parsed.servers.iter().any(|s| s.server_name == "example.com"));
-    assert!(parsed.servers.iter().any(|s| s.server_name == "plain.example.com"));
+    assert_eq!(
+        parsed.servers.len(),
+        2,
+        "should have 2 servers after combining"
+    );
+    assert_eq!(
+        parsed.upstreams.len(),
+        2,
+        "should have 2 upstreams after combining"
+    );
+    assert!(
+        parsed
+            .servers
+            .iter()
+            .any(|s| s.server_name == "example.com")
+    );
+    assert!(
+        parsed
+            .servers
+            .iter()
+            .any(|s| s.server_name == "plain.example.com")
+    );
 }
 
 #[test]
@@ -359,8 +534,9 @@ fn test_generate_and_parse_round_trip_preserves_structure() {
     let (conn, preset_id) = setup_full_db();
 
     // Generate
-    let generated = supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
-        .expect("generate should succeed");
+    let generated =
+        supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
+            .expect("generate should succeed");
 
     // Parse
     let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
@@ -374,8 +550,16 @@ fn test_generate_and_parse_round_trip_preserves_structure() {
     // Server location counts
     for srv in &parsed.servers {
         match srv.server_name.as_str() {
-            "example.com" => assert_eq!(srv.locations.len(), 4, "example.com should have 4 locations"),
-            "plain.example.com" => assert_eq!(srv.locations.len(), 1, "plain.example.com should have 1 location"),
+            "example.com" => assert_eq!(
+                srv.locations.len(),
+                4,
+                "example.com should have 4 locations"
+            ),
+            "plain.example.com" => assert_eq!(
+                srv.locations.len(),
+                1,
+                "plain.example.com should have 1 location"
+            ),
             _ => panic!("unexpected server name: {}", srv.server_name),
         }
     }
@@ -396,13 +580,25 @@ fn test_generate_and_parse_round_trip_preserves_structure() {
     assert!(upstream_names.contains(&"backend"));
     assert!(upstream_names.contains(&"api"));
 
-    let server_names: Vec<&str> = parsed.servers.iter().map(|s| s.server_name.as_str()).collect();
+    let server_names: Vec<&str> = parsed
+        .servers
+        .iter()
+        .map(|s| s.server_name.as_str())
+        .collect();
     assert!(server_names.contains(&"example.com"));
     assert!(server_names.contains(&"plain.example.com"));
 
     // Check location path content
-    let example_srv = parsed.servers.iter().find(|s| s.server_name == "example.com").unwrap();
-    let paths: Vec<&str> = example_srv.locations.iter().map(|l| l.path.as_str()).collect();
+    let example_srv = parsed
+        .servers
+        .iter()
+        .find(|s| s.server_name == "example.com")
+        .unwrap();
+    let paths: Vec<&str> = example_srv
+        .locations
+        .iter()
+        .map(|l| l.path.as_str())
+        .collect();
     assert!(paths.contains(&"/"));
     assert!(paths.contains(&"/api"));
     assert!(paths.contains(&"/static"));
@@ -432,8 +628,10 @@ fn test_generate_from_empty_db_round_trip() {
     // Parsing should work
     let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
         .expect("generated minimal config should parse");
-    assert!(parsed.http_params.iter().any(|p| p.name == "include"),
-        "include directive should be in http_params");
+    assert!(
+        parsed.http_params.iter().any(|p| p.name == "include"),
+        "include directive should be in http_params"
+    );
 }
 
 #[test]
@@ -455,16 +653,34 @@ fn test_round_trip_with_cert_and_password() {
     conn.execute(
         "INSERT INTO nginx_certs (id, presetId, name, pem, key, domain, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        rusqlite::params![cert_id, preset_id, "test-cert", "/etc/ssl/certs/test.pem", "/etc/ssl/private/test.key", "secure.example.com", now],
-    ).unwrap();
+        rusqlite::params![
+            cert_id,
+            preset_id,
+            "test-cert",
+            "/etc/ssl/certs/test.pem",
+            "/etc/ssl/private/test.key",
+            "secure.example.com",
+            now
+        ],
+    )
+    .unwrap();
 
     // Add a password
     let pw_id = "pw-auth";
     conn.execute(
         "INSERT INTO nginx_passwords (id, presetId, name, pass, descr, path, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        rusqlite::params![pw_id, preset_id, "htpasswd", "", "Protected Area", "/etc/nginx/.htpasswd", now],
-    ).unwrap();
+        rusqlite::params![
+            pw_id,
+            preset_id,
+            "htpasswd",
+            "",
+            "Protected Area",
+            "/etc/nginx/.htpasswd",
+            now
+        ],
+    )
+    .unwrap();
 
     // Add a server with SSL + auth
     conn.execute(
@@ -474,11 +690,36 @@ fn test_round_trip_with_cert_and_password() {
          descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
                  ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        rusqlite::params!["srv-auth-1", preset_id, 0, "443", "", 0, 0, 0,
-         "secure.example.com", 1, cert_id, 0, "443", 1, "TLSv1.2 TLSv1.3",
-         pw_id, 0, "", "", "",
-         "Secure with auth", 1, 0, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            "srv-auth-1",
+            preset_id,
+            0,
+            "443",
+            "",
+            0,
+            0,
+            0,
+            "secure.example.com",
+            1,
+            cert_id,
+            0,
+            "443",
+            1,
+            "TLSv1.2 TLSv1.3",
+            pw_id,
+            0,
+            "",
+            "",
+            "",
+            "Secure with auth",
+            1,
+            0,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
 
     // Add a location
     conn.execute(
@@ -495,13 +736,31 @@ fn test_round_trip_with_cert_and_password() {
         .expect("generate should succeed with SSL + auth");
 
     // Should contain SSL cert references
-    assert!(generated.contains("ssl_certificate"), "should have ssl_certificate");
-    assert!(generated.contains("ssl_certificate_key"), "should have ssl_certificate_key");
-    assert!(generated.contains("ssl_protocols"), "should have ssl_protocols");
+    assert!(
+        generated.contains("ssl_certificate"),
+        "should have ssl_certificate"
+    );
+    assert!(
+        generated.contains("ssl_certificate_key"),
+        "should have ssl_certificate_key"
+    );
+    assert!(
+        generated.contains("ssl_protocols"),
+        "should have ssl_protocols"
+    );
     assert!(generated.contains("auth_basic"), "should have auth_basic");
-    assert!(generated.contains("auth_basic_user_file"), "should have auth_basic_user_file");
-    assert!(generated.contains("Protected Area"), "should have auth realm");
-    assert!(generated.contains("listen 443 ssl http2"), "should have old-style http2 on listen line");
+    assert!(
+        generated.contains("auth_basic_user_file"),
+        "should have auth_basic_user_file"
+    );
+    assert!(
+        generated.contains("Protected Area"),
+        "should have auth realm"
+    );
+    assert!(
+        generated.contains("listen 443 ssl http2"),
+        "should have old-style http2 on listen line"
+    );
 
     // Parse and verify
     let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
@@ -535,7 +794,8 @@ fn test_round_trip_with_deny_allow() {
         "INSERT INTO nginx_deny_allows (id, presetId, name, ip, createdAt)
          VALUES (?1,?2,?3,?4,?5)",
         rusqlite::params![deny_id, preset_id, "bad-ips", "10.0.0.1\n10.0.0.2", now],
-    ).unwrap();
+    )
+    .unwrap();
 
     // Add server with deny_allow = 1 (blacklist)
     conn.execute(
@@ -545,18 +805,46 @@ fn test_round_trip_with_deny_allow() {
          descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
                  ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        rusqlite::params!["srv-da-1", preset_id, 0, "80", "", 0, 0, 0,
-         "restricted.example.com", 0, "", 0, "", 0, "",
-         "", 1, deny_id, "", "",
-         "Restricted", 1, 0, "", now, now],
-    ).unwrap();
+        rusqlite::params![
+            "srv-da-1",
+            preset_id,
+            0,
+            "80",
+            "",
+            0,
+            0,
+            0,
+            "restricted.example.com",
+            0,
+            "",
+            0,
+            "",
+            0,
+            "",
+            "",
+            1,
+            deny_id,
+            "",
+            "",
+            "Restricted",
+            1,
+            0,
+            "",
+            now,
+            now
+        ],
+    )
+    .unwrap();
 
     let generated = supertool_core::logic::nginx_generator::generate_nginx_config(&conn, preset_id)
         .expect("generate should succeed with deny_allow");
 
     // Should contain deny directives
     assert!(generated.contains("deny 10.0.0.1;"), "should deny first IP");
-    assert!(generated.contains("deny 10.0.0.2;"), "should deny second IP");
+    assert!(
+        generated.contains("deny 10.0.0.2;"),
+        "should deny second IP"
+    );
     assert!(generated.contains("allow all;"), "should allow all at end");
 
     // Parse and verify
@@ -569,7 +857,10 @@ fn test_round_trip_with_deny_allow() {
     // This means the parser cannot perfectly round-trip the deny_allow value,
     // because "allow all;" is the distinguishing marker for both modes.
     // The generated config is semantically correct; the limitation is in the parser.
-    assert_eq!(parsed.servers[0].deny_allow, 2, "parser sets deny_allow=2 for 'allow all;'");
+    assert_eq!(
+        parsed.servers[0].deny_allow, 2,
+        "parser sets deny_allow=2 for 'allow all;'"
+    );
 }
 
 #[test]
@@ -579,13 +870,20 @@ fn test_real_world_config_parse() {
         .expect("Failed to parse real-world nginx.conf");
 
     // Basic settings: worker_processes, error_log, pid, load_module x2, events block
-    assert!(config.basic_settings.len() >= 5, "Should have basic settings");
+    assert!(
+        config.basic_settings.len() >= 5,
+        "Should have basic settings"
+    );
 
     // HTTP params: mime.types, default_type, sendfile, tcp_nopush, ...
     assert!(config.http_params.len() >= 5, "Should have http params");
 
     // Upstreams: 4 inside http (stream upstreams are not currently extracted)
-    assert_eq!(config.upstreams.len(), 4, "Should have 4 upstreams (all from http block)");
+    assert_eq!(
+        config.upstreams.len(),
+        4,
+        "Should have 4 upstreams (all from http block)"
+    );
 
     // Servers: 4 (main SSL, redirect, admin, static)
     assert_eq!(config.servers.len(), 4, "Should have 4 server blocks");
@@ -594,33 +892,68 @@ fn test_real_world_config_parse() {
     assert_eq!(config.streams.len(), 3, "Should have 3 stream servers");
 
     // Verify specific server details
-    let main_srv = config.servers.iter().find(|s| s.server_name.contains("www.example.com"));
+    let main_srv = config
+        .servers
+        .iter()
+        .find(|s| s.server_name.contains("www.example.com"));
     assert!(main_srv.is_some(), "www.example.com should exist");
     let main = main_srv.unwrap();
     assert_eq!(main.ssl, 1, "Main server should have SSL");
     assert!(main.def, "Main server should be default_server");
     assert!(main.ipv6, "Main server should have IPv6 listen");
-    assert_eq!(main.locations.len(), 6, "Main server should have 6 locations");
+    assert_eq!(
+        main.locations.len(),
+        6,
+        "Main server should have 6 locations"
+    );
     assert_eq!(main.http2, 1, "Old-style http2 on listen");
 
     // Verify upstream details
-    let backend = config.upstreams.iter().find(|u| u.name == "backend_api").unwrap();
-    assert_eq!(backend.servers.len(), 3, "backend_api should have 3 servers");
-    assert_eq!(backend.strategy, "", "backend_api should have default polling strategy");
-    assert!(backend.servers[2].backup, "Third backend server should be backup");
+    let backend = config
+        .upstreams
+        .iter()
+        .find(|u| u.name == "backend_api")
+        .unwrap();
+    assert_eq!(
+        backend.servers.len(),
+        3,
+        "backend_api should have 3 servers"
+    );
+    assert_eq!(
+        backend.strategy, "",
+        "backend_api should have default polling strategy"
+    );
+    assert!(
+        backend.servers[2].backup,
+        "Third backend server should be backup"
+    );
 
-    let ws = config.upstreams.iter().find(|u| u.name == "websocket_servers").unwrap();
+    let ws = config
+        .upstreams
+        .iter()
+        .find(|u| u.name == "websocket_servers")
+        .unwrap();
     assert_eq!(ws.strategy, "least_conn");
 
     // Verify admin server (with deny/allow)
-    let admin = config.servers.iter().find(|s| s.server_name == "admin.example.com").unwrap();
+    let admin = config
+        .servers
+        .iter()
+        .find(|s| s.server_name == "admin.example.com")
+        .unwrap();
     assert_eq!(admin.ip, "127.0.0.1");
     assert_eq!(admin.listen, "8080");
     assert_eq!(admin.deny_allow, 1, "deny all sets deny_allow=1");
 
     // Verify plain redirect server
-    let redirect = config.servers.iter().find(|s| s.listen == "80" && s.ssl == 0);
-    assert!(redirect.is_some(), "Plain HTTP redirect server should exist");
+    let redirect = config
+        .servers
+        .iter()
+        .find(|s| s.listen == "80" && s.ssl == 0);
+    assert!(
+        redirect.is_some(),
+        "Plain HTTP redirect server should exist"
+    );
 
     // Verify stream
     let redis_stream = config.streams.iter().find(|s| s.listen == "6379").unwrap();
@@ -634,22 +967,36 @@ fn test_real_world_config_parse() {
 
 #[test]
 fn test_production_config() {
-    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("testdata");
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("testdata");
     let path = test_dir.join("nginx_production.conf");
     let text = std::fs::read_to_string(&path).expect("Cannot read nginx_production.conf");
 
     let config = supertool_core::logic::nginx_parser::parse_nginx_config(&text)
         .expect("Production config should parse");
 
-    eprintln!("[production] basic={} http={} upstream={} server={} stream={}",
-        config.basic_settings.len(), config.http_params.len(),
-        config.upstreams.len(), config.servers.len(), config.streams.len());
+    eprintln!(
+        "[production] basic={} http={} upstream={} server={} stream={}",
+        config.basic_settings.len(),
+        config.http_params.len(),
+        config.upstreams.len(),
+        config.servers.len(),
+        config.streams.len()
+    );
 
     // Basic settings: worker_processes, events block, load_module
-    assert!(config.basic_settings.len() >= 3, "Should have basic settings");
+    assert!(
+        config.basic_settings.len() >= 3,
+        "Should have basic settings"
+    );
 
     // HTTP params: include, default_type, log_format (geo blocks are block directives, not http_param entries)
-    assert!(config.http_params.len() >= 3, "Should have at least 3 http params (include, default_type, log_format)");
+    assert!(
+        config.http_params.len() >= 3,
+        "Should have at least 3 http params (include, default_type, log_format)"
+    );
 
     // Upstreams: 10 (5 prod + 5 gray)
     assert_eq!(config.upstreams.len(), 10, "Should have 10 upstreams");
@@ -661,51 +1008,79 @@ fn test_production_config() {
     assert_eq!(config.streams.len(), 0, "Should have 0 streams");
 
     // Verify regex server_name server
-    let topup = config.servers.iter().find(|s| s.server_name.starts_with('~'));
+    let topup = config
+        .servers
+        .iter()
+        .find(|s| s.server_name.starts_with('~'));
     assert!(topup.is_some(), "Regex server_name should exist");
     if let Some(p) = topup {
-        assert_eq!(p.locations.len(), 6, "topup server should have 6 locations");
+        assert_eq!(
+            p.locations.len(),
+            6,
+            "topup server should have 6 locations"
+        );
         assert_eq!(p.ssl, 1, "topup should have SSL");
         assert_eq!(p.http2, 1, "topup should have http2");
     }
 
     // Verify api-shop server
-    let api_shop = config.servers.iter().find(|s| s.server_name == "api-shop.example.net");
+    let api_shop = config
+        .servers
+        .iter()
+        .find(|s| s.server_name == "api-shop.example.net");
     assert!(api_shop.is_some(), "api-shop.example.net should exist");
     if let Some(a) = api_shop {
         assert_eq!(a.locations.len(), 4, "api-shop should have 4 locations");
         assert_eq!(a.ssl, 1, "api-shop should have SSL");
-        assert_eq!(a.http2, 0, "api-shop should NOT have http2 (listen 443 ssl)");
+        assert_eq!(
+            a.http2, 0,
+            "api-shop should NOT have http2 (listen 443 ssl)"
+        );
     }
 
     // All servers should have listen port
     for srv in &config.servers {
         if !srv.server_name.starts_with('~') && !srv.server_name.is_empty() {
-            assert!(!srv.listen.is_empty(),
-                "server {} should have listen port", srv.server_name);
+            assert!(
+                !srv.listen.is_empty(),
+                "server {} should have listen port",
+                srv.server_name
+            );
         }
     }
 }
 
-fn parse_and_count(name: &str, text: &str) -> supertool_core::logic::nginx_parser::ParsedNginxConfig {
+fn parse_and_count(
+    name: &str,
+    text: &str,
+) -> supertool_core::logic::nginx_parser::ParsedNginxConfig {
     let config = supertool_core::logic::nginx_parser::parse_nginx_config(text)
         .unwrap_or_else(|e| panic!("{}: parse failed: {}", name, e));
-    eprintln!("[{}] basic={} http={} upstream={} server={} stream={}",
-        name, config.basic_settings.len(), config.http_params.len(),
-        config.upstreams.len(), config.servers.len(), config.streams.len());
+    eprintln!(
+        "[{}] basic={} http={} upstream={} server={} stream={}",
+        name,
+        config.basic_settings.len(),
+        config.http_params.len(),
+        config.upstreams.len(),
+        config.servers.len(),
+        config.streams.len()
+    );
     config
 }
 
 #[test]
 fn test_all_scenario_configs() {
-    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("testdata");
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("testdata");
     let files = [
-        ("nginx_simple.conf",      1, 0, 0, 1, 0),
-        ("nginx_single_domain.conf",0, 0, 0, 2, 0),
+        ("nginx_simple.conf", 1, 0, 0, 1, 0),
+        ("nginx_single_domain.conf", 0, 0, 0, 2, 0),
         ("nginx_multi_domain.conf", 0, 0, 4, 3, 0),
         ("nginx_port_forward.conf", 0, 0, 0, 1, 6),
-        ("nginx_reverse_proxy.conf",0, 0, 4, 2, 0),
-        ("nginx_complex_app.conf",  0, 0, 3, 5, 1),
+        ("nginx_reverse_proxy.conf", 0, 0, 4, 2, 0),
+        ("nginx_complex_app.conf", 0, 0, 3, 5, 1),
     ];
 
     let mut total = 0;
@@ -715,11 +1090,46 @@ fn test_all_scenario_configs() {
             .unwrap_or_else(|e| panic!("Cannot read {}: {}", filename, e));
         let config = parse_and_count(filename, &text);
 
-        if *min_bs > 0 { assert!(config.basic_settings.len() >= *min_bs, "{}: expected basic_settings >= {}", filename, min_bs); }
-        if *min_hp > 0 { assert!(config.http_params.len() >= *min_hp, "{}: expected http_params >= {}", filename, min_hp); }
-        if *exact_up > 0 { assert_eq!(config.upstreams.len(), *exact_up, "{}: upstream count mismatch", filename); }
-        if *exact_srv > 0 { assert_eq!(config.servers.len(), *exact_srv, "{}: server count mismatch", filename); }
-        if *exact_st > 0 { assert_eq!(config.streams.len(), *exact_st, "{}: stream count mismatch", filename); }
+        if *min_bs > 0 {
+            assert!(
+                config.basic_settings.len() >= *min_bs,
+                "{}: expected basic_settings >= {}",
+                filename,
+                min_bs
+            );
+        }
+        if *min_hp > 0 {
+            assert!(
+                config.http_params.len() >= *min_hp,
+                "{}: expected http_params >= {}",
+                filename,
+                min_hp
+            );
+        }
+        if *exact_up > 0 {
+            assert_eq!(
+                config.upstreams.len(),
+                *exact_up,
+                "{}: upstream count mismatch",
+                filename
+            );
+        }
+        if *exact_srv > 0 {
+            assert_eq!(
+                config.servers.len(),
+                *exact_srv,
+                "{}: server count mismatch",
+                filename
+            );
+        }
+        if *exact_st > 0 {
+            assert_eq!(
+                config.streams.len(),
+                *exact_st,
+                "{}: stream count mismatch",
+                filename
+            );
+        }
 
         // Verify no server has empty listen unless it's a redirect-only server
         for srv in &config.servers {
@@ -727,7 +1137,12 @@ fn test_all_scenario_configs() {
                 // Stream servers parsed as HTTP servers would have no server_name — skip
                 continue;
             }
-            assert!(!srv.listen.is_empty(), "{}: server {} should have listen port", filename, srv.server_name);
+            assert!(
+                !srv.listen.is_empty(),
+                "{}: server {} should have listen port",
+                filename,
+                srv.server_name
+            );
         }
 
         total += 1;
@@ -786,7 +1201,7 @@ fn insert_parsed_to_db(
         for (si, srv) in up.servers.iter().enumerate() {
             let srv_id = format!("up-{}-srv-{}", ui, si);
             let (host, port) = if let Some(pos) = srv.address.rfind(':') {
-                (&srv.address[..pos], &srv.address[pos+1..])
+                (&srv.address[..pos], &srv.address[pos + 1..])
             } else {
                 (srv.address.as_str(), "80")
             };
@@ -808,7 +1223,8 @@ fn insert_parsed_to_db(
             }
         }
     }
-    let mut cert_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut cert_lookup: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for (idx, (pem_key, pem_path, key_path)) in cert_map.iter().enumerate() {
         let cert_id = format!("icert-{}", idx);
         conn.execute(
@@ -891,10 +1307,11 @@ fn test_production_round_trip_generate() {
     use std::io::Write;
 
     let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("testdata");
+        .parent()
+        .unwrap()
+        .join("testdata");
     let path = test_dir.join("nginx_production.conf");
-    let original = std::fs::read_to_string(&path)
-        .expect("Cannot read nginx_production.conf");
+    let original = std::fs::read_to_string(&path).expect("Cannot read nginx_production.conf");
 
     // Step 1: Parse
     let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&original)
@@ -927,10 +1344,20 @@ fn test_production_round_trip_generate() {
         .expect("Generated config should parse");
 
     // Print comparison report
-    eprintln!("
-============= PRODUCTION CONFIG ROUND-TRIP REPORT =============");
-    eprintln!("Original size: {} bytes, {} lines", original.len(), original.lines().count());
-    eprintln!("Generated size: {} bytes, {} lines", generated.len(), generated.lines().count());
+    eprintln!(
+        "
+============= PRODUCTION CONFIG ROUND-TRIP REPORT ============="
+    );
+    eprintln!(
+        "Original size: {} bytes, {} lines",
+        original.len(),
+        original.lines().count()
+    );
+    eprintln!(
+        "Generated size: {} bytes, {} lines",
+        generated.len(),
+        generated.lines().count()
+    );
     eprintln!();
 
     // Basic settings
@@ -951,52 +1378,95 @@ fn test_production_round_trip_generate() {
     }
 
     // HTTP params
-    eprintln!("
---- HTTP Params ---");
-    eprintln!("  Original: {} (including geo blocks)", parsed.http_params.len());
+    eprintln!(
+        "
+--- HTTP Params ---"
+    );
+    eprintln!(
+        "  Original: {} (including geo blocks)",
+        parsed.http_params.len()
+    );
     eprintln!("  Generated: {}", parsed_gen.http_params.len());
 
     // Upstreams comparison
-    eprintln!("
---- Upstreams ---");
+    eprintln!(
+        "
+--- Upstreams ---"
+    );
     eprintln!("  Original: {} upstreams", parsed.upstreams.len());
     eprintln!("  Generated: {} upstreams", parsed_gen.upstreams.len());
     for up in &parsed.upstreams {
         let matched = parsed_gen.upstreams.iter().find(|g| g.name == up.name);
         match matched {
             Some(g) => {
-                let srv_match = if g.servers.len() == up.servers.len() { "✅" } else { "❌" };
-                let strategy = if g.strategy == up.strategy { "✅" } else { "❌" };
-                eprintln!("  {} {} ({} servers, strategy={})",
-                    if srv_match == "✅" && strategy == "✅" { "✅" } else { "❌" },
-                    up.name, up.servers.len(), strategy);
+                let srv_match = if g.servers.len() == up.servers.len() {
+                    "✅"
+                } else {
+                    "❌"
+                };
+                let strategy = if g.strategy == up.strategy {
+                    "✅"
+                } else {
+                    "❌"
+                };
+                eprintln!(
+                    "  {} {} ({} servers, strategy={})",
+                    if srv_match == "✅" && strategy == "✅" {
+                        "✅"
+                    } else {
+                        "❌"
+                    },
+                    up.name,
+                    up.servers.len(),
+                    strategy
+                );
             }
             None => eprintln!("  ❌ MISSING: {}", up.name),
         }
     }
 
     // Servers comparison
-    eprintln!("
---- Servers ---");
+    eprintln!(
+        "
+--- Servers ---"
+    );
     eprintln!("  Original: {} servers", parsed.servers.len());
     eprintln!("  Generated: {} servers", parsed_gen.servers.len());
     for srv in &parsed.servers {
-        let name = if srv.server_name.starts_with('~') { "(regex preay)" } else { &srv.server_name };
-        let matched = parsed_gen.servers.iter().find(|g|
-            g.server_name == srv.server_name);
+        let name = if srv.server_name.starts_with('~') {
+            "(regex preay)"
+        } else {
+            &srv.server_name
+        };
+        let matched = parsed_gen
+            .servers
+            .iter()
+            .find(|g| g.server_name == srv.server_name);
         match matched {
             Some(g) => {
                 let ssl = if g.ssl == srv.ssl { "✅" } else { "❌" };
-                let locs = if g.locations.len() == srv.locations.len() { "✅" } else { "❌" };
-                eprintln!("  ✅ {} SSL={} locations={} ({})", name, ssl, locs, srv.locations.len());
+                let locs = if g.locations.len() == srv.locations.len() {
+                    "✅"
+                } else {
+                    "❌"
+                };
+                eprintln!(
+                    "  ✅ {} SSL={} locations={} ({})",
+                    name,
+                    ssl,
+                    locs,
+                    srv.locations.len()
+                );
             }
             None => eprintln!("  ❌ MISSING: {} ({} locations)", name, srv.locations.len()),
         }
     }
 
     // Streams
-    eprintln!("
---- Streams ---");
+    eprintln!(
+        "
+--- Streams ---"
+    );
     eprintln!("  Original: {} streams", parsed.streams.len());
     eprintln!("  Generated: {} streams", parsed_gen.streams.len());
 
@@ -1004,8 +1474,10 @@ fn test_production_round_trip_generate() {
     let out_path = test_dir.join("nginx_production_generated.conf");
     let mut f = std::fs::File::create(&out_path).unwrap();
     f.write_all(generated.as_bytes()).unwrap();
-    eprintln!("
-✅ Generated config written to: testdata/nginx_production_generated.conf");
+    eprintln!(
+        "
+✅ Generated config written to: testdata/nginx_production_generated.conf"
+    );
 
     // Show first 20 lines of each for quick visual comparison
     eprintln!("\n============= FIRST 20 LINES COMPARISON =============");
@@ -1019,18 +1491,32 @@ fn test_production_round_trip_generate() {
     }
 
     // Key structural assertions
-    assert_eq!(parsed_gen.upstreams.len(), parsed.upstreams.len(),
-        "Generated should have same number of upstreams");
-    assert_eq!(parsed_gen.servers.len(), parsed.servers.len(),
-        "Generated should have same number of servers");
+    assert_eq!(
+        parsed_gen.upstreams.len(),
+        parsed.upstreams.len(),
+        "Generated should have same number of upstreams"
+    );
+    assert_eq!(
+        parsed_gen.servers.len(),
+        parsed.servers.len(),
+        "Generated should have same number of servers"
+    );
 
     // Verify each original upstream exists in generated
     for up in &parsed.upstreams {
         let gen_up = parsed_gen.upstreams.iter().find(|g| g.name == up.name);
-        assert!(gen_up.is_some(), "Upstream {} should be in generated config", up.name);
+        assert!(
+            gen_up.is_some(),
+            "Upstream {} should be in generated config",
+            up.name
+        );
         if let Some(g) = gen_up {
-            assert_eq!(g.servers.len(), up.servers.len(),
-                "Upstream {} should have same number of servers", up.name);
+            assert_eq!(
+                g.servers.len(),
+                up.servers.len(),
+                "Upstream {} should have same number of servers",
+                up.name
+            );
         }
     }
 }
@@ -1040,21 +1526,29 @@ fn test_prod2_round_trip_generate() {
     use std::io::Write;
 
     let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("testdata");
+        .parent()
+        .unwrap()
+        .join("testdata");
     let path = test_dir.join("nginx_prod2.conf");
-    let original = std::fs::read_to_string(&path)
-        .expect("Cannot read nginx_prod2.conf");
+    let original = std::fs::read_to_string(&path).expect("Cannot read nginx_prod2.conf");
 
-    eprintln!("Loading nginx_prod2.conf: {} bytes, {} lines",
-        original.len(), original.lines().count());
+    eprintln!(
+        "Loading nginx_prod2.conf: {} bytes, {} lines",
+        original.len(),
+        original.lines().count()
+    );
 
     // Step 1: Parse
     let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&original)
         .expect("nginx_prod2.conf should parse");
 
-    eprintln!("Parsed: {} upstreams, {} servers, {} http_params, {} basic_settings",
-        parsed.upstreams.len(), parsed.servers.len(),
-        parsed.http_params.len(), parsed.basic_settings.len());
+    eprintln!(
+        "Parsed: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.http_params.len(),
+        parsed.basic_settings.len()
+    );
 
     // Step 2: Insert into DB
     let (conn, preset_id) = setup_empty_db_for_import();
@@ -1079,29 +1573,54 @@ fn test_prod2_round_trip_generate() {
 
     // Report
     eprintln!("\n============= PROD2 ROUND-TRIP REPORT =============");
-    eprintln!("Original: {} upstreams, {} servers, {} http_params, {} basic_settings",
-        parsed.upstreams.len(), parsed.servers.len(),
-        parsed.http_params.len(), parsed.basic_settings.len());
-    eprintln!("Generated: {} upstreams, {} servers, {} http_params, {} basic_settings",
-        parsed_gen.upstreams.len(), parsed_gen.servers.len(),
-        parsed_gen.http_params.len(), parsed_gen.basic_settings.len());
+    eprintln!(
+        "Original: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.http_params.len(),
+        parsed.basic_settings.len()
+    );
+    eprintln!(
+        "Generated: {} upstreams, {} servers, {} http_params, {} basic_settings",
+        parsed_gen.upstreams.len(),
+        parsed_gen.servers.len(),
+        parsed_gen.http_params.len(),
+        parsed_gen.basic_settings.len()
+    );
 
     // Check missing upstreams
     for up in &parsed.upstreams {
         let found = parsed_gen.upstreams.iter().any(|g| g.name == up.name);
-        if !found { eprintln!("  ❌ MISSING upstream: {}", up.name); }
+        if !found {
+            eprintln!("  ❌ MISSING upstream: {}", up.name);
+        }
     }
 
     // Check missing servers
     for srv in &parsed.servers {
-        let name = if srv.server_name.is_empty() { &srv.listen } else { &srv.server_name };
-        let found = parsed_gen.servers.iter().any(|g| g.server_name == srv.server_name);
-        if !found { eprintln!("  ❌ MISSING server: {} (listen={})", name, srv.listen); }
+        let name = if srv.server_name.is_empty() {
+            &srv.listen
+        } else {
+            &srv.server_name
+        };
+        let found = parsed_gen
+            .servers
+            .iter()
+            .any(|g| g.server_name == srv.server_name);
+        if !found {
+            eprintln!("  ❌ MISSING server: {} (listen={})", name, srv.listen);
+        }
     }
 
     // Assert
-    assert_eq!(parsed_gen.upstreams.len(), parsed.upstreams.len(),
-        "Same upstream count");
-    assert_eq!(parsed_gen.servers.len(), parsed.servers.len(),
-        "Same server count");
+    assert_eq!(
+        parsed_gen.upstreams.len(),
+        parsed.upstreams.len(),
+        "Same upstream count"
+    );
+    assert_eq!(
+        parsed_gen.servers.len(),
+        parsed.servers.len(),
+        "Same server count"
+    );
 }

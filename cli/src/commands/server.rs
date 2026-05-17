@@ -1,20 +1,28 @@
-use crate::types::*;
-use crate::runtime::CliRuntime;
 use crate::output::*;
+use crate::runtime::CliRuntime;
+use crate::types::*;
 use crate::utils::*;
 use anyhow::Result;
 
 pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Result<()> {
     match action {
         ServerCommands::List { json } => {
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&servers);
             } else {
                 println!("\n  服务器 ({}):", servers.len());
                 // 获取分组
-                let groups: serde_json::Value = runtime.core.get_all_server_groups().await.unwrap_or(serde_json::json!([]));
+                let groups: serde_json::Value = runtime
+                    .core
+                    .get_all_server_groups()
+                    .await
+                    .unwrap_or(serde_json::json!([]));
                 let group_map: std::collections::HashMap<String, String> = groups
                     .as_array()
                     .cloned()
@@ -33,9 +41,14 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     let group_name = if gid.is_empty() {
                         "未分组".to_string()
                     } else {
-                        group_map.get(gid).cloned().unwrap_or_else(|| gid.to_string())
+                        group_map
+                            .get(gid)
+                            .cloned()
+                            .unwrap_or_else(|| gid.to_string())
                     };
-                    if let Some((_, items)) = groups_order.iter_mut().find(|(g, _)| g == &group_name) {
+                    if let Some((_, items)) =
+                        groups_order.iter_mut().find(|(g, _)| g == &group_name)
+                    {
                         items.push(s);
                     } else {
                         groups_order.push((group_name, vec![s]));
@@ -58,29 +71,45 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             port,
             user,
         } => {
-            let _ = runtime.core.add_server(serde_json::json!({
-                "name": name,
-                "host": host,
-                "port": port.unwrap_or(22),
-                "username": user.as_deref().unwrap_or("root"),
-                "type": "ssh",
-                "password": ""
-            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .add_server(serde_json::json!({
+                    "name": name,
+                    "host": host,
+                    "port": port.unwrap_or(22),
+                    "username": user.as_deref().unwrap_or("root"),
+                    "type": "ssh",
+                    "password": ""
+                }))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("服务器已添加: {} ({})", name, host));
         }
         ServerCommands::Delete { id } => {
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             let name = servers
                 .iter()
                 .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
                 .and_then(|s| s.get("name").and_then(|v| v.as_str()))
                 .unwrap_or(id.as_str());
-            let _ = runtime.core.delete_server(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .delete_server(id)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("服务器已删除: {}", name));
         }
         ServerCommands::Test { id } => {
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             if let Some(s) = servers
                 .iter()
@@ -93,13 +122,23 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     "username": s.get("username").and_then(|v| v.as_str()).unwrap_or("root"),
                     "name": s.get("name").and_then(|v| v.as_str()).unwrap_or("")
                 });
-                let resp: serde_json::Value = runtime.core.test_server_connection(config).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-                if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                let resp: serde_json::Value = runtime
+                    .core
+                    .test_server_connection(config)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                if resp
+                    .get("success")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     print_success("连接测试成功");
                 } else {
                     print_error(&format!(
                         "连接失败: {}",
-                        resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                        resp.get("error")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("未知错误")
                     ));
                 }
             } else {
@@ -116,7 +155,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 anyhow::bail!("⚠️ 检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。");
             }
             // 检查服务器是否开启执行审核
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             if let Some(server) = servers
                 .iter()
@@ -127,28 +170,42 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false)
                 {
-                    let name = server
-                        .get("name")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or(id);
-                    anyhow::bail!("⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。", name);
+                    let name = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
+                    anyhow::bail!(
+                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                        name
+                    );
                 }
             }
-            let resp: serde_json::Value = runtime.core.exec_ssh_command(id, command).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let resp: serde_json::Value = runtime
+                .core
+                .exec_ssh_command(id, command)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
                     println!("{}", output);
                 }
             } else {
                 anyhow::bail!(
                     "执行失败: {}",
-                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知错误")
                 );
             }
             let _ = timeout; // timeout is handled by CoreService internally
         }
         ServerCommands::Health { id, json } => {
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             let server = servers
                 .iter()
@@ -167,24 +224,43 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                anyhow::bail!("⚠️ 服务器「{}」已开启执行审核，CLI 不支持健康检查（需执行命令）。请在 GUI 中操作。", name);
+                anyhow::bail!(
+                    "⚠️ 服务器「{}」已开启执行审核，CLI 不支持健康检查（需执行命令）。请在 GUI 中操作。",
+                    name
+                );
             }
             let checks = [
-                ("磁盘", "df -h / | tail -1 | awk '{print \"已用: \" $3 \" / \" $2 \" (\" $5 \")\"}'"),
-                ("内存", "free -m | awk 'NR==2{printf \"已用: %sMB / %sMB (%.1f%%)\\n\", $3, $2, $3*100/$2}'"),
-                ("CPU 负载", "uptime | awk -F'load average:' '{print $2}' | xargs"),
-                ("Docker", "docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo 'Docker 未运行'"),
-                ("关键进程", "ps aux | grep -E 'java|nginx|node|python' | grep -v grep | head -5 || echo '无关键进程'"),
+                (
+                    "磁盘",
+                    "df -h / | tail -1 | awk '{print \"已用: \" $3 \" / \" $2 \" (\" $5 \")\"}'",
+                ),
+                (
+                    "内存",
+                    "free -m | awk 'NR==2{printf \"已用: %sMB / %sMB (%.1f%%)\\n\", $3, $2, $3*100/$2}'",
+                ),
+                (
+                    "CPU 负载",
+                    "uptime | awk -F'load average:' '{print $2}' | xargs",
+                ),
+                (
+                    "Docker",
+                    "docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo 'Docker 未运行'",
+                ),
+                (
+                    "关键进程",
+                    "ps aux | grep -E 'java|nginx|node|python' | grep -v grep | head -5 || echo '无关键进程'",
+                ),
             ];
             if *json {
                 let mut results = serde_json::Map::new();
-                results.insert(
-                    "server".into(),
-                    serde_json::json!({"name": name, "id": id}),
-                );
+                results.insert("server".into(), serde_json::json!({"name": name, "id": id}));
                 let mut items = Vec::new();
                 for (label, cmd) in &checks {
-                    let resp: serde_json::Value = runtime.core.exec_ssh_command(id, cmd).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+                    let resp: serde_json::Value = runtime
+                        .core
+                        .exec_ssh_command(id, cmd)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{}", e))?;
                     items.push(serde_json::json!({
                         "check": label,
                         "ok": resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false),
@@ -197,7 +273,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 println!("\n  🏥 服务器健康检查: {}", name);
                 println!("  {}", "─".repeat(40));
                 for (label, cmd) in &checks {
-                    let resp: serde_json::Value = runtime.core.exec_ssh_command(id, cmd).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+                    let resp: serde_json::Value = runtime
+                        .core
+                        .exec_ssh_command(id, cmd)
+                        .await
+                        .map_err(|e| anyhow::anyhow!("{}", e))?;
                     let output = resp
                         .get("output")
                         .and_then(|v| v.as_str())
@@ -205,7 +285,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                         .trim();
                     println!(
                         "\n  {} {}:",
-                        if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                        if resp
+                            .get("success")
+                            .and_then(|v| v.as_bool())
+                            .unwrap_or(false)
+                        {
                             "✅"
                         } else {
                             "❌"
@@ -223,7 +307,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             }
         }
         ServerCommands::Diagnose { id, json } => {
-            let servers: serde_json::Value = runtime.core.get_all_servers().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let servers = servers.as_array().cloned().unwrap_or_default();
             let server = servers
                 .iter()
@@ -242,10 +330,17 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false)
             {
-                anyhow::bail!("⚠️ 服务器「{}」已开启执行审核，CLI 不支持智能诊断（需执行命令）。请在 GUI 中操作。", name);
+                anyhow::bail!(
+                    "⚠️ 服务器「{}」已开启执行审核，CLI 不支持智能诊断（需执行命令）。请在 GUI 中操作。",
+                    name
+                );
             }
             let script = r#"echo "=== SYSTEM ===" && uname -a && echo "=== DISK ===" && df -h / && echo "=== MEMORY ===" && free -m && echo "=== LOAD ===" && uptime && echo "=== DOCKER ===" && docker ps --format 'table {{.Names}}\t{{.Status}}' 2>/dev/null || echo "No Docker" && echo "=== ERRORS (syslog) ===" && tail -n 20 /var/log/syslog 2>/dev/null | grep -i error && echo "=== ERRORS (kern) ===" && dmesg 2>/dev/null | tail -n 10 && echo "=== TOP PROCESSES ===" && ps aux --sort=-%cpu | head -6"#;
-            let resp: serde_json::Value = runtime.core.exec_ssh_command(id, script).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let resp: serde_json::Value = runtime
+                .core
+                .exec_ssh_command(id, script)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             if *json {
                 print_json(&serde_json::json!({
                     "server": name,
@@ -255,7 +350,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             } else {
                 println!("\n  🩺 智能诊断: {}", name);
                 println!("  {}", "─".repeat(40));
-                if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if resp
+                    .get("success")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
                         if !output.trim().is_empty() {
                             println!("{}", output);
@@ -291,8 +390,16 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
                 }
             }
             // Fallback to exec
-            let resp: serde_json::Value = runtime.core.exec_ssh_command(id, &format!("cat {}", shell_quote(path))).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let resp: serde_json::Value = runtime
+                .core
+                .exec_ssh_command(id, &format!("cat {}", shell_quote(path)))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
                     println!("  📄 {}\n  {}", path, "─".repeat(40));
                     println!("{}", output);
@@ -300,13 +407,19 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             } else {
                 anyhow::bail!(
                     "读取文件失败: {}",
-                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知错误")
                 );
             }
         }
         ServerCommands::Ls { id, path, json } => {
             let path_ref = path.as_deref().unwrap_or("/");
-            let resp: serde_json::Value = runtime.core.sftp_list_dir(id, path_ref).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let resp: serde_json::Value = runtime
+                .core
+                .sftp_list_dir(id, path_ref)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             if let Some(error) = resp.get("error").and_then(|v| v.as_str()) {
                 anyhow::bail!("{}", error);
             }
@@ -314,7 +427,11 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             if *json {
                 print_json(&files);
             } else {
-                println!("\n  📁 {} ({} 项):", path.as_deref().unwrap_or("/"), files.len());
+                println!(
+                    "\n  📁 {} ({} 项):",
+                    path.as_deref().unwrap_or("/"),
+                    files.len()
+                );
                 println!("  {}", "─".repeat(60));
                 for f in &files {
                     let name = f.get("name").and_then(|v| v.as_str()).unwrap_or("");
@@ -334,30 +451,48 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
             let local_path = output
                 .as_deref()
                 .unwrap_or(&remote.split('/').last().unwrap_or("downloaded"));
-            let resp: serde_json::Value = runtime.core.sftp_download_to_local(id, remote, local_path).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let resp: serde_json::Value = runtime
+                .core
+                .sftp_download_to_local(id, remote, local_path)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 let size = std::fs::metadata(local_path).map(|m| m.len()).unwrap_or(0);
                 print_success(&format!(
                     "已下载: {} → {} ({} bytes)",
-                    remote,
-                    local_path,
-                    size
+                    remote, local_path, size
                 ));
             } else {
                 anyhow::bail!(
                     "{}",
-                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("下载失败")
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("下载失败")
                 );
             }
         }
         ServerCommands::Mkdir { id, path } => {
-            let resp: serde_json::Value = runtime.core.sftp_create_dir(id, path).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let resp: serde_json::Value = runtime
+                .core
+                .sftp_create_dir(id, path)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 print_success(&format!("目录已创建: {}", path));
             } else {
                 anyhow::bail!(
                     "创建失败: {}",
-                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知错误")
                 );
             }
         }
@@ -370,14 +505,22 @@ pub async fn cmd_server(runtime: &mut CliRuntime, action: &ServerCommands) -> Re
   mem=$(echo "$line" | awk '{printf "%.1f%%", $4}')
   echo "PID:$pid | Port:${port:-N/A} | Uptime:$uptime | Heap:${heap:-N/A} | Mem:$mem"
 done || echo "未找到 Java 进程""#;
-            let resp: serde_json::Value = runtime.core.exec_ssh_command(id, cmd).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let resp: serde_json::Value = runtime
+                .core
+                .exec_ssh_command(id, cmd)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             if *json {
                 let output = resp.get("output").and_then(|v| v.as_str()).unwrap_or("");
                 print_json(&serde_json::json!({
                     "processes": output.lines().map(|l| l.to_string()).collect::<Vec<_>>()
                 }));
             } else {
-                if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                if resp
+                    .get("success")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
                     let output = resp
                         .get("output")
                         .and_then(|v| v.as_str())

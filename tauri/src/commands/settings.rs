@@ -48,14 +48,13 @@ pub async fn get_app_version() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!(version))
 }
 
-
 // =================== Additional Commands ===================
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn check_network_permission(_host: String, port: i64) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] check_network_permission() called");
     use std::net::UdpSocket;
-    
+
     // Test UDP broadcast capability — this is the real macOS Local Network Privacy check
     // TCP connect to 0.0.0.0:0 would always fail; UDP bind+send is the correct test
     match UdpSocket::bind("0.0.0.0:0") {
@@ -108,13 +107,22 @@ pub fn get_data_dir() -> Result<serde_json::Value, String> {
                 if !custom_path.is_empty() {
                     (custom_path, true)
                 } else {
-                    (home_dir.join(".supertool").to_string_lossy().to_string(), false)
+                    (
+                        home_dir.join(".supertool").to_string_lossy().to_string(),
+                        false,
+                    )
                 }
             }
-            Err(_) => (home_dir.join(".supertool").to_string_lossy().to_string(), false),
+            Err(_) => (
+                home_dir.join(".supertool").to_string_lossy().to_string(),
+                false,
+            ),
         }
     } else {
-        (home_dir.join(".supertool").to_string_lossy().to_string(), false)
+        (
+            home_dir.join(".supertool").to_string_lossy().to_string(),
+            false,
+        )
     };
 
     Ok(serde_json::json!({
@@ -139,8 +147,7 @@ pub fn set_data_dir(path: String) -> Result<serde_json::Value, String> {
     if path.is_empty() {
         // Reset to default: remove config file
         if config_file.exists() {
-            std::fs::remove_file(&config_file)
-                .map_err(|e| format!("删除配置文件失败: {}", e))?;
+            std::fs::remove_file(&config_file).map_err(|e| format!("删除配置文件失败: {}", e))?;
         }
         return Ok(serde_json::json!({
             "success": true,
@@ -156,13 +163,11 @@ pub fn set_data_dir(path: String) -> Result<serde_json::Value, String> {
 
     // Create directory if it doesn't exist
     if !target.exists() {
-        std::fs::create_dir_all(&target)
-            .map_err(|e| format!("创建目录失败: {}", e))?;
+        std::fs::create_dir_all(&target).map_err(|e| format!("创建目录失败: {}", e))?;
     }
 
     // Write config file
-    std::fs::write(&config_file, &path)
-        .map_err(|e| format!("写入配置文件失败: {}", e))?;
+    std::fs::write(&config_file, &path).map_err(|e| format!("写入配置文件失败: {}", e))?;
 
     Ok(serde_json::json!({
         "success": true,

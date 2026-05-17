@@ -135,7 +135,14 @@ pub fn scan_local_repos(directories: Option<Vec<String>>) -> Result<Vec<RepoScan
     let dirs = directories.unwrap_or_else(|| {
         let home = dirs::home_dir().unwrap_or_default();
         let mut d = Vec::new();
-        for sub in &["projects", "workspace", "code", "repos", "IdeaProjects", "WebstormProjects"] {
+        for sub in &[
+            "projects",
+            "workspace",
+            "code",
+            "repos",
+            "IdeaProjects",
+            "WebstormProjects",
+        ] {
             let p = home.join(sub);
             if p.exists() && p.is_dir() {
                 d.push(p.to_string_lossy().to_string());
@@ -146,14 +153,20 @@ pub fn scan_local_repos(directories: Option<Vec<String>>) -> Result<Vec<RepoScan
         }
         d
     });
-    log::info!("[Tauri CMD] scan_local_repos() called with {} directories", dirs.len());
+    log::info!(
+        "[Tauri CMD] scan_local_repos() called with {} directories",
+        dirs.len()
+    );
 
     let mut repos = Vec::new();
 
     for scan_path_str in &dirs {
         let scan_path = Path::new(scan_path_str);
         if !scan_path.exists() || !scan_path.is_dir() {
-            log::warn!("[scan_local_repos] Path does not exist or not a directory: {}", scan_path_str);
+            log::warn!(
+                "[scan_local_repos] Path does not exist or not a directory: {}",
+                scan_path_str
+            );
             continue;
         }
 
@@ -295,7 +308,10 @@ pub async fn get_git_commit_detail(
     repo_path: String,
     commit_hash: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_git_commit_detail() called, hash={}", commit_hash);
+    log::info!(
+        "[Tauri CMD] get_git_commit_detail() called, hash={}",
+        commit_hash
+    );
     supertool_core::logic::git::git_commit_diff(&repo_path, &commit_hash)
         .await
         .map_err(|e| format!("获取提交详情失败: {}", e))
@@ -341,7 +357,10 @@ pub async fn git_log(repo_path: String, limit: Option<usize>) -> Result<serde_js
 
 /// Get diff for a file or entire repo
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_diff(repo_path: String, file: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_diff(
+    repo_path: String,
+    file: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_diff() called");
     supertool_core::logic::git::git_diff(&repo_path, file.as_deref())
         .await
@@ -362,7 +381,10 @@ pub async fn git_add(repo_path: String, files: Vec<String>) -> Result<serde_json
 
 /// Reset files from staging
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_reset(repo_path: String, file: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_reset(
+    repo_path: String,
+    file: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_reset() called");
     supertool_core::logic::git::git_reset(&repo_path, file.as_deref())
         .await
@@ -371,7 +393,11 @@ pub async fn git_reset(repo_path: String, file: Option<String>) -> Result<serde_
 
 /// Commit changes
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_commit(repo_path: String, message: String, files: Option<Vec<String>>) -> Result<serde_json::Value, String> {
+pub async fn git_commit(
+    repo_path: String,
+    message: String,
+    files: Option<Vec<String>>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_commit() called");
     // Handle files: convert to Vec<&str> if provided
     match files {
@@ -380,12 +406,10 @@ pub async fn git_commit(repo_path: String, message: String, files: Option<Vec<St
             supertool_core::logic::git::git_commit(&repo_path, &message, Some(&files_str))
                 .await
                 .map_err(|e| format!("提交失败: {}", e))
-        },
-        _ => {
-            supertool_core::logic::git::git_commit(&repo_path, &message, None)
-                .await
-                .map_err(|e| format!("提交失败: {}", e))
         }
+        _ => supertool_core::logic::git::git_commit(&repo_path, &message, None)
+            .await
+            .map_err(|e| format!("提交失败: {}", e)),
     }
 }
 
@@ -400,8 +424,15 @@ pub async fn git_checkout(repo_path: String, branch: String) -> Result<serde_jso
 
 /// Create a new branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_create_branch(repo_path: String, branch_name: String, from: Option<String>) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_create_branch() called, branch={}", branch_name);
+pub async fn git_create_branch(
+    repo_path: String,
+    branch_name: String,
+    from: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_create_branch() called, branch={}",
+        branch_name
+    );
     supertool_core::logic::git::git_create_branch(&repo_path, &branch_name, from.as_deref())
         .await
         .map_err(|e| format!("创建分支失败: {}", e))
@@ -409,8 +440,15 @@ pub async fn git_create_branch(repo_path: String, branch_name: String, from: Opt
 
 /// Delete a branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_delete_branch(repo_path: String, branch_name: String, force: bool) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_delete_branch() called, branch={}", branch_name);
+pub async fn git_delete_branch(
+    repo_path: String,
+    branch_name: String,
+    force: bool,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_delete_branch() called, branch={}",
+        branch_name
+    );
     supertool_core::logic::git::git_delete_branch(&repo_path, &branch_name, force)
         .await
         .map_err(|e| format!("删除分支失败: {}", e))
@@ -456,7 +494,10 @@ pub async fn git_force_push(repo_path: String) -> Result<serde_json::Value, Stri
 
 /// Fetch from remote(s)
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_fetch(repo_path: String, remote: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_fetch(
+    repo_path: String,
+    remote: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_fetch() called");
     supertool_core::logic::git::git_fetch(&repo_path, remote.as_deref())
         .await
@@ -474,7 +515,10 @@ pub async fn git_remotes(repo_path: String) -> Result<serde_json::Value, String>
 
 /// Discard changes for a file
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_discard_changes(repo_path: String, file: String) -> Result<serde_json::Value, String> {
+pub async fn git_discard_changes(
+    repo_path: String,
+    file: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_discard_changes() called, file={}", file);
     supertool_core::logic::git::git_discard_changes(&repo_path, &file)
         .await
@@ -492,9 +536,14 @@ pub async fn git_stash_save(
     keep_index: bool,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_stash_save() called");
-    supertool_core::logic::git::git_stash_save(&repo_path, message.as_deref(), include_untracked, keep_index)
-        .await
-        .map_err(|e| format!("保存stash失败: {}", e))
+    supertool_core::logic::git::git_stash_save(
+        &repo_path,
+        message.as_deref(),
+        include_untracked,
+        keep_index,
+    )
+    .await
+    .map_err(|e| format!("保存stash失败: {}", e))
 }
 
 /// List stashes
@@ -508,7 +557,10 @@ pub async fn git_stash_list(repo_path: String) -> Result<serde_json::Value, Stri
 
 /// Apply stash
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_stash_apply(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_stash_apply(
+    repo_path: String,
+    stash_ref: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_stash_apply() called");
     supertool_core::logic::git::git_stash_apply(&repo_path, stash_ref.as_deref())
         .await
@@ -517,7 +569,10 @@ pub async fn git_stash_apply(repo_path: String, stash_ref: Option<String>) -> Re
 
 /// Pop stash
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_stash_pop(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_stash_pop(
+    repo_path: String,
+    stash_ref: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_stash_pop() called");
     supertool_core::logic::git::git_stash_pop(&repo_path, stash_ref.as_deref())
         .await
@@ -526,7 +581,10 @@ pub async fn git_stash_pop(repo_path: String, stash_ref: Option<String>) -> Resu
 
 /// Drop stash
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_stash_drop(repo_path: String, stash_ref: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_stash_drop(
+    repo_path: String,
+    stash_ref: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_stash_drop() called");
     supertool_core::logic::git::git_stash_drop(&repo_path, stash_ref.as_deref())
         .await
@@ -546,7 +604,12 @@ pub async fn git_list_tags(repo_path: String) -> Result<serde_json::Value, Strin
 
 /// Create tag
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_create_tag(repo_path: String, tag_name: String, message: Option<String>, force: bool) -> Result<serde_json::Value, String> {
+pub async fn git_create_tag(
+    repo_path: String,
+    tag_name: String,
+    message: Option<String>,
+    force: bool,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_create_tag() called, tag={}", tag_name);
     supertool_core::logic::git::git_create_tag(&repo_path, &tag_name, message.as_deref(), force)
         .await
@@ -555,7 +618,10 @@ pub async fn git_create_tag(repo_path: String, tag_name: String, message: Option
 
 /// Delete tag
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_delete_tag(repo_path: String, tag_name: String) -> Result<serde_json::Value, String> {
+pub async fn git_delete_tag(
+    repo_path: String,
+    tag_name: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_delete_tag() called, tag={}", tag_name);
     supertool_core::logic::git::git_delete_tag(&repo_path, &tag_name)
         .await
@@ -566,7 +632,11 @@ pub async fn git_delete_tag(repo_path: String, tag_name: String) -> Result<serde
 
 /// Rebase onto branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_rebase(repo_path: String, target_branch: String, onto: Option<String>) -> Result<serde_json::Value, String> {
+pub async fn git_rebase(
+    repo_path: String,
+    target_branch: String,
+    onto: Option<String>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_rebase() called");
     supertool_core::logic::git::git_rebase(&repo_path, &target_branch, onto.as_deref())
         .await
@@ -593,8 +663,15 @@ pub async fn git_rebase_continue(repo_path: String) -> Result<serde_json::Value,
 
 /// Interactive rebase - execute with custom operations
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_rebase_interactive(repo_path: String, base_commit: String, operations: Vec<serde_json::Value>) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_rebase_interactive() called, base={}", base_commit);
+pub async fn git_rebase_interactive(
+    repo_path: String,
+    base_commit: String,
+    operations: Vec<serde_json::Value>,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_rebase_interactive() called, base={}",
+        base_commit
+    );
     supertool_core::logic::git::git_rebase_interactive(&repo_path, &base_commit, operations)
         .await
         .map_err(|e| format!("交互式rebase失败: {}", e))
@@ -602,8 +679,14 @@ pub async fn git_rebase_interactive(repo_path: String, base_commit: String, oper
 
 /// Get commits for interactive rebase preview
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_rebase_todo_list(repo_path: String, base_commit: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_rebase_todo_list() called, base={}", base_commit);
+pub async fn git_rebase_todo_list(
+    repo_path: String,
+    base_commit: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_rebase_todo_list() called, base={}",
+        base_commit
+    );
     supertool_core::logic::git::git_rebase_todo_list(&repo_path, &base_commit)
         .await
         .map_err(|e| format!("获取rebase todo列表失败: {}", e))
@@ -613,7 +696,11 @@ pub async fn git_rebase_todo_list(repo_path: String, base_commit: String) -> Res
 
 /// Get file history
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_file_history(repo_path: String, file_path: String, limit: Option<usize>) -> Result<serde_json::Value, String> {
+pub async fn git_file_history(
+    repo_path: String,
+    file_path: String,
+    limit: Option<usize>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_file_history() called, file={}", file_path);
     supertool_core::logic::git::git_file_history(&repo_path, &file_path, limit)
         .await
@@ -631,7 +718,11 @@ pub async fn git_unpushed_commits(repo_path: String) -> Result<serde_json::Value
 
 /// Cherry-pick a commit
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_cherry_pick(repo_path: String, commit_hash: String, no_commit: bool) -> Result<serde_json::Value, String> {
+pub async fn git_cherry_pick(
+    repo_path: String,
+    commit_hash: String,
+    no_commit: bool,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_cherry_pick() called, hash={}", commit_hash);
     supertool_core::logic::git::git_cherry_pick(&repo_path, &commit_hash, no_commit)
         .await
@@ -640,7 +731,11 @@ pub async fn git_cherry_pick(repo_path: String, commit_hash: String, no_commit: 
 
 /// Revert a commit
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_revert(repo_path: String, commit_hash: String, no_commit: bool) -> Result<serde_json::Value, String> {
+pub async fn git_revert(
+    repo_path: String,
+    commit_hash: String,
+    no_commit: bool,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_revert() called, hash={}", commit_hash);
     supertool_core::logic::git::git_revert(&repo_path, &commit_hash, no_commit)
         .await
@@ -649,7 +744,10 @@ pub async fn git_revert(repo_path: String, commit_hash: String, no_commit: bool)
 
 /// Amend last commit
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_amend_commit(repo_path: String, message: String) -> Result<serde_json::Value, String> {
+pub async fn git_amend_commit(
+    repo_path: String,
+    message: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_amend_commit() called");
     supertool_core::logic::git::git_amend_commit(&repo_path, &message)
         .await
@@ -658,8 +756,15 @@ pub async fn git_amend_commit(repo_path: String, message: String) -> Result<serd
 
 /// Reset to a commit
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_reset_to_commit(repo_path: String, commit_hash: String, mode: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_reset_to_commit() called, hash={}", commit_hash);
+pub async fn git_reset_to_commit(
+    repo_path: String,
+    commit_hash: String,
+    mode: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_reset_to_commit() called, hash={}",
+        commit_hash
+    );
     supertool_core::logic::git::git_reset_to_commit(&repo_path, &commit_hash, &mode)
         .await
         .map_err(|e| format!("重置到提交失败: {}", e))
@@ -667,7 +772,10 @@ pub async fn git_reset_to_commit(repo_path: String, commit_hash: String, mode: S
 
 /// Get file blame
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_file_blame(repo_path: String, file_path: String) -> Result<serde_json::Value, String> {
+pub async fn git_file_blame(
+    repo_path: String,
+    file_path: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_file_blame() called, file={}", file_path);
     supertool_core::logic::git::git_file_blame(&repo_path, &file_path)
         .await
@@ -685,7 +793,10 @@ pub async fn git_submodule_list(repo_path: String) -> Result<serde_json::Value, 
 
 /// Init submodule
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_submodule_init(repo_path: String, recursive: bool) -> Result<serde_json::Value, String> {
+pub async fn git_submodule_init(
+    repo_path: String,
+    recursive: bool,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_submodule_init() called");
     supertool_core::logic::git::git_submodule_init(&repo_path, recursive)
         .await
@@ -696,7 +807,11 @@ pub async fn git_submodule_init(repo_path: String, recursive: bool) -> Result<se
 
 /// Add a remote
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_add_remote(repo_path: String, name: String, url: String) -> Result<serde_json::Value, String> {
+pub async fn git_add_remote(
+    repo_path: String,
+    name: String,
+    url: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_add_remote() called, name={}", name);
     supertool_core::logic::git::git_add_remote(&repo_path, &name, &url)
         .await
@@ -705,7 +820,10 @@ pub async fn git_add_remote(repo_path: String, name: String, url: String) -> Res
 
 /// Remove a remote
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_delete_remote(repo_path: String, name: String) -> Result<serde_json::Value, String> {
+pub async fn git_delete_remote(
+    repo_path: String,
+    name: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_delete_remote() called, name={}", name);
     supertool_core::logic::git::git_remove_remote(&repo_path, &name)
         .await
@@ -714,8 +832,16 @@ pub async fn git_delete_remote(repo_path: String, name: String) -> Result<serde_
 
 /// Rename a branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_rename_branch(repo_path: String, old_name: String, new_name: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_rename_branch() called, {} -> {}", old_name, new_name);
+pub async fn git_rename_branch(
+    repo_path: String,
+    old_name: String,
+    new_name: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_rename_branch() called, {} -> {}",
+        old_name,
+        new_name
+    );
     supertool_core::logic::git::git_rename_branch(&repo_path, &old_name, &new_name)
         .await
         .map_err(|e| format!("重命名分支失败: {}", e))
@@ -723,7 +849,10 @@ pub async fn git_rename_branch(repo_path: String, old_name: String, new_name: St
 
 /// Compare branches
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_diff_branches(repo_path: String, target: String) -> Result<serde_json::Value, String> {
+pub async fn git_diff_branches(
+    repo_path: String,
+    target: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_diff_branches() called, target={}", target);
     supertool_core::logic::git::git_compare_branches(&repo_path, &target, None)
         .await
@@ -741,8 +870,19 @@ pub async fn git_push_tags(repo_path: String) -> Result<serde_json::Value, Strin
 
 /// Clean untracked files
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_clean(repo_path: String, dry_run: bool, force: bool, include_ignored: bool, directories: bool) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_clean() called, dry_run={}, include_ignored={}, directories={}", dry_run, include_ignored, directories);
+pub async fn git_clean(
+    repo_path: String,
+    dry_run: bool,
+    force: bool,
+    include_ignored: bool,
+    directories: bool,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_clean() called, dry_run={}, include_ignored={}, directories={}",
+        dry_run,
+        include_ignored,
+        directories
+    );
     supertool_core::logic::git::git_clean(&repo_path, dry_run, force, include_ignored, directories)
         .await
         .map_err(|e| format!("清理失败: {}", e))
@@ -750,8 +890,14 @@ pub async fn git_clean(repo_path: String, dry_run: bool, force: bool, include_ig
 
 /// Delete remote branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_delete_remote_branch(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_delete_remote_branch() called, branch={}", branch);
+pub async fn git_delete_remote_branch(
+    repo_path: String,
+    branch: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_delete_remote_branch() called, branch={}",
+        branch
+    );
     supertool_core::logic::git::git_delete_remote_branch(&repo_path, "origin", &branch)
         .await
         .map_err(|e| format!("删除远程分支失败: {}", e))
@@ -759,8 +905,14 @@ pub async fn git_delete_remote_branch(repo_path: String, branch: String) -> Resu
 
 /// Checkout remote branch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_checkout_remote_branch(repo_path: String, branch: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_checkout_remote_branch() called, branch={}", branch);
+pub async fn git_checkout_remote_branch(
+    repo_path: String,
+    branch: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_checkout_remote_branch() called, branch={}",
+        branch
+    );
     supertool_core::logic::git::git_checkout_remote_branch(&repo_path, "origin", &branch)
         .await
         .map_err(|e| format!("检出远程分支失败: {}", e))
@@ -768,8 +920,16 @@ pub async fn git_checkout_remote_branch(repo_path: String, branch: String) -> Re
 
 /// Get file at revision
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_get_file_at_revision(repo_path: String, commit: String, path: String) -> Result<String, String> {
-    log::info!("[Tauri CMD] git_get_file_at_revision() called, commit={}, path={}", commit, path);
+pub async fn git_get_file_at_revision(
+    repo_path: String,
+    commit: String,
+    path: String,
+) -> Result<String, String> {
+    log::info!(
+        "[Tauri CMD] git_get_file_at_revision() called, commit={}, path={}",
+        commit,
+        path
+    );
     supertool_core::logic::git::git_file_at_revision(&repo_path, &path, &commit)
         .await
         .map(|v| v.as_str().unwrap_or("").to_string())
@@ -778,8 +938,15 @@ pub async fn git_get_file_at_revision(repo_path: String, commit: String, path: S
 
 /// Update a single submodule
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_submodule_update(repo_path: String, submodule_path: String, recursive: bool) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_submodule_update() called, path={}", submodule_path);
+pub async fn git_submodule_update(
+    repo_path: String,
+    submodule_path: String,
+    recursive: bool,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_submodule_update() called, path={}",
+        submodule_path
+    );
     supertool_core::logic::git::git_submodule_update(&repo_path, &submodule_path, recursive)
         .await
         .map_err(|e| format!("更新子模块失败: {}", e))
@@ -787,7 +954,10 @@ pub async fn git_submodule_update(repo_path: String, submodule_path: String, rec
 
 /// Update all submodules
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_submodule_update_all(repo_path: String, recursive: bool) -> Result<serde_json::Value, String> {
+pub async fn git_submodule_update_all(
+    repo_path: String,
+    recursive: bool,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_submodule_update_all() called");
     supertool_core::logic::git::git_submodule_update_all(&repo_path, recursive)
         .await
@@ -796,8 +966,16 @@ pub async fn git_submodule_update_all(repo_path: String, recursive: bool) -> Res
 
 /// Compare two commits
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_compare_commits(repo_path: String, commit1: String, commit2: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_compare_commits() called, {} vs {}", commit1, commit2);
+pub async fn git_compare_commits(
+    repo_path: String,
+    commit1: String,
+    commit2: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_compare_commits() called, {} vs {}",
+        commit1,
+        commit2
+    );
     supertool_core::logic::git::git_compare_commits(&repo_path, &commit1, &commit2)
         .await
         .map_err(|e| format!("对比提交失败: {}", e))
@@ -805,8 +983,16 @@ pub async fn git_compare_commits(repo_path: String, commit1: String, commit2: St
 
 /// Create a patch file
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_create_patch(repo_path: String, commit1: String, commit2: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] git_create_patch() called, {}..{}", commit1, commit2);
+pub async fn git_create_patch(
+    repo_path: String,
+    commit1: String,
+    commit2: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] git_create_patch() called, {}..{}",
+        commit1,
+        commit2
+    );
     supertool_core::logic::git::git_create_patch(&repo_path, &commit1, &commit2)
         .await
         .map_err(|e| format!("创建补丁失败: {}", e))
@@ -814,7 +1000,10 @@ pub async fn git_create_patch(repo_path: String, commit1: String, commit2: Strin
 
 /// Apply a patch
 #[tauri::command(rename_all = "camelCase")]
-pub async fn git_apply_patch(repo_path: String, patch_content: String) -> Result<serde_json::Value, String> {
+pub async fn git_apply_patch(
+    repo_path: String,
+    patch_content: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] git_apply_patch() called");
     supertool_core::logic::git::git_apply_patch(&repo_path, &patch_content)
         .await
@@ -844,14 +1033,21 @@ pub struct FileTreeEntry {
 
 /// Get file tree for a directory (lazy loading, only one level)
 #[tauri::command(rename_all = "camelCase")]
-pub fn get_file_tree(repo_path: String, subdir: Option<String>) -> Result<Vec<FileTreeEntry>, String> {
-    log::info!("[Tauri CMD] get_file_tree() called, repo_path={}, subdir={:?}", repo_path, subdir);
+pub fn get_file_tree(
+    repo_path: String,
+    subdir: Option<String>,
+) -> Result<Vec<FileTreeEntry>, String> {
+    log::info!(
+        "[Tauri CMD] get_file_tree() called, repo_path={}, subdir={:?}",
+        repo_path,
+        subdir
+    );
     let base_path = if let Some(sub) = subdir {
         Path::new(&repo_path).join(sub)
     } else {
         Path::new(&repo_path).to_path_buf()
     };
-    
+
     scan_directory_one_level(&base_path, &repo_path)
 }
 
@@ -860,30 +1056,30 @@ fn scan_directory_one_level(dir: &Path, base_path: &str) -> Result<Vec<FileTreeE
     if !dir.exists() || !dir.is_dir() {
         return Err(format!("目录不存在或不是目录: {}", dir.display()));
     }
-    
+
     let mut entries: Vec<FileTreeEntry> = Vec::new();
-    let read_dir = std::fs::read_dir(dir)
-        .map_err(|e| format!("无法读取目录: {}", e))?;
-    
+    let read_dir = std::fs::read_dir(dir).map_err(|e| format!("无法读取目录: {}", e))?;
+
     for entry in read_dir {
         let entry = entry.map_err(|e| format!("读取条目失败: {}", e))?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
-        
+
         // Skip hidden files and .git directory
         if name.starts_with('.') {
             continue;
         }
-        
+
         let is_dir = path.is_dir();
-        let relative_path = path.strip_prefix(base_path)
+        let relative_path = path
+            .strip_prefix(base_path)
             .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_else(|_| path.to_string_lossy().to_string());
-        
+
         // For lazy loading: directories have children: None (will be loaded on expand)
         // Files have children: None
         let children = None;
-        
+
         entries.push(FileTreeEntry {
             path: relative_path,
             name,
@@ -891,7 +1087,7 @@ fn scan_directory_one_level(dir: &Path, base_path: &str) -> Result<Vec<FileTreeE
             children,
         });
     }
-    
+
     // Sort: directories first, then files, alphabetically
     entries.sort_by(|a, b| {
         if a.is_dir && !b.is_dir {
@@ -902,7 +1098,7 @@ fn scan_directory_one_level(dir: &Path, base_path: &str) -> Result<Vec<FileTreeE
             a.name.cmp(&b.name)
         }
     });
-    
+
     Ok(entries)
 }
 
@@ -911,33 +1107,34 @@ fn scan_directory_one_level(dir: &Path, base_path: &str) -> Result<Vec<FileTreeE
 pub fn read_file_content(repo_path: String, file_path: String) -> Result<String, String> {
     log::info!("[Tauri CMD] read_file_content() called, file={}", file_path);
     let full_path = Path::new(&repo_path).join(&file_path);
-    
+
     if !full_path.exists() {
         return Err(format!("文件不存在: {}", file_path));
     }
-    
+
     if full_path.is_dir() {
         return Err(format!("是目录，不是文件: {}", file_path));
     }
-    
-    std::fs::read_to_string(&full_path)
-        .map_err(|e| format!("读取文件失败: {}", e))
+
+    std::fs::read_to_string(&full_path).map_err(|e| format!("读取文件失败: {}", e))
 }
 
 /// Save file content
 #[tauri::command(rename_all = "camelCase")]
-pub fn save_file_content(repo_path: String, file_path: String, content: String) -> Result<(), String> {
+pub fn save_file_content(
+    repo_path: String,
+    file_path: String,
+    content: String,
+) -> Result<(), String> {
     log::info!("[Tauri CMD] save_file_content() called, file={}", file_path);
     let full_path = Path::new(&repo_path).join(&file_path);
-    
+
     // Ensure parent directory exists
     if let Some(parent) = full_path.parent() {
         if !parent.exists() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("创建目录失败: {}", e))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("创建目录失败: {}", e))?;
         }
     }
-    
-    std::fs::write(&full_path, &content)
-        .map_err(|e| format!("保存文件失败: {}", e))
+
+    std::fs::write(&full_path, &content).map_err(|e| format!("保存文件失败: {}", e))
 }

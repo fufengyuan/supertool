@@ -1,5 +1,8 @@
 pub fn print_guide() {
-    println!("\n  SuperTool CLI v{} 使用指南\n", env!("CARGO_PKG_VERSION"));
+    println!(
+        "\n  SuperTool CLI v{} 使用指南\n",
+        env!("CARGO_PKG_VERSION")
+    );
     println!("  任务管理:");
     println!("    stool todo add '任务' [-p high] [-d 2024-12-31] [-t 标签]");
     println!("    stool todo list [-j] [-l 10]       stool todo search '关键词' [-j]");
@@ -31,7 +34,9 @@ pub fn print_guide() {
     println!("    stool note update <id> [--title x]  stool note delete <id>");
     println!("    stool note groups [-j]              stool note add-group '名称'");
     println!("  记账管理:");
-    println!("    stool accounting list [-j]          stool accounting add <金额> --type 支出 --category 服务器");
+    println!(
+        "    stool accounting list [-j]          stool accounting add <金额> --type 支出 --category 服务器"
+    );
     println!("    stool accounting stats [-j]         stool accounting trend [-j]");
     println!("    stool accounting categories [-j]    stool accounting budgets [-j]");
     println!("  周报管理:");
@@ -39,10 +44,14 @@ pub fn print_guide() {
     println!("    stool weekly save '标题' --content '内容'");
     println!("  Nginx 管理:");
     println!("    stool nginx list [-j]               stool nginx add '名称'");
-    println!("    stool nginx fetch <server_id> <path> stool nginx deploy <server_id> <path> <content>");
+    println!(
+        "    stool nginx fetch <server_id> <path> stool nginx deploy <server_id> <path> <content>"
+    );
     println!("    stool nginx versions <preset_id>");
     println!("  数据备份:");
-    println!("    stool backup export [--output path]  stool backup import <file> [--mode merge|replace]");
+    println!(
+        "    stool backup export [--output path]  stool backup import <file> [--mode merge|replace]"
+    );
     println!("    stool backup export-csv");
     println!("\n  直连 supertool-core 共享库，零 UDS/HTTP 依赖");
 }

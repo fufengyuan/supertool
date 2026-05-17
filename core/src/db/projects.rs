@@ -104,7 +104,10 @@ pub fn update_project(db: &mut Database, project: Project) -> ApiResponse<Projec
 
 pub fn delete_project(db: &mut Database, id: String) -> ApiResponse<String> {
     // 级联删除关联的 todo
-    if let Err(e) = db.conn_mut().execute("DELETE FROM todos WHERE projectId = ?1", params![id]) {
+    if let Err(e) = db
+        .conn_mut()
+        .execute("DELETE FROM todos WHERE projectId = ?1", params![id])
+    {
         return ApiResponse::err(format!("Delete todos failed: {}", e));
     }
     let result = db

@@ -2,9 +2,7 @@ use supertool_core::logic::CoreService;
 use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_todos(
-    core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+pub async fn get_todos(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_all_todos() called");
     let result = core.get_all_todos().await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
@@ -51,9 +49,7 @@ pub async fn add_tag(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_all_tags(
-    core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+pub async fn get_all_tags(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_all_tags() called");
     let result = core.get_all_tags().await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
@@ -186,8 +182,8 @@ pub async fn create_repeat_instance(
         Ok::<_, String>(result)
     })?;
 
-    let (text, priority, due_date, description, markdown_desc, tag, project_id) = todo_row
-        ?.ok_or("Todo not found".to_string())?;
+    let (text, priority, due_date, description, markdown_desc, tag, project_id) =
+        todo_row?.ok_or("Todo not found".to_string())?;
 
     let parent_id = todo_id.clone();
     let _ = core.db_write(|conn| {

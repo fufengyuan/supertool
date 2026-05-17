@@ -1,9 +1,8 @@
+use super::super::git::find_git;
 /// Git Stash 操作 — save, list, apply, pop, drop, show
-
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::process::Stdio;
 use tokio::process::Command;
-use super::super::git::find_git;
 
 async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     let git_bin = find_git();
@@ -26,7 +25,12 @@ async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     Ok(stdout)
 }
 
-pub async fn git_stash_save(repo_path: &str, message: Option<&str>, include_untracked: bool, keep_index: bool) -> Result<Value, String> {
+pub async fn git_stash_save(
+    repo_path: &str,
+    message: Option<&str>,
+    include_untracked: bool,
+    keep_index: bool,
+) -> Result<Value, String> {
     let mut args = vec!["stash", "push"];
     if let Some(m) = message {
         args.push("-m");

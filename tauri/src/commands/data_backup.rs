@@ -1,8 +1,8 @@
+use serde_json::json;
+use std::io::{Cursor, Write};
 use supertool_core::logic::CoreService;
 use tauri_plugin_dialog::DialogExt;
-use std::io::{Cursor, Write};
 use zip::write::FileOptions;
-use serde_json::json;
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn export_all_data(
@@ -11,14 +11,19 @@ pub async fn export_all_data(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] export_all_data() called");
     let data = export_all_tables(core.inner()).await?;
-    let data_json = serde_json::to_string_pretty(&data)
-        .map_err(|e| format!("序列化失败: {}", e))?;
+    let data_json =
+        serde_json::to_string_pretty(&data).map_err(|e| format!("序列化失败: {}", e))?;
 
     // Compute stats for user feedback
     let table_count = data.as_object().map(|o| o.len()).unwrap_or(0);
-    let total_items: usize = data.as_object().map(|o| {
-        o.values().map(|v| v.as_array().map(|a| a.len()).unwrap_or(0)).sum()
-    }).unwrap_or(0);
+    let total_items: usize = data
+        .as_object()
+        .map(|o| {
+            o.values()
+                .map(|v| v.as_array().map(|a| a.len()).unwrap_or(0))
+                .sum()
+        })
+        .unwrap_or(0);
 
     let default_name = format!(
         "supertool-backup-{}.stbackup",
@@ -26,7 +31,8 @@ pub async fn export_all_data(
     );
 
     let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog().file()
+    app.dialog()
+        .file()
         .set_title("导出完整备份")
         .set_file_name(&default_name)
         .add_filter("SuperTool Backup", &["stbackup"])
@@ -36,13 +42,17 @@ pub async fn export_all_data(
 
     let file_path = rx.recv().map_err(|e| format!("Dialog error: {}", e))?;
     let file_path = file_path.ok_or("用户取消了导出")?;
-    let path_str = file_path.as_path().ok_or("无法获取文件路径")?
-        .to_string_lossy().to_string();
+    let path_str = file_path
+        .as_path()
+        .ok_or("无法获取文件路径")?
+        .to_string_lossy()
+        .to_string();
 
     let mut zip_buf = Cursor::new(Vec::new());
     {
         let mut zip = zip::ZipWriter::new(&mut zip_buf);
-        let opts: FileOptions<()> = FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
+        let opts: FileOptions<()> =
+            FileOptions::default().compression_method(zip::CompressionMethod::Deflated);
         zip.start_file("all-data.json", opts)
             .map_err(|e| format!("ZIP创建失败: {}", e))?;
         zip.write_all(data_json.as_bytes())
@@ -67,10 +77,11 @@ pub async fn export_all_data(
         zip.finish().map_err(|e| format!("ZIP完成失败: {}", e))?;
     }
 
-    std::fs::write(&path_str, zip_buf.into_inner())
-        .map_err(|e| format!("写入文件失败: {}", e))?;
+    std::fs::write(&path_str, zip_buf.into_inner()).map_err(|e| format!("写入文件失败: {}", e))?;
 
-    Ok(json!({ "success": true, "path": path_str, "tableCount": table_count, "totalItems": total_items }))
+    Ok(
+        json!({ "success": true, "path": path_str, "tableCount": table_count, "totalItems": total_items }),
+    )
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -93,7 +104,8 @@ pub async fn import_json(
     log::info!("[Tauri CMD] import_mode = {}", mode);
 
     let (tx, rx) = std::sync::mpsc::channel();
-    app.dialog().file()
+    app.dialog()
+        .file()
         .add_filter("SuperTool Backup", &["stbackup"])
         .pick_file(move |file_path: Option<tauri_plugin_dialog::FilePath>| {
             let _ = tx.send(file_path);
@@ -101,42 +113,46 @@ pub async fn import_json(
 
     let file_path = rx.recv().map_err(|e| format!("Dialog error: {}", e))?;
     let file_path = file_path.ok_or("用户取消了导入")?;
-    let path_str = file_path.as_path().ok_or("无法获取文件路径")?
-        .to_string_lossy().to_string();
+    let path_str = file_path
+        .as_path()
+        .ok_or("无法获取文件路径")?
+        .to_string_lossy()
+        .to_string();
 
     log::info!("[Backup] Importing from: {}", path_str);
-    
-    let zip_data = std::fs::read(&path_str)
-        .map_err(|e| format!("读取文件失败: {}", e))?;
+
+    let zip_data = std::fs::read(&path_str).map_err(|e| format!("读取文件失败: {}", e))?;
     log::info!("[Backup] ZIP file size: {} bytes", zip_data.len());
-    let mut archive = zip::ZipArchive::new(Cursor::new(zip_data))
-        .map_err(|e| format!("ZIP解析失败: {}", e))?;
+    let mut archive =
+        zip::ZipArchive::new(Cursor::new(zip_data)).map_err(|e| format!("ZIP解析失败: {}", e))?;
     log::info!("[Backup] ZIP entries: {}", archive.len());
     log::info!("[Backup] Import mode: {}", mode);
 
     let all_data_json = {
-        let mut file = archive.by_name("all-data.json")
+        let mut file = archive
+            .by_name("all-data.json")
             .map_err(|_| "备份文件格式错误：缺少 all-data.json")?;
         let mut content = Vec::new();
         std::io::Read::read_to_end(&mut file, &mut content)
             .map_err(|e| format!("读取all-data.json失败: {}", e))?;
-        String::from_utf8(content)
-            .map_err(|e| format!("解码失败: {}", e))?
+        String::from_utf8(content).map_err(|e| format!("解码失败: {}", e))?
     };
 
-    let data: serde_json::Value = serde_json::from_str(&all_data_json)
-        .map_err(|e| format!("JSON解析失败: {}", e))?;
+    let data: serde_json::Value =
+        serde_json::from_str(&all_data_json).map_err(|e| format!("JSON解析失败: {}", e))?;
 
     // Extract receipt files
     let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
     let receipt_dir = data_dir.join("accounting-receipts");
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i)
+        let mut file = archive
+            .by_index(i)
             .map_err(|e| format!("ZIP读取失败: {}", e))?;
         let name = file.name().to_string();
         if name.starts_with("receipts/") && !name.ends_with("/") {
             let filename = std::path::Path::new(&name)
-                .file_name().ok_or("无效的收据文件路径")?;
+                .file_name()
+                .ok_or("无效的收据文件路径")?;
             if !receipt_dir.exists() {
                 std::fs::create_dir_all(&receipt_dir)
                     .map_err(|e| format!("创建收据目录失败: {}", e))?;
@@ -151,9 +167,16 @@ pub async fn import_json(
 
     let (imported, skipped, import_errors) = import_all_tables(core.inner(), data, &mode).await?;
 
-    log::info!("[Backup] Import complete: imported={}, skipped={}", imported, skipped);
+    log::info!(
+        "[Backup] Import complete: imported={}, skipped={}",
+        imported,
+        skipped
+    );
     if !import_errors.is_empty() {
-        log::warn!("[Backup] Import completed with {} errors:", import_errors.len());
+        log::warn!(
+            "[Backup] Import completed with {} errors:",
+            import_errors.len()
+        );
         for e in &import_errors {
             log::warn!("  - {}", e);
         }
@@ -197,17 +220,27 @@ pub async fn export_csv(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] export_csv() called");
     let result = core.export_all_data().await?;
-    let todos = result.get("todos").and_then(|t| t.as_array()).cloned().unwrap_or_default();
+    let todos = result
+        .get("todos")
+        .and_then(|t| t.as_array())
+        .cloned()
+        .unwrap_or_default();
     let mut csv = String::from("id,text,completed,priority,createdAt,dueDate\n");
     for todo in todos {
         let id = todo.get("id").and_then(|v| v.as_str()).unwrap_or("");
         let text = todo.get("text").and_then(|v| v.as_str()).unwrap_or("");
-        let completed = todo.get("completed").and_then(|v| v.as_bool()).unwrap_or(false);
+        let completed = todo
+            .get("completed")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let priority = todo.get("priority").and_then(|v| v.as_str()).unwrap_or("");
         let created = todo.get("createdAt").and_then(|v| v.as_str()).unwrap_or("");
         let due = todo.get("dueDate").and_then(|v| v.as_str()).unwrap_or("");
         let text_escaped = text.replace('"', "\"\"");
-        csv.push_str(&format!("{},\"{}\",{},{},{},{}\n", id, text_escaped, completed, priority, created, due));
+        csv.push_str(&format!(
+            "{},\"{}\",{},{},{},{}\n",
+            id, text_escaped, completed, priority, created, due
+        ));
     }
     Ok(json!({ "success": true, "csv": csv }))
 }
@@ -224,8 +257,14 @@ async fn export_all_tables(core: &CoreService) -> Result<serde_json::Value, Stri
     let note_groups = core.get_all_note_groups().await.unwrap_or(json!([]));
     let weekly_reports = core.get_weekly_reports(9999).await.unwrap_or(json!([]));
     let accounting_categories = core.get_accounting_categories().await.unwrap_or(json!([]));
-    let accounting_records_data = core.get_accounting_records(json!({})).await.unwrap_or(json!({"records": []}));
-    let accounting_records = accounting_records_data.get("records").cloned().unwrap_or(json!([]));
+    let accounting_records_data = core
+        .get_accounting_records(json!({}))
+        .await
+        .unwrap_or(json!({"records": []}));
+    let accounting_records = accounting_records_data
+        .get("records")
+        .cloned()
+        .unwrap_or(json!([]));
     let budgets = core.get_budgets().await.unwrap_or(json!([]));
     let templates = core.get_templates().await.unwrap_or(json!([]));
     let log_presets = core.get_log_presets().await.unwrap_or(json!([]));
@@ -850,7 +889,12 @@ async fn import_all_tables(
         }
     }).map_err(|e| format!("db_write failed: {}", e))?;
 
-    log::info!("[Backup] === Summary: imported={}, skipped={}, errors={} ===", imported, skipped, errors.len());
+    log::info!(
+        "[Backup] === Summary: imported={}, skipped={}, errors={} ===",
+        imported,
+        skipped,
+        errors.len()
+    );
     if !errors.is_empty() {
         log::warn!("[Backup] First 5 errors:");
         for e in errors.iter().take(5) {
@@ -862,7 +906,11 @@ async fn import_all_tables(
     log::info!("[Backup] Importing CICD data (mode={})...", mode);
     match core.import_cicd_data(&data, mode).await {
         Ok((cicd_imported, cicd_skipped)) => {
-            log::info!("[Backup] CICD done: imported={}, skipped={}", cicd_imported, cicd_skipped);
+            log::info!(
+                "[Backup] CICD done: imported={}, skipped={}",
+                cicd_imported,
+                cicd_skipped
+            );
             imported += cicd_imported;
             skipped += cicd_skipped;
         }

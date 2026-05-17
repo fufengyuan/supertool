@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 // ==================== Data Types ====================
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct AlertEmailConfig {
@@ -59,9 +61,15 @@ pub struct AlertService {
     pub created_at: String,
 }
 
-fn default_check_interval() -> i64 { 60 }
-fn default_timeout() -> i64 { 5 }
-fn default_max_retries() -> i64 { 3 }
+fn default_check_interval() -> i64 {
+    60
+}
+fn default_timeout() -> i64 {
+    5
+}
+fn default_max_retries() -> i64 {
+    3
+}
 fn default_created_at() -> String {
     chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
@@ -117,7 +125,11 @@ pub fn get_email_config(db: &mut Database) -> ApiResponse<Option<AlertEmailConfi
             smtp_port: row.get("smtp_port")?,
             smtp_username: row.get("smtp_username").ok(),
             smtp_password: row.get("smtp_password").ok(),
-            smtp_encryption: row.get::<_, Option<String>>("smtp_encryption").ok().flatten().unwrap_or_else(|| "starttls".to_string()),
+            smtp_encryption: row
+                .get::<_, Option<String>>("smtp_encryption")
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "starttls".to_string()),
             from_email: row.get("from_email").ok(),
             to_email: row.get("to_email").ok(),
             updated_at: row.get("updated_at")?,
@@ -231,7 +243,10 @@ pub fn update_alert_service(db: &mut Database, service: AlertService) -> ApiResp
 }
 
 pub fn delete_alert_service(db: &mut Database, id: String) -> ApiResponse<()> {
-    match db.conn_mut().execute("DELETE FROM alert_services WHERE id = ?1", params![id]) {
+    match db
+        .conn_mut()
+        .execute("DELETE FROM alert_services WHERE id = ?1", params![id])
+    {
         Ok(_) => ApiResponse::ok(()),
         Err(e) => ApiResponse::err(format!("Delete failed: {}", e)),
     }
@@ -313,7 +328,10 @@ pub fn update_alert_resource(db: &mut Database, resource: AlertResource) -> ApiR
 }
 
 pub fn delete_alert_resource(db: &mut Database, id: String) -> ApiResponse<()> {
-    match db.conn_mut().execute("DELETE FROM alert_resources WHERE id = ?1", params![id]) {
+    match db
+        .conn_mut()
+        .execute("DELETE FROM alert_resources WHERE id = ?1", params![id])
+    {
         Ok(_) => ApiResponse::ok(()),
         Err(e) => ApiResponse::err(format!("Delete failed: {}", e)),
     }

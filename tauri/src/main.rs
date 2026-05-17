@@ -7,20 +7,20 @@ mod tray_notification;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
 
-use supertool_core::logic::CoreService;
-use supertool_core::db::Database;
 use std::sync::OnceLock;
-use tauri::Manager;
+use supertool_core::db::Database;
+use supertool_core::logic::CoreService;
 use tauri::Emitter;
-use tauri::menu::{Menu, Submenu, MenuItem, PredefinedMenuItem};
+use tauri::Manager;
 use tauri::Wry;
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 
 static APP_HANDLE: OnceLock<tauri::AppHandle<Wry>> = OnceLock::new();
 
 #[tauri::command]
 fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
     let handle = APP_HANDLE.get().ok_or("App handle not initialized")?;
-    
+
     let nav_item = |id: &str, title: &str| -> Result<MenuItem<Wry>, String> {
         MenuItem::with_id(handle, id, title, true, None::<&str>).map_err(|e| e.to_string())
     };
@@ -34,71 +34,115 @@ fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
     }
 
     // Build the frequent submenu items manually
-    let frequent_submenu = Submenu::with_id(handle, "frequent", "常用功能", true)
-        .map_err(|e| e.to_string())?;
+    let frequent_submenu =
+        Submenu::with_id(handle, "frequent", "常用功能", true).map_err(|e| e.to_string())?;
     for item in menu_items {
         frequent_submenu.append(&item).map_err(|e| e.to_string())?;
     }
 
     // Rebuild all menus
-    let edit_menu = Submenu::with_items(handle, "编辑", true, &[
-        &MenuItem::with_id(handle, "search", "全局搜索", true, Some("CmdOrCtrl+K")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::undo(handle, Some("撤销")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::redo(handle, Some("重做")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::cut(handle, Some("剪切")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::copy(handle, Some("复制")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::paste(handle, Some("粘贴")).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::select_all(handle, Some("全选")).map_err(|e| e.to_string())?,
-    ]).map_err(|e| e.to_string())?;
+    let edit_menu = Submenu::with_items(
+        handle,
+        "编辑",
+        true,
+        &[
+            &MenuItem::with_id(handle, "search", "全局搜索", true, Some("CmdOrCtrl+K"))
+                .map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::undo(handle, Some("撤销")).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::redo(handle, Some("重做")).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::cut(handle, Some("剪切")).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::copy(handle, Some("复制")).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::paste(handle, Some("粘贴")).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::select_all(handle, Some("全选")).map_err(|e| e.to_string())?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let business_menu = Submenu::with_items(handle, "业务", true, &[
-        &nav_item("nav_todo", "任务列表")?,
-        &nav_item("nav_weekly", "周报")?,
-        &nav_item("nav_projects", "项目")?,
-        &nav_item("nav_accounting", "记账本")?,
-    ]).map_err(|e| e.to_string())?;
+    let business_menu = Submenu::with_items(
+        handle,
+        "业务",
+        true,
+        &[
+            &nav_item("nav_todo", "任务列表")?,
+            &nav_item("nav_weekly", "周报")?,
+            &nav_item("nav_projects", "项目")?,
+            &nav_item("nav_accounting", "记账本")?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let ops_menu = Submenu::with_items(handle, "运维", true, &[
-        &nav_item("nav_servers", "服务器管理")?,
-        &nav_item("nav_cicd", "CI/CD 部署")?,
-        &nav_item("nav_logs", "日志聚合")?,
-    ]).map_err(|e| e.to_string())?;
+    let ops_menu = Submenu::with_items(
+        handle,
+        "运维",
+        true,
+        &[
+            &nav_item("nav_servers", "服务器管理")?,
+            &nav_item("nav_cicd", "CI/CD 部署")?,
+            &nav_item("nav_logs", "日志聚合")?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let dev_menu = Submenu::with_items(handle, "开发", true, &[
-        &nav_item("nav_db", "数据库管理")?,
-        &nav_item("nav_devtools", "开发工具")?,
-        &nav_item("nav_notes", "笔记")?,
-        &nav_item("nav_git", "Git 仓库")?,
-    ]).map_err(|e| e.to_string())?;
+    let dev_menu = Submenu::with_items(
+        handle,
+        "开发",
+        true,
+        &[
+            &nav_item("nav_db", "数据库管理")?,
+            &nav_item("nav_devtools", "开发工具")?,
+            &nav_item("nav_notes", "笔记")?,
+            &nav_item("nav_git", "Git 仓库")?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let security_menu = Submenu::with_items(handle, "安全", true, &[
-        &nav_item("nav_mfa", "MFA 验证码")?,
-        &nav_item("nav_vpn", "VPN")?,
-    ]).map_err(|e| e.to_string())?;
+    let security_menu = Submenu::with_items(
+        handle,
+        "安全",
+        true,
+        &[
+            &nav_item("nav_mfa", "MFA 验证码")?,
+            &nav_item("nav_vpn", "VPN")?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let system_menu = Submenu::with_items(handle, "系统", true, &[
-        &MenuItem::with_id(handle, "about", "关于", true, None::<&str>).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &nav_item("nav_backup", "数据备份")?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &MenuItem::with_id(handle, "toggle_locale", "切换语言", true, None::<&str>).map_err(|e| e.to_string())?,
-        &MenuItem::with_id(handle, "toggle_theme", "切换主题", true, None::<&str>).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
-        &PredefinedMenuItem::quit(handle, Some("退出")).map_err(|e| e.to_string())?,
-    ]).map_err(|e| e.to_string())?;
+    let system_menu = Submenu::with_items(
+        handle,
+        "系统",
+        true,
+        &[
+            &MenuItem::with_id(handle, "about", "关于", true, None::<&str>)
+                .map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &nav_item("nav_backup", "数据备份")?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &MenuItem::with_id(handle, "toggle_locale", "切换语言", true, None::<&str>)
+                .map_err(|e| e.to_string())?,
+            &MenuItem::with_id(handle, "toggle_theme", "切换主题", true, None::<&str>)
+                .map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::separator(handle).map_err(|e| e.to_string())?,
+            &PredefinedMenuItem::quit(handle, Some("退出")).map_err(|e| e.to_string())?,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
-    let menu = Menu::with_items(handle, &[
-        &edit_menu,
-        &frequent_submenu,
-        &business_menu,
-        &ops_menu,
-        &dev_menu,
-        &security_menu,
-        &system_menu,
-    ]).map_err(|e| e.to_string())?;
+    let menu = Menu::with_items(
+        handle,
+        &[
+            &edit_menu,
+            &frequent_submenu,
+            &business_menu,
+            &ops_menu,
+            &dev_menu,
+            &security_menu,
+            &system_menu,
+        ],
+    )
+    .map_err(|e| e.to_string())?;
 
     handle.set_menu(menu).map_err(|e| e.to_string())?;
 
@@ -129,7 +173,10 @@ fn main() {
                         }
                     }
                     Err(e) => {
-                        log::warn!("[Main] Failed to read ~/.supertool_dir: {}, using default", e);
+                        log::warn!(
+                            "[Main] Failed to read ~/.supertool_dir: {}, using default",
+                            e
+                        );
                         home_dir.join(".supertool")
                     }
                 }
@@ -147,7 +194,8 @@ fn main() {
 
             // Initialize SQLite database
             let db_path = supertool_dir.join("supertool.db");
-            let database = Database::new(&db_path).expect("[Database] Failed to initialize database");
+            let database =
+                Database::new(&db_path).expect("[Database] Failed to initialize database");
             log::info!("[Database] 初始化完成: {}", db_path.display());
 
             // CoreService
@@ -181,63 +229,96 @@ fn main() {
                 MenuItem::with_id(handle, id, title, true, None::<&str>)
             };
 
-            let edit_menu = Submenu::with_items(handle, "编辑", true, &[
-                &action_item("search", "全局搜索")?,
-                &PredefinedMenuItem::separator(handle)?,
-                &PredefinedMenuItem::undo(handle, Some("撤销"))?,
-                &PredefinedMenuItem::redo(handle, Some("重做"))?,
-                &PredefinedMenuItem::separator(handle)?,
-                &PredefinedMenuItem::cut(handle, Some("剪切"))?,
-                &PredefinedMenuItem::copy(handle, Some("复制"))?,
-                &PredefinedMenuItem::paste(handle, Some("粘贴"))?,
-                &PredefinedMenuItem::separator(handle)?,
-                &PredefinedMenuItem::select_all(handle, Some("全选"))?,
-            ])?;
+            let edit_menu = Submenu::with_items(
+                handle,
+                "编辑",
+                true,
+                &[
+                    &action_item("search", "全局搜索")?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::undo(handle, Some("撤销"))?,
+                    &PredefinedMenuItem::redo(handle, Some("重做"))?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::cut(handle, Some("剪切"))?,
+                    &PredefinedMenuItem::copy(handle, Some("复制"))?,
+                    &PredefinedMenuItem::paste(handle, Some("粘贴"))?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::select_all(handle, Some("全选"))?,
+                ],
+            )?;
 
-            let business_menu = Submenu::with_items(handle, "业务", true, &[
-                &nav_item("nav_todo", "任务列表")?,
-                &nav_item("nav_weekly", "周报")?,
-                &nav_item("nav_projects", "项目")?,
-                &nav_item("nav_accounting", "记账本")?,
-            ])?;
+            let business_menu = Submenu::with_items(
+                handle,
+                "业务",
+                true,
+                &[
+                    &nav_item("nav_todo", "任务列表")?,
+                    &nav_item("nav_weekly", "周报")?,
+                    &nav_item("nav_projects", "项目")?,
+                    &nav_item("nav_accounting", "记账本")?,
+                ],
+            )?;
 
-            let ops_menu = Submenu::with_items(handle, "运维", true, &[
-                &nav_item("nav_servers", "服务器管理")?,
-                &nav_item("nav_cicd", "CI/CD 部署")?,
-                &nav_item("nav_logs", "日志聚合")?,
-            ])?;
+            let ops_menu = Submenu::with_items(
+                handle,
+                "运维",
+                true,
+                &[
+                    &nav_item("nav_servers", "服务器管理")?,
+                    &nav_item("nav_cicd", "CI/CD 部署")?,
+                    &nav_item("nav_logs", "日志聚合")?,
+                ],
+            )?;
 
-            let dev_menu = Submenu::with_items(handle, "开发", true, &[
-                &nav_item("nav_db", "数据库管理")?,
-                &nav_item("nav_devtools", "开发工具")?,
-                &nav_item("nav_notes", "笔记")?,
-                &nav_item("nav_git", "Git 仓库")?,
-            ])?;
+            let dev_menu = Submenu::with_items(
+                handle,
+                "开发",
+                true,
+                &[
+                    &nav_item("nav_db", "数据库管理")?,
+                    &nav_item("nav_devtools", "开发工具")?,
+                    &nav_item("nav_notes", "笔记")?,
+                    &nav_item("nav_git", "Git 仓库")?,
+                ],
+            )?;
 
-            let security_menu = Submenu::with_items(handle, "安全", true, &[
-                &nav_item("nav_mfa", "MFA 验证码")?,
-                &nav_item("nav_vpn", "VPN")?,
-            ])?;
+            let security_menu = Submenu::with_items(
+                handle,
+                "安全",
+                true,
+                &[
+                    &nav_item("nav_mfa", "MFA 验证码")?,
+                    &nav_item("nav_vpn", "VPN")?,
+                ],
+            )?;
 
-            let system_menu = Submenu::with_items(handle, "系统", true, &[
-                &action_item("about", "关于")?,
-                &PredefinedMenuItem::separator(handle)?,
-                &nav_item("nav_backup", "数据备份")?,
-                &PredefinedMenuItem::separator(handle)?,
-                &action_item("toggle_locale", "切换语言")?,
-                &action_item("toggle_theme", "切换主题")?,
-                &PredefinedMenuItem::separator(handle)?,
-                &PredefinedMenuItem::quit(handle, Some("退出"))?,
-            ])?;
+            let system_menu = Submenu::with_items(
+                handle,
+                "系统",
+                true,
+                &[
+                    &action_item("about", "关于")?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &nav_item("nav_backup", "数据备份")?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &action_item("toggle_locale", "切换语言")?,
+                    &action_item("toggle_theme", "切换主题")?,
+                    &PredefinedMenuItem::separator(handle)?,
+                    &PredefinedMenuItem::quit(handle, Some("退出"))?,
+                ],
+            )?;
 
-            let menu = Menu::with_items(handle, &[
-                &edit_menu,
-                &business_menu,
-                &ops_menu,
-                &dev_menu,
-                &security_menu,
-                &system_menu,
-            ])?;
+            let menu = Menu::with_items(
+                handle,
+                &[
+                    &edit_menu,
+                    &business_menu,
+                    &ops_menu,
+                    &dev_menu,
+                    &security_menu,
+                    &system_menu,
+                ],
+            )?;
             app.set_menu(menu)?;
             let _ = APP_HANDLE.set(app.handle().clone());
 

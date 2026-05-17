@@ -147,7 +147,11 @@ impl SshService {
             let terminal = terminals
                 .get(terminal_id)
                 .ok_or_else(|| "终端不存在".to_string())?;
-            terminal.lock().map_err(|e| e.to_string())?.server_id.clone()
+            terminal
+                .lock()
+                .map_err(|e| e.to_string())?
+                .server_id
+                .clone()
         };
 
         // 切换 session 为非阻塞模式（短暂持有 connections 锁）
@@ -319,7 +323,10 @@ impl SshService {
             let mut conns = self.connections.lock().map_err(|e| e.to_string())?;
             // 二次检查：认证期间另一个线程可能已经连上了
             if conns.contains_key(&config.id) {
-                log::info!("[SSH] Already connected to {} (concurrent connect)", config.id);
+                log::info!(
+                    "[SSH] Already connected to {} (concurrent connect)",
+                    config.id
+                );
                 return Ok(true);
             }
             conns.insert(config.id.clone(), Arc::new(session));
@@ -423,7 +430,7 @@ impl SshService {
                 break;
             }
             match channel.read(&mut buf) {
-                Ok(0) => break,     // EOF
+                Ok(0) => break, // EOF
                 Ok(n) => {
                     output.push_str(&String::from_utf8_lossy(&buf[..n]));
                 }
@@ -473,7 +480,9 @@ impl SshService {
         let mut session = Session::new().map_err(|e| format!("创建 SSH 会话失败: {}", e))?;
         session.set_tcp_stream(tcp.try_clone().map_err(|e| e.to_string())?);
         session.set_timeout(20_000);
-        session.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+        session
+            .handshake()
+            .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
         // 认证
         if let Some(ref key_path) = config.ssh_key_path {
@@ -766,7 +775,8 @@ impl SshService {
         };
 
         let mut total_size: u64 = 0;
-        for entry in std::fs::read_dir(local).map_err(|e| format!("读取本地目录失败: {}", e))? {
+        for entry in std::fs::read_dir(local).map_err(|e| format!("读取本地目录失败: {}", e))?
+        {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
             let file_name = path
@@ -777,7 +787,8 @@ impl SshService {
             let new_remote = format!("{}/{}", expanded_path, file_name);
 
             if path.is_dir() {
-                let size = self.upload_dir_recursive(server_id, &path.to_string_lossy(), &new_remote)?;
+                let size =
+                    self.upload_dir_recursive(server_id, &path.to_string_lossy(), &new_remote)?;
                 total_size += size;
             } else {
                 let size = self.upload_file(server_id, &path.to_string_lossy(), &new_remote)?;
@@ -833,7 +844,8 @@ impl SshService {
     /// 展开远程路径中的 ~ 为实际路径（使用 SFTP realpath）
     fn expand_remote_path(sftp: &Sftp, remote_path: &str) -> Result<String, String> {
         if remote_path.starts_with('~') {
-            let expanded = sftp.realpath(Path::new(remote_path))
+            let expanded = sftp
+                .realpath(Path::new(remote_path))
                 .map_err(|e| format!("展开路径 '~' 失败: {}", e))?;
             Ok(expanded.to_string_lossy().to_string())
         } else {

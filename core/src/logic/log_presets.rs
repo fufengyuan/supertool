@@ -1,6 +1,6 @@
-use serde_json::{json, Value};
-use rusqlite::params;
 use super::ssh;
+use rusqlite::params;
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn get_log_presets(&self) -> Result<Value, String> {
@@ -12,7 +12,8 @@ impl super::CoreService {
             let rows = stmt
                 .query_map([], |row| {
                     let server_ids: String = row.get("serverIds")?;
-                    let keywords_str: String = row.get("keywords").unwrap_or_else(|_| "[]".to_string());
+                    let keywords_str: String =
+                        row.get("keywords").unwrap_or_else(|_| "[]".to_string());
                     Ok(json!({
                         "id": row.get::<_, String>("id")?,
                         "name": row.get::<_, String>("name")?,
@@ -107,11 +108,13 @@ impl super::CoreService {
                 .map_err(|e| e.to_string())
         })?;
 
-        let server_ids: Vec<String> = serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]"))
-            .unwrap_or_default();
+        let server_ids: Vec<String> =
+            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
 
         if server_ids.is_empty() {
-            return Ok(json!({"presetId": preset_id, "lines": lines, "results": [], "note": "No servers configured"}));
+            return Ok(
+                json!({"presetId": preset_id, "lines": lines, "results": [], "note": "No servers configured"}),
+            );
         }
 
         // Build tail command based on log type
@@ -140,13 +143,21 @@ impl super::CoreService {
                     .map_err(|e| e.to_string())
             });
 
-            let Ok(s) = server else { continue; };
+            let Ok(s) = server else {
+                continue;
+            };
 
             let host = s["host"].as_str().unwrap_or("").to_string();
             let port = s["port"].as_u64().unwrap_or(22) as u32;
             let username = s["username"].as_str().unwrap_or("").to_string();
-            let raw_password = s.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let ssh_key_path = s.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let raw_password = s
+                .get("password")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let ssh_key_path = s
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
 
             // 解密密码
             let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
@@ -178,7 +189,8 @@ impl super::CoreService {
             let output = self.ssh.exec_command(server_id, &cmd);
             match output {
                 Ok(exec_result) => {
-                    let line_list: Vec<String> = exec_result.output
+                    let line_list: Vec<String> = exec_result
+                        .output
                         .lines()
                         .map(|l| l.to_string())
                         .take(lines)
@@ -233,8 +245,8 @@ impl super::CoreService {
                 .map_err(|e| e.to_string())
         })?;
 
-        let server_ids: Vec<String> = serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]"))
-            .unwrap_or_default();
+        let server_ids: Vec<String> =
+            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
 
         let cmd = build_grep_command(&preset, keyword, lines);
         let mut matches = Vec::new();
@@ -260,13 +272,21 @@ impl super::CoreService {
                     .map_err(|e| e.to_string())
             });
 
-            let Ok(s) = server else { continue; };
+            let Ok(s) = server else {
+                continue;
+            };
 
             let host = s["host"].as_str().unwrap_or("").to_string();
             let port = s["port"].as_u64().unwrap_or(22) as u32;
             let username = s["username"].as_str().unwrap_or("").to_string();
-            let raw_password = s.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
-            let ssh_key_path = s.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let raw_password = s
+                .get("password")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let ssh_key_path = s
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
 
             // 解密密码（与 logs_start_stream 一致）
             let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
@@ -299,7 +319,11 @@ impl super::CoreService {
                 Ok(r) => Ok(r),
                 Err(e) => {
                     // 连接可能已断开，重连一次
-                    log::warn!("[log_search] exec_command failed for {}, retrying: {}", server_id, e);
+                    log::warn!(
+                        "[log_search] exec_command failed for {}, retrying: {}",
+                        server_id,
+                        e
+                    );
                     self.ssh.disconnect(server_id);
                     if let Err(re) = self.ssh.connect(&config) {
                         Err(format!("重连失败: {}", re))
@@ -311,7 +335,10 @@ impl super::CoreService {
             match output {
                 Ok(exec_result) => {
                     let lines = parse_grep_output(&exec_result.output, keyword);
-                    let match_count = lines.iter().filter(|l| l["isMatch"].as_bool().unwrap_or(false)).count();
+                    let match_count = lines
+                        .iter()
+                        .filter(|l| l["isMatch"].as_bool().unwrap_or(false))
+                        .count();
                     matches.push(json!({
                         "serverId": server_id,
                         "serverName": s["name"],
@@ -382,11 +409,14 @@ fn build_tail_command(preset: &Value, lines: usize) -> String {
                 return "echo 'No log paths configured'".to_string();
             }
             let q = |p: &str| format!("'{}'", p.replace('\'', "'\\''"));
-            format!("tail -n {} {} 2>/dev/null", lines, paths.iter().map(|p| q(p)).collect::<Vec<_>>().join(" "))
+            format!(
+                "tail -n {} {} 2>/dev/null",
+                lines,
+                paths.iter().map(|p| q(p)).collect::<Vec<_>>().join(" ")
+            )
         }
     }
 }
-
 
 fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> String {
     let log_type = preset["logType"].as_str().unwrap_or("file");
@@ -409,7 +439,11 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
             containers
                 .iter()
                 .map(|c| {
-                    format!("docker logs '{}' 2>&1 | {} 2>/dev/null", c, format!("grep{} -i -n '{}'", grep_ctx, escaped_kw))
+                    format!(
+                        "docker logs '{}' 2>&1 | {} 2>/dev/null",
+                        c,
+                        format!("grep{} -i -n '{}'", grep_ctx, escaped_kw)
+                    )
                 })
                 .collect::<Vec<_>>()
                 .join(" ; ")
@@ -444,11 +478,14 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
                 return "echo 'No log paths configured'".to_string();
             }
             let q = |p: &str| format!("'{}'", p.replace('\'', "'\\''"));
-            format!("{} {} 2>/dev/null", grep, paths.iter().map(|p| q(p)).collect::<Vec<_>>().join(" "))
+            format!(
+                "{} {} 2>/dev/null",
+                grep,
+                paths.iter().map(|p| q(p)).collect::<Vec<_>>().join(" ")
+            )
         }
     }
 }
-
 
 fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
     let kw_lower = keyword.to_lowercase();
@@ -469,7 +506,10 @@ fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
 
             parsed.map(|(line_num, content)| {
                 // Strip ANSI color codes
-                let content = content.replace("\x1b[0m", "").replace("\x1b[31m", "").replace("\x1b[32m", "");
+                let content = content
+                    .replace("\x1b[0m", "")
+                    .replace("\x1b[31m", "")
+                    .replace("\x1b[32m", "");
                 let is_match = content.to_lowercase().contains(&kw_lower);
                 json!({
                     "content": content,

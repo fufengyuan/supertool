@@ -1,5 +1,5 @@
-use serde_json::{json, Value};
 use rusqlite::params;
+use serde_json::{Value, json};
 
 /// Settings module — extracted from mod.rs
 ///
@@ -32,6 +32,4 @@ impl super::CoreService {
     }
 
     // ============ Projects ============
-
-
 }

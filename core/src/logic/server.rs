@@ -1,9 +1,9 @@
-use serde_json::{json, Value};
-use crate::db::servers;
+use super::ssh;
 use crate::db::Server;
 use crate::db::ServerGroup;
+use crate::db::servers;
 use crate::encryption::encrypt_password;
-use super::ssh;
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn get_all_servers(&self) -> Result<Value, String> {
@@ -52,15 +52,29 @@ impl super::CoreService {
     pub async fn add_server(&self, params: Value) -> Result<Value, String> {
         let mut params = params.clone();
         // Auto-generate id if not provided (for CLI/stool)
-        if params.get("id").and_then(|v| v.as_str()).map_or(true, |s| s.is_empty()) {
+        if params
+            .get("id")
+            .and_then(|v| v.as_str())
+            .map_or(true, |s| s.is_empty())
+        {
             params["id"] = json!(uuid::Uuid::new_v4().to_string());
         }
         let now = chrono::Utc::now().to_rfc3339();
-        if params.get("createdAt").is_none() { params["createdAt"] = json!(now); }
-        if params.get("updatedAt").is_none() { params["updatedAt"] = json!(now); }
-        if params.get("tags").is_none() { params["tags"] = json!([]); }
-        if params.get("description").is_none() { params["description"] = json!(""); }
-        if params.get("requiresApproval").is_none() { params["requiresApproval"] = json!(false); }
+        if params.get("createdAt").is_none() {
+            params["createdAt"] = json!(now);
+        }
+        if params.get("updatedAt").is_none() {
+            params["updatedAt"] = json!(now);
+        }
+        if params.get("tags").is_none() {
+            params["tags"] = json!([]);
+        }
+        if params.get("description").is_none() {
+            params["description"] = json!("");
+        }
+        if params.get("requiresApproval").is_none() {
+            params["requiresApproval"] = json!(false);
+        }
         let mut server =
             serde_json::from_value::<Server>(params.clone()).map_err(|e| e.to_string())?;
         // CLI 发送明文密码，需要加密后存储

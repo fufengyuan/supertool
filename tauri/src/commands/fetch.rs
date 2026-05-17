@@ -16,7 +16,11 @@ pub async fn fetch_page_content(url: String) -> Result<String, String> {
 
     let status = response.status();
     if !status.is_success() {
-        return Err(format!("HTTP {}: {}", status.as_u16(), status.canonical_reason().unwrap_or("Unknown")));
+        return Err(format!(
+            "HTTP {}: {}",
+            status.as_u16(),
+            status.canonical_reason().unwrap_or("Unknown")
+        ));
     }
 
     let text = response

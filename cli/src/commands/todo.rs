@@ -1,6 +1,6 @@
-use crate::types::*;
-use crate::runtime::CliRuntime;
 use crate::output::*;
+use crate::runtime::CliRuntime;
+use crate::types::*;
 use anyhow::Result;
 
 pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result<()> {
@@ -12,13 +12,37 @@ pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result
             tag,
             description,
             project_id,
-        } => cmd_add(runtime, text, &priority.as_deref().unwrap_or("medium"), due, tag.as_deref().unwrap_or(""), &description.as_deref().unwrap_or(""), project_id).await,
+        } => {
+            cmd_add(
+                runtime,
+                text,
+                &priority.as_deref().unwrap_or("medium"),
+                due,
+                tag.as_deref().unwrap_or(""),
+                &description.as_deref().unwrap_or(""),
+                project_id,
+            )
+            .await
+        }
         TodoCommands::List {
             completed,
             tag,
             limit,
             json,
-        } => cmd_list(runtime, completed.as_ref().and_then(|s| match s.as_str() { "true" => Some(true), "false" => Some(false), _ => None }), tag, *limit, *json).await,
+        } => {
+            cmd_list(
+                runtime,
+                completed.as_ref().and_then(|s| match s.as_str() {
+                    "true" => Some(true),
+                    "false" => Some(false),
+                    _ => None,
+                }),
+                tag,
+                *limit,
+                *json,
+            )
+            .await
+        }
         TodoCommands::Complete { id } => cmd_complete(runtime, id).await,
         TodoCommands::Delete { id } => cmd_delete(runtime, id).await,
         TodoCommands::Show { id, json } => cmd_show(runtime, id, *json).await,
@@ -40,8 +64,11 @@ pub async fn cmd_todo(runtime: &mut CliRuntime, action: &TodoCommands) -> Result
 pub async fn cmd_subtask(runtime: &mut CliRuntime, action: &SubtaskCommands) -> Result<()> {
     match action {
         SubtaskCommands::List { todo_id, json } => {
-            let subtasks: serde_json::Value =
-                runtime.core.get_subtasks_for_todo(todo_id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let subtasks: serde_json::Value = runtime
+                .core
+                .get_subtasks_for_todo(todo_id)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let subtasks = subtasks.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&subtasks);
@@ -49,7 +76,11 @@ pub async fn cmd_subtask(runtime: &mut CliRuntime, action: &SubtaskCommands) -> 
                 println!("  子任务 ({}):", subtasks.len());
                 for s in &subtasks {
                     let id = s.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    let done = if s.get("completed").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    let done = if s
+                        .get("completed")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false)
+                    {
                         "●"
                     } else {
                         "○"
@@ -64,26 +95,38 @@ pub async fn cmd_subtask(runtime: &mut CliRuntime, action: &SubtaskCommands) -> 
             text,
             description,
         } => {
-            let _ = runtime.core.add_subtask(serde_json::json!({
-                "todoId": todo_id,
-                "text": text,
-                "description": description.as_deref().unwrap_or("")
-            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .add_subtask(serde_json::json!({
+                    "todoId": todo_id,
+                    "text": text,
+                    "description": description.as_deref().unwrap_or("")
+                }))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务已添加: {}", text));
         }
         SubtaskCommands::Complete { id } => {
             let text = find_subtask_text(runtime, id).await;
-            let _ = runtime.core.update_subtask(serde_json::json!({
-                "id": id,
-                "text": "",
-                "description": "",
-                "completed": true
-            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .update_subtask(serde_json::json!({
+                    "id": id,
+                    "text": "",
+                    "description": "",
+                    "completed": true
+                }))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务「{}」已完成", text));
         }
         SubtaskCommands::Delete { id } => {
             let text = find_subtask_text(runtime, id).await;
-            let _ = runtime.core.delete_subtask(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .delete_subtask(id)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("子任务「{}」已删除", text));
         }
     }
@@ -156,8 +199,15 @@ pub async fn cmd_add(
         "projectId": project_id.as_deref().unwrap_or(""),
         "completed": false
     });
-    let resp: serde_json::Value = runtime.core.add_todo(todo).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-    print_success(&format!("任务已添加: {}", resp.get("text").and_then(|v| v.as_str()).unwrap_or(text)));
+    let resp: serde_json::Value = runtime
+        .core
+        .add_todo(todo)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
+    print_success(&format!(
+        "任务已添加: {}",
+        resp.get("text").and_then(|v| v.as_str()).unwrap_or(text)
+    ));
     Ok(())
 }
 
@@ -168,7 +218,11 @@ pub async fn cmd_list(
     limit: usize,
     json: bool,
 ) -> Result<()> {
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos: Vec<serde_json::Value> = todos.as_array().cloned().unwrap_or_default();
 
     // Deserialize to Todo structs for filtering
@@ -194,7 +248,11 @@ pub async fn cmd_list(
             println!("  暂无任务");
         } else {
             // 获取项目名称
-            let projects: serde_json::Value = runtime.core.get_all_projects(false).await.unwrap_or(serde_json::json!([]));
+            let projects: serde_json::Value = runtime
+                .core
+                .get_all_projects(false)
+                .await
+                .unwrap_or(serde_json::json!([]));
             let project_map: std::collections::HashMap<String, String> = projects
                 .as_array()
                 .cloned()
@@ -209,7 +267,9 @@ pub async fn cmd_list(
             // 按项目分组
             let mut groups: Vec<(String, Vec<&Todo>)> = Vec::new();
             for t in &filtered {
-                let project_name = t.project_id.as_ref()
+                let project_name = t
+                    .project_id
+                    .as_ref()
                     .and_then(|pid| project_map.get(pid))
                     .map(|s| s.as_str())
                     .unwrap_or("未关联项目");
@@ -234,31 +294,46 @@ pub async fn cmd_list(
 
 pub async fn cmd_complete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
     let text = resolve_todo_text(runtime, id).await;
-    let _ = runtime.core.update_todo(serde_json::json!({
-        "id": id,
-        "text": "",
-        "completed": true,
-        "priority": "medium",
-        "dueDate": "",
-        "description": "",
-        "tag": ""
-    })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let _ = runtime
+        .core
+        .update_todo(serde_json::json!({
+            "id": id,
+            "text": "",
+            "completed": true,
+            "priority": "medium",
+            "dueDate": "",
+            "description": "",
+            "tag": ""
+        }))
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已标记为完成", text));
     Ok(())
 }
 
 pub async fn cmd_delete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
     let text = resolve_todo_text(runtime, id).await;
-    let _ = runtime.core.delete_todo(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let _ = runtime
+        .core
+        .delete_todo(id)
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已删除", text));
     Ok(())
 }
 
 pub async fn cmd_show(runtime: &mut CliRuntime, id: &str, json: bool) -> Result<()> {
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos = todos.as_array().cloned().unwrap_or_default();
 
-    if let Some(todo_json) = todos.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id)) {
+    if let Some(todo_json) = todos
+        .iter()
+        .find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id))
+    {
         let todo: Todo = serde_json::from_value(todo_json.clone())
             .map_err(|e| anyhow::anyhow!("解析任务数据失败: {}", e))?;
         if json {
@@ -284,14 +359,31 @@ pub async fn cmd_show(runtime: &mut CliRuntime, id: &str, json: bool) -> Result<
 }
 
 pub async fn cmd_stats(runtime: &mut CliRuntime, json: bool) -> Result<()> {
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos = todos.as_array().cloned().unwrap_or_default();
     let total = todos.len();
-    let completed = todos.iter().filter(|t| t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false)).count();
+    let completed = todos
+        .iter()
+        .filter(|t| {
+            t.get("completed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
+        .count();
     let pending = total - completed;
     let high = todos
         .iter()
-        .filter(|t| t.get("priority").and_then(|v| v.as_str()) == Some("high") && !t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false))
+        .filter(|t| {
+            t.get("priority").and_then(|v| v.as_str()) == Some("high")
+                && !t
+                    .get("completed")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+        })
         .count();
     if json {
         print_json(&serde_json::json!({
@@ -310,11 +402,19 @@ pub async fn cmd_stats(runtime: &mut CliRuntime, json: bool) -> Result<()> {
 }
 
 pub async fn cmd_clear(runtime: &mut CliRuntime) -> Result<()> {
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos = todos.as_array().cloned().unwrap_or_default();
     let completed: Vec<_> = todos
         .iter()
-        .filter(|t| t.get("completed").and_then(|v| v.as_bool()).unwrap_or(false))
+        .filter(|t| {
+            t.get("completed")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
         .collect();
     let count = completed.len();
     for t in &completed {
@@ -327,15 +427,31 @@ pub async fn cmd_clear(runtime: &mut CliRuntime) -> Result<()> {
 }
 
 pub async fn cmd_search(runtime: &mut CliRuntime, keyword: &str, json: bool) -> Result<()> {
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos = todos.as_array().cloned().unwrap_or_default();
     let kw = keyword.to_lowercase();
     let matched: Vec<_> = todos
         .iter()
         .filter(|t| {
-            t.get("text").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
-                || t.get("description").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
-                || t.get("tag").and_then(|v| v.as_str()).unwrap_or("").to_lowercase().contains(&kw)
+            t.get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_lowercase()
+                .contains(&kw)
+                || t.get("description")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(&kw)
+                || t.get("tag")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .to_lowercase()
+                    .contains(&kw)
         })
         .filter_map(|v| serde_json::from_value::<Todo>(v.clone()).ok())
         .collect();
@@ -364,9 +480,15 @@ pub async fn cmd_edit(
     description: &Option<String>,
 ) -> Result<()> {
     // First get current todo to fill in missing fields
-    let todos: serde_json::Value = runtime.core.get_all_todos().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let todos: serde_json::Value = runtime
+        .core
+        .get_all_todos()
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let todos = todos.as_array().cloned().unwrap_or_default();
-    let current = todos.iter().find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id));
+    let current = todos
+        .iter()
+        .find(|t| t.get("id").and_then(|v| v.as_str()) == Some(id));
 
     let mut update = serde_json::Map::new();
     update.insert("id".into(), serde_json::Value::String(id.to_string()));
@@ -374,7 +496,12 @@ pub async fn cmd_edit(
     if let Some(t) = text {
         update.insert("text".into(), serde_json::Value::String(t.clone()));
     } else if let Some(cur) = current {
-        update.insert("text".into(), cur.get("text").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+        update.insert(
+            "text".into(),
+            cur.get("text")
+                .cloned()
+                .unwrap_or(serde_json::Value::String("".to_string())),
+        );
     } else {
         update.insert("text".into(), serde_json::Value::String("".to_string()));
     }
@@ -382,15 +509,28 @@ pub async fn cmd_edit(
     if let Some(p) = priority {
         update.insert("priority".into(), serde_json::Value::String(p.clone()));
     } else if let Some(cur) = current {
-        update.insert("priority".into(), cur.get("priority").cloned().unwrap_or(serde_json::Value::String("medium".to_string())));
+        update.insert(
+            "priority".into(),
+            cur.get("priority")
+                .cloned()
+                .unwrap_or(serde_json::Value::String("medium".to_string())),
+        );
     } else {
-        update.insert("priority".into(), serde_json::Value::String("medium".to_string()));
+        update.insert(
+            "priority".into(),
+            serde_json::Value::String("medium".to_string()),
+        );
     }
 
     if let Some(d) = due {
         update.insert("dueDate".into(), serde_json::Value::String(d.clone()));
     } else if let Some(cur) = current {
-        update.insert("dueDate".into(), cur.get("dueDate").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+        update.insert(
+            "dueDate".into(),
+            cur.get("dueDate")
+                .cloned()
+                .unwrap_or(serde_json::Value::String("".to_string())),
+        );
     } else {
         update.insert("dueDate".into(), serde_json::Value::String("".to_string()));
     }
@@ -398,20 +538,37 @@ pub async fn cmd_edit(
     if let Some(d) = description {
         update.insert("description".into(), serde_json::Value::String(d.clone()));
     } else if let Some(cur) = current {
-        update.insert("description".into(), cur.get("description").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+        update.insert(
+            "description".into(),
+            cur.get("description")
+                .cloned()
+                .unwrap_or(serde_json::Value::String("".to_string())),
+        );
     } else {
-        update.insert("description".into(), serde_json::Value::String("".to_string()));
+        update.insert(
+            "description".into(),
+            serde_json::Value::String("".to_string()),
+        );
     }
 
     if let Some(t) = tag {
         update.insert("tag".into(), serde_json::Value::String(t.clone()));
     } else if let Some(cur) = current {
-        update.insert("tag".into(), cur.get("tag").cloned().unwrap_or(serde_json::Value::String("".to_string())));
+        update.insert(
+            "tag".into(),
+            cur.get("tag")
+                .cloned()
+                .unwrap_or(serde_json::Value::String("".to_string())),
+        );
     } else {
         update.insert("tag".into(), serde_json::Value::String("".to_string()));
     }
 
-    let _ = runtime.core.update_todo(serde_json::Value::Object(update)).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let _ = runtime
+        .core
+        .update_todo(serde_json::Value::Object(update))
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     let text_display = resolve_todo_text(runtime, id).await;
     print_success(&format!("任务「{}」已更新", text_display));
     Ok(())
@@ -419,15 +576,19 @@ pub async fn cmd_edit(
 
 pub async fn cmd_uncomplete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
     let text = resolve_todo_text(runtime, id).await;
-    let _ = runtime.core.update_todo(serde_json::json!({
-        "id": id,
-        "text": "",
-        "completed": false,
-        "priority": "medium",
-        "dueDate": "",
-        "description": "",
-        "tag": ""
-    })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+    let _ = runtime
+        .core
+        .update_todo(serde_json::json!({
+            "id": id,
+            "text": "",
+            "completed": false,
+            "priority": "medium",
+            "dueDate": "",
+            "description": "",
+            "tag": ""
+        }))
+        .await
+        .map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已恢复为未完成", text));
     Ok(())
 }

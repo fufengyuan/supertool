@@ -1,18 +1,16 @@
-use supertool_core::logic::CoreService;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use tauri::{State, Emitter, AppHandle};
+use supertool_core::logic::CoreService;
+use tauri::{AppHandle, Emitter, State};
 
 use std::sync::LazyLock;
 
 // Active log streams: streamId -> cancellation flags per server
-static ACTIVE_STREAMS: LazyLock<Mutex<HashMap<String, Vec<Arc<Mutex<bool>>>>>> = 
+static ACTIVE_STREAMS: LazyLock<Mutex<HashMap<String, Vec<Arc<Mutex<bool>>>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_log_presets(
-    core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+pub async fn get_log_presets(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_log_presets() called");
     let result = core.get_log_presets().await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
@@ -85,7 +83,11 @@ pub async fn logs_start_stream(
     let stream_id = params["streamId"].as_str().unwrap_or("").to_string();
     let server_ids: Vec<String> = params["serverIds"]
         .as_array()
-        .map(|a| a.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
     let command = params["command"].as_str().unwrap_or("").to_string();
 
@@ -122,15 +124,16 @@ pub async fn logs_start_stream(
     }
 
     // Register active stream
-    ACTIVE_STREAMS.lock().unwrap().insert(stream_id.clone(), cancel_flags);
+    ACTIVE_STREAMS
+        .lock()
+        .unwrap()
+        .insert(stream_id.clone(), cancel_flags);
 
     Ok(serde_json::json!({ "success": true, "streamId": stream_id }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn logs_stop_stream(
-    stream_id: String,
-) -> Result<serde_json::Value, String> {
+pub async fn logs_stop_stream(stream_id: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] logs_stop_stream() called: {}", stream_id);
     stop_stream_by_id(&stream_id);
     Ok(serde_json::json!({ "success": true }))
@@ -161,7 +164,8 @@ fn stream_server_logs(
             rusqlite::params![server_id],
             |row| {
                 let raw_pw: Option<String> = row.get("password")?;
-                let decrypted_pw = raw_pw.map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
+                let decrypted_pw =
+                    raw_pw.map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
                 Ok(serde_json::json!({
                     "id": row.get::<_, String>("id")?,
                     "name": row.get::<_, String>("name")?,
@@ -172,13 +176,17 @@ fn stream_server_logs(
                     "sshKeyPath": row.get::<_, Option<String>>("sshKeyPath")?,
                 }))
             },
-        ).map_err(|e| e.to_string())
+        )
+        .map_err(|e| e.to_string())
     }) {
         Ok(Ok(s)) => s,
         Ok(Err(e)) | Err(e) => {
-            let _ = app.emit("logs:error", serde_json::json!({
-                "streamId": stream_id, "serverId": server_id, "error": e
-            }));
+            let _ = app.emit(
+                "logs:error",
+                serde_json::json!({
+                    "streamId": stream_id, "serverId": server_id, "error": e
+                }),
+            );
             return;
         }
     };
@@ -221,9 +229,12 @@ fn stream_server_logs(
     sess.set_tcp_stream(tcp);
     // handshake 和 auth 必须阻塞模式，否则直接报 operation would block
     if let Err(e) = sess.handshake() {
-        let _ = app.emit("logs:error", serde_json::json!({
-            "streamId": stream_id, "serverId": server_id, "error": format!("SSH握手失败: {}", e)
-        }));
+        let _ = app.emit(
+            "logs:error",
+            serde_json::json!({
+                "streamId": stream_id, "serverId": server_id, "error": format!("SSH握手失败: {}", e)
+            }),
+        );
         return;
     }
 
@@ -235,16 +246,21 @@ fn stream_server_logs(
             return;
         }
     } else if let Some(key_path) = &config.ssh_key_path {
-        if let Err(e) = sess.userauth_pubkey_file(&config.username, None, std::path::Path::new(key_path), None) {
+        if let Err(e) =
+            sess.userauth_pubkey_file(&config.username, None, std::path::Path::new(key_path), None)
+        {
             let _ = app.emit("logs:error", serde_json::json!({
                 "streamId": stream_id, "serverId": server_id, "error": format!("SSH密钥认证失败: {}", e)
             }));
             return;
         }
     } else {
-        let _ = app.emit("logs:error", serde_json::json!({
-            "streamId": stream_id, "serverId": server_id, "error": "没有密码或密钥"
-        }));
+        let _ = app.emit(
+            "logs:error",
+            serde_json::json!({
+                "streamId": stream_id, "serverId": server_id, "error": "没有密码或密钥"
+            }),
+        );
         return;
     }
 
@@ -292,12 +308,15 @@ fn stream_server_logs(
                 while let Some(pos) = leftover.find('\n') {
                     let line = leftover[..pos].trim_end_matches('\r').to_string();
                     leftover = leftover[pos + 1..].to_string();
-                    let _ = app.emit("logs:line", serde_json::json!({
-                        "streamId": stream_id,
-                        "serverId": server_id,
-                        "serverName": server_name,
-                        "line": line,
-                    }));
+                    let _ = app.emit(
+                        "logs:line",
+                        serde_json::json!({
+                            "streamId": stream_id,
+                            "serverId": server_id,
+                            "serverName": server_name,
+                            "line": line,
+                        }),
+                    );
                 }
             }
             Err(e) => {
@@ -313,21 +332,27 @@ fn stream_server_logs(
     }
 
     if !leftover.trim().is_empty() {
-        let _ = app.emit("logs:line", serde_json::json!({
-            "streamId": stream_id,
-            "serverId": server_id,
-            "serverName": server_name,
-            "line": leftover.trim().to_string(),
-        }));
+        let _ = app.emit(
+            "logs:line",
+            serde_json::json!({
+                "streamId": stream_id,
+                "serverId": server_id,
+                "serverName": server_name,
+                "line": leftover.trim().to_string(),
+            }),
+        );
     }
 
     let _ = channel.close();
     let _ = channel.wait_close();
 
-    let _ = app.emit("logs:server-end", serde_json::json!({
-        "streamId": stream_id,
-        "serverId": server_id,
-    }));
+    let _ = app.emit(
+        "logs:server-end",
+        serde_json::json!({
+            "streamId": stream_id,
+            "serverId": server_id,
+        }),
+    );
 }
 
 // =================== System Logger (frontend → file) ===================

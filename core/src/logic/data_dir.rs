@@ -2,7 +2,6 @@
 ///
 /// Reads ~/.supertool_dir for custom path, falls back to ~/.supertool
 /// This module exists to avoid hardcoding the data directory in multiple places.
-
 use std::path::PathBuf;
 
 /// Resolve the data directory path.

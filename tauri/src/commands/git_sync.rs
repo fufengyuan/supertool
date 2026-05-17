@@ -1,6 +1,6 @@
-use supertool_core::logic::CoreService;
 use serde_json::json;
 use std::process::Command;
+use supertool_core::logic::CoreService;
 use tauri::State;
 
 /// Default config structure stored as JSON in the settings table
@@ -79,22 +79,22 @@ fn load_config(core: &CoreService) -> Result<GitSyncConfig, String> {
         .map_err(|e| e.to_string())?;
 
     match raw {
-        Some(value) => {
-            serde_json::from_str(&value).map_err(|e| format!("Failed to parse git_sync_config: {}", e))
-        }
+        Some(value) => serde_json::from_str(&value)
+            .map_err(|e| format!("Failed to parse git_sync_config: {}", e)),
         None => Ok(GitSyncConfig::default()),
     }
 }
 
 fn save_config(core: &CoreService, config: &GitSyncConfig) -> Result<(), String> {
     let value = serde_json::to_string(config).map_err(|e| e.to_string())?;
-    let _ = core.db_write(|conn| {
-        conn.execute(
-            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
-            rusqlite::params!["git_sync_config", value],
-        )
-    })
-    .map_err(|e| e.to_string())?;
+    let _ = core
+        .db_write(|conn| {
+            conn.execute(
+                "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                rusqlite::params!["git_sync_config", value],
+            )
+        })
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 
@@ -294,16 +294,10 @@ pub async fn git_sync_push(core: State<'_, CoreService>) -> Result<serde_json::V
         "Auto-sync: {}",
         chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
     );
-    run_git(
-        app_dir_path,
-        &["commit", "-m", &commit_msg],
-    )?;
+    run_git(app_dir_path, &["commit", "-m", &commit_msg])?;
 
     // git push
-    let output = run_git(
-        app_dir_path,
-        &["push", "origin", &config.branch],
-    )?;
+    let output = run_git(app_dir_path, &["push", "origin", &config.branch])?;
 
     // Update last_sync time
     let mut updated_config = config;

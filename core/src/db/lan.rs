@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
 // =================== LAN Tables ===================
@@ -304,27 +304,24 @@ pub fn get_messages_between(
          ORDER BY createdAt DESC \
          LIMIT ?3 OFFSET ?4",
     )?;
-    let rows = stmt.query_map(
-        params![user1, user2, limit as i64, offset as i64],
-        |row| {
-            Ok(ChatMessage {
-                id: row.get("id")?,
-                from_user_id: row.get("fromUserId")?,
-                from_user_name: row.get("fromUserName")?,
-                to_user_id: row.get("toUserId")?,
-                to_user_name: row.get("toUserName")?,
-                content: row.get("content")?,
-                msg_type: row.get("type")?,
-                file_name: row.get("fileName")?,
-                file_size: row.get("fileSize")?,
-                file_path: row.get("filePath")?,
-                status: row.get("status")?,
-                progress: row.get("progress")?,
-                created_at: row.get("createdAt")?,
-                read: row.get::<_, i64>("read")? == 1,
-            })
-        },
-    )?;
+    let rows = stmt.query_map(params![user1, user2, limit as i64, offset as i64], |row| {
+        Ok(ChatMessage {
+            id: row.get("id")?,
+            from_user_id: row.get("fromUserId")?,
+            from_user_name: row.get("fromUserName")?,
+            to_user_id: row.get("toUserId")?,
+            to_user_name: row.get("toUserName")?,
+            content: row.get("content")?,
+            msg_type: row.get("type")?,
+            file_name: row.get("fileName")?,
+            file_size: row.get("fileSize")?,
+            file_path: row.get("filePath")?,
+            status: row.get("status")?,
+            progress: row.get("progress")?,
+            created_at: row.get("createdAt")?,
+            read: row.get::<_, i64>("read")? == 1,
+        })
+    })?;
     rows.collect()
 }
 
@@ -344,27 +341,24 @@ pub fn get_messages_with_file_transfers(
          ORDER BY cm.createdAt DESC \
          LIMIT ?3 OFFSET ?4",
     )?;
-    let rows = stmt.query_map(
-        params![user1, user2, limit as i64, offset as i64],
-        |row| {
-            Ok(ChatMessage {
-                id: row.get("id")?,
-                from_user_id: row.get("fromUserId")?,
-                from_user_name: row.get("fromUserName")?,
-                to_user_id: row.get("toUserId")?,
-                to_user_name: row.get("toUserName")?,
-                content: row.get("content")?,
-                msg_type: row.get("type")?,
-                file_name: row.get("fileName")?,
-                file_size: row.get("fileSize")?,
-                file_path: row.get("filePath")?,
-                status: row.get("status")?,
-                progress: row.get("progress")?,
-                created_at: row.get("createdAt")?,
-                read: row.get::<_, i64>("read")? == 1,
-            })
-        },
-    )?;
+    let rows = stmt.query_map(params![user1, user2, limit as i64, offset as i64], |row| {
+        Ok(ChatMessage {
+            id: row.get("id")?,
+            from_user_id: row.get("fromUserId")?,
+            from_user_name: row.get("fromUserName")?,
+            to_user_id: row.get("toUserId")?,
+            to_user_name: row.get("toUserName")?,
+            content: row.get("content")?,
+            msg_type: row.get("type")?,
+            file_name: row.get("fileName")?,
+            file_size: row.get("fileSize")?,
+            file_path: row.get("filePath")?,
+            status: row.get("status")?,
+            progress: row.get("progress")?,
+            created_at: row.get("createdAt")?,
+            read: row.get::<_, i64>("read")? == 1,
+        })
+    })?;
     rows.collect()
 }
 
@@ -430,27 +424,24 @@ pub fn get_chat_messages_for_user(
          ORDER BY createdAt DESC \
          LIMIT ?2 OFFSET ?3",
     )?;
-    let rows = stmt.query_map(
-        params![user_id, limit as i64, offset as i64],
-        |row| {
-            Ok(ChatMessage {
-                id: row.get("id")?,
-                from_user_id: row.get("fromUserId")?,
-                from_user_name: row.get("fromUserName")?,
-                to_user_id: row.get("toUserId")?,
-                to_user_name: row.get("toUserName")?,
-                content: row.get("content")?,
-                msg_type: row.get("type")?,
-                file_name: row.get("fileName")?,
-                file_size: row.get("fileSize")?,
-                file_path: row.get("filePath")?,
-                status: row.get("status")?,
-                progress: row.get("progress")?,
-                created_at: row.get("createdAt")?,
-                read: row.get::<_, i64>("read")? == 1,
-            })
-        },
-    )?;
+    let rows = stmt.query_map(params![user_id, limit as i64, offset as i64], |row| {
+        Ok(ChatMessage {
+            id: row.get("id")?,
+            from_user_id: row.get("fromUserId")?,
+            from_user_name: row.get("fromUserName")?,
+            to_user_id: row.get("toUserId")?,
+            to_user_name: row.get("toUserName")?,
+            content: row.get("content")?,
+            msg_type: row.get("type")?,
+            file_name: row.get("fileName")?,
+            file_size: row.get("fileSize")?,
+            file_path: row.get("filePath")?,
+            status: row.get("status")?,
+            progress: row.get("progress")?,
+            created_at: row.get("createdAt")?,
+            read: row.get::<_, i64>("read")? == 1,
+        })
+    })?;
     rows.collect()
 }
 
@@ -468,26 +459,23 @@ pub fn get_file_transfers_for_user(
          ORDER BY createdAt DESC \
          LIMIT ?2 OFFSET ?3",
     )?;
-    let rows = stmt.query_map(
-        params![local_user_id, limit as i64, offset as i64],
-        |row| {
-            Ok(FileTransfer {
-                id: row.get("id")?,
-                from_user_id: row.get("fromUserId")?,
-                from_user_name: row.get("fromUserName")?,
-                to_user_id: row.get("toUserId")?,
-                to_user_name: row.get("toUserName")?,
-                file_name: row.get("fileName")?,
-                file_size: row.get("fileSize")?,
-                file_path: row.get("filePath")?,
-                status: row.get("status")?,
-                progress: row.get("progress")?,
-                created_at: row.get("createdAt")?,
-                completed_at: row.get("completedAt")?,
-                local_user_id: row.get("localUserId")?,
-            })
-        },
-    )?;
+    let rows = stmt.query_map(params![local_user_id, limit as i64, offset as i64], |row| {
+        Ok(FileTransfer {
+            id: row.get("id")?,
+            from_user_id: row.get("fromUserId")?,
+            from_user_name: row.get("fromUserName")?,
+            to_user_id: row.get("toUserId")?,
+            to_user_name: row.get("toUserName")?,
+            file_name: row.get("fileName")?,
+            file_size: row.get("fileSize")?,
+            file_path: row.get("filePath")?,
+            status: row.get("status")?,
+            progress: row.get("progress")?,
+            created_at: row.get("createdAt")?,
+            completed_at: row.get("completedAt")?,
+            local_user_id: row.get("localUserId")?,
+        })
+    })?;
     rows.collect()
 }
 

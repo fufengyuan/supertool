@@ -7,18 +7,54 @@ use serde_json::Value;
 /// 用于 JSON Value 的字段名匹配（sanitize_value）
 const SENSITIVE_KEYS: &[&str] = &[
     // 英文关键字
-    "password", "passwd", "pwd", "secret", "token",
-    "access_token", "refresh_token", "api_key", "apikey", "api_secret",
-    "auth", "authorization", "credential",
-    "private_key", "ssh_key", "privatekey", "sessionkey", "session_key",
-    "dbpassword", "db_password", "sshpassword", "ssh_password",
-    "keyfile", "key_file", "cert_password", "keystore_password", "truststore_password",
+    "password",
+    "passwd",
+    "pwd",
+    "secret",
+    "token",
+    "access_token",
+    "refresh_token",
+    "api_key",
+    "apikey",
+    "api_secret",
+    "auth",
+    "authorization",
+    "credential",
+    "private_key",
+    "ssh_key",
+    "privatekey",
+    "sessionkey",
+    "session_key",
+    "dbpassword",
+    "db_password",
+    "sshpassword",
+    "ssh_password",
+    "keyfile",
+    "key_file",
+    "cert_password",
+    "keystore_password",
+    "truststore_password",
     // 中文关键字
-    "密码", "口令", "手机号", "手机", "电话", "电话号码",
-    "身份证", "身份证号", "证件号", "证件号码",
-    "银行卡", "银行卡号", "卡号", "账号",
-    "姓名", "真实姓名", "地址", "详细地址",
-    "邮箱", "电子邮箱",
+    "密码",
+    "口令",
+    "手机号",
+    "手机",
+    "电话",
+    "电话号码",
+    "身份证",
+    "身份证号",
+    "证件号",
+    "证件号码",
+    "银行卡",
+    "银行卡号",
+    "卡号",
+    "账号",
+    "姓名",
+    "真实姓名",
+    "地址",
+    "详细地址",
+    "邮箱",
+    "电子邮箱",
 ];
 
 /// 字符串正则匹配用的敏感字段模式（兼容任意前缀，如 smtpPassword、dbPassword）
@@ -297,7 +333,12 @@ mod tests {
         for (input, field_name) in cases {
             let s = sanitize_string(input);
             assert!(s.contains("**"), "Failed to sanitize field: {}", field_name);
-            assert!(!s.contains("secret123"), "Field {} still has plaintext: {}", field_name, s);
+            assert!(
+                !s.contains("secret123"),
+                "Field {} still has plaintext: {}",
+                field_name,
+                s
+            );
         }
     }
 }

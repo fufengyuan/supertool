@@ -35,7 +35,12 @@ pub fn get_all(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<OpenVPNConfi
     Ok(configs)
 }
 
-pub fn add(conn: &rusqlite::Connection, name: &str, file_path: &str, content: &str) -> rusqlite::Result<String> {
+pub fn add(
+    conn: &rusqlite::Connection,
+    name: &str,
+    file_path: &str,
+    content: &str,
+) -> rusqlite::Result<String> {
     let id = format!("ovpn_{}", uuid::Uuid::new_v4().simple());
     let now = chrono::Utc::now().to_rfc3339();
     conn.execute(

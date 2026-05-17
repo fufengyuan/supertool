@@ -2,8 +2,8 @@ use jwalk::WalkDir;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 // ── Constants ──────────────────────────────────────────────
@@ -86,11 +86,17 @@ pub fn get_home_dir() -> Option<String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_disk_info() -> Vec<DiskInfo> {
     #[cfg(target_os = "macos")]
-    { get_disk_info_unix("/") }
+    {
+        get_disk_info_unix("/")
+    }
     #[cfg(target_os = "linux")]
-    { get_disk_info_unix("/") }
+    {
+        get_disk_info_unix("/")
+    }
     #[cfg(target_os = "windows")]
-    { get_disk_info_windows() }
+    {
+        get_disk_info_windows()
+    }
 }
 
 /// Scan a directory and return its children sorted by size (descending)
@@ -126,7 +132,11 @@ pub fn scan_directory(path: String) -> Result<Vec<DirEntry>, String> {
             Err(_) => continue,
         };
 
-        let file_type = if metadata.is_dir() { "directory" } else { "file" };
+        let file_type = if metadata.is_dir() {
+            "directory"
+        } else {
+            "file"
+        };
         let modified = metadata.modified().ok().map(|t| {
             t.duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
@@ -220,9 +230,11 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
         let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
         let (icon, label) = get_category_info(&ext);
         let modified = entry.metadata().ok().and_then(|m| {
-            m.modified()
-                .ok()
-                .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis() as u64)
+            m.modified().ok().map(|t| {
+                t.duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as u64
+            })
         });
 
         let entry_info = DirEntry {
@@ -234,7 +246,9 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
             children_count: None,
         };
 
-        let cat = file_map.entry(ext.clone()).or_insert_with(|| (icon.clone(), label.clone(), 0, 0, Vec::new()));
+        let cat = file_map
+            .entry(ext.clone())
+            .or_insert_with(|| (icon.clone(), label.clone(), 0, 0, Vec::new()));
         cat.2 += 1;
         cat.3 += size;
         cat.4.push(entry_info);
@@ -248,14 +262,16 @@ pub fn scan_by_category(path: String, limit: u32) -> Result<Vec<FileCategory>, S
 
     let mut categories: Vec<FileCategory> = file_map
         .into_iter()
-        .map(|(ext, (icon, label, count, total_size, files))| FileCategory {
-            extension: ext,
-            label,
-            icon,
-            count,
-            total_size,
-            files,
-        })
+        .map(
+            |(ext, (icon, label, count, total_size, files))| FileCategory {
+                extension: ext,
+                label,
+                icon,
+                count,
+                total_size,
+                files,
+            },
+        )
         .collect();
 
     categories.sort_by(|a, b| b.total_size.cmp(&a.total_size));
@@ -273,28 +289,87 @@ pub fn get_cache_paths() -> Vec<CachePath> {
         if let Some(home) = dirs::home_dir() {
             let cache_paths = [
                 ("~/Library/Caches", "系统缓存", "macOS 应用程序缓存", true),
-                ("~/Library/Caches/com.apple.Safari", "Safari 缓存", "浏览器缓存数据", true),
-                ("~/Library/Caches/com.google.Chrome", "Chrome 缓存", "浏览器缓存数据", true),
-                ("~/Library/Caches/CloudKit", "iCloud 缓存", "iCloud 同步缓存", true),
-                ("~/Library/Developer/Xcode/DerivedData", "Xcode 构建缓存", "Xcode 编译产物", true),
-                ("~/Library/Developer/Xcode/iOS DeviceSupport", "Xcode 设备支持", "iOS 设备符号表", true),
-                ("~/Library/Caches/Homebrew", "Homebrew 缓存", "包管理器下载缓存", true),
+                (
+                    "~/Library/Caches/com.apple.Safari",
+                    "Safari 缓存",
+                    "浏览器缓存数据",
+                    true,
+                ),
+                (
+                    "~/Library/Caches/com.google.Chrome",
+                    "Chrome 缓存",
+                    "浏览器缓存数据",
+                    true,
+                ),
+                (
+                    "~/Library/Caches/CloudKit",
+                    "iCloud 缓存",
+                    "iCloud 同步缓存",
+                    true,
+                ),
+                (
+                    "~/Library/Developer/Xcode/DerivedData",
+                    "Xcode 构建缓存",
+                    "Xcode 编译产物",
+                    true,
+                ),
+                (
+                    "~/Library/Developer/Xcode/iOS DeviceSupport",
+                    "Xcode 设备支持",
+                    "iOS 设备符号表",
+                    true,
+                ),
+                (
+                    "~/Library/Caches/Homebrew",
+                    "Homebrew 缓存",
+                    "包管理器下载缓存",
+                    true,
+                ),
                 ("~/Library/Caches/pip", "pip 缓存", "Python 包缓存", true),
-                ("~/Library/Caches/CocoaPods", "CocoaPods 缓存", "iOS 依赖缓存", true),
+                (
+                    "~/Library/Caches/CocoaPods",
+                    "CocoaPods 缓存",
+                    "iOS 依赖缓存",
+                    true,
+                ),
                 ("~/Library/Logs", "系统日志", "应用日志文件", true),
-                ("~/Library/Caches/com.microsoft.VSCode", "VS Code 缓存", "编辑器缓存", true),
-                ("~/Library/Caches/WebKit", "WebKit 缓存", "Web 渲染引擎缓存", true),
+                (
+                    "~/Library/Caches/com.microsoft.VSCode",
+                    "VS Code 缓存",
+                    "编辑器缓存",
+                    true,
+                ),
+                (
+                    "~/Library/Caches/WebKit",
+                    "WebKit 缓存",
+                    "Web 渲染引擎缓存",
+                    true,
+                ),
                 ("~/.npm", "npm 缓存", "Node.js 包缓存", true),
                 ("~/.cache", "通用缓存", "跨平台缓存目录", true),
-                ("/private/var/log/asl", "系统日志(ASL)", "Apple 系统日志", false),
-                ("/System/Volumes/Data/private/var/vm", "虚拟内存交换文件", "swap 文件，重启后自动清理", false),
+                (
+                    "/private/var/log/asl",
+                    "系统日志(ASL)",
+                    "Apple 系统日志",
+                    false,
+                ),
+                (
+                    "/System/Volumes/Data/private/var/vm",
+                    "虚拟内存交换文件",
+                    "swap 文件，重启后自动清理",
+                    false,
+                ),
             ];
 
             for (rel_path, name, desc, safe) in &cache_paths {
-                if now.elapsed().as_secs() > 5 { break; } // overall timeout 5s
+                if now.elapsed().as_secs() > 5 {
+                    break;
+                } // overall timeout 5s
                 let full_path = rel_path.replace("~/", &format!("{}/", home.to_string_lossy()));
                 let p = PathBuf::from(&full_path);
-                if !p.exists() { continue; }
+                if !p.exists() {
+                    continue;
+                }
 
                 // Quick estimate: only go 3 levels deep for cache dirs
                 let size = estimate_dir_size(&p, CACHE_ESTIMATE_DEPTH);
@@ -311,13 +386,20 @@ pub fn get_cache_paths() -> Vec<CachePath> {
         }
 
         // System-wide caches
-        let sys_caches = [
-            ("/private/var/folders", "系统临时文件", "macOS 临时文件目录", false),
-        ];
+        let sys_caches = [(
+            "/private/var/folders",
+            "系统临时文件",
+            "macOS 临时文件目录",
+            false,
+        )];
         for (path, name, desc, safe) in &sys_caches {
-            if now.elapsed().as_secs() > 5 { break; }
+            if now.elapsed().as_secs() > 5 {
+                break;
+            }
             let p = PathBuf::from(path);
-            if !p.exists() { continue; }
+            if !p.exists() {
+                continue;
+            }
             let size = estimate_dir_size(&p, CACHE_ESTIMATE_DEPTH);
             if size > 0 {
                 caches.push(CachePath {
@@ -336,20 +418,34 @@ pub fn get_cache_paths() -> Vec<CachePath> {
         if let Some(home) = dirs::home_dir() {
             let cache_paths = [
                 ("~/.cache", "用户缓存", "XDG 缓存目录", true),
-                ("~/.cache/thumbnails", "缩略图缓存", "文件管理器缩略图", true),
+                (
+                    "~/.cache/thumbnails",
+                    "缩略图缓存",
+                    "文件管理器缩略图",
+                    true,
+                ),
                 ("~/.npm", "npm 缓存", "Node.js 包缓存", true),
                 ("~/.cache/pip", "pip 缓存", "Python 包缓存", true),
                 ("~/.local/share/Trash", "回收站", "已删除文件", true),
                 ("~/.mozilla/firefox", "Firefox 缓存", "浏览器缓存", true),
                 ("~/.config/google-chrome", "Chrome 缓存", "浏览器缓存", true),
-                ("~/.cache/v8-compile-cache", "V8 编译缓存", "Node.js/V8 缓存", true),
+                (
+                    "~/.cache/v8-compile-cache",
+                    "V8 编译缓存",
+                    "Node.js/V8 缓存",
+                    true,
+                ),
             ];
 
             for (rel_path, name, desc, safe) in &cache_paths {
-                if now.elapsed().as_secs() > 5 { break; }
+                if now.elapsed().as_secs() > 5 {
+                    break;
+                }
                 let full_path = rel_path.replace("~/", &format!("{}/", home.to_string_lossy()));
                 let p = PathBuf::from(&full_path);
-                if !p.exists() { continue; }
+                if !p.exists() {
+                    continue;
+                }
                 let size = estimate_dir_size(&p, CACHE_ESTIMATE_DEPTH);
                 if size > 0 {
                     caches.push(CachePath {
@@ -371,9 +467,13 @@ pub fn get_cache_paths() -> Vec<CachePath> {
             ("/tmp", "临时文件", "系统临时目录", false),
         ];
         for (path, name, desc, safe) in &sys_caches {
-            if now.elapsed().as_secs() > 5 { break; }
+            if now.elapsed().as_secs() > 5 {
+                break;
+            }
             let p = PathBuf::from(path);
-            if !p.exists() { continue; }
+            if !p.exists() {
+                continue;
+            }
             let size = estimate_dir_size(&p, CACHE_ESTIMATE_DEPTH);
             if size > 0 {
                 caches.push(CachePath {
@@ -429,7 +529,11 @@ pub fn delete_items(paths: Vec<String>) -> DeleteResult {
         }
     }
 
-    DeleteResult { success, failed, total_freed }
+    DeleteResult {
+        success,
+        failed,
+        total_freed,
+    }
 }
 
 /// Analyze duplicates (find files with same name+size)
@@ -457,7 +561,9 @@ pub fn find_duplicates(path: String, min_size: u64) -> Result<Vec<DuplicateGroup
         .collect();
 
     for entry in entries {
-        if start.elapsed().as_secs() > 30 { break; } // 30s timeout
+        if start.elapsed().as_secs() > 30 {
+            break;
+        } // 30s timeout
 
         let path = entry.path();
         let meta = match entry.metadata() {
@@ -465,7 +571,9 @@ pub fn find_duplicates(path: String, min_size: u64) -> Result<Vec<DuplicateGroup
             Err(_) => continue,
         };
         let size = meta.len();
-        if size < min_size { continue; }
+        if size < min_size {
+            continue;
+        }
 
         let name = entry.file_name().to_string_lossy().to_string();
         let key = format!("{}_{}", name, size);
@@ -494,7 +602,12 @@ pub fn find_duplicates(path: String, min_size: u64) -> Result<Vec<DuplicateGroup
         .map(|(key, files)| {
             let total_size: u64 = files.iter().map(|f| f.size).sum();
             let wasted = total_size.saturating_sub(files[0].size);
-            DuplicateGroup { key, files, total_size, wasted_space: wasted }
+            DuplicateGroup {
+                key,
+                files,
+                total_size,
+                wasted_space: wasted,
+            }
         })
         .collect();
 
@@ -511,9 +624,7 @@ fn get_dir_info(dir: &Path, max_depth: usize) -> (u64, u32) {
     let total = Arc::new(AtomicU64::new(0));
     let count = Arc::new(AtomicU64::new(0));
 
-    let walker = WalkDir::new(dir)
-        .max_depth(max_depth)
-        .skip_hidden(false);
+    let walker = WalkDir::new(dir).max_depth(max_depth).skip_hidden(false);
 
     for entry in walker.into_iter().filter_map(|e| e.ok()) {
         let meta = match entry.metadata() {
@@ -529,7 +640,10 @@ fn get_dir_info(dir: &Path, max_depth: usize) -> (u64, u32) {
         }
     }
 
-    (total.load(Ordering::Relaxed), count.load(Ordering::Relaxed) as u32)
+    (
+        total.load(Ordering::Relaxed),
+        count.load(Ordering::Relaxed) as u32,
+    )
 }
 
 /// Quick size estimation for cache directories (shallow depth, fast)
@@ -540,7 +654,9 @@ fn estimate_dir_size(dir: &Path, max_depth: usize) -> u64 {
     let walker = WalkDir::new(dir).max_depth(max_depth).skip_hidden(false);
 
     for entry in walker.into_iter().filter_map(|e| e.ok()) {
-        if count >= 10_000 { break; } // limit per directory
+        if count >= 10_000 {
+            break;
+        } // limit per directory
         let meta = match entry.metadata() {
             Ok(m) => m,
             Err(_) => continue,
@@ -559,12 +675,16 @@ fn get_category_info(ext: &str) -> (String, String) {
         "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" | "xz" => ("📦".into(), "压缩包".into()),
         "mp4" | "mkv" | "avi" | "mov" | "wmv" | "flv" | "webm" => ("🎬".into(), "视频".into()),
         "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" => ("🎵".into(), "音频".into()),
-        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "svg" | "webp" | "ico" => ("🖼️".into(), "图片".into()),
+        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "svg" | "webp" | "ico" => {
+            ("🖼️".into(), "图片".into())
+        }
         "pdf" | "doc" | "docx" | "xls" | "xlsx" | "ppt" | "pptx" => ("📄".into(), "文档".into()),
         "dmg" | "iso" | "img" => ("💿".into(), "磁盘镜像".into()),
         "apk" | "ipa" => ("📱".into(), "安装包".into()),
         "exe" | "msi" | "app" => ("⚙️".into(), "可执行文件".into()),
-        "js" | "ts" | "py" | "go" | "rs" | "java" | "cpp" | "c" | "h" => ("💻".into(), "源代码".into()),
+        "js" | "ts" | "py" | "go" | "rs" | "java" | "cpp" | "c" | "h" => {
+            ("💻".into(), "源代码".into())
+        }
         "log" => ("📋".into(), "日志".into()),
         "tmp" | "temp" | "cache" => ("🗑️".into(), "临时文件".into()),
         "woff" | "woff2" | "ttf" | "otf" | "eot" => ("🔤".into(), "字体".into()),

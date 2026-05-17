@@ -6,5 +6,5 @@ pub mod encryption;
 pub mod logic;
 
 // Re-export the main entry point
-pub use logic::CoreService;
 pub use db::Database;
+pub use logic::CoreService;

@@ -128,7 +128,9 @@ pub async fn set_active_nginx_version(
     version_id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] set_active_nginx_version() called");
-    let result = core.set_current_nginx_version(&preset_id, &version_id).await?;
+    let result = core
+        .set_current_nginx_version(&preset_id, &version_id)
+        .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -510,7 +512,9 @@ pub async fn preview_nginx_server(
     locations: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] preview_nginx_server() called");
-    let result = core.preview_nginx_server(&preset_id, server, locations).await?;
+    let result = core
+        .preview_nginx_server(&preset_id, server, locations)
+        .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 

@@ -1,9 +1,8 @@
+use super::super::git::find_git;
 /// Git 远程仓库操作 — remotes, push, pull, fetch
-
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::process::Stdio;
 use tokio::process::Command;
-use super::super::git::find_git;
 
 async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     let git_bin = find_git();
@@ -40,8 +39,11 @@ pub async fn git_remotes(repo_path: &str) -> Result<Value, String> {
             let existing = remotes.iter_mut().find(|r| r["name"] == name);
             match existing {
                 Some(r) => {
-                    if *direction == "(push)" { r["pushUrl"] = json!(url); }
-                    else { r["fetchUrl"] = json!(url); }
+                    if *direction == "(push)" {
+                        r["pushUrl"] = json!(url);
+                    } else {
+                        r["fetchUrl"] = json!(url);
+                    }
                 }
                 None => {
                     remotes.push(json!({
@@ -102,39 +104,63 @@ pub async fn git_push_tags(repo_path: &str, remote: &str) -> Result<Value, Strin
     Ok(json!({"success": true}))
 }
 
-pub async fn git_delete_remote_branch(repo_path: &str, remote: &str, branch: &str) -> Result<Value, String> {
+pub async fn git_delete_remote_branch(
+    repo_path: &str,
+    remote: &str,
+    branch: &str,
+) -> Result<Value, String> {
     run_git(repo_path, &["push", remote, "--delete", branch]).await?;
     Ok(json!({"success": true}))
 }
 
-pub async fn git_checkout_remote_branch(repo_path: &str, remote: &str, branch: &str) -> Result<Value, String> {
-    run_git(repo_path, &["checkout", "-b", branch, &format!("{}/{}", remote, branch)]).await?;
+pub async fn git_checkout_remote_branch(
+    repo_path: &str,
+    remote: &str,
+    branch: &str,
+) -> Result<Value, String> {
+    run_git(
+        repo_path,
+        &["checkout", "-b", branch, &format!("{}/{}", remote, branch)],
+    )
+    .await?;
     Ok(json!({"success": true}))
 }
 
 // ============ 远程分支状态 ============
 
 pub async fn git_unpushed_commits(repo_path: &str) -> Result<Value, String> {
-    let output = run_git(repo_path, &["log", "--format=%H|%ai|%s", "@{push}.."]).await.unwrap_or_default();
+    let output = run_git(repo_path, &["log", "--format=%H|%ai|%s", "@{push}.."])
+        .await
+        .unwrap_or_default();
     let commits: Vec<Value> = output
         .lines()
         .filter(|l| !l.is_empty())
         .filter_map(|line| {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
-            if parts.len() >= 3 { Some(json!({"hash": parts[0], "date": parts[1], "message": parts[2]})) } else { None }
+            if parts.len() >= 3 {
+                Some(json!({"hash": parts[0], "date": parts[1], "message": parts[2]}))
+            } else {
+                None
+            }
         })
         .collect();
     Ok(json!({"commits": commits, "count": commits.len()}))
 }
 
 pub async fn git_incoming_commits(repo_path: &str) -> Result<Value, String> {
-    let output = run_git(repo_path, &["log", "--format=%H|%ai|%s", "..@{upstream}"]).await.unwrap_or_default();
+    let output = run_git(repo_path, &["log", "--format=%H|%ai|%s", "..@{upstream}"])
+        .await
+        .unwrap_or_default();
     let commits: Vec<Value> = output
         .lines()
         .filter(|l| !l.is_empty())
         .filter_map(|line| {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
-            if parts.len() >= 3 { Some(json!({"hash": parts[0], "date": parts[1], "message": parts[2]})) } else { None }
+            if parts.len() >= 3 {
+                Some(json!({"hash": parts[0], "date": parts[1], "message": parts[2]}))
+            } else {
+                None
+            }
         })
         .collect();
     Ok(json!({"commits": commits, "count": commits.len()}))

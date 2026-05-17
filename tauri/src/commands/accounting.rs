@@ -88,7 +88,9 @@ pub async fn get_accounting_stats(
     params: Option<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_accounting_stats() called");
-    let result = core.get_accounting_stats(params.unwrap_or(serde_json::Value::Null)).await?;
+    let result = core
+        .get_accounting_stats(params.unwrap_or(serde_json::Value::Null))
+        .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -103,9 +105,7 @@ pub async fn get_accounting_trend(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn get_budgets(
-    core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+pub async fn get_budgets(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_budgets() called");
     let result = core.get_budgets().await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
@@ -148,7 +148,10 @@ pub async fn upload_accounting_receipt(
     file_name: String,
     base64_data: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] upload_accounting_receipt() called: {}", file_name);
+    log::info!(
+        "[Tauri CMD] upload_accounting_receipt() called: {}",
+        file_name
+    );
     let app_path = core.get_app_path().await.map_err(|e| e)?;
     let app_dir = std::path::PathBuf::from(app_path.as_str().unwrap_or("."));
     let receipt_dir = app_dir.join("accounting-receipts");
@@ -156,13 +159,16 @@ pub async fn upload_accounting_receipt(
 
     let id = uuid::Uuid::new_v4().to_string().replace("-", "")[..8].to_string();
     let ext = file_name.rsplit('.').next().unwrap_or("png");
-    let safe_name = format!("{}_{}.{}", chrono::Utc::now().format("%Y%m%d%H%M%S"), id, ext);
+    let safe_name = format!(
+        "{}_{}.{}",
+        chrono::Utc::now().format("%Y%m%d%H%M%S"),
+        id,
+        ext
+    );
     let file_path = receipt_dir.join(&safe_name);
 
-    let bytes = base64::Engine::decode(
-        &base64::engine::general_purpose::STANDARD,
-        &base64_data,
-    ).map_err(|e| e.to_string())?;
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &base64_data)
+        .map_err(|e| e.to_string())?;
 
     std::fs::write(&file_path, bytes).map_err(|e| e.to_string())?;
 
@@ -178,7 +184,10 @@ pub async fn get_accounting_receipt_file(
     _core: State<'_, CoreService>,
     file_path: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] get_accounting_receipt_file() called: {}", file_path);
+    log::info!(
+        "[Tauri CMD] get_accounting_receipt_file() called: {}",
+        file_path
+    );
 
     let path = std::path::Path::new(&file_path);
     if !path.exists() {

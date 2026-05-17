@@ -201,7 +201,12 @@ fn tokenize(input: &str) -> Vec<Token> {
 
         // Regular word — don't stop at '#', let the outer loop handle it
         let mut word = String::new();
-        while i < len && !chars[i].is_whitespace() && chars[i] != '{' && chars[i] != '}' && chars[i] != ';' {
+        while i < len
+            && !chars[i].is_whitespace()
+            && chars[i] != '{'
+            && chars[i] != '}'
+            && chars[i] != ';'
+        {
             word.push(chars[i]);
             i += 1;
         }
@@ -221,9 +226,9 @@ fn tokenize(input: &str) -> Vec<Token> {
 #[derive(Debug, Clone)]
 struct Directive {
     name: String,
-    args: Vec<String>,         // arguments before ; or {
-    block: Vec<Directive>,     // nested directives (empty for simple directives)
-    is_block: bool,            // true if this directive has { ... }
+    args: Vec<String>,     // arguments before ; or {
+    block: Vec<Directive>, // nested directives (empty for simple directives)
+    is_block: bool,        // true if this directive has { ... }
 }
 
 /// Parse tokens into a list of top-level directives.
@@ -293,10 +298,7 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
                 *pos += 1;
             }
             t => {
-                return Err(format!(
-                    "Unexpected token {:?} in '{}' directive",
-                    t, name
-                ));
+                return Err(format!("Unexpected token {:?} in '{}' directive", t, name));
             }
         }
     }
@@ -358,7 +360,12 @@ fn analyze_config(directives: &[Directive]) -> ParsedNginxConfig {
         } else if !d.is_block {
             // Simple directive — basic setting
             let value = d.args.join(" ");
-            if !value.is_empty() || d.name == "pid" || d.name == "error_log" || d.name == "worker_processes" || d.name == "worker_rlimit_nofile" {
+            if !value.is_empty()
+                || d.name == "pid"
+                || d.name == "error_log"
+                || d.name == "worker_processes"
+                || d.name == "worker_rlimit_nofile"
+            {
                 config.basic_settings.push(ParsedBasicSetting {
                     name: d.name.clone(),
                     value,
@@ -391,9 +398,11 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
         } else if d.is_block {
             // Block directive (like geo, map) — render value as "args {\n  body\n}"
             let args = d.args.join(" ");
-            let body: Vec<String> = d.block.iter().map(|child| {
-                format!("    {} {};", child.name, child.args.join(" "))
-            }).collect();
+            let body: Vec<String> = d
+                .block
+                .iter()
+                .map(|child| format!("    {} {};", child.name, child.args.join(" ")))
+                .collect();
             let block_value = format!("{} {{\n{}\n}}", args, body.join("\n"));
             if !block_value.trim().is_empty() {
                 config.http_params.push(ParsedHttpParam {
@@ -466,7 +475,9 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
                             "fail_timeout" => srv.fail_timeout = val.to_string(),
                             "max_conns" => srv.max_conns = val.parse().unwrap_or(0),
                             _ => {
-                                if !srv.param.is_empty() { srv.param.push(' '); }
+                                if !srv.param.is_empty() {
+                                    srv.param.push(' ');
+                                }
                                 srv.param.push_str(p);
                             }
                         }
@@ -487,7 +498,9 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
                         srv.max_conns = params[i + 1].parse().unwrap_or(0);
                         i += 1;
                     } else {
-                        if !srv.param.is_empty() { srv.param.push(' '); }
+                        if !srv.param.is_empty() {
+                            srv.param.push(' ');
+                        }
                         srv.param.push_str(p);
                     }
                     i += 1;
@@ -506,7 +519,12 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
             strategy = "least_time".to_string();
         } else if child.name.starts_with('#') {
             // Comment-like directives (not standard, but we can store descr)
-        } else if child.name != "ip_hash" && child.name != "least_conn" && child.name != "random" && child.name != "sticky" && child.name != "least_time" {
+        } else if child.name != "ip_hash"
+            && child.name != "least_conn"
+            && child.name != "random"
+            && child.name != "sticky"
+            && child.name != "least_time"
+        {
             // Capture unrecognized upstream directives as extra params
             let value = child.args.join(" ");
             extra_params.push(ParsedParamEntry {
@@ -606,7 +624,9 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                 } else if !srv.listen.is_empty() && srv.listen == listen_val && has_ssl {
                     // Same port but with ssl — update ssl/http2 flags
                     srv.ssl = 1;
-                    if has_http2 { srv.http2 = 1; }
+                    if has_http2 {
+                        srv.http2 = 1;
+                    }
                 } else {
                     srv.listen = listen_val;
                 }
@@ -682,7 +702,12 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                 // return 301 https://$host$request_uri;
                 // This could be a rewrite redirect
                 if let Some(code) = child.args.first() {
-                    if code == "301" || code == "302" || code == "303" || code == "307" || code == "308" {
+                    if code == "301"
+                        || code == "302"
+                        || code == "303"
+                        || code == "307"
+                        || code == "308"
+                    {
                         srv.rewrite = true;
                         if child.args.len() > 1 {
                             // The rewrite URL — we can't easily extract the port
@@ -694,7 +719,9 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                 // Skip if ($scheme = http) { return 301 ... } — handled by generator's rewrite logic
                 if child.name == "if" && srv.rewrite {
                     if let Some(cond) = child.args.first() {
-                        if cond.contains("$scheme") && child.block.iter().any(|c| c.name == "return") {
+                        if cond.contains("$scheme")
+                            && child.block.iter().any(|c| c.name == "return")
+                        {
                             continue;
                         }
                     }
@@ -723,7 +750,14 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
             "^~" | "=" | "~" | "~*" => {
                 let p = d.args.get(1).cloned().unwrap_or_default();
                 let m = first.clone();
-                (if p.is_empty() { m.clone() } else { format!("{} {}", m, p) }, m)
+                (
+                    if p.is_empty() {
+                        m.clone()
+                    } else {
+                        format!("{} {}", m, p)
+                    },
+                    m,
+                )
             }
             _ => (first, String::new()),
         }
@@ -747,9 +781,17 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
         match child.name.as_str() {
             "proxy_pass" => {
                 let proxy = child.args.join(" ");
-                if proxy.starts_with("http://") || proxy.starts_with("https://") || proxy.starts_with("uwsgi://") || proxy.starts_with("fastcgi://") {
+                if proxy.starts_with("http://")
+                    || proxy.starts_with("https://")
+                    || proxy.starts_with("uwsgi://")
+                    || proxy.starts_with("fastcgi://")
+                {
                     // Extract upstream name from URL
-                    let rest = proxy.trim_start_matches("http://").trim_start_matches("https://").trim_start_matches("uwsgi://").trim_start_matches("fastcgi://");
+                    let rest = proxy
+                        .trim_start_matches("http://")
+                        .trim_start_matches("https://")
+                        .trim_start_matches("uwsgi://")
+                        .trim_start_matches("fastcgi://");
                     if let Some(slash_idx) = rest.find('/') {
                         loc.upstream_id = rest[..slash_idx].to_string();
                         loc.upstream_path = rest[slash_idx..].to_string();
@@ -776,7 +818,11 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 if child.args.first().map(|s| s == "Host").unwrap_or(false) {
                     loc.header = true;
                 } else if child.args.first().map(|s| s == "Upgrade").unwrap_or(false)
-                    || child.args.first().map(|s| s == "Connection").unwrap_or(false)
+                    || child
+                        .args
+                        .first()
+                        .map(|s| s == "Connection")
+                        .unwrap_or(false)
                 {
                     // WebSocket headers
                 }
@@ -790,7 +836,12 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 let first_arg = child.args.first().map(|s| s.as_str()).unwrap_or("");
                 if first_arg != "Access-Control-Allow-Origin" {
                     let value = child.args.join(" ");
-                    if !value.is_empty() && !loc.extra_params.iter().any(|e| e.name == "add_header" && e.value == value) {
+                    if !value.is_empty()
+                        && !loc
+                            .extra_params
+                            .iter()
+                            .any(|e| e.name == "add_header" && e.value == value)
+                    {
                         loc.extra_params.push(ParsedParamEntry {
                             name: child.name.clone(),
                             value,
@@ -947,7 +998,11 @@ mod tests {
     #[test]
     fn test_tokenize_simple() {
         let tokens = tokenize("worker_processes auto;");
-        assert!(tokens.len() >= 3, "expected at least 3 tokens, got {}", tokens.len());
+        assert!(
+            tokens.len() >= 3,
+            "expected at least 3 tokens, got {}",
+            tokens.len()
+        );
         assert_eq!(tokens[0], Token::Word("worker_processes".to_string()));
         assert_eq!(tokens[1], Token::Word("auto".to_string()));
         assert_eq!(tokens[2], Token::Semicolon);
@@ -956,9 +1011,16 @@ mod tests {
     #[test]
     fn test_tokenize_block() {
         let tokens = tokenize("http { server { listen 80; } }");
-        let words: Vec<_> = tokens.iter().filter_map(|t| {
-            if let Token::Word(w) = t { Some(w.as_str()) } else { None }
-        }).collect();
+        let words: Vec<_> = tokens
+            .iter()
+            .filter_map(|t| {
+                if let Token::Word(w) = t {
+                    Some(w.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
         assert!(words.contains(&"http"));
         assert!(words.contains(&"server"));
         assert!(words.contains(&"listen"));
@@ -968,18 +1030,35 @@ mod tests {
     #[test]
     fn test_tokenize_quoted_string() {
         let tokens = tokenize("server_name \"example.com\";");
-        assert!(tokens.iter().any(|t| t == &Token::Word("example.com".to_string())),
-            "quoted string should produce a Word token without quotes");
+        assert!(
+            tokens
+                .iter()
+                .any(|t| t == &Token::Word("example.com".to_string())),
+            "quoted string should produce a Word token without quotes"
+        );
     }
 
     #[test]
     fn test_tokenize_comments_skipped() {
         let tokens = tokenize("worker_processes auto; # this is a comment\npid /run/nginx.pid;");
-        let words: Vec<_> = tokens.iter().filter_map(|t| {
-            if let Token::Word(w) = t { Some(w.as_str()) } else { None }
-        }).collect();
-        assert!(words.contains(&"pid"), "pid should be present after comment");
-        assert!(!words.contains(&"this"), "comment content should be skipped");
+        let words: Vec<_> = tokens
+            .iter()
+            .filter_map(|t| {
+                if let Token::Word(w) = t {
+                    Some(w.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert!(
+            words.contains(&"pid"),
+            "pid should be present after comment"
+        );
+        assert!(
+            !words.contains(&"this"),
+            "comment content should be skipped"
+        );
     }
 
     #[test]
@@ -1035,7 +1114,10 @@ stream {
 }
 "#;
         let config = parse_nginx_config(text).unwrap();
-        assert!(!config.basic_settings.is_empty(), "should have basic settings");
+        assert!(
+            !config.basic_settings.is_empty(),
+            "should have basic settings"
+        );
         assert!(!config.http_params.is_empty(), "should have http params");
         assert_eq!(config.upstreams.len(), 1);
         assert_eq!(config.servers.len(), 1);
@@ -1047,7 +1129,10 @@ stream {
     #[test]
     fn test_empty_config() {
         let config = parse_nginx_config("").unwrap();
-        assert!(config.basic_settings.is_empty(), "empty config should have no basic_settings");
+        assert!(
+            config.basic_settings.is_empty(),
+            "empty config should have no basic_settings"
+        );
         assert!(config.http_params.is_empty());
         assert!(config.upstreams.is_empty());
         assert!(config.servers.is_empty());
@@ -1074,9 +1159,15 @@ stream {
         let config = parse_nginx_config("events { worker_connections 1024; }").unwrap();
         assert!(!config.basic_settings.is_empty());
         let events_setting = config.basic_settings.iter().find(|s| s.name == "events");
-        assert!(events_setting.is_some(), "events block should be stored as a basic setting");
+        assert!(
+            events_setting.is_some(),
+            "events block should be stored as a basic setting"
+        );
         if let Some(ev) = events_setting {
-            assert!(ev.value.contains("worker_connections"), "events block should contain worker_connections");
+            assert!(
+                ev.value.contains("worker_connections"),
+                "events block should contain worker_connections"
+            );
         }
     }
 
@@ -1126,13 +1217,23 @@ http {
 }
 "#;
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.http_params.iter().filter(|p| p.name != "include" && p.name != "default_type").count(), 3,
-            "should have 3 http-level params (sendfile, tcp_nopush, keepalive_timeout)");
+        assert_eq!(
+            config
+                .http_params
+                .iter()
+                .filter(|p| p.name != "include" && p.name != "default_type")
+                .count(),
+            3,
+            "should have 3 http-level params (sendfile, tcp_nopush, keepalive_timeout)"
+        );
         assert_eq!(config.upstreams.len(), 2, "should have 2 upstreams");
         assert_eq!(config.upstreams[0].name, "backend");
         assert_eq!(config.upstreams[0].strategy, "ip_hash");
         assert_eq!(config.upstreams[0].servers.len(), 2);
-        assert!(config.upstreams[0].servers[1].backup, "second backend server should be backup");
+        assert!(
+            config.upstreams[0].servers[1].backup,
+            "second backend server should be backup"
+        );
         assert_eq!(config.upstreams[1].name, "api");
         assert_eq!(config.upstreams[1].strategy, "least_conn");
         assert_eq!(config.upstreams[1].servers.len(), 1);
@@ -1161,7 +1262,11 @@ http {
         assert_eq!(static_loc.loc_type, "root");
         assert_eq!(static_loc.root_path, "/var/www/static");
 
-        let redirect_loc = srv.locations.iter().find(|l| l.path == "/redirect").unwrap();
+        let redirect_loc = srv
+            .locations
+            .iter()
+            .find(|l| l.path == "/redirect")
+            .unwrap();
         assert_eq!(redirect_loc.loc_type, "return");
         assert!(redirect_loc.return_url.contains("301"));
     }
@@ -1256,7 +1361,10 @@ http {
 }
 "#;
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.servers[0].http2, 1, "old-style http2 on ssl listen should set http2=1");
+        assert_eq!(
+            config.servers[0].http2, 1,
+            "old-style http2 on ssl listen should set http2=1"
+        );
         assert_eq!(config.servers[0].ssl, 1);
     }
 
@@ -1272,7 +1380,10 @@ http {
 }
 "#;
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.servers[0].http2, 2, "new-style 'http2 on;' should set http2=2");
+        assert_eq!(
+            config.servers[0].http2, 2,
+            "new-style 'http2 on;' should set http2=2"
+        );
     }
 
     #[test]
@@ -1308,7 +1419,10 @@ http {
         let config = parse_nginx_config(text).unwrap();
         assert_eq!(config.servers.len(), 1);
         // deny all; sets deny_allow to 1 (blacklist mode)
-        assert_eq!(config.servers[0].deny_allow, 1, "deny all should set deny_allow to 1");
+        assert_eq!(
+            config.servers[0].deny_allow, 1,
+            "deny all should set deny_allow to 1"
+        );
     }
 
     #[test]
@@ -1427,19 +1541,22 @@ http {
 
     #[test]
     fn test_upstream_ip_hash_strategy() {
-        let config = parse_nginx_config("upstream backend { ip_hash; server 127.0.0.1:8080; }").unwrap();
+        let config =
+            parse_nginx_config("upstream backend { ip_hash; server 127.0.0.1:8080; }").unwrap();
         assert_eq!(config.upstreams[0].strategy, "ip_hash");
     }
 
     #[test]
     fn test_upstream_least_conn_strategy() {
-        let config = parse_nginx_config("upstream backend { least_conn; server 127.0.0.1:8080; }").unwrap();
+        let config =
+            parse_nginx_config("upstream backend { least_conn; server 127.0.0.1:8080; }").unwrap();
         assert_eq!(config.upstreams[0].strategy, "least_conn");
     }
 
     #[test]
     fn test_upstream_random_strategy() {
-        let config = parse_nginx_config("upstream backend { random; server 127.0.0.1:8080; }").unwrap();
+        let config =
+            parse_nginx_config("upstream backend { random; server 127.0.0.1:8080; }").unwrap();
         assert_eq!(config.upstreams[0].strategy, "random");
     }
 
@@ -1534,16 +1651,23 @@ http {
     fn test_include_directive() {
         let text = "include /etc/nginx/conf.d/*.conf;\n";
         let config = parse_nginx_config(text).unwrap();
-        assert!(config.basic_settings.iter().any(|s| s.name == "include"),
-            "include directive should be stored as a basic setting");
+        assert!(
+            config.basic_settings.iter().any(|s| s.name == "include"),
+            "include directive should be stored as a basic setting"
+        );
     }
 
     #[test]
     fn test_load_module_directive() {
         let text = "load_module modules/ngx_http_geoip_module.so;\n";
         let config = parse_nginx_config(text).unwrap();
-        assert!(config.basic_settings.iter().any(|s| s.name == "load_module"),
-            "load_module directive should be stored as a basic setting");
+        assert!(
+            config
+                .basic_settings
+                .iter()
+                .any(|s| s.name == "load_module"),
+            "load_module directive should be stored as a basic setting"
+        );
     }
 
     #[test]
@@ -1563,7 +1687,11 @@ http {
 "#;
         // map is a block directive that is not upstream/server, should be skipped gracefully
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.servers.len(), 1, "server should still be parsed despite map block");
+        assert_eq!(
+            config.servers.len(),
+            1,
+            "server should still be parsed despite map block"
+        );
     }
 
     #[test]
@@ -1609,7 +1737,10 @@ http {
         // http2 flag on listen line without ssl should set http2=2 (new-style)
         let text = "server { listen 80 http2; server_name test.com; }\n";
         let config = parse_nginx_config(text).unwrap();
-        assert_eq!(config.servers[0].http2, 2, "http2 without ssl should set http2=2");
+        assert_eq!(
+            config.servers[0].http2, 2,
+            "http2 without ssl should set http2=2"
+        );
     }
 
     #[test]
@@ -1629,7 +1760,10 @@ http {
         // Actually the parser checks: if arg == "all" and the child name is "deny" then deny_allow = 1
         // If child name is "allow" and arg == "all" and deny_allow == 0 then deny_allow = 2
         // In this case: deny all is the last line, so deny_allow becomes 1
-        assert_eq!(config.servers[0].deny_allow, 1, "deny all sets deny_allow=1 (blacklist)");
+        assert_eq!(
+            config.servers[0].deny_allow, 1,
+            "deny all sets deny_allow=1 (blacklist)"
+        );
     }
 
     #[test]

@@ -297,7 +297,9 @@ pub fn row_to_nginx_preset(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxPre
     })
 }
 
-pub fn row_to_nginx_config_version(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxConfigVersion> {
+pub fn row_to_nginx_config_version(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<NginxConfigVersion> {
     let is_current: i64 = row.get("isCurrent")?;
     Ok(NginxConfigVersion {
         id: row.get("id")?,
@@ -385,7 +387,9 @@ pub fn row_to_nginx_upstream(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxU
     })
 }
 
-pub fn row_to_nginx_upstream_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxUpstreamServer> {
+pub fn row_to_nginx_upstream_server(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<NginxUpstreamServer> {
     Ok(NginxUpstreamServer {
         id: row.get("id")?,
         upstream_id: row.get("upstreamId")?,
@@ -507,15 +511,29 @@ pub fn row_to_nginx_password(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxP
 
 // ============ Generic query helpers to reduce repetition ============
 
-fn query_all<T, F>(conn: &rusqlite::Connection, sql: &str, params: &[&dyn rusqlite::types::ToSql], mapper: F) -> rusqlite::Result<Vec<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
+fn query_all<T, F>(
+    conn: &rusqlite::Connection,
+    sql: &str,
+    params: &[&dyn rusqlite::types::ToSql],
+    mapper: F,
+) -> rusqlite::Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
     let mut stmt = conn.prepare(sql)?;
     let rows = stmt.query_map(params, mapper)?;
     rows.collect()
 }
 
-fn query_one<T, F>(conn: &rusqlite::Connection, sql: &str, params: &[&dyn rusqlite::types::ToSql], mapper: F) -> rusqlite::Result<Option<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
+fn query_one<T, F>(
+    conn: &rusqlite::Connection,
+    sql: &str,
+    params: &[&dyn rusqlite::types::ToSql],
+    mapper: F,
+) -> rusqlite::Result<Option<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
     let mut stmt = conn.prepare(sql)?;
     match stmt.query_row(params, mapper) {
         Ok(val) => Ok(Some(val)),
@@ -524,20 +542,48 @@ where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
     }
 }
 
-fn get_all_by_preset<T, F>(conn: &rusqlite::Connection, table: &str, preset_id: &str, mapper: F) -> rusqlite::Result<Vec<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
-    let sql = format!("SELECT * FROM {} WHERE presetId = ?1 ORDER BY sort ASC, createdAt DESC", table);
+fn get_all_by_preset<T, F>(
+    conn: &rusqlite::Connection,
+    table: &str,
+    preset_id: &str,
+    mapper: F,
+) -> rusqlite::Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
+    let sql = format!(
+        "SELECT * FROM {} WHERE presetId = ?1 ORDER BY sort ASC, createdAt DESC",
+        table
+    );
     query_all(conn, &sql, rusqlite::params![preset_id], mapper)
 }
 
-fn get_all_by_fk<T, F>(conn: &rusqlite::Connection, table: &str, column: &str, fk_id: &str, mapper: F) -> rusqlite::Result<Vec<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
-    let sql = format!("SELECT * FROM {} WHERE {} = ?1 ORDER BY sort ASC", table, column);
+fn get_all_by_fk<T, F>(
+    conn: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+    fk_id: &str,
+    mapper: F,
+) -> rusqlite::Result<Vec<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
+    let sql = format!(
+        "SELECT * FROM {} WHERE {} = ?1 ORDER BY sort ASC",
+        table, column
+    );
     query_all(conn, &sql, rusqlite::params![fk_id], mapper)
 }
 
-fn get_by_id_internal<T, F>(conn: &rusqlite::Connection, table: &str, id: &str, mapper: F) -> rusqlite::Result<Option<T>>
-where F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T> {
+fn get_by_id_internal<T, F>(
+    conn: &rusqlite::Connection,
+    table: &str,
+    id: &str,
+    mapper: F,
+) -> rusqlite::Result<Option<T>>
+where
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
     let sql = format!("SELECT * FROM {} WHERE id = ?1", table);
     query_one(conn, &sql, rusqlite::params![id], mapper)
 }
@@ -548,18 +594,28 @@ fn delete_by_id(conn: &rusqlite::Connection, table: &str, id: &str) -> rusqlite:
     Ok(())
 }
 
-fn delete_by_fk(conn: &rusqlite::Connection, table: &str, column: &str, fk_id: &str) -> rusqlite::Result<()> {
+fn delete_by_fk(
+    conn: &rusqlite::Connection,
+    table: &str,
+    column: &str,
+    fk_id: &str,
+) -> rusqlite::Result<()> {
     let sql = format!("DELETE FROM {} WHERE {} = ?1", table, column);
     conn.execute(&sql, params![fk_id])?;
     Ok(())
 }
 
-fn bool_int(b: bool) -> i64 { if b { 1 } else { 0 } }
+fn bool_int(b: bool) -> i64 {
+    if b { 1 } else { 0 }
+}
 
 // ============ Existing CRUD ============
 
 pub fn get_all_nginx_presets(db: &mut Database) -> ApiResponse<Vec<NginxPreset>> {
-    match db.conn().prepare("SELECT * FROM nginx_presets ORDER BY createdAt DESC") {
+    match db
+        .conn()
+        .prepare("SELECT * FROM nginx_presets ORDER BY createdAt DESC")
+    {
         Ok(mut stmt) => match stmt.query_map([], row_to_nginx_preset) {
             Ok(rows) => {
                 let presets: rusqlite::Result<Vec<NginxPreset>> = rows.collect();
@@ -609,10 +665,19 @@ pub fn delete_nginx_preset(db: &mut Database, id: &str) -> ApiResponse<()> {
         Err(e) => return ApiResponse::err(format!("Transaction failed: {}", e)),
     };
     // Delete all related records
-    for table in &["nginx_config_versions", "nginx_basic_settings", "nginx_servers",
-                    "nginx_upstreams", "nginx_http_params", "nginx_certs",
-                    "nginx_templates", "nginx_streams", "nginx_params",
-                    "nginx_deny_allows", "nginx_passwords"] {
+    for table in &[
+        "nginx_config_versions",
+        "nginx_basic_settings",
+        "nginx_servers",
+        "nginx_upstreams",
+        "nginx_http_params",
+        "nginx_certs",
+        "nginx_templates",
+        "nginx_streams",
+        "nginx_params",
+        "nginx_deny_allows",
+        "nginx_passwords",
+    ] {
         let sql = format!("DELETE FROM {} WHERE presetId = ?1", table);
         if let Err(e) = tx.execute(&sql, params![id]) {
             let _ = tx.rollback();
@@ -633,8 +698,14 @@ pub fn delete_nginx_preset(db: &mut Database, id: &str) -> ApiResponse<()> {
     }
 }
 
-pub fn get_config_versions(db: &mut Database, preset_id: &str) -> ApiResponse<Vec<NginxConfigVersion>> {
-    match db.conn().prepare("SELECT * FROM nginx_config_versions WHERE presetId = ?1 ORDER BY createdAt DESC") {
+pub fn get_config_versions(
+    db: &mut Database,
+    preset_id: &str,
+) -> ApiResponse<Vec<NginxConfigVersion>> {
+    match db
+        .conn()
+        .prepare("SELECT * FROM nginx_config_versions WHERE presetId = ?1 ORDER BY createdAt DESC")
+    {
         Ok(mut stmt) => match stmt.query_map(params![preset_id], row_to_nginx_config_version) {
             Ok(rows) => {
                 let versions: rusqlite::Result<Vec<NginxConfigVersion>> = rows.collect();
@@ -649,7 +720,10 @@ pub fn get_config_versions(db: &mut Database, preset_id: &str) -> ApiResponse<Ve
     }
 }
 
-pub fn add_config_version(db: &mut Database, version: NginxConfigVersion) -> ApiResponse<NginxConfigVersion> {
+pub fn add_config_version(
+    db: &mut Database,
+    version: NginxConfigVersion,
+) -> ApiResponse<NginxConfigVersion> {
     let result = db.conn_mut().execute(
         "INSERT INTO nginx_config_versions (id, presetId, content, checksum, comment, isCurrent, createdAt)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -662,19 +736,31 @@ pub fn add_config_version(db: &mut Database, version: NginxConfigVersion) -> Api
     }
 }
 
-pub fn set_current_version(db: &mut Database, preset_id: &str, version_id: &str) -> ApiResponse<()> {
+pub fn set_current_version(
+    db: &mut Database,
+    preset_id: &str,
+    version_id: &str,
+) -> ApiResponse<()> {
     let conn = db.conn_mut();
     let tx = match conn.transaction() {
         Ok(tx) => tx,
         Err(e) => return ApiResponse::err(format!("Transaction failed: {}", e)),
     };
-    if let Err(e) = tx.execute("UPDATE nginx_config_versions SET isCurrent = 0 WHERE presetId = ?1", params![preset_id]) {
+    if let Err(e) = tx.execute(
+        "UPDATE nginx_config_versions SET isCurrent = 0 WHERE presetId = ?1",
+        params![preset_id],
+    ) {
         let _ = tx.rollback();
         return ApiResponse::err(format!("Unset current failed: {}", e));
     }
-    match tx.execute("UPDATE nginx_config_versions SET isCurrent = 1 WHERE id = ?1 AND presetId = ?2", params![version_id, preset_id]) {
+    match tx.execute(
+        "UPDATE nginx_config_versions SET isCurrent = 1 WHERE id = ?1 AND presetId = ?2",
+        params![version_id, preset_id],
+    ) {
         Ok(_) => {
-            if let Err(e) = tx.commit() { return ApiResponse::err(format!("Commit failed: {}", e)); }
+            if let Err(e) = tx.commit() {
+                return ApiResponse::err(format!("Commit failed: {}", e));
+            }
             ApiResponse::ok(())
         }
         Err(e) => {
@@ -686,11 +772,17 @@ pub fn set_current_version(db: &mut Database, preset_id: &str, version_id: &str)
 
 // ============ NginxServer CRUD ============
 
-pub fn get_servers_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxServer>> {
+pub fn get_servers_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxServer>> {
     get_all_by_preset(conn, "nginx_servers", preset_id, row_to_nginx_server)
 }
 
-pub fn get_server_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxServer>> {
+pub fn get_server_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<NginxServer>> {
     get_by_id_internal(conn, "nginx_servers", id, row_to_nginx_server)
 }
 
@@ -702,13 +794,34 @@ pub fn add_nginx_server(conn: &rusqlite::Connection, s: &NginxServer) -> rusqlit
          descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
                  ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        params![s.id, s.preset_id, s.proxy_type, s.listen, s.ip,
-                bool_int(s.def), bool_int(s.ipv6), bool_int(s.proxy_protocol),
-                s.server_name, bool_int(s.ssl), s.cert_id, bool_int(s.rewrite),
-                s.rewrite_listen, s.http2, s.protocols,
-                s.password_id, s.deny_allow, s.deny_id, s.allow_id, s.proxy_upstream_id,
-                s.descr, bool_int(s.enabled), s.sort, s.param_json,
-                s.created_at, s.updated_at],
+        params![
+            s.id,
+            s.preset_id,
+            s.proxy_type,
+            s.listen,
+            s.ip,
+            bool_int(s.def),
+            bool_int(s.ipv6),
+            bool_int(s.proxy_protocol),
+            s.server_name,
+            bool_int(s.ssl),
+            s.cert_id,
+            bool_int(s.rewrite),
+            s.rewrite_listen,
+            s.http2,
+            s.protocols,
+            s.password_id,
+            s.deny_allow,
+            s.deny_id,
+            s.allow_id,
+            s.proxy_upstream_id,
+            s.descr,
+            bool_int(s.enabled),
+            s.sort,
+            s.param_json,
+            s.created_at,
+            s.updated_at
+        ],
     )?;
     Ok(())
 }
@@ -737,11 +850,23 @@ pub fn delete_nginx_server(conn: &rusqlite::Connection, id: &str) -> rusqlite::R
 
 // ============ NginxLocation CRUD ============
 
-pub fn get_locations_by_server(conn: &rusqlite::Connection, server_id: &str) -> rusqlite::Result<Vec<NginxLocation>> {
-    get_all_by_fk(conn, "nginx_locations", "serverId", server_id, row_to_nginx_location)
+pub fn get_locations_by_server(
+    conn: &rusqlite::Connection,
+    server_id: &str,
+) -> rusqlite::Result<Vec<NginxLocation>> {
+    get_all_by_fk(
+        conn,
+        "nginx_locations",
+        "serverId",
+        server_id,
+        row_to_nginx_location,
+    )
 }
 
-pub fn add_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> rusqlite::Result<()> {
+pub fn add_nginx_location(
+    conn: &rusqlite::Connection,
+    loc: &NginxLocation,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO nginx_locations (id, serverId, enabled, path, locType, value,
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
@@ -757,7 +882,10 @@ pub fn add_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> r
     Ok(())
 }
 
-pub fn update_nginx_location(conn: &rusqlite::Connection, loc: &NginxLocation) -> rusqlite::Result<()> {
+pub fn update_nginx_location(
+    conn: &rusqlite::Connection,
+    loc: &NginxLocation,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_locations SET enabled=?2, path=?3, locType=?4, value=?5,
           upstreamType=?6, upstreamId=?7, upstreamPath=?8, rootPath=?9, rootPage=?10, rootType=?11,
@@ -779,11 +907,17 @@ pub fn delete_nginx_location(conn: &rusqlite::Connection, id: &str) -> rusqlite:
 
 // ============ NginxUpstream CRUD ============
 
-pub fn get_upstreams_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxUpstream>> {
+pub fn get_upstreams_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxUpstream>> {
     get_all_by_preset(conn, "nginx_upstreams", preset_id, row_to_nginx_upstream)
 }
 
-pub fn get_upstream_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxUpstream>> {
+pub fn get_upstream_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<NginxUpstream>> {
     get_by_id_internal(conn, "nginx_upstreams", id, row_to_nginx_upstream)
 }
 
@@ -796,7 +930,10 @@ pub fn add_nginx_upstream(conn: &rusqlite::Connection, u: &NginxUpstream) -> rus
     Ok(())
 }
 
-pub fn update_nginx_upstream(conn: &rusqlite::Connection, u: &NginxUpstream) -> rusqlite::Result<()> {
+pub fn update_nginx_upstream(
+    conn: &rusqlite::Connection,
+    u: &NginxUpstream,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_upstreams SET name=?2, proxyType=?3, strategy=?4, descr=?5, paramJson=?6, sort=?7, updatedAt=?8 WHERE id=?1",
         params![u.id, u.name, u.proxy_type, u.strategy, u.descr, u.param_json, u.sort, u.updated_at],
@@ -811,11 +948,23 @@ pub fn delete_nginx_upstream(conn: &rusqlite::Connection, id: &str) -> rusqlite:
 
 // ============ NginxUpstreamServer CRUD ============
 
-pub fn get_upstream_servers(conn: &rusqlite::Connection, upstream_id: &str) -> rusqlite::Result<Vec<NginxUpstreamServer>> {
-    get_all_by_fk(conn, "nginx_upstream_servers", "upstreamId", upstream_id, row_to_nginx_upstream_server)
+pub fn get_upstream_servers(
+    conn: &rusqlite::Connection,
+    upstream_id: &str,
+) -> rusqlite::Result<Vec<NginxUpstreamServer>> {
+    get_all_by_fk(
+        conn,
+        "nginx_upstream_servers",
+        "upstreamId",
+        upstream_id,
+        row_to_nginx_upstream_server,
+    )
 }
 
-pub fn add_nginx_upstream_server(conn: &rusqlite::Connection, s: &NginxUpstreamServer) -> rusqlite::Result<()> {
+pub fn add_nginx_upstream_server(
+    conn: &rusqlite::Connection,
+    s: &NginxUpstreamServer,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO nginx_upstream_servers (id, upstreamId, address, port, weight, maxFails, failTimeout, maxConns, backup, down, sort, enabled, param)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)",
@@ -825,7 +974,10 @@ pub fn add_nginx_upstream_server(conn: &rusqlite::Connection, s: &NginxUpstreamS
     Ok(())
 }
 
-pub fn update_nginx_upstream_server(conn: &rusqlite::Connection, s: &NginxUpstreamServer) -> rusqlite::Result<()> {
+pub fn update_nginx_upstream_server(
+    conn: &rusqlite::Connection,
+    s: &NginxUpstreamServer,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_upstream_servers SET address=?2, port=?3, weight=?4, maxFails=?5, failTimeout=?6, maxConns=?7, backup=?8, down=?9, sort=?10, enabled=?11, param=?12 WHERE id=?1",
         params![s.id, s.address, s.port, s.weight, s.max_fails, s.fail_timeout, s.max_conns, bool_int(s.backup), bool_int(s.down), s.sort, bool_int(s.enabled), s.param],
@@ -839,20 +991,42 @@ pub fn delete_nginx_upstream_server(conn: &rusqlite::Connection, id: &str) -> ru
 
 // ============ NginxHttpParam CRUD ============
 
-pub fn get_http_params_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxHttpParam>> {
-    get_all_by_preset(conn, "nginx_http_params", preset_id, row_to_nginx_http_param)
+pub fn get_http_params_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxHttpParam>> {
+    get_all_by_preset(
+        conn,
+        "nginx_http_params",
+        preset_id,
+        row_to_nginx_http_param,
+    )
 }
 
-pub fn add_nginx_http_param(conn: &rusqlite::Connection, p: &NginxHttpParam) -> rusqlite::Result<()> {
+pub fn add_nginx_http_param(
+    conn: &rusqlite::Connection,
+    p: &NginxHttpParam,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO nginx_http_params (id, presetId, name, value, enabled, sort, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        params![p.id, p.preset_id, p.name, p.value, bool_int(p.enabled), p.sort, p.created_at],
+        params![
+            p.id,
+            p.preset_id,
+            p.name,
+            p.value,
+            bool_int(p.enabled),
+            p.sort,
+            p.created_at
+        ],
     )?;
     Ok(())
 }
 
-pub fn update_nginx_http_param(conn: &rusqlite::Connection, p: &NginxHttpParam) -> rusqlite::Result<()> {
+pub fn update_nginx_http_param(
+    conn: &rusqlite::Connection,
+    p: &NginxHttpParam,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_http_params SET name=?2, value=?3, enabled=?4, sort=?5 WHERE id=?1",
         params![p.id, p.name, p.value, bool_int(p.enabled), p.sort],
@@ -866,7 +1040,10 @@ pub fn delete_nginx_http_param(conn: &rusqlite::Connection, id: &str) -> rusqlit
 
 // ============ NginxStream CRUD ============
 
-pub fn get_streams_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxStream>> {
+pub fn get_streams_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxStream>> {
     get_all_by_preset(conn, "nginx_streams", preset_id, row_to_nginx_stream)
 }
 
@@ -875,9 +1052,22 @@ pub fn add_nginx_stream(conn: &rusqlite::Connection, s: &NginxStream) -> rusqlit
         "INSERT INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass,
          ssl, certId, protocol, descr, enabled, sort, paramJson, createdAt, updatedAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-        params![s.id, s.preset_id, s.listen, s.proxy_upstream_id, s.proxy_pass,
-                bool_int(s.ssl), s.cert_id, s.protocol, s.descr,
-                bool_int(s.enabled), s.sort, s.param_json, s.created_at, s.updated_at],
+        params![
+            s.id,
+            s.preset_id,
+            s.listen,
+            s.proxy_upstream_id,
+            s.proxy_pass,
+            bool_int(s.ssl),
+            s.cert_id,
+            s.protocol,
+            s.descr,
+            bool_int(s.enabled),
+            s.sort,
+            s.param_json,
+            s.created_at,
+            s.updated_at
+        ],
     )?;
     Ok(())
 }
@@ -900,7 +1090,10 @@ pub fn delete_nginx_stream(conn: &rusqlite::Connection, id: &str) -> rusqlite::R
 
 // ============ NginxCert CRUD ============
 
-pub fn get_certs_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxCert>> {
+pub fn get_certs_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxCert>> {
     get_all_by_preset(conn, "nginx_certs", preset_id, row_to_nginx_cert)
 }
 
@@ -908,7 +1101,15 @@ pub fn add_nginx_cert(conn: &rusqlite::Connection, c: &NginxCert) -> rusqlite::R
     conn.execute(
         "INSERT INTO nginx_certs (id, presetId, name, pem, key, domain, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        params![c.id, c.preset_id, c.name, c.pem, c.key, c.domain, c.created_at],
+        params![
+            c.id,
+            c.preset_id,
+            c.name,
+            c.pem,
+            c.key,
+            c.domain,
+            c.created_at
+        ],
     )?;
     Ok(())
 }
@@ -927,7 +1128,10 @@ pub fn delete_nginx_cert(conn: &rusqlite::Connection, id: &str) -> rusqlite::Res
 
 // ============ NginxTemplate CRUD ============
 
-pub fn get_templates_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxTemplate>> {
+pub fn get_templates_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxTemplate>> {
     get_all_by_preset(conn, "nginx_templates", preset_id, row_to_nginx_template)
 }
 
@@ -940,7 +1144,10 @@ pub fn add_nginx_template(conn: &rusqlite::Connection, t: &NginxTemplate) -> rus
     Ok(())
 }
 
-pub fn update_nginx_template(conn: &rusqlite::Connection, t: &NginxTemplate) -> rusqlite::Result<()> {
+pub fn update_nginx_template(
+    conn: &rusqlite::Connection,
+    t: &NginxTemplate,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_templates SET name=?2, content=?3 WHERE id=?1",
         params![t.id, t.name, t.content],
@@ -948,7 +1155,10 @@ pub fn update_nginx_template(conn: &rusqlite::Connection, t: &NginxTemplate) -> 
     Ok(())
 }
 
-pub fn get_nginx_template_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxTemplate>> {
+pub fn get_nginx_template_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<NginxTemplate>> {
     get_by_id_internal(conn, "nginx_templates", id, row_to_nginx_template)
 }
 
@@ -958,20 +1168,50 @@ pub fn delete_nginx_template(conn: &rusqlite::Connection, id: &str) -> rusqlite:
 
 // ============ NginxParam CRUD ============
 
-pub fn get_params_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxParam>> {
+pub fn get_params_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxParam>> {
     get_all_by_preset(conn, "nginx_params", preset_id, row_to_nginx_param)
 }
 
-pub fn get_params_by_server(conn: &rusqlite::Connection, server_id: &str) -> rusqlite::Result<Vec<NginxParam>> {
-    get_all_by_fk(conn, "nginx_params", "serverId", server_id, row_to_nginx_param)
+pub fn get_params_by_server(
+    conn: &rusqlite::Connection,
+    server_id: &str,
+) -> rusqlite::Result<Vec<NginxParam>> {
+    get_all_by_fk(
+        conn,
+        "nginx_params",
+        "serverId",
+        server_id,
+        row_to_nginx_param,
+    )
 }
 
-pub fn get_params_by_location(conn: &rusqlite::Connection, location_id: &str) -> rusqlite::Result<Vec<NginxParam>> {
-    get_all_by_fk(conn, "nginx_params", "locationId", location_id, row_to_nginx_param)
+pub fn get_params_by_location(
+    conn: &rusqlite::Connection,
+    location_id: &str,
+) -> rusqlite::Result<Vec<NginxParam>> {
+    get_all_by_fk(
+        conn,
+        "nginx_params",
+        "locationId",
+        location_id,
+        row_to_nginx_param,
+    )
 }
 
-pub fn get_params_by_upstream(conn: &rusqlite::Connection, upstream_id: &str) -> rusqlite::Result<Vec<NginxParam>> {
-    get_all_by_fk(conn, "nginx_params", "upstreamId", upstream_id, row_to_nginx_param)
+pub fn get_params_by_upstream(
+    conn: &rusqlite::Connection,
+    upstream_id: &str,
+) -> rusqlite::Result<Vec<NginxParam>> {
+    get_all_by_fk(
+        conn,
+        "nginx_params",
+        "upstreamId",
+        upstream_id,
+        row_to_nginx_param,
+    )
 }
 
 pub fn add_nginx_param(conn: &rusqlite::Connection, p: &NginxParam) -> rusqlite::Result<()> {
@@ -998,16 +1238,30 @@ pub fn delete_nginx_param(conn: &rusqlite::Connection, id: &str) -> rusqlite::Re
 
 // ============ NginxDenyAllow CRUD ============
 
-pub fn get_deny_allows_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxDenyAllow>> {
+pub fn get_deny_allows_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxDenyAllow>> {
     let sql = "SELECT * FROM nginx_deny_allows WHERE presetId = ?1 ORDER BY createdAt";
-    query_all(conn, sql, rusqlite::params![preset_id], row_to_nginx_deny_allow)
+    query_all(
+        conn,
+        sql,
+        rusqlite::params![preset_id],
+        row_to_nginx_deny_allow,
+    )
 }
 
-pub fn get_deny_allow_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxDenyAllow>> {
+pub fn get_deny_allow_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<NginxDenyAllow>> {
     get_by_id_internal(conn, "nginx_deny_allows", id, row_to_nginx_deny_allow)
 }
 
-pub fn add_nginx_deny_allow(conn: &rusqlite::Connection, d: &NginxDenyAllow) -> rusqlite::Result<()> {
+pub fn add_nginx_deny_allow(
+    conn: &rusqlite::Connection,
+    d: &NginxDenyAllow,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO nginx_deny_allows (id, presetId, name, ip, createdAt)
          VALUES (?1,?2,?3,?4,?5)",
@@ -1016,7 +1270,10 @@ pub fn add_nginx_deny_allow(conn: &rusqlite::Connection, d: &NginxDenyAllow) -> 
     Ok(())
 }
 
-pub fn update_nginx_deny_allow(conn: &rusqlite::Connection, d: &NginxDenyAllow) -> rusqlite::Result<()> {
+pub fn update_nginx_deny_allow(
+    conn: &rusqlite::Connection,
+    d: &NginxDenyAllow,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_deny_allows SET name=?2, ip=?3 WHERE id=?1",
         params![d.id, d.name, d.ip],
@@ -1030,12 +1287,23 @@ pub fn delete_nginx_deny_allow(conn: &rusqlite::Connection, id: &str) -> rusqlit
 
 // ============ NginxPassword CRUD ============
 
-pub fn get_passwords_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxPassword>> {
+pub fn get_passwords_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxPassword>> {
     let sql = "SELECT * FROM nginx_passwords WHERE presetId = ?1 ORDER BY createdAt";
-    query_all(conn, sql, rusqlite::params![preset_id], row_to_nginx_password)
+    query_all(
+        conn,
+        sql,
+        rusqlite::params![preset_id],
+        row_to_nginx_password,
+    )
 }
 
-pub fn get_password_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<NginxPassword>> {
+pub fn get_password_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<NginxPassword>> {
     get_by_id_internal(conn, "nginx_passwords", id, row_to_nginx_password)
 }
 
@@ -1043,12 +1311,23 @@ pub fn add_nginx_password(conn: &rusqlite::Connection, pw: &NginxPassword) -> ru
     conn.execute(
         "INSERT INTO nginx_passwords (id, presetId, name, pass, descr, path, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7)",
-        params![pw.id, pw.preset_id, pw.name, pw.pass, pw.descr, pw.path, pw.created_at],
+        params![
+            pw.id,
+            pw.preset_id,
+            pw.name,
+            pw.pass,
+            pw.descr,
+            pw.path,
+            pw.created_at
+        ],
     )?;
     Ok(())
 }
 
-pub fn update_nginx_password(conn: &rusqlite::Connection, pw: &NginxPassword) -> rusqlite::Result<()> {
+pub fn update_nginx_password(
+    conn: &rusqlite::Connection,
+    pw: &NginxPassword,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_passwords SET name=?2, pass=?3, descr=?4, path=?5 WHERE id=?1",
         params![pw.id, pw.name, pw.pass, pw.descr, pw.path],
@@ -1062,11 +1341,22 @@ pub fn delete_nginx_password(conn: &rusqlite::Connection, id: &str) -> rusqlite:
 
 // ============ NginxBasicSetting CRUD (key-value) ============
 
-pub fn get_basic_settings_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<Vec<NginxBasicSetting>> {
-    get_all_by_preset(conn, "nginx_basic_settings", preset_id, row_to_nginx_basic_setting)
+pub fn get_basic_settings_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<Vec<NginxBasicSetting>> {
+    get_all_by_preset(
+        conn,
+        "nginx_basic_settings",
+        preset_id,
+        row_to_nginx_basic_setting,
+    )
 }
 
-pub fn add_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSetting) -> rusqlite::Result<()> {
+pub fn add_nginx_basic_setting(
+    conn: &rusqlite::Connection,
+    s: &NginxBasicSetting,
+) -> rusqlite::Result<()> {
     conn.execute(
         "INSERT INTO nginx_basic_settings (id, presetId, name, value, sort, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6)",
@@ -1075,7 +1365,10 @@ pub fn add_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSettin
     Ok(())
 }
 
-pub fn update_nginx_basic_setting(conn: &rusqlite::Connection, s: &NginxBasicSetting) -> rusqlite::Result<()> {
+pub fn update_nginx_basic_setting(
+    conn: &rusqlite::Connection,
+    s: &NginxBasicSetting,
+) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_basic_settings SET name=?2, value=?3, sort=?4 WHERE id=?1",
         params![s.id, s.name, s.value, s.sort],
@@ -1087,6 +1380,9 @@ pub fn delete_nginx_basic_setting(conn: &rusqlite::Connection, id: &str) -> rusq
     delete_by_id(conn, "nginx_basic_settings", id)
 }
 
-pub fn delete_basic_settings_by_preset(conn: &rusqlite::Connection, preset_id: &str) -> rusqlite::Result<()> {
+pub fn delete_basic_settings_by_preset(
+    conn: &rusqlite::Connection,
+    preset_id: &str,
+) -> rusqlite::Result<()> {
     delete_by_fk(conn, "nginx_basic_settings", "presetId", preset_id)
 }

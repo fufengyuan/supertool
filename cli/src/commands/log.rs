@@ -1,12 +1,16 @@
-use crate::types::*;
-use crate::runtime::CliRuntime;
 use crate::output::*;
+use crate::runtime::CliRuntime;
+use crate::types::*;
 use anyhow::Result;
 
 pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<()> {
     match action {
         LogCommands::List { json } => {
-            let presets: serde_json::Value = runtime.core.get_log_presets().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let presets: serde_json::Value = runtime
+                .core
+                .get_log_presets()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             let presets = presets.as_array().cloned().unwrap_or_default();
             if *json {
                 print_json(&presets);
@@ -15,7 +19,10 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 // 按分组聚合
                 let mut groups: Vec<(String, Vec<&serde_json::Value>)> = Vec::new();
                 for p in &presets {
-                    let group = p.get("presetGroup").and_then(|v| v.as_str()).unwrap_or("未分组");
+                    let group = p
+                        .get("presetGroup")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未分组");
                     if let Some((_, items)) = groups.iter_mut().find(|(g, _)| g == group) {
                         items.push(p);
                     } else {
@@ -43,21 +50,29 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 .split(',')
                 .map(|s| s.trim().to_string())
                 .collect();
-            let _ = runtime.core.add_log_preset(serde_json::json!({
-                "name": name,
-                "serverIds": ids,
-                "logPath": log_path,
-                "logType": log_type,
-                "keywords": [],
-                "maxLines": 1000
-            })).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .add_log_preset(serde_json::json!({
+                    "name": name,
+                    "serverIds": ids,
+                    "logPath": log_path,
+                    "logType": log_type,
+                    "keywords": [],
+                    "maxLines": 1000
+                }))
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!(
                 "日志预设已添加: {} ({} 服务器, {})",
                 name, server_ids, log_path
             ));
         }
         LogCommands::Delete { id } => {
-            let _ = runtime.core.delete_log_preset(id).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let _ = runtime
+                .core
+                .delete_log_preset(id)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             print_success(&format!("日志预设已删除: {}", id));
         }
         LogCommands::Search {
@@ -66,21 +81,28 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
             lines,
         } => {
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
-            let resp: serde_json::Value = runtime.core.log_search(&actual_id, keyword, *lines).await.map_err(|e| anyhow::anyhow!("{}", e))?;
-            if !resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let resp: serde_json::Value = runtime
+                .core
+                .log_search(&actual_id, keyword, *lines)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if !resp
+                .get("success")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
                 anyhow::bail!(
                     "{}",
-                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                    resp.get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知错误")
                 );
             }
             let preset_name = resp
                 .get("presetName")
                 .and_then(|v| v.as_str())
                 .unwrap_or(preset_id);
-            println!(
-                "\n  🔍 搜索日志: {} → \"{}\"",
-                preset_name, keyword
-            );
+            println!("\n  🔍 搜索日志: {} → \"{}\"", preset_name, keyword);
             println!("  {}", "─".repeat(60));
             if let Some(results) = resp.get("results").and_then(|v| v.as_array()) {
                 for r in results {
@@ -102,7 +124,9 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                             "  {} ({}) (失败: {})",
                             sid,
                             sname,
-                            r.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                            r.get("error")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("未知错误")
                         );
                     }
                 }
@@ -111,7 +135,11 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
         LogCommands::Tail { preset_id, lines } => {
             let actual_id = resolve_preset_id(runtime, preset_id).await?;
             // CoreService log_tail returns a static result (not streaming)
-            let resp: serde_json::Value = runtime.core.log_tail(&actual_id, *lines).await.map_err(|e| anyhow::anyhow!("{}", e))?;
+            let resp: serde_json::Value = runtime
+                .core
+                .log_tail(&actual_id, *lines)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
             if let Some(results) = resp.get("results").and_then(|v| v.as_array()) {
                 for r in results {
                     let sname = r.get("serverName").and_then(|v| v.as_str()).unwrap_or("");
@@ -137,7 +165,11 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
 
 async fn resolve_preset_id(runtime: &mut CliRuntime, preset_id: &str) -> Result<String> {
     if let Ok(idx) = preset_id.parse::<usize>() {
-        let presets: serde_json::Value = runtime.core.get_log_presets().await.map_err(|e| anyhow::anyhow!("{}", e))?;
+        let presets: serde_json::Value = runtime
+            .core
+            .get_log_presets()
+            .await
+            .map_err(|e| anyhow::anyhow!("{}", e))?;
         let presets = presets.as_array().cloned().unwrap_or_default();
         if idx == 0 || idx > presets.len() {
             anyhow::bail!("预设序号 {} 超出范围 (1-{})", idx, presets.len());

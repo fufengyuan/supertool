@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn export_all_data(&self) -> Result<Value, String> {
@@ -20,7 +20,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("todos").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_todo(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_todo(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("todos".into(), c);
             }
@@ -28,7 +30,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("projects").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_project(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_project(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("projects".into(), c);
             }
@@ -36,7 +40,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("servers").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_server(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_server(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("servers".into(), c);
             }
@@ -46,7 +52,9 @@ impl super::CoreService {
                 for item in items {
                     let name = item.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        if self.add_tag(name).await.is_ok() { c += 1; }
+                        if self.add_tag(name).await.is_ok() {
+                            c += 1;
+                        }
                     }
                 }
                 counts.insert("tags".into(), c);
@@ -55,7 +63,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("subtasks").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_subtask(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_subtask(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("subtasks".into(), c);
             }
@@ -63,7 +73,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("serverGroups").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_server_group(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_server_group(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("serverGroups".into(), c);
             }
@@ -71,7 +83,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("mfaSecrets").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_mfa_secret(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_mfa_secret(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("mfaSecrets".into(), c);
             }
@@ -79,7 +93,9 @@ impl super::CoreService {
             if let Some(items) = obj.get("notes").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_note(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_note(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("notes".into(), c);
             }
@@ -87,13 +103,18 @@ impl super::CoreService {
             if let Some(items) = obj.get("noteGroups").and_then(|v| v.as_array()) {
                 let mut c = 0u32;
                 for item in items {
-                    if self.add_note_group(item.clone()).await.is_ok() { c += 1; }
+                    if self.add_note_group(item.clone()).await.is_ok() {
+                        c += 1;
+                    }
                 }
                 counts.insert("noteGroups".into(), c);
             }
         }
         // CICD data handled separately
-        let (cicd_c, cicd_s) = self.import_cicd_data(&data_clone, &mode_owned).await.unwrap_or((0, 0));
+        let (cicd_c, cicd_s) = self
+            .import_cicd_data(&data_clone, &mode_owned)
+            .await
+            .unwrap_or((0, 0));
         counts.insert("cicdConfigs".into(), cicd_c as u32 + cicd_s as u32);
         Ok(json!(counts))
     }

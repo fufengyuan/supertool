@@ -1,6 +1,6 @@
+use serde_json::{Value, json};
 /// Tauri IPC Commands — SSH 连接 & 服务器监控
 use supertool_core::logic::CoreService;
-use serde_json::{json, Value};
 use tauri::State;
 
 /// 通过服务器 ID 建立 SSH 连接（先查 DB 拿配置，再连接）
@@ -59,7 +59,11 @@ pub async fn get_server_monitor(
     server_id: String,
     commands: Vec<String>,
 ) -> Result<Value, String> {
-    log::info!("[Tauri CMD] get_server_monitor({}), {} commands", server_id, commands.len());
+    log::info!(
+        "[Tauri CMD] get_server_monitor({}), {} commands",
+        server_id,
+        commands.len()
+    );
 
     // 从 DB 获取服务器配置（不共享连接池中的 session，避免影响终端 shell）
     let server = core.get_server_by_id(&server_id).await?;

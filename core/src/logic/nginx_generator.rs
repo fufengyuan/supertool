@@ -15,7 +15,10 @@ fn parse_ports(listen: &str) -> Vec<String> {
         if listen.contains('[') {
             ("".to_string(), listen.to_string())
         } else {
-            (format!("{}:", &listen[..idx]), listen[idx+1..].to_string())
+            (
+                format!("{}:", &listen[..idx]),
+                listen[idx + 1..].to_string(),
+            )
         }
     } else {
         ("".to_string(), listen.to_string())
@@ -24,10 +27,12 @@ fn parse_ports(listen: &str) -> Vec<String> {
     // Split by comma and expand ranges
     for part in port_part.split(',') {
         let part = part.trim();
-        if part.is_empty() { continue; }
+        if part.is_empty() {
+            continue;
+        }
         if let Some(idx) = part.find('-') {
             let start: u16 = part[..idx].parse().unwrap_or(80);
-            let end: u16 = part[idx+1..].parse().unwrap_or(start);
+            let end: u16 = part[idx + 1..].parse().unwrap_or(start);
             for p in start..=end {
                 if p <= end {
                     result.push(format!("{}{}", host_prefix, p));
@@ -72,7 +77,10 @@ pub struct NginxSubFile {
 }
 
 /// Generate nginx config in decomposed mode (separate files for upstreams and server blocks)
-pub fn generate_nginx_config_decomposed(conn: &Connection, preset_id: &str) -> Result<NginxConfigResult, String> {
+pub fn generate_nginx_config_decomposed(
+    conn: &Connection,
+    preset_id: &str,
+) -> Result<NginxConfigResult, String> {
     let mut sub_files: Vec<NginxSubFile> = Vec::new();
     let mut main = String::new();
 
@@ -91,7 +99,11 @@ pub fn generate_nginx_config_decomposed(conn: &Connection, preset_id: &str) -> R
     })
 }
 
-fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
+fn append_basic_settings(
+    conn: &Connection,
+    preset_id: &str,
+    out: &mut String,
+) -> Result<(), String> {
     let settings = get_basic_settings_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for s in &settings {
         if !s.name.is_empty() {
@@ -110,13 +122,32 @@ fn append_basic_settings(conn: &Connection, preset_id: &str, out: &mut String) -
 
 fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
     out.push_str("http {\n");
-    out.push_str("    include       mime.types;\n");
-    out.push_str("    default_type  application/octet-stream;\n\n");
 
     // HTTP-level params
     let params = get_http_params_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+
+    // Check if params already contains include/default_type (from imported config)
+    let has_include = params.iter().any(|p| p.enabled && p.name == "include");
+    let has_default_type = params.iter().any(|p| p.enabled && p.name == "default_type");
+
+    // Only add default directives if not already present in params
+    if !has_include {
+        out.push_str("    include       mime.types;\n");
+    }
+    if !has_default_type {
+        out.push_str("    default_type  application/octet-stream;\n");
+    }
+    out.push_str("\n");
+
+    // Output HTTP-level params (skip include/default_type if we just added defaults)
     for p in &params {
         if p.enabled {
+            // Skip include/default_type if we already added them as defaults
+            if (!has_include && p.name == "include")
+                || (!has_default_type && p.name == "default_type")
+            {
+                continue;
+            }
             if p.value.contains("{\n") || p.value.contains("{ ") {
                 // Block-style param (like geo/map) — no trailing semicolon
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
@@ -135,15 +166,21 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
     // Upstreams
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for u in &upstreams {
-        if u.proxy_type != 0 { continue; } // only HTTP upstreams in http block
+        if u.proxy_type != 0 {
+            continue;
+        } // only HTTP upstreams in http block
         append_upstream(conn, u, out)?;
     }
 
     // Servers
     let servers = get_servers_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for s in &servers {
-        if !s.enabled { continue; }
-        if s.proxy_type != 0 { continue; } // only HTTP servers in http block
+        if !s.enabled {
+            continue;
+        }
+        if s.proxy_type != 0 {
+            continue;
+        } // only HTTP servers in http block
         append_server_block(conn, s, out)?;
     }
 
@@ -153,7 +190,12 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
 
 /// Add global deny/allow directives for http/stream/server blocks
 /// Uses well-known basic settings: denyAllow{Type}, denyId{Type}, allowId{Type}
-fn append_global_deny_allow(conn: &Connection, preset_id: &str, block_type: &str, out: &mut String) -> Result<(), String> {
+fn append_global_deny_allow(
+    conn: &Connection,
+    preset_id: &str,
+    block_type: &str,
+    out: &mut String,
+) -> Result<(), String> {
     let suffix = match block_type {
         "http" => "Http",
         "stream" => "Stream",
@@ -181,7 +223,9 @@ fn append_global_deny_allow(conn: &Connection, preset_id: &str, block_type: &str
         }
     }
 
-    if deny_allow_val == 0 { return Ok(()); }
+    if deny_allow_val == 0 {
+        return Ok(());
+    }
 
     let indentation = "    ";
 
@@ -235,7 +279,9 @@ fn append_global_deny_allow(conn: &Connection, preset_id: &str, block_type: &str
         }
     }
 
-    if !out.ends_with('\n') { out.push_str("\n"); }
+    if !out.ends_with('\n') {
+        out.push_str("\n");
+    }
     Ok(())
 }
 
@@ -247,13 +293,32 @@ fn append_http_block_decomposed(
     sub_files: &mut Vec<NginxSubFile>,
 ) -> Result<(), String> {
     out.push_str("http {\n");
-    out.push_str("    include       mime.types;\n");
-    out.push_str("    default_type  application/octet-stream;\n\n");
 
     // HTTP-level params
     let params = get_http_params_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+
+    // Check if params already contains include/default_type (from imported config)
+    let has_include = params.iter().any(|p| p.enabled && p.name == "include");
+    let has_default_type = params.iter().any(|p| p.enabled && p.name == "default_type");
+
+    // Only add default directives if not already present in params
+    if !has_include {
+        out.push_str("    include       mime.types;\n");
+    }
+    if !has_default_type {
+        out.push_str("    default_type  application/octet-stream;\n");
+    }
+    out.push_str("\n");
+
+    // Output HTTP-level params (skip include/default_type if we just added defaults)
     for p in &params {
         if p.enabled {
+            // Skip include/default_type if we already added them as defaults
+            if (!has_include && p.name == "include")
+                || (!has_default_type && p.name == "default_type")
+            {
+                continue;
+            }
             if p.value.contains("{\n") || p.value.contains("{ ") {
                 // Block-style param (like geo/map) — no trailing semicolon
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
@@ -272,7 +337,9 @@ fn append_http_block_decomposed(
     // Upstreams (decomposed into separate files)
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for u in &upstreams {
-        if u.proxy_type != 0 { continue; }
+        if u.proxy_type != 0 {
+            continue;
+        }
         let mut sub = String::new();
         append_upstream(conn, u, &mut sub)?;
         let filename = sanitize_filename(&format!("http-upstream-{}.conf", u.name));
@@ -283,8 +350,12 @@ fn append_http_block_decomposed(
     // Servers (decomposed into separate files)
     let servers = get_servers_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for s in &servers {
-        if !s.enabled { continue; }
-        if s.proxy_type != 0 { continue; }
+        if !s.enabled {
+            continue;
+        }
+        if s.proxy_type != 0 {
+            continue;
+        }
         let mut sub = String::new();
         append_server_block(conn, s, &mut sub)?;
         let name = if !s.server_name.is_empty() {
@@ -375,17 +446,31 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
     // Upstream servers
     let servers = crate::db::nginx::get_upstream_servers(conn, &u.id).map_err(|e| e.to_string())?;
     for srv in &servers {
-        if !srv.enabled { continue; }
+        if !srv.enabled {
+            continue;
+        }
         out.push_str(&format!("        server {}:{}", srv.address, srv.port));
-        if srv.weight > 1 { out.push_str(&format!(" weight={}", srv.weight)); }
-        if srv.max_fails != 3 { out.push_str(&format!(" max_fails={}", srv.max_fails)); }
+        if srv.weight > 1 {
+            out.push_str(&format!(" weight={}", srv.weight));
+        }
+        if srv.max_fails != 3 {
+            out.push_str(&format!(" max_fails={}", srv.max_fails));
+        }
         if !srv.fail_timeout.is_empty() && srv.fail_timeout != "10s" {
             out.push_str(&format!(" fail_timeout={}", srv.fail_timeout));
         }
-        if srv.max_conns > 0 { out.push_str(&format!(" max_conns={}", srv.max_conns)); }
-        if srv.backup { out.push_str(" backup"); }
-        if srv.down { out.push_str(" down"); }
-        if !srv.param.is_empty() { out.push_str(&format!(" {}", srv.param)); }
+        if srv.max_conns > 0 {
+            out.push_str(&format!(" max_conns={}", srv.max_conns));
+        }
+        if srv.backup {
+            out.push_str(" backup");
+        }
+        if srv.down {
+            out.push_str(" down");
+        }
+        if !srv.param.is_empty() {
+            out.push_str(&format!(" {}", srv.param));
+        }
         out.push_str(";\n");
     }
 
@@ -410,13 +495,18 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
 }
 
 fn append_server_block(conn: &Connection, s: &NginxServer, out: &mut String) -> Result<(), String> {
-    let locations = crate::db::nginx::get_locations_by_server(conn, &s.id)
-        .map_err(|e| e.to_string())?;
+    let locations =
+        crate::db::nginx::get_locations_by_server(conn, &s.id).map_err(|e| e.to_string())?;
     append_server_block_inner(conn, s, &locations, out)
 }
 
 /// Shared server block generation logic used by both DB-backed and preview paths
-fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[NginxLocation], out: &mut String) -> Result<(), String> {
+fn append_server_block_inner(
+    conn: &Connection,
+    s: &NginxServer,
+    locations: &[NginxLocation],
+    out: &mut String,
+) -> Result<(), String> {
     // Description as comments
     if !s.descr.is_empty() {
         for line in s.descr.lines() {
@@ -440,20 +530,32 @@ fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[Ng
         let ports = parse_ports(&s.listen);
         for port in &ports {
             let mut listen_val = format!("listen {}", port);
-            if s.def { listen_val += " default_server"; }
-            if s.proxy_protocol { listen_val += " proxy_protocol"; }
+            if s.def {
+                listen_val += " default_server";
+            }
+            if s.proxy_protocol {
+                listen_val += " proxy_protocol";
+            }
             if s.ssl {
                 listen_val += " ssl";
-                if s.http2 == 1 { listen_val += " http2"; } // old-style http2
+                if s.http2 == 1 {
+                    listen_val += " http2";
+                } // old-style http2
             }
             out.push_str(&format!("        {};\n", listen_val));
         }
         if s.ipv6 {
             for port in &ports {
                 let mut listen_ipv6 = format!("listen [::]:{}", port);
-                if s.def { listen_ipv6 += " default_server"; }
-                if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
-                if s.ssl { listen_ipv6 += " ssl"; }
+                if s.def {
+                    listen_ipv6 += " default_server";
+                }
+                if s.proxy_protocol {
+                    listen_ipv6 += " proxy_protocol";
+                }
+                if s.ssl {
+                    listen_ipv6 += " ssl";
+                }
                 out.push_str(&format!("        {};\n", listen_ipv6));
             }
         }
@@ -488,17 +590,27 @@ fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[Ng
                 out.push_str(&format!("        ssl_certificate_key  {};\n", cert.key));
             }
             if !s.protocols.is_empty() {
-                out.push_str(&format!("        ssl_protocols       {};\n", s.protocols.replace(",", " ")));
+                out.push_str(&format!(
+                    "        ssl_protocols       {};\n",
+                    s.protocols.replace(",", " ")
+                ));
             }
         }
 
-    // Custom params - prepend mode
-    append_param_json_prepend(conn, s, out);
+        // Custom params - prepend mode
+        append_param_json_prepend(conn, s, out);
 
         // IP blacklist/whitelist
         if s.deny_allow > 0 {
             if !s.deny_id.is_empty() || s.deny_allow == 2 || s.deny_allow == 3 {
-                if let Ok(Some(da)) = get_deny_allow_by_id(conn, if s.deny_allow == 2 { &s.allow_id } else { &s.deny_id }) {
+                if let Ok(Some(da)) = get_deny_allow_by_id(
+                    conn,
+                    if s.deny_allow == 2 {
+                        &s.allow_id
+                    } else {
+                        &s.deny_id
+                    },
+                ) {
                     for ip in da.ip.lines() {
                         let ip = ip.trim();
                         if !ip.is_empty() {
@@ -512,13 +624,19 @@ fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[Ng
                     }
                 }
             }
-            if s.deny_allow == 1 { out.push_str("        allow all;\n"); }
-            if s.deny_allow == 2 { out.push_str("        deny all;\n"); }
+            if s.deny_allow == 1 {
+                out.push_str("        allow all;\n");
+            }
+            if s.deny_allow == 2 {
+                out.push_str("        deny all;\n");
+            }
         }
 
         // Locations (passed in for preview support)
         for loc in locations {
-            if !loc.enabled { continue; }
+            if !loc.enabled {
+                continue;
+            }
             append_location_block(conn, loc, s, out)?;
         }
 
@@ -557,19 +675,28 @@ fn append_server_block_inner(conn: &Connection, s: &NginxServer, locations: &[Ng
                 port
             ));
         }
-
     } else {
         // TCP/UDP proxy (proxyType 1 or 2)
 
         let mut listen_val = format!("listen {}", s.listen);
-        if s.proxy_protocol { listen_val += " proxy_protocol"; }
-        if s.proxy_type == 2 { listen_val += " udp"; }
-        if s.ssl { listen_val += " ssl"; }
+        if s.proxy_protocol {
+            listen_val += " proxy_protocol";
+        }
+        if s.proxy_type == 2 {
+            listen_val += " udp";
+        }
+        if s.ssl {
+            listen_val += " ssl";
+        }
         out.push_str(&format!("        {};\n", listen_val));
         if s.ipv6 {
             let mut listen_ipv6 = format!("listen [::]:{}", s.listen);
-            if s.proxy_protocol { listen_ipv6 += " proxy_protocol"; }
-            if s.ssl { listen_ipv6 += " ssl"; }
+            if s.proxy_protocol {
+                listen_ipv6 += " proxy_protocol";
+            }
+            if s.ssl {
+                listen_ipv6 += " ssl";
+            }
             out.push_str(&format!("        {};\n", listen_ipv6));
         }
 
@@ -605,7 +732,12 @@ pub fn generate_server_block_preview(
     Ok(out)
 }
 
-fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxServer, out: &mut String) -> Result<(), String> {
+fn append_location_block(
+    conn: &Connection,
+    loc: &NginxLocation,
+    server: &NginxServer,
+    out: &mut String,
+) -> Result<(), String> {
     // Description as comments
     if !loc.descr.is_empty() {
         for line in loc.descr.lines() {
@@ -628,13 +760,27 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
             if loc.loc_type == 0 && !loc.value.is_empty() {
                 out.push_str(&format!("            proxy_pass {};\n", loc.value));
             } else if loc.loc_type == 2 || (!loc.upstream_id.is_empty()) {
-                let upstream_type = if loc.upstream_type == 1 { "https" } else { "http" };
+                let upstream_type = if loc.upstream_type == 1 {
+                    "https"
+                } else {
+                    "http"
+                };
                 let upstream_name = get_upstream_name(conn, &loc.upstream_id);
-                let path = if loc.upstream_path.is_empty() { "" } else { &loc.upstream_path };
-                out.push_str(&format!("            proxy_pass {}://{}{};\n", upstream_type, upstream_name, path));
+                let path = if loc.upstream_path.is_empty() {
+                    ""
+                } else {
+                    &loc.upstream_path
+                };
+                out.push_str(&format!(
+                    "            proxy_pass {}://{}{};\n",
+                    upstream_type, upstream_name, path
+                ));
             } else if loc.upstream_type == 1 && !loc.upstream_id.is_empty() {
                 // Manual upstream reference
-                out.push_str(&format!("            proxy_pass http://{};\n", loc.upstream_id));
+                out.push_str(&format!(
+                    "            proxy_pass http://{};\n",
+                    loc.upstream_id
+                ));
             }
 
             // Websocket support
@@ -646,10 +792,18 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
 
             // Header settings with configurable headerHost
             if loc.header {
-                out.push_str(&format!("            proxy_set_header Host {};\n",
-                    if loc.header_host.is_empty() { "$host" } else { &loc.header_host }));
+                out.push_str(&format!(
+                    "            proxy_set_header Host {};\n",
+                    if loc.header_host.is_empty() {
+                        "$host"
+                    } else {
+                        &loc.header_host
+                    }
+                ));
                 out.push_str("            proxy_set_header X-Real-IP $remote_addr;\n");
-                out.push_str("            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n");
+                out.push_str(
+                    "            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n",
+                );
                 out.push_str("            proxy_set_header X-Forwarded-Proto $scheme;\n");
                 out.push_str("            proxy_set_header X-Forwarded-Host $http_host;\n");
                 out.push_str("            proxy_set_header X-Forwarded-Port $server_port;\n");
@@ -673,13 +827,25 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
         }
         1 => {
             // Root / static
-            let root_type = if loc.root_type == "alias" { "alias" } else { "root" };
+            let root_type = if loc.root_type == "alias" {
+                "alias"
+            } else {
+                "root"
+            };
             if loc.root_path.contains('$') {
                 // Dynamic path — use as-is
                 out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
             } else {
                 let path = loc.root_path.trim_end_matches('/');
-                out.push_str(&format!("            {} {};\n", root_type, if root_type == "alias" { format!("{}/", path) } else { path.to_string() }));
+                out.push_str(&format!(
+                    "            {} {};\n",
+                    root_type,
+                    if root_type == "alias" {
+                        format!("{}/", path)
+                    } else {
+                        path.to_string()
+                    }
+                ));
                 if !loc.root_page.is_empty() {
                     out.push_str(&format!("            index {};\n", loc.root_page));
                 }
@@ -693,8 +859,13 @@ fn append_location_block(conn: &Connection, loc: &NginxLocation, server: &NginxS
             } else {
                 loc.return_url.clone()
             };
-            out.push_str(&format!("            return {} {};\n",
-                if loc.value.is_empty() { "302" } else { &loc.value },
+            out.push_str(&format!(
+                "            return {} {};\n",
+                if loc.value.is_empty() {
+                    "302"
+                } else {
+                    &loc.value
+                },
                 ret_url
             ));
         }
@@ -834,15 +1005,19 @@ fn get_cert_path(conn: &Connection, cert_id: &str) -> (String, String) {
 }
 
 fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> Result<(), String> {
-    let streams = crate::db::nginx::get_streams_by_preset(conn, preset_id)
-        .map_err(|e| e.to_string())?;
-    if streams.is_empty() { return Ok(()); }
+    let streams =
+        crate::db::nginx::get_streams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    if streams.is_empty() {
+        return Ok(());
+    }
 
     out.push_str("stream {\n");
     // Global stream-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
-        if !s.enabled { continue; }
+        if !s.enabled {
+            continue;
+        }
         out.push_str(&format!("    server {{\n"));
         out.push_str(&format!("        listen {};\n", s.listen));
         if s.ssl {
@@ -878,14 +1053,18 @@ fn append_stream_block_decomposed(
     out: &mut String,
     sub_files: &mut Vec<NginxSubFile>,
 ) -> Result<(), String> {
-    let streams = crate::db::nginx::get_streams_by_preset(conn, preset_id)
-        .map_err(|e| e.to_string())?;
-    if streams.is_empty() { return Ok(()); }
+    let streams =
+        crate::db::nginx::get_streams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    if streams.is_empty() {
+        return Ok(());
+    }
 
     // Decompose stream upstreams into sub-files
     let upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
     for u in &upstreams {
-        if u.proxy_type != 1 { continue; }
+        if u.proxy_type != 1 {
+            continue;
+        }
         let mut sub = String::new();
         append_upstream(conn, u, &mut sub)?;
         let filename = sanitize_filename(&format!("stream-upstream-{}.conf", u.name));
@@ -897,7 +1076,9 @@ fn append_stream_block_decomposed(
     // Global stream-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
-        if !s.enabled { continue; }
+        if !s.enabled {
+            continue;
+        }
 
         // Generate stream server block into sub-file
         let mut sub = String::new();
@@ -979,20 +1160,40 @@ mod tests {
         let (conn, preset_id) = setup_test_db();
         let now = "2025-01-01T00:00:00Z";
         // Add basic settings
-        crate::db::nginx::add_nginx_basic_setting(&conn, &NginxBasicSetting {
-            id: "bs-1".into(), preset_id: preset_id.clone(),
-            name: "worker_processes".into(), value: "auto".into(), sort: 0,
-            created_at: now.into(),
-        }).unwrap();
-        crate::db::nginx::add_nginx_basic_setting(&conn, &NginxBasicSetting {
-            id: "bs-2".into(), preset_id: preset_id.clone(),
-            name: "worker_rlimit_nofile".into(), value: "65535".into(), sort: 1,
-            created_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_basic_setting(
+            &conn,
+            &NginxBasicSetting {
+                id: "bs-1".into(),
+                preset_id: preset_id.clone(),
+                name: "worker_processes".into(),
+                value: "auto".into(),
+                sort: 0,
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
+        crate::db::nginx::add_nginx_basic_setting(
+            &conn,
+            &NginxBasicSetting {
+                id: "bs-2".into(),
+                preset_id: preset_id.clone(),
+                name: "worker_rlimit_nofile".into(),
+                value: "65535".into(),
+                sort: 1,
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("worker_processes auto;"), "should output worker_processes");
-        assert!(result.contains("worker_rlimit_nofile 65535;"), "should output worker_rlimit_nofile");
+        assert!(
+            result.contains("worker_processes auto;"),
+            "should output worker_processes"
+        );
+        assert!(
+            result.contains("worker_rlimit_nofile 65535;"),
+            "should output worker_rlimit_nofile"
+        );
     }
 
     #[test]
@@ -1000,20 +1201,39 @@ mod tests {
         let (conn, preset_id) = setup_test_db();
         let now = "2025-01-01T00:00:00Z";
 
-        crate::db::nginx::add_nginx_http_param(&conn, &NginxHttpParam {
-            id: "hp-1".into(), preset_id: preset_id.clone(),
-            name: "sendfile".into(), value: "on".into(),
-            enabled: true, sort: 0, created_at: now.into(),
-        }).unwrap();
-        crate::db::nginx::add_nginx_http_param(&conn, &NginxHttpParam {
-            id: "hp-2".into(), preset_id: preset_id.clone(),
-            name: "keepalive_timeout".into(), value: "65".into(),
-            enabled: true, sort: 1, created_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_http_param(
+            &conn,
+            &NginxHttpParam {
+                id: "hp-1".into(),
+                preset_id: preset_id.clone(),
+                name: "sendfile".into(),
+                value: "on".into(),
+                enabled: true,
+                sort: 0,
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
+        crate::db::nginx::add_nginx_http_param(
+            &conn,
+            &NginxHttpParam {
+                id: "hp-2".into(),
+                preset_id: preset_id.clone(),
+                name: "keepalive_timeout".into(),
+                value: "65".into(),
+                enabled: true,
+                sort: 1,
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
         assert!(result.contains("sendfile on;"), "should output sendfile");
-        assert!(result.contains("keepalive_timeout 65;"), "should output keepalive_timeout");
+        assert!(
+            result.contains("keepalive_timeout 65;"),
+            "should output keepalive_timeout"
+        );
     }
 
     #[test]
@@ -1022,31 +1242,73 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let upstream_id = "up-1";
-        crate::db::nginx::add_nginx_upstream(&conn, &NginxUpstream {
-            id: upstream_id.into(), preset_id: preset_id.clone(),
-            name: "backend".into(), proxy_type: 0, strategy: "ip_hash".into(),
-            descr: "Main backend pool".into(), param_json: "".into(),
-            sort: 0, created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_upstream(
+            &conn,
+            &NginxUpstream {
+                id: upstream_id.into(),
+                preset_id: preset_id.clone(),
+                name: "backend".into(),
+                proxy_type: 0,
+                strategy: "ip_hash".into(),
+                descr: "Main backend pool".into(),
+                param_json: "".into(),
+                sort: 0,
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
-        crate::db::nginx::add_nginx_upstream_server(&conn, &NginxUpstreamServer {
-            id: "us-1".into(), upstream_id: upstream_id.into(),
-            address: "10.0.0.1".into(), port: 8080, weight: 5, max_fails: 3,
-            fail_timeout: "10s".into(), max_conns: 100,
-            backup: false, down: false, sort: 0, enabled: true, param: "".into(),
-        }).unwrap();
-        crate::db::nginx::add_nginx_upstream_server(&conn, &NginxUpstreamServer {
-            id: "us-2".into(), upstream_id: upstream_id.into(),
-            address: "10.0.0.2".into(), port: 8080, weight: 3, max_fails: 5,
-            fail_timeout: "30s".into(), max_conns: 0,
-            backup: true, down: false, sort: 1, enabled: true, param: "".into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_upstream_server(
+            &conn,
+            &NginxUpstreamServer {
+                id: "us-1".into(),
+                upstream_id: upstream_id.into(),
+                address: "10.0.0.1".into(),
+                port: 8080,
+                weight: 5,
+                max_fails: 3,
+                fail_timeout: "10s".into(),
+                max_conns: 100,
+                backup: false,
+                down: false,
+                sort: 0,
+                enabled: true,
+                param: "".into(),
+            },
+        )
+        .unwrap();
+        crate::db::nginx::add_nginx_upstream_server(
+            &conn,
+            &NginxUpstreamServer {
+                id: "us-2".into(),
+                upstream_id: upstream_id.into(),
+                address: "10.0.0.2".into(),
+                port: 8080,
+                weight: 3,
+                max_fails: 5,
+                fail_timeout: "30s".into(),
+                max_conns: 0,
+                backup: true,
+                down: false,
+                sort: 1,
+                enabled: true,
+                param: "".into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("upstream backend {"), "should have upstream block");
+        assert!(
+            result.contains("upstream backend {"),
+            "should have upstream block"
+        );
         assert!(result.contains("ip_hash;"), "should have strategy");
         assert!(result.contains("10.0.0.1:8080"), "should have first server");
-        assert!(result.contains("10.0.0.2:8080"), "should have second server");
+        assert!(
+            result.contains("10.0.0.2:8080"),
+            "should have second server"
+        );
         assert!(result.contains("weight=5"), "weight 5");
         assert!(result.contains("weight=3"), "weight 3");
         assert!(result.contains("backup"), "backup flag");
@@ -1059,23 +1321,49 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let server_id = "srv-1";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: true, ipv6: false, proxy_protocol: false,
-            server_name: "example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "Main server".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: true,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "Main server".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
         assert!(result.contains("server {"), "should have server block");
-        assert!(result.contains("listen 80 default_server"), "should have listen with default_server");
-        assert!(result.contains("server_name  example.com"), "should have server_name");
+        assert!(
+            result.contains("listen 80 default_server"),
+            "should have listen with default_server"
+        );
+        assert!(
+            result.contains("server_name  example.com"),
+            "should have server_name"
+        );
     }
 
     #[test]
@@ -1084,33 +1372,72 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let cert_id = "cert-1";
-        crate::db::nginx::add_nginx_cert(&conn, &NginxCert {
-            id: cert_id.into(), preset_id: preset_id.clone(),
-            name: "test-cert".into(), pem: "/etc/nginx/certs/fullchain.pem".into(),
-            key: "/etc/nginx/certs/privkey.pem".into(), domain: "example.com".into(),
-            created_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_cert(
+            &conn,
+            &NginxCert {
+                id: cert_id.into(),
+                preset_id: preset_id.clone(),
+                name: "test-cert".into(),
+                pem: "/etc/nginx/certs/fullchain.pem".into(),
+                key: "/etc/nginx/certs/privkey.pem".into(),
+                domain: "example.com".into(),
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let server_id = "srv-ssl";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "443".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "secure.example.com".into(), ssl: true,
-            cert_id: cert_id.into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "TLSv1.2 TLSv1.3".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "SSL server".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "443".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "secure.example.com".into(),
+                ssl: true,
+                cert_id: cert_id.into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "TLSv1.2 TLSv1.3".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "SSL server".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("listen 443 ssl"), "should have ssl on listen");
-        assert!(result.contains("ssl_certificate"), "should have ssl_certificate");
-        assert!(result.contains("fullchain.pem"), "should reference pem file");
+        assert!(
+            result.contains("listen 443 ssl"),
+            "should have ssl on listen"
+        );
+        assert!(
+            result.contains("ssl_certificate"),
+            "should have ssl_certificate"
+        );
+        assert!(
+            result.contains("fullchain.pem"),
+            "should reference pem file"
+        );
         assert!(result.contains("privkey.pem"), "should reference key file");
-        assert!(result.contains("ssl_protocols"), "should have ssl_protocols");
+        assert!(
+            result.contains("ssl_protocols"),
+            "should have ssl_protocols"
+        );
         assert!(result.contains("TLSv1.2"), "should have TLSv1.2");
     }
 
@@ -1120,26 +1447,56 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let upstream_id = "up-api";
-        crate::db::nginx::add_nginx_upstream(&conn, &NginxUpstream {
-            id: upstream_id.into(), preset_id: preset_id.clone(),
-            name: "api".into(), proxy_type: 0, strategy: "".into(),
-            descr: "".into(), param_json: "".into(),
-            sort: 0, created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_upstream(
+            &conn,
+            &NginxUpstream {
+                id: upstream_id.into(),
+                preset_id: preset_id.clone(),
+                name: "api".into(),
+                proxy_type: 0,
+                strategy: "".into(),
+                descr: "".into(),
+                param_json: "".into(),
+                sort: 0,
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let server_id = "srv-loc";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "loc-test.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "loc-test.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         // Location: proxy_pass
         // Use raw SQL because add_nginx_location has a column/parameter mismatch
@@ -1186,12 +1543,30 @@ mod tests {
         assert!(result.contains("server {"), "should have server block");
         assert!(result.contains("location / {"), "should have root location");
         assert!(result.contains("proxy_pass"), "should have proxy_pass");
-        assert!(result.contains("proxy_http_version 1.1"), "websocket support");
-        assert!(result.contains("proxy_set_header Upgrade"), "websocket upgrade");
-        assert!(result.contains("location /static {"), "should have static location");
-        assert!(result.contains("root /var/www/static"), "should have root directive");
-        assert!(result.contains("location /old {"), "should have redirect location");
-        assert!(result.contains("return 301"), "should have return directive");
+        assert!(
+            result.contains("proxy_http_version 1.1"),
+            "websocket support"
+        );
+        assert!(
+            result.contains("proxy_set_header Upgrade"),
+            "websocket upgrade"
+        );
+        assert!(
+            result.contains("location /static {"),
+            "should have static location"
+        );
+        assert!(
+            result.contains("root /var/www/static"),
+            "should have root directive"
+        );
+        assert!(
+            result.contains("location /old {"),
+            "should have redirect location"
+        );
+        assert!(
+            result.contains("return 301"),
+            "should have return directive"
+        );
     }
 
     #[test]
@@ -1199,19 +1574,37 @@ mod tests {
         let (conn, preset_id) = setup_test_db();
         let now = "2025-01-01T00:00:00Z";
 
-        crate::db::nginx::add_nginx_stream(&conn, &NginxStream {
-            id: "stream-1".into(), preset_id: preset_id.clone(),
-            listen: "1234".into(), proxy_upstream_id: "".into(),
-            proxy_pass: "10.0.0.1:5678".into(), ssl: false,
-            cert_id: "".into(), protocol: "TCP".into(), descr: "MySQL proxy".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_stream(
+            &conn,
+            &NginxStream {
+                id: "stream-1".into(),
+                preset_id: preset_id.clone(),
+                listen: "1234".into(),
+                proxy_upstream_id: "".into(),
+                proxy_pass: "10.0.0.1:5678".into(),
+                ssl: false,
+                cert_id: "".into(),
+                protocol: "TCP".into(),
+                descr: "MySQL proxy".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
         assert!(result.contains("stream {"), "should have stream block");
-        assert!(result.contains("listen 1234;"), "should have listen directive");
-        assert!(result.contains("proxy_pass 10.0.0.1:5678;"), "should have proxy_pass");
+        assert!(
+            result.contains("listen 1234;"),
+            "should have listen directive"
+        );
+        assert!(
+            result.contains("proxy_pass 10.0.0.1:5678;"),
+            "should have proxy_pass"
+        );
     }
 
     #[test]
@@ -1221,27 +1614,65 @@ mod tests {
 
         // Add a server
         let server_id = "srv-dec";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "decomposed.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "decomposed.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config_decomposed(&conn, &preset_id).unwrap();
-        assert!(result.main_config.contains("http {"), "main config should have http block");
-        assert!(result.main_config.contains("include conf.d/"), "main config should include subfiles");
-        assert!(!result.sub_files.is_empty(), "should have at least one subfile");
-        let server_file = result.sub_files.iter().find(|f| f.filename.contains("decomposed.example.com"));
-        assert!(server_file.is_some(), "should have a subfile for the server");
+        assert!(
+            result.main_config.contains("http {"),
+            "main config should have http block"
+        );
+        assert!(
+            result.main_config.contains("include conf.d/"),
+            "main config should include subfiles"
+        );
+        assert!(
+            !result.sub_files.is_empty(),
+            "should have at least one subfile"
+        );
+        let server_file = result
+            .sub_files
+            .iter()
+            .find(|f| f.filename.contains("decomposed.example.com"));
+        assert!(
+            server_file.is_some(),
+            "should have a subfile for the server"
+        );
         if let Some(sf) = server_file {
-            assert!(sf.content.contains("server {"), "subfile should contain server block");
+            assert!(
+                sf.content.contains("server {"),
+                "subfile should contain server block"
+            );
         }
     }
 
@@ -1251,18 +1682,38 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let server_id = "srv-ipv6";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: true, proxy_protocol: false,
-            server_name: "ipv6.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: true,
+                proxy_protocol: false,
+                server_name: "ipv6.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
         assert!(result.contains("listen [::]:80"), "should have IPv6 listen");
@@ -1274,29 +1725,59 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let cert_id = "cert-h2";
-        crate::db::nginx::add_nginx_cert(&conn, &NginxCert {
-            id: cert_id.into(), preset_id: preset_id.clone(),
-            name: "h2-cert".into(), pem: "/etc/ssl/certs/h2.pem".into(),
-            key: "/etc/ssl/certs/h2.key".into(), domain: "h2.example.com".into(),
-            created_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_cert(
+            &conn,
+            &NginxCert {
+                id: cert_id.into(),
+                preset_id: preset_id.clone(),
+                name: "h2-cert".into(),
+                pem: "/etc/ssl/certs/h2.pem".into(),
+                key: "/etc/ssl/certs/h2.key".into(),
+                domain: "h2.example.com".into(),
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let server_id = "srv-h2";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "443".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "h2.example.com".into(), ssl: true,
-            cert_id: cert_id.into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 2, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "443".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "h2.example.com".into(),
+                ssl: true,
+                cert_id: cert_id.into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 2,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("http2 on;"), "new-style http2 should output 'http2 on;'");
+        assert!(
+            result.contains("http2 on;"),
+            "new-style http2 should output 'http2 on;'"
+        );
     }
 
     #[test]
@@ -1305,32 +1786,71 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let pw_id = "pw-1";
-        crate::db::nginx::add_nginx_password(&conn, &NginxPassword {
-            id: pw_id.into(), preset_id: preset_id.clone(),
-            name: "test-pw".into(), pass: "".into(),
-            descr: "Restricted Area".into(), path: "/etc/nginx/.htpasswd".into(),
-            created_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_password(
+            &conn,
+            &NginxPassword {
+                id: pw_id.into(),
+                preset_id: preset_id.clone(),
+                name: "test-pw".into(),
+                pass: "".into(),
+                descr: "Restricted Area".into(),
+                path: "/etc/nginx/.htpasswd".into(),
+                created_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let server_id = "srv-auth";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "auth.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: pw_id.into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "auth.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: pw_id.into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("auth_basic"), "should have auth_basic directive");
-        assert!(result.contains("Restricted Area"), "should contain realm description");
-        assert!(result.contains("auth_basic_user_file"), "should have auth_basic_user_file");
-        assert!(result.contains(".htpasswd"), "should reference htpasswd file");
+        assert!(
+            result.contains("auth_basic"),
+            "should have auth_basic directive"
+        );
+        assert!(
+            result.contains("Restricted Area"),
+            "should contain realm description"
+        );
+        assert!(
+            result.contains("auth_basic_user_file"),
+            "should have auth_basic_user_file"
+        );
+        assert!(
+            result.contains(".htpasswd"),
+            "should reference htpasswd file"
+        );
     }
 
     #[test]
@@ -1340,23 +1860,45 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let server_id = "srv-param";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "param.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: true, sort: 0,
-            param_json: r#"[{"name":"client_max_body_size","value":"100M","position":1}]"#.into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "param.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: true,
+                sort: 0,
+                param_json: r#"[{"name":"client_max_body_size","value":"100M","position":1}]"#
+                    .into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(result.contains("client_max_body_size 100M;"),
-            "should include custom param from param_json");
+        assert!(
+            result.contains("client_max_body_size 100M;"),
+            "should include custom param from param_json"
+        );
     }
 
     #[test]
@@ -1408,22 +1950,44 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let server_id = "srv-disabled";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 0, listen: "80".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "disabled.example.com".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "".into(), descr: "".into(),
-            enabled: false, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 0,
+                listen: "80".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "disabled.example.com".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "".into(),
+                descr: "".into(),
+                enabled: false,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(!result.contains("disabled.example.com"),
-            "disabled server should not appear in output");
+        assert!(
+            !result.contains("disabled.example.com"),
+            "disabled server should not appear in output"
+        );
     }
 
     #[test]
@@ -1432,23 +1996,45 @@ mod tests {
         let now = "2025-01-01T00:00:00Z";
 
         let server_id = "srv-tcp";
-        crate::db::nginx::add_nginx_server(&conn, &NginxServer {
-            id: server_id.into(), preset_id: preset_id.clone(),
-            proxy_type: 1, listen: "3306".into(), ip: "".into(),
-            def: false, ipv6: false, proxy_protocol: false,
-            server_name: "".into(), ssl: false,
-            cert_id: "".into(), rewrite: false, rewrite_listen: "".into(),
-            http2: 0, protocols: "".into(), password_id: "".into(),
-            deny_allow: 0, deny_id: "".into(), allow_id: "".into(),
-            proxy_upstream_id: "db-upstream".into(), descr: "MySQL proxy".into(),
-            enabled: true, sort: 0, param_json: "".into(),
-            created_at: now.into(), updated_at: now.into(),
-        }).unwrap();
+        crate::db::nginx::add_nginx_server(
+            &conn,
+            &NginxServer {
+                id: server_id.into(),
+                preset_id: preset_id.clone(),
+                proxy_type: 1,
+                listen: "3306".into(),
+                ip: "".into(),
+                def: false,
+                ipv6: false,
+                proxy_protocol: false,
+                server_name: "".into(),
+                ssl: false,
+                cert_id: "".into(),
+                rewrite: false,
+                rewrite_listen: "".into(),
+                http2: 0,
+                protocols: "".into(),
+                password_id: "".into(),
+                deny_allow: 0,
+                deny_id: "".into(),
+                allow_id: "".into(),
+                proxy_upstream_id: "db-upstream".into(),
+                descr: "MySQL proxy".into(),
+                enabled: true,
+                sort: 0,
+                param_json: "".into(),
+                created_at: now.into(),
+                updated_at: now.into(),
+            },
+        )
+        .unwrap();
 
         // TCP/UDP proxy servers (proxy_type != 0) are filtered out of the http block
         // by `if s.proxy_type != 0 { continue; }` in append_http_block
         let result = generate_nginx_config(&conn, &preset_id).unwrap();
-        assert!(!result.contains("listen 3306"),
-            "TCP proxy servers should NOT appear in http block output");
+        assert!(
+            !result.contains("listen 3306"),
+            "TCP proxy servers should NOT appear in http block output"
+        );
     }
 }

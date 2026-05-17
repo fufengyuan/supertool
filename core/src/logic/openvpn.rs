@@ -145,23 +145,31 @@ impl OpenVPNManager {
         // 1. Check bundled OpenVPN binary (from Tauri resources)
         if let Ok(exe) = std::env::current_exe() {
             let platform = if cfg!(target_os = "macos") {
-                if cfg!(target_arch = "aarch64") { "macos-arm64" } else { "macos-x64" }
+                if cfg!(target_arch = "aarch64") {
+                    "macos-arm64"
+                } else {
+                    "macos-x64"
+                }
             } else {
                 "linux-x64"
             };
             // Try multiple parent levels for different bundle layouts
             let mut bases: Vec<std::path::PathBuf> = Vec::new();
             if let Some(p) = exe.parent() {
-                bases.push(p.to_path_buf());                        // same dir
+                bases.push(p.to_path_buf()); // same dir
                 if let Some(pp) = p.parent() {
-                    bases.push(pp.to_path_buf());                   // 1 level up (e.g. /opt/App/bin -> /opt/App)
+                    bases.push(pp.to_path_buf()); // 1 level up (e.g. /opt/App/bin -> /opt/App)
                     if let Some(ppp) = pp.parent() {
-                        bases.push(ppp.to_path_buf());              // 2 levels up
+                        bases.push(ppp.to_path_buf()); // 2 levels up
                     }
                 }
             }
             for base in &bases {
-                let bundled = base.join("resources").join("openvpn").join(platform).join("openvpn");
+                let bundled = base
+                    .join("resources")
+                    .join("openvpn")
+                    .join(platform)
+                    .join("openvpn");
                 if bundled.exists() {
                     let output = Command::new(&bundled).arg("--version").output();
                     if let Ok(o) = output {
@@ -305,11 +313,7 @@ impl OpenVPNManager {
                     .output()
                     .map(|o| o.status.success())
                     .unwrap_or(false);
-                if sudo_ok {
-                    "sudo".to_string()
-                } else {
-                    cmd
-                }
+                if sudo_ok { "sudo".to_string() } else { cmd }
             }
         } else {
             cmd

@@ -1,10 +1,9 @@
+use serde_json::{Value, json};
 /// Tauri IPC Commands — PTY 终端操作
 ///
 /// 给 GUI 调用的终端相关命令，通过 CoreService 异步包装器调用 SSH 服务。
 /// 所有 SSH 操作经 run_ssh_blocking → spawn_blocking 执行，不阻塞 async 运行时。
-
 use supertool_core::logic::CoreService;
-use serde_json::{Value, json};
 use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
@@ -16,7 +15,8 @@ pub async fn create_terminal(
     cols: u32,
 ) -> Result<Value, String> {
     log::info!("[Tauri CMD] create_terminal() called");
-    core.ssh_create_terminal(&server_id, &terminal_id, rows, cols).await
+    core.ssh_create_terminal(&server_id, &terminal_id, rows, cols)
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]

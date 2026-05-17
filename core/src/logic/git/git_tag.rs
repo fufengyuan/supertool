@@ -1,9 +1,8 @@
+use super::super::git::find_git;
 /// Git Tag 操作 — list, create, delete
-
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::process::Stdio;
 use tokio::process::Command;
-use super::super::git::find_git;
 
 async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
     let git_bin = find_git();
@@ -36,9 +35,16 @@ pub async fn git_list_tags(repo_path: &str) -> Result<Value, String> {
     Ok(json!({"tags": tags}))
 }
 
-pub async fn git_create_tag(repo_path: &str, tag_name: &str, message: Option<&str>, force: bool) -> Result<Value, String> {
+pub async fn git_create_tag(
+    repo_path: &str,
+    tag_name: &str,
+    message: Option<&str>,
+    force: bool,
+) -> Result<Value, String> {
     let mut args = vec!["tag"];
-    if force { args.push("-f"); }
+    if force {
+        args.push("-f");
+    }
     if let Some(m) = message {
         args.push("-a");
         args.push(tag_name);

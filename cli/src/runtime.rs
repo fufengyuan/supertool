@@ -1,5 +1,5 @@
-use supertool_core::{Database, CoreService, logic::data_dir};
 use std::path::PathBuf;
+use supertool_core::{CoreService, Database, logic::data_dir};
 
 /// Initialize the CLI runtime: data directory, database, and CoreService
 pub struct CliRuntime {

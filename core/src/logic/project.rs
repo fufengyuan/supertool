@@ -1,7 +1,7 @@
-use serde_json::{json, Value};
-use rusqlite::params;
-use crate::db::projects;
 use crate::db::Project;
+use crate::db::projects;
+use rusqlite::params;
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn get_all_projects(&self, only_active: bool) -> Result<Value, String> {

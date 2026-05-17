@@ -61,7 +61,14 @@ pub fn get_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Opti
     }
 }
 
-pub fn add(conn: &rusqlite::Connection, id: &str, name: &str, path: &str, remote: Option<&str>, branch: Option<&str>) -> rusqlite::Result<()> {
+pub fn add(
+    conn: &rusqlite::Connection,
+    id: &str,
+    name: &str,
+    path: &str,
+    remote: Option<&str>,
+    branch: Option<&str>,
+) -> rusqlite::Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
     conn.execute(
         "INSERT INTO git_repos (id, name, path, remote, branch, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -70,7 +77,14 @@ pub fn add(conn: &rusqlite::Connection, id: &str, name: &str, path: &str, remote
     Ok(())
 }
 
-pub fn update(conn: &rusqlite::Connection, id: &str, name: &str, path: &str, remote: Option<&str>, branch: Option<&str>) -> rusqlite::Result<()> {
+pub fn update(
+    conn: &rusqlite::Connection,
+    id: &str,
+    name: &str,
+    path: &str,
+    remote: Option<&str>,
+    branch: Option<&str>,
+) -> rusqlite::Result<()> {
     let now = chrono::Utc::now().to_rfc3339();
     conn.execute(
         "UPDATE git_repos SET name=?, path=?, remote=?, branch=?, updatedAt=? WHERE id=?",

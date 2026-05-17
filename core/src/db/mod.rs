@@ -2,18 +2,18 @@ use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub mod database;
-pub mod projects;
-pub mod servers;
+pub mod agent;
+pub mod alert;
 pub mod cicd;
 pub mod cicd_tables;
-pub mod openvpn;
-pub mod wireguard;
+pub mod database;
+pub mod git_repo;
 pub mod lan;
 pub mod nginx;
-pub mod alert;
-pub mod git_repo;
-pub mod agent;
+pub mod openvpn;
+pub mod projects;
+pub mod servers;
+pub mod wireguard;
 pub use cicd::*;
 
 /// Initialize SQLite database with all required tables
@@ -612,10 +612,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         [],
     );
     // Migration: add remark column to alert_resources for databases created before v4.1
-    let _ = conn.execute(
-        "ALTER TABLE alert_resources ADD COLUMN remark TEXT",
-        [],
-    );
+    let _ = conn.execute("ALTER TABLE alert_resources ADD COLUMN remark TEXT", []);
     // Migration: add sort column to nginx_* tables for databases created before sort was added
     let _ = conn.execute(
         "ALTER TABLE nginx_basic_settings ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",

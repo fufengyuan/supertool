@@ -59,12 +59,7 @@ impl SystemLogger {
             "DEBUG" => Level::Debug,
             _ => Level::Info,
         };
-        log::log!(
-            log_level,
-            "[{}] {}",
-            prefix,
-            message
-        );
+        log::log!(log_level, "[{}] {}", prefix, message);
     }
 }
 
