@@ -381,7 +381,7 @@ function openSftp(server: Server, initialPath?: string) {
     id,
     server,
     initialPath: initialPath || '',
-    position: { x: window.innerWidth - 620 - (idx * 30), y: 80 + (idx * 30) }
+    position: { x: Math.max(50, (window.innerWidth - 800) / 2 + (idx * 30)), y: 80 + (idx * 30) }
   });
 }
 
