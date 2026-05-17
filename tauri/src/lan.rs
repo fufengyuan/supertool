@@ -1891,13 +1891,9 @@ impl LanService {
         thread::sleep(Duration::from_millis(300));
 
         // Connect to peer's TCP file transfer port with 10-second timeout
-        Self::add_log_static(
-            log,
-            "info",
-            &format!(
-                "Connecting to {}:{} for file transfer",
-                peer_addr, FILE_TRANSFER_PORT
-            ),
+        log::info!(
+            "[LAN TCP] Connecting to {}:{} for file transfer (file_size={})",
+            peer_addr, FILE_TRANSFER_PORT, file_size
         );
         let mut stream = TcpStream::connect_timeout(
             &format!("{}:{}", peer_addr, FILE_TRANSFER_PORT)
@@ -2019,6 +2015,7 @@ impl LanService {
             "info",
             &format!("File sent: {} ({} bytes)", file_name, sent),
         );
+        log::info!("[LAN TCP] File sent successfully: {} ({} bytes)", file_name, sent);
 
         // Get from/to user info from transfers map
         let (from_user_id, from_user_name, to_user_id, to_user_name) = {
