@@ -10,7 +10,7 @@ name = "supertool"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon", "devtools"] }
+tauri = { version = "2", features = [ "protocol-asset", "tray-icon", "devtools"] }
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
