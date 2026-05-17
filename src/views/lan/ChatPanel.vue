@@ -148,7 +148,7 @@ function normalizeMessage(msg: any): any {
     } catch {
       // content 不是 JSON，忽略
     }
-    return {
+    const result = {
       ...msg,
       fileName: meta.fileName || msg.fileName || '未知文件',
       fileSize: meta.fileSize ?? msg.fileSize ?? 0,
@@ -157,7 +157,9 @@ function normalizeMessage(msg: any): any {
       status: meta.status || msg.status || 'pending',
       progress: msg.progress ?? meta.progress ?? 0,
       completedAt: meta.completedAt || msg.completedAt,
-    }
+    };
+    logger.info(`[normalizeMessage] id=${msg.id?.slice(0,8)}, type=${msg.type}, msg.status=${msg.status}, meta.status=${meta.status}, result.status=${result.status}`);
+    return result;
   }
   return msg
 }
