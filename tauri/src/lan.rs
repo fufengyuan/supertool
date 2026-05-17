@@ -1094,8 +1094,8 @@ impl LanService {
             }
 
             // Play notification sound (same as UDP)
-            let content_preview = if content.len() > 100 { &content[..100] } else { &content };
-            crate::tray_notification::show_lan_message_notification(&sender_id, content_preview);
+            let content_preview: String = content.chars().take(100).collect();
+            crate::tray_notification::show_lan_message_notification(&sender_id, &content_preview);
             return;
         }
 
