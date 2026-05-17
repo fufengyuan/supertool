@@ -600,12 +600,13 @@ async function onFetchConfig() {
 
 async function onTestConfig() {
   if (!currentPreset.value) return
-  // Test the locally generated config, not the server's existing config
-  if (!generatedNewConfig.value) {
-    toast.warning('请先生成新配置')
+  // Test the current config content (either generated or manually edited)
+  const contentToTest = generatedNewConfig.value || configContent.value
+  if (!contentToTest) {
+    toast.warning('没有可测试的配置内容')
     return
   }
-  await testConfigContent(currentPreset.value.serverId, currentPreset.value.configPath, generatedNewConfig.value)
+  await testConfigContent(currentPreset.value.serverId, currentPreset.value.configPath, contentToTest)
 }
 
 async function onGenerateConfig() {
