@@ -480,11 +480,14 @@ async function onScreenshot() {
 }
 
 async function pickFileAndSend() {
-  if (!getTauriAPI().showOpenDialogForDirs) return;
-  const result = await getTauriAPI().showOpenDialogForDirs();
-  if (result.canceled || !result.filePaths.length) return;
+  const result = await getTauriAPI().showOpenDialog({
+    multiple: false,
+    directory: false,
+    title: '选择文件发送'
+  });
+  if (!result.filePaths?.length) return;
   const filePath = result.filePaths[0];
-  const name = filePath.split('/').pop() || filePath.split('\\\\').pop() || 'file';
+  const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
   logger.info(`[ChatPanel][pickFileAndSend] Selected: path=${filePath}, name=${name}`);
   sendFile({ path: filePath, name, size: 0 });
 }
