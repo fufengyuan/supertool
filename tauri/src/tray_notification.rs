@@ -159,6 +159,7 @@ impl NotificationManager {
 
 /// 播放系统提示音
 pub fn play_notification_sound() {
+    log::info!("[Notification] play_notification_sound() called");
     #[cfg(target_os = "macos")]
     {
         std::process::Command::new("afplay")
@@ -170,6 +171,7 @@ pub fn play_notification_sound() {
     }
     #[cfg(target_os = "linux")]
     {
+        log::info!("[Notification] Linux: attempting paplay");
         // Try paplay first, fallback to canberra-gtk-play
         if std::process::Command::new("paplay")
             .arg("/usr/share/sounds/freedesktop/stereo/bell.oga")
@@ -178,6 +180,7 @@ pub fn play_notification_sound() {
             .spawn()
             .is_err()
         {
+            log::warn!("[Notification] paplay failed, trying canberra-gtk-play");
             std::process::Command::new("canberra-gtk-play")
                 .arg("-i")
                 .arg("message")
@@ -185,6 +188,8 @@ pub fn play_notification_sound() {
                 .stderr(std::process::Stdio::null())
                 .spawn()
                 .ok();
+        } else {
+            log::info!("[Notification] paplay spawned successfully");
         }
     }
     #[cfg(target_os = "windows")]
