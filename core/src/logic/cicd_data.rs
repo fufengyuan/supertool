@@ -36,6 +36,17 @@ impl super::CoreService {
                         "mavenHome": row.get::<_, Option<String>>("mavenHome")?,
                         "npmHome": row.get::<_, Option<String>>("npmHome")?,
                         "javaHome": row.get::<_, Option<String>>("javaHome")?,
+                        "nodeHome": row.get::<_, Option<String>>("nodeHome")?,
+                        "servers": row.get::<_, Option<String>>("servers")?,
+                        "groupName": row.get::<_, String>("groupName")?,
+                        "lastDeployedAt": row.get::<_, Option<String>>("lastDeployedAt")?,
+                        "parentBuildMode": row.get::<_, i64>("parentBuildMode")? == 1,
+                        "parentBuildPath": row.get::<_, String>("parentBuildPath")?,
+                        "requiresApproval": row.get::<_, Option<i64>>("requiresApproval")?.unwrap_or(0) == 1,
+                        "pnpmHome": row.get::<_, Option<String>>("pnpmHome")?,
+                        "yarnHome": row.get::<_, Option<String>>("yarnHome")?,
+                        "buildMode": row.get::<_, String>("buildMode")?,
+                        "gitRepoId": row.get::<_, Option<String>>("gitRepoId")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -162,8 +173,8 @@ impl super::CoreService {
                     let servers_val: Option<String> = c.get("servers").and_then(|v| v.as_str()).map(|s| s.to_string())
                         .or_else(|| c.get("servers").map(|v| serde_json::to_string(v).unwrap_or_default()));
                     let _ = conn.execute(
-                        "INSERT OR REPLACE INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29)",
+                        "INSERT OR REPLACE INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt, gitRepoId, pnpmHome, yarnHome, buildMode)
+                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)",
                         rusqlite::params![
                             id,
                             c.get("name").and_then(|v|v.as_str()).unwrap_or(""),
@@ -194,6 +205,10 @@ impl super::CoreService {
                             c.get("nodeHome").and_then(|v|v.as_str()).unwrap_or(""),
                             servers_val.unwrap_or_default(),
                             c.get("lastDeployedAt").and_then(|v|v.as_str()),
+                            c.get("gitRepoId").and_then(|v|v.as_str()),
+                            c.get("pnpmHome").and_then(|v|v.as_str()).unwrap_or(""),
+                            c.get("yarnHome").and_then(|v|v.as_str()).unwrap_or(""),
+                            c.get("buildMode").and_then(|v|v.as_str()).unwrap_or("local"),
                         ]
                     );
                     imported += 1;
