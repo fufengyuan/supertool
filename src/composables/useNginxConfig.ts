@@ -106,6 +106,20 @@ export function useNginxConfig() {
     }
   }
 
+  // Test nginx config content (write to temp file and test)
+  const testConfigContent = async (serverId: string, configPath: string, content: string) => {
+    try {
+      loading.value = true
+      const result = await getTauriAPI().testNginxConfigContent(serverId, configPath, content)
+      testResult.value = result?.data || result
+      return result?.data || result
+    } catch (err) {
+      handleError(err, { context: 'testNginxConfigContent' })
+    } finally {
+      loading.value = false
+    }
+  }
+
   // Deploy config to remote
   const deployConfig = async (comment: string) => {
     if (!currentPreset.value || !configContent.value) return
@@ -211,7 +225,7 @@ export function useNginxConfig() {
     loading, presets, currentPreset, configContent, versions, testResult,
     servers, serverGroups,
     loadPresets, loadServers, savePreset, deletePreset,
-    fetchConfig, testConfig, deployConfig, rollbackToVersion,
+    fetchConfig, testConfig, testConfigContent, deployConfig, rollbackToVersion,
     loadCachedConfig,
   }
 }

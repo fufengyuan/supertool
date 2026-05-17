@@ -78,6 +78,65 @@ impl CoreService {
         }))
     }
 
+    /// Test a new nginx config content by writing to a temp file and running nginx -t
+    /// This tests the LOCAL config before deploying, not the server's existing config
+    pub async fn test_nginx_config_content(
+        &self,
+        server_id: &str,
+        config_path: &str,
+        content: &str,
+    ) -> Result<ApiResponse<NginxTestResult>, String> {
+        self.ensure_ssh_connected(server_id).await?;
+
+        let sid = server_id.to_string();
+        // Use a temp file path: original path + .test suffix
+        let test_path = format!("{}.test", config_path);
+        let safe_test_path = shell_escape_path(&test_path);
+
+        // 1. Write config content to temp file via base64
+        let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
+        let sid1 = sid.clone();
+        let stp1 = safe_test_path.clone();
+        let write_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid1, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, stp1))
+            })
+            .await?;
+
+        if !write_result.success {
+            return Ok(ApiResponse::err(format!(
+                "写入临时文件失败: {}",
+                write_result.output.trim()
+            )));
+        }
+
+        // 2. Test the temp file
+        let sid2 = sid.clone();
+        let stp2 = safe_test_path.clone();
+        let test_result = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid2, &format!("nginx -t -c '{}' 2>&1", stp2))
+            })
+            .await?;
+
+        let output = test_result.output.clone();
+        let passed = output.contains("syntax is ok") || output.contains("test is successful");
+
+        // 3. Clean up temp file (ignore errors)
+        let sid3 = sid.clone();
+        let stp3 = safe_test_path.clone();
+        let _ = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.exec_command(&sid3, &format!("rm -f '{}' 2>&1", stp3))
+            })
+            .await;
+
+        Ok(ApiResponse::ok(NginxTestResult {
+            passed,
+            message: output,
+        }))
+    }
+
     /// Deploy nginx config: backup → write → test → reload (with auto-rollback)
     pub async fn deploy_nginx_config(
         &self,

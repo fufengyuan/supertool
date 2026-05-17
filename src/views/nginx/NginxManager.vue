@@ -365,6 +365,7 @@
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, reactive, onMounted, markRaw } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
+import { useToast } from '../../composables/useToast'
 import { getTauriAPI } from '../../utils/tauri-api'
 import GroupedServerSelector from '@/views/server/GroupedServerSelector.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
@@ -377,9 +378,11 @@ const {
   loading, presets, currentPreset, configContent, versions, testResult,
   servers, serverGroups,
   loadPresets, loadServers, savePreset, deletePreset,
-  fetchConfig, testConfig, deployConfig, rollbackToVersion,
+  fetchConfig, testConfig, testConfigContent, deployConfig, rollbackToVersion,
   loadCachedConfig,
 } = useNginxConfig()
+
+const toast = useToast()
 
 // UI state
 const showPresetForm = ref(false)
@@ -597,7 +600,12 @@ async function onFetchConfig() {
 
 async function onTestConfig() {
   if (!currentPreset.value) return
-  await testConfig(currentPreset.value.serverId, currentPreset.value.configPath)
+  // Test the locally generated config, not the server's existing config
+  if (!generatedNewConfig.value) {
+    toast.warning('请先生成新配置')
+    return
+  }
+  await testConfigContent(currentPreset.value.serverId, currentPreset.value.configPath, generatedNewConfig.value)
 }
 
 async function onGenerateConfig() {

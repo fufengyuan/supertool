@@ -725,6 +725,7 @@ fn main() {
             commands::nginx::delete_nginx_preset,
             commands::nginx::fetch_nginx_config,
             commands::nginx::test_nginx_config,
+            commands::nginx::test_nginx_config_content,
             commands::nginx::deploy_nginx_config,
             commands::nginx::deploy_nginx_config_decomposed,
             commands::nginx::get_nginx_config_versions,
