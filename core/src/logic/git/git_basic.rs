@@ -1,10 +1,9 @@
+use super::super::git::find_git;
 /// Git 基本操作 — status, log, branches, add, commit, checkout, merge
-
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::path::Path;
 use std::process::Stdio;
 use tokio::process::Command;
-use super::super::git::find_git;
 
 /// Internal helper for run_git
 async fn run_git(repo_path: &str, args: &[&str]) -> Result<String, String> {
@@ -66,19 +65,28 @@ pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, Str
     let n = limit.unwrap_or(50);
     // %H=hash, %an=author name, %ae=author email, %aI=date ISO 8601 strict (JS parseable), %s=subject, %P=parent hashes, %d=decorate (refs)
     let fmt = "%H|%an|%ae|%aI|%s|%P|%d";
-    let output = run_git(repo_path, &["log", &format!("--format={}", fmt), &format!("-n{}", n), "--shortstat"]).await?;
-    
+    let output = run_git(
+        repo_path,
+        &[
+            "log",
+            &format!("--format={}", fmt),
+            &format!("-n{}", n),
+            "--shortstat",
+        ],
+    )
+    .await?;
+
     let mut commits: Vec<Value> = Vec::new();
     let lines: Vec<&str> = output.lines().collect();
     let mut i = 0;
-    
+
     while i < lines.len() {
         let line = lines[i];
         if line.is_empty() {
             i += 1;
             continue;
         }
-        
+
         let parts: Vec<&str> = line.splitn(7, '|').collect();
         if parts.len() >= 5 {
             let hash = parts[0];
@@ -88,10 +96,10 @@ pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, Str
             let message = parts[4];
             let parent_hashes = if parts.len() > 5 { parts[5] } else { "" };
             let refs_raw = if parts.len() > 6 { parts[6].trim() } else { "" };
-            
+
             // Clean refs: remove "HEAD ->" prefix, parse branch/tag names
             let refs = parse_refs(refs_raw);
-            
+
             // Parse shortstat from next line (e.g., " 2 files changed, 10 insertions(+), 5 deletions(-)")
             let mut file_count: Option<usize> = None;
             if i + 1 < lines.len() {
@@ -104,7 +112,7 @@ pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, Str
                     i += 1; // Skip stat line
                 }
             }
-            
+
             commits.push(json!({
                 "hash": hash,
                 "authorName": author_name,
@@ -118,7 +126,7 @@ pub async fn git_log(repo_path: &str, limit: Option<usize>) -> Result<Value, Str
         }
         i += 1;
     }
-    
+
     Ok(json!({"commits": commits}))
 }
 
@@ -132,8 +140,9 @@ fn parse_refs(refs_raw: &str) -> Vec<String> {
     if !refs_str.starts_with('(') || !refs_str.ends_with(')') {
         return Vec::new();
     }
-    let inner = &refs_str[1..refs_str.len()-1];
-    inner.split(',')
+    let inner = &refs_str[1..refs_str.len() - 1];
+    inner
+        .split(',')
         .map(|r| r.trim())
         .filter(|r| !r.is_empty())
         .map(|r| {
@@ -148,20 +157,28 @@ fn parse_refs(refs_raw: &str) -> Vec<String> {
 }
 
 pub async fn git_branches(repo_path: &str) -> Result<Value, String> {
-    let output = run_git(repo_path, &["branch", "-a", "--format=%(refname:short)|%(upstream:short)|%(HEAD)"]).await?;
+    let output = run_git(
+        repo_path,
+        &[
+            "branch",
+            "-a",
+            "--format=%(refname:short)|%(upstream:short)|%(HEAD)",
+        ],
+    )
+    .await?;
     let mut branches: Vec<Value> = output
         .lines()
         .filter(|l| !l.is_empty())
         .map(|line| {
             let parts: Vec<&str> = line.splitn(3, '|').collect();
             let name = parts.first().unwrap_or(&"").to_string();
-            let upstream = if parts.len() > 1 && !parts[1].is_empty() { 
-                Some(parts[1].to_string()) 
-            } else { 
-                None 
+            let upstream = if parts.len() > 1 && !parts[1].is_empty() {
+                Some(parts[1].to_string())
+            } else {
+                None
             };
             let is_current = parts.len() > 2 && parts[2] == "*";
-            
+
             json!({
                 "name": name,
                 "upstream": upstream,
@@ -171,7 +188,7 @@ pub async fn git_branches(repo_path: &str) -> Result<Value, String> {
             })
         })
         .collect();
-    
+
     // Calculate ahead/behind for branches with upstream
     for branch in branches.iter_mut() {
         if let Some(upstream) = branch.get("upstream").and_then(|u| u.as_str()) {
@@ -180,19 +197,34 @@ pub async fn git_branches(repo_path: &str) -> Result<Value, String> {
             if branch_name.starts_with("remotes/") {
                 continue;
             }
-            let count_output = run_git(repo_path, &["rev-list", "--left-right", "--count", &format!("{}...{}", branch_name, upstream)]).await;
+            let count_output = run_git(
+                repo_path,
+                &[
+                    "rev-list",
+                    "--left-right",
+                    "--count",
+                    &format!("{}...{}", branch_name, upstream),
+                ],
+            )
+            .await;
             if let Ok(count_str) = count_output {
                 let counts: Vec<&str> = count_str.trim().split_whitespace().collect();
                 if counts.len() >= 2 {
-                    let ahead = counts.first().and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
-                    let behind = counts.get(1).and_then(|c| c.parse::<u32>().ok()).unwrap_or(0);
+                    let ahead = counts
+                        .first()
+                        .and_then(|c| c.parse::<u32>().ok())
+                        .unwrap_or(0);
+                    let behind = counts
+                        .get(1)
+                        .and_then(|c| c.parse::<u32>().ok())
+                        .unwrap_or(0);
                     branch["ahead"] = Value::Number(ahead.into());
                     branch["behind"] = Value::Number(behind.into());
                 }
             }
         }
     }
-    
+
     Ok(json!({"branches": branches}))
 }
 
@@ -213,19 +245,29 @@ pub async fn git_diff(repo_path: &str, file: Option<&str>) -> Result<Value, Stri
 
 pub async fn git_commit_diff(repo_path: &str, commit_hash: &str) -> Result<Value, String> {
     // Get commit info with --stat to show file changes summary
-    let stat_output = run_git(repo_path, &["show", "--stat", "--no-color", "--format=%H|%an|%ae|%ai|%s", commit_hash]).await?;
-    
+    let stat_output = run_git(
+        repo_path,
+        &[
+            "show",
+            "--stat",
+            "--no-color",
+            "--format=%H|%an|%ae|%ai|%s",
+            commit_hash,
+        ],
+    )
+    .await?;
+
     // Parse commit info from first line
     let lines: Vec<&str> = stat_output.lines().collect();
     let info_line = lines.first().map_or("", |v| *v);
     let info_parts: Vec<&str> = info_line.split('|').collect();
-    
+
     let hash = info_parts.first().unwrap_or(&"").to_string();
     let author = info_parts.get(1).unwrap_or(&"").to_string();
     let author_email = info_parts.get(2).unwrap_or(&"").to_string();
     let date = info_parts.get(3).unwrap_or(&"").to_string();
     let message = info_parts.get(4).unwrap_or(&"").to_string();
-    
+
     // Parse file changes from stat output
     let files: Vec<Value> = lines.iter()
         .skip(1)  // Skip commit info line
@@ -249,10 +291,10 @@ pub async fn git_commit_diff(repo_path: &str, commit_hash: &str) -> Result<Value
             }
         })
         .collect();
-    
+
     // Get full diff for each file
     let full_diff = run_git(repo_path, &["show", "--no-color", commit_hash]).await?;
-    
+
     Ok(json!({
         "hash": hash,
         "author": author,
@@ -266,7 +308,11 @@ pub async fn git_commit_diff(repo_path: &str, commit_hash: &str) -> Result<Value
 
 // ============ Git 写操作 ============
 
-pub async fn git_commit(repo_path: &str, message: &str, files: Option<&[&str]>) -> Result<Value, String> {
+pub async fn git_commit(
+    repo_path: &str,
+    message: &str,
+    files: Option<&[&str]>,
+) -> Result<Value, String> {
     if let Some(files) = files {
         if !files.is_empty() {
             let mut args = vec!["add"];
@@ -303,7 +349,11 @@ pub async fn git_checkout(repo_path: &str, branch: &str) -> Result<Value, String
     Ok(json!({"success": true}))
 }
 
-pub async fn git_create_branch(repo_path: &str, branch_name: &str, from: Option<&str>) -> Result<Value, String> {
+pub async fn git_create_branch(
+    repo_path: &str,
+    branch_name: &str,
+    from: Option<&str>,
+) -> Result<Value, String> {
     if let Some(f) = from {
         run_git(repo_path, &["checkout", "-b", branch_name, f]).await?;
     } else {
@@ -312,7 +362,11 @@ pub async fn git_create_branch(repo_path: &str, branch_name: &str, from: Option<
     Ok(json!({"success": true}))
 }
 
-pub async fn git_delete_branch(repo_path: &str, branch_name: &str, force: bool) -> Result<Value, String> {
+pub async fn git_delete_branch(
+    repo_path: &str,
+    branch_name: &str,
+    force: bool,
+) -> Result<Value, String> {
     let flag = if force { "-D" } else { "-d" };
     run_git(repo_path, &["branch", flag, branch_name]).await?;
     Ok(json!({"success": true}))

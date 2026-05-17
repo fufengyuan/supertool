@@ -59,9 +59,7 @@ pub fn install_stool_cli() -> Result<String, String> {
     // Check if source is newer than target (mtime comparison)
     if target.exists() {
         if let (Ok(src_meta), Ok(tgt_meta)) = (fs::metadata(&source), fs::metadata(&target)) {
-            if let (Ok(src_mtime), Ok(tgt_mtime)) =
-                (src_meta.modified(), tgt_meta.modified())
-            {
+            if let (Ok(src_mtime), Ok(tgt_mtime)) = (src_meta.modified(), tgt_meta.modified()) {
                 if src_mtime <= tgt_mtime {
                     return Ok("/usr/local/bin/stool".to_string());
                 }
@@ -72,7 +70,10 @@ pub fn install_stool_cli() -> Result<String, String> {
     // Try sudo install first
     let safe_src = source.to_string_lossy().replace("'", "'\\''");
     let safe_dst = target.to_string_lossy().replace("'", "'\\''");
-    let cmd = format!("sudo cp '{}' '{}' && chmod +x '{}'", safe_src, safe_dst, safe_dst);
+    let cmd = format!(
+        "sudo cp '{}' '{}' && chmod +x '{}'",
+        safe_src, safe_dst, safe_dst
+    );
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(&cmd)
@@ -88,8 +89,7 @@ pub fn install_stool_cli() -> Result<String, String> {
         let fallback = home.join(".local").join("bin").join("stool");
         fs::create_dir_all(fallback.parent().unwrap())
             .map_err(|e| format!("Failed to create dir: {}", e))?;
-        fs::copy(&source, &fallback)
-            .map_err(|e| format!("Failed to copy: {}", e))?;
+        fs::copy(&source, &fallback).map_err(|e| format!("Failed to copy: {}", e))?;
         // Try chmod, ignore errors
         let _ = std::process::Command::new("chmod")
             .arg("+x")
@@ -103,8 +103,8 @@ pub fn install_stool_cli() -> Result<String, String> {
 
 /// Install Hermes skills from bundled resources to ~/.hermes/skills/
 pub fn install_hermes_skills() -> Result<String, String> {
-    let source_dir =
-        get_bundled_skills_path().ok_or_else(|| "skills directory not found in resources".to_string())?;
+    let source_dir = get_bundled_skills_path()
+        .ok_or_else(|| "skills directory not found in resources".to_string())?;
 
     let skills_root = dirs::home_dir()
         .map(|h| h.join(".hermes").join("skills"))
@@ -112,8 +112,8 @@ pub fn install_hermes_skills() -> Result<String, String> {
 
     let mut installed = Vec::new();
 
-    for entry in fs::read_dir(&source_dir)
-        .map_err(|e| format!("Failed to read skills dir: {}", e))?
+    for entry in
+        fs::read_dir(&source_dir).map_err(|e| format!("Failed to read skills dir: {}", e))?
     {
         let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
         let path = entry.path();
@@ -142,9 +142,7 @@ pub fn install_hermes_skills() -> Result<String, String> {
             if let (Ok(src_meta), Ok(tgt_meta)) =
                 (fs::metadata(&skill_src), fs::metadata(&target_file))
             {
-                if let (Ok(src_mtime), Ok(tgt_mtime)) =
-                    (src_meta.modified(), tgt_meta.modified())
-                {
+                if let (Ok(src_mtime), Ok(tgt_mtime)) = (src_meta.modified(), tgt_meta.modified()) {
                     if src_mtime <= tgt_mtime {
                         continue; // Already up-to-date
                     }
@@ -196,15 +194,26 @@ pub fn check_cli_installed() -> InstallResult {
     let home = dirs::home_dir();
     let skills_path = home
         .as_ref()
-        .map(|h| h.join(".hermes").join("skills").join("stool-cli").join("SKILL.md"))
+        .map(|h| {
+            h.join(".hermes")
+                .join("skills")
+                .join("stool-cli")
+                .join("SKILL.md")
+        })
         .unwrap_or_default();
     let skills_installed = skills_path.exists();
 
     let cli_path_str = if std::path::Path::new(cli_path).exists() {
         cli_path.to_string()
     } else {
-        home.map(|h| h.join(".local").join("bin").join("stool").to_string_lossy().to_string())
-            .unwrap_or_default()
+        home.map(|h| {
+            h.join(".local")
+                .join("bin")
+                .join("stool")
+                .to_string_lossy()
+                .to_string()
+        })
+        .unwrap_or_default()
     };
 
     InstallResult {

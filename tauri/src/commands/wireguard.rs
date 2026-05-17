@@ -1,6 +1,5 @@
-use supertool_core::logic::wireguard::WireGuardManager;
 use supertool_core::db::wireguard as db_wg;
-
+use supertool_core::logic::wireguard::WireGuardManager;
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn wireguard_get_all(
@@ -27,22 +26,37 @@ pub async fn wireguard_add(
     let name = data["name"].as_str().unwrap_or("").to_string();
     let private_key = data["privateKey"].as_str().unwrap_or("").to_string();
     let public_key = data["publicKey"].as_str().unwrap_or("").to_string();
-    let address = data["address"].as_str().unwrap_or("10.0.0.2/32").to_string();
+    let address = data["address"]
+        .as_str()
+        .unwrap_or("10.0.0.2/32")
+        .to_string();
     let dns = data["dns"].as_str().map(|s| s.to_string());
     let mtu = data["mtu"].as_i64();
     let peer_public_key = data["peerPublicKey"].as_str().unwrap_or("").to_string();
     let peer_endpoint = data["peerEndpoint"].as_str().unwrap_or("").to_string();
-    let peer_allowed_ips = data["peerAllowedIPs"].as_str().unwrap_or("0.0.0.0/0").to_string();
+    let peer_allowed_ips = data["peerAllowedIPs"]
+        .as_str()
+        .unwrap_or("0.0.0.0/0")
+        .to_string();
     let peer_keepalive = data["peerPersistentKeepalive"].as_i64();
     let preshared_key = data["presharedKey"].as_str().map(|s| s.to_string());
 
     let id = core.db_write(|conn| {
         db_wg::add(
-            conn, &name, &private_key, &public_key, &address,
-            dns.as_deref(), mtu,
-            &peer_public_key, &peer_endpoint, &peer_allowed_ips,
-            peer_keepalive, preshared_key.as_deref(),
-        ).map_err(|e| e.to_string())
+            conn,
+            &name,
+            &private_key,
+            &public_key,
+            &address,
+            dns.as_deref(),
+            mtu,
+            &peer_public_key,
+            &peer_endpoint,
+            &peer_allowed_ips,
+            peer_keepalive,
+            preshared_key.as_deref(),
+        )
+        .map_err(|e| e.to_string())
     })?;
     Ok(serde_json::json!({ "id": id }))
 }
@@ -67,11 +81,21 @@ pub async fn wireguard_update(
 
     let _ = core.db_write(|conn| {
         db_wg::update(
-            conn, &id, &name, &private_key, &public_key, &address,
-            dns.as_deref(), mtu,
-            &peer_public_key, &peer_endpoint, &peer_allowed_ips,
-            peer_keepalive, preshared_key.as_deref(),
-        ).map_err(|e| e.to_string())
+            conn,
+            &id,
+            &name,
+            &private_key,
+            &public_key,
+            &address,
+            dns.as_deref(),
+            mtu,
+            &peer_public_key,
+            &peer_endpoint,
+            &peer_allowed_ips,
+            peer_keepalive,
+            preshared_key.as_deref(),
+        )
+        .map_err(|e| e.to_string())
     })?;
     Ok(serde_json::json!({ "success": true }))
 }
@@ -97,16 +121,27 @@ pub async fn wireguard_connect(
     address: Option<String>,
     mtu: Option<i64>,
 ) -> Result<serde_json::Value, String> {
-    wg.connect(&config_id, &config_name, &private_key, &peer_public_key, &peer_endpoint, preshared_key.as_deref(), address.as_deref(), mtu)
-        .await
-        .map(|_| serde_json::json!({ "success": true }))
+    wg.connect(
+        &config_id,
+        &config_name,
+        &private_key,
+        &peer_public_key,
+        &peer_endpoint,
+        preshared_key.as_deref(),
+        address.as_deref(),
+        mtu,
+    )
+    .await
+    .map(|_| serde_json::json!({ "success": true }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn wireguard_disconnect(
     wg: tauri::State<'_, WireGuardManager>,
 ) -> Result<serde_json::Value, String> {
-    wg.disconnect().await.map(|_| serde_json::json!({ "success": true }))
+    wg.disconnect()
+        .await
+        .map(|_| serde_json::json!({ "success": true }))
 }
 
 #[tauri::command(rename_all = "camelCase")]

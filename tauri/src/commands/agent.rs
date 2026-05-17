@@ -9,10 +9,7 @@
 
 use serde_json::json;
 
-use supertool_core::db::agent::{
-    get_hermes_stats, hermes_is_installed,
-    list_hermes_messages,
-};
+use supertool_core::db::agent::{get_hermes_stats, hermes_is_installed, list_hermes_messages};
 
 /// Check if Agent is installed
 #[tauri::command(rename_all = "camelCase")]
@@ -26,9 +23,7 @@ pub fn agent_installed() -> Result<serde_json::Value, String> {
 
 /// List Agent messages for a session
 #[tauri::command(rename_all = "camelCase")]
-pub fn agent_list_messages(
-    session_id: String,
-) -> Result<serde_json::Value, String> {
+pub fn agent_list_messages(session_id: String) -> Result<serde_json::Value, String> {
     let messages = list_hermes_messages(&session_id)?;
     Ok(json!({
         "success": true,
@@ -94,13 +89,20 @@ mod tests {
     fn test_all_commands_return_json_with_success() {
         let tests: Vec<(String, Result<serde_json::Value, String>)> = vec![
             ("agent_installed".to_string(), agent_installed()),
-            ("agent_list_messages".to_string(), agent_list_messages("test".to_string())),
+            (
+                "agent_list_messages".to_string(),
+                agent_list_messages("test".to_string()),
+            ),
             ("agent_get_stats".to_string(), agent_get_stats()),
         ];
 
         for (name, result) in tests {
             if let Ok(json) = result {
-                assert_eq!(json["success"], true, "Command {} should have success=true", name);
+                assert_eq!(
+                    json["success"], true,
+                    "Command {} should have success=true",
+                    name
+                );
             }
         }
     }

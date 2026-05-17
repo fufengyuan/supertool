@@ -33,12 +33,17 @@ impl NotificationManager {
         }
     }
 
-    pub async fn check_task_notifications(&self, core: &crate::CoreService) -> Vec<NotificationRequest> {
+    pub async fn check_task_notifications(
+        &self,
+        core: &crate::CoreService,
+    ) -> Vec<NotificationRequest> {
         let mut notifications = vec![];
         let now = chrono::Utc::now();
 
         // Get reminder time from settings (default 15 minutes)
-        let reminder_minutes = core.get_setting("reminder_time").await
+        let reminder_minutes = core
+            .get_setting("reminder_time")
+            .await
             .ok()
             .and_then(|v| v.as_str().map(|s: &str| s.to_string()))
             .and_then(|s| s.parse::<i64>().ok())
@@ -49,7 +54,10 @@ impl NotificationManager {
             if let Some(todos) = todos_result.as_array() {
                 for todo in todos {
                     let id = todo.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    let completed = todo.get("completed").and_then(|v| v.as_bool()).unwrap_or(false);
+                    let completed = todo
+                        .get("completed")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
                     let due_date = todo.get("dueDate").and_then(|v| v.as_str());
 
                     if completed || due_date.is_none() {
@@ -67,11 +75,16 @@ impl NotificationManager {
                                 continue;
                             }
 
-                            let title = format!("任务提醒: {}", todo.get("text").and_then(|v| v.as_str()).unwrap_or(""));
+                            let title = format!(
+                                "任务提醒: {}",
+                                todo.get("text").and_then(|v| v.as_str()).unwrap_or("")
+                            );
                             let body = format!(
                                 "任务将在{}分钟后到期\n优先级: {}\n标签: {}",
                                 minutes_left,
-                                todo.get("priority").and_then(|v| v.as_str()).unwrap_or("medium"),
+                                todo.get("priority")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("medium"),
                                 todo.get("tag").and_then(|v| v.as_str()).unwrap_or("未分类")
                             );
 
@@ -81,7 +94,10 @@ impl NotificationManager {
                                 todo_id: Some(id.to_string()),
                             });
 
-                            self.notified_todo_ids.lock().unwrap().insert(id.to_string());
+                            self.notified_todo_ids
+                                .lock()
+                                .unwrap()
+                                .insert(id.to_string());
                         }
                     }
                 }
@@ -186,10 +202,7 @@ pub fn play_notification_sound() {
 pub fn show_deploy_notification(success: bool, project_name: &str, error: Option<&str>) {
     play_notification_sound();
     let (title, body) = if success {
-        (
-            "🚀 部署成功",
-            format!("{} 已成功部署", project_name),
-        )
+        ("🚀 部署成功", format!("{} 已成功部署", project_name))
     } else {
         (
             "❌ 部署失败",
@@ -215,7 +228,10 @@ pub fn show_lan_message_notification(from_name: &str, content: &str) {
         .body(&body)
         .show()
     {
-        log::warn!("[Notification] Failed to show LAN message notification: {}", e);
+        log::warn!(
+            "[Notification] Failed to show LAN message notification: {}",
+            e
+        );
     }
 }
 
@@ -234,11 +250,14 @@ pub fn start_notification_timer(app_handle: tauri::AppHandle) {
                 for req in notifications {
                     manager.show_notification(&req);
                     // 同时通知前端
-                    let _ = handle.emit("todo-notification", serde_json::json!({
-                        "todoId": req.todo_id,
-                        "title": req.title,
-                        "body": req.body,
-                    }));
+                    let _ = handle.emit(
+                        "todo-notification",
+                        serde_json::json!({
+                            "todoId": req.todo_id,
+                            "title": req.title,
+                            "body": req.body,
+                        }),
+                    );
                 }
             }
         });
@@ -253,11 +272,14 @@ pub fn start_notification_timer(app_handle: tauri::AppHandle) {
                 let notifications = manager.check_task_notifications(&core).await;
                 for req in notifications {
                     manager.show_notification(&req);
-                    let _ = app_handle.emit("todo-notification", serde_json::json!({
-                        "todoId": req.todo_id,
-                        "title": req.title,
-                        "body": req.body,
-                    }));
+                    let _ = app_handle.emit(
+                        "todo-notification",
+                        serde_json::json!({
+                            "todoId": req.todo_id,
+                            "title": req.title,
+                            "body": req.body,
+                        }),
+                    );
                 }
             }
         }
@@ -270,11 +292,7 @@ pub fn start_notification_timer(app_handle: tauri::AppHandle) {
 pub struct TrayManager;
 
 impl TrayManager {
-    pub fn handle_event(
-        &self,
-        app: &tauri::AppHandle,
-        event: tauri::tray::TrayIconEvent,
-    ) {
+    pub fn handle_event(&self, app: &tauri::AppHandle, event: tauri::tray::TrayIconEvent) {
         match event {
             // Left-click on tray icon: toggle window visibility
             tauri::tray::TrayIconEvent::Click {

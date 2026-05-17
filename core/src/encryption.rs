@@ -1,6 +1,6 @@
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, KeyInit, Nonce};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use scrypt::Params as ScryptParams;
 use std::sync::LazyLock;
 
@@ -86,17 +86,24 @@ pub fn decrypt_password_electron(stored: &str) -> Result<String, String> {
         return Ok(stored.to_string());
     }
 
-    let secret = get_electron_encryption_secret()
-        .ok_or_else(|| "无法读取加密密钥文件".to_string())?;
+    let secret =
+        get_electron_encryption_secret().ok_or_else(|| "无法读取加密密钥文件".to_string())?;
 
-    let salt = BASE64.decode(parts[0]).map_err(|e| format!("解码 salt 失败: {}", e))?;
-    let iv = BASE64.decode(parts[1]).map_err(|e| format!("解码 IV 失败: {}", e))?;
-    let auth_tag = BASE64.decode(parts[2]).map_err(|e| format!("解码 authTag 失败: {}", e))?;
-    let encrypted_data = BASE64.decode(parts[3]).map_err(|e| format!("解码密文失败: {}", e))?;
+    let salt = BASE64
+        .decode(parts[0])
+        .map_err(|e| format!("解码 salt 失败: {}", e))?;
+    let iv = BASE64
+        .decode(parts[1])
+        .map_err(|e| format!("解码 IV 失败: {}", e))?;
+    let auth_tag = BASE64
+        .decode(parts[2])
+        .map_err(|e| format!("解码 authTag 失败: {}", e))?;
+    let encrypted_data = BASE64
+        .decode(parts[3])
+        .map_err(|e| format!("解码密文失败: {}", e))?;
 
     // scrypt key derivation (N=2^14=16384, r=8, p=1, key_length=32)
-    let params = ScryptParams::new(14, 8, 1, 32)
-        .map_err(|e| format!("scrypt 参数错误: {}", e))?;
+    let params = ScryptParams::new(14, 8, 1, 32).map_err(|e| format!("scrypt 参数错误: {}", e))?;
     let mut key = [0u8; 32];
     scrypt::scrypt(secret.as_bytes(), &salt, &params, &mut key)
         .map_err(|e| format!("scrypt 派生密钥失败: {}", e))?;

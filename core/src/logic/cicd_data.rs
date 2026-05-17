@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Cicd Data module — extracted from mod.rs
 ///
@@ -8,100 +8,120 @@ impl super::CoreService {
         let result = self.with_db(|db| {
             let conn = db.conn();
             // cicd_configs
-            let mut stmt = conn.prepare("SELECT * FROM cicd_configs")
+            let mut stmt = conn
+                .prepare("SELECT * FROM cicd_configs")
                 .map_err(|e| e.to_string())?;
-            let configs: Vec<Value> = stmt.query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, String>("id")?,
-                    "name": row.get::<_, String>("name")?,
-                    "deployBranch": row.get::<_, String>("deployBranch")?,
-                    "mavenSettings": row.get::<_, Option<String>>("mavenSettings")?,
-                    "mavenProfile": row.get::<_, String>("mavenProfile")?,
-                    "deployPath": row.get::<_, String>("deployPath")?,
-                    "libSeparate": row.get::<_, i64>("libSeparate")? == 1,
-                    "restartScript": row.get::<_, String>("restartScript")?,
-                    "healthCheckUrl": row.get::<_, Option<String>>("healthCheckUrl")?,
-                    "healthCheckTimeout": row.get::<_, i64>("healthCheckTimeout")?,
-                    "createdAt": row.get::<_, String>("createdAt")?,
-                    "updatedAt": row.get::<_, String>("updatedAt")?,
-                    "buildTool": row.get::<_, Option<String>>("buildTool")?,
-                    "buildCommand": row.get::<_, Option<String>>("buildCommand")?,
-                    "buildPath": row.get::<_, Option<String>>("buildPath")?,
-                    "repoUrl": row.get::<_, Option<String>>("repoUrl")?,
-                    "localPath": row.get::<_, Option<String>>("localPath")?,
-                    "npmScript": row.get::<_, Option<String>>("npmScript")?,
-                    "npmCustomScript": row.get::<_, Option<String>>("npmCustomScript")?,
-                    "mavenHome": row.get::<_, Option<String>>("mavenHome")?,
-                    "npmHome": row.get::<_, Option<String>>("npmHome")?,
-                    "javaHome": row.get::<_, Option<String>>("javaHome")?,
-                }))
-            }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>()
+            let configs: Vec<Value> = stmt
+                .query_map([], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, String>("id")?,
+                        "name": row.get::<_, String>("name")?,
+                        "deployBranch": row.get::<_, String>("deployBranch")?,
+                        "mavenSettings": row.get::<_, Option<String>>("mavenSettings")?,
+                        "mavenProfile": row.get::<_, String>("mavenProfile")?,
+                        "deployPath": row.get::<_, String>("deployPath")?,
+                        "libSeparate": row.get::<_, i64>("libSeparate")? == 1,
+                        "restartScript": row.get::<_, String>("restartScript")?,
+                        "healthCheckUrl": row.get::<_, Option<String>>("healthCheckUrl")?,
+                        "healthCheckTimeout": row.get::<_, i64>("healthCheckTimeout")?,
+                        "createdAt": row.get::<_, String>("createdAt")?,
+                        "updatedAt": row.get::<_, String>("updatedAt")?,
+                        "buildTool": row.get::<_, Option<String>>("buildTool")?,
+                        "buildCommand": row.get::<_, Option<String>>("buildCommand")?,
+                        "buildPath": row.get::<_, Option<String>>("buildPath")?,
+                        "repoUrl": row.get::<_, Option<String>>("repoUrl")?,
+                        "localPath": row.get::<_, Option<String>>("localPath")?,
+                        "npmScript": row.get::<_, Option<String>>("npmScript")?,
+                        "npmCustomScript": row.get::<_, Option<String>>("npmCustomScript")?,
+                        "mavenHome": row.get::<_, Option<String>>("mavenHome")?,
+                        "npmHome": row.get::<_, Option<String>>("npmHome")?,
+                        "javaHome": row.get::<_, Option<String>>("javaHome")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?;
 
             // deploy_modules
-            let mut stmt2 = conn.prepare("SELECT * FROM deploy_modules")
+            let mut stmt2 = conn
+                .prepare("SELECT * FROM deploy_modules")
                 .map_err(|e| e.to_string())?;
-            let modules: Vec<Value> = stmt2.query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, String>("id")?,
-                    "configId": row.get::<_, String>("configId")?,
-                    "name": row.get::<_, String>("name")?,
-                    "order": row.get::<_, i64>("order")?,
-                    "serverId": row.get::<_, String>("serverId")?,
-                    "remotePath": row.get::<_, String>("remotePath")?,
-                    "localPath": row.get::<_, Option<String>>("localPath")?,
-                    "preDeployScript": row.get::<_, Option<String>>("preDeployScript")?,
-                    "postDeployScript": row.get::<_, Option<String>>("postDeployScript")?,
-                }))
-            }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>()
+            let modules: Vec<Value> = stmt2
+                .query_map([], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, String>("id")?,
+                        "configId": row.get::<_, String>("configId")?,
+                        "name": row.get::<_, String>("name")?,
+                        "order": row.get::<_, i64>("order")?,
+                        "serverId": row.get::<_, String>("serverId")?,
+                        "remotePath": row.get::<_, String>("remotePath")?,
+                        "localPath": row.get::<_, Option<String>>("localPath")?,
+                        "preDeployScript": row.get::<_, Option<String>>("preDeployScript")?,
+                        "postDeployScript": row.get::<_, Option<String>>("postDeployScript")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?;
 
             // deploy_logs
-            let mut stmt3 = conn.prepare("SELECT * FROM deploy_logs ORDER BY id DESC LIMIT 500")
+            let mut stmt3 = conn
+                .prepare("SELECT * FROM deploy_logs ORDER BY id DESC LIMIT 500")
                 .map_err(|e| e.to_string())?;
-            let logs: Vec<Value> = stmt3.query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>("id")?,
-                    "configId": row.get::<_, String>("configId")?,
-                    "status": row.get::<_, String>("status")?,
-                    "output": row.get::<_, Option<String>>("output")?,
-                    "error": row.get::<_, Option<String>>("error")?,
-                    "startedAt": row.get::<_, String>("startedAt")?,
-                    "completedAt": row.get::<_, Option<String>>("completedAt")?,
-                }))
-            }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>()
+            let logs: Vec<Value> = stmt3
+                .query_map([], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, i64>("id")?,
+                        "configId": row.get::<_, String>("configId")?,
+                        "status": row.get::<_, String>("status")?,
+                        "output": row.get::<_, Option<String>>("output")?,
+                        "error": row.get::<_, Option<String>>("error")?,
+                        "startedAt": row.get::<_, String>("startedAt")?,
+                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?;
 
             // deploy_history
-            let mut stmt4 = conn.prepare("SELECT * FROM deploy_history ORDER BY id DESC LIMIT 200")
+            let mut stmt4 = conn
+                .prepare("SELECT * FROM deploy_history ORDER BY id DESC LIMIT 200")
                 .map_err(|e| e.to_string())?;
-            let history: Vec<Value> = stmt4.query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>("id")?,
-                    "configId": row.get::<_, String>("configId")?,
-                    "trigger": row.get::<_, String>("trigger")?,
-                    "status": row.get::<_, String>("status")?,
-                    "startedAt": row.get::<_, String>("startedAt")?,
-                    "completedAt": row.get::<_, Option<String>>("completedAt")?,
-                }))
-            }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>()
+            let history: Vec<Value> = stmt4
+                .query_map([], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, i64>("id")?,
+                        "configId": row.get::<_, String>("configId")?,
+                        "trigger": row.get::<_, String>("trigger")?,
+                        "status": row.get::<_, String>("status")?,
+                        "startedAt": row.get::<_, String>("startedAt")?,
+                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?;
 
             // deploy_step_logs
-            let mut stmt5 = conn.prepare("SELECT * FROM deploy_step_logs ORDER BY id DESC LIMIT 1000")
+            let mut stmt5 = conn
+                .prepare("SELECT * FROM deploy_step_logs ORDER BY id DESC LIMIT 1000")
                 .map_err(|e| e.to_string())?;
-            let steps: Vec<Value> = stmt5.query_map([], |row| {
-                Ok(json!({
-                    "id": row.get::<_, i64>("id")?,
-                    "deployLogId": row.get::<_, String>("deployLogId")?,
-                    "step": row.get::<_, String>("step")?,
-                    "status": row.get::<_, String>("status")?,
-                    "output": row.get::<_, Option<String>>("output")?,
-                    "error": row.get::<_, Option<String>>("error")?,
-                    "startedAt": row.get::<_, String>("startedAt")?,
-                    "completedAt": row.get::<_, Option<String>>("completedAt")?,
-                }))
-            }).map_err(|e| e.to_string())?.collect::<Result<Vec<_>, _>>()
+            let steps: Vec<Value> = stmt5
+                .query_map([], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, i64>("id")?,
+                        "deployLogId": row.get::<_, String>("deployLogId")?,
+                        "step": row.get::<_, String>("step")?,
+                        "status": row.get::<_, String>("status")?,
+                        "output": row.get::<_, Option<String>>("output")?,
+                        "error": row.get::<_, Option<String>>("error")?,
+                        "startedAt": row.get::<_, String>("startedAt")?,
+                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?
+                .collect::<Result<Vec<_>, _>>()
                 .map_err(|e| e.to_string())?;
 
             Ok(json!({
@@ -115,7 +135,11 @@ impl super::CoreService {
         result
     }
 
-    pub async fn import_cicd_data(&self, data: &Value, mode: &str) -> Result<(usize, usize), String> {
+    pub async fn import_cicd_data(
+        &self,
+        data: &Value,
+        mode: &str,
+    ) -> Result<(usize, usize), String> {
         let mut imported = 0;
         let mut skipped = 0;
 
@@ -272,6 +296,4 @@ impl super::CoreService {
     }
 
     // ============ Log Presets ============
-
-
 }

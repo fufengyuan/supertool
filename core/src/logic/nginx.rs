@@ -1,10 +1,9 @@
-use crate::logic::CoreService;
 use crate::db::ApiResponse;
 use crate::db::nginx::{
-    NginxServer, NginxLocation, NginxUpstream, NginxUpstreamServer,
-    NginxHttpParam, NginxStream, NginxCert, NginxTemplate, NginxBasicSetting,
-    NginxParam, NginxDenyAllow, NginxPassword,
+    NginxBasicSetting, NginxCert, NginxDenyAllow, NginxHttpParam, NginxLocation, NginxParam,
+    NginxPassword, NginxServer, NginxStream, NginxTemplate, NginxUpstream, NginxUpstreamServer,
 };
+use crate::logic::CoreService;
 use crate::logic::nginx_generator::{NginxConfigResult, NginxSubFile};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -72,8 +71,7 @@ impl CoreService {
             })
             .await?;
         let output = result.output.clone();
-        let passed =
-            output.contains("syntax is ok") || output.contains("test is successful");
+        let passed = output.contains("syntax is ok") || output.contains("test is successful");
         Ok(ApiResponse::ok(NginxTestResult {
             passed,
             message: output,
@@ -113,8 +111,7 @@ impl CoreService {
         }
 
         // 2. Write new config via base64 to avoid shell escaping issues
-        let encoded =
-            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
+        let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
         let sid3 = sid.clone();
         let sp3 = safe_path.clone();
         let write_result = self
@@ -138,7 +135,11 @@ impl CoreService {
             return Ok(ApiResponse::err(format!(
                 "写入失败: {}. 回滚: {}",
                 write_result.output.trim(),
-                if rb_result.success { "成功" } else { "也失败" }
+                if rb_result.success {
+                    "成功"
+                } else {
+                    "也失败"
+                }
             )));
         }
 
@@ -165,7 +166,11 @@ impl CoreService {
             return Ok(ApiResponse::err(format!(
                 "nginx -t 检测失败: {}. 回滚: {}",
                 test_result.output.trim(),
-                if rb_result.success { "成功" } else { "也失败" }
+                if rb_result.success {
+                    "成功"
+                } else {
+                    "也失败"
+                }
             )));
         }
 
@@ -173,20 +178,14 @@ impl CoreService {
         let sid6 = sid.clone();
         let reload_result = self
             .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(
-                    &sid6,
-                    "systemctl reload nginx 2>&1 || nginx -s reload 2>&1",
-                )
+                ssh.exec_command(&sid6, "systemctl reload nginx 2>&1 || nginx -s reload 2>&1")
             })
             .await?;
 
         Ok(ApiResponse::ok(NginxDeployResult {
             success: true,
             backup_path,
-            message: format!(
-                "配置已部署。重载: {}",
-                reload_result.output.trim()
-            ),
+            message: format!("配置已部署。重载: {}", reload_result.output.trim()),
         }))
     }
 
@@ -206,8 +205,11 @@ impl CoreService {
         let safe_backup = shell_escape_path(&backup_path);
         let conf_d_dir = {
             let idx = config_path.rfind('/').unwrap_or(0);
-            if idx > 0 { format!("{}/conf.d", &config_path[..idx]) }
-            else { "/etc/nginx/conf.d".to_string() }
+            if idx > 0 {
+                format!("{}/conf.d", &config_path[..idx])
+            } else {
+                "/etc/nginx/conf.d".to_string()
+            }
         };
         let safe_conf_d = shell_escape_path(&conf_d_dir);
 
@@ -221,20 +223,30 @@ impl CoreService {
             })
             .await?;
         if !backup_result.success {
-            return Ok(ApiResponse::err(format!("备份失败: {}", backup_result.output.trim())));
+            return Ok(ApiResponse::err(format!(
+                "备份失败: {}",
+                backup_result.output.trim()
+            )));
         }
 
         // 2. Write main config via base64
-        let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, main_content);
+        let encoded =
+            base64::Engine::encode(&base64::engine::general_purpose::STANDARD, main_content);
         let sid2 = sid.clone();
         let sp2 = safe_path.clone();
         let write_result = self
             .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(&sid2, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, sp2))
+                ssh.exec_command(
+                    &sid2,
+                    &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, sp2),
+                )
             })
             .await?;
         if !write_result.success {
-            return Ok(ApiResponse::err(format!("写入主配置失败: {}", write_result.output.trim())));
+            return Ok(ApiResponse::err(format!(
+                "写入主配置失败: {}",
+                write_result.output.trim()
+            )));
         }
 
         // 3. Create conf.d/ directory and write sub-files
@@ -246,20 +258,34 @@ impl CoreService {
             })
             .await?;
         if !mkdir_result.success {
-            return Ok(ApiResponse::err(format!("创建 conf.d 目录失败: {}", mkdir_result.output.trim())));
+            return Ok(ApiResponse::err(format!(
+                "创建 conf.d 目录失败: {}",
+                mkdir_result.output.trim()
+            )));
         }
 
         for sub in &sub_files {
             let sid_sub = sid.clone();
-            let encoded_sub = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &sub.content);
+            let encoded_sub =
+                base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &sub.content);
             let safe_sub_path = shell_escape_path(&format!("{}/{}", conf_d_dir, sub.filename));
             let write_sub = self
                 .run_ssh_with_retry(server_id, move |ssh| {
-                    ssh.exec_command(&sid_sub, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded_sub, safe_sub_path))
+                    ssh.exec_command(
+                        &sid_sub,
+                        &format!(
+                            "printf '%s' '{}' | base64 -d > '{}' 2>&1",
+                            encoded_sub, safe_sub_path
+                        ),
+                    )
                 })
                 .await?;
             if !write_sub.success {
-                return Ok(ApiResponse::err(format!("写入子文件 {} 失败: {}", sub.filename, write_sub.output.trim())));
+                return Ok(ApiResponse::err(format!(
+                    "写入子文件 {} 失败: {}",
+                    sub.filename,
+                    write_sub.output.trim()
+                )));
             }
         }
 
@@ -271,14 +297,18 @@ impl CoreService {
                 ssh.exec_command(&sid4, &format!("nginx -t -c '{}' 2>&1", sp4))
             })
             .await?;
-        if !test_result.output.contains("syntax is ok") && !test_result.output.contains("test is successful") {
+        if !test_result.output.contains("syntax is ok")
+            && !test_result.output.contains("test is successful")
+        {
             // Rollback
             let sid5 = sid.clone();
             let sb5 = safe_backup.clone();
             let sp5 = safe_path.clone();
-            let _ = self.run_ssh_blocking(move |ssh| {
-                ssh.exec_command(&sid5, &format!("cp '{}' '{}' 2>&1", sb5, sp5))
-            }).await;
+            let _ = self
+                .run_ssh_blocking(move |ssh| {
+                    ssh.exec_command(&sid5, &format!("cp '{}' '{}' 2>&1", sb5, sp5))
+                })
+                .await;
             return Ok(ApiResponse::err(format!(
                 "nginx -t 检测失败: {}. 已回滚.",
                 test_result.output.trim()
@@ -327,7 +357,10 @@ impl CoreService {
         if result.output.contains("syntax is ok") || result.output.contains("test is successful") {
             Ok(ApiResponse::ok(result.output))
         } else {
-            Ok(ApiResponse::err(format!("回滚失败: {}", result.output.trim())))
+            Ok(ApiResponse::err(format!(
+                "回滚失败: {}",
+                result.output.trim()
+            )))
         }
     }
 
@@ -380,9 +413,7 @@ impl CoreService {
     ) -> Result<ApiResponse<()>, String> {
         let pid = preset_id.to_string();
         let vid = version_id.to_string();
-        Ok(self.with_db(move |db| {
-            crate::db::nginx::set_current_version(db, &pid, &vid)
-        }))
+        Ok(self.with_db(move |db| crate::db::nginx::set_current_version(db, &pid, &vid)))
     }
 
     // ============ NginxServer CRUD ============
@@ -409,10 +440,7 @@ impl CoreService {
         Ok(ApiResponse::ok(result))
     }
 
-    pub async fn add_nginx_server(
-        &self,
-        server: &NginxServer,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn add_nginx_server(&self, server: &NginxServer) -> Result<ApiResponse<()>, String> {
         let s = server.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::add_nginx_server(conn, &s).map_err(|e| e.to_string())
@@ -449,7 +477,8 @@ impl CoreService {
         locations: serde_json::Value,
     ) -> Result<ApiResponse<String>, String> {
         let s: NginxServer = serde_json::from_value(server).map_err(|e| e.to_string())?;
-        let locs: Vec<NginxLocation> = serde_json::from_value(locations).map_err(|e| e.to_string())?;
+        let locs: Vec<NginxLocation> =
+            serde_json::from_value(locations).map_err(|e| e.to_string())?;
         let result = self.db_read(move |conn| {
             crate::logic::nginx_generator::generate_server_block_preview(conn, &s, &locs)
         })??;
@@ -652,10 +681,7 @@ impl CoreService {
         Ok(ApiResponse::ok(result))
     }
 
-    pub async fn add_nginx_stream(
-        &self,
-        stream: &NginxStream,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn add_nginx_stream(&self, stream: &NginxStream) -> Result<ApiResponse<()>, String> {
         let s = stream.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::add_nginx_stream(conn, &s).map_err(|e| e.to_string())
@@ -695,10 +721,7 @@ impl CoreService {
         Ok(ApiResponse::ok(result))
     }
 
-    pub async fn add_nginx_cert(
-        &self,
-        cert: &NginxCert,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn add_nginx_cert(&self, cert: &NginxCert) -> Result<ApiResponse<()>, String> {
         let c = cert.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::add_nginx_cert(conn, &c).map_err(|e| e.to_string())
@@ -706,10 +729,7 @@ impl CoreService {
         .map(|_| ApiResponse::ok(()))
     }
 
-    pub async fn update_nginx_cert(
-        &self,
-        cert: &NginxCert,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn update_nginx_cert(&self, cert: &NginxCert) -> Result<ApiResponse<()>, String> {
         let c = cert.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::update_nginx_cert(conn, &c).map_err(|e| e.to_string())
@@ -819,7 +839,8 @@ impl CoreService {
         let pid = preset_id.to_string();
         let items = settings.to_vec();
         Ok(self.db_write(move |conn| -> Result<(), String> {
-            crate::db::nginx::delete_basic_settings_by_preset(conn, &pid).map_err(|e| e.to_string())?;
+            crate::db::nginx::delete_basic_settings_by_preset(conn, &pid)
+                .map_err(|e| e.to_string())?;
             for s in &items {
                 crate::db::nginx::add_nginx_basic_setting(conn, s).map_err(|e| e.to_string())?;
             }
@@ -841,10 +862,7 @@ impl CoreService {
         Ok(ApiResponse::ok(result))
     }
 
-    pub async fn add_nginx_param(
-        &self,
-        param: &NginxParam,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn add_nginx_param(&self, param: &NginxParam) -> Result<ApiResponse<()>, String> {
         let p = param.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::add_nginx_param(conn, &p).map_err(|e| e.to_string())
@@ -852,10 +870,7 @@ impl CoreService {
         .map(|_| ApiResponse::ok(()))
     }
 
-    pub async fn update_nginx_param(
-        &self,
-        param: &NginxParam,
-    ) -> Result<ApiResponse<()>, String> {
+    pub async fn update_nginx_param(&self, param: &NginxParam) -> Result<ApiResponse<()>, String> {
         let p = param.clone();
         Ok(self.db_write(move |conn| -> Result<(), String> {
             crate::db::nginx::update_nginx_param(conn, &p).map_err(|e| e.to_string())

@@ -1,6 +1,6 @@
-use serde_json::{json, Value};
-use rusqlite::params;
 use hmac::{KeyInit, Mac};
+use rusqlite::params;
+use serde_json::{Value, json};
 
 /// Mfa module — extracted from mod.rs
 ///
@@ -91,8 +91,8 @@ impl super::CoreService {
         period: u32,
         algorithm: &str,
     ) -> Result<Value, String> {
+        use sha1::Sha1;
         use std::time::{SystemTime, UNIX_EPOCH};
-use sha1::Sha1;
 
         let epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -121,6 +121,4 @@ use sha1::Sha1;
     }
 
     // ============ Notes ============
-
-
 }

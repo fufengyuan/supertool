@@ -1,4 +1,4 @@
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
 // =================== Types ===================
@@ -254,20 +254,23 @@ pub fn row_to_deploy_history(row: &rusqlite::Row) -> rusqlite::Result<DeployHist
 // =================== CRUD Operations ===================
 
 pub fn get_all_cicd_configs(conn: &Connection) -> Result<Vec<CicdConfig>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM cicd_configs ORDER BY lastDeployedAt DESC, updatedAt DESC"
-    )?;
-    stmt.query_map([], row_to_cicd_config).map(|rows| rows.filter_map(|r| r.ok()).collect())
+    let mut stmt =
+        conn.prepare("SELECT * FROM cicd_configs ORDER BY lastDeployedAt DESC, updatedAt DESC")?;
+    stmt.query_map([], row_to_cicd_config)
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
 pub fn get_cicd_groups(conn: &Connection) -> Result<Vec<String>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT DISTINCT groupName FROM cicd_configs ORDER BY groupName"
-    )?;
-    stmt.query_map([], |row| row.get(0)).map(|rows| rows.filter_map(|r| r.ok()).collect())
+    let mut stmt =
+        conn.prepare("SELECT DISTINCT groupName FROM cicd_configs ORDER BY groupName")?;
+    stmt.query_map([], |row| row.get(0))
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
-pub fn get_cicd_config_by_config_id(conn: &Connection, config_id: &str) -> Result<Option<CicdConfig>, rusqlite::Error> {
+pub fn get_cicd_config_by_config_id(
+    conn: &Connection,
+    config_id: &str,
+) -> Result<Option<CicdConfig>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT * FROM cicd_configs WHERE id = ?")?;
     stmt.query_row([config_id], row_to_cicd_config)
         .map(Some)
@@ -299,7 +302,10 @@ pub fn add_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<CicdConfig, 
     get_cicd_config_by_config_id(conn, &c.id).map(|opt| opt.unwrap())
 }
 
-pub fn update_cicd_config(conn: &Connection, c: &CicdConfig) -> Result<Option<CicdConfig>, rusqlite::Error> {
+pub fn update_cicd_config(
+    conn: &Connection,
+    c: &CicdConfig,
+) -> Result<Option<CicdConfig>, rusqlite::Error> {
     conn.execute(
         "UPDATE cicd_configs SET name=?, deployBranch=?, mavenSettings=?, \
          mavenProfile=?, deployPath=?, libSeparate=?, restartScript=?, healthCheckUrl=?, \
@@ -336,38 +342,71 @@ pub fn touch_cicd_config_deploy(conn: &Connection, config_id: &str) -> Result<()
 }
 
 // Deploy modules
-pub fn get_deploy_modules(conn: &Connection, config_id: &str) -> Result<Vec<DeployModule>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM deploy_modules WHERE configId = ? ORDER BY deployOrder ASC"
-    )?;
-    stmt.query_map([config_id], row_to_deploy_module).map(|rows| rows.filter_map(|r| r.ok()).collect())
+pub fn get_deploy_modules(
+    conn: &Connection,
+    config_id: &str,
+) -> Result<Vec<DeployModule>, rusqlite::Error> {
+    let mut stmt =
+        conn.prepare("SELECT * FROM deploy_modules WHERE configId = ? ORDER BY deployOrder ASC")?;
+    stmt.query_map([config_id], row_to_deploy_module)
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
-pub fn add_deploy_module(conn: &Connection, m: &DeployModule) -> Result<DeployModule, rusqlite::Error> {
+pub fn add_deploy_module(
+    conn: &Connection,
+    m: &DeployModule,
+) -> Result<DeployModule, rusqlite::Error> {
     conn.execute(
         "INSERT INTO deploy_modules (id, configId, moduleName, modulePath, buildPath, \
          buildCommand, buildTool, outputPath, artifactName, artifactType, libFilterRules, \
          deployOrder, deployPath, enabled, createdAt, updatedAt) \
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
-            m.id, m.config_id, m.module_name, m.module_path, m.build_path, m.build_command,
-            m.build_tool, m.output_path, m.artifact_name, m.artifact_type, m.lib_filter_rules,
-            m.deploy_order, m.deploy_path, if m.enabled { 1 } else { 0 },
-            m.created_at, m.updated_at
+            m.id,
+            m.config_id,
+            m.module_name,
+            m.module_path,
+            m.build_path,
+            m.build_command,
+            m.build_tool,
+            m.output_path,
+            m.artifact_name,
+            m.artifact_type,
+            m.lib_filter_rules,
+            m.deploy_order,
+            m.deploy_path,
+            if m.enabled { 1 } else { 0 },
+            m.created_at,
+            m.updated_at
         ],
     )?;
     get_deploy_module_by_id(conn, &m.id).map(|opt| opt.unwrap())
 }
 
-pub fn update_deploy_module(conn: &Connection, m: &DeployModule) -> Result<Option<DeployModule>, rusqlite::Error> {
+pub fn update_deploy_module(
+    conn: &Connection,
+    m: &DeployModule,
+) -> Result<Option<DeployModule>, rusqlite::Error> {
     conn.execute(
         "UPDATE deploy_modules SET configId=?, moduleName=?, modulePath=?, buildPath=?, \
          buildCommand=?, buildTool=?, outputPath=?, artifactName=?, artifactType=?, \
          libFilterRules=?, deployOrder=?, deployPath=?, enabled=?, updatedAt=? WHERE id=?",
         params![
-            m.config_id, m.module_name, m.module_path, m.build_path, m.build_command,
-            m.build_tool, m.output_path, m.artifact_name, m.artifact_type, m.lib_filter_rules,
-            m.deploy_order, m.deploy_path, if m.enabled { 1 } else { 0 }, m.updated_at, m.id
+            m.config_id,
+            m.module_name,
+            m.module_path,
+            m.build_path,
+            m.build_command,
+            m.build_tool,
+            m.output_path,
+            m.artifact_name,
+            m.artifact_type,
+            m.lib_filter_rules,
+            m.deploy_order,
+            m.deploy_path,
+            if m.enabled { 1 } else { 0 },
+            m.updated_at,
+            m.id
         ],
     )?;
     get_deploy_module_by_id(conn, &m.id)
@@ -378,7 +417,10 @@ pub fn delete_deploy_module(conn: &Connection, module_id: &str) -> Result<(), ru
     Ok(())
 }
 
-fn get_deploy_module_by_id(conn: &Connection, module_id: &str) -> Result<Option<DeployModule>, rusqlite::Error> {
+fn get_deploy_module_by_id(
+    conn: &Connection,
+    module_id: &str,
+) -> Result<Option<DeployModule>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT * FROM deploy_modules WHERE id = ?")?;
     stmt.query_row([module_id], row_to_deploy_module)
         .map(Some)
@@ -395,29 +437,51 @@ pub fn add_deploy_log(conn: &Connection, log: &DeployLog) -> Result<DeployLog, r
          errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths) \
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         params![
-            log.id, log.config_id, log.status, log.start_time,
-            log.end_time, log.error_message, log.progress, log.triggered_by,
-            log.created_at, log.log_file_path, log.artifact_paths
+            log.id,
+            log.config_id,
+            log.status,
+            log.start_time,
+            log.end_time,
+            log.error_message,
+            log.progress,
+            log.triggered_by,
+            log.created_at,
+            log.log_file_path,
+            log.artifact_paths
         ],
     )?;
     get_deploy_log_by_id(conn, &log.id).map(|opt| opt.unwrap())
 }
 
-pub fn update_deploy_log(conn: &Connection, log: &DeployLog) -> Result<Option<DeployLog>, rusqlite::Error> {
+pub fn update_deploy_log(
+    conn: &Connection,
+    log: &DeployLog,
+) -> Result<Option<DeployLog>, rusqlite::Error> {
     conn.execute(
         "UPDATE deploy_logs SET configId=?, status=?, startTime=?, endTime=?, \
          errorMessage=?, progress=?, triggeredBy=?, createdAt=?, logFilePath=?, artifactPaths=? \
          WHERE id=?",
         params![
-            log.config_id, log.status, log.start_time, log.end_time,
-            log.error_message, log.progress, log.triggered_by, log.created_at,
-            log.log_file_path, log.artifact_paths, log.id
+            log.config_id,
+            log.status,
+            log.start_time,
+            log.end_time,
+            log.error_message,
+            log.progress,
+            log.triggered_by,
+            log.created_at,
+            log.log_file_path,
+            log.artifact_paths,
+            log.id
         ],
     )?;
     get_deploy_log_by_id(conn, &log.id)
 }
 
-pub fn get_deploy_log_by_id(conn: &Connection, log_id: &str) -> Result<Option<DeployLog>, rusqlite::Error> {
+pub fn get_deploy_log_by_id(
+    conn: &Connection,
+    log_id: &str,
+) -> Result<Option<DeployLog>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT * FROM deploy_logs WHERE id = ?")?;
     stmt.query_row([log_id], row_to_deploy_log)
         .map(Some)
@@ -433,31 +497,51 @@ pub fn add_deploy_step_log(conn: &Connection, step: &DeployStepLog) -> Result<()
     conn.execute(
         "INSERT INTO deploy_step_logs (deployLogId, stage, status, message, timestamp) \
          VALUES (?, ?, ?, ?, ?)",
-        params![step.deploy_log_id, step.stage, step.status, step.message, step.timestamp],
+        params![
+            step.deploy_log_id,
+            step.stage,
+            step.status,
+            step.message,
+            step.timestamp
+        ],
     )?;
     Ok(())
 }
 
-pub fn get_deploy_step_logs(conn: &Connection, deploy_log_id: &str) -> Result<Vec<DeployStepLog>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT * FROM deploy_step_logs WHERE deployLogId = ? ORDER BY id ASC"
-    )?;
+pub fn get_deploy_step_logs(
+    conn: &Connection,
+    deploy_log_id: &str,
+) -> Result<Vec<DeployStepLog>, rusqlite::Error> {
+    let mut stmt =
+        conn.prepare("SELECT * FROM deploy_step_logs WHERE deployLogId = ? ORDER BY id ASC")?;
     stmt.query_map([deploy_log_id], row_to_deploy_step_log)
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
 }
 
 // Deploy history
-pub fn add_deploy_history(conn: &Connection, h: &DeployHistory) -> Result<DeployHistory, rusqlite::Error> {
+pub fn add_deploy_history(
+    conn: &Connection,
+    h: &DeployHistory,
+) -> Result<DeployHistory, rusqlite::Error> {
     conn.execute(
         "INSERT INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt) \
          VALUES (?, ?, ?, ?, ?, ?)",
-        params![h.id, h.config_id, h.status, h.deployed_at,
-                if h.rolled_back { 1 } else { 0 }, h.rolled_back_at],
+        params![
+            h.id,
+            h.config_id,
+            h.status,
+            h.deployed_at,
+            if h.rolled_back { 1 } else { 0 },
+            h.rolled_back_at
+        ],
     )?;
     get_deploy_history_by_id(conn, &h.id).map(|opt| opt.unwrap())
 }
 
-fn get_deploy_history_by_id(conn: &Connection, id: &str) -> Result<Option<DeployHistory>, rusqlite::Error> {
+fn get_deploy_history_by_id(
+    conn: &Connection,
+    id: &str,
+) -> Result<Option<DeployHistory>, rusqlite::Error> {
     let mut stmt = conn.prepare("SELECT * FROM deploy_history WHERE id = ?")?;
     stmt.query_row([id], row_to_deploy_history)
         .map(Some)

@@ -1,8 +1,8 @@
 /// LAN 协作 Tauri Commands — 全部绑定到实际 LanService 方法和 DB 查询
 use crate::lan::LanService;
-use supertool_core::db::lan;
 use std::process::Command;
 use std::sync::{Arc, Mutex};
+use supertool_core::db::lan;
 use tauri::AppHandle;
 
 use std::sync::OnceLock;
@@ -10,8 +10,12 @@ static LAN_SERVICE: OnceLock<Arc<Mutex<Option<LanService>>>> = OnceLock::new();
 static LAN_DB_PATH: OnceLock<String> = OnceLock::new();
 
 #[allow(dead_code)]
-pub fn init_lan_service(_db_conn: Arc<Mutex<rusqlite::Connection>>) -> Arc<Mutex<Option<LanService>>> {
-    LAN_SERVICE.get_or_init(|| Arc::new(Mutex::new(None))).clone()
+pub fn init_lan_service(
+    _db_conn: Arc<Mutex<rusqlite::Connection>>,
+) -> Arc<Mutex<Option<LanService>>> {
+    LAN_SERVICE
+        .get_or_init(|| Arc::new(Mutex::new(None)))
+        .clone()
 }
 
 pub fn init_lan_service_with_db(db_path: &str) {
@@ -67,7 +71,9 @@ pub fn auto_start_lan(app: &tauri::AppHandle) {
         Ok(Some(name)) => name,
         Ok(None) => {
             // Use hostname as default name
-            let name = hostname::get().map(|h| h.to_string_lossy().to_string()).unwrap_or_else(|_| "User".to_string());
+            let name = hostname::get()
+                .map(|h| h.to_string_lossy().to_string())
+                .unwrap_or_else(|_| "User".to_string());
             let _ = lan::save_lan_setting(&conn, "my_user_name", &name);
             name
         }
@@ -77,7 +83,11 @@ pub fn auto_start_lan(app: &tauri::AppHandle) {
         }
     };
 
-    log::info!("[LAN] auto_start_lan: user_id={}, user_name={}", user_id, user_name);
+    log::info!(
+        "[LAN] auto_start_lan: user_id={}, user_name={}",
+        user_id,
+        user_name
+    );
 
     // Create and start LAN service
     let db_conn = Arc::new(Mutex::new(conn));
@@ -136,16 +146,21 @@ pub fn lan_get_user_info() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_start(app: AppHandle, user_id: String, user_name: String) -> Result<serde_json::Value, String> {
+pub fn lan_start(
+    app: AppHandle,
+    user_id: String,
+    user_name: String,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_start() called, user={}", user_name);
-    let db_path = LAN_DB_PATH.get().ok_or("DB path not set. Call init_lan_service_with_db first.")?;
+    let db_path = LAN_DB_PATH
+        .get()
+        .ok_or("DB path not set. Call init_lan_service_with_db first.")?;
     let svc = require_lan()?;
     let mut guard = svc.lock().map_err(|e| format!("Lock error: {}", e))?;
     if guard.is_some() {
         return Ok(serde_json::json!({ "success": true, "message": "LAN 已在运行" }));
     }
-    let conn = rusqlite::Connection::open(db_path)
-        .map_err(|e| format!("打开数据库失败: {}", e))?;
+    let conn = rusqlite::Connection::open(db_path).map_err(|e| format!("打开数据库失败: {}", e))?;
     let db_conn = Arc::new(Mutex::new(conn));
     let lan = LanService::new(user_id, user_name, db_conn);
     lan.set_app_handle(app.clone());
@@ -182,14 +197,12 @@ pub fn lan_set_status(status: String) -> Result<serde_json::Value, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_assign_task(peer_id: String, task: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_assign_task() called, peer={}", peer_id);
-    let task_val: serde_json::Value = serde_json::from_str(&task)
-        .unwrap_or_else(|_| serde_json::json!({ "task": task }));
+    let task_val: serde_json::Value =
+        serde_json::from_str(&task).unwrap_or_else(|_| serde_json::json!({ "task": task }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.assign_task(&peer_id, &task_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.assign_task(&peer_id, &task_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -200,11 +213,9 @@ pub fn lan_sync_task_status(task_json: String) -> Result<serde_json::Value, Stri
     let task_val: serde_json::Value = serde_json::from_str(&task_json)
         .unwrap_or_else(|_| serde_json::json!({ "task": task_json }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_task_status_change(&task_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_task_status_change(&task_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -221,11 +232,9 @@ pub fn lan_refresh_discovery() -> Result<serde_json::Value, String> {
 pub fn lan_broadcast_message(message: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_message() called");
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_message(&message) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_message(&message) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -233,14 +242,12 @@ pub fn lan_broadcast_message(message: String) -> Result<serde_json::Value, Strin
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_broadcast_task_update(task: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_task_update() called");
-    let task_val: serde_json::Value = serde_json::from_str(&task)
-        .unwrap_or_else(|_| serde_json::json!({ "task": task }));
+    let task_val: serde_json::Value =
+        serde_json::from_str(&task).unwrap_or_else(|_| serde_json::json!({ "task": task }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_task_update(&task_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_task_update(&task_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -248,14 +255,12 @@ pub fn lan_broadcast_task_update(task: String) -> Result<serde_json::Value, Stri
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_broadcast_task_status_change(task: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_task_status_change() called");
-    let task_val: serde_json::Value = serde_json::from_str(&task)
-        .unwrap_or_else(|_| serde_json::json!({ "task": task }));
+    let task_val: serde_json::Value =
+        serde_json::from_str(&task).unwrap_or_else(|_| serde_json::json!({ "task": task }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_task_status_change(&task_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_task_status_change(&task_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -263,15 +268,13 @@ pub fn lan_broadcast_task_status_change(task: String) -> Result<serde_json::Valu
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_broadcast_task_comment(data: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_task_comment() called");
-    let data_val: serde_json::Value = serde_json::from_str(&data)
-        .unwrap_or_else(|_| serde_json::json!({ "data": data }));
+    let data_val: serde_json::Value =
+        serde_json::from_str(&data).unwrap_or_else(|_| serde_json::json!({ "data": data }));
     if let Some(peer_id) = data_val.get("peerId").and_then(|v| v.as_str()) {
         require_lan()?;
-        let result = with_lan(|lan| {
-            match lan.broadcast_task_comment(peer_id, &data_val) {
-                Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-                Err(e) => serde_json::json!({ "success": false, "error": e }),
-            }
+        let result = with_lan(|lan| match lan.broadcast_task_comment(peer_id, &data_val) {
+            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+            Err(e) => serde_json::json!({ "success": false, "error": e }),
         });
         Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
     } else {
@@ -282,14 +285,12 @@ pub fn lan_broadcast_task_comment(data: String) -> Result<serde_json::Value, Str
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_broadcast_collaboration_started(data: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_collaboration_started() called");
-    let data_val: serde_json::Value = serde_json::from_str(&data)
-        .unwrap_or_else(|_| serde_json::json!({ "data": data }));
+    let data_val: serde_json::Value =
+        serde_json::from_str(&data).unwrap_or_else(|_| serde_json::json!({ "data": data }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_collaboration_started(&data_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_collaboration_started(&data_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -297,14 +298,12 @@ pub fn lan_broadcast_collaboration_started(data: String) -> Result<serde_json::V
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_broadcast_collaboration_ended(data: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_broadcast_collaboration_ended() called");
-    let data_val: serde_json::Value = serde_json::from_str(&data)
-        .unwrap_or_else(|_| serde_json::json!({ "data": data }));
+    let data_val: serde_json::Value =
+        serde_json::from_str(&data).unwrap_or_else(|_| serde_json::json!({ "data": data }));
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.broadcast_collaboration_ended(&data_val) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.broadcast_collaboration_ended(&data_val) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -321,10 +320,13 @@ pub fn lan_get_all_unread_counts(user_id: String) -> Result<serde_json::Value, S
                     let data: serde_json::Map<String, serde_json::Value> = counts
                         .into_iter()
                         .map(|(peer_id, peer_name, count)| {
-                            (peer_id.clone(), serde_json::json!({
-                                "name": peer_name,
-                                "count": count,
-                            }))
+                            (
+                                peer_id.clone(),
+                                serde_json::json!({
+                                    "name": peer_name,
+                                    "count": count,
+                                }),
+                            )
                         })
                         .collect();
                     serde_json::json!({ "success": true, "data": data })
@@ -373,8 +375,7 @@ pub fn lan_get_network_info() -> Result<serde_json::Value, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_get_receive_path() -> Result<String, String> {
     log::info!("[Tauri CMD] lan_get_receive_path() called");
-    with_lan(|lan| lan.get_receive_path())
-        .ok_or("LAN 服务未启动".to_string())
+    with_lan(|lan| lan.get_receive_path()).ok_or("LAN 服务未启动".to_string())
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -404,27 +405,28 @@ pub fn lan_set_avatar(avatar: String) -> Result<serde_json::Value, String> {
 pub fn lan_upload_avatar(file_path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_upload_avatar() called, path={}", file_path);
     require_lan()?;
-    
+
     use std::fs;
     use std::path::Path;
-    
+
     // 获取 supertool 数据目录
     let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
     let avatars_dir = data_dir.join("avatars");
-    
+
     // 创建 avatars 目录
     if !avatars_dir.exists() {
         fs::create_dir_all(&avatars_dir).map_err(|e| e.to_string())?;
     }
-    
+
     // 读取源文件
     let source_path = Path::new(&file_path);
     if !source_path.exists() {
         return Err("文件不存在".to_string());
     }
-    
+
     // 生成目标文件名（使用时间戳 + 原始扩展名）
-    let ext = source_path.extension()
+    let ext = source_path
+        .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("png");
     let timestamp = std::time::SystemTime::now()
@@ -433,19 +435,19 @@ pub fn lan_upload_avatar(file_path: String) -> Result<serde_json::Value, String>
         .as_secs();
     let dest_filename = format!("avatar_{}.{}", timestamp, ext);
     let dest_path = avatars_dir.join(&dest_filename);
-    
+
     // 复制文件
     fs::copy(&source_path, &dest_path).map_err(|e| e.to_string())?;
-    
+
     // 返回相对路径（用于存储到数据库）
     let avatar_path = format!("avatar:{}", dest_filename);
-    
+
     // 更新 avatar
     with_lan(|lan| lan.set_avatar(avatar_path.clone()));
-    
-    Ok(serde_json::json!({ 
-        "success": true, 
-        "data": { 
+
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
             "path": avatar_path,
             "fullPath": dest_path.to_string_lossy().to_string()
         }
@@ -455,21 +457,23 @@ pub fn lan_upload_avatar(file_path: String) -> Result<serde_json::Value, String>
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_get_avatar_path(avatar: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_avatar_path() called");
-    
+
     // 如果是 emoji（短字符串），直接返回
     if avatar.len() <= 4 || !avatar.starts_with("avatar:") {
-        return Ok(serde_json::json!({ "success": true, "data": { "isEmoji": true, "path": avatar } }));
+        return Ok(
+            serde_json::json!({ "success": true, "data": { "isEmoji": true, "path": avatar } }),
+        );
     }
-    
+
     // 解析 avatar:filename 格式
     let filename = avatar.strip_prefix("avatar:").unwrap_or(&avatar);
     let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
     let full_path = data_dir.join("avatars").join(filename);
-    
-    Ok(serde_json::json!({ 
-        "success": true, 
-        "data": { 
-            "isEmoji": false, 
+
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "isEmoji": false,
             "path": full_path.to_string_lossy().to_string()
         }
     }))
@@ -496,21 +500,35 @@ pub fn lan_show_open_dialog_for_dirs(_app: AppHandle) -> Result<serde_json::Valu
 pub fn lan_send_message(peer_id: String, content: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_send_message() called");
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.send_message(&peer_id, &content) {
-            Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.send_message(&peer_id, &content) {
+        Ok(sent) => serde_json::json!({ "success": true, "data": { "sent": sent } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_send_file(peer_id: String, file_path: String, file_name: String, resume_offset: Option<u64>, file_id: Option<String>) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] lan_send_file() called, peer={}, file={}", peer_id, file_name);
+pub fn lan_send_file(
+    peer_id: String,
+    file_path: String,
+    file_name: String,
+    resume_offset: Option<u64>,
+    file_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] lan_send_file() called, peer={}, file={}",
+        peer_id,
+        file_name
+    );
     require_lan()?;
     let result = with_lan(|lan| {
-        match lan.send_file(&peer_id, &file_path, &file_name, resume_offset.unwrap_or(0), file_id) {
+        match lan.send_file(
+            &peer_id,
+            &file_path,
+            &file_name,
+            resume_offset.unwrap_or(0),
+            file_id,
+        ) {
             Ok(file_id) => serde_json::json!({ "success": true, "data": { "fileId": file_id } }),
             Err(e) => serde_json::json!({ "success": false, "error": e }),
         }
@@ -522,37 +540,40 @@ pub fn lan_send_file(peer_id: String, file_path: String, file_name: String, resu
 pub fn lan_screenshot() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_screenshot() called");
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.screenshot() {
-            Ok(path) => serde_json::json!({ "success": true, "data": { "path": path } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.screenshot() {
+        Ok(path) => serde_json::json!({ "success": true, "data": { "path": path } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_save_temp_file(base64_data: String, file_name: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] lan_save_temp_file() called, file={}", file_name);
+pub fn lan_save_temp_file(
+    base64_data: String,
+    file_name: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] lan_save_temp_file() called, file={}",
+        file_name
+    );
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.save_temp_file(&base64_data, &file_name) {
-            Ok(path) => serde_json::json!({ "success": true, "data": { "path": path } }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.save_temp_file(&base64_data, &file_name) {
+        Ok(path) => serde_json::json!({ "success": true, "data": { "path": path } }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_load_local_file_as_base64(file_path: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] lan_load_local_file_as_base64() called, path={}", file_path);
+    log::info!(
+        "[Tauri CMD] lan_load_local_file_as_base64() called, path={}",
+        file_path
+    );
     require_lan()?;
-    let result = with_lan(|lan| {
-        match lan.load_file_as_base64(&file_path) {
-            Ok(encoded) => serde_json::json!({ "success": true, "data": encoded }),
-            Err(e) => serde_json::json!({ "success": false, "error": e }),
-        }
+    let result = with_lan(|lan| match lan.load_file_as_base64(&file_path) {
+        Ok(encoded) => serde_json::json!({ "success": true, "data": encoded }),
+        Err(e) => serde_json::json!({ "success": false, "error": e }),
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
@@ -573,7 +594,10 @@ pub fn lan_open_file(file_path: String) -> Result<serde_json::Value, String> {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_open_file_folder(file_path: String) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] lan_open_file_folder() called, path={}", file_path);
+    log::info!(
+        "[Tauri CMD] lan_open_file_folder() called, path={}",
+        file_path
+    );
     let folder_path = std::path::Path::new(&file_path)
         .parent()
         .map(|p| p.to_string_lossy().to_string())
@@ -590,15 +614,25 @@ pub fn lan_open_file_folder(file_path: String) -> Result<serde_json::Value, Stri
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_get_messages_between(user_id1: String, user_id2: String, limit: usize, offset: usize) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] lan_get_messages_between() called, user1={}, user2={}", user_id1, user_id2);
+pub fn lan_get_messages_between(
+    user_id1: String,
+    user_id2: String,
+    limit: usize,
+    offset: usize,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] lan_get_messages_between() called, user1={}, user2={}",
+        user_id1,
+        user_id2
+    );
     require_lan()?;
     let result = with_lan(|lan| {
         let db_conn = lan.get_db_conn();
         if let Ok(conn) = db_conn.lock() {
             match lan::get_messages_between(&conn, &user_id1, &user_id2, limit, offset) {
                 Ok(msgs) => {
-                    let data: Vec<serde_json::Value> = msgs.into_iter()
+                    let data: Vec<serde_json::Value> = msgs
+                        .into_iter()
                         .map(|m| serde_json::to_value(m).unwrap_or_default())
                         .collect();
                     serde_json::json!({ "success": true, "data": data })
@@ -625,7 +659,10 @@ pub fn lan_get_permission_status() -> Result<serde_json::Value, String> {
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_get_message_history(limit: Option<usize>, offset: Option<usize>) -> Result<serde_json::Value, String> {
+pub fn lan_get_message_history(
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_message_history() called");
     let limit = limit.unwrap_or(100);
     let offset = offset.unwrap_or(0);
@@ -635,7 +672,8 @@ pub fn lan_get_message_history(limit: Option<usize>, offset: Option<usize>) -> R
         if let Ok(conn) = db_conn.lock() {
             match lan::get_all_chat_messages(&conn) {
                 Ok(msgs) => {
-                    let page: Vec<serde_json::Value> = msgs.into_iter()
+                    let page: Vec<serde_json::Value> = msgs
+                        .into_iter()
                         .skip(offset)
                         .take(limit)
                         .map(|m| serde_json::to_value(m).unwrap_or_default())
@@ -646,7 +684,8 @@ pub fn lan_get_message_history(limit: Option<usize>, offset: Option<usize>) -> R
             }
         } else {
             let all_history = lan.get_message_history(limit + offset);
-            let page: Vec<serde_json::Value> = all_history.into_iter()
+            let page: Vec<serde_json::Value> = all_history
+                .into_iter()
                 .skip(offset)
                 .take(limit)
                 .map(|m| serde_json::to_value(m).unwrap_or_default())
@@ -658,7 +697,10 @@ pub fn lan_get_message_history(limit: Option<usize>, offset: Option<usize>) -> R
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_get_file_transfer_history(limit: Option<usize>, offset: Option<usize>) -> Result<serde_json::Value, String> {
+pub fn lan_get_file_transfer_history(
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_file_transfer_history() called");
     let limit = limit.unwrap_or(50);
     let offset = offset.unwrap_or(0);
@@ -668,7 +710,8 @@ pub fn lan_get_file_transfer_history(limit: Option<usize>, offset: Option<usize>
         if let Ok(conn) = db_conn.lock() {
             match lan::get_all_file_transfers(&conn) {
                 Ok(transfers) => {
-                    let page: Vec<serde_json::Value> = transfers.into_iter()
+                    let page: Vec<serde_json::Value> = transfers
+                        .into_iter()
                         .skip(offset)
                         .take(limit)
                         .map(|t| serde_json::to_value(t).unwrap_or_default())
@@ -679,7 +722,8 @@ pub fn lan_get_file_transfer_history(limit: Option<usize>, offset: Option<usize>
             }
         } else {
             let transfers = lan.get_file_transfer_history(limit + offset, offset);
-            let data: Vec<serde_json::Value> = transfers.into_iter()
+            let data: Vec<serde_json::Value> = transfers
+                .into_iter()
                 .map(|t| serde_json::to_value(t).unwrap_or_default())
                 .collect();
             serde_json::json!({ "success": true, "data": data })
@@ -689,14 +733,18 @@ pub fn lan_get_file_transfer_history(limit: Option<usize>, offset: Option<usize>
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub fn lan_get_logs(limit: Option<usize>, offset: Option<usize>) -> Result<serde_json::Value, String> {
+pub fn lan_get_logs(
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_logs() called");
     let limit = limit.unwrap_or(100);
     let offset = offset.unwrap_or(0);
     require_lan()?;
     let result = with_lan(|lan| {
         let all_logs = lan.get_logs(limit + offset);
-        let page: Vec<serde_json::Value> = all_logs.into_iter()
+        let page: Vec<serde_json::Value> = all_logs
+            .into_iter()
             .skip(offset)
             .take(limit)
             .map(|e| serde_json::to_value(e).unwrap_or_default())

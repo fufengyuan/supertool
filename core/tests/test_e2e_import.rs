@@ -14,8 +14,7 @@ fn setup_core_service() -> (supertool_core::logic::CoreService, String) {
     let db_path = dir.join("test.db");
     let _ = std::fs::remove_file(&db_path);
 
-    let db = supertool_core::db::Database::new(&db_path)
-        .expect("Should create test database");
+    let db = supertool_core::db::Database::new(&db_path).expect("Should create test database");
 
     // Insert a preset manually
     let preset_id = "e2e-import-test";
@@ -71,24 +70,31 @@ stream {
     }
 }"#;
 
-    let result = Runtime::new().unwrap().block_on(
-        core.import_nginx_config(&preset_id, config_text)
-    ).expect("import_nginx_config should succeed");
+    let result = Runtime::new()
+        .unwrap()
+        .block_on(core.import_nginx_config(&preset_id, config_text))
+        .expect("import_nginx_config should succeed");
 
     eprintln!("Import result: {:?}", result.data);
 
     // Now generate and verify — use db_read to access the connection
-    let generated = core.db_read(|conn| {
-        supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
-            .map_err(|e| e.to_string())
-    }).expect("Should generate config after import").unwrap();
+    let generated = core
+        .db_read(|conn| {
+            supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
+                .map_err(|e| e.to_string())
+        })
+        .expect("Should generate config after import")
+        .unwrap();
 
     eprintln!("=== GENERATED CONFIG ===");
     for line in generated.lines().take(20) {
         eprintln!("{}", line);
     }
 
-    assert!(generated.contains("worker_processes auto;"), "basic settings");
+    assert!(
+        generated.contains("worker_processes auto;"),
+        "basic settings"
+    );
     assert!(generated.contains("upstream backend {"), "upstream");
     assert!(generated.contains("server {"), "server");
     assert!(generated.contains("ssl_certificate"), "ssl cert");
@@ -102,8 +108,12 @@ stream {
     assert_eq!(parsed.servers.len(), 2, "2 servers");
     assert_eq!(parsed.streams.len(), 1, "1 stream");
 
-    eprintln!("\n✅ E2E import test passed: {} upstreams, {} servers, {} streams",
-        parsed.upstreams.len(), parsed.servers.len(), parsed.streams.len());
+    eprintln!(
+        "\n✅ E2E import test passed: {} upstreams, {} servers, {} streams",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.streams.len()
+    );
 }
 
 #[test]
@@ -111,24 +121,33 @@ fn test_e2e_import_production_config() {
     let (core, preset_id) = setup_core_service();
 
     let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("testdata");
+        .parent()
+        .unwrap()
+        .join("testdata");
     let config_text = std::fs::read_to_string(test_dir.join("nginx_production.conf"))
         .expect("Cannot read nginx_production.conf");
 
-    eprintln!("Importing production config ({} bytes)...", config_text.len());
+    eprintln!(
+        "Importing production config ({} bytes)...",
+        config_text.len()
+    );
 
-    let result = Runtime::new().unwrap().block_on(
-        core.import_nginx_config(&preset_id, &config_text)
-    ).expect("import_nginx_config should succeed");
+    let result = Runtime::new()
+        .unwrap()
+        .block_on(core.import_nginx_config(&preset_id, &config_text))
+        .expect("import_nginx_config should succeed");
 
     let summary = result.data;
     eprintln!("Import result: {:?}", summary);
 
     // Generate — use db_read to access connection
-    let generated = core.db_read(|conn| {
-        supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
-            .map_err(|e| e.to_string())
-    }).expect("Should generate").unwrap();
+    let generated = core
+        .db_read(|conn| {
+            supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
+                .map_err(|e| e.to_string())
+        })
+        .expect("Should generate")
+        .unwrap();
 
     eprintln!("\nGenerated: {} bytes", generated.len());
 
@@ -139,18 +158,33 @@ fn test_e2e_import_production_config() {
     let original_parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&config_text)
         .expect("Original config should be parseable");
 
-    assert_eq!(parsed.upstreams.len(), original_parsed.upstreams.len(),
-        "upstream count: {} vs {}", parsed.upstreams.len(), original_parsed.upstreams.len());
-    assert_eq!(parsed.servers.len(), original_parsed.servers.len(),
-        "server count: {} vs {}", parsed.servers.len(), original_parsed.servers.len());
-    assert!(generated.contains("ssl_certificate"),
+    assert_eq!(
+        parsed.upstreams.len(),
+        original_parsed.upstreams.len(),
+        "upstream count: {} vs {}",
+        parsed.upstreams.len(),
+        original_parsed.upstreams.len()
+    );
+    assert_eq!(
+        parsed.servers.len(),
+        original_parsed.servers.len(),
+        "server count: {} vs {}",
+        parsed.servers.len(),
+        original_parsed.servers.len()
+    );
+    assert!(
+        generated.contains("ssl_certificate"),
         "generated should have ssl_certificate (got {} occurrences)",
-        generated.matches("ssl_certificate").count());
+        generated.matches("ssl_certificate").count()
+    );
 
     eprintln!("\n✅ E2E production import test passed:");
     eprintln!("   Upstreams: {}", parsed.upstreams.len());
     eprintln!("   Servers: {}", parsed.servers.len());
-    eprintln!("   SSL certs in generated: {}", generated.matches("ssl_certificate").count());
+    eprintln!(
+        "   SSL certs in generated: {}",
+        generated.matches("ssl_certificate").count()
+    );
 }
 
 #[test]
@@ -158,25 +192,34 @@ fn test_e2e_import_prod2_config() {
     let (core, preset_id) = setup_core_service();
 
     let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent().unwrap().join("testdata");
+        .parent()
+        .unwrap()
+        .join("testdata");
     let config_text = std::fs::read_to_string(test_dir.join("nginx_prod2.conf"))
         .expect("Cannot read nginx_prod2.conf");
 
-    eprintln!("Importing prod2 config ({} bytes, {} lines)...",
-        config_text.len(), config_text.lines().count());
+    eprintln!(
+        "Importing prod2 config ({} bytes, {} lines)...",
+        config_text.len(),
+        config_text.lines().count()
+    );
 
-    let result = Runtime::new().unwrap().block_on(
-        core.import_nginx_config(&preset_id, &config_text)
-    ).expect("import_nginx_config should succeed");
+    let result = Runtime::new()
+        .unwrap()
+        .block_on(core.import_nginx_config(&preset_id, &config_text))
+        .expect("import_nginx_config should succeed");
 
     let summary = result.data;
     eprintln!("Import result: {:?}", summary);
 
     // Generate — use db_read
-    let generated = core.db_read(|conn| {
-        supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
-            .map_err(|e| e.to_string())
-    }).expect("Should generate").unwrap();
+    let generated = core
+        .db_read(|conn| {
+            supertool_core::logic::nginx_generator::generate_nginx_config(conn, &preset_id)
+                .map_err(|e| e.to_string())
+        })
+        .expect("Should generate")
+        .unwrap();
 
     eprintln!("Generated: {} bytes", generated.len());
 
@@ -187,10 +230,20 @@ fn test_e2e_import_prod2_config() {
     let original_parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&config_text)
         .expect("Original config should be parseable");
 
-    assert_eq!(parsed.upstreams.len(), original_parsed.upstreams.len(),
-        "upstream count: {} vs {}", parsed.upstreams.len(), original_parsed.upstreams.len());
-    assert_eq!(parsed.servers.len(), original_parsed.servers.len(),
-        "server count: {} vs {}", parsed.servers.len(), original_parsed.servers.len());
+    assert_eq!(
+        parsed.upstreams.len(),
+        original_parsed.upstreams.len(),
+        "upstream count: {} vs {}",
+        parsed.upstreams.len(),
+        original_parsed.upstreams.len()
+    );
+    assert_eq!(
+        parsed.servers.len(),
+        original_parsed.servers.len(),
+        "server count: {} vs {}",
+        parsed.servers.len(),
+        original_parsed.servers.len()
+    );
     let ssl_count = generated.matches("ssl_certificate").count();
     assert!(ssl_count > 0, "generated should have ssl_certificate");
 
@@ -203,7 +256,11 @@ fn test_e2e_import_prod2_config() {
     let gen_parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
         .expect("Generated config must be parseable");
     for srv in &gen_parsed.servers {
-        let name = if srv.server_name.is_empty() { &srv.listen } else { &srv.server_name };
+        let name = if srv.server_name.is_empty() {
+            &srv.listen
+        } else {
+            &srv.server_name
+        };
         eprintln!("   Server: {} ({} locations)", name, srv.locations.len());
     }
 }

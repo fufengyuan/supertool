@@ -186,8 +186,8 @@ impl WireGuardManager {
             .mtu(tun_mtu)
             .up();
 
-        let tun_device = tun2::create_as_async(&tun_config)
-            .map_err(|e| format!("创建 TUN 设备失败: {}", e))?;
+        let tun_device =
+            tun2::create_as_async(&tun_config).map_err(|e| format!("创建 TUN 设备失败: {}", e))?;
 
         self.add_log("TUN 设备已创建 (utun)");
 
@@ -320,9 +320,9 @@ async fn run_forwarding_loop(
 ) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let mut tun_read_buf = [0u8; TUN_MTU];   // IP packets from TUN
-    let mut wg_encap_buf = [0u8; WG_BUF];    // Encrypted WireGuard packets
-    let mut udp_recv_buf = [0u8; WG_BUF];    // Received UDP datagrams
+    let mut tun_read_buf = [0u8; TUN_MTU]; // IP packets from TUN
+    let mut wg_encap_buf = [0u8; WG_BUF]; // Encrypted WireGuard packets
+    let mut udp_recv_buf = [0u8; WG_BUF]; // Received UDP datagrams
 
     // Keepalive: send handshake every 25 seconds
     let mut keepalive_timer = tokio::time::interval(tokio::time::Duration::from_secs(25));

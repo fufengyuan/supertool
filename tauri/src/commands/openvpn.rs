@@ -1,15 +1,11 @@
-use supertool_core::logic::{openvpn::OpenVPNManager, CoreService};
 use supertool_core::db::openvpn as db_openvpn;
+use supertool_core::logic::{CoreService, openvpn::OpenVPNManager};
 use tauri::State;
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn openvpn_get_all(
-    core: State<'_, CoreService>,
-) -> Result<serde_json::Value, String> {
+pub async fn openvpn_get_all(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_get_all() called");
-    let configs = core.db_read(|conn| {
-        db_openvpn::get_all(conn).map_err(|e| e.to_string())
-    })?;
+    let configs = core.db_read(|conn| db_openvpn::get_all(conn).map_err(|e| e.to_string()))?;
     Ok(serde_json::to_value(configs).map_err(|e| e.to_string())?)
 }
 
@@ -19,10 +15,22 @@ pub async fn openvpn_add(
     data: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_add() called");
-    let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let file_path = data.get("filePath").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let content = data.get("content").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    
+    let name = data
+        .get("name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let file_path = data
+        .get("filePath")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let content = data
+        .get("content")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
     let id = core.db_write(|conn| {
         db_openvpn::add(conn, &name, &file_path, &content).map_err(|e| e.to_string())
     })?;
@@ -35,9 +43,7 @@ pub async fn openvpn_delete(
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_delete() called");
-    let _ = core.db_write(|conn| {
-        db_openvpn::delete(conn, &id).map_err(|e| e.to_string())
-    })?;
+    let _ = core.db_write(|conn| db_openvpn::delete(conn, &id).map_err(|e| e.to_string()))?;
     Ok(serde_json::json!({ "success": true }))
 }
 
@@ -50,7 +56,8 @@ pub async fn openvpn_connect(
     sudo_password: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_connect() called");
-    openvpn.connect(config_id, config_name, content, sudo_password)
+    openvpn
+        .connect(config_id, config_name, content, sudo_password)
         .map(|_| serde_json::json!({ "success": true }))
 }
 
@@ -60,7 +67,8 @@ pub async fn openvpn_retry_with_password(
     password: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_retry_with_password() called");
-    openvpn.retry_with_password(password)
+    openvpn
+        .retry_with_password(password)
         .map(|success| serde_json::json!({ "success": success }))
 }
 
@@ -69,7 +77,8 @@ pub async fn openvpn_disconnect(
     openvpn: State<'_, OpenVPNManager>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] openvpn_disconnect() called");
-    openvpn.disconnect()
+    openvpn
+        .disconnect()
         .map(|_| serde_json::json!({ "success": true }))
 }
 

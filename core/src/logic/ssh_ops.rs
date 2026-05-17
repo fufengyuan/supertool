@@ -1,6 +1,6 @@
-use serde_json::{json, Value};
-use crate::db::servers;
 use super::ssh;
+use crate::db::servers;
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn ssh_connect(&self, params: Value) -> Result<Value, String> {
@@ -16,22 +16,23 @@ impl super::CoreService {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
         // 如果 params 没传密码也没传密钥，从 DB 查询凭据
-        let (password, ssh_key_path) = if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {
-            let sid = server_id.clone();
-            let result: Result<(Option<String>, Option<String>), String> = self.with_db(|db| {
-                let resp = servers::get_server_by_id(db, sid);
-                match resp.data.flatten() {
-                    Some(server) => Ok((server.password, server.ssh_key_path)),
-                    None => Err("服务器不存在".to_string()),
-                }
-            });
-            let (pw, key) = result?;
-            // 解密密码（DB 存的是加密后的）
-            let decrypted_pw = pw.map(|p| crate::encryption::try_decrypt_password(&p));
-            (decrypted_pw, key)
-        } else {
-            (param_pw, param_key)
-        };
+        let (password, ssh_key_path) =
+            if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {
+                let sid = server_id.clone();
+                let result: Result<(Option<String>, Option<String>), String> = self.with_db(|db| {
+                    let resp = servers::get_server_by_id(db, sid);
+                    match resp.data.flatten() {
+                        Some(server) => Ok((server.password, server.ssh_key_path)),
+                        None => Err("服务器不存在".to_string()),
+                    }
+                });
+                let (pw, key) = result?;
+                // 解密密码（DB 存的是加密后的）
+                let decrypted_pw = pw.map(|p| crate::encryption::try_decrypt_password(&p));
+                (decrypted_pw, key)
+            } else {
+                (param_pw, param_key)
+            };
         let config = ssh::SshServerConfig {
             id: server_id,
             name: params["name"].as_str().unwrap_or("").to_string(),
@@ -89,19 +90,20 @@ impl super::CoreService {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
         // 如果 params 没传密码也没传密钥，从 DB 查询凭据
-        let (password, ssh_key_path) = if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {
-            let sid = server_id.clone();
-            let result: Result<(Option<String>, Option<String>), String> = self.with_db(|db| {
-                let resp = servers::get_server_by_id(db, sid);
-                match resp.data.flatten() {
-                    Some(server) => Ok((server.password, server.ssh_key_path)),
-                    None => Err("服务器不存在".to_string()),
-                }
-            });
-            result?
-        } else {
-            (param_pw, param_key)
-        };
+        let (password, ssh_key_path) =
+            if param_pw.is_none() && param_key.is_none() && !server_id.is_empty() {
+                let sid = server_id.clone();
+                let result: Result<(Option<String>, Option<String>), String> = self.with_db(|db| {
+                    let resp = servers::get_server_by_id(db, sid);
+                    match resp.data.flatten() {
+                        Some(server) => Ok((server.password, server.ssh_key_path)),
+                        None => Err("服务器不存在".to_string()),
+                    }
+                });
+                result?
+            } else {
+                (param_pw, param_key)
+            };
         let config = ssh::SshServerConfig {
             id: server_id,
             name: params["name"].as_str().unwrap_or("").to_string(),
@@ -117,7 +119,9 @@ impl super::CoreService {
     pub async fn exec_ssh_command(&self, server_id: &str, command: &str) -> Result<Value, String> {
         let sid = server_id.to_string();
         let cmd = command.to_string();
-        let result = self.run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &cmd)).await?;
+        let result = self
+            .run_ssh_with_retry(server_id, move |ssh| ssh.exec_command(&sid, &cmd))
+            .await?;
         Ok(json!(result))
     }
     /// 使用独立 SSH 连接批量执行命令（不共享连接池，不影响终端）
@@ -132,27 +136,41 @@ impl super::CoreService {
             host: params["host"].as_str().unwrap_or("").to_string(),
             port: params["port"].as_u64().unwrap_or(22) as u32,
             username: params["username"].as_str().unwrap_or("").to_string(),
-            password: params.get("password").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
-            ssh_key_path: params.get("sshKeyPath").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
+            password: params
+                .get("password")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
+            ssh_key_path: params
+                .get("sshKeyPath")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string()),
         };
         let ssh = self.ssh.clone();
-        let results = tokio::task::spawn_blocking(move || ssh.exec_commands_independent(&config, &commands))
-            .await
-            .map_err(|e| format!("SSH 批量命令执行失败: {}\n", e))??;
+        let results =
+            tokio::task::spawn_blocking(move || ssh.exec_commands_independent(&config, &commands))
+                .await
+                .map_err(|e| format!("SSH 批量命令执行失败: {}\n", e))??;
         let mut json_results = serde_json::Map::new();
         for (cmd, result) in results {
-            json_results.insert(cmd, json!({
-                "output": result.output,
-                "success": result.success,
-                "exitCode": result.exit_code,
-            }));
+            json_results.insert(
+                cmd,
+                json!({
+                    "output": result.output,
+                    "success": result.success,
+                    "exitCode": result.exit_code,
+                }),
+            );
         }
         Ok(json!({ "success": true, "results": json_results }))
     }
     pub async fn sftp_list_dir(&self, server_id: &str, remote_path: &str) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        let files = self.run_ssh_with_retry(server_id, move |ssh| ssh.list_remote_dir(&sid, &rp)).await?;
+        let files = self
+            .run_ssh_with_retry(server_id, move |ssh| ssh.list_remote_dir(&sid, &rp))
+            .await?;
         Ok(json!({"success": true, "files": files}))
     }
     pub async fn sftp_download_file(
@@ -162,7 +180,9 @@ impl super::CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        let content = self.run_ssh_with_retry(server_id, move |ssh| ssh.download_file_base64(&sid, &rp)).await?;
+        let content = self
+            .run_ssh_with_retry(server_id, move |ssh| ssh.download_file_base64(&sid, &rp))
+            .await?;
         Ok(json!({"content": content}))
     }
     pub async fn sftp_create_dir(
@@ -172,7 +192,8 @@ impl super::CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        self.run_ssh_with_retry(server_id, move |ssh| ssh.create_remote_dir(&sid, &rp)).await?;
+        self.run_ssh_with_retry(server_id, move |ssh| ssh.create_remote_dir(&sid, &rp))
+            .await?;
         Ok(json!({"success": true}))
     }
     pub async fn sftp_delete_file(
@@ -182,7 +203,8 @@ impl super::CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
-        self.run_ssh_with_retry(server_id, move |ssh| ssh.delete_remote_file(&sid, &rp)).await?;
+        self.run_ssh_with_retry(server_id, move |ssh| ssh.delete_remote_file(&sid, &rp))
+            .await?;
         Ok(json!({"success": true}))
     }
     /// SFTP: 下载到本地路径
@@ -195,7 +217,9 @@ impl super::CoreService {
         let sid = server_id.to_string();
         let rp = remote_path.to_string();
         let lp = local_path.to_string();
-        let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.download_file(&sid, &rp, &lp)).await?;
+        let size = self
+            .run_ssh_with_retry(server_id, move |ssh| ssh.download_file(&sid, &rp, &lp))
+            .await?;
         Ok(json!({"success": true, "data": {"bytesDownloaded": size, "localPath": local_path}}))
     }
     /// SFTP: 上传文件到远程
@@ -205,21 +229,28 @@ impl super::CoreService {
         local_path: &str,
         remote_path: &str,
     ) -> Result<Value, String> {
-        let metadata = tokio::fs::metadata(local_path).await
+        let metadata = tokio::fs::metadata(local_path)
+            .await
             .map_err(|e| format!("读取本地文件失败: {}", e))?;
         if metadata.is_dir() {
             // 目录 → 递归上传
             let sid = server_id.to_string();
             let lp = local_path.to_string();
             let rp = remote_path.to_string();
-            let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
+            let size = self
+                .run_ssh_with_retry(server_id, move |ssh| {
+                    ssh.upload_dir_recursive(&sid, &lp, &rp)
+                })
+                .await?;
             Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
         } else {
             // 文件 → 单文件上传
             let sid = server_id.to_string();
             let lp = local_path.to_string();
             let rp = remote_path.to_string();
-            let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_file(&sid, &lp, &rp)).await?;
+            let size = self
+                .run_ssh_with_retry(server_id, move |ssh| ssh.upload_file(&sid, &lp, &rp))
+                .await?;
             Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
         }
     }
@@ -233,7 +264,11 @@ impl super::CoreService {
         let sid = server_id.to_string();
         let lp = local_path.to_string();
         let rp = remote_path.to_string();
-        let size = self.run_ssh_with_retry(server_id, move |ssh| ssh.upload_dir_recursive(&sid, &lp, &rp)).await?;
+        let size = self
+            .run_ssh_with_retry(server_id, move |ssh| {
+                ssh.upload_dir_recursive(&sid, &lp, &rp)
+            })
+            .await?;
         Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
     }
     // ============ PTY Terminal 包装方法 ============
@@ -246,12 +281,15 @@ impl super::CoreService {
     ) -> Result<Value, String> {
         let sid = server_id.to_string();
         let tid = terminal_id.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.create_terminal(&sid, &tid, rows, cols)).await?;
+        self.run_ssh_blocking(move |ssh| ssh.create_terminal(&sid, &tid, rows, cols))
+            .await?;
         Ok(json!({"success": true, "terminalId": terminal_id}))
     }
     pub async fn ssh_read_terminal(&self, terminal_id: &str) -> Result<Value, String> {
         let tid = terminal_id.to_string();
-        let data = self.run_ssh_blocking(move |ssh| ssh.read_terminal(&tid)).await?;
+        let data = self
+            .run_ssh_blocking(move |ssh| ssh.read_terminal(&tid))
+            .await?;
         Ok(json!({"success": true, "data": data}))
     }
     pub async fn ssh_write_to_terminal(
@@ -261,7 +299,8 @@ impl super::CoreService {
     ) -> Result<Value, String> {
         let tid = terminal_id.to_string();
         let d = data.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.write_to_terminal(&tid, &d)).await?;
+        self.run_ssh_blocking(move |ssh| ssh.write_to_terminal(&tid, &d))
+            .await?;
         Ok(json!({"success": true}))
     }
     pub async fn ssh_resize_terminal(
@@ -271,12 +310,14 @@ impl super::CoreService {
         cols: u32,
     ) -> Result<Value, String> {
         let tid = terminal_id.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.resize_terminal(&tid, rows, cols)).await?;
+        self.run_ssh_blocking(move |ssh| ssh.resize_terminal(&tid, rows, cols))
+            .await?;
         Ok(json!({"success": true}))
     }
     pub async fn ssh_close_terminal(&self, terminal_id: &str) -> Result<Value, String> {
         let tid = terminal_id.to_string();
-        self.run_ssh_blocking(move |ssh| ssh.close_terminal(&tid)).await?;
+        self.run_ssh_blocking(move |ssh| ssh.close_terminal(&tid))
+            .await?;
         Ok(json!({"success": true}))
     }
     pub async fn ssh_is_terminal_active(&self, terminal_id: &str) -> bool {

@@ -150,6 +150,8 @@ pub async fn generate_totp(
     period: u32,
     algorithm: String,
 ) -> Result<serde_json::Value, String> {
-    let result = core.generate_totp(&secret, digits, period, &algorithm).await?;
+    let result = core
+        .generate_totp(&secret, digits, period, &algorithm)
+        .await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }

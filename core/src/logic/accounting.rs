@@ -1,5 +1,5 @@
-use serde_json::{json, Value};
 use rusqlite::params;
+use serde_json::{Value, json};
 
 /// Accounting module — extracted from mod.rs
 ///
@@ -220,13 +220,18 @@ impl super::CoreService {
     }
 
     pub async fn add_accounting_record(&self, params: Value) -> Result<Value, String> {
-        let id = params["id"].as_str().unwrap_or(&uuid::Uuid::new_v4().to_string()).to_string();
+        let id = params["id"]
+            .as_str()
+            .unwrap_or(&uuid::Uuid::new_v4().to_string())
+            .to_string();
         let now = chrono::Utc::now().to_rfc3339();
         let date = params["date"].as_str().unwrap_or("").to_string();
         let r#type = params["type"].as_str().unwrap_or("expense").to_string();
         let category = params["category"].as_str().unwrap_or("").to_string();
         let amount = params["amount"].as_f64().unwrap_or(0.0);
-        let description = params["description"].as_str().or_else(|| params["note"].as_str());
+        let description = params["description"]
+            .as_str()
+            .or_else(|| params["note"].as_str());
         let status = params["status"].as_str().unwrap_or("completed");
         let attachment_path = params["attachmentPath"].as_str();
         let created_by = params["createdBy"].as_str().unwrap_or("");
@@ -261,13 +266,23 @@ impl super::CoreService {
         // ?1 will be id at the end
 
         let fields = [
-            ("date", "date"), ("type", "type"), ("category", "category"),
-            ("amount", "amount"), ("description", "description"), ("status", "status"),
-            ("attachmentPath", "attachmentPath"), ("voucher_number", "voucher_number"),
-            ("receipt_type", "receipt_type"), ("receipt_path", "receipt_path"),
-            ("entity", "entity"), ("project", "project"), ("supplier", "supplier"),
-            ("invoice_number", "invoice_number"), ("payment_method", "payment_method"),
-            ("approver", "approver"), ("attachments_json", "attachments_json"),
+            ("date", "date"),
+            ("type", "type"),
+            ("category", "category"),
+            ("amount", "amount"),
+            ("description", "description"),
+            ("status", "status"),
+            ("attachmentPath", "attachmentPath"),
+            ("voucher_number", "voucher_number"),
+            ("receipt_type", "receipt_type"),
+            ("receipt_path", "receipt_path"),
+            ("entity", "entity"),
+            ("project", "project"),
+            ("supplier", "supplier"),
+            ("invoice_number", "invoice_number"),
+            ("payment_method", "payment_method"),
+            ("approver", "approver"),
+            ("attachments_json", "attachments_json"),
         ];
 
         for (json_key, db_col) in &fields {
@@ -304,11 +319,16 @@ impl super::CoreService {
 
         // id is the last parameter
         let idx = values.len() + 1;
-        let sql = format!("UPDATE accounting_records SET {} WHERE id=?{}", sets.join(", "), idx);
+        let sql = format!(
+            "UPDATE accounting_records SET {} WHERE id=?{}",
+            sets.join(", "),
+            idx
+        );
         values.push(Box::new(id.to_string()));
 
         self.with_db(|db| {
-            let params_ref: Vec<&dyn rusqlite::types::ToSql> = values.iter().map(|p| p.as_ref()).collect();
+            let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+                values.iter().map(|p| p.as_ref()).collect();
             db.conn_mut()
                 .execute(&sql, params_ref.as_slice())
                 .map_err(|e| e.to_string())
@@ -555,6 +575,4 @@ impl super::CoreService {
     }
 
     // ============ LAN ============
-
-
 }

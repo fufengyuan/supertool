@@ -40,7 +40,9 @@ pub fn get_hermes_home() -> PathBuf {
     if let Ok(home) = std::env::var("HERMES_HOME") {
         PathBuf::from(home)
     } else {
-        dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp")).join(".hermes")
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("/tmp"))
+            .join(".hermes")
     }
 }
 
@@ -174,33 +176,32 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
         .prepare(query)
         .map_err(|e| format!("查询会话失败: {}", e))?;
 
-    let result = stmt
-        .query_row([session_id], |row| {
-            let raw_preview: String = row.get(7)?;
-            let preview = if raw_preview.is_empty() {
-                String::new()
+    let result = stmt.query_row([session_id], |row| {
+        let raw_preview: String = row.get(7)?;
+        let preview = if raw_preview.is_empty() {
+            String::new()
+        } else {
+            let text = raw_preview.trim();
+            // Use chars() to properly handle UTF-8 characters
+            if text.chars().count() > 60 {
+                format!("{}...", text.chars().take(60).collect::<String>())
             } else {
-                let text = raw_preview.trim();
-                // Use chars() to properly handle UTF-8 characters
-                if text.chars().count() > 60 {
-                    format!("{}...", text.chars().take(60).collect::<String>())
-                } else {
-                    text.to_string()
-                }
-            };
+                text.to_string()
+            }
+        };
 
-            Ok(HermesSession {
-                id: row.get(0)?,
-                source: row.get(1)?,
-                model: row.get(2)?,
-                title: row.get::<_, Option<String>>(3)?,
-                started_at: row.get(4)?,
-                ended_at: row.get::<_, Option<f64>>(5)?,
-                message_count: row.get(6)?,
-                preview,
-                last_active: row.get(8)?,
-            })
-        });
+        Ok(HermesSession {
+            id: row.get(0)?,
+            source: row.get(1)?,
+            model: row.get(2)?,
+            title: row.get::<_, Option<String>>(3)?,
+            started_at: row.get(4)?,
+            ended_at: row.get::<_, Option<f64>>(5)?,
+            message_count: row.get(6)?,
+            preview,
+            last_active: row.get(8)?,
+        })
+    });
 
     match result {
         Ok(session) => Ok(Some(session)),
@@ -560,9 +561,27 @@ mod tests {
             Some("session-1"),
         ); // Should be excluded
 
-        insert_test_message(&conn, "session-1", "user", Some("Hello world this is a test message"), 1700000100.0);
-        insert_test_message(&conn, "session-1", "assistant", Some("Hi there!"), 1700000200.0);
-        insert_test_message(&conn, "session-2", "user", Some("Another message"), 1700100100.0);
+        insert_test_message(
+            &conn,
+            "session-1",
+            "user",
+            Some("Hello world this is a test message"),
+            1700000100.0,
+        );
+        insert_test_message(
+            &conn,
+            "session-1",
+            "assistant",
+            Some("Hi there!"),
+            1700000200.0,
+        );
+        insert_test_message(
+            &conn,
+            "session-2",
+            "user",
+            Some("Another message"),
+            1700100100.0,
+        );
 
         // Test the query logic directly
         let query = r#"
@@ -649,7 +668,13 @@ mod tests {
             1,
             None,
         );
-        insert_test_message(&conn, "test-session-id", "user", Some("Test content"), 1700000100.0);
+        insert_test_message(
+            &conn,
+            "test-session-id",
+            "user",
+            Some("Test content"),
+            1700000100.0,
+        );
 
         let query = r#"
             SELECT 
@@ -702,9 +727,24 @@ mod tests {
     fn test_list_messages_mock() {
         let (conn, _dir) = create_test_db();
 
-        insert_test_session(&conn, "msg-test", "cli", "claude-3", None, 1700000000.0, 2, None);
+        insert_test_session(
+            &conn,
+            "msg-test",
+            "cli",
+            "claude-3",
+            None,
+            1700000000.0,
+            2,
+            None,
+        );
         insert_test_message(&conn, "msg-test", "user", Some("Hello"), 1700000100.0);
-        insert_test_message(&conn, "msg-test", "assistant", Some("Hi there!"), 1700000200.0);
+        insert_test_message(
+            &conn,
+            "msg-test",
+            "assistant",
+            Some("Hi there!"),
+            1700000200.0,
+        );
         insert_test_message(&conn, "msg-test", "tool", None, 1700000250.0);
 
         let query = r#"
@@ -754,7 +794,16 @@ mod tests {
 
         insert_test_session(&conn, "s1", "cli", "claude-3", None, 1700000000.0, 2, None);
         insert_test_session(&conn, "s2", "cli", "gpt-4", None, 1700100000.0, 1, None);
-        insert_test_session(&conn, "s3", "telegram", "gpt-4", None, 1700200000.0, 1, None);
+        insert_test_session(
+            &conn,
+            "s3",
+            "telegram",
+            "gpt-4",
+            None,
+            1700200000.0,
+            1,
+            None,
+        );
         insert_test_session(&conn, "s4", "web", "claude-3", None, 1700300000.0, 1, None);
 
         insert_test_message(&conn, "s1", "user", Some("m1"), 1700000100.0);
@@ -798,8 +847,23 @@ mod tests {
     fn test_delete_session_mock() {
         let (conn, _dir) = create_test_db();
 
-        insert_test_session(&conn, "to-delete", "cli", "claude-3", None, 1700000000.0, 1, None);
-        insert_test_message(&conn, "to-delete", "user", Some("Will be deleted"), 1700000100.0);
+        insert_test_session(
+            &conn,
+            "to-delete",
+            "cli",
+            "claude-3",
+            None,
+            1700000000.0,
+            1,
+            None,
+        );
+        insert_test_message(
+            &conn,
+            "to-delete",
+            "user",
+            Some("Will be deleted"),
+            1700000100.0,
+        );
 
         // Verify exists
         let count_before: i64 = conn

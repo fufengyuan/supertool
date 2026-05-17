@@ -1,11 +1,4 @@
-/// LAN 协作服务 — UDP 广播发现 + UDP 消息 + TCP 可靠文件传输 + SQLite 持久化
-///
-/// - 发现: UDP 广播心跳 (端口 49152)
-/// - 消息: std::net::UdpSocket (端口 49152)
-/// - 文件传输: std::net::TcpListener (端口 49154)
-/// - 消息/文件记录: SQLite (db/lan.rs)
-use supertool_core::db::lan::{self, ChatMessage, FileTransfer as DbFileTransfer};
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -17,6 +10,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+/// LAN 协作服务 — UDP 广播发现 + UDP 消息 + TCP 可靠文件传输 + SQLite 持久化
+///
+/// - 发现: UDP 广播心跳 (端口 49152)
+/// - 消息: std::net::UdpSocket (端口 49152)
+/// - 文件传输: std::net::TcpListener (端口 49154)
+/// - 消息/文件记录: SQLite (db/lan.rs)
+use supertool_core::db::lan::{self, ChatMessage, FileTransfer as DbFileTransfer};
 use tauri::Emitter;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -129,12 +129,18 @@ impl LanService {
     pub fn new(user_id: String, user_name: String, db_conn: Arc<Mutex<Connection>>) -> Self {
         // Load persisted nickname and avatar from DB
         let nick_name = if let Ok(conn) = db_conn.lock() {
-            lan::get_lan_setting(&conn, &format!("nick_name:{}", user_id)).ok().flatten().unwrap_or_default()
+            lan::get_lan_setting(&conn, &format!("nick_name:{}", user_id))
+                .ok()
+                .flatten()
+                .unwrap_or_default()
         } else {
             String::new()
         };
         let avatar = if let Ok(conn) = db_conn.lock() {
-            lan::get_lan_setting(&conn, &format!("avatar:{}", user_id)).ok().flatten().unwrap_or_else(|| "😀".to_string())
+            lan::get_lan_setting(&conn, &format!("avatar:{}", user_id))
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| "😀".to_string())
         } else {
             "😀".to_string()
         };
@@ -204,8 +210,7 @@ impl LanService {
         self.stop_flag.store(false, Ordering::SeqCst);
 
         // Detect and set local IP
-        let local_ip = Self::detect_local_ip()
-            .unwrap_or_else(|| "127.0.0.1".to_string());
+        let local_ip = Self::detect_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
         *self.local_ip.lock().unwrap() = local_ip.clone();
         log::info!("[LAN] Detected local IP: {}", local_ip);
 
@@ -288,7 +293,8 @@ impl LanService {
             log::info!("[LAN] My version for heartbeat: {}", hb_version);
 
             thread::spawn(move || {
-                let broadcast_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                let broadcast_addr =
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
                 let mut hb_count = 0u64;
                 loop {
                     if hb_stop.load(Ordering::SeqCst) {
@@ -309,12 +315,20 @@ impl LanService {
                     if let Ok(msg) = serde_json::to_string(&hb) {
                         let sent = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
                         if hb_count <= 3 || hb_count % 10 == 0 {
-                            log::info!("[LAN] HB#{} sent={} bytes -> {}", hb_count, sent.unwrap_or(0), broadcast_addr);
+                            log::info!(
+                                "[LAN] HB#{} sent={} bytes -> {}",
+                                hb_count,
+                                sent.unwrap_or(0),
+                                broadcast_addr
+                            );
                         }
                     }
                 }
             });
-            log::info!("[LAN] UDP heartbeat broadcast started (every {}s)", HEARTBEAT_INTERVAL_SECS);
+            log::info!(
+                "[LAN] UDP heartbeat broadcast started (every {}s)",
+                HEARTBEAT_INTERVAL_SECS
+            );
         }
 
         // ===== Heartbeat thread (peer timeout check only, no UDP broadcast) =====
@@ -327,11 +341,7 @@ impl LanService {
             thread::spawn(move || {
                 while !heartbeat_stop.load(Ordering::SeqCst) {
                     thread::sleep(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
-                    Self::check_offline_peers(
-                        &heartbeat_peers,
-                        &heartbeat_log,
-                        &heartbeat_app,
-                    );
+                    Self::check_offline_peers(&heartbeat_peers, &heartbeat_log, &heartbeat_app);
                 }
             });
         }
@@ -441,14 +451,17 @@ impl LanService {
                     return;
                 }
 
-                let peer_name = data["userName"].as_str()
+                let peer_name = data["userName"]
+                    .as_str()
                     .or_else(|| data["name"].as_str())
-                    .unwrap_or(peer_id).to_string();
+                    .unwrap_or(peer_id)
+                    .to_string();
                 let peer_avatar = data["avatar"].as_str().map(|s| s.to_string());
                 let peer_version = data["version"].as_str().map(|s| s.to_string());
                 let peer_status = data["status"].as_str().map(|s| s.to_string());
                 // Use messagePort from packet if available, otherwise use sender's port
-                let message_port = data["messagePort"].as_u64()
+                let message_port = data["messagePort"]
+                    .as_u64()
                     .map(|p| p as u16)
                     .unwrap_or(addr.port());
 
@@ -457,10 +470,14 @@ impl LanService {
                     if let Some(peer_major) = v.split('.').next() {
                         if let Some(my_major) = my_version.split('.').next() {
                             if peer_major != my_major {
-                                Self::add_log_static(log, "warn", &format!(
-                                    "Version mismatch: peer {} (v{}) vs local (v{}) — heartbeat dropped",
-                                    peer_id, v, my_version
-                                ));
+                                Self::add_log_static(
+                                    log,
+                                    "warn",
+                                    &format!(
+                                        "Version mismatch: peer {} (v{}) vs local (v{}) — heartbeat dropped",
+                                        peer_id, v, my_version
+                                    ),
+                                );
                                 return;
                             }
                         }
@@ -473,7 +490,8 @@ impl LanService {
 
                 // 如果 peer 已存在且有本地保存的头像（avatar:peer_ 开头），保留本地头像
                 let preserved_avatar = if !is_new {
-                    peers_map.get(peer_id)
+                    peers_map
+                        .get(peer_id)
                         .and_then(|p| p.avatar.as_ref())
                         .filter(|a| a.starts_with("avatar:peer_"))
                         .cloned()
@@ -499,7 +517,9 @@ impl LanService {
 
                 // Request avatar image if peer has image avatar and we don't have it locally
                 if let Some(ref peer_avatar_ref) = peer_ref.avatar {
-                    if peer_avatar_ref.starts_with("avatar:") && !peer_avatar_ref.starts_with("avatar:peer_") {
+                    if peer_avatar_ref.starts_with("avatar:")
+                        && !peer_avatar_ref.starts_with("avatar:peer_")
+                    {
                         // Peer has image avatar (not emoji or already-saved peer avatar)
                         // Check if we have the local copy
                         let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
@@ -583,7 +603,8 @@ impl LanService {
                     if let Ok(msg) = serde_json::to_string(&reply) {
                         // Reply to sender's actual port (not DISCOVERY_PORT)
                         if let Ok(reply_sock) = UdpSocket::bind("0.0.0.0:0") {
-                            let _ = reply_sock.send_to(msg.as_bytes(), format!("{}:{}", addr.ip(), addr.port()));
+                            let _ = reply_sock
+                                .send_to(msg.as_bytes(), format!("{}:{}", addr.ip(), addr.port()));
                         }
                     }
                 }
@@ -593,9 +614,15 @@ impl LanService {
                     msg_history.lock().unwrap().push(msg.clone());
 
                     // Persist to chat_messages table
-                    let my_nick_str = if my_nick.is_empty() { my_user_id.to_string() } else { my_nick.to_string() };
+                    let my_nick_str = if my_nick.is_empty() {
+                        my_user_id.to_string()
+                    } else {
+                        my_nick.to_string()
+                    };
                     let chat_msg = ChatMessage {
-                        id: msg.message_id.clone().unwrap_or_else(|| format!("msg-{}", chrono::Utc::now().timestamp_millis())),
+                        id: msg.message_id.clone().unwrap_or_else(|| {
+                            format!("msg-{}", chrono::Utc::now().timestamp_millis())
+                        }),
                         from_user_id: msg.from.clone().unwrap_or_default(),
                         from_user_name: msg.from_name.clone().unwrap_or_default(),
                         to_user_id: my_user_id.to_string(),
@@ -614,18 +641,31 @@ impl LanService {
                         let _ = lan::insert_chat_message(&conn, &chat_msg);
                     }
 
-                    Self::add_log_static(log, "info", &format!("Message from {}: {}",
-                        msg.from.as_deref().unwrap_or("unknown"),
-                        msg.content.as_deref().unwrap_or("")));
+                    Self::add_log_static(
+                        log,
+                        "info",
+                        &format!(
+                            "Message from {}: {}",
+                            msg.from.as_deref().unwrap_or("unknown"),
+                            msg.content.as_deref().unwrap_or("")
+                        ),
+                    );
 
                     // 发送系统通知
-                    let from_name = msg.from_name.as_deref()
+                    let from_name = msg
+                        .from_name
+                        .as_deref()
                         .or(msg.from.as_deref())
                         .unwrap_or("unknown");
-                    let content_preview = msg.content.as_deref()
+                    let content_preview = msg
+                        .content
+                        .as_deref()
                         .map(|c| if c.len() > 100 { &c[..100] } else { c })
                         .unwrap_or("");
-                    crate::tray_notification::show_lan_message_notification(from_name, content_preview);
+                    crate::tray_notification::show_lan_message_notification(
+                        from_name,
+                        content_preview,
+                    );
 
                     if let Some(app) = app_handle {
                         let _ = app.emit("lan-message-received", data.clone());
@@ -638,25 +678,25 @@ impl LanService {
                 if from_id.is_empty() || from_id == my_user_id {
                     return;
                 }
-                
+
                 let from_name = data["fromName"].as_str().unwrap_or(from_id);
                 let avatar_ref = data["avatar"].as_str();
                 let avatar_data = data["avatarData"].as_str();
                 let avatar_ext = data["avatarExt"].as_str().unwrap_or("png");
-                
+
                 if let (Some(_avatar_ref), Some(avatar_data)) = (avatar_ref, avatar_data) {
                     // 保存头像图片到本地 avatars 目录，使用发送者 user_id 标识
                     let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
                     let avatars_dir = data_dir.join("avatars");
-                    
+
                     if !avatars_dir.exists() {
                         let _ = fs::create_dir_all(&avatars_dir);
                     }
-                    
+
                     // 使用 peer_id 作为文件名，避免冲突
                     let local_filename = format!("peer_{}.{}", from_id, avatar_ext);
                     let local_path = avatars_dir.join(&local_filename);
-                    
+
                     // 解码 base64 并保存
                     if let Ok(decoded) = BASE64.decode(avatar_data) {
                         if let Ok(_) = fs::write(&local_path, decoded) {
@@ -667,19 +707,28 @@ impl LanService {
                                     peer.avatar = Some(local_avatar_ref.clone());
                                 }
                             }
-                            
-                            Self::add_log_static(log, "info", &format!(
-                                "Avatar update from {}: saved to {}", from_name, local_path.display()
-                            ));
-                            
+
+                            Self::add_log_static(
+                                log,
+                                "info",
+                                &format!(
+                                    "Avatar update from {}: saved to {}",
+                                    from_name,
+                                    local_path.display()
+                                ),
+                            );
+
                             // 发送前端事件通知更新
                             if let Some(app) = app_handle {
-                                let _ = app.emit("lan-peer-avatar-updated", serde_json::json!({
-                                    "userId": from_id,
-                                    "name": from_name,
-                                    "avatar": local_avatar_ref,
-                                    "avatarPath": local_path.to_string_lossy().to_string(),
-                                }));
+                                let _ = app.emit(
+                                    "lan-peer-avatar-updated",
+                                    serde_json::json!({
+                                        "userId": from_id,
+                                        "name": from_name,
+                                        "avatar": local_avatar_ref,
+                                        "avatarPath": local_path.to_string_lossy().to_string(),
+                                    }),
+                                );
                             }
                         }
                     }
@@ -739,10 +788,7 @@ impl LanService {
                                     Self::add_log_static(
                                         log,
                                         "info",
-                                        &format!(
-                                            "Sent avatar {} to {}",
-                                            my_avatar, from_name
-                                        ),
+                                        &format!("Sent avatar {} to {}", my_avatar, from_name),
                                     );
                                 }
                             }
@@ -751,17 +797,28 @@ impl LanService {
                 }
             }
             "file_start" => {
-                let file_id = data["id"].as_str()
-                    .or_else(|| data["fileId"].as_str());
+                let file_id = data["id"].as_str().or_else(|| data["fileId"].as_str());
                 let file_name = data["fileName"].as_str();
                 let file_size = data["fileSize"].as_u64();
-                let from_id = data["fromUserId"].as_str()
+                let from_id = data["fromUserId"]
+                    .as_str()
                     .or_else(|| data["from"].as_str());
-                let from_name = data["fromUserName"].as_str()
+                let from_name = data["fromUserName"]
+                    .as_str()
                     .or_else(|| data["fromName"].as_str());
-                if let (Some(file_id), Some(file_name), Some(file_size), Some(from_id), Some(from_name)) =
-                    (file_id, file_name, file_size, from_id, from_name) {
-                    let to_name = if my_nick.is_empty() { my_user_id.to_string() } else { my_nick.to_string() };
+                if let (
+                    Some(file_id),
+                    Some(file_name),
+                    Some(file_size),
+                    Some(from_id),
+                    Some(from_name),
+                ) = (file_id, file_name, file_size, from_id, from_name)
+                {
+                    let to_name = if my_nick.is_empty() {
+                        my_user_id.to_string()
+                    } else {
+                        my_nick.to_string()
+                    };
                     let transfer = FileTransfer {
                         id: file_id.to_string(),
                         from_user_id: from_id.to_string(),
@@ -776,7 +833,10 @@ impl LanService {
                         created_at: chrono::Utc::now().to_rfc3339(),
                         completed_at: None,
                     };
-                    file_transfers.lock().unwrap().insert(file_id.to_string(), transfer);
+                    file_transfers
+                        .lock()
+                        .unwrap()
+                        .insert(file_id.to_string(), transfer);
 
                     // Persist to file_transfers table
                     if let Ok(conn) = db_conn.lock() {
@@ -805,13 +865,18 @@ impl LanService {
                             "fileSize": file_size,
                             "filePath": "",
                             "isImage": Self::is_image_file(file_name),
-                        }).to_string();
+                        })
+                        .to_string();
                         let chat_msg = ChatMessage {
                             id: file_id.to_string(),
                             from_user_id: from_id.to_string(),
                             from_user_name: from_name.to_string(),
                             to_user_id: my_user_id.to_string(),
-                            to_user_name: if my_nick.is_empty() { my_user_id.to_string() } else { my_nick.to_string() },
+                            to_user_name: if my_nick.is_empty() {
+                                my_user_id.to_string()
+                            } else {
+                                my_nick.to_string()
+                            },
                             content: Some(content_json),
                             msg_type: "file".to_string(),
                             file_name: Some(file_name.to_string()),
@@ -825,7 +890,11 @@ impl LanService {
                         let _ = lan::insert_chat_message(&conn, &chat_msg);
                     }
 
-                    Self::add_log_static(log, "info", &format!("File transfer started: {} ({} bytes)", file_name, file_size));
+                    Self::add_log_static(
+                        log,
+                        "info",
+                        &format!("File transfer started: {} ({} bytes)", file_name, file_size),
+                    );
                     if let Some(app) = app_handle {
                         let payload = serde_json::json!({
                             "fileId": file_id,
@@ -844,18 +913,29 @@ impl LanService {
                 // Tauri uses TCP for file transfer, so this ACK is informational only.
                 // Log it for debugging.
                 let file_id = data["id"].as_str().unwrap_or("");
-                Self::add_log_static(log, "info", &format!("file_start_ack received for file: {}", file_id));
+                Self::add_log_static(
+                    log,
+                    "info",
+                    &format!("file_start_ack received for file: {}", file_id),
+                );
             }
             // Collaboration message types — forward to frontend
             // Map msg_type to hyphen-format event names matching frontend listeners
-            "assign_task" | "task_update" | "task_status_change" | "task_comment"
-            | "collaboration_started" | "collaboration_ended" => {
+            "assign_task"
+            | "task_update"
+            | "task_status_change"
+            | "task_comment"
+            | "collaboration_started"
+            | "collaboration_ended" => {
                 // Persist assign_task to chat_messages DB for history loading
                 if msg_type == "assign_task" {
-                    let msg_id = data["messageId"].as_str()
+                    let msg_id = data["messageId"]
+                        .as_str()
                         .or_else(|| data["id"].as_str())
                         .map(|s| s.to_string())
-                        .unwrap_or_else(|| format!("msg-{}", chrono::Utc::now().timestamp_millis()));
+                        .unwrap_or_else(|| {
+                            format!("msg-{}", chrono::Utc::now().timestamp_millis())
+                        });
                     let from_id = data["from"].as_str().unwrap_or("unknown");
                     let from_name = data["fromName"].as_str().unwrap_or("unknown");
                     let to_id = data["to"].as_str().unwrap_or(my_user_id);
@@ -921,9 +1001,11 @@ impl LanService {
         // Read sender identity handshake: LAN-SEND <user_id>\n
         let mut identity_line = String::new();
         let sender_id = match reader.read_line(&mut identity_line) {
-            Ok(_) if identity_line.starts_with("LAN-SEND ") => {
-                identity_line.trim().strip_prefix("LAN-SEND ").unwrap_or("unknown").to_string()
-            }
+            Ok(_) if identity_line.starts_with("LAN-SEND ") => identity_line
+                .trim()
+                .strip_prefix("LAN-SEND ")
+                .unwrap_or("unknown")
+                .to_string(),
             _ => {
                 // Fallback for old clients that don't send handshake
                 "unknown".to_string()
@@ -943,7 +1025,11 @@ impl LanService {
         }
 
         if sender_id != "unknown" {
-            Self::add_log_static(log, "info", &format!("TCP handshake verified: sender={}", sender_id));
+            Self::add_log_static(
+                log,
+                "info",
+                &format!("TCP handshake verified: sender={}", sender_id),
+            );
         }
 
         const MAX_FILE_SIZE: u64 = 500 * 1024 * 1024;
@@ -959,9 +1045,17 @@ impl LanService {
                 ("unknown".to_string(), "unknown".to_string())
             }
         };
-        let my_nick_str = if my_nick.is_empty() { my_user_id.to_string() } else { my_nick.to_string() };
+        let my_nick_str = if my_nick.is_empty() {
+            my_user_id.to_string()
+        } else {
+            my_nick.to_string()
+        };
         if file_size > MAX_FILE_SIZE {
-            Self::add_log_static(log, "error", &format!("File too large: {} bytes", file_size));
+            Self::add_log_static(
+                log,
+                "error",
+                &format!("File too large: {} bytes", file_size),
+            );
             return;
         }
         let file_name = PathBuf::from(raw_file_name)
@@ -982,8 +1076,8 @@ impl LanService {
                 .unwrap_or_default();
             let mut counter = 1;
             loop {
-                let candidate = PathBuf::from(receive_path)
-                    .join(format!("{}{}{}", stem, counter, ext));
+                let candidate =
+                    PathBuf::from(receive_path).join(format!("{}{}{}", stem, counter, ext));
                 if !candidate.exists() {
                     break candidate;
                 }
@@ -1026,16 +1120,26 @@ impl LanService {
                             }
                             // Update DB
                             if let Ok(conn) = db_conn.lock() {
-                                let _ = lan::update_file_transfer(&conn, file_id, "receiving", progress_pct, None, None);
+                                let _ = lan::update_file_transfer(
+                                    &conn,
+                                    file_id,
+                                    "receiving",
+                                    progress_pct,
+                                    None,
+                                    None,
+                                );
                             }
                             if let Some(app) = app_handle {
-                                let _ = app.emit("lan-file-transfer-progress", serde_json::json!({
-                                    "fileId": file_id,
-                                    "status": "receiving",
-                                    "progress": progress_pct,
-                                    "received": received,
-                                    "total": file_size,
-                                }));
+                                let _ = app.emit(
+                                    "lan-file-transfer-progress",
+                                    serde_json::json!({
+                                        "fileId": file_id,
+                                        "status": "receiving",
+                                        "progress": progress_pct,
+                                        "received": received,
+                                        "total": file_size,
+                                    }),
+                                );
                             }
                         }
                     }
@@ -1060,7 +1164,14 @@ impl LanService {
         // Update DB
         if let Ok(conn) = db_conn.lock() {
             let completed_at = chrono::Utc::now().to_rfc3339();
-            let _ = lan::update_file_transfer(&conn, file_id, "completed", 100, Some(&save_path_str), Some(&completed_at));
+            let _ = lan::update_file_transfer(
+                &conn,
+                file_id,
+                "completed",
+                100,
+                Some(&save_path_str),
+                Some(&completed_at),
+            );
             // Also update the chat_message for this file — update content JSON with status+filePath
             let content_json = serde_json::json!({
                 "fileName": file_name,
@@ -1068,42 +1179,53 @@ impl LanService {
                 "filePath": save_path_str,
                 "status": "completed",
                 "isImage": Self::is_image_file(&file_name),
-            }).to_string();
+            })
+            .to_string();
             let _ = conn.execute(
                 "UPDATE chat_messages SET content = ?1 WHERE id = ?2",
                 rusqlite::params![content_json, file_id],
             );
         }
 
-        Self::add_log_static(log, "info", &format!("File received: {} ({} bytes)", file_name, received));
+        Self::add_log_static(
+            log,
+            "info",
+            &format!("File received: {} ({} bytes)", file_name, received),
+        );
 
         if let Some(app) = app_handle {
             let completed_at = chrono::Utc::now().to_rfc3339();
-            let _ = app.emit("lan-file-transfer-completed", serde_json::json!({
-                "fileId": file_id,
-                "fileName": file_name,
-                "fileSize": file_size,
-                "received": received,
-                "filePath": save_path_str,
-                "status": "completed",
-                "progress": 100,
-                "completedAt": completed_at,
-                "isImage": Self::is_image_file(&file_name),
-            }));
+            let _ = app.emit(
+                "lan-file-transfer-completed",
+                serde_json::json!({
+                    "fileId": file_id,
+                    "fileName": file_name,
+                    "fileSize": file_size,
+                    "received": received,
+                    "filePath": save_path_str,
+                    "status": "completed",
+                    "progress": 100,
+                    "completedAt": completed_at,
+                    "isImage": Self::is_image_file(&file_name),
+                }),
+            );
             // Also emit lan-file-received for frontend compatibility
-            let _ = app.emit("lan-file-received", serde_json::json!({
-                "fileId": file_id,
-                "fromUserId": from_id,
-                "fromUserName": from_name,
-                "toUserId": my_user_id,
-                "toUserName": my_nick_str,
-                "fileName": file_name,
-                "fileSize": file_size,
-                "status": "completed",
-                "progress": 100,
-                "filePath": save_path_str,
-                "isImage": Self::is_image_file(&file_name),
-            }));
+            let _ = app.emit(
+                "lan-file-received",
+                serde_json::json!({
+                    "fileId": file_id,
+                    "fromUserId": from_id,
+                    "fromUserName": from_name,
+                    "toUserId": my_user_id,
+                    "toUserName": my_nick_str,
+                    "fileName": file_name,
+                    "fileSize": file_size,
+                    "status": "completed",
+                    "progress": 100,
+                    "filePath": save_path_str,
+                    "isImage": Self::is_image_file(&file_name),
+                }),
+            );
         }
     }
 
@@ -1147,7 +1269,10 @@ impl LanService {
 
     fn is_image_file(file_name: &str) -> bool {
         let ext = file_name.split('.').last().unwrap_or("").to_lowercase();
-        matches!(ext.as_str(), "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "svg")
+        matches!(
+            ext.as_str(),
+            "jpg" | "jpeg" | "png" | "gif" | "webp" | "bmp" | "svg"
+        )
     }
 
     fn add_log(&self, level: &str, message: &str) {
@@ -1191,7 +1316,11 @@ impl LanService {
         // Allow up to 4KB as safety margin for LAN, but reject anything larger
         const MAX_MESSAGE_BYTES: usize = 4096;
         if content.len() > MAX_MESSAGE_BYTES {
-            return Err(format!("消息过长（{} bytes），上限 {} bytes", content.len(), MAX_MESSAGE_BYTES));
+            return Err(format!(
+                "消息过长（{} bytes），上限 {} bytes",
+                content.len(),
+                MAX_MESSAGE_BYTES
+            ));
         }
 
         let peers = self.peers.lock().unwrap();
@@ -1216,7 +1345,11 @@ impl LanService {
         let chat_msg = ChatMessage {
             id: msg_id.clone(),
             from_user_id: self.user_id.clone(),
-            from_user_name: if nick.is_empty() { self.user_id.clone() } else { nick },
+            from_user_name: if nick.is_empty() {
+                self.user_id.clone()
+            } else {
+                nick
+            },
             to_user_id: peer_id.to_string(),
             to_user_name: to_name.clone(),
             content: Some(content.to_string()),
@@ -1235,7 +1368,10 @@ impl LanService {
 
         if let Ok(data) = serde_json::to_string(&msg) {
             if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
-                let _ = udp.send_to(data.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                let _ = udp.send_to(
+                    data.as_bytes(),
+                    format!("{}:{}", peer.address, peer.message_port),
+                );
                 return Ok(true);
             }
         }
@@ -1243,7 +1379,9 @@ impl LanService {
     }
 
     pub fn get_online_peers(&self) -> Vec<Peer> {
-        self.peers.lock().unwrap()
+        self.peers
+            .lock()
+            .unwrap()
             .values()
             .filter(|p| p.online)
             .cloned()
@@ -1290,7 +1428,7 @@ impl LanService {
         if let Ok(conn) = self.db_conn.lock() {
             let _ = lan::save_lan_setting(&conn, &format!("avatar:{}", self.user_id), &avatar);
         }
-        
+
         // 如果是图片头像，广播给其他用户
         if avatar.starts_with("avatar:") {
             if let Err(e) = self.broadcast_avatar_update(&avatar) {
@@ -1306,18 +1444,19 @@ impl LanService {
         }
 
         // 解析 avatar:filename 格式，读取图片文件
-        let filename = avatar_ref.strip_prefix("avatar:")
+        let filename = avatar_ref
+            .strip_prefix("avatar:")
             .ok_or("Invalid avatar format")?;
         let data_dir = supertool_core::logic::data_dir::resolve_data_dir();
         let avatar_path = data_dir.join("avatars").join(filename);
 
         // 读取图片文件并转为 base64
-        let image_data = fs::read(&avatar_path)
-            .map_err(|e| format!("读取头像图片失败: {}", e))?;
+        let image_data = fs::read(&avatar_path).map_err(|e| format!("读取头像图片失败: {}", e))?;
         let base64_data = BASE64.encode(&image_data);
 
         // 获取图片扩展名用于接收方保存
-        let ext = avatar_path.extension()
+        let ext = avatar_path
+            .extension()
             .and_then(|e| e.to_str())
             .unwrap_or("png");
 
@@ -1332,8 +1471,7 @@ impl LanService {
             "timestamp": chrono::Utc::now().timestamp_millis(),
         });
 
-        let data_str = serde_json::to_string(&msg)
-            .map_err(|e| format!("序列化失败: {}", e))?;
+        let data_str = serde_json::to_string(&msg).map_err(|e| format!("序列化失败: {}", e))?;
 
         // 广播给所有在线 peer
         let peers = self.peers.lock().unwrap();
@@ -1341,12 +1479,15 @@ impl LanService {
         if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
             for peer in peers.values() {
                 if peer.online {
-                    let _ = udp.send_to(data_str.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                    let _ = udp.send_to(
+                        data_str.as_bytes(),
+                        format!("{}:{}", peer.address, peer.message_port),
+                    );
                     sent_count += 1;
                 }
             }
         }
-        
+
         log::info!("[LAN] Broadcasted avatar update to {} peers", sent_count);
         Ok(sent_count)
     }
@@ -1377,7 +1518,8 @@ impl LanService {
                 "messagePort": DISCOVERY_PORT,
             });
             if let Ok(msg) = serde_json::to_string(&hb) {
-                let broadcast_addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                let broadcast_addr =
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
                 let _ = udp.send_to(msg.as_bytes(), broadcast_addr);
             }
         }
@@ -1416,7 +1558,8 @@ impl LanService {
             .map_err(|e| format!("读取文件失败: {}", e))?;
 
         // Use UUID for unique file_id to avoid timestamp collision
-        let file_id = file_id.unwrap_or_else(|| format!("file-{}", uuid::Uuid::new_v4().to_string()));
+        let file_id =
+            file_id.unwrap_or_else(|| format!("file-{}", uuid::Uuid::new_v4().to_string()));
 
         let nick = self.nick_name.lock().unwrap().clone();
         let transfer = FileTransfer {
@@ -1433,7 +1576,10 @@ impl LanService {
             created_at: chrono::Utc::now().to_rfc3339(),
             completed_at: None,
         };
-        self.file_transfers.lock().unwrap().insert(file_id.clone(), transfer);
+        self.file_transfers
+            .lock()
+            .unwrap()
+            .insert(file_id.clone(), transfer);
 
         // Persist to file_transfers DB
         let db_ft = DbFileTransfer {
@@ -1461,9 +1607,10 @@ impl LanService {
             "fileSize": file_size,
             "filePath": file_path,
             "isImage": Self::is_image_file(file_name),
-        }).to_string();
+        })
+        .to_string();
         let chat_msg = ChatMessage {
-            id: file_id.clone(),  // Must match file_transfers.id for LEFT JOIN
+            id: file_id.clone(), // Must match file_transfers.id for LEFT JOIN
             from_user_id: self.user_id.clone(),
             from_user_name: nick.clone(),
             to_user_id: peer_id.to_string(),
@@ -1483,17 +1630,20 @@ impl LanService {
         }
 
         // Emit file transfer start event
-        self.emit_event("lan-file-transfer-started", &serde_json::json!({
-            "fileId": file_id,
-            "fileName": file_name,
-            "fileSize": file_size,
-            "fromUserId": self.user_id,
-            "fromUserName": nick,
-            "toUserId": peer_id,
-            "toUserName": peer.name,
-            "status": "sending",
-            "progress": 0,
-        }));
+        self.emit_event(
+            "lan-file-transfer-started",
+            &serde_json::json!({
+                "fileId": file_id,
+                "fileName": file_name,
+                "fileSize": file_size,
+                "fromUserId": self.user_id,
+                "fromUserName": nick,
+                "toUserId": peer_id,
+                "toUserName": peer.name,
+                "status": "sending",
+                "progress": 0,
+            }),
+        );
 
         // Notify peer via UDP about incoming file
         let file_start = serde_json::json!({
@@ -1516,7 +1666,10 @@ impl LanService {
 
         if let Ok(msg) = serde_json::to_string(&file_start) {
             if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
-                let _ = udp.send_to(msg.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                let _ = udp.send_to(
+                    msg.as_bytes(),
+                    format!("{}:{}", peer.address, peer.message_port),
+                );
             }
         }
 
@@ -1534,7 +1687,19 @@ impl LanService {
         let db_conn = Arc::clone(&self.db_conn);
 
         thread::spawn(move || {
-            if let Err(e) = Self::do_send_file(&peer_addr, peer_tcp_port, &my_id, &fp, &fn_, &fid, ro, &transfers, &log, &send_app_handle, &db_conn) {
+            if let Err(e) = Self::do_send_file(
+                &peer_addr,
+                peer_tcp_port,
+                &my_id,
+                &fp,
+                &fn_,
+                &fid,
+                ro,
+                &transfers,
+                &log,
+                &send_app_handle,
+                &db_conn,
+            ) {
                 Self::add_log_static(&log, "error", &format!("File send failed: {}", e));
                 {
                     let mut tf = transfers.lock().unwrap();
@@ -1546,10 +1711,13 @@ impl LanService {
                     let _ = lan::update_file_transfer(&conn, &fid, "error", 0, None, None);
                 }
                 if let Some(app) = send_app_handle {
-                    let _ = app.emit("lan-file-transfer-error", serde_json::json!({
-                        "fileId": fid,
-                        "error": e,
-                    }));
+                    let _ = app.emit(
+                        "lan-file-transfer-error",
+                        serde_json::json!({
+                            "fileId": fid,
+                            "error": e,
+                        }),
+                    );
                 }
             }
         });
@@ -1579,14 +1747,25 @@ impl LanService {
         thread::sleep(Duration::from_millis(300));
 
         // Connect to peer's TCP file transfer port with 10-second timeout
-        Self::add_log_static(log, "info", &format!("Connecting to {}:{} for file transfer", peer_addr, FILE_TRANSFER_PORT));
+        Self::add_log_static(
+            log,
+            "info",
+            &format!(
+                "Connecting to {}:{} for file transfer",
+                peer_addr, FILE_TRANSFER_PORT
+            ),
+        );
         let mut stream = TcpStream::connect_timeout(
-            &format!("{}:{}", peer_addr, FILE_TRANSFER_PORT).parse().map_err(|e| format!("解析地址失败: {}", e))?,
+            &format!("{}:{}", peer_addr, FILE_TRANSFER_PORT)
+                .parse()
+                .map_err(|e| format!("解析地址失败: {}", e))?,
             Duration::from_secs(10),
-        ).map_err(|e| format!("TCP 连接超时: {}", e))?;
+        )
+        .map_err(|e| format!("TCP 连接超时: {}", e))?;
 
         // Send sender identity handshake: LAN-SEND <user_id>\n
-        stream.write_all(format!("LAN-SEND {}\n", sender_id).as_bytes())
+        stream
+            .write_all(format!("LAN-SEND {}\n", sender_id).as_bytes())
             .map_err(|e| format!("发送身份握手失败: {}", e))?;
 
         // Send header: FILE <name> <size> <id>\n
@@ -1607,9 +1786,15 @@ impl LanService {
         let mut sent = resume_offset;
         let mut last_emit_pct = 0i64;
         loop {
-            let n = file.read(&mut buf).map_err(|e| format!("读取失败: {}", e))?;
-            if n == 0 { break; }
-            stream.write_all(&buf[..n]).map_err(|e| format!("写入TCP失败: {}", e))?;
+            let n = file
+                .read(&mut buf)
+                .map_err(|e| format!("读取失败: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            stream
+                .write_all(&buf[..n])
+                .map_err(|e| format!("写入TCP失败: {}", e))?;
             sent += n as u64;
 
             let progress_pct = if file_size > 0 {
@@ -1626,16 +1811,26 @@ impl LanService {
                     }
                 }
                 if let Ok(conn) = db_conn.lock() {
-                    let _ = lan::update_file_transfer(&conn, file_id, "sending", progress_pct, None, None);
+                    let _ = lan::update_file_transfer(
+                        &conn,
+                        file_id,
+                        "sending",
+                        progress_pct,
+                        None,
+                        None,
+                    );
                 }
                 if let Some(app) = app_handle {
-                    let _ = app.emit("lan-file-transfer-progress", serde_json::json!({
-                        "fileId": file_id,
-                        "status": "sending",
-                        "progress": progress_pct,
-                        "sent": sent,
-                        "total": file_size,
-                    }));
+                    let _ = app.emit(
+                        "lan-file-transfer-progress",
+                        serde_json::json!({
+                            "fileId": file_id,
+                            "status": "sending",
+                            "progress": progress_pct,
+                            "sent": sent,
+                            "total": file_size,
+                        }),
+                    );
                 }
             }
         }
@@ -1652,7 +1847,14 @@ impl LanService {
 
         if let Ok(conn) = db_conn.lock() {
             let completed_at = chrono::Utc::now().to_rfc3339();
-            let _ = lan::update_file_transfer(&conn, file_id, "completed", 100, Some(file_path), Some(&completed_at));
+            let _ = lan::update_file_transfer(
+                &conn,
+                file_id,
+                "completed",
+                100,
+                Some(file_path),
+                Some(&completed_at),
+            );
             // Update chat_message for this file — update content JSON with status
             let content_json = serde_json::json!({
                 "fileName": file_name,
@@ -1660,41 +1862,59 @@ impl LanService {
                 "filePath": file_path,
                 "status": "completed",
                 "isImage": Self::is_image_file(file_name),
-            }).to_string();
+            })
+            .to_string();
             let _ = conn.execute(
                 "UPDATE chat_messages SET content = ?1, status = 'completed', progress = 100 WHERE id = ?2",
                 rusqlite::params![content_json, file_id],
             );
         }
 
-        Self::add_log_static(log, "info", &format!("File sent: {} ({} bytes)", file_name, sent));
+        Self::add_log_static(
+            log,
+            "info",
+            &format!("File sent: {} ({} bytes)", file_name, sent),
+        );
 
         // Get from/to user info from transfers map
         let (from_user_id, from_user_name, to_user_id, to_user_name) = {
             let tf = transfers.lock().unwrap();
             if let Some(t) = tf.get(file_id) {
-                (t.from_user_id.clone(), t.from_user_name.clone(), t.to_user_id.clone(), t.to_user_name.clone())
+                (
+                    t.from_user_id.clone(),
+                    t.from_user_name.clone(),
+                    t.to_user_id.clone(),
+                    t.to_user_name.clone(),
+                )
             } else {
-                ("unknown".to_string(), "unknown".to_string(), "unknown".to_string(), "unknown".to_string())
+                (
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                )
             }
         };
 
         if let Some(app) = app_handle {
-            let _ = app.emit("lan-file-transfer-completed", serde_json::json!({
-                "fileId": file_id,
-                "fromUserId": from_user_id,
-                "fromUserName": from_user_name,
-                "toUserId": to_user_id,
-                "toUserName": to_user_name,
-                "fileName": file_name,
-                "fileSize": file_size,
-                "filePath": file_path,
-                "status": "completed",
-                "progress": 100,
-                "sent": sent,
-                "completedAt": chrono::Utc::now().to_rfc3339(),
-                "isImage": Self::is_image_file(file_name),
-            }));
+            let _ = app.emit(
+                "lan-file-transfer-completed",
+                serde_json::json!({
+                    "fileId": file_id,
+                    "fromUserId": from_user_id,
+                    "fromUserName": from_user_name,
+                    "toUserId": to_user_id,
+                    "toUserName": to_user_name,
+                    "fileName": file_name,
+                    "fileSize": file_size,
+                    "filePath": file_path,
+                    "status": "completed",
+                    "progress": 100,
+                    "sent": sent,
+                    "completedAt": chrono::Utc::now().to_rfc3339(),
+                    "isImage": Self::is_image_file(file_name),
+                }),
+            );
         }
 
         Ok(())
@@ -1717,10 +1937,10 @@ impl LanService {
         let screenshot_path = "/tmp/lan_screenshot.png";
         // Try different commands
         let cmds: &[(&str, &[&str])] = &[
-            ("screencapture", &["-x", screenshot_path]),           // macOS
-            ("gnome-screenshot", &["-f", screenshot_path]),        // GNOME
-            ("scrot", &[screenshot_path]),                          // scrot
-            ("import", &["-window", "root", screenshot_path]),     // ImageMagick
+            ("screencapture", &["-x", screenshot_path]),    // macOS
+            ("gnome-screenshot", &["-f", screenshot_path]), // GNOME
+            ("scrot", &[screenshot_path]),                  // scrot
+            ("import", &["-window", "root", screenshot_path]), // ImageMagick
         ];
 
         for (cmd, args) in cmds {
@@ -1740,29 +1960,31 @@ impl LanService {
     /// Decode base64 data and write to ~/.supertool/lan_temp/
     pub fn save_temp_file(&self, base64_data: &str, file_name: &str) -> Result<String, String> {
         let temp_dir = supertool_core::logic::data_dir::lan_temp_dir();
-        fs::create_dir_all(&temp_dir)
-            .map_err(|e| format!("创建临时目录失败: {}", e))?;
+        fs::create_dir_all(&temp_dir).map_err(|e| format!("创建临时目录失败: {}", e))?;
 
         let file_path = temp_dir.join(file_name);
-        let decoded = BASE64.decode(base64_data)
+        let decoded = BASE64
+            .decode(base64_data)
             .map_err(|e| format!("Base64 解码失败: {}", e))?;
-        fs::write(&file_path, decoded)
-            .map_err(|e| format!("写入文件失败: {}", e))?;
+        fs::write(&file_path, decoded).map_err(|e| format!("写入文件失败: {}", e))?;
 
         Ok(file_path.to_string_lossy().to_string())
     }
 
     /// Read file and encode as base64
     pub fn load_file_as_base64(&self, file_path: &str) -> Result<String, String> {
-        let data = fs::read(file_path)
-            .map_err(|e| format!("读取文件失败: {}", e))?;
+        let data = fs::read(file_path).map_err(|e| format!("读取文件失败: {}", e))?;
         Ok(BASE64.encode(&data))
     }
 
     // ========== Collaboration broadcast methods ==========
 
     /// Send task assignment to a specific peer
-    pub fn assign_task(&self, peer_id: &str, task_data: &serde_json::Value) -> Result<bool, String> {
+    pub fn assign_task(
+        &self,
+        peer_id: &str,
+        task_data: &serde_json::Value,
+    ) -> Result<bool, String> {
         self.send_collab_message(peer_id, "assign_task", task_data)
     }
 
@@ -1772,27 +1994,45 @@ impl LanService {
     }
 
     /// Broadcast task status change to all online peers
-    pub fn broadcast_task_status_change(&self, task_data: &serde_json::Value) -> Result<usize, String> {
+    pub fn broadcast_task_status_change(
+        &self,
+        task_data: &serde_json::Value,
+    ) -> Result<usize, String> {
         self.broadcast_collab_message("task_status_change", task_data)
     }
 
     /// Send task comment to a specific peer
-    pub fn broadcast_task_comment(&self, peer_id: &str, comment_data: &serde_json::Value) -> Result<bool, String> {
+    pub fn broadcast_task_comment(
+        &self,
+        peer_id: &str,
+        comment_data: &serde_json::Value,
+    ) -> Result<bool, String> {
         self.send_collab_message(peer_id, "task_comment", comment_data)
     }
 
     /// Broadcast collaboration started to all online peers
-    pub fn broadcast_collaboration_started(&self, collab_data: &serde_json::Value) -> Result<usize, String> {
+    pub fn broadcast_collaboration_started(
+        &self,
+        collab_data: &serde_json::Value,
+    ) -> Result<usize, String> {
         self.broadcast_collab_message("collaboration_started", collab_data)
     }
 
     /// Broadcast collaboration ended to all online peers
-    pub fn broadcast_collaboration_ended(&self, collab_data: &serde_json::Value) -> Result<usize, String> {
+    pub fn broadcast_collaboration_ended(
+        &self,
+        collab_data: &serde_json::Value,
+    ) -> Result<usize, String> {
         self.broadcast_collab_message("collaboration_ended", collab_data)
     }
 
     /// Send collaboration message to a specific peer
-    fn send_collab_message(&self, peer_id: &str, msg_type: &str, data: &serde_json::Value) -> Result<bool, String> {
+    fn send_collab_message(
+        &self,
+        peer_id: &str,
+        msg_type: &str,
+        data: &serde_json::Value,
+    ) -> Result<bool, String> {
         if !self.is_running.load(Ordering::SeqCst) {
             return Err("LAN service not running".to_string());
         }
@@ -1833,7 +2073,10 @@ impl LanService {
 
         if let Ok(data_str) = serde_json::to_string(&msg) {
             if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
-                let _ = udp.send_to(data_str.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                let _ = udp.send_to(
+                    data_str.as_bytes(),
+                    format!("{}:{}", peer.address, peer.message_port),
+                );
                 return Ok(true);
             }
         }
@@ -1841,7 +2084,11 @@ impl LanService {
     }
 
     /// Broadcast collaboration message to all online peers, returns sent count
-    fn broadcast_collab_message(&self, msg_type: &str, data: &serde_json::Value) -> Result<usize, String> {
+    fn broadcast_collab_message(
+        &self,
+        msg_type: &str,
+        data: &serde_json::Value,
+    ) -> Result<usize, String> {
         if !self.is_running.load(Ordering::SeqCst) {
             return Err("LAN service not running".to_string());
         }
@@ -1854,15 +2101,17 @@ impl LanService {
             "timestamp": chrono::Utc::now().timestamp_millis(),
         });
 
-        let data_str = serde_json::to_string(&msg)
-            .map_err(|e| format!("序列化失败: {}", e))?;
+        let data_str = serde_json::to_string(&msg).map_err(|e| format!("序列化失败: {}", e))?;
 
         let peers = self.peers.lock().unwrap();
         let mut sent_count = 0;
         if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
             for peer in peers.values() {
                 if peer.online {
-                    let _ = udp.send_to(data_str.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                    let _ = udp.send_to(
+                        data_str.as_bytes(),
+                        format!("{}:{}", peer.address, peer.message_port),
+                    );
                     sent_count += 1;
                 }
             }
@@ -1885,15 +2134,17 @@ impl LanService {
             "timestamp": chrono::Utc::now().timestamp_millis(),
         });
 
-        let data_str = serde_json::to_string(&msg)
-            .map_err(|e| format!("序列化失败: {}", e))?;
+        let data_str = serde_json::to_string(&msg).map_err(|e| format!("序列化失败: {}", e))?;
 
         let peers = self.peers.lock().unwrap();
         let mut sent_count = 0;
         if let Some(udp) = self.udp_socket.lock().unwrap().as_ref() {
             for peer in peers.values() {
                 if peer.online {
-                    let _ = udp.send_to(data_str.as_bytes(), format!("{}:{}", peer.address, peer.message_port));
+                    let _ = udp.send_to(
+                        data_str.as_bytes(),
+                        format!("{}:{}", peer.address, peer.message_port),
+                    );
                     sent_count += 1;
                 }
             }

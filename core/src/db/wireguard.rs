@@ -57,7 +57,10 @@ pub fn get_all(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<WireGuardCon
     rows.collect()
 }
 
-pub fn get_by_id(conn: &rusqlite::Connection, id: &str) -> rusqlite::Result<Option<WireGuardConfig>> {
+pub fn get_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> rusqlite::Result<Option<WireGuardConfig>> {
     let mut stmt = conn.prepare(
         "SELECT id, name, privateKey, publicKey, address, dns, mtu, peerPublicKey, peerEndpoint, peerAllowedIPs, peerPersistentKeepalive, presharedKey, createdAt, updatedAt FROM wireguard_configs WHERE id = ?"
     )?;

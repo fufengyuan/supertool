@@ -1,18 +1,24 @@
-use supertool_core::logic::CoreService;
-use supertool_core::logic::cicd_deploy::{self, DeployConfig, DeployModuleConfig, DeployServerConfig};
-use supertool_core::db::cicd::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::Path;
-use std::sync::{Mutex, LazyLock};
-use tauri::{State, Emitter};
+use std::sync::{LazyLock, Mutex};
+use supertool_core::db::cicd::*;
+use supertool_core::logic::CoreService;
+use supertool_core::logic::cicd_deploy::{
+    self, DeployConfig, DeployModuleConfig, DeployServerConfig,
+};
+use tauri::{Emitter, State};
 
 // 部署取消状态管理：cancel_deploy 将 deploy_id 加入此集合，deploy 任务检查后提前退出
-static CANCELLED_DEPLOYS: LazyLock<Mutex<HashSet<String>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+static CANCELLED_DEPLOYS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
 
 fn is_deploy_cancelled(deploy_id: &str) -> bool {
-    CANCELLED_DEPLOYS.lock().map(|set| set.contains(deploy_id)).unwrap_or(false)
+    CANCELLED_DEPLOYS
+        .lock()
+        .map(|set| set.contains(deploy_id))
+        .unwrap_or(false)
 }
 
 // =================== Types ===================
@@ -99,25 +105,37 @@ pub fn detect_sdk_versions() -> serde_json::Value {
 
     // Scan SDKMAN candidates
     let home = std::env::var("HOME").unwrap_or_default();
-    let sdkman_base = std::path::Path::new(&home).join(".sdkman").join("candidates");
+    let sdkman_base = std::path::Path::new(&home)
+        .join(".sdkman")
+        .join("candidates");
 
     let mut sdkman: serde_json::Map<String, serde_json::Value> = serde_json::Map::new();
     for candidate in &["java", "maven", "gradle"] {
         let dir = sdkman_base.join(candidate);
-        if !dir.exists() { continue; }
+        if !dir.exists() {
+            continue;
+        }
 
         let mut versions: Vec<serde_json::Value> = Vec::new();
         let current_link = dir.join("current");
         let current_target = if current_link.exists() && current_link.is_symlink() {
-            std::fs::read_link(&current_link).ok().map(|p| p.to_string_lossy().to_string())
-        } else { None };
+            std::fs::read_link(&current_link)
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+        } else {
+            None
+        };
 
         if let Ok(entries) = std::fs::read_dir(&dir) {
             for entry in entries.flatten() {
-                if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+                if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    continue;
+                }
                 let name = entry.file_name().to_string_lossy().to_string();
                 let ver_path = entry.path();
-                let is_current = current_target.as_ref().map_or(false, |ct| ct.ends_with(&name));
+                let is_current = current_target
+                    .as_ref()
+                    .map_or(false, |ct| ct.ends_with(&name));
                 versions.push(serde_json::json!({
                     "name": name,
                     "path": ver_path.to_string_lossy(),
@@ -126,10 +144,24 @@ pub fn detect_sdk_versions() -> serde_json::Value {
             }
         }
         versions.sort_by(|a, b| {
-            let a_cur = a.get("isCurrent").and_then(|v| v.as_bool()).unwrap_or(false);
-            let b_cur = b.get("isCurrent").and_then(|v| v.as_bool()).unwrap_or(false);
-            if a_cur != b_cur { return if a_cur { std::cmp::Ordering::Less } else { std::cmp::Ordering::Greater }; }
-            b.get("name").and_then(|v| v.as_str()).cmp(&a.get("name").and_then(|v| v.as_str()))
+            let a_cur = a
+                .get("isCurrent")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            let b_cur = b
+                .get("isCurrent")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+            if a_cur != b_cur {
+                return if a_cur {
+                    std::cmp::Ordering::Less
+                } else {
+                    std::cmp::Ordering::Greater
+                };
+            }
+            b.get("name")
+                .and_then(|v| v.as_str())
+                .cmp(&a.get("name").and_then(|v| v.as_str()))
         });
         sdkman.insert(candidate.to_string(), serde_json::Value::Array(versions));
     }
@@ -137,31 +169,54 @@ pub fn detect_sdk_versions() -> serde_json::Value {
     // Scan NVM versions
     let mut nvm_versions: Vec<serde_json::Value> = Vec::new();
     let nvm_paths = [
-        std::env::var("NVM_DIR").ok().map(|p| std::path::PathBuf::from(p).join("versions").join("node")),
-        Some(std::path::PathBuf::from(&home).join(".nvm").join("versions").join("node")),
-        Some(std::path::PathBuf::from("/opt/homebrew/opt/nvm/versions/node")),
+        std::env::var("NVM_DIR")
+            .ok()
+            .map(|p| std::path::PathBuf::from(p).join("versions").join("node")),
+        Some(
+            std::path::PathBuf::from(&home)
+                .join(".nvm")
+                .join("versions")
+                .join("node"),
+        ),
+        Some(std::path::PathBuf::from(
+            "/opt/homebrew/opt/nvm/versions/node",
+        )),
         Some(std::path::PathBuf::from("/usr/local/opt/nvm/versions/node")),
     ];
 
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
     for nvm_base in nvm_paths.iter().flatten() {
-        if !nvm_base.exists() { continue; }
+        if !nvm_base.exists() {
+            continue;
+        }
         let current_link = nvm_base.join("current");
         let current_target = if current_link.exists() && current_link.is_symlink() {
-            std::fs::read_link(&current_link).ok().map(|p| p.to_string_lossy().to_string())
-        } else { None };
+            std::fs::read_link(&current_link)
+                .ok()
+                .map(|p| p.to_string_lossy().to_string())
+        } else {
+            None
+        };
 
         if let Ok(entries) = std::fs::read_dir(nvm_base) {
             for entry in entries.flatten() {
-                if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) { continue; }
+                if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+                    continue;
+                }
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name == "current" || seen.contains(&name) { continue; }
+                if name == "current" || seen.contains(&name) {
+                    continue;
+                }
                 let ver_path = entry.path();
-                if !ver_path.join("bin").join("node").exists() { continue; }
+                if !ver_path.join("bin").join("node").exists() {
+                    continue;
+                }
                 seen.insert(name.clone());
 
                 let bin_dir = ver_path.join("bin");
-                let is_current = current_target.as_ref().map_or(false, |ct| ct.ends_with(&name));
+                let is_current = current_target
+                    .as_ref()
+                    .map_or(false, |ct| ct.ends_with(&name));
                 nvm_versions.push(serde_json::json!({
                     "name": name,
                     "path": ver_path.to_string_lossy(),
@@ -174,10 +229,24 @@ pub fn detect_sdk_versions() -> serde_json::Value {
         }
     }
     nvm_versions.sort_by(|a, b| {
-        let a_cur = a.get("isCurrent").and_then(|v| v.as_bool()).unwrap_or(false);
-        let b_cur = b.get("isCurrent").and_then(|v| v.as_bool()).unwrap_or(false);
-        if a_cur != b_cur { return if a_cur { std::cmp::Ordering::Less } else { std::cmp::Ordering::Greater }; }
-        b.get("name").and_then(|v| v.as_str()).cmp(&a.get("name").and_then(|v| v.as_str()))
+        let a_cur = a
+            .get("isCurrent")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        let b_cur = b
+            .get("isCurrent")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        if a_cur != b_cur {
+            return if a_cur {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Greater
+            };
+        }
+        b.get("name")
+            .and_then(|v| v.as_str())
+            .cmp(&a.get("name").and_then(|v| v.as_str()))
     });
 
     serde_json::json!({
@@ -210,7 +279,11 @@ pub fn check_java(java_home: Option<String>) -> ToolDetectionResult {
     let mut available = false;
     if result.success || !result.stderr.is_empty() {
         // java -version outputs to stderr
-        let output = if !result.stderr.is_empty() { &result.stderr } else { &result.stdout };
+        let output = if !result.stderr.is_empty() {
+            &result.stderr
+        } else {
+            &result.stdout
+        };
         if let Some(line) = output.lines().next() {
             let ver_str = line.trim().to_string();
             if !ver_str.is_empty() {
@@ -219,10 +292,7 @@ pub fn check_java(java_home: Option<String>) -> ToolDetectionResult {
             }
         }
     }
-    let path = run_command("which java", None)
-        .stdout
-        .trim()
-        .to_string();
+    let path = run_command("which java", None).stdout.trim().to_string();
     ToolDetectionResult {
         available,
         version,
@@ -232,7 +302,10 @@ pub fn check_java(java_home: Option<String>) -> ToolDetectionResult {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn check_maven(maven_home: Option<String>) -> ToolDetectionResult {
-    log::info!("[Tauri CMD] check_maven() called, mavenHome={:?}", maven_home);
+    log::info!(
+        "[Tauri CMD] check_maven() called, mavenHome={:?}",
+        maven_home
+    );
     let cmd = if let Some(ref home) = maven_home {
         // 智能检测: 如果路径以 mvn 结尾(是二进制)则直接使用, 否则当作 MAVEN_HOME 拼接 /bin/mvn
         let mvn_path = if Path::new(home).is_file() || home.ends_with("/mvn") {
@@ -250,10 +323,7 @@ pub fn check_maven(maven_home: Option<String>) -> ToolDetectionResult {
     if available {
         version = result.stdout.lines().next().map(|s| s.trim().to_string());
     }
-    let path = run_command("which mvn", None)
-        .stdout
-        .trim()
-        .to_string();
+    let path = run_command("which mvn", None).stdout.trim().to_string();
     ToolDetectionResult {
         available,
         version,
@@ -280,10 +350,7 @@ pub fn check_node(node_home: Option<String>) -> ToolDetectionResult {
     if available {
         version = result.stdout.lines().next().map(|s| s.trim().to_string());
     }
-    let path = run_command("which node", None)
-        .stdout
-        .trim()
-        .to_string();
+    let path = run_command("which node", None).stdout.trim().to_string();
     ToolDetectionResult {
         available,
         version,
@@ -368,8 +435,16 @@ pub fn detect_tool_paths_impl() -> ToolPaths {
     let yarn_bin = find_path("yarn");
     ToolPaths {
         maven_home: mvn_bin,
-        java_home: if java_bin.is_empty() { String::new() } else { strip_bin(&java_bin) },
-        node_home: if node_bin.is_empty() { String::new() } else { strip_bin(&node_bin) },
+        java_home: if java_bin.is_empty() {
+            String::new()
+        } else {
+            strip_bin(&java_bin)
+        },
+        node_home: if node_bin.is_empty() {
+            String::new()
+        } else {
+            strip_bin(&node_bin)
+        },
         npm_home: npm_bin,
         pnpm_home: pnpm_bin,
         yarn_home: yarn_bin,
@@ -456,7 +531,10 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
                 result.project_name = Some(cap[1].to_string());
             }
             if let Ok(re) = regex::Regex::new(r"<profile>\s*<id>([^<]+)</id>") {
-                let profiles: Vec<String> = re.captures_iter(&pom).map(|cap| cap[1].to_string()).collect();
+                let profiles: Vec<String> = re
+                    .captures_iter(&pom)
+                    .map(|cap| cap[1].to_string())
+                    .collect();
                 if !profiles.is_empty() {
                     let recommended = if profiles.contains(&"prod".to_string()) {
                         "prod".to_string()
@@ -472,7 +550,8 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
             if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
                 if let Some(cap) = re.captures(&pom) {
                     let module_re = regex::Regex::new(r"<module>\s*([^<]+?)\s*</module>").unwrap();
-                    let modules: Vec<String> = module_re.captures_iter(&cap[1])
+                    let modules: Vec<String> = module_re
+                        .captures_iter(&cap[1])
                         .map(|c| c[1].trim().to_string())
                         .filter(|m| !m.is_empty())
                         .collect();
@@ -601,24 +680,39 @@ pub async fn save_cicd_config(
     let result = core.db_write(|conn| {
         let existing = match cicd_get_config_by_id(conn, &cicd_config.id) {
             Ok(v) => v,
-            Err(e) => panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())),
+            Err(e) => panic!(
+                "{}",
+                supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+            ),
         };
         if existing.is_some() {
             cicd_config.updated_at = now.clone();
             if let Err(e) = cicd_update_config(conn, &cicd_config) {
-                panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
+                panic!(
+                    "{}",
+                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+                );
             }
         } else {
             cicd_config.created_at = now.clone();
             cicd_config.updated_at = now.clone();
             if let Err(e) = cicd_add_config(conn, &cicd_config) {
-                panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
+                panic!(
+                    "{}",
+                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+                );
             }
         }
         // Handle modules
         if let Some(mods) = modules {
-            if let Err(e) = conn.execute("DELETE FROM deploy_modules WHERE configId = ?", [&cicd_config.id]) {
-                panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
+            if let Err(e) = conn.execute(
+                "DELETE FROM deploy_modules WHERE configId = ?",
+                [&cicd_config.id],
+            ) {
+                panic!(
+                    "{}",
+                    supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+                );
             }
             for m in &mods {
                 let mut module: DeployModule =
@@ -627,13 +721,19 @@ pub async fn save_cicd_config(
                 module.created_at = now.clone();
                 module.updated_at = now.clone();
                 if let Err(e) = cicd_add_module(conn, &module) {
-                    panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string()));
+                    panic!(
+                        "{}",
+                        supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+                    );
                 }
             }
         }
         match cicd_get_config_by_id(conn, &cicd_config.id) {
             Ok(v) => v,
-            Err(e) => panic!("{}", supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())),
+            Err(e) => panic!(
+                "{}",
+                supertool_core::logic::log_sanitizer::sanitize_string(&e.to_string())
+            ),
         }
     });
     match result {
@@ -668,9 +768,9 @@ pub async fn deploy(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy() called");
     // Get config from DB
-    let cicd_config = core.db_read(|conn| {
-        cicd_get_config_by_id(conn, &config_id).map_err(|e| e.to_string())
-    })??.ok_or("CI/CD 配置不存在")?;
+    let cicd_config = core
+        .db_read(|conn| cicd_get_config_by_id(conn, &config_id).map_err(|e| e.to_string()))??
+        .ok_or("CI/CD 配置不存在")?;
 
     // Check approval requirement
     if cicd_config.requires_approval && confirmed != Some(true) {
@@ -682,9 +782,8 @@ pub async fn deploy(
         }));
     }
 
-    let modules = core.db_read(|conn| {
-        cicd_get_modules(conn, &config_id).map_err(|e| e.to_string())
-    })??;
+    let modules =
+        core.db_read(|conn| cicd_get_modules(conn, &config_id).map_err(|e| e.to_string()))??;
 
     // Build DeployConfig
     let deploy_config = build_deploy_config(&core, &cicd_config, &modules)?;
@@ -696,7 +795,7 @@ pub async fn deploy(
         id: deploy_id.clone(),
         config_id: config_id.clone(),
         status: "running".to_string(),
-                    start_time: now.clone(),
+        start_time: now.clone(),
         end_time: None,
         error_message: None,
         progress: 0,
@@ -708,10 +807,8 @@ pub async fn deploy(
 
     // Save deploy log
     core.db_write(|conn| -> Result<(), String> {
-        cicd_add_deploy_log(conn, &deploy_log)
-            .map_err(|e| e.to_string())?;
-        cicd_touch_deploy(conn, &config_id)
-            .map_err(|e| e.to_string())?;
+        cicd_add_deploy_log(conn, &deploy_log).map_err(|e| e.to_string())?;
+        cicd_touch_deploy(conn, &config_id).map_err(|e| e.to_string())?;
         Ok(())
     })??;
 
@@ -727,7 +824,10 @@ pub async fn deploy(
     })?;
 
     // Emit deploy-log-id-created event immediately
-    let _ = app.emit("deploy-log-id-created", serde_json::json!({ "deployLogId": deploy_id }));
+    let _ = app.emit(
+        "deploy-log-id-created",
+        serde_json::json!({ "deployLogId": deploy_id }),
+    );
 
     let deploy_id_arc = std::sync::Arc::new(deploy_id.clone());
     let config_id_arc = std::sync::Arc::new(config_id.clone());
@@ -758,7 +858,8 @@ pub async fn deploy(
                 let _ = app_for_closure.emit("deploy-progress", &payload);
             },
             move || is_deploy_cancelled(&did_for_cancel),
-        ).await;
+        )
+        .await;
 
         // Update deploy log with result
         let final_status: String;
@@ -779,7 +880,8 @@ pub async fn deploy(
                 final_error = result.error.clone();
                 final_progress = if result.success { 100 } else { 0 };
                 final_log_path = Some(result.log_file_path.clone());
-                final_artifact_paths = Some(serde_json::to_string(&result.artifact_paths).unwrap_or_default());
+                final_artifact_paths =
+                    Some(serde_json::to_string(&result.artifact_paths).unwrap_or_default());
             }
             Err(e) => {
                 final_status = "failed".to_string();
@@ -807,7 +909,15 @@ pub async fn deploy(
 
         // 写入 deploy_history 记录（供前端部署历史展示使用，成功和失败都记录）
         let history_status = match &deploy_result {
-            Ok(result) => if result.cancelled == Some(true) { "cancelled" } else if result.success { "success" } else { "failed" },
+            Ok(result) => {
+                if result.cancelled == Some(true) {
+                    "cancelled"
+                } else if result.success {
+                    "success"
+                } else {
+                    "failed"
+                }
+            }
             Err(_) => "failed",
         };
         let history = crate::commands::cicd::DeployHistory {
@@ -818,7 +928,8 @@ pub async fn deploy(
             rolled_back: false,
             rolled_back_at: None,
         };
-        let _ = core_clone.db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
+        let _ = core_clone
+            .db_write(|conn| crate::commands::cicd::cicd_add_deploy_history(conn, &history));
 
         // 清理取消标记
         if let Ok(mut set) = CANCELLED_DEPLOYS.lock() {
@@ -837,22 +948,32 @@ pub async fn deploy(
                     &cicd_config.name,
                     result.error.as_deref(),
                 );
-                let _ = app_arc.emit("deploy-notification", serde_json::json!({
-                    "success": result.success,
-                    "cancelled": is_cancelled,
-                    "configId": *config_id_arc,
-                    "deployLogId": *deploy_id_arc,
-                    "error": result.error,
-                }));
+                let _ = app_arc.emit(
+                    "deploy-notification",
+                    serde_json::json!({
+                        "success": result.success,
+                        "cancelled": is_cancelled,
+                        "configId": *config_id_arc,
+                        "deployLogId": *deploy_id_arc,
+                        "error": result.error,
+                    }),
+                );
             }
             Err(e) => {
-                crate::tray_notification::show_deploy_notification(false, &cicd_config.name, Some(e));
-                let _ = app_arc.emit("deploy-notification", serde_json::json!({
-                    "success": false,
-                    "configId": *config_id_arc,
-                    "deployLogId": *deploy_id_arc,
-                    "error": e,
-                }));
+                crate::tray_notification::show_deploy_notification(
+                    false,
+                    &cicd_config.name,
+                    Some(e),
+                );
+                let _ = app_arc.emit(
+                    "deploy-notification",
+                    serde_json::json!({
+                        "success": false,
+                        "configId": *config_id_arc,
+                        "deployLogId": *deploy_id_arc,
+                        "error": e,
+                    }),
+                );
             }
         }
     });
@@ -871,7 +992,10 @@ pub async fn cancel_deploy(
     core: State<'_, CoreService>,
     deploy_log_id: String,
 ) -> Result<serde_json::Value, String> {
-    log::info!("[Tauri CMD] cancel_deploy() called, deploy_log_id={}", deploy_log_id);
+    log::info!(
+        "[Tauri CMD] cancel_deploy() called, deploy_log_id={}",
+        deploy_log_id
+    );
 
     // 标记为已取消，deploy 任务会在下一个检查点退出
     if let Ok(mut set) = CANCELLED_DEPLOYS.lock() {
@@ -911,11 +1035,13 @@ pub async fn rollback(
     log_id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] rollback() called");
-    let _deploy_log = core.db_read(|conn| cicd_get_deploy_log_by_id(conn, &log_id))?
+    let _deploy_log = core
+        .db_read(|conn| cicd_get_deploy_log_by_id(conn, &log_id))?
         .ok_or("部署记录不存在")?;
 
     // Get CICD config to read server info
-    let cicd_config = core.db_read(|conn| cicd_get_config_by_id(conn, &config_id).expect("db error"))?
+    let cicd_config = core
+        .db_read(|conn| cicd_get_config_by_id(conn, &config_id).expect("db error"))?
         .ok_or("CI/CD 配置不存在")?;
 
     let rollback_id = uuid::Uuid::new_v4().to_string();
@@ -926,7 +1052,8 @@ pub async fn rollback(
     if let Some(ref servers_str) = cicd_config.servers {
         if let Ok(servers) = serde_json::from_str::<Vec<serde_json::Value>>(servers_str) {
             for server_val in &servers {
-                let host_or_id = server_val.get("host")
+                let host_or_id = server_val
+                    .get("host")
                     .or_else(|| server_val.get("serverId"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
@@ -953,12 +1080,23 @@ pub async fn rollback(
                 let host = server.host.clone();
                 let port = server.port as u16;
                 let username = server.username.clone();
-                let password = server.password.clone()
+                let password = server
+                    .password
+                    .clone()
                     .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
                 let ssh_key = server.ssh_key_path.clone();
 
                 // Execute restart script via SSH
-                match execute_remote_restart(host.clone(), port, username, password, ssh_key, cicd_config.restart_script.clone()).await {
+                match execute_remote_restart(
+                    host.clone(),
+                    port,
+                    username,
+                    password,
+                    ssh_key,
+                    cicd_config.restart_script.clone(),
+                )
+                .await
+                {
                     Ok(_) => log::info!("[rollback] {}:{} restart successful", host, port),
                     Err(e) => {
                         log::error!("[rollback] {}:{} restart failed: {}", host, port, e);
@@ -977,7 +1115,11 @@ pub async fn rollback(
     let history = DeployHistory {
         id: rollback_id,
         config_id: config_id.clone(),
-        status: if rollback_errors.is_empty() { "rollback-success".to_string() } else { "rollback-partial".to_string() },
+        status: if rollback_errors.is_empty() {
+            "rollback-success".to_string()
+        } else {
+            "rollback-partial".to_string()
+        },
         deployed_at: now.clone(),
         rolled_back: true,
         rolled_back_at: Some(now.clone()),
@@ -1011,17 +1153,22 @@ async fn execute_remote_restart(
         use std::net::TcpStream;
 
         let addr = format!("{}:{}", host, port);
-        let tcp = TcpStream::connect(&addr)
-            .map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
+        let tcp = TcpStream::connect(&addr).map_err(|e| format!("连接 {} 失败: {}", addr, e))?;
 
         let mut sess = Session::new().map_err(|e| format!("创建 SSH session 失败: {}", e))?;
         sess.set_tcp_stream(tcp);
         sess.set_timeout(30_000);
-        sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+        sess.handshake()
+            .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
         if let Some(key_path) = private_key {
-            sess.userauth_pubkey_file(&username, None, std::path::Path::new(&key_path), password.as_deref())
-                .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
+            sess.userauth_pubkey_file(
+                &username,
+                None,
+                std::path::Path::new(&key_path),
+                password.as_deref(),
+            )
+            .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
         } else if let Some(ref pw) = password {
             sess.userauth_password(&username, pw)
                 .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
@@ -1036,14 +1183,22 @@ async fn execute_remote_restart(
         // 对齐 core/src/logic/cicd_deploy.rs execute_restart 的修复
         // 使用 bash -l -c 加载用户环境变量（JAVA_HOME 等）
         let exec_cmd = if restart_script.starts_with('/') {
-            format!("chmod +x {} && bash -l -c '{}' 2>&1", restart_script, restart_script)
+            format!(
+                "chmod +x {} && bash -l -c '{}' 2>&1",
+                restart_script, restart_script
+            )
         } else {
             // 相对路径需要 cd，但 rollback 没有 deployDir，默认用 ~/apphome
-            format!("cd ~/apphome && chmod +x {} && bash -l -c '{}' 2>&1", restart_script, restart_script)
+            format!(
+                "cd ~/apphome && chmod +x {} && bash -l -c '{}' 2>&1",
+                restart_script, restart_script
+            )
         };
-        let mut channel = sess.channel_session()
+        let mut channel = sess
+            .channel_session()
             .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-        channel.exec(&exec_cmd)
+        channel
+            .exec(&exec_cmd)
             .map_err(|e| format!("执行重启命令失败: {}", e))?;
 
         // 收集输出
@@ -1054,8 +1209,16 @@ async fn execute_remote_restart(
 
         let exit_status = channel.exit_status().unwrap_or(-1);
         if exit_status != 0 {
-            log::error!("[rollback] restart failed (exit {}): {}", exit_status, output.trim());
-            return Err(format!("重启脚本退出码 {}: {}", exit_status, output.trim().chars().take(200).collect::<String>()));
+            log::error!(
+                "[rollback] restart failed (exit {}): {}",
+                exit_status,
+                output.trim()
+            );
+            return Err(format!(
+                "重启脚本退出码 {}: {}",
+                exit_status,
+                output.trim().chars().take(200).collect::<String>()
+            ));
         } else {
             log::info!("[rollback] restart success: {}", output.trim());
         }
@@ -1092,7 +1255,8 @@ pub async fn get_deploy_logs(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn read_log_file(file_path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] read_log_file() called");
-    let content = std::fs::read_to_string(&file_path).map_err(|e| format!("读取日志文件失败: {}", e))?;
+    let content =
+        std::fs::read_to_string(&file_path).map_err(|e| format!("读取日志文件失败: {}", e))?;
     Ok(serde_json::json!({
         "success": true,
         "content": content,
@@ -1125,7 +1289,10 @@ pub async fn get_rollback_history(
 fn cicd_get_all_configs(conn: &rusqlite::Connection) -> Result<Vec<CicdConfig>, String> {
     supertool_core::db::cicd::get_all_cicd_configs(conn).map_err(|e| e.to_string())
 }
-fn cicd_get_config_by_id(conn: &rusqlite::Connection, id: &str) -> Result<Option<CicdConfig>, String> {
+fn cicd_get_config_by_id(
+    conn: &rusqlite::Connection,
+    id: &str,
+) -> Result<Option<CicdConfig>, String> {
     supertool_core::db::cicd::get_cicd_config_by_config_id(conn, id).map_err(|e| e.to_string())
 }
 fn cicd_get_groups(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
@@ -1134,13 +1301,19 @@ fn cicd_get_groups(conn: &rusqlite::Connection) -> Result<Vec<String>, String> {
 fn cicd_add_config(conn: &rusqlite::Connection, c: &CicdConfig) -> Result<CicdConfig, String> {
     supertool_core::db::cicd::add_cicd_config(conn, c).map_err(|e| e.to_string())
 }
-fn cicd_update_config(conn: &rusqlite::Connection, c: &CicdConfig) -> Result<Option<CicdConfig>, String> {
+fn cicd_update_config(
+    conn: &rusqlite::Connection,
+    c: &CicdConfig,
+) -> Result<Option<CicdConfig>, String> {
     supertool_core::db::cicd::update_cicd_config(conn, c).map_err(|e| e.to_string())
 }
 fn cicd_delete_config(conn: &rusqlite::Connection, id: &str) -> Result<(), String> {
     supertool_core::db::cicd::delete_cicd_config(conn, id).map_err(|e| e.to_string())
 }
-fn cicd_get_modules(conn: &rusqlite::Connection, config_id: &str) -> Result<Vec<DeployModule>, String> {
+fn cicd_get_modules(
+    conn: &rusqlite::Connection,
+    config_id: &str,
+) -> Result<Vec<DeployModule>, String> {
     supertool_core::db::cicd::get_deploy_modules(conn, config_id).map_err(|e| e.to_string())
 }
 fn cicd_add_module(conn: &rusqlite::Connection, m: &DeployModule) -> Result<DeployModule, String> {
@@ -1149,7 +1322,10 @@ fn cicd_add_module(conn: &rusqlite::Connection, m: &DeployModule) -> Result<Depl
 fn cicd_add_deploy_log(conn: &rusqlite::Connection, log: &DeployLog) -> Result<DeployLog, String> {
     supertool_core::db::cicd::add_deploy_log(conn, log).map_err(|e| e.to_string())
 }
-fn cicd_update_deploy_log(conn: &rusqlite::Connection, log: &DeployLog) -> Result<Option<DeployLog>, String> {
+fn cicd_update_deploy_log(
+    conn: &rusqlite::Connection,
+    log: &DeployLog,
+) -> Result<Option<DeployLog>, String> {
     supertool_core::db::cicd::update_deploy_log(conn, log).map_err(|e| e.to_string())
 }
 fn cicd_get_deploy_log_by_id(conn: &rusqlite::Connection, id: &str) -> Option<DeployLog> {
@@ -1161,7 +1337,10 @@ fn cicd_get_deploy_log_by_id(conn: &rusqlite::Connection, id: &str) -> Option<De
 fn cicd_touch_deploy(conn: &rusqlite::Connection, id: &str) -> Result<(), String> {
     supertool_core::db::cicd::touch_cicd_config_deploy(conn, id).map_err(|e| e.to_string())
 }
-fn cicd_add_deploy_history(conn: &rusqlite::Connection, h: &DeployHistory) -> Result<DeployHistory, String> {
+fn cicd_add_deploy_history(
+    conn: &rusqlite::Connection,
+    h: &DeployHistory,
+) -> Result<DeployHistory, String> {
     supertool_core::db::cicd::add_deploy_history(conn, h).map_err(|e| e.to_string())
 }
 
@@ -1187,19 +1366,24 @@ fn build_deploy_config(
         refs.into_iter()
             .map(|r| {
                 // 直接查 servers 表 + 解密密码
-                let server = core
-                    .db_read(|conn| {
-                        conn.query_row(
-                            "SELECT * FROM servers WHERE id = ?1",
-                            rusqlite::params![r.server_id],
-                            supertool_core::db::servers::row_to_server,
-                        )
-                        .map_err(|e| e.to_string())
-                    })??;
+                let server = core.db_read(|conn| {
+                    conn.query_row(
+                        "SELECT * FROM servers WHERE id = ?1",
+                        rusqlite::params![r.server_id],
+                        supertool_core::db::servers::row_to_server,
+                    )
+                    .map_err(|e| e.to_string())
+                })??;
                 // 密码已在 row_to_server 中解密 (servers.rs 的 get_server_by_id 调用 decrypt_password)
                 // 但 row_to_server 不解密，需要手动解密
-                let password = server.password.map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
-                let base_deploy_dir = if r.deploy_dir.is_empty() { cicd_config.deploy_path.clone() } else { r.deploy_dir };
+                let password = server
+                    .password
+                    .map(|pw| supertool_core::encryption::try_decrypt_password(&pw));
+                let base_deploy_dir = if r.deploy_dir.is_empty() {
+                    cicd_config.deploy_path.clone()
+                } else {
+                    r.deploy_dir
+                };
                 Ok(DeployServerConfig {
                     host: server.host,
                     port: server.port as u16,
@@ -1237,21 +1421,34 @@ fn build_deploy_config(
         })
         .collect();
     Ok(DeployConfig {
-        repo_url: cicd_config.git_repo_id.as_ref().and_then(|id| {
-            core.db_read(|conn| {
-                supertool_core::db::git_repo::get_by_id(conn, id)
-                    .ok()
-                    .flatten()
-            }).ok().flatten()
-        }).and_then(|r| r.remote.or(Some(r.path))).unwrap_or_default(),
+        repo_url: cicd_config
+            .git_repo_id
+            .as_ref()
+            .and_then(|id| {
+                core.db_read(|conn| {
+                    supertool_core::db::git_repo::get_by_id(conn, id)
+                        .ok()
+                        .flatten()
+                })
+                .ok()
+                .flatten()
+            })
+            .and_then(|r| r.remote.or(Some(r.path)))
+            .unwrap_or_default(),
         branch: cicd_config.deploy_branch.clone(),
-        local_path: cicd_config.git_repo_id.as_ref().and_then(|id| {
-            core.db_read(|conn| {
-                supertool_core::db::git_repo::get_by_id(conn, id)
-                    .ok()
-                    .flatten()
-            }).ok().flatten()
-        }).map(|r| r.path),
+        local_path: cicd_config
+            .git_repo_id
+            .as_ref()
+            .and_then(|id| {
+                core.db_read(|conn| {
+                    supertool_core::db::git_repo::get_by_id(conn, id)
+                        .ok()
+                        .flatten()
+                })
+                .ok()
+                .flatten()
+            })
+            .map(|r| r.path),
         build_tool: cicd_config.build_tool.clone(),
         build_command: cicd_config.build_command.clone(),
         build_path: cicd_config.build_path.clone(),
@@ -1283,7 +1480,8 @@ fn build_deploy_config(
         } else {
             Some(cicd_config.restart_script.clone())
         },
-        lib_separate: cicd_config.lib_separate && cicd_config.build_tool.as_deref() == Some("maven"),
+        lib_separate: cicd_config.lib_separate
+            && cicd_config.build_tool.as_deref() == Some("maven"),
         build_mode: cicd_config.build_mode.clone(),
     })
 }
@@ -1301,9 +1499,7 @@ pub async fn save_deploy_module(
         serde_json::from_value(module.clone()).map_err(|e| format!("解析模块失败: {}", e))?;
     dm.created_at = now.clone();
     dm.updated_at = now.clone();
-    let result = core.db_write(|conn| {
-        cicd_add_module(conn, &dm).expect("db error")
-    })?;
+    let result = core.db_write(|conn| cicd_add_module(conn, &dm).expect("db error"))?;
     serde_json::to_value(&result).map_err(|e| e.to_string())
 }
 
@@ -1336,9 +1532,7 @@ pub async fn delete_deploy_module(
 }
 
 #[tauri::command(rename_all = "camelCase")]
-pub async fn scan_project_modules(
-    project_path: String,
-) -> Result<serde_json::Value, String> {
+pub async fn scan_project_modules(project_path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] scan_project_modules() called");
     let path = Path::new(&project_path);
     if !path.exists() {
@@ -1352,7 +1546,10 @@ pub async fn scan_project_modules(
     if modules.is_empty() {
         log::info!("[scan_project_modules] No pom.xml at root, scanning subdirectories...");
         modules = scan_subdirs_for_maven(path, path, 2);
-        log::info!("[scan_project_modules] Found {} modules in subdirectories", modules.len());
+        log::info!(
+            "[scan_project_modules] Found {} modules in subdirectories",
+            modules.len()
+        );
     }
 
     // If no Maven modules found, scan Node.js packages
@@ -1391,16 +1588,30 @@ pub async fn scan_project_modules(
 
 /// Scan subdirectories for pom.xml files (up to `max_depth` levels)
 /// Returns modules with correct relative paths from the original root
-fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) -> Vec<serde_json::Value> {
+fn scan_subdirs_for_maven(
+    root_path: &Path,
+    current_path: &Path,
+    max_depth: u8,
+) -> Vec<serde_json::Value> {
     if max_depth == 0 {
         return vec![];
     }
     let mut modules = Vec::new();
-    let skip_dirs = ["node_modules", "target", "dist", ".git", ".idea", "doc", "docs"];
+    let skip_dirs = [
+        "node_modules",
+        "target",
+        "dist",
+        ".git",
+        ".idea",
+        "doc",
+        "docs",
+    ];
     if let Ok(entries) = fs::read_dir(current_path) {
         for entry in entries.flatten() {
             if let Ok(ft) = entry.file_type() {
-                if !ft.is_dir() { continue; }
+                if !ft.is_dir() {
+                    continue;
+                }
                 let name = entry.file_name().to_string_lossy().to_string();
                 if name.starts_with('.') || skip_dirs.contains(&name.as_str()) {
                     continue;
@@ -1411,20 +1622,24 @@ fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) 
                     let sub_modules = scan_maven_modules_recursive(root_path, &sub_path, 0);
                     if !sub_modules.is_empty() {
                         // Compute relative prefix from root to this subdirectory
-                        let rel_prefix = sub_path.strip_prefix(root_path)
+                        let rel_prefix = sub_path
+                            .strip_prefix(root_path)
                             .map(|p| format!("./{}", p.to_string_lossy()))
                             .unwrap_or_else(|_| format!("./{}", name));
-                        let prefixed: Vec<serde_json::Value> = sub_modules.into_iter().map(|mut m| {
-                            if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
-                                let full_path = if p == "." {
-                                    rel_prefix.clone()
-                                } else {
-                                    format!("{}/{}", rel_prefix, p.trim_start_matches("./"))
-                                };
-                                m["path"] = serde_json::json!(full_path);
-                            }
-                            m
-                        }).collect();
+                        let prefixed: Vec<serde_json::Value> = sub_modules
+                            .into_iter()
+                            .map(|mut m| {
+                                if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
+                                    let full_path = if p == "." {
+                                        rel_prefix.clone()
+                                    } else {
+                                        format!("{}/{}", rel_prefix, p.trim_start_matches("./"))
+                                    };
+                                    m["path"] = serde_json::json!(full_path);
+                                }
+                                m
+                            })
+                            .collect();
                         modules.extend(prefixed);
                     }
                 } else {
@@ -1439,7 +1654,11 @@ fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) 
 }
 
 /// Recursively scan Maven modules from a pom.xml, up to 3 levels deep
-fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -> Vec<serde_json::Value> {
+fn scan_maven_modules_recursive(
+    root_path: &Path,
+    base_path: &Path,
+    depth: u8,
+) -> Vec<serde_json::Value> {
     if depth > 3 {
         return vec![];
     }
@@ -1460,7 +1679,8 @@ fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -
     if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
         if let Some(cap) = re.captures(&pom) {
             let module_re = regex::Regex::new(r"<module>\s*([^<]+?)\s*</module>").unwrap();
-            let child_names: Vec<String> = module_re.captures_iter(&cap[1])
+            let child_names: Vec<String> = module_re
+                .captures_iter(&cap[1])
                 .map(|c| c[1].trim().to_string())
                 .filter(|m| !m.is_empty())
                 .collect();
@@ -1507,7 +1727,9 @@ fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -
     // If no <modules> section, treat this pom as a single module (only at depth 0)
     if modules.is_empty() && depth == 0 {
         if let Some(cap) = regex::Regex::new(r"<artifactId>\s*([^<]+?)\s*</artifactId>")
-            .ok().and_then(|re| re.captures(&pom)) {
+            .ok()
+            .and_then(|re| re.captures(&pom))
+        {
             modules.push(serde_json::json!({
                 "name": &cap[1],
                 "path": ".",
@@ -1540,10 +1762,15 @@ fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
                     let pkg_json = entry.path().join("package.json");
                     if pkg_json.exists() {
                         let mod_path = format!("./{}", name);
-                        if !modules.iter().any(|m| m.get("path").and_then(|p| p.as_str()) == Some(&mod_path)) {
+                        if !modules
+                            .iter()
+                            .any(|m| m.get("path").and_then(|p| p.as_str()) == Some(&mod_path))
+                        {
                             if let Ok(content) = fs::read_to_string(&pkg_json) {
-                                if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
-                                    let pkg_name = pkg.get("name").and_then(|n| n.as_str()).unwrap_or(&name);
+                                if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content)
+                                {
+                                    let pkg_name =
+                                        pkg.get("name").and_then(|n| n.as_str()).unwrap_or(&name);
                                     modules.push(serde_json::json!({
                                         "name": pkg_name,
                                         "path": mod_path,
@@ -1595,7 +1822,9 @@ pub async fn get_deploy_history(
     let lim = limit.unwrap_or(50);
     let history = core.db_read(|conn| {
         let mut stmt = conn
-            .prepare("SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?")
+            .prepare(
+                "SELECT * FROM deploy_history WHERE configId = ? ORDER BY deployedAt DESC LIMIT ?",
+            )
             .map_err(|e| e.to_string())?;
         let rows = stmt
             .query_map(rusqlite::params![config_id, lim], row_to_deploy_history)

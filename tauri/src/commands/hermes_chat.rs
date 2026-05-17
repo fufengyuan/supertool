@@ -75,21 +75,66 @@ fn default_limit() -> usize {
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum BridgeMessage {
-    Delta { text: Option<String> },
-    ToolStart { id: Option<String>, name: String, args: serde_json::Value },
-    ToolComplete { id: Option<String>, name: String, result: Option<String>, duration_ms: f64 },
-    Thinking { text: Option<String> },
-    Done { response: Option<String>, session_id: String, message_count: usize },
-    Error { message: String },
-    Sessions { data: Vec<SessionInfo>, total: usize },
-    SearchResults { data: Vec<SearchResult>, total: usize, query: String },
-    Session { session_id: String, messages: Vec<MessageInfo> },
-    Deleted { session_id: String },
-    Renamed { session_id: String, title: String },
-    Aborted { session_id: Option<String> },
-    Models { custom_models: Vec<String>, default_model: Option<String> },
-    ModelAdded { model: String, custom_models: Vec<String> },
-    ModelRemoved { model: String, custom_models: Vec<String> },
+    Delta {
+        text: Option<String>,
+    },
+    ToolStart {
+        id: Option<String>,
+        name: String,
+        args: serde_json::Value,
+    },
+    ToolComplete {
+        id: Option<String>,
+        name: String,
+        result: Option<String>,
+        duration_ms: f64,
+    },
+    Thinking {
+        text: Option<String>,
+    },
+    Done {
+        response: Option<String>,
+        session_id: String,
+        message_count: usize,
+    },
+    Error {
+        message: String,
+    },
+    Sessions {
+        data: Vec<SessionInfo>,
+        total: usize,
+    },
+    SearchResults {
+        data: Vec<SearchResult>,
+        total: usize,
+        query: String,
+    },
+    Session {
+        session_id: String,
+        messages: Vec<MessageInfo>,
+    },
+    Deleted {
+        session_id: String,
+    },
+    Renamed {
+        session_id: String,
+        title: String,
+    },
+    Aborted {
+        session_id: Option<String>,
+    },
+    Models {
+        custom_models: Vec<String>,
+        default_model: Option<String>,
+    },
+    ModelAdded {
+        model: String,
+        custom_models: Vec<String>,
+    },
+    ModelRemoved {
+        model: String,
+        custom_models: Vec<String>,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -104,13 +149,21 @@ pub struct SessionInfo {
     pub source: String,
     #[serde(rename = "startedAt", alias = "started_at")]
     pub started_at: Option<f64>,
-    #[serde(rename = "endedAt", alias = "ended_at", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "endedAt",
+        alias = "ended_at",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub ended_at: Option<f64>,
     #[serde(rename = "messageCount", alias = "message_count")]
     pub message_count: usize,
     #[serde(rename = "preview")]
     pub preview: String,
-    #[serde(rename = "lastActive", alias = "last_active", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "lastActive",
+        alias = "last_active",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub last_active: Option<f64>,
 }
 
@@ -119,7 +172,11 @@ pub struct SessionInfo {
 pub struct SearchResult {
     #[serde(rename = "sessionId", alias = "session_id")]
     pub session_id: String,
-    #[serde(rename = "sessionTitle", alias = "session_title", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "sessionTitle",
+        alias = "session_title",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub session_title: Option<String>,
     #[serde(rename = "messageId", alias = "message_id")]
     pub message_id: String,
@@ -145,11 +202,23 @@ pub struct MessageInfo {
     pub content: Option<String>,
     #[serde(rename = "timestamp", skip_serializing_if = "Option::is_none")]
     pub timestamp: Option<f64>,
-    #[serde(rename = "toolName", alias = "tool_name", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "toolName",
+        alias = "tool_name",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tool_name: Option<String>,
-    #[serde(rename = "toolCallId", alias = "tool_call_id", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "toolCallId",
+        alias = "tool_call_id",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tool_call_id: Option<String>,
-    #[serde(rename = "toolCalls", alias = "tool_calls", skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "toolCalls",
+        alias = "tool_calls",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub tool_calls: Option<Vec<ToolCallInfo>>,
 }
 
@@ -172,10 +241,11 @@ pub struct FunctionInfo {
 /// Find Python bridge script location
 fn find_bridge_script() -> Option<PathBuf> {
     // Try bundled location first (when packaged)
-    let bundled = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|p| p.join("scripts").join("hermes_bridge.py")));
-    
+    let bundled = std::env::current_exe().ok().and_then(|exe| {
+        exe.parent()
+            .map(|p| p.join("scripts").join("hermes_bridge.py"))
+    });
+
     if bundled.as_ref().map(|p| p.exists()).unwrap_or(false) {
         return bundled;
     }
@@ -184,7 +254,7 @@ fn find_bridge_script() -> Option<PathBuf> {
     let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .and_then(|p| Some(p.join("scripts").join("hermes_bridge.py")));
-    
+
     if dev.as_ref().map(|p| p.exists()).unwrap_or(false) {
         return dev;
     }
@@ -200,17 +270,27 @@ fn find_bridge_script() -> Option<PathBuf> {
 fn find_python() -> String {
     // 优先使用 Hermes Agent venv 的 Python（因为依赖都在 venv 里）
     let hermes_venv_python = dirs::home_dir()
-        .map(|h| h.join(".hermes").join("hermes-agent").join("venv").join("bin").join("python3"))
+        .map(|h| {
+            h.join(".hermes")
+                .join("hermes-agent")
+                .join("venv")
+                .join("bin")
+                .join("python3")
+        })
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| "~/.hermes/hermes-agent/venv/bin/python3".to_string());
-    
+
     // 检查 venv Python 是否存在且可执行
     if Path::new(&hermes_venv_python).exists() {
-        if Command::new(&hermes_venv_python).arg("--version").output().is_ok() {
+        if Command::new(&hermes_venv_python)
+            .arg("--version")
+            .output()
+            .is_ok()
+        {
             return hermes_venv_python;
         }
     }
-    
+
     // Fallback 到系统 Python
     if Command::new("python3").arg("--version").output().is_ok() {
         return "python3".to_string();
@@ -223,8 +303,9 @@ fn find_python() -> String {
 
 /// Start a new bridge process
 fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
-    let script = find_bridge_script()
-        .ok_or_else(|| "Agent bridge script not found. Please ensure scripts/hermes_bridge.py exists.")?;
+    let script = find_bridge_script().ok_or_else(
+        || "Agent bridge script not found. Please ensure scripts/hermes_bridge.py exists.",
+    )?;
 
     let python = find_python();
 
@@ -265,7 +346,8 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
     cmd.env("all_proxy", "");
     cmd.env("ALL_PROXY", "");
 
-    let child = cmd.spawn()
+    let child = cmd
+        .spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
 
     let process_id = PROCESS_COUNTER.fetch_add(1, Ordering::SeqCst);
@@ -284,7 +366,8 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
     // Get child back (hacky but works)
     let child = {
         let mut processes = PROCESSES.lock().unwrap();
-        processes.get_mut(&process_id)
+        processes
+            .get_mut(&process_id)
             .and_then(|arc| arc.lock().unwrap().take())
             .ok_or_else(|| "Failed to retrieve child process".to_string())?
     };
@@ -319,14 +402,22 @@ pub async fn agent_chat(
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
     // Read streaming output
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     let mut final_response: Option<String> = None;
@@ -355,11 +446,15 @@ pub async fn agent_chat(
             Err(e) => {
                 // JSON 解析失败，通知前端
                 eprintln!("[DEBUG] bridge parse error: {} - line: {}", e, line);
-                app.emit("agent-error", serde_json::json!({
-                    "type": "parse_error",
-                    "message": format!("JSON parse error: {}", e),
-                    "raw": line.chars().take(100).collect::<String>()
-                })).ok();
+                app.emit(
+                    "agent-error",
+                    serde_json::json!({
+                        "type": "parse_error",
+                        "message": format!("JSON parse error: {}", e),
+                        "raw": line.chars().take(100).collect::<String>()
+                    }),
+                )
+                .ok();
                 continue;
             }
         };
@@ -373,32 +468,59 @@ pub async fn agent_chat(
                 app.emit("agent-delta", &text).ok();
             }
             BridgeMessage::ToolStart { id, name, args } => {
-                eprintln!("[DEBUG] agent-tool-start: {} {:?} (id: {:?})", name, args, id);
-                app.emit("agent-tool-start", serde_json::json!({
-                    "id": id,
-                    "name": name,
-                    "args": args
-                })).ok();
+                eprintln!(
+                    "[DEBUG] agent-tool-start: {} {:?} (id: {:?})",
+                    name, args, id
+                );
+                app.emit(
+                    "agent-tool-start",
+                    serde_json::json!({
+                        "id": id,
+                        "name": name,
+                        "args": args
+                    }),
+                )
+                .ok();
             }
-            BridgeMessage::ToolComplete { id, name, result, duration_ms } => {
-                eprintln!("[DEBUG] agent-tool-complete: {} (id: {:?}, duration: {}ms)", name, id, duration_ms);
-                app.emit("agent-tool-complete", serde_json::json!({
-                    "id": id,
-                    "name": name,
-                    "result": result,
-                    "duration_ms": duration_ms
-                })).ok();
+            BridgeMessage::ToolComplete {
+                id,
+                name,
+                result,
+                duration_ms,
+            } => {
+                eprintln!(
+                    "[DEBUG] agent-tool-complete: {} (id: {:?}, duration: {}ms)",
+                    name, id, duration_ms
+                );
+                app.emit(
+                    "agent-tool-complete",
+                    serde_json::json!({
+                        "id": id,
+                        "name": name,
+                        "result": result,
+                        "duration_ms": duration_ms
+                    }),
+                )
+                .ok();
             }
             BridgeMessage::Thinking { text } => {
                 app.emit("agent-thinking", &text).ok();
             }
-            BridgeMessage::Done { response, session_id, message_count } => {
+            BridgeMessage::Done {
+                response,
+                session_id,
+                message_count,
+            } => {
                 // 立即发送 agent-done 事件，让前端恢复状态
-                app.emit("agent-done", serde_json::json!({
-                    "response": response,
-                    "session_id": session_id,
-                    "message_count": message_count,
-                })).ok();
+                app.emit(
+                    "agent-done",
+                    serde_json::json!({
+                        "response": response,
+                        "session_id": session_id,
+                        "message_count": message_count,
+                    }),
+                )
+                .ok();
                 final_response = response;
                 final_session_id = Some(session_id);
                 final_message_count = message_count;
@@ -445,17 +567,27 @@ pub async fn agent_chat(
 pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
-    let cmd = BridgeCommand::ListSessions { limit: limit.unwrap_or(20) };
+    let cmd = BridgeCommand::ListSessions {
+        limit: limit.unwrap_or(20),
+    };
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -464,8 +596,8 @@ pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Val
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse: {}", e))?;
+        let msg: BridgeMessage =
+            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
 
         if let BridgeMessage::Sessions { data, total } = msg {
             child.wait().ok();
@@ -492,13 +624,21 @@ pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, 
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -507,10 +647,14 @@ pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, 
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse: {}", e))?;
+        let msg: BridgeMessage =
+            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
 
-        if let BridgeMessage::Session { session_id, messages } = msg {
+        if let BridgeMessage::Session {
+            session_id,
+            messages,
+        } = msg
+        {
             child.wait().ok();
             return Ok(serde_json::json!({
                 "session_id": session_id,
@@ -535,13 +679,21 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -550,8 +702,8 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse: {}", e))?;
+        let msg: BridgeMessage =
+            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
 
         if let BridgeMessage::Deleted { session_id } = msg {
             child.wait().ok();
@@ -568,20 +720,31 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
 
 /// Rename session
 #[tauri::command(rename_all = "camelCase")]
-pub async fn agent_rename_session(session_id: String, title: String) -> Result<serde_json::Value, String> {
+pub async fn agent_rename_session(
+    session_id: String,
+    title: String,
+) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
     let cmd = BridgeCommand::RenameSession { session_id, title };
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -590,8 +753,8 @@ pub async fn agent_rename_session(session_id: String, title: String) -> Result<s
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse: {}", e))?;
+        let msg: BridgeMessage =
+            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
 
         if let BridgeMessage::Renamed { session_id, title } = msg {
             child.wait().ok();
@@ -608,7 +771,11 @@ pub async fn agent_rename_session(session_id: String, title: String) -> Result<s
 
 /// Search sessions by content
 #[tauri::command(rename_all = "camelCase")]
-pub async fn agent_search_sessions(query: String, limit: Option<usize>, offset: Option<usize>) -> Result<serde_json::Value, String> {
+pub async fn agent_search_sessions(
+    query: String,
+    limit: Option<usize>,
+    offset: Option<usize>,
+) -> Result<serde_json::Value, String> {
     let (_, mut child, _) = start_bridge_process()?;
 
     let cmd = BridgeCommand::SearchSessions {
@@ -619,13 +786,21 @@ pub async fn agent_search_sessions(query: String, limit: Option<usize>, offset: 
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
 
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
 
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
 
     for line in reader.lines() {
@@ -634,8 +809,8 @@ pub async fn agent_search_sessions(query: String, limit: Option<usize>, offset: 
             continue;
         }
 
-        let msg: BridgeMessage = serde_json::from_str(&line)
-            .map_err(|e| format!("Failed to parse: {}", e))?;
+        let msg: BridgeMessage =
+            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
 
         if let BridgeMessage::SearchResults { data, total, query } = msg {
             child.wait().ok();
@@ -709,15 +884,16 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {
     let script = find_bridge_script();
     let python = find_python();
-    
+
     // Expand home directory path
     let hermes_path = dirs::home_dir()
         .map(|h| h.join(".hermes").join("hermes-agent"))
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|| "~/.hermes/hermes-agent".to_string());
-    
+
     // Try to import Hermes
-    let check_script = format!(r#"
+    let check_script = format!(
+        r#"
 import sys
 sys.path.insert(0, "{}")
 try:
@@ -725,7 +901,9 @@ try:
     print("OK")
 except ImportError as e:
     print(f"ERROR: {{e}}")
-"#, hermes_path);
+"#,
+        hermes_path
+    );
 
     let output = Command::new(&python)
         .arg("-c")
@@ -734,7 +912,7 @@ except ImportError as e:
         .map_err(|e| format!("Failed to check Agent: {}", e))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    
+
     Ok(serde_json::json!({
         "available": stdout == "OK",
         "script_found": script.is_some(),
@@ -748,7 +926,7 @@ except ImportError as e:
 pub async fn agent_get_models() -> Result<serde_json::Value, String> {
     let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
     let python = find_python();
-    
+
     let mut child = Command::new(&python)
         .arg(&script)
         .stdin(Stdio::piped())
@@ -756,32 +934,43 @@ pub async fn agent_get_models() -> Result<serde_json::Value, String> {
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-    
+
     // Send get_models command
     let cmd = BridgeCommand::GetModels {};
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-    
+
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
-    
+
     // Read response
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
-    
+
     for line in reader.lines() {
         let line = line.map_err(|e| e.to_string())?;
         if line.is_empty() || !line.trim_start().starts_with('{') {
             continue;
         }
-        
+
         let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-        
+
         match msg {
-            BridgeMessage::Models { custom_models, default_model } => {
+            BridgeMessage::Models {
+                custom_models,
+                default_model,
+            } => {
                 // Wait for process to finish
                 child.wait().ok();
                 return Ok(serde_json::json!({
@@ -796,7 +985,7 @@ pub async fn agent_get_models() -> Result<serde_json::Value, String> {
             _ => continue,
         }
     }
-    
+
     child.wait().ok();
     Err("No response from bridge".to_string())
 }
@@ -806,7 +995,7 @@ pub async fn agent_get_models() -> Result<serde_json::Value, String> {
 pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String> {
     let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
     let python = find_python();
-    
+
     let mut child = Command::new(&python)
         .arg(&script)
         .stdin(Stdio::piped())
@@ -814,32 +1003,43 @@ pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String>
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-    
+
     // Send add_model command
     let cmd = BridgeCommand::AddModel { model };
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-    
+
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
-    
+
     // Read response
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
-    
+
     for line in reader.lines() {
         let line = line.map_err(|e| e.to_string())?;
         if line.is_empty() || !line.trim_start().starts_with('{') {
             continue;
         }
-        
+
         let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-        
+
         match msg {
-            BridgeMessage::ModelAdded { model, custom_models } => {
+            BridgeMessage::ModelAdded {
+                model,
+                custom_models,
+            } => {
                 child.wait().ok();
                 return Ok(serde_json::json!({
                     "success": true,
@@ -854,7 +1054,7 @@ pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String>
             _ => continue,
         }
     }
-    
+
     child.wait().ok();
     Err("No response from bridge".to_string())
 }
@@ -864,7 +1064,7 @@ pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String>
 pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, String> {
     let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
     let python = find_python();
-    
+
     let mut child = Command::new(&python)
         .arg(&script)
         .stdin(Stdio::piped())
@@ -872,32 +1072,43 @@ pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, Stri
         .stderr(Stdio::piped())
         .spawn()
         .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-    
+
     // Send remove_model command
     let cmd = BridgeCommand::RemoveModel { model };
     let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-    
+
     {
-        let stdin = child.stdin.as_mut().ok_or_else(|| "stdin not available".to_string())?;
-        stdin.write_all(cmd_json.as_bytes()).map_err(|e| e.to_string())?;
+        let stdin = child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| "stdin not available".to_string())?;
+        stdin
+            .write_all(cmd_json.as_bytes())
+            .map_err(|e| e.to_string())?;
         stdin.write_all(b"\n").map_err(|e| e.to_string())?;
         stdin.flush().map_err(|e| e.to_string())?;
     }
-    
+
     // Read response
-    let stdout = child.stdout.take().ok_or_else(|| "stdout not available".to_string())?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| "stdout not available".to_string())?;
     let reader = BufReader::new(stdout);
-    
+
     for line in reader.lines() {
         let line = line.map_err(|e| e.to_string())?;
         if line.is_empty() || !line.trim_start().starts_with('{') {
             continue;
         }
-        
+
         let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-        
+
         match msg {
-            BridgeMessage::ModelRemoved { model, custom_models } => {
+            BridgeMessage::ModelRemoved {
+                model,
+                custom_models,
+            } => {
                 child.wait().ok();
                 return Ok(serde_json::json!({
                     "success": true,
@@ -912,7 +1123,7 @@ pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, Stri
             _ => continue,
         }
     }
-    
+
     child.wait().ok();
     Err("No response from bridge".to_string())
 }
@@ -962,7 +1173,7 @@ mod tests {
             BridgeMessage::ToolStart { name, args } => {
                 assert_eq!(name, "terminal");
                 assert_eq!(args["command"], "ls");
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -972,11 +1183,15 @@ mod tests {
         let json = r#"{"type":"tool_complete","name":"terminal","result":"file1.txt\nfile2.txt","duration_ms":150}"#;
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+            BridgeMessage::ToolComplete {
+                name,
+                result,
+                duration_ms,
+            } => {
                 assert_eq!(name, "terminal");
                 assert_eq!(result, Some("file1.txt\nfile2.txt".to_string()));
                 assert_eq!(duration_ms, 150.0);
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -986,11 +1201,15 @@ mod tests {
         let json = r#"{"type":"tool_complete","name":"terminal","result":null,"duration_ms":150}"#;
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+            BridgeMessage::ToolComplete {
+                name,
+                result,
+                duration_ms,
+            } => {
                 assert_eq!(name, "terminal");
                 assert!(result.is_none());
                 assert_eq!(duration_ms, 150.0);
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1017,7 +1236,7 @@ mod tests {
             "preview": "Hello world",
             "last_active": 1778752900.0
         }"#;
-        
+
         let session: SessionInfo = serde_json::from_str(json).unwrap();
         assert_eq!(session.id, "test-123");
         assert_eq!(session.title, Some("Test Session".to_string()));
@@ -1041,7 +1260,7 @@ mod tests {
             "preview": "Another preview",
             "lastActive": 1778752950.0
         }"#;
-        
+
         let session: SessionInfo = serde_json::from_str(json).unwrap();
         assert_eq!(session.id, "test-456");
         assert_eq!(session.message_count, 10);
@@ -1061,7 +1280,7 @@ mod tests {
             preview: "Test message".to_string(),
             last_active: Some(1778752900.0),
         };
-        
+
         let json = serde_json::to_string(&session).unwrap();
         // 输出必须是 camelCase
         assert!(json.contains("\"messageCount\":3"));
@@ -1081,7 +1300,7 @@ mod tests {
             "timestamp": 1778752839.0,
             "tool_name": null
         }"#;
-        
+
         let msg: MessageInfo = serde_json::from_str(json).unwrap();
         assert_eq!(msg.role, "user");
         assert_eq!(msg.content, Some("Hello".to_string()));
@@ -1098,7 +1317,7 @@ mod tests {
             tool_call_id: None,
             tool_calls: None,
         };
-        
+
         let json = serde_json::to_string(&msg).unwrap();
         assert!(json.contains("\"toolName\":\"web_search\""));
         assert!(!json.contains("tool_name"));
@@ -1122,7 +1341,7 @@ mod tests {
             ],
             "total": 1
         }"#;
-        
+
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
             BridgeMessage::Sessions { data, total } => {
@@ -1130,7 +1349,7 @@ mod tests {
                 assert_eq!(data.len(), 1);
                 assert_eq!(data[0].id, "sess-1");
                 assert_eq!(data[0].message_count, 2);
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1149,14 +1368,17 @@ mod tests {
                 }
             ]
         }"#;
-        
+
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Session { session_id, messages } => {
+            BridgeMessage::Session {
+                session_id,
+                messages,
+            } => {
                 assert_eq!(session_id, "sess-123");
                 assert_eq!(messages.len(), 1);
                 assert_eq!(messages[0].role, "user");
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1174,46 +1396,49 @@ mod tests {
 
         let python = find_python();
         let script_path = script.unwrap();
-        
+
         // 发送 list_sessions 命令
         let cmd = BridgeCommand::ListSessions { limit: 5 };
         let cmd_json = serde_json::to_string(&cmd).unwrap();
-        
+
         let output = std::process::Command::new(&python)
             .arg(&script_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
             .spawn();
-        
+
         if output.is_err() {
             eprintln!("Skipping: cannot spawn Python bridge");
             return;
         }
-        
+
         let mut child = output.unwrap();
-        
+
         // 写入命令
         if let Some(stdin) = child.stdin.as_mut() {
             use std::io::Write;
             stdin.write_all(cmd_json.as_bytes()).unwrap();
             stdin.write_all(b"\n").unwrap();
         }
-        
+
         // 读取响应
         let result = child.wait_with_output().unwrap();
         let stdout = String::from_utf8_lossy(&result.stdout).trim().to_string();
-        
+
         // 解析响应
         if stdout.is_empty() {
             eprintln!("Skipping: empty response from bridge");
             return;
         }
-        
+
         let msg: BridgeMessage = serde_json::from_str(&stdout).unwrap_or_else(|e| {
-            panic!("Failed to parse bridge response: {} - stdout: {}", e, stdout);
+            panic!(
+                "Failed to parse bridge response: {} - stdout: {}",
+                e, stdout
+            );
         });
-        
+
         match msg {
             BridgeMessage::Sessions { data, total } => {
                 // 验证返回数据格式正确
@@ -1223,7 +1448,7 @@ mod tests {
                     assert!(!s.id.is_empty());
                     assert!(!s.model.is_empty());
                 }
-            },
+            }
             BridgeMessage::Error { message } => {
                 // Hermes 未安装是可接受的错误
                 if message.contains("Hermes not available") {
@@ -1231,7 +1456,7 @@ mod tests {
                 } else {
                     panic!("Unexpected error: {}", message);
                 }
-            },
+            }
             _ => panic!("Unexpected response type"),
         }
     }
@@ -1242,14 +1467,17 @@ mod tests {
         // 在 tokio runtime 中执行异步函数
         let rt = tokio::runtime::Runtime::new().unwrap();
         let result = rt.block_on(agent_check_available());
-        
+
         match result {
             Ok(json) => {
-                println!("Check available result: {}", serde_json::to_string_pretty(&json).unwrap());
+                println!(
+                    "Check available result: {}",
+                    serde_json::to_string_pretty(&json).unwrap()
+                );
                 // 验证返回格式
                 assert!(json.get("available").is_some());
                 assert!(json.get("python").is_some());
-            },
+            }
             Err(e) => {
                 // 路径问题可能导致错误，但不应该 crash
                 eprintln!("Check available failed: {}", e);
@@ -1298,12 +1526,12 @@ mod tests {
         // 检查 Hermes 是否可用
         let rt = tokio::runtime::Runtime::new().unwrap();
         let check_result = rt.block_on(agent_check_available());
-        
+
         let available = check_result
             .ok()
             .and_then(|json| json.get("available").and_then(|v| v.as_bool()))
             .unwrap_or(false);
-        
+
         if !available {
             eprintln!("Skipping: Hermes not available");
             return;
@@ -1311,7 +1539,7 @@ mod tests {
 
         let script = find_bridge_script().expect("Bridge script should exist");
         let python = find_python();
-        
+
         // 发送一个简单的测试消息，不指定模型让 Hermes 从配置读取默认模型
         let cmd = BridgeCommand::Chat {
             session_id: None,
@@ -1321,7 +1549,7 @@ mod tests {
         };
         let cmd_json = serde_json::to_string(&cmd).unwrap();
         println!("Sending chat command: {}", cmd_json);
-        
+
         let mut child = std::process::Command::new(&python)
             .arg(&script)
             .stdin(std::process::Stdio::piped())
@@ -1329,7 +1557,7 @@ mod tests {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .expect("Failed to spawn Python bridge");
-        
+
         // 写入命令
         {
             use std::io::Write;
@@ -1338,61 +1566,69 @@ mod tests {
             stdin.write_all(b"\n").unwrap();
             stdin.flush().unwrap();
         }
-        
+
         // 读取所有输出行
         let output = child.wait_with_output().expect("Failed to wait for bridge");
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-        
+
         println!("Bridge stdout:\n{}", stdout);
         if !stderr.is_empty() {
             println!("Bridge stderr:\n{}", stderr);
         }
-        
+
         // 解析最后一行（应该是 done 或 error）
         let lines: Vec<&str> = stdout.lines().collect();
         if lines.is_empty() {
             panic!("No output from bridge");
         }
-        
+
         // 可能有多行输出（delta 等），取最后一行
         let last_line = lines.last().unwrap();
         println!("Last line: {}", last_line);
-        
-        let msg: BridgeMessage = serde_json::from_str(last_line)
-            .unwrap_or_else(|e| panic!("Failed to parse last line: {} - content: {}", e, last_line));
-        
+
+        let msg: BridgeMessage = serde_json::from_str(last_line).unwrap_or_else(|e| {
+            panic!("Failed to parse last line: {} - content: {}", e, last_line)
+        });
+
         match msg {
-            BridgeMessage::Done { response, session_id, message_count } => {
+            BridgeMessage::Done {
+                response,
+                session_id,
+                message_count,
+            } => {
                 println!("Chat completed!");
                 println!("  Session ID: {}", session_id);
                 println!("  Message count: {}", message_count);
                 println!("  Response: {:?}", response);
                 assert!(!session_id.is_empty());
-                
+
                 // response 可能是 None（API 调用失败）
                 match response {
                     Some(text) if !text.is_empty() => {
                         println!("  Chat succeeded with response!");
                         assert!(message_count >= 2); // user + assistant
-                    },
+                    }
                     Some(_) => {
                         println!("  Empty response - API may have partially failed");
-                    },
+                    }
                     None => {
                         println!("  No response - API call failed");
                         // 这是预期的错误情况（模型不支持等）
-                    },
+                    }
                 }
-            },
+            }
             BridgeMessage::Error { message } => {
                 // API key 问题等可以接受
-                if message.contains("API key") || message.contains("authentication") || message.contains("rate limit") {
+                if message.contains("API key")
+                    || message.contains("authentication")
+                    || message.contains("rate limit")
+                {
                     eprintln!("Skipping: API error - {}", message);
                 } else {
                     panic!("Chat error: {}", message);
                 }
-            },
+            }
             _ => panic!("Unexpected final message type: {:?}", msg),
         }
     }
@@ -1404,21 +1640,26 @@ mod tests {
         let json = "{\"type\":\"done\",\"response\":\"Hello\",\"session_id\":\"sess-abc\",\"message_count\":3}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Done { response, session_id, message_count } => {
+            BridgeMessage::Done {
+                response,
+                session_id,
+                message_count,
+            } => {
                 assert_eq!(response, Some("Hello".to_string()));
                 assert_eq!(session_id, "sess-abc");
                 assert_eq!(message_count, 3);
-            },
+            }
             _ => panic!("Wrong type"),
         }
-        
+
         // 无响应（API 失败）
-        let json_null = "{\"type\":\"done\",\"response\":null,\"session_id\":\"sess-def\",\"message_count\":1}";
+        let json_null =
+            "{\"type\":\"done\",\"response\":null,\"session_id\":\"sess-def\",\"message_count\":1}";
         let msg_null: BridgeMessage = serde_json::from_str(json_null).unwrap();
         match msg_null {
             BridgeMessage::Done { response, .. } => {
                 assert_eq!(response, None);
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1431,7 +1672,7 @@ mod tests {
         match msg {
             BridgeMessage::Error { message } => {
                 assert_eq!(message, "Something went wrong");
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1444,7 +1685,7 @@ mod tests {
         match msg {
             BridgeMessage::Delta { text } => {
                 assert_eq!(text, Some("Hello ".to_string()));
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1452,13 +1693,14 @@ mod tests {
     /// 测试 BridgeMessage::ToolStart 解析
     #[test]
     fn test_tool_start_deserialize() {
-        let json = "{\"type\":\"tool_start\",\"name\":\"web_search\",\"args\":{\"query\":\"test\"}}";
+        let json =
+            "{\"type\":\"tool_start\",\"name\":\"web_search\",\"args\":{\"query\":\"test\"}}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
             BridgeMessage::ToolStart { name, args } => {
                 assert_eq!(name, "web_search");
                 assert!(args.is_object());
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1469,11 +1711,15 @@ mod tests {
         let json = "{\"type\":\"tool_complete\",\"name\":\"web_search\",\"result\":\"Search results\",\"duration_ms\":150.5}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::ToolComplete { name, result, duration_ms } => {
+            BridgeMessage::ToolComplete {
+                name,
+                result,
+                duration_ms,
+            } => {
                 assert_eq!(name, "web_search");
                 assert_eq!(result, Some("Search results".to_string()));
                 assert_eq!(duration_ms, 150.5);
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1486,7 +1732,7 @@ mod tests {
         match msg {
             BridgeMessage::Aborted { session_id } => {
                 assert_eq!(session_id, Some("sess-xyz".to_string()));
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }
@@ -1499,7 +1745,7 @@ mod tests {
         match msg {
             BridgeMessage::Deleted { session_id } => {
                 assert_eq!(session_id, "sess-del");
-            },
+            }
             _ => panic!("Wrong type"),
         }
     }

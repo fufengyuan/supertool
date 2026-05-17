@@ -40,40 +40,43 @@ impl super::CoreService {
         let mut results = Vec::new();
 
         // Get all enabled services
-        let services: Vec<alert::AlertService> = self.db_read(|conn| {
-            let mut stmt = match conn.prepare("SELECT * FROM alert_services WHERE enabled = 1") {
-                Ok(s) => s,
-                Err(e) => {
-                    log::error!("[Alert] Failed to prepare query: {}", e);
-                    return Vec::new();
-                }
-            };
-            let rows = match stmt.query_map([], |row| {
-                let enabled: i64 = row.get("enabled")?;
-                Ok(alert::AlertService {
-                    id: row.get("id")?,
-                    name: row.get("name")?,
-                    host: row.get("host")?,
-                    port: row.get("port")?,
-                    check_interval: row.get("check_interval")?,
-                    timeout_seconds: row.get("timeout_seconds")?,
-                    max_retries: row.get("max_retries")?,
-                    enabled: enabled == 1,
-                    last_check_at: row.get("last_check_at").ok(),
-                    last_status: row.get("last_status").ok(),
-                    consecutive_failures: row.get("consecutive_failures")?,
-                    alert_sent_at: row.get("alert_sent_at").ok(),
-                    created_at: row.get("created_at")?,
-                })
-            }) {
-                Ok(r) => r,
-                Err(e) => {
-                    log::error!("[Alert] Failed to query services: {}", e);
-                    return Vec::new();
-                }
-            };
-            rows.filter_map(|r| r.ok()).collect()
-        }).unwrap_or_default();
+        let services: Vec<alert::AlertService> = self
+            .db_read(|conn| {
+                let mut stmt = match conn.prepare("SELECT * FROM alert_services WHERE enabled = 1")
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!("[Alert] Failed to prepare query: {}", e);
+                        return Vec::new();
+                    }
+                };
+                let rows = match stmt.query_map([], |row| {
+                    let enabled: i64 = row.get("enabled")?;
+                    Ok(alert::AlertService {
+                        id: row.get("id")?,
+                        name: row.get("name")?,
+                        host: row.get("host")?,
+                        port: row.get("port")?,
+                        check_interval: row.get("check_interval")?,
+                        timeout_seconds: row.get("timeout_seconds")?,
+                        max_retries: row.get("max_retries")?,
+                        enabled: enabled == 1,
+                        last_check_at: row.get("last_check_at").ok(),
+                        last_status: row.get("last_status").ok(),
+                        consecutive_failures: row.get("consecutive_failures")?,
+                        alert_sent_at: row.get("alert_sent_at").ok(),
+                        created_at: row.get("created_at")?,
+                    })
+                }) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("[Alert] Failed to query services: {}", e);
+                        return Vec::new();
+                    }
+                };
+                rows.filter_map(|r| r.ok()).collect()
+            })
+            .unwrap_or_default();
 
         let now = chrono::Utc::now();
 
@@ -85,7 +88,9 @@ impl super::CoreService {
                     let elapsed = now.signed_duration_since(last_utc).num_seconds();
                     log::debug!(
                         "[Alert] Service {} last_check {}s ago (interval {}s)",
-                        service.name, elapsed, service.check_interval
+                        service.name,
+                        elapsed,
+                        service.check_interval
                     );
                     if elapsed < service.check_interval {
                         log::debug!("[Alert] Skipping service {} - not due yet", service.name);
@@ -94,7 +99,8 @@ impl super::CoreService {
                 } else {
                     log::warn!(
                         "[Alert] Failed to parse last_check_at for service {}: {}",
-                        service.name, last_check
+                        service.name,
+                        last_check
                     );
                 }
             }
@@ -104,8 +110,14 @@ impl super::CoreService {
             let timeout_val = service.timeout_seconds as u64;
             let port_up = tokio::task::spawn_blocking(move || {
                 check_tcp_port(&host_clone, port_val, timeout_val)
-            }).await.unwrap_or(false);
-            let current_failures = if port_up { 0 } else { service.consecutive_failures + 1 };
+            })
+            .await
+            .unwrap_or(false);
+            let current_failures = if port_up {
+                0
+            } else {
+                service.consecutive_failures + 1
+            };
 
             // Update last_status and consecutive_failures in DB
             let last_status_val: i64 = if port_up { 1 } else { 0 };
@@ -158,7 +170,10 @@ impl super::CoreService {
                                 } else {
                                     format!("{}秒", secs)
                                 };
-                                msg.push_str(&format!("\n下线时间：{}\n持续时长：{}", down_time, dur_str));
+                                msg.push_str(&format!(
+                                    "\n下线时间：{}\n持续时长：{}",
+                                    down_time, dur_str
+                                ));
                             }
                         }
                         results.push(AlertResult {
@@ -176,9 +191,15 @@ impl super::CoreService {
                     conn.execute(
                         "UPDATE alert_services SET alert_sent_at=NULL WHERE id=?1",
                         rusqlite::params![service.id],
-                    ).map(|_| ()).map_err(|e| format!("{}", e))
+                    )
+                    .map(|_| ())
+                    .map_err(|e| format!("{}", e))
                 }) {
-                    log::warn!("[Alert] Failed to clear alert_sent_at {}: {}", service.id, e);
+                    log::warn!(
+                        "[Alert] Failed to clear alert_sent_at {}: {}",
+                        service.id,
+                        e
+                    );
                 }
             } else {
                 let should_alert = current_failures >= service.max_retries;
@@ -205,15 +226,28 @@ impl super::CoreService {
                             host: Some(service.host.clone()),
                             port: Some(service.port),
                             category: None,
-                            message: format!("服务 {} ({}:{}) 无法连接（连续 {} 次失败）\n下线时间：{}", service.name, service.host, service.port, current_failures, offline_time),
+                            message: format!(
+                                "服务 {} ({}:{}) 无法连接（连续 {} 次失败）\n下线时间：{}",
+                                service.name,
+                                service.host,
+                                service.port,
+                                current_failures,
+                                offline_time
+                            ),
                         });
                         if let Err(e) = self.db_write(|conn| {
                             conn.execute(
                                 "UPDATE alert_services SET alert_sent_at=?1 WHERE id=?2",
                                 rusqlite::params![now_str, service.id],
-                            ).map(|_| ()).map_err(|e| format!("{}", e))
+                            )
+                            .map(|_| ())
+                            .map_err(|e| format!("{}", e))
                         }) {
-                            log::warn!("[Alert] Failed to update alert_sent_at {}: {}", service.id, e);
+                            log::warn!(
+                                "[Alert] Failed to update alert_sent_at {}: {}",
+                                service.id,
+                                e
+                            );
                         }
                     }
                 }
@@ -226,36 +260,39 @@ impl super::CoreService {
     pub async fn check_expiring_resources(&self) -> Vec<AlertResult> {
         let mut results = Vec::new();
 
-        let resources: Vec<alert::AlertResource> = self.db_read(|conn| {
-            let mut stmt = match conn.prepare("SELECT * FROM alert_resources WHERE enabled = 1") {
-                Ok(s) => s,
-                Err(e) => {
-                    log::error!("[Alert] Failed to prepare resource query: {}", e);
-                    return Vec::new();
-                }
-            };
-            let rows = match stmt.query_map([], |row| {
-                let enabled: i64 = row.get("enabled")?;
-                Ok(alert::AlertResource {
-                    id: row.get("id")?,
-                    name: row.get("name")?,
-                    category: row.get("category").ok(),
-                    remark: row.get("remark").ok(),
-                    expire_at: row.get("expire_at").ok(),
-                    alert_advance_days: row.get("alert_advance_days")?,
-                    enabled: enabled == 1,
-                    last_alert_sent_at: row.get("last_alert_sent_at").ok(),
-                    created_at: row.get("created_at")?,
-                })
-            }) {
-                Ok(r) => r,
-                Err(e) => {
-                    log::error!("[Alert] Failed to query resources: {}", e);
-                    return Vec::new();
-                }
-            };
-            rows.filter_map(|r| r.ok()).collect()
-        }).unwrap_or_default();
+        let resources: Vec<alert::AlertResource> = self
+            .db_read(|conn| {
+                let mut stmt = match conn.prepare("SELECT * FROM alert_resources WHERE enabled = 1")
+                {
+                    Ok(s) => s,
+                    Err(e) => {
+                        log::error!("[Alert] Failed to prepare resource query: {}", e);
+                        return Vec::new();
+                    }
+                };
+                let rows = match stmt.query_map([], |row| {
+                    let enabled: i64 = row.get("enabled")?;
+                    Ok(alert::AlertResource {
+                        id: row.get("id")?,
+                        name: row.get("name")?,
+                        category: row.get("category").ok(),
+                        remark: row.get("remark").ok(),
+                        expire_at: row.get("expire_at").ok(),
+                        alert_advance_days: row.get("alert_advance_days")?,
+                        enabled: enabled == 1,
+                        last_alert_sent_at: row.get("last_alert_sent_at").ok(),
+                        created_at: row.get("created_at")?,
+                    })
+                }) {
+                    Ok(r) => r,
+                    Err(e) => {
+                        log::error!("[Alert] Failed to query resources: {}", e);
+                        return Vec::new();
+                    }
+                };
+                rows.filter_map(|r| r.ok()).collect()
+            })
+            .unwrap_or_default();
 
         let now = chrono::Utc::now();
 
@@ -265,18 +302,19 @@ impl super::CoreService {
                 None => continue,
             };
 
-            let expire_at = chrono::DateTime::parse_from_rfc3339(expire_at_str)
-                .or_else(|_| {
-                    chrono::NaiveDate::parse_from_str(expire_at_str, "%Y-%m-%d")
-                        .map(|d| {
-                            d.and_hms_opt(23, 59, 59).unwrap().and_utc().fixed_offset()
-                        })
-                });
+            let expire_at = chrono::DateTime::parse_from_rfc3339(expire_at_str).or_else(|_| {
+                chrono::NaiveDate::parse_from_str(expire_at_str, "%Y-%m-%d")
+                    .map(|d| d.and_hms_opt(23, 59, 59).unwrap().and_utc().fixed_offset())
+            });
 
             let expire_at = match expire_at {
                 Ok(dt) => dt,
                 Err(_) => {
-                    log::warn!("[Alert] Failed to parse expire_at for resource {}: {}", resource.name, expire_at_str);
+                    log::warn!(
+                        "[Alert] Failed to parse expire_at for resource {}: {}",
+                        resource.name,
+                        expire_at_str
+                    );
                     continue;
                 }
             };
@@ -298,9 +336,20 @@ impl super::CoreService {
 
                 if !recent_alert {
                     let msg = if days_until_expiry < 0 {
-                        format!("资源 {} ({}) 已过期！到期日: {}", resource.name, resource.category.as_deref().unwrap_or("未分类"), expire_at_str)
+                        format!(
+                            "资源 {} ({}) 已过期！到期日: {}",
+                            resource.name,
+                            resource.category.as_deref().unwrap_or("未分类"),
+                            expire_at_str
+                        )
                     } else {
-                        format!("资源 {} ({}) 将在 {} 天后到期（{}），请及时处理", resource.name, resource.category.as_deref().unwrap_or("未分类"), days_until_expiry, expire_at_str)
+                        format!(
+                            "资源 {} ({}) 将在 {} 天后到期（{}），请及时处理",
+                            resource.name,
+                            resource.category.as_deref().unwrap_or("未分类"),
+                            days_until_expiry,
+                            expire_at_str
+                        )
                     };
 
                     results.push(AlertResult {
@@ -318,9 +367,15 @@ impl super::CoreService {
                         conn.execute(
                             "UPDATE alert_resources SET last_alert_sent_at=?1 WHERE id=?2",
                             rusqlite::params![now_str, resource.id],
-                        ).map(|_| ()).map_err(|e| format!("{}", e))
+                        )
+                        .map(|_| ())
+                        .map_err(|e| format!("{}", e))
                     }) {
-                        log::warn!("[Alert] Failed to update resource last_alert {}: {}", resource.id, e);
+                        log::warn!(
+                            "[Alert] Failed to update resource last_alert {}: {}",
+                            resource.id,
+                            e
+                        );
                     }
                 }
             }
@@ -446,8 +501,12 @@ impl super::CoreService {
     /// Delete alert service
     pub async fn delete_alert_service(&self, id: &str) -> Result<(), String> {
         self.db_write(|conn| {
-            conn.execute("DELETE FROM alert_services WHERE id = ?1", rusqlite::params![id])
-                .map(|_| ()).map_err(|e| format!("删除服务失败: {}", e))
+            conn.execute(
+                "DELETE FROM alert_services WHERE id = ?1",
+                rusqlite::params![id],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("删除服务失败: {}", e))
         })?
     }
 
@@ -500,7 +559,10 @@ impl super::CoreService {
     }
 
     /// Update alert resource
-    pub async fn update_alert_resource(&self, resource: alert::AlertResource) -> Result<(), String> {
+    pub async fn update_alert_resource(
+        &self,
+        resource: alert::AlertResource,
+    ) -> Result<(), String> {
         self.db_write(|conn| {
             conn.execute(
                 "UPDATE alert_resources SET name=?2, category=?3, remark=?4, expire_at=?5, alert_advance_days=?6, enabled=?7 WHERE id=?1",
@@ -515,8 +577,12 @@ impl super::CoreService {
     /// Delete alert resource
     pub async fn delete_alert_resource(&self, id: &str) -> Result<(), String> {
         self.db_write(|conn| {
-            conn.execute("DELETE FROM alert_resources WHERE id = ?1", rusqlite::params![id])
-                .map(|_| ()).map_err(|e| format!("删除资源失败: {}", e))
+            conn.execute(
+                "DELETE FROM alert_resources WHERE id = ?1",
+                rusqlite::params![id],
+            )
+            .map(|_| ())
+            .map_err(|e| format!("删除资源失败: {}", e))
         })?
     }
 

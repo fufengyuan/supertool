@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 impl super::CoreService {
     pub async fn get_app_path(&self) -> Result<Value, String> {

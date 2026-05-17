@@ -18,12 +18,14 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
     #[cfg(target_os = "windows")]
     let shell_output = std::process::Command::new("cmd")
         .args(["/c", "set"])
-        .output().ok();
+        .output()
+        .ok();
     #[cfg(not(target_os = "windows"))]
     let shell_output = std::process::Command::new("zsh")
         .args(["-l", "-c", "env"])
-        .output().ok();
-    
+        .output()
+        .ok();
+
     let mut env = HashMap::new();
     if let Some(out) = shell_output {
         let text = String::from_utf8_lossy(&out.stdout);
@@ -39,21 +41,24 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
             }
         }
     }
-    
+
     // 第二步：确保 PATH 包含常见版本管理器路径（跨平台 fallback）
     if let Ok(home) = std::env::var("HOME").or_else(|_| std::env::var("USERPROFILE")) {
-        let current_path = env.get("PATH").cloned()
+        let current_path = env
+            .get("PATH")
+            .cloned()
             .or_else(|| std::env::var("PATH").ok())
             .unwrap_or_default();
         let mut extra_paths: Vec<String> = Vec::new();
-        
+
         #[cfg(target_os = "macos")]
         {
             // NVM (Node Version Manager)
             let nvm_dir = format!("{}/.nvm/versions/node", home);
             if std::path::Path::new(&nvm_dir).is_dir() {
                 if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
-                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                    let mut versions: Vec<_> = entries
+                        .filter_map(|e| e.ok())
                         .filter(|e| e.path().is_dir())
                         .filter_map(|e| e.file_name().into_string().ok())
                         .collect();
@@ -67,14 +72,15 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
             extra_paths.push("/opt/homebrew/bin".to_string());
             extra_paths.push("/opt/homebrew/sbin".to_string());
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             // NVM Linux
             let nvm_dir = format!("{}/.nvm/versions/node", home);
             if std::path::Path::new(&nvm_dir).is_dir() {
                 if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
-                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                    let mut versions: Vec<_> = entries
+                        .filter_map(|e| e.ok())
                         .filter(|e| e.path().is_dir())
                         .filter_map(|e| e.file_name().into_string().ok())
                         .collect();
@@ -88,7 +94,7 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
             extra_paths.push("/usr/local/bin".to_string());
             extra_paths.push("/snap/bin".to_string());
         }
-        
+
         #[cfg(target_os = "windows")]
         {
             // NVM Windows
@@ -100,7 +106,8 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
             let nvm_root = format!("{}\\AppData\\Roaming\\nvm", home);
             if std::path::Path::new(&nvm_root).is_dir() {
                 if let Ok(entries) = std::fs::read_dir(&nvm_root) {
-                    let mut versions: Vec<_> = entries.filter_map(|e| e.ok())
+                    let mut versions: Vec<_> = entries
+                        .filter_map(|e| e.ok())
                         .filter(|e| e.path().is_dir())
                         .filter_map(|e| e.file_name().into_string().ok())
                         .filter(|n| n.starts_with("v"))
@@ -112,7 +119,7 @@ static SHELL_ENV_CACHE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
                 }
             }
         }
-        
+
         // 合并原有 PATH（去重）
         let sep = if cfg!(windows) { ";" } else { ":" };
         let mut all_paths = extra_paths;
@@ -202,7 +209,9 @@ pub struct DeployModuleConfig {
     pub enabled: bool,
 }
 
-fn default_true() -> bool { true }
+fn default_true() -> bool {
+    true
+}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DeployConfig {
@@ -318,12 +327,23 @@ pub async fn execute_deploy(
             .append(true)
             .open(&log_file)
         {
-            let _ = writeln!(f, "[{}] [{}] [{}] {}", chrono::Utc::now().to_rfc3339(), stage, status, msg);
+            let _ = writeln!(
+                f,
+                "[{}] [{}] [{}] {}",
+                chrono::Utc::now().to_rfc3339(),
+                stage,
+                status,
+                msg
+            );
         }
         on_progress(event);
     };
 
-    emit("deploy", "starting", &format!("开始部署 {}", config.repo_url));
+    emit(
+        "deploy",
+        "starting",
+        &format!("开始部署 {}", config.repo_url),
+    );
 
     // Step 1: Git sync or use local path
     let project_path = match do_git_sync(config, &emit).await {
@@ -428,7 +448,11 @@ pub async fn execute_deploy(
         });
     }
 
-    emit("collect", "success", &format!("产物收集完成 ({} 个)", artifacts.len()));
+    emit(
+        "collect",
+        "success",
+        &format!("产物收集完成 ({} 个)", artifacts.len()),
+    );
 
     // Copy artifacts to deploy-artifacts directory
     fs::create_dir_all(&artifact_dir).map_err(|e| format!("创建产物目录失败: {}", e))?;
@@ -436,7 +460,11 @@ pub async fn execute_deploy(
     for artifact in &artifacts {
         let dest = artifact_dir.join(&artifact.name);
         if let Err(e) = fs::copy(&artifact.local_path, &dest) {
-            emit("collect", "warning", &format!("复制 {} 失败: {}", artifact.name, e));
+            emit(
+                "collect",
+                "warning",
+                &format!("复制 {} 失败: {}", artifact.name, e),
+            );
             continue;
         }
         artifact_paths.push(dest.to_string_lossy().to_string());
@@ -474,12 +502,20 @@ pub async fn execute_deploy(
         match deploy_to_server(srv, &artifacts, config, &emit).await {
             Ok(_) => {
                 let label = srv.label.as_deref().unwrap_or("服务器");
-                emit("ssh", "success", &format!("{} ({}) 部署完成", label, srv.host));
+                emit(
+                    "ssh",
+                    "success",
+                    &format!("{} ({}) 部署完成", label, srv.host),
+                );
                 deploy_results.push(true);
             }
             Err(e) => {
                 let label = srv.label.as_deref().unwrap_or("服务器");
-                emit("ssh", "failed", &format!("{} ({}) 部署失败: {}", label, srv.host, e));
+                emit(
+                    "ssh",
+                    "failed",
+                    &format!("{} ({}) 部署失败: {}", label, srv.host, e),
+                );
                 deploy_results.push(false);
             }
         }
@@ -503,7 +539,7 @@ pub async fn execute_deploy(
     // 前端项目（npm/pnpm/yarn）直接替换静态文件，不需要重启脚本
     let build_tool = config.build_tool.as_deref().unwrap_or("maven");
     let is_frontend = ["npm", "pnpm", "yarn"].contains(&build_tool);
-    
+
     if let Some(ref script) = config.restart_script {
         if !is_frontend {
             for srv in &config.servers {
@@ -513,7 +549,11 @@ pub async fn execute_deploy(
                 }
             }
         } else {
-            emit("restart", "skipped", "前端项目无需重启脚本，静态文件已直接替换");
+            emit(
+                "restart",
+                "skipped",
+                "前端项目无需重启脚本，静态文件已直接替换",
+            );
         }
     }
 
@@ -539,128 +579,144 @@ async fn do_git_sync(
     if config.build_mode == "local" {
         // Local mode: use local project directory
         if let Some(ref local_path) = config.local_path {
-        let path = PathBuf::from(local_path);
-        if !path.exists() {
-            return Err(format!("本地路径不存在: {}", local_path));
-        }
+            let path = PathBuf::from(local_path);
+            if !path.exists() {
+                return Err(format!("本地路径不存在: {}", local_path));
+            }
 
-        // Check if it's a git repo
-        let git_dir = path.join(".git");
-        if !git_dir.exists() {
-            emit("git", "warning", &format!("使用本地目录: {} (非 Git 仓库，跳过分支切换)", local_path));
+            // Check if it's a git repo
+            let git_dir = path.join(".git");
+            if !git_dir.exists() {
+                emit(
+                    "git",
+                    "warning",
+                    &format!("使用本地目录: {} (非 Git 仓库，跳过分支切换)", local_path),
+                );
+                return Ok(path);
+            }
+
+            // Fetch and pull
+            emit("git", "pulling", "拉取最新代码...");
+
+            let output = Command::new(crate::logic::git::find_git())
+                .args(["fetch", "origin"])
+                .current_dir(&path)
+                .output()
+                .await
+                .map_err(|e| format!("git fetch 失败: {}", e))?;
+
+            if !output.status.success() {
+                let err = String::from_utf8_lossy(&output.stderr);
+                return Err(format!("git fetch 失败: {}", err.trim()));
+            }
+
+            // Checkout branch（对齐 Electron 原版逻辑）
+            let raw_branch = if config.branch.is_empty() {
+                "main"
+            } else {
+                &config.branch
+            };
+            // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
+            let branch = raw_branch.strip_prefix("origin/").unwrap_or(raw_branch);
+            let output = Command::new(crate::logic::git::find_git())
+                .args(["checkout", branch])
+                .current_dir(&path)
+                .output()
+                .await
+                .map_err(|e| format!("git checkout 失败: {}", e))?;
+
+            if !output.status.success() {
+                // 分支不存在，从 origin 创建
+                let output2 = Command::new(crate::logic::git::find_git())
+                    .args(["checkout", "-b", branch, &format!("origin/{}", branch)])
+                    .current_dir(&path)
+                    .output()
+                    .await
+                    .map_err(|e| format!("git checkout -b 失败: {}", e))?;
+
+                if !output2.status.success() {
+                    let err = String::from_utf8_lossy(&output2.stderr);
+                    return Err(format!("git checkout 失败: {}", err.trim()));
+                }
+            }
+
+            // Pull latest - 本地模式智能合并（不强制要求提交）
+            // 先检查是否有未提交改动
+            let status_output = Command::new(crate::logic::git::find_git())
+                .args(["status", "--porcelain"])
+                .current_dir(&path)
+                .output()
+                .await
+                .map_err(|e| format!("git status 失败: {}", e))?;
+
+            let has_changes = !status_output.stdout.is_empty();
+
+            if has_changes {
+                // 有未提交改动，先 stash
+                emit("git", "info", "检测到未提交改动，暂存后拉取...");
+
+                let stash_output = Command::new(crate::logic::git::find_git())
+                    .args(["stash", "push", "-m", "supertool-auto-stash"])
+                    .current_dir(&path)
+                    .output()
+                    .await
+                    .map_err(|e| format!("git stash 失败: {}", e))?;
+
+                if !stash_output.status.success() {
+                    let err = String::from_utf8_lossy(&stash_output.stderr);
+                    // stash 失败可能是因为没有实际改动（如空文件），继续尝试 pull
+                    emit("git", "warning", &format!("stash 跳过: {}", err.trim()));
+                }
+            }
+
+            // 执行 pull（不使用 rebase，避免冲突）
+            let pull_output = Command::new(crate::logic::git::find_git())
+                .args(["pull", "origin", branch, "--no-edit"])
+                .current_dir(&path)
+                .output()
+                .await
+                .map_err(|e| format!("git pull 失败: {}", e))?;
+
+            if !pull_output.status.success() {
+                let err = String::from_utf8_lossy(&pull_output.stderr);
+                // pull 失败，可能是冲突，尝试恢复 stash 后继续
+                emit("git", "warning", &format!("pull 有警告: {}", err.trim()));
+            }
+
+            // 如果之前有改动，恢复 stash
+            if has_changes {
+                let pop_output = Command::new(crate::logic::git::find_git())
+                    .args(["stash", "pop"])
+                    .current_dir(&path)
+                    .output()
+                    .await;
+
+                match pop_output {
+                    Ok(o) if o.status.success() => {
+                        emit("git", "info", "已恢复本地改动");
+                    }
+                    Ok(o) => {
+                        let err = String::from_utf8_lossy(&o.stderr);
+                        // stash pop 有冲突，给警告但不阻塞构建
+                        emit(
+                            "git",
+                            "warning",
+                            &format!("恢复改动有冲突，请手动处理: {}", err.trim()),
+                        );
+                    }
+                    Err(e) => {
+                        emit("git", "warning", &format!("stash pop 失败: {}", e));
+                    }
+                }
+            }
+
+            emit(
+                "git",
+                "success",
+                &format!("使用本地目录: {} (已同步 {})", local_path, branch),
+            );
             return Ok(path);
         }
-
-        // Fetch and pull
-        emit("git", "pulling", "拉取最新代码...");
-
-        let output = Command::new(crate::logic::git::find_git())
-            .args(["fetch", "origin"])
-            .current_dir(&path)
-            .output()
-            .await
-            .map_err(|e| format!("git fetch 失败: {}", e))?;
-
-        if !output.status.success() {
-            let err = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("git fetch 失败: {}", err.trim()));
-        }
-
-        // Checkout branch（对齐 Electron 原版逻辑）
-        let raw_branch = if config.branch.is_empty() { "main" } else { &config.branch };
-        // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
-        let branch = raw_branch.strip_prefix("origin/").unwrap_or(raw_branch);
-        let output = Command::new(crate::logic::git::find_git())
-            .args(["checkout", branch])
-            .current_dir(&path)
-            .output()
-            .await
-            .map_err(|e| format!("git checkout 失败: {}", e))?;
-
-        if !output.status.success() {
-            // 分支不存在，从 origin 创建
-            let output2 = Command::new(crate::logic::git::find_git())
-                .args(["checkout", "-b", branch, &format!("origin/{}", branch)])
-                .current_dir(&path)
-                .output()
-                .await
-                .map_err(|e| format!("git checkout -b 失败: {}", e))?;
-
-            if !output2.status.success() {
-                let err = String::from_utf8_lossy(&output2.stderr);
-                return Err(format!("git checkout 失败: {}", err.trim()));
-            }
-        }
-
-        // Pull latest - 本地模式智能合并（不强制要求提交）
-        // 先检查是否有未提交改动
-        let status_output = Command::new(crate::logic::git::find_git())
-            .args(["status", "--porcelain"])
-            .current_dir(&path)
-            .output()
-            .await
-            .map_err(|e| format!("git status 失败: {}", e))?;
-
-        let has_changes = !status_output.stdout.is_empty();
-
-        if has_changes {
-            // 有未提交改动，先 stash
-            emit("git", "info", "检测到未提交改动，暂存后拉取...");
-
-            let stash_output = Command::new(crate::logic::git::find_git())
-                .args(["stash", "push", "-m", "supertool-auto-stash"])
-                .current_dir(&path)
-                .output()
-                .await
-                .map_err(|e| format!("git stash 失败: {}", e))?;
-
-            if !stash_output.status.success() {
-                let err = String::from_utf8_lossy(&stash_output.stderr);
-                // stash 失败可能是因为没有实际改动（如空文件），继续尝试 pull
-                emit("git", "warning", &format!("stash 跳过: {}", err.trim()));
-            }
-        }
-
-        // 执行 pull（不使用 rebase，避免冲突）
-        let pull_output = Command::new(crate::logic::git::find_git())
-            .args(["pull", "origin", branch, "--no-edit"])
-            .current_dir(&path)
-            .output()
-            .await
-            .map_err(|e| format!("git pull 失败: {}", e))?;
-
-        if !pull_output.status.success() {
-            let err = String::from_utf8_lossy(&pull_output.stderr);
-            // pull 失败，可能是冲突，尝试恢复 stash 后继续
-            emit("git", "warning", &format!("pull 有警告: {}", err.trim()));
-        }
-
-        // 如果之前有改动，恢复 stash
-        if has_changes {
-            let pop_output = Command::new(crate::logic::git::find_git())
-                .args(["stash", "pop"])
-                .current_dir(&path)
-                .output()
-                .await;
-
-            match pop_output {
-                Ok(o) if o.status.success() => {
-                    emit("git", "info", "已恢复本地改动");
-                }
-                Ok(o) => {
-                    let err = String::from_utf8_lossy(&o.stderr);
-                    // stash pop 有冲突，给警告但不阻塞构建
-                    emit("git", "warning", &format!("恢复改动有冲突，请手动处理: {}", err.trim()));
-                }
-                Err(e) => {
-                    emit("git", "warning", &format!("stash pop 失败: {}", e));
-                }
-            }
-        }
-
-        emit("git", "success", &format!("使用本地目录: {} (已同步 {})", local_path, branch));
-        return Ok(path);
-    }
     }
 
     // Clone from remote (git_clone mode or fallback)
@@ -675,7 +731,10 @@ async fn do_git_sync(
         emit("git", "pulling", "拉取最新代码...");
 
         // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
-        let branch = config.branch.strip_prefix("origin/").unwrap_or(&config.branch);
+        let branch = config
+            .branch
+            .strip_prefix("origin/")
+            .unwrap_or(&config.branch);
 
         let _ = Command::new(crate::logic::git::find_git())
             .args(["fetch", "origin"])
@@ -739,7 +798,7 @@ async fn install_dependencies(
     // Determine where to install dependencies:
     // 1. Root project path (if has package.json)
     // 2. Module build paths (if root doesn't have package.json but modules do)
-    
+
     // First check root project path
     let root_package_json = project_path.join("package.json");
     let install_paths: Vec<PathBuf> = if root_package_json.exists() {
@@ -747,7 +806,9 @@ async fn install_dependencies(
         vec![project_path.clone()]
     } else if !config.modules.is_empty() {
         // Multi-module non-monorepo: each module may have its own package.json
-        config.modules.iter()
+        config
+            .modules
+            .iter()
             .filter_map(|m| {
                 let module_path = if let Some(ref bp) = m.build_path {
                     project_path.join(bp)
@@ -799,14 +860,23 @@ async fn install_dependencies(
             let path_name = if install_path == project_path {
                 "根目录"
             } else {
-                install_path.file_name().and_then(|n| n.to_str()).unwrap_or("module")
+                install_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("module")
             };
-            emit("deps", "skipped", &format!("{} node_modules 已存在，跳过安装", path_name));
+            emit(
+                "deps",
+                "skipped",
+                &format!("{} node_modules 已存在，跳过安装", path_name),
+            );
             continue;
         }
 
         // Determine install tool from build_tool config (use first module's build_tool if available)
-        let tool = config.modules.first()
+        let tool = config
+            .modules
+            .first()
             .and_then(|m| m.build_tool.as_deref())
             .or(config.build_tool.as_deref())
             .unwrap_or("npm");
@@ -820,13 +890,23 @@ async fn install_dependencies(
         let path_name = if install_path == project_path {
             "根目录"
         } else {
-            install_path.file_name().and_then(|n| n.to_str()).unwrap_or("module")
+            install_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("module")
         };
-        emit("deps", "installing", &format!("{} 安装依赖: {}", path_name, install_cmd));
+        emit(
+            "deps",
+            "installing",
+            &format!("{} 安装依赖: {}", path_name, install_cmd),
+        );
 
         let mut cmd = user_shell_cmd("sh");
-        cmd.arg("-c").arg(install_cmd).current_dir(install_path)
-            .stdout(Stdio::piped()).stderr(Stdio::piped());
+        cmd.arg("-c")
+            .arg(install_cmd)
+            .current_dir(install_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         // Inject NODE_HOME and npm paths
         if let Some(ref node_home) = config.node_home {
@@ -834,7 +914,8 @@ async fn install_dependencies(
         }
         extend_path_npm(&mut cmd, &config.node_home, &config.npm_home);
 
-        let mut child = cmd.spawn()
+        let mut child = cmd
+            .spawn()
             .map_err(|e| format!("依赖安装启动失败: {}", e))?;
 
         let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
@@ -844,18 +925,32 @@ async fn install_dependencies(
         let stdout_fut = async {
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            while reader
+                .read_line(&mut line)
+                .await
+                .map(|n| n > 0)
+                .unwrap_or(false)
+            {
                 let trimmed = line.trim_end();
-                if !trimmed.is_empty() { emit("deps", "installing", trimmed); }
+                if !trimmed.is_empty() {
+                    emit("deps", "installing", trimmed);
+                }
                 line.clear();
             }
         };
         let stderr_fut = async {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            while reader
+                .read_line(&mut line)
+                .await
+                .map(|n| n > 0)
+                .unwrap_or(false)
+            {
                 let trimmed = line.trim_end();
-                if !trimmed.is_empty() { emit("deps", "installing", trimmed); }
+                if !trimmed.is_empty() {
+                    emit("deps", "installing", trimmed);
+                }
                 line.clear();
             }
         };
@@ -864,7 +959,11 @@ async fn install_dependencies(
         let status = status.map_err(|e| format!("等待安装进程失败: {}", e))?;
 
         if !status.success() {
-            return Err(format!("{} 依赖安装失败 (exit {})", path_name, status.code().unwrap_or(-1)));
+            return Err(format!(
+                "{} 依赖安装失败 (exit {})",
+                path_name,
+                status.code().unwrap_or(-1)
+            ));
         }
 
         emit("deps", "success", &format!("{} 依赖安装完成", path_name));
@@ -884,7 +983,11 @@ async fn do_build(
 
     if has_modules && config.parent_build_mode && config.build_tool.as_deref() == Some("maven") {
         // Parent unified build — delegate to run_maven_build for streaming output
-        emit("maven", "starting", "父模块统一构建 (Maven multi-module)...");
+        emit(
+            "maven",
+            "starting",
+            "父模块统一构建 (Maven multi-module)...",
+        );
 
         let parent_cwd = if let Some(ref pbp) = config.parent_build_path {
             project_path.join(pbp)
@@ -894,7 +997,11 @@ async fn do_build(
 
         run_maven_build(&parent_cwd, config, emit).await?;
 
-        emit("maven", "success", &format!("父模块构建成功 ({} 个子模块)", config.modules.len()));
+        emit(
+            "maven",
+            "success",
+            &format!("父模块构建成功 ({} 个子模块)", config.modules.len()),
+        );
     } else if has_modules {
         // Per-module build
         let mut sorted_modules = config.modules.clone();
@@ -902,7 +1009,11 @@ async fn do_build(
 
         for module in &sorted_modules {
             if let Err(e) = build_single_module(project_path, module, config, emit).await {
-                return Err(format!("模块 {} 构建失败: {}", module.name.as_deref().unwrap_or("unknown"), e));
+                return Err(format!(
+                    "模块 {} 构建失败: {}",
+                    module.name.as_deref().unwrap_or("unknown"),
+                    e
+                ));
             }
         }
     } else {
@@ -914,7 +1025,11 @@ async fn do_build(
         };
 
         let build_tool = config.build_tool.as_deref().unwrap_or_else(|| {
-            if config.maven_home.is_some() { "maven" } else { "npm" }
+            if config.maven_home.is_some() {
+                "maven"
+            } else {
+                "npm"
+            }
         });
 
         match build_tool {
@@ -946,7 +1061,11 @@ async fn build_single_module(
     if let Some(ref cmd) = module.build_command.as_ref().filter(|s| !s.is_empty()) {
         let final_cmd = if cmd.contains("mvn") && config.skip_tests && !cmd.contains("skipTests") {
             let appended = format!("{} -DskipTests", cmd);
-            emit("build", "info", &format!("已追加 -DskipTests（原始命令中未含）"));
+            emit(
+                "build",
+                "info",
+                &format!("已追加 -DskipTests（原始命令中未含）"),
+            );
             appended
         } else {
             cmd.to_string()
@@ -954,8 +1073,12 @@ async fn build_single_module(
         emit("build", "starting", &format!("执行构建命令: {}", final_cmd));
 
         let mut child_cmd = user_shell_cmd("sh");
-        child_cmd.arg("-c").arg(&final_cmd).current_dir(&build_path)
-            .stdout(Stdio::piped()).stderr(Stdio::piped());
+        child_cmd
+            .arg("-c")
+            .arg(&final_cmd)
+            .current_dir(&build_path)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
 
         // 注入配置的工具路径，确保自定义命令能找到 mvn/npm/node
         // 只在命令包含 mvn 时设置 JAVA_HOME，避免前端项目污染
@@ -968,7 +1091,8 @@ async fn build_single_module(
         extend_path(&mut child_cmd, &config.java_home, &config.maven_home);
         extend_path_npm(&mut child_cmd, &config.node_home, &config.npm_home);
 
-        let mut child = child_cmd.spawn()
+        let mut child = child_cmd
+            .spawn()
             .map_err(|e| format!("构建命令启动失败: {}", e))?;
 
         let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
@@ -977,18 +1101,32 @@ async fn build_single_module(
         let stdout_fut = async {
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            while reader
+                .read_line(&mut line)
+                .await
+                .map(|n| n > 0)
+                .unwrap_or(false)
+            {
                 let trimmed = line.trim_end();
-                if !trimmed.is_empty() { emit("build", "building", trimmed); }
+                if !trimmed.is_empty() {
+                    emit("build", "building", trimmed);
+                }
                 line.clear();
             }
         };
         let stderr_fut = async {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
-            while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+            while reader
+                .read_line(&mut line)
+                .await
+                .map(|n| n > 0)
+                .unwrap_or(false)
+            {
                 let trimmed = line.trim_end();
-                if !trimmed.is_empty() { emit("build", "building", trimmed); }
+                if !trimmed.is_empty() {
+                    emit("build", "building", trimmed);
+                }
                 line.clear();
             }
         };
@@ -1003,7 +1141,9 @@ async fn build_single_module(
         return Ok(());
     }
 
-    let tool = module.build_tool.as_deref()
+    let tool = module
+        .build_tool
+        .as_deref()
         .or(config.build_tool.as_deref())
         .unwrap_or("npm");
 
@@ -1051,27 +1191,39 @@ async fn run_maven_build(
         .spawn()
         .map_err(|e| format!("Maven 构建启动失败: {}", e))?;
 
-    let stdout = child.stdout.take()
-        .ok_or("无法获取 Maven stdout")?;
-    let stderr = child.stderr.take()
-        .ok_or("无法获取 Maven stderr")?;
+    let stdout = child.stdout.take().ok_or("无法获取 Maven stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 Maven stderr")?;
 
     // Stream stdout + stderr concurrently
     let stdout_fut = async {
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("maven", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("maven", "building", trimmed);
+            }
             line.clear();
         }
     };
     let stderr_fut = async {
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("maven", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("maven", "building", trimmed);
+            }
             line.clear();
         }
     };
@@ -1080,7 +1232,10 @@ async fn run_maven_build(
     let status = status.map_err(|e| format!("等待 Maven 进程失败: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Maven 构建失败 (exit {})", status.code().unwrap_or(-1)));
+        return Err(format!(
+            "Maven 构建失败 (exit {})",
+            status.code().unwrap_or(-1)
+        ));
     }
 
     emit("maven", "success", "构建成功");
@@ -1093,7 +1248,9 @@ async fn run_npm_build(
     tool: &str,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
-    let script = config.npm_custom_script.as_deref()
+    let script = config
+        .npm_custom_script
+        .as_deref()
         .or(config.npm_script.as_deref())
         .unwrap_or("build");
 
@@ -1114,27 +1271,39 @@ async fn run_npm_build(
         .spawn()
         .map_err(|e| format!("{} 构建启动失败: {}", tool, e))?;
 
-    let stdout = child.stdout.take()
-        .ok_or("无法获取 stdout")?;
-    let stderr = child.stderr.take()
-        .ok_or("无法获取 stderr")?;
+    let stdout = child.stdout.take().ok_or("无法获取 stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 stderr")?;
 
     // Stream stdout + stderr concurrently
     let stdout_fut = async {
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("npm", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("npm", "building", trimmed);
+            }
             line.clear();
         }
     };
     let stderr_fut = async {
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("npm", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("npm", "building", trimmed);
+            }
             line.clear();
         }
     };
@@ -1143,7 +1312,11 @@ async fn run_npm_build(
     let status = status.map_err(|e| format!("等待 {} 进程失败: {}", tool, e))?;
 
     if !status.success() {
-        return Err(format!("{} 构建失败 (exit {})", tool, status.code().unwrap_or(-1)));
+        return Err(format!(
+            "{} 构建失败 (exit {})",
+            tool,
+            status.code().unwrap_or(-1)
+        ));
     }
 
     emit("npm", "success", &format!("{} 构建成功", tool));
@@ -1171,27 +1344,39 @@ async fn run_gradle_build(
         .spawn()
         .map_err(|e| format!("Gradle 构建启动失败: {}", e))?;
 
-    let stdout = child.stdout.take()
-        .ok_or("无法获取 Gradle stdout")?;
-    let stderr = child.stderr.take()
-        .ok_or("无法获取 Gradle stderr")?;
+    let stdout = child.stdout.take().ok_or("无法获取 Gradle stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 Gradle stderr")?;
 
     // Stream stdout + stderr concurrently（对齐 Maven/npm 的实时日志模式）
     let stdout_fut = async {
         let mut reader = BufReader::new(stdout);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("gradle", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("gradle", "building", trimmed);
+            }
             line.clear();
         }
     };
     let stderr_fut = async {
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
-        while reader.read_line(&mut line).await.map(|n| n > 0).unwrap_or(false) {
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
             let trimmed = line.trim_end();
-            if !trimmed.is_empty() { emit("gradle", "building", trimmed); }
+            if !trimmed.is_empty() {
+                emit("gradle", "building", trimmed);
+            }
             line.clear();
         }
     };
@@ -1200,7 +1385,10 @@ async fn run_gradle_build(
     let status = status.map_err(|e| format!("等待 Gradle 进程失败: {}", e))?;
 
     if !status.success() {
-        return Err(format!("Gradle 构建失败 (exit {})", status.code().unwrap_or(-1)));
+        return Err(format!(
+            "Gradle 构建失败 (exit {})",
+            status.code().unwrap_or(-1)
+        ));
     }
 
     emit("gradle", "success", "Gradle 构建成功");
@@ -1279,7 +1467,8 @@ fn extend_path(cmd: &mut Command, java_home: &Option<String>, maven_home: &Optio
 
     // 优先从用户登录 shell 获取 PATH（含 sdkman/nvm 等），而非 Tauri 进程的 PATH
     let shell_env = get_user_shell_env();
-    let current_path = shell_env.get("PATH")
+    let current_path = shell_env
+        .get("PATH")
         .cloned()
         .or_else(|| std::env::var("PATH").ok())
         .unwrap_or_default();
@@ -1312,7 +1501,8 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
 
     // 优先从用户登录 shell 获取 PATH（含 sdkman/nvm 等），而非 Tauri 进程的 PATH
     let shell_env = get_user_shell_env();
-    let current_path = shell_env.get("PATH")
+    let current_path = shell_env
+        .get("PATH")
         .cloned()
         .or_else(|| std::env::var("PATH").ok())
         .unwrap_or_default();
@@ -1345,7 +1535,14 @@ fn collect_artifacts(
         };
 
         if output_dir.exists() {
-            collect_from_dir(&output_dir, None, &config.deploy_dir, config.lib_separate, None, &mut artifacts)?;
+            collect_from_dir(
+                &output_dir,
+                None,
+                &config.deploy_dir,
+                config.lib_separate,
+                None,
+                &mut artifacts,
+            )?;
         }
     } else {
         // Multi-module
@@ -1387,7 +1584,9 @@ fn collect_artifacts(
                             module: module.name.clone(),
                             is_lib: false,
                             is_compressed: false,
-                            deploy_path: module.deploy_path.clone()
+                            deploy_path: module
+                                .deploy_path
+                                .clone()
                                 .filter(|s| !s.is_empty())
                                 .or(Some(config.deploy_dir.clone())),
                         });
@@ -1396,12 +1595,17 @@ fn collect_artifacts(
                     if config.lib_separate {
                         let lib_dir = output_dir.join("lib");
                         if lib_dir.exists() && lib_dir.is_dir() {
-                            let lib_name = format!("{}-lib.zip", module.name.as_deref().unwrap_or("main"));
+                            let lib_name =
+                                format!("{}-lib.zip", module.name.as_deref().unwrap_or("main"));
                             let lib_zip = output_dir.join(&lib_name);
                             if !lib_zip.exists() {
-                                create_zip(&lib_dir, &lib_zip, module.lib_filter_rules.as_deref(), true).map_err(|e| {
-                                    format!("压缩 lib 目录失败: {}", e)
-                                })?;
+                                create_zip(
+                                    &lib_dir,
+                                    &lib_zip,
+                                    module.lib_filter_rules.as_deref(),
+                                    true,
+                                )
+                                .map_err(|e| format!("压缩 lib 目录失败: {}", e))?;
                             }
                             artifacts.push(Artifact {
                                 name: lib_name,
@@ -1409,7 +1613,9 @@ fn collect_artifacts(
                                 module: module.name.clone(),
                                 is_lib: true,
                                 is_compressed: true,
-                                deploy_path: module.deploy_path.clone()
+                                deploy_path: module
+                                    .deploy_path
+                                    .clone()
                                     .filter(|s| !s.is_empty())
                                     .or(Some(config.deploy_dir.clone())),
                             });
@@ -1425,9 +1631,8 @@ fn collect_artifacts(
                 let zip_name = format!("{}.zip", module.name.as_deref().unwrap_or("dist"));
                 let zip_path = output_dir.join(&zip_name);
                 if !zip_path.exists() {
-                    create_zip(&output_dir, &zip_path, None, false).map_err(|e| {
-                        format!("压缩产物目录失败: {}", e)
-                    })?;
+                    create_zip(&output_dir, &zip_path, None, false)
+                        .map_err(|e| format!("压缩产物目录失败: {}", e))?;
                 }
                 artifacts.push(Artifact {
                     name: zip_name,
@@ -1435,14 +1640,23 @@ fn collect_artifacts(
                     module: module.name.clone(),
                     is_lib: false,
                     is_compressed: true,
-                    deploy_path: module.deploy_path.clone()
+                    deploy_path: module
+                        .deploy_path
+                        .clone()
                         .filter(|s| !s.is_empty())
                         .or(Some(config.deploy_dir.clone())),
                 });
                 continue;
             }
 
-            collect_from_dir(&output_dir, module.name.as_deref(), module.deploy_path.as_deref().unwrap_or(&config.deploy_dir), config.lib_separate, module.lib_filter_rules.as_deref(), &mut artifacts)?;
+            collect_from_dir(
+                &output_dir,
+                module.name.as_deref(),
+                module.deploy_path.as_deref().unwrap_or(&config.deploy_dir),
+                config.lib_separate,
+                module.lib_filter_rules.as_deref(),
+                &mut artifacts,
+            )?;
         }
     }
 
@@ -1458,8 +1672,7 @@ fn collect_from_dir(
     artifacts: &mut Vec<Artifact>,
 ) -> Result<(), String> {
     // Find .jar files
-    let entries = fs::read_dir(output_dir)
-        .map_err(|e| format!("读取产物目录失败: {}", e))?;
+    let entries = fs::read_dir(output_dir).map_err(|e| format!("读取产物目录失败: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
@@ -1496,9 +1709,8 @@ fn collect_from_dir(
 
             // Create zip of lib directory (skip if already exists)
             if !zip_path.exists() {
-                create_zip(&lib_dir, &zip_path, lib_filter, true).map_err(|e| {
-                    format!("压缩 lib 目录失败: {}", e)
-                })?;
+                create_zip(&lib_dir, &zip_path, lib_filter, true)
+                    .map_err(|e| format!("压缩 lib 目录失败: {}", e))?;
             }
 
             artifacts.push(Artifact {
@@ -1515,7 +1727,12 @@ fn collect_from_dir(
     Ok(())
 }
 
-fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths: bool) -> Result<(), String> {
+fn create_zip(
+    src_dir: &Path,
+    dest_zip: &Path,
+    filter: Option<&str>,
+    junk_paths: bool,
+) -> Result<(), String> {
     let output = if let Some(filter_str) = filter {
         let filter_str = filter_str.trim();
         if filter_str.is_empty() {
@@ -1523,7 +1740,8 @@ fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths:
         }
 
         // 支持多行过滤模式（用户可能在 textarea 里每行一个 pattern）
-        let patterns: Vec<&str> = filter_str.split('\n')
+        let patterns: Vec<&str> = filter_str
+            .split('\n')
             .map(|s| s.trim())
             .filter(|s| !s.is_empty())
             .collect();
@@ -1546,7 +1764,8 @@ fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths:
             }
         }
 
-        let find_output = find_cmd.output()
+        let find_output = find_cmd
+            .output()
             .map_err(|e| format!("find 命令失败: {}", e))?;
 
         if !find_output.status.success() {
@@ -1582,7 +1801,8 @@ fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths:
             }
         }
 
-        child.wait_with_output()
+        child
+            .wait_with_output()
             .map_err(|e| format!("zip 完成失败: {}", e))?
     } else {
         // 无过滤：压缩整个目录
@@ -1591,18 +1811,21 @@ fn create_zip(src_dir: &Path, dest_zip: &Path, filter: Option<&str>, junk_paths:
         cmd.arg("-r");
         cmd.arg(dest_zip);
         cmd.arg(".");
-        if junk_paths { cmd.arg("-j"); }
+        if junk_paths {
+            cmd.arg("-j");
+        }
         cmd.current_dir(src_dir);
-        cmd.output()
-            .map_err(|e| format!("zip 命令失败: {}", e))?
+        cmd.output().map_err(|e| format!("zip 命令失败: {}", e))?
     };
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
         let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
         let exit_code = output.status.code().unwrap_or(-1);
-        return Err(format!("zip 失败 (exit={}): {} {}",
-            exit_code, stdout, stderr));
+        return Err(format!(
+            "zip 失败 (exit={}): {} {}",
+            exit_code, stdout, stderr
+        ));
     }
 
     Ok(())
@@ -1626,16 +1849,13 @@ async fn deploy_to_server(
 
     let mut sess = Session::new().map_err(|e| format!("创建 SSH session 失败: {}", e))?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+    sess.handshake()
+        .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
     // Authenticate
     if let Some(ref key) = srv.private_key {
-        sess.userauth_pubkey_file(
-            &srv.username,
-            None,
-            Path::new(key),
-            srv.password.as_deref(),
-        ).map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
+        sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
+            .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
     } else if let Some(ref pw) = srv.password {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
@@ -1665,7 +1885,11 @@ async fn deploy_to_server(
     }
 
     // Upload via SFTP
-    emit("ssh", "uploading", &format!("上传 {} 个产物", artifacts.len()));
+    emit(
+        "ssh",
+        "uploading",
+        &format!("上传 {} 个产物", artifacts.len()),
+    );
 
     let mut sftp = sess.sftp().map_err(|e| format!("SFTP 初始化失败: {}", e))?;
 
@@ -1677,23 +1901,42 @@ async fn deploy_to_server(
                 dp.clone()
             }
         } else if artifact.is_lib && config.lib_separate {
-            config.lib_dir.clone().unwrap_or_else(|| config.deploy_dir.clone())
+            config
+                .lib_dir
+                .clone()
+                .unwrap_or_else(|| config.deploy_dir.clone())
         } else {
             config.deploy_dir.clone()
         };
 
         let remote_file = format!("{}/{}", target_path.trim_end_matches('/'), artifact.name);
 
-        emit("ssh", "uploading", &format!("↑ {} ({})", artifact.name, file_size_display(&artifact.local_path)));
+        emit(
+            "ssh",
+            "uploading",
+            &format!(
+                "↑ {} ({})",
+                artifact.name,
+                file_size_display(&artifact.local_path)
+            ),
+        );
 
         upload_file(&mut sftp, &artifact.local_path, &remote_file)
             .map_err(|e| format!("上传 {} 失败: {}", artifact.name, e))?;
 
-        emit("ssh", "success", &format!("✅ {} 上传完成 → {}", artifact.name, target_path));
+        emit(
+            "ssh",
+            "success",
+            &format!("✅ {} 上传完成 → {}", artifact.name, target_path),
+        );
 
         // Extract compressed artifacts
         if artifact.is_compressed {
-            emit("ssh", "info", &format!("解压 {} → {}", artifact.name, target_path));
+            emit(
+                "ssh",
+                "info",
+                &format!("解压 {} → {}", artifact.name, target_path),
+            );
             let extract_cmd = format!(
                 "cd {} && unzip -o {} && rm -f {}",
                 shell_escape(&target_path),
@@ -1701,7 +1944,11 @@ async fn deploy_to_server(
                 shell_escape(&artifact.name)
             );
             ssh_exec(&sess, &extract_cmd)?;
-            emit("ssh", "success", &format!("✅ {} 解压完成 → {}", artifact.name, target_path));
+            emit(
+                "ssh",
+                "success",
+                &format!("✅ {} 解压完成 → {}", artifact.name, target_path),
+            );
         }
     }
 
@@ -1711,33 +1958,38 @@ async fn deploy_to_server(
     Ok(())
 }
 
-fn upload_file(
-    sftp: &mut ssh2::Sftp,
-    local_path: &str,
-    remote_path: &str,
-) -> Result<(), String> {
-    let mut local_file = fs::File::open(local_path)
-        .map_err(|e| format!("打开本地文件失败: {}", e))?;
+fn upload_file(sftp: &mut ssh2::Sftp, local_path: &str, remote_path: &str) -> Result<(), String> {
+    let mut local_file =
+        fs::File::open(local_path).map_err(|e| format!("打开本地文件失败: {}", e))?;
 
-    let mut remote_file = sftp.create(Path::new(remote_path))
+    let mut remote_file = sftp
+        .create(Path::new(remote_path))
         .map_err(|e| format!("创建远程文件失败: {}", e))?;
 
     let mut buf = vec![0u8; 64 * 1024]; // 64KB buffer
     loop {
-        let n = local_file.read(&mut buf).map_err(|e| format!("读取失败: {}", e))?;
+        let n = local_file
+            .read(&mut buf)
+            .map_err(|e| format!("读取失败: {}", e))?;
         if n == 0 {
             break;
         }
-        remote_file.write_all(&buf[..n]).map_err(|e| format!("写入失败: {}", e))?;
+        remote_file
+            .write_all(&buf[..n])
+            .map_err(|e| format!("写入失败: {}", e))?;
     }
 
     Ok(())
 }
 
 fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
-    let mut channel = sess.channel_session().map_err(|e| format!("SSH channel 创建失败: {}", e))?;
+    let mut channel = sess
+        .channel_session()
+        .map_err(|e| format!("SSH channel 创建失败: {}", e))?;
     // 直接执行命令，避免 bash -l -c 包装破坏管道/重定向等 shell 特性
-    channel.exec(cmd).map_err(|e| format!("SSH exec 失败: {}", e))?;
+    channel
+        .exec(cmd)
+        .map_err(|e| format!("SSH exec 失败: {}", e))?;
 
     let mut output = String::new();
     channel.read_to_string(&mut output).ok();
@@ -1745,7 +1997,12 @@ fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
 
     let exit_status = channel.exit_status().unwrap_or(-1);
     if exit_status != 0 {
-        return Err(format!("SSH 命令失败 (exit {}): cmd={}\noutput={}", exit_status, cmd, output.trim().chars().take(500).collect::<String>()));
+        return Err(format!(
+            "SSH 命令失败 (exit {}): cmd={}\noutput={}",
+            exit_status,
+            cmd,
+            output.trim().chars().take(500).collect::<String>()
+        ));
     }
 
     Ok(output)
@@ -1762,14 +2019,19 @@ async fn execute_restart(
     use std::net::TcpStream;
 
     let label = srv.label.as_deref().unwrap_or("服务器");
-    emit("restart", "starting", &format!("在 {} ({}) 执行重启脚本", label, srv.host));
+    emit(
+        "restart",
+        "starting",
+        &format!("在 {} ({}) 执行重启脚本", label, srv.host),
+    );
 
     let tcp = TcpStream::connect(format!("{}:{}", srv.host, srv.port))
         .map_err(|e| format!("连接失败: {}", e))?;
 
     let mut sess = Session::new().map_err(|e| format!("SSH session 失败: {}", e))?;
     sess.set_tcp_stream(tcp);
-    sess.handshake().map_err(|e| format!("SSH 握手失败: {}", e))?;
+    sess.handshake()
+        .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
     if let Some(ref key) = srv.private_key {
         sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
@@ -1789,47 +2051,90 @@ async fn execute_restart(
     // 解析脚本路径和参数（第一个是脚本文件，剩余是参数）
     let parts: Vec<&str> = script.trim().split_whitespace().collect();
     let script_file = parts.first().map_or(script, |v| *v);
-    let script_args = if parts.len() > 1 { parts[1..].join(" ") } else { "".to_string() };
-    
+    let script_args = if parts.len() > 1 {
+        parts[1..].join(" ")
+    } else {
+        "".to_string()
+    };
+
     // 根据脚本路径决定执行方式
     let exec_cmd = if script_file.starts_with('/') {
         // 绝对路径：直接执行，chmod +x 确保可执行
         if script_args.is_empty() {
-            format!("chmod +x {} && bash -l -c '{}' 2>&1", script_file, script_file)
+            format!(
+                "chmod +x {} && bash -l -c '{}' 2>&1",
+                script_file, script_file
+            )
         } else {
-            format!("chmod +x {} && bash -l -c '{} {}' 2>&1", script_file, script_file, script_args)
+            format!(
+                "chmod +x {} && bash -l -c '{} {}' 2>&1",
+                script_file, script_file, script_args
+            )
         }
     } else {
         // 相对路径：需要先 cd 到 deployDir 再执行
         if script_args.is_empty() {
-            format!("cd {} && chmod +x {} && bash -l -c '{}' 2>&1", 
-                shell_escape(&srv.deploy_dir), script_file, script_file)
+            format!(
+                "cd {} && chmod +x {} && bash -l -c '{}' 2>&1",
+                shell_escape(&srv.deploy_dir),
+                script_file,
+                script_file
+            )
         } else {
-            format!("cd {} && chmod +x {} && bash -l -c '{} {}' 2>&1", 
-                shell_escape(&srv.deploy_dir), script_file, script_file, script_args)
+            format!(
+                "cd {} && chmod +x {} && bash -l -c '{} {}' 2>&1",
+                shell_escape(&srv.deploy_dir),
+                script_file,
+                script_file,
+                script_args
+            )
         }
     };
-    
-    emit("restart", "info", &format!("执行命令: {}", exec_cmd.chars().take(120).collect::<String>()));
-    
+
+    emit(
+        "restart",
+        "info",
+        &format!(
+            "执行命令: {}",
+            exec_cmd.chars().take(120).collect::<String>()
+        ),
+    );
+
     // 执行并等待完成（与 Electron sshExec 一致）
-    let mut channel = sess.channel_session()
+    let mut channel = sess
+        .channel_session()
         .map_err(|e| format!("创建 SSH channel 失败: {}", e))?;
-    channel.exec(&exec_cmd)
+    channel
+        .exec(&exec_cmd)
         .map_err(|e| format!("执行重启命令失败: {}", e))?;
-    
+
     // 收集输出
     let mut output = String::new();
     use std::io::Read;
     channel.read_to_string(&mut output).ok();
     channel.wait_close().ok();
-    
+
     let exit_status = channel.exit_status().unwrap_or(-1);
     if exit_status != 0 {
-        emit("restart", "failed", &format!("脚本退出码 {}，输出: {}", exit_status, output.trim().chars().take(200).collect::<String>()));
+        emit(
+            "restart",
+            "failed",
+            &format!(
+                "脚本退出码 {}，输出: {}",
+                exit_status,
+                output.trim().chars().take(200).collect::<String>()
+            ),
+        );
         // Non-fatal: 继续执行，不阻断部署流程
     } else {
-        emit("restart", "success", &format!("应用已重启 (输出: {})", output.trim().chars().take(200).collect::<String>()));
+        emit(
+            "restart",
+            "success",
+            &format!(
+                "应用已重启 (输出: {})",
+                output.trim().chars().take(200).collect::<String>()
+            ),
+        );
     }
     sess.disconnect(None, "", None).ok();
     Ok(())

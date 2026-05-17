@@ -121,7 +121,8 @@ pub async fn sftp_upload_file(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] sftp_upload_file() called");
     core.ensure_ssh_connected(&server_id).await?;
-    core.sftp_upload_to_remote(&server_id, &local_path, &remote_path).await
+    core.sftp_upload_to_remote(&server_id, &local_path, &remote_path)
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -133,7 +134,8 @@ pub async fn sftp_download_file(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] sftp_download_file() called");
     core.ensure_ssh_connected(&server_id).await?;
-    core.sftp_download_to_local(&server_id, &remote_path, &local_path).await
+    core.sftp_download_to_local(&server_id, &remote_path, &local_path)
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -145,7 +147,8 @@ pub async fn sftp_upload_folder(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] sftp_upload_folder() called");
     core.ensure_ssh_connected(&server_id).await?;
-    core.sftp_upload_dir_recursive(&server_id, &local_path, &remote_path).await
+    core.sftp_upload_dir_recursive(&server_id, &local_path, &remote_path)
+        .await
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -191,9 +194,21 @@ pub async fn delete_sftp_file(
     if is_dir {
         // Fallback to shell rm -rf for reliable directory deletion
         let escaped = file_path.replace('\'', "'\\\\''");
-        let result = core.exec_ssh_command(&server_id, &format!("rm -rf '{}'", escaped)).await?;
-        if !result.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
-            return Err(format!("删除失败: {}", result.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")));
+        let result = core
+            .exec_ssh_command(&server_id, &format!("rm -rf '{}'", escaped))
+            .await?;
+        if !result
+            .get("success")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
+            return Err(format!(
+                "删除失败: {}",
+                result
+                    .get("error")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("未知错误")
+            ));
         }
         Ok(serde_json::json!({ "success": true }))
     } else {

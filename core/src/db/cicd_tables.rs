@@ -29,7 +29,9 @@ fn drop_column_if_exists(conn: &Connection, table: &str, column: &str) -> rusqli
         Err(e) => {
             log::warn!(
                 "[Schema] ALTER TABLE DROP COLUMN failed for {}.{}: {}. Falling back to table recreation.",
-                table, column, e
+                table,
+                column,
+                e
             );
         }
     }
@@ -43,11 +45,11 @@ fn drop_column_if_exists(conn: &Connection, table: &str, column: &str) -> rusqli
     let cols: Vec<(String, Option<String>, i64, Option<String>, i64)> = stmt
         .query_map([column], |row| {
             Ok((
-                row.get::<_, String>(0)?,       // name
+                row.get::<_, String>(0)?,         // name
                 row.get::<_, Option<String>>(1)?, // type
-                row.get::<_, i64>(2)?,           // notnull
+                row.get::<_, i64>(2)?,            // notnull
                 row.get::<_, Option<String>>(3)?, // dflt_value
-                row.get::<_, i64>(4)?,           // pk
+                row.get::<_, i64>(4)?,            // pk
             ))
         })?
         .filter_map(|r| r.ok())
@@ -98,7 +100,11 @@ fn drop_column_if_exists(conn: &Connection, table: &str, column: &str) -> rusqli
         table = table,
     ))?;
 
-    log::info!("[Schema] Recreated table '{}' without column '{}'", table, column);
+    log::info!(
+        "[Schema] Recreated table '{}' without column '{}'",
+        table,
+        column
+    );
     Ok(())
 }
 
@@ -106,7 +112,11 @@ pub fn init_cicd_tables(conn: &Connection) -> rusqlite::Result<()> {
     // ── Drop unused projectId column with fallback ──
     for table in &["cicd_configs", "deploy_logs", "deploy_history"] {
         if let Err(e) = drop_column_if_exists(conn, table, "projectId") {
-            log::warn!("[Schema] Failed to clean up projectId from {}: {}", table, e);
+            log::warn!(
+                "[Schema] Failed to clean up projectId from {}: {}",
+                table,
+                e
+            );
         }
     }
 
