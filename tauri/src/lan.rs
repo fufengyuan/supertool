@@ -2038,6 +2038,10 @@ impl LanService {
         };
 
         if let Some(app) = app_handle {
+            log::info!(
+                "[LAN TCP] Emitting lan-file-transfer-completed: fileId={}, status={}",
+                file_id, "completed"
+            );
             let _ = app.emit(
                 "lan-file-transfer-completed",
                 serde_json::json!({
