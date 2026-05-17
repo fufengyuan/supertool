@@ -5,7 +5,7 @@ MODE="${1:-pre-build}"
 ARCH="${2:-native}"
 
 # ─── 版本 ───
-VERSION="4.1.0"
+VERSION="4.2.0"
 PKG_OUTPUT="target/release"
 
 # ═══════════════════════════════════════════
