@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
-import { ref, shallowRef, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import ChatMessage from './ChatMessage.vue';
 import ChatInput from './ChatInput.vue';
 import TaskAssign from './TaskAssign.vue';
@@ -105,7 +105,7 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'refresh-unread']);
 
-const messages = shallowRef<any[]>([]);
+const messages = ref<any[]>([]);
 const newMessage = ref('');
 const myUserInfo = ref<{ id: string; name: string; avatar: string }>({ id: '', name: '', avatar: '😀' });
 const messagesContainerRef = ref<HTMLElement | null>(null);
@@ -546,13 +546,17 @@ async function sendFile(file: any, resumeOffset = 0) {
     if (!result.success) {
       console.error(`[ChatPanel][sendFile] Transfer failed for file=${file.name}, fileId=${fileId}`);
       const msgIndex = messages.value.findIndex(m => m.id === fileId);
-      if (msgIndex !== -1) { messages.value[msgIndex].status = 'error'; messages.value = [...messages.value]; }
+      if (msgIndex !== -1) {
+        messages.value[msgIndex].status = 'error';
+      }
     }
   } catch (error) {
     console.error(`[ChatPanel][sendFile] Exception for file=${file.name}, fileId=${fileId}:`, error);
     handleError(error, { context: '发送文件', showToast: true });
     const msgIndex = messages.value.findIndex(m => m.id === fileId);
-    if (msgIndex !== -1) { messages.value[msgIndex].status = 'error'; messages.value = [...messages.value]; }
+    if (msgIndex !== -1) {
+      messages.value[msgIndex].status = 'error';
+    }
   } finally {
     isSendingFile.value = false;
     logger.info(`[ChatPanel][sendFile] Released isSendingFile lock for fileId=${fileId}`);
@@ -579,7 +583,6 @@ async function retryFileTransfer(message: any) {
   if (msgIndex !== -1) {
     messages.value[msgIndex].status = 'sending';
     messages.value[msgIndex].progress = alreadySent > 0 ? Math.round((alreadySent / message.fileSize) * 100) : 0;
-    messages.value = [...messages.value];
   }
 
   try {
@@ -594,12 +597,16 @@ async function retryFileTransfer(message: any) {
     logger.info(`[ChatPanel][retryFileTransfer] IPC result: success=${result?.success}, error=${result?.error}`);
     if (!result.success) {
       console.error(`[ChatPanel][retryFileTransfer] Retry failed for messageId=${message.id}, fileName=${message.fileName}`);
-      if (msgIndex !== -1) { messages.value[msgIndex].status = 'error'; messages.value = [...messages.value]; }
+      if (msgIndex !== -1) {
+        messages.value[msgIndex].status = 'error';
+      }
     }
   } catch (error) {
     console.error(`[ChatPanel][retryFileTransfer] Exception for messageId=${message.id}, fileName=${message.fileName}:`, error);
     handleError(error, { context: '重试文件传输', showToast: true });
-    if (msgIndex !== -1) { messages.value[msgIndex].status = 'error'; messages.value = [...messages.value]; }
+    if (msgIndex !== -1) {
+      messages.value[msgIndex].status = 'error';
+    }
   }
 }
 
@@ -672,7 +679,6 @@ onMounted(async () => {
       if (msgIndex !== -1) {
         messages.value[msgIndex].progress = data.progress;
         messages.value[msgIndex].status = data.status;
-        messages.value = [...messages.value];
       }
     }));
   cleanupFns.push(await getTauriAPI().lanOnFileTransferCompleted((data: any) => {
@@ -685,8 +691,6 @@ onMounted(async () => {
         messages.value[msgIndex].fileName = data.fileName || messages.value[msgIndex].fileName;
         messages.value[msgIndex].fileSize = data.fileSize ?? messages.value[msgIndex].fileSize;
         messages.value[msgIndex].isImage = data.isImage ?? isImageFile(data.fileName || messages.value[msgIndex].fileName);
-        // shallowRef 需要整体替换才能触发响应式更新
-        messages.value = [...messages.value];
         logger.info(`[ChatPanel][lanOnFileTransferCompleted] Updated message at index ${msgIndex}`);
       }
       scrollToBottom();
@@ -696,7 +700,6 @@ onMounted(async () => {
       if (msgIndex !== -1) {
         messages.value[msgIndex].status = data.status || 'error';
         messages.value[msgIndex].isImage = messages.value[msgIndex].isImage ?? isImageFile(messages.value[msgIndex].fileName);
-        messages.value = [...messages.value];
       }
     }));
   // 收到文件时刷新消息列表（确保 DB 记录已加载）
