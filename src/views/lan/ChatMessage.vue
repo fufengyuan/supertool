@@ -213,6 +213,13 @@ defineEmits<{
   retry: [message: Record<string, any>];
 }>();
 
+// 判断是否为图片文件（提前定义，避免 hoisting 问题）
+const isImageFile = computed(() => {
+  const fileName = props.message.fileName || '';
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
+});
+
 // 根据文件扩展名选择图标
 const showImageLightbox = ref(false);
 
@@ -294,12 +301,6 @@ onMounted(() => {
   if (props.message.filePath && props.message.status === 'completed' && isImageFile.value) {
     loadImageViaBackend();
   }
-});
-
-const isImageFile = computed(() => {
-  const fileName = props.message.fileName || '';
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext);
 });
 
 // 将本地文件路径转换为 Tauri 可加载的 URL
