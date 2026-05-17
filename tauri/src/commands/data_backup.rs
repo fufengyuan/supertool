@@ -685,8 +685,8 @@ async fn import_all_tables(
             log::info!("[Backup] Importing {} mfa_secrets", mfas.len());
             for m in mfas {
                 match conn.execute(
-                    "INSERT OR REPLACE INTO mfa_secrets (id, name, secret, issuer, digits, period, algorithm, account, createdAt, updatedAt)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    "INSERT OR REPLACE INTO mfa_secrets (id, name, secret, issuer, digits, period, algorithm, createdAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                     rusqlite::params![
                         m.get("id").and_then(|v| v.as_str()).unwrap_or(""),
                         m.get("name").and_then(|v| v.as_str()).unwrap_or(""),
@@ -695,9 +695,7 @@ async fn import_all_tables(
                         m.get("digits").and_then(|v| v.as_i64()).unwrap_or(6),
                         m.get("period").and_then(|v| v.as_i64()).unwrap_or(30),
                         m.get("algorithm").and_then(|v| v.as_str()).unwrap_or("SHA1"),
-                        m.get("account").and_then(|v| v.as_str()),
                         m.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
-                        m.get("updatedAt").or(m.get("createdAt")).and_then(|v| v.as_str()).unwrap_or(""),
                     ]) {
                     Ok(_) => imported += 1,
                     Err(e) => errors.push(format!("mfa_secrets: {}", e)),
