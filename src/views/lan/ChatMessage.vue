@@ -27,6 +27,7 @@
             <div
               class="relative inline-block rounded-lg overflow-hidden cursor-default transition-[transform,box-shadow] duration-150 ease-in-out"
               :class="{ 'cursor-pointer hover:scale-105 hover:shadow-lg': message.filePath && message.status === 'completed' }"
+              @click="handleFileNameClick"
             >
               <img
                 :src="imageUrl"
