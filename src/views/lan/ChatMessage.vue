@@ -254,11 +254,16 @@ const imageLoadFailed = ref(false);
 // 图片 URL：使用 Tauri convertFileSrc 转换本地文件路径
 const imageUrl = computed(() => {
   if (!props.message.filePath) return '';
+  const filePath = props.message.filePath;
+  console.log('[ChatMessage] filePath:', filePath);
   try {
-    return convertFileSrc(props.message.filePath);
-  } catch {
+    const url = convertFileSrc(filePath);
+    console.log('[ChatMessage] convertFileSrc result:', url);
+    return url;
+  } catch (e) {
+    console.error('[ChatMessage] convertFileSrc error:', e);
     // 降级到 file:// 协议（可能在非 Tauri 环境）
-    return `file://${props.message.filePath.replace(/\\\\/g, '/')}`;
+    return `file://${filePath.replace(/\\\\/g, '/')}`;
   }
 });
 
