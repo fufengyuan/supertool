@@ -809,9 +809,10 @@ pub fn lan_read_image_file(file_path: String) -> Result<serde_json::Value, Strin
         ("bmp", "image/bmp"),
         ("svg", "image/svg+xml"),
     ];
-    let mime = mime_types.iter()
+    let mime = mime_types
+        .iter()
         .find(|(k, _)| k == &ext)
-        .map(|(_, v)| v)
+        .map(|(_, v)| *v)
         .unwrap_or("image/jpeg");
     
     // 读取文件
