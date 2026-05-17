@@ -64,19 +64,99 @@ impl super::CoreService {
 
     pub async fn update_note(&self, id: &str, params: Value) -> Result<Value, String> {
         let now = chrono::Utc::now().to_rfc3339();
-        let title = params["title"].as_str().unwrap_or("").to_string();
-        let content = params["content"].as_str().unwrap_or("").to_string();
-        let group_id = params.get("groupId").and_then(|v| v.as_str());
+        let id = id.to_string();
+
+        let has_title = params.get("title").is_some();
+        let has_content = params.get("content").is_some();
+        let has_group_id = params.get("groupId").is_some();
+
+        if !has_title && !has_content && !has_group_id {
+            // Nothing updatable — read and return current state
+            return self.with_db(|db| {
+                let mut stmt = db
+                    .conn()
+                    .prepare(
+                        "SELECT id, title, content, groupId, createdAt, updatedAt FROM notes WHERE id = ?1",
+                    )
+                    .map_err(|e| e.to_string())?;
+                stmt.query_row(params![id], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, String>("id")?,
+                        "title": row.get::<_, String>("title")?,
+                        "content": row.get::<_, String>("content")?,
+                        "groupId": row.get::<_, Option<String>>("groupId")?,
+                        "createdAt": row.get::<_, String>("createdAt")?,
+                        "updatedAt": row.get::<_, String>("updatedAt")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())
+            });
+        }
+
         self.with_db(|db| {
+            // 1. Read current values to merge with partial params
+            let (cur_title, cur_content, cur_group_id): (String, String, Option<String>) = {
+                let mut stmt = db
+                    .conn()
+                    .prepare("SELECT title, content, groupId FROM notes WHERE id = ?1")
+                    .map_err(|e| e.to_string())?;
+                stmt.query_row(params![id], |row| {
+                    Ok((
+                        row.get::<_, String>("title")?,
+                        row.get::<_, String>("content")?,
+                        row.get::<_, Option<String>>("groupId")?,
+                    ))
+                })
+                .map_err(|e| e.to_string())?
+            }; // drop stmt, release immutable borrow on db
+
+            // 2. Merge: only overwrite fields present in params
+            let new_title = if has_title {
+                params["title"].as_str().unwrap_or("").to_string()
+            } else {
+                cur_title
+            };
+            let new_content = if has_content {
+                params["content"].as_str().unwrap_or("").to_string()
+            } else {
+                cur_content
+            };
+            let new_group_id = if has_group_id {
+                params["groupId"].as_str().map(|s| s.to_string())
+            } else {
+                cur_group_id
+            };
+
+            // 3. Write merged values
             db.conn_mut()
                 .execute(
                     "UPDATE notes SET title=?2, content=?3, groupId=?4, updatedAt=?5 WHERE id=?1",
-                    params![id, title, content, group_id, now],
+                    params![id, new_title, new_content, new_group_id, now],
                 )
-                .map_err(|e| e.to_string())
+                .map_err(|e| e.to_string())?;
+
+            // 4. Return the full note
+            let mut stmt2 = db
+                .conn()
+                .prepare(
+                    "SELECT id, title, content, groupId, createdAt, updatedAt FROM notes WHERE id = ?1",
+                )
+                .map_err(|e| e.to_string())?;
+            let note = stmt2
+                .query_row(params![id], |row| {
+                    Ok(json!({
+                        "id": row.get::<_, String>("id")?,
+                        "title": row.get::<_, String>("title")?,
+                        "content": row.get::<_, String>("content")?,
+                        "groupId": row.get::<_, Option<String>>("groupId")?,
+                        "createdAt": row.get::<_, String>("createdAt")?,
+                        "updatedAt": row.get::<_, String>("updatedAt")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?;
+
+            Ok(note)
         })
-        .map_err(|e| e.to_string())?;
-        Ok(json!({"id": id}))
     }
 
     pub async fn delete_note(&self, id: &str) -> Result<Value, String> {
@@ -127,17 +207,33 @@ impl super::CoreService {
     }
 
     pub async fn update_note_group(&self, id: &str, params: Value) -> Result<Value, String> {
-        let name = params["name"].as_str().unwrap_or("").to_string();
+        if params.get("name").is_some() {
+            let name = params["name"].as_str().unwrap_or("").to_string();
+            self.with_db(|db| {
+                db.conn_mut()
+                    .execute(
+                        "UPDATE note_groups SET name=?2 WHERE id=?1",
+                        params![id, name],
+                    )
+                    .map_err(|e| e.to_string())
+            })
+            .map_err(|e| e.to_string())?;
+        }
+
+        // Return full group data
         self.with_db(|db| {
-            db.conn_mut()
-                .execute(
-                    "UPDATE note_groups SET name=?2 WHERE id=?1",
-                    params![id, name],
-                )
-                .map_err(|e| e.to_string())
+            let mut stmt = db
+                .conn()
+                .prepare("SELECT id, name FROM note_groups WHERE id = ?1")
+                .map_err(|e| e.to_string())?;
+            stmt.query_row(params![id], |row| {
+                Ok(json!({
+                    "id": row.get::<_, String>("id")?,
+                    "name": row.get::<_, String>("name")?,
+                }))
+            })
+            .map_err(|e| e.to_string())
         })
-        .map_err(|e| e.to_string())?;
-        Ok(json!({"id": id}))
     }
 
     pub async fn delete_note_group(&self, id: &str) -> Result<Value, String> {
