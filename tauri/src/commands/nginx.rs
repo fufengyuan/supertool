@@ -69,6 +69,18 @@ pub async fn test_nginx_config(
 }
 
 #[tauri::command(rename_all = "camelCase")]
+pub async fn test_nginx_config_content(
+    core: State<'_, CoreService>,
+    server_id: String,
+    config_path: String,
+    content: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] test_nginx_config_content() called");
+    let result = core.test_nginx_config_content(&server_id, &config_path, &content).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
 pub async fn deploy_nginx_config(
     core: State<'_, CoreService>,
     server_id: String,
