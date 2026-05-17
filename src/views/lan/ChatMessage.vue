@@ -196,8 +196,6 @@
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 console.log("[components/lan/ChatMessage.vue] component loaded")
 import { computed, ref, watch, onMounted } from 'vue';
-import { convertFileSrc } from '@tauri-apps/api/core';
-import { readFile } from '@tauri-apps/plugin-fs';
 import { getTauriAPI } from '../../utils/tauri-api'
 
 const props = defineProps<{
@@ -249,14 +247,13 @@ const openFileInSystem = () => {
   }
 };
 
-// Track whether the image failed to load, so we can show the placeholder instead
+// 图片加载状态
 const imageLoadFailed = ref(false);
-
-// 图片 base64 URL：用 fs plugin 读取文件，绕过 assetProtocol
 const imageUrlBase64 = ref('');
 const imageUrlLoading = ref(false);
 
-const loadImageAsBase64 = async () => {
+// 通过后端 IPC 读取图片并返回 base64 URL
+const loadImageViaBackend = async () => {
   if (!props.message.filePath || !isImageFile.value) return;
   if (props.message.status !== 'completed') return;
   
@@ -264,38 +261,19 @@ const loadImageAsBase64 = async () => {
   imageLoadFailed.value = false;
   
   try {
-    const fileData = await readFile(props.message.filePath);
-    const ext = props.message.fileName?.split('.').pop()?.toLowerCase() || 'jpg';
-    const mimeTypes: Record<string, string> = {
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      bmp: 'image/bmp',
-      svg: 'image/svg+xml',
-    };
-    const mimeType = mimeTypes[ext] || 'image/jpeg';
+    const api = getTauriAPI();
+    const result = await api.invoke?.('lan_read_image_file', { filePath: props.message.filePath });
     
-    // 转换为 base64
-    const base64 = btoa(
-      new Uint8Array(fileData).reduce(
-        (data, byte) => data + String.fromCharCode(byte),
-        ''
-      )
-    );
-    
-    imageUrlBase64.value = `data:${mimeType};base64,${base64}`;
-    console.log('[ChatMessage] Loaded image as base64, size:', fileData.length);
-  } catch (e) {
-    console.error('[ChatMessage] Failed to load image:', e);
-    imageLoadFailed.value = true;
-    // 降级：尝试 convertFileSrc
-    try {
-      imageUrlBase64.value = convertFileSrc(props.message.filePath);
-    } catch {
-      imageUrlBase64.value = '';
+    if (result?.success && result?.data?.url) {
+      imageUrlBase64.value = result.data.url;
+      console.log('[ChatMessage] Loaded image via backend, size:', result.data.size);
+    } else {
+      console.error('[ChatMessage] Backend returned error:', result?.error);
+      imageLoadFailed.value = true;
     }
+  } catch (e) {
+    console.error('[ChatMessage] Failed to load image via backend:', e);
+    imageLoadFailed.value = true;
   } finally {
     imageUrlLoading.value = false;
   }
@@ -305,16 +283,16 @@ const loadImageAsBase64 = async () => {
 watch(
   () => props.message.filePath,
   () => {
-    if (props.message.status === 'completed') {
-      loadImageAsBase64();
+    if (props.message.status === 'completed' && isImageFile.value) {
+      loadImageViaBackend();
     }
   },
   { immediate: true }
 );
 
 onMounted(() => {
-  if (props.message.filePath && props.message.status === 'completed') {
-    loadImageAsBase64();
+  if (props.message.filePath && props.message.status === 'completed' && isImageFile.value) {
+    loadImageViaBackend();
   }
 });
 

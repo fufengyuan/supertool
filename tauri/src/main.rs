@@ -631,6 +631,7 @@ fn main() {
             commands::lan::lan_load_local_file_as_base64,
             commands::lan::lan_open_file,
             commands::lan::lan_open_file_folder,
+            commands::lan::lan_read_image_file,
             commands::lan::lan_check_network_permission,
             commands::lan::lan_get_permission_status,
             // Settings additional commands

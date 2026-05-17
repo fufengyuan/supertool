@@ -791,3 +791,47 @@ pub fn lan_get_unread_count(peer_id: String) -> Result<serde_json::Value, String
     });
     Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
 }
+
+#[tauri::command(rename_all = "camelCase")]
+/// 读取图片文件并返回 base64 数据（用于前端预览）
+pub fn lan_read_image_file(file_path: String) -> Result<serde_json::Value, String> {
+    use std::fs;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
+    
+    // 检查文件扩展名，确定 MIME 类型
+    let ext = file_path.rsplit('.').next().unwrap_or("").to_lowercase();
+    let mime_types = [
+        ("jpg", "image/jpeg"),
+        ("jpeg", "image/jpeg"),
+        ("png", "image/png"),
+        ("gif", "image/gif"),
+        ("webp", "image/webp"),
+        ("bmp", "image/bmp"),
+        ("svg", "image/svg+xml"),
+    ];
+    let mime = mime_types.iter()
+        .find(|(k, _)| k == &ext)
+        .map(|(_, v)| v)
+        .unwrap_or("image/jpeg");
+    
+    // 读取文件
+    let data = match fs::read(&file_path) {
+        Ok(d) => d,
+        Err(e) => return Ok(serde_json::json!({ "success": false, "error": e.to_string() })),
+    };
+    
+    // 转换为 base64
+    let base64_str = STANDARD.encode(&data);
+    
+    log::info!("[LAN] Read image file: {} ({} bytes, mime={})", file_path, data.len(), mime);
+    
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "base64": base64_str,
+            "mime": mime,
+            "size": data.len(),
+            "url": format!("data:{};base64,{}", mime, base64_str)
+        }
+    }))
+}
