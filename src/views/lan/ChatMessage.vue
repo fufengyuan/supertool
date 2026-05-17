@@ -36,7 +36,7 @@
                 @error="imageLoadFailed = true"
               />
               <!-- 加载失败时显示占位符 -->
-              <div v-if="imageLoadFailed" class="hidden items-center justify-center min-w-[120px] min-h-[80px] max-w-[200px] max-h-[200px] rounded-lg bg-gradient-to-br from-white/15 to-white/5 p-3 text-center">
+              <div v-if="imageLoadFailed" class="flex items-center justify-center min-w-[120px] min-h-[80px] max-w-[200px] max-h-[200px] rounded-lg bg-gradient-to-br from-white/15 to-white/5 p-3 text-center">
                 <span class="text-[11px] text-white/70 break-all leading-tight">{{ message.fileName }}</span>
               </div>
               <!-- 传输中遮罩 -->
@@ -196,6 +196,7 @@
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 console.log("[components/lan/ChatMessage.vue] component loaded")
 import { computed, ref } from 'vue';
+import { convertFileSrc } from '@tauri-apps/api/core';
 import { getTauriAPI } from '../../utils/tauri-api'
 
 const props = defineProps<{
@@ -250,10 +251,15 @@ const openFileInSystem = () => {
 // Track whether the image failed to load, so we can show the placeholder instead
 const imageLoadFailed = ref(false);
 
-// 图片 URL：直接用 file:// 协议加载本地文件（Tauri 渲染进程原生支持）
+// 图片 URL：使用 Tauri convertFileSrc 转换本地文件路径
 const imageUrl = computed(() => {
   if (!props.message.filePath) return '';
-  return `file://${props.message.filePath.replace(/\\\\/g, '/')}`;
+  try {
+    return convertFileSrc(props.message.filePath);
+  } catch {
+    // 降级到 file:// 协议（可能在非 Tauri 环境）
+    return `file://${props.message.filePath.replace(/\\\\/g, '/')}`;
+  }
 });
 
 const isImageFile = computed(() => {
