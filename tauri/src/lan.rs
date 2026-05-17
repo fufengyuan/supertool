@@ -1109,6 +1109,16 @@ impl LanService {
         let raw_file_name = parts[1];
         let file_size: u64 = parts[2].parse().unwrap_or(0);
         let file_id = parts[3];
+        
+        log::info!(
+            "[LAN TCP RECV] FILE header parsed: name={}, size={}, id={}, sender={}",
+            raw_file_name, file_size, file_id, sender_id
+        );
+        Self::add_log_static(
+            log,
+            "info",
+            &format!("TCP FILE received: {} ({} bytes) from {}", raw_file_name, file_size, sender_id),
+        );
         // Get from_user info from transfers map if available
         let (from_id, from_name) = {
             let tf = transfers.lock().unwrap();
@@ -1172,7 +1182,9 @@ impl LanService {
         let mut buf = [0u8; 64 * 1024];
         let mut last_emit_pct = 0i64;
         loop {
-            match stream.read(&mut buf) {
+            // Use reader (BufReader) to read file data, not raw stream
+            // BufReader may have buffered data from header reading
+            match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
                     if file.write_all(&buf[..n]).is_err() {
@@ -1222,6 +1234,17 @@ impl LanService {
         }
 
         let save_path_str = save_path.to_string_lossy().to_string();
+
+        // Log received bytes vs expected
+        log::info!(
+            "[LAN TCP RECV] File received: {} bytes (expected {}), saved to {}",
+            received, file_size, save_path_str
+        );
+        Self::add_log_static(
+            log,
+            "info",
+            &format!("File saved: {} ({} bytes)", save_path_str, received),
+        );
 
         // Update in-memory transfer status
         {
