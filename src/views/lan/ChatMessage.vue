@@ -196,7 +196,7 @@
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 console.log("[components/lan/ChatMessage.vue] component loaded")
 import { computed, ref, watch, onMounted } from 'vue';
-import { getTauriAPI } from '../../utils/tauri-api'
+import { getTauriAPI, tauriInvoke } from '../../utils/tauri-api'
 
 const props = defineProps<{
   message: Record<string, any>;
@@ -268,14 +268,13 @@ const loadImageViaBackend = async () => {
   imageLoadFailed.value = false;
   
   try {
-    const api = getTauriAPI();
-    const result = await api.invoke?.('lanReadImageFile', { filePath: props.message.filePath });
+    const result = await tauriInvoke<{ url: string; size: number }>('lanReadImageFile', { filePath: props.message.filePath });
     
-    if (result?.success && result?.data?.url) {
+    if (result.success && result.data?.url) {
       imageUrlBase64.value = result.data.url;
       console.log('[ChatMessage] Loaded image via backend, size:', result.data.size);
     } else {
-      console.error('[ChatMessage] Backend returned error:', result?.error);
+      console.error('[ChatMessage] Backend returned error:', result.error);
       imageLoadFailed.value = true;
     }
   } catch (e) {
