@@ -1829,7 +1829,7 @@ impl LanService {
         let db_conn = Arc::clone(&self.db_conn);
 
         thread::spawn(move || {
-            Self::add_log_static(&log, "info", &format!("TCP send thread started: {} -> {}:{}", file_name, peer_addr, FILE_TRANSFER_PORT));
+            Self::add_log_static(&log, "info", &format!("TCP send thread started: {} -> {}:{}", fn_, peer_addr, FILE_TRANSFER_PORT));
             if let Err(e) = Self::do_send_file(
                 &peer_addr,
                 peer_tcp_port,
