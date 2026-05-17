@@ -600,13 +600,26 @@ async function onFetchConfig() {
 
 async function onTestConfig() {
   if (!currentPreset.value) return
-  // Test the current config content (either generated or manually edited)
-  const contentToTest = generatedNewConfig.value || configContent.value
-  if (!contentToTest) {
-    toast.warning('没有可测试的配置内容')
-    return
+  try {
+    loading.value = true
+    // Auto generate config if not already generated
+    if (!generatedNewConfig.value) {
+      const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
+      const newConfig = result?.data || result || ''
+      if (newConfig) {
+        generatedNewConfig.value = newConfig
+        configContent.value = newConfig
+      }
+    }
+    const contentToTest = generatedNewConfig.value || configContent.value
+    if (!contentToTest) {
+      toast.warning('生成配置失败，无法测试')
+      return
+    }
+    await testConfigContent(currentPreset.value.serverId, currentPreset.value.configPath, contentToTest)
+  } finally {
+    loading.value = false
   }
-  await testConfigContent(currentPreset.value.serverId, currentPreset.value.configPath, contentToTest)
 }
 
 async function onGenerateConfig() {
