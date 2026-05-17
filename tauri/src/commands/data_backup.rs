@@ -505,8 +505,8 @@ async fn import_all_tables(
                     if exists.ok().flatten().is_some() { skipped += 1; continue; }
                 }
                 match conn.execute(
-                    "INSERT OR REPLACE INTO projects (id, name, description, color, repoPath, branch, repoPath2, branch2, gitUrl1, gitUrl2, category, createdAt, updatedAt, archived)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    "INSERT OR REPLACE INTO projects (id, name, description, color, repoPath, branch, repoPath2, branch2, gitUrl1, gitUrl2, gitRepoId, gitRepoId2, category, createdAt, updatedAt, archived)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
                     rusqlite::params![
                         id,
                         p.get("name").and_then(|v| v.as_str()).unwrap_or(""),
@@ -518,6 +518,8 @@ async fn import_all_tables(
                         p.get("branch2").and_then(|v| v.as_str()),
                         p.get("gitUrl1").and_then(|v| v.as_str()),
                         p.get("gitUrl2").and_then(|v| v.as_str()),
+                        p.get("gitRepoId").and_then(|v| v.as_str()),
+                        p.get("gitRepoId2").and_then(|v| v.as_str()),
                         p.get("category").and_then(|v| v.as_str()),
                         p.get("createdAt").and_then(|v| v.as_str()).unwrap_or(""),
                         p.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(""),
@@ -1041,8 +1043,8 @@ async fn import_all_tables(
         if let Some(items) = data.get("gitRepos").and_then(|v| v.as_array()) {
             for item in items {
                 match conn.execute(
-                    "INSERT OR REPLACE INTO git_repos (id, name, path, remote, branch, lastCommit, lastOpened, createdAt, updatedAt)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                    "INSERT OR REPLACE INTO git_repos (id, name, path, remote, branch, lastCommit, createdAt, updatedAt)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                     rusqlite::params![
                         item.get("id").and_then(|v| v.as_str()).unwrap_or(""),
                         item.get("name").and_then(|v| v.as_str()).unwrap_or(""),
@@ -1050,7 +1052,6 @@ async fn import_all_tables(
                         item.get("remote").and_then(|v| v.as_str()),
                         item.get("branch").and_then(|v| v.as_str()),
                         item.get("lastCommit").and_then(|v| v.as_str()),
-                        item.get("lastOpened").and_then(|v| v.as_str()),
                         item.get("createdAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
                         item.get("updatedAt").and_then(|v| v.as_str()).unwrap_or(&now_ts),
                     ]) {
@@ -1085,9 +1086,7 @@ async fn import_all_tables(
                     "INSERT OR REPLACE INTO api_requests (id, method, url, headers, body, statusCode, responseTime, createdAt)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
                     rusqlite::params![
-                        item.get("id").or_else(|| item.get("id".to_string())).and_then(|v| {
-                            if v.is_i64() { Some(v.as_i64().unwrap()) } else { v.as_str().and_then(|s| s.parse().ok()) }
-                        }).unwrap_or(0),
+                        item.get("id").and_then(|v| v.as_i64()).unwrap_or(0),
                         item.get("method").and_then(|v| v.as_str()).unwrap_or("GET"),
                         item.get("url").and_then(|v| v.as_str()).unwrap_or(""),
                         item.get("headers").and_then(|v| v.as_str()).unwrap_or("{}"),
@@ -1445,7 +1444,7 @@ async fn import_all_tables(
                     "INSERT OR REPLACE INTO alert_email_config (id, smtp_host, smtp_port, smtp_username, smtp_password, smtp_encryption, from_email, to_email, updated_at)
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                     rusqlite::params![
-                        item.get("id").and_then(|v| v.as_str()).unwrap_or("1"),
+                        item.get("id").and_then(|v| v.as_i64()).unwrap_or(1),
                         item.get("smtp_host").and_then(|v| v.as_str()),
                         item.get("smtp_port").and_then(|v| v.as_i64()).unwrap_or(465),
                         item.get("smtp_username").and_then(|v| v.as_str()),
