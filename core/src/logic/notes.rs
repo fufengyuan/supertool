@@ -200,16 +200,11 @@ impl super::CoreService {
             .and_then(|v| v.as_str())
             .unwrap_or(&now)
             .to_string();
-        let updated_at = params
-            .get("updatedAt")
-            .and_then(|v| v.as_str())
-            .unwrap_or(&now)
-            .to_string();
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO note_groups (id, name, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4)",
-                    params![id, name, created_at, updated_at],
+                    "INSERT INTO note_groups (id, name, createdAt) VALUES (?1, ?2, ?3)",
+                    params![id, name, created_at],
                 )
                 .map_err(|e| e.to_string())
         })
