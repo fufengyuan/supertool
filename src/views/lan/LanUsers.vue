@@ -400,7 +400,7 @@ onMounted(async () => {
   await loadUnreadCounts();
   window.addEventListener('lan:reload-unread', loadUnreadCounts);
 
-  cleanupIpcListeners.push(getTauriAPI().onLanPeerDiscovered(async (peer: any) => {
+  cleanupIpcListeners.push(await getTauriAPI().onLanPeerDiscovered(async (peer: any) => {
     const exists = peers.value.find(p => p.id === peer.id);
     // 如果 avatar 以 avatar: 开头，获取完整路径
     if (peer.avatar && peer.avatar.startsWith('avatar:')) {
@@ -426,13 +426,13 @@ onMounted(async () => {
     }
   }));
 
-  cleanupIpcListeners.push(getTauriAPI().onLanPeerLost((peer: any) => {
+  cleanupIpcListeners.push(await getTauriAPI().onLanPeerLost((peer: any) => {
     peers.value = peers.value.filter((p) => p.id !== peer.id);
     if (selectedPeer.value?.id === peer.id) {
       selectedPeer.value = null;
     }
   }));
-  cleanupIpcListeners.push(getTauriAPI().onLanPeerAvatarUpdated((data: any) => {
+  cleanupIpcListeners.push(await getTauriAPI().onLanPeerAvatarUpdated((data: any) => {
     // 收到其他用户的头像更新广播，更新本地 peer 列表中的头像
     const peer = peers.value.find(p => p.id === data.userId);
     if (peer) {
@@ -440,7 +440,7 @@ onMounted(async () => {
       peer.avatarPath = data.avatarPath;
     }
   }));
-  cleanupIpcListeners.push(getTauriAPI().lanOnMessage((data: any) => {
+  cleanupIpcListeners.push(await getTauriAPI().lanOnMessage((data: any) => {
     if (data && data.from) {
       const senderId = data.from;
       // Only increment unread if this peer's chat is NOT currently open
