@@ -194,7 +194,7 @@ const fileListRef = ref<HTMLElement | null>(null);
 
 const connectionLabel = ref('连接中...');
 const isMaximized = ref(false);
-const defaultPos = props.initialPosition || { x: window.innerWidth - 820, y: 80 };
+const defaultPos = props.initialPosition || { x: Math.max(50, (window.innerWidth - 800) / 2), y: 80 };
 const panelPos = ref({ x: defaultPos.x, y: defaultPos.y });
 
 const panelStyle = computed(() => {
