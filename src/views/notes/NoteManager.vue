@@ -385,9 +385,9 @@ async function saveNote() {
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { title: editorTitle.value, content: editorContent.value })
     if (updated) {
-      selectedNote.value = updated
+      selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = updated
+      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
       saveStatus.value = '已保存'
     }
   } catch { saveStatus.value = '保存失败'; toast.error('保存失败') }
@@ -398,9 +398,9 @@ async function togglePin() {
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { pinned: !selectedNote.value.pinned })
     if (updated) {
-      selectedNote.value = updated
+      selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = updated
+      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
     }
   } catch { toast.error('操作失败') }
 }
@@ -441,9 +441,9 @@ async function assignGroup(groupId: string | null) {
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { groupId })
     if (updated) {
-      selectedNote.value = updated
+      selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = updated
+      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
       // 切换到新分组并展开
       if (groupId) {
         selectedGroupId.value = groupId
@@ -488,7 +488,7 @@ async function saveGroupRename(group: NoteGroup) {
     const updated = await getTauriAPI().updateNoteGroup(group.id, { name: editingGroupName.value.trim() })
     if (updated) {
       const idx = noteGroups.value.findIndex(g => g.id === updated.id)
-      if (idx !== -1) noteGroups.value[idx] = updated
+      if (idx !== -1) noteGroups.value[idx] = { ...noteGroups.value[idx], ...updated }
       toast.success('分组已重命名')
     }
     editingGroupId.value = null
