@@ -194,11 +194,22 @@ impl super::CoreService {
     pub async fn add_note_group(&self, params: Value) -> Result<Value, String> {
         let id = uuid::Uuid::new_v4().to_string();
         let name = params["name"].as_str().unwrap_or("").to_string();
+        let now = chrono::Utc::now().to_rfc3339();
+        let created_at = params
+            .get("createdAt")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&now)
+            .to_string();
+        let updated_at = params
+            .get("updatedAt")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&now)
+            .to_string();
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO note_groups (id, name) VALUES (?1, ?2)",
-                    params![id, name],
+                    "INSERT INTO note_groups (id, name, createdAt, updatedAt) VALUES (?1, ?2, ?3, ?4)",
+                    params![id, name, created_at, updated_at],
                 )
                 .map_err(|e| e.to_string())
         })
