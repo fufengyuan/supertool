@@ -439,7 +439,7 @@ impl super::CoreService {
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO budgets (id, name, limit, period) VALUES (?1, ?2, ?3, ?4)",
+                    "INSERT INTO budgets (id, name, \"limit\", period) VALUES (?1, ?2, ?3, ?4)",
                     params![id, name, limit, period],
                 )
                 .map_err(|e| e.to_string())
@@ -455,7 +455,7 @@ impl super::CoreService {
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "UPDATE budgets SET name=?2, limit=?3, period=?4 WHERE id=?1",
+                    "UPDATE budgets SET name=?2, \"limit\"=?3, period=?4 WHERE id=?1",
                     params![id, name, limit, period],
                 )
                 .map_err(|e| e.to_string())
