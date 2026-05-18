@@ -181,8 +181,8 @@ export const useTabStore = defineStore('tabs', () => {
     // 确保标签页存在
     const tab = openOrActivate(basePath)
 
-    // 更新标签页的 currentPath
-    if (tab) {
+    // 只有路径变了才更新 currentPath（避免触发 <component :is :key> 不必要重建）
+    if (tab && tab.currentPath !== path) {
       tab.currentPath = path
     }
   }
