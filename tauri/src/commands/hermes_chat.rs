@@ -17,6 +17,7 @@ use tauri::{AppHandle, Emitter};
 lazy_static::lazy_static! {
     static ref PROCESS_COUNTER: AtomicU64 = AtomicU64::new(0);
     static ref PROCESSES: Mutex<HashMap<u64, Arc<Mutex<Option<Child>>>>> = Mutex::new(HashMap::new());
+    static ref PROCESS_PIDS: Mutex<HashMap<u64, u32>> = Mutex::new(HashMap::new());
     static ref ABORT_FLAGS: Mutex<HashMap<u64, Arc<AtomicBool>>> = Mutex::new(HashMap::new());
     static ref CURRENT_CHAT_PROCESS_ID: Mutex<Option<u64>> = Mutex::new(None);
 }
@@ -392,11 +393,16 @@ fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
 
     let process_id = PROCESS_COUNTER.fetch_add(1, Ordering::SeqCst);
     let abort_flag = Arc::new(AtomicBool::new(false));
+    let os_pid = child.id();
 
     // Store process reference
     {
         let mut processes = PROCESSES.lock().unwrap();
         processes.insert(process_id, Arc::new(Mutex::new(Some(child))));
+    }
+    {
+        let mut pids = PROCESS_PIDS.lock().unwrap();
+        pids.insert(process_id, os_pid);
     }
     {
         let mut flags = ABORT_FLAGS.lock().unwrap();
@@ -467,6 +473,7 @@ pub async fn agent_chat(
 
     for line in reader.lines() {
         if abort_flag.load(Ordering::SeqCst) {
+            child.kill().ok(); // Kill process immediately when abort flag is set
             break;
         }
 
@@ -581,6 +588,10 @@ pub async fn agent_chat(
     {
         let mut processes = PROCESSES.lock().unwrap();
         processes.remove(&process_id);
+    }
+    {
+        let mut pids = PROCESS_PIDS.lock().unwrap();
+        pids.remove(&process_id);
     }
     {
         let mut flags = ABORT_FLAGS.lock().unwrap();
@@ -888,6 +899,16 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
         if let Some(flag) = abort_flag {
             // Set abort flag to break the read loop in agent_chat
             flag.store(true, Ordering::SeqCst);
+
+            // Kill by OS PID (primary method — child handle was taken from PROCESSES)
+            {
+                let pids = PROCESS_PIDS.lock().unwrap();
+                if let Some(&os_pid) = pids.get(&pid) {
+                    let _ = std::process::Command::new("kill")
+                        .arg(os_pid.to_string())
+                        .status();
+                }
+            }
 
             // Also try to kill the process directly for immediate termination
             let process = {
