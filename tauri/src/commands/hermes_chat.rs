@@ -608,9 +608,49 @@ pub async fn agent_chat(
                     }),
                 )
                 .ok();
+                // 先清理再返回，避免资源泄漏
+                child.wait().ok();
+                {
+                    let mut processes = PROCESSES.lock().unwrap();
+                    processes.remove(&process_id);
+                }
+                {
+                    let mut pids = PROCESS_PIDS.lock().unwrap();
+                    pids.remove(&process_id);
+                }
+                {
+                    let mut flags = ABORT_FLAGS.lock().unwrap();
+                    flags.remove(&process_id);
+                }
+                {
+                    let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+                    if current.as_ref() == Some(&process_id) {
+                        *current = None;
+                    }
+                }
                 return Err(message);
             }
             BridgeMessage::Aborted { .. } => {
+                // 先清理再返回，避免资源泄漏
+                child.wait().ok();
+                {
+                    let mut processes = PROCESSES.lock().unwrap();
+                    processes.remove(&process_id);
+                }
+                {
+                    let mut pids = PROCESS_PIDS.lock().unwrap();
+                    pids.remove(&process_id);
+                }
+                {
+                    let mut flags = ABORT_FLAGS.lock().unwrap();
+                    flags.remove(&process_id);
+                }
+                {
+                    let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+                    if current.as_ref() == Some(&process_id) {
+                        *current = None;
+                    }
+                }
                 return Err("Chat aborted by user".to_string());
             }
             _ => {}
