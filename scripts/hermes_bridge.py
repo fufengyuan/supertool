@@ -271,8 +271,19 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
         for s in sessions:
             started_at = s.get("started_at")
             ended_at = s.get("ended_at")
-            # last_active: use ended_at if available, else started_at
-            last_active = ended_at or started_at
+            
+            # last_active: use ended_at if available, else latest message timestamp, else started_at
+            last_active = ended_at
+            if not last_active:
+                # 查询该 session 最新一条消息的时间
+                try:
+                    messages = session_db.get_messages(s.get("id"))
+                    if messages:
+                        last_active = messages[-1].get("timestamp")
+                except Exception:
+                    pass
+            if not last_active:
+                last_active = started_at
             
             formatted.append({
                 "id": s.get("id", ""),
