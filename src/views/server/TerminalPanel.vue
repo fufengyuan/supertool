@@ -499,8 +499,8 @@ async function connectTab(tab: TerminalTab) {
         }
         try {
           const result = await getTauriAPI().readTerminal(tab.sessionId)
-          // tauriCall 解包后 result = { success: true, data: \"...\" }
-          const data = result?.data
+          // tauriCall 解包 read_terminal 返回的 {success, data:"..."} 后 result 已是字符串
+          const data = typeof result === 'string' ? result : result?.data
           if (data && typeof data === 'string' && data.length > 0) {
             tab.term.write(data)
           }
