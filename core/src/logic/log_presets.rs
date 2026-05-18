@@ -408,13 +408,28 @@ fn build_tail_command(preset: &Value, lines: usize) -> String {
             if paths.is_empty() {
                 return "echo 'No log paths configured'".to_string();
             }
-            let q = |p: &str| format!("'{}'", p.replace('\'', "'\\''"));
+            let q = |p: &str| shell_quote_path(p);
             format!(
                 "tail -n {} {} 2>/dev/null",
                 lines,
                 paths.iter().map(|p| q(p)).collect::<Vec<_>>().join(" ")
             )
         }
+    }
+}
+
+/// Shell-引用路径，将 ~ 展开为 $HOME（在引号外）
+/// 与前端 quotePath() 逻辑一致
+fn shell_quote_path(p: &str) -> String {
+    if let Some(rest) = p.strip_prefix('~') {
+        if rest.is_empty() {
+            "$HOME".to_string()
+        } else {
+            let escaped = rest.replace('\'', "'\\''");
+            format!("$HOME'{}'", escaped)
+        }
+    } else {
+        format!("'{}'", p.replace('\'', "'\\''"))
     }
 }
 
@@ -477,7 +492,7 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
             if paths.is_empty() {
                 return "echo 'No log paths configured'".to_string();
             }
-            let q = |p: &str| format!("'{}'", p.replace('\'', "'\\''"));
+            let q = |p: &str| shell_quote_path(p);
             format!(
                 "{} {} 2>/dev/null",
                 grep,
