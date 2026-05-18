@@ -57,8 +57,8 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useTabStore, VIEW_ID_TO_PATH } from '@/stores/tabStore'
-import { useRouter } from 'vue-router'
-import { ref, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ref, nextTick } from 'vue'
 
 import {
   IconLayoutDashboard,
@@ -106,16 +106,22 @@ const iconMap: Record<string, any> = {
 
 const tabStore = useTabStore()
 const router = useRouter()
+const route = useRoute()
 
 const hovering = ref(false)
 const showScrollIndicator = ref(false)
 
-// 点击标签页 → 导航到其 currentPath
+// 点击标签页 → 激活 + 导航
 function onTabClick(tabId: string) {
   const tab = tabStore.tabs.find(t => t.id === tabId)
   if (!tab) return
   tabStore.activate(tabId)
-  router.push(tab.currentPath)
+  // 如果已经是当前路由，跳过 push 避免不必要的重渲染（主因：侧边栏 20+ 个 router-link 重算 active）
+  if (route.fullPath === tab.currentPath) return
+  // 先更新 v-show 显示新标签，下一帧再更新路由 → 避免路由变化导致的同步重渲染卡顿
+  nextTick(() => {
+    router.push(tab.currentPath)
+  })
 }
 
 // 右键标签页 → 关闭

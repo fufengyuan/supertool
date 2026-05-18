@@ -276,7 +276,7 @@ function onNavClick(viewId: string, path: string) {
   } else {
     tabStore.syncRoute(path)
   }
-  router.push(path)
+  // router-link 已处理导航，无需再次 router.push
 }
 
 async function toggleLan() {
