@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'NoteManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'

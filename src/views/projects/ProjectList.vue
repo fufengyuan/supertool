@@ -74,6 +74,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'ProjectList' })
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import SvgIcon from '@/components/ui/SvgIcon.vue';

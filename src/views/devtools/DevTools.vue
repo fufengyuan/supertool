@@ -51,6 +51,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'DevTools' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, defineAsyncComponent } from 'vue'
 import { DEV_TOOL_REGISTRY, getToolById, type DevTool } from './DevToolRegistry'

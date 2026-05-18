@@ -800,6 +800,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'CiCdConfig' })
 // @ts-nocheck
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';

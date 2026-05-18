@@ -268,6 +268,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'LogAggregator' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'

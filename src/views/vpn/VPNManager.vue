@@ -273,6 +273,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'VPNManager' })
 import { ref, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'

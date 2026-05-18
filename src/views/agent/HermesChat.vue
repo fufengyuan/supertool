@@ -541,6 +541,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'HermesChat' })
 import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';

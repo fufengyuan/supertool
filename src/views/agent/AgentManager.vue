@@ -192,6 +192,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AgentManager' })
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';

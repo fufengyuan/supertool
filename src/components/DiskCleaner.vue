@@ -262,6 +262,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'DiskCleaner' })
 import { ref, computed, onMounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import SvgIcon from '@/components/ui/SvgIcon.vue'

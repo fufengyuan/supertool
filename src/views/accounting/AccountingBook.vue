@@ -674,6 +674,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AccountingBook' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useAccountingBook } from '../../composables/useAccountingBook'
 

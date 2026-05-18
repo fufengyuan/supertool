@@ -189,6 +189,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'ServerManager' })
 console.log("[components/server/ServerManager.vue] component loaded")
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
