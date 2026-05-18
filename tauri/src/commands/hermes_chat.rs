@@ -241,13 +241,41 @@ pub struct FunctionInfo {
 /// Find Python bridge script location
 fn find_bridge_script() -> Option<PathBuf> {
     // Try bundled location first (when packaged)
-    let bundled = std::env::current_exe().ok().and_then(|exe| {
-        exe.parent()
-            .map(|p| p.join("scripts").join("hermes_bridge.py"))
-    });
-
-    if bundled.as_ref().map(|p| p.exists()).unwrap_or(false) {
-        return bundled;
+    // macOS .app bundle: exe is in Contents/MacOS/, resources are in Contents/Resources/
+    // Other platforms: resources are typically alongside exe or in a resources subdir
+    let exe = std::env::current_exe().ok()?;
+    let exe_parent = exe.parent()?;
+    
+    // Check if running inside macOS .app bundle
+    // exe_parent for macOS .app: /path/to/SuperTool.app/Contents/MacOS
+    // resources dir: /path/to/SuperTool.app/Contents/Resources/
+    if exe_parent.ends_with("MacOS") {
+        // macOS .app bundle structure
+        let contents_dir = exe_parent.parent()?; // Contents/
+        let resources_dir = contents_dir.join("Resources");
+        let script_path = resources_dir.join("scripts").join("hermes_bridge.py");
+        if script_path.exists() {
+            return Some(script_path);
+        }
+        // Also try direct path (some builds)
+        let direct_path = resources_dir.join("hermes_bridge.py");
+        if direct_path.exists() {
+            return Some(direct_path);
+        }
+    }
+    
+    // Generic bundled location: exe_parent/scripts/
+    let bundled = exe_parent.join("scripts").join("hermes_bridge.py");
+    if bundled.exists() {
+        return Some(bundled);
+    }
+    
+    // Linux/Windows: try exe_parent/../resources/scripts/ (Tauri default)
+    let resources_alt = exe_parent.parent()
+        .map(|p| p.join("resources").join("scripts").join("hermes_bridge.py"))
+        .filter(|p| p.exists());
+    if resources_alt.is_some() {
+        return resources_alt;
     }
 
     // Try development location
