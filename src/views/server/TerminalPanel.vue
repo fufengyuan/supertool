@@ -405,8 +405,7 @@ async function connectTab(tab: TerminalTab) {
     try {
       // 步骤1：建立 SSH 连接
       logger.info(`[Terminal] Step 1: Checking isServerConnected for ${tab.server.id}`)
-      const connStatus = await getTauriAPI().isServerConnected(tab.server.id)
-      const isConnected = connStatus?.connected === true
+      const isConnected = await getTauriAPI().isServerConnected(tab.server.id)
       logger.info(`[Terminal] isServerConnected result: ${isConnected}`)
 
       if (!isConnected) {
@@ -547,7 +546,7 @@ async function autoReconnectTab(tab: TerminalTab) {
     }
     try {
       const connStatus = await getTauriAPI().isServerConnected(tab.server.id)
-      if (!connStatus?.connected) {
+      if (!connStatus) {
         await getTauriAPI().connectServer(tab.server.id)
       }
 
