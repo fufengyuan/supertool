@@ -58,11 +58,11 @@ function safeJsonLog(val: unknown, maxLen = 300): string {
 
 // ============ 核心调用 ============
 
-/** 检测是否为后端标准响应格式 { success, data/error } */
+/** 检测是否为后端标准响应格式（包含 success 布尔字段的对象） */
 function isApiResponse(obj: unknown): boolean {
   if (obj === null || typeof obj !== 'object') return false
   const o = obj as Record<string, unknown>
-  return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
+  return typeof o['success'] === 'boolean'
 }
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<ApiResponse<T>> {
@@ -250,18 +250,15 @@ export function useDatabaseAPI() {
     },
     dbQuery: async (id: string, sql: string): Promise<{ success: boolean; rows?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_query', { id, sql })
-      // Rust 返回 { success, rows }，tauriInvoke 包装为 { success, data: { success, rows } }
-      if (res.success && res.data) {
-        return { success: res.data.success ?? true, rows: res.data.rows, error: res.data.error }
-      }
-      return { success: res.success, error: res.error }
+      // Rust 返回 { success, rows }，tauriInvoke 自动解包为标准格式
+      return { success: res.success ?? false, rows: res.rows, error: res.error }
     },
     getTables: async (id: string, dbName: string): Promise<{ success: boolean; tables?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_tables', { id, dbName })
-      if (res.success && res.data && res.data.rows) {
+      if (res.success && res.rows) {
         // SHOW TABLES returns objects like { "Tables_in_dbname": "table1" }
         // Extract just the table names.
-        const rows = res.data.rows;
+        const rows = res.rows;
         const tables = rows.map((r: any) => Object.values(r)[0] || r);
         return { success: true, tables: tables, error: res.data.error }
       }
@@ -269,8 +266,8 @@ export function useDatabaseAPI() {
     },
     getDatabases: async (id: string): Promise<{ success: boolean; databases?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_databases', { id })
-      if (res.success && res.data && res.data.rows) {
-        const rows = res.data.rows;
+      if (res.success && res.rows) {
+        const rows = res.rows;
         // 健壮性提取：兼容 { "Database": "name" } 或 { "datname": "name" } 或直接是字符串
         const names = rows.map((r: any) => {
           if (typeof r === 'object' && r !== null) {
@@ -287,14 +284,14 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
       if (res.success) {
         // Return full object with rows + indexes so composable can access both
-        return { rows: res.rows ?? res.data?.rows ?? [], indexes: res.indexes ?? res.data?.indexes ?? [] }
+        return { rows: res.rows ?? res.rows ?? [], indexes: res.indexes ?? res.indexes ?? [] }
       }
       return { rows: [], indexes: [] }
     },
     dbGetTablePrimaryKeys: async (id: string, table: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_table_primary_keys', { id, table, dbName })
-      if (res.success && res.data?.rows) {
-        const pks = res.data.rows.map((r: any) => r.COLUMN_NAME || r.column_name).filter(Boolean)
+      if (res.success && res.rows) {
+        const pks = res.rows.map((r: any) => r.COLUMN_NAME || r.column_name).filter(Boolean)
         return { success: true, primaryKeys: pks }
       }
       return { success: false, primaryKeys: [] }
@@ -302,8 +299,8 @@ export function useDatabaseAPI() {
     dbGetViews: async (id: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_views', { id, dbName })
       // SHOW FULL TABLES returns rows like { "Tables_in_db": "view_name", "Table_type": "VIEW" }
-      if (res.success && res.data && res.data.rows) {
-        const rows = res.data.rows;
+      if (res.success && res.rows) {
+        const rows = res.rows;
         // Extract view names (usually the first value or keyed by Tables_in_...)
         const views = rows.map((r: any) => {
             // Try common keys for table/view names
@@ -318,8 +315,8 @@ export function useDatabaseAPI() {
     },
     dbGetCreateSql: async (id: string, table: string, dbName: string): Promise<string> => {
       const res = await tauriInvoke<any>('db_get_create_sql', { id, table, dbName })
-      if (res.success && res.data?.rows && res.data.rows.length > 0) {
-        return res.data.rows[0]['Create Table'] ?? res.data.rows[0]?.['Create View'] ?? ''
+      if (res.success && res.rows && res.rows.length > 0) {
+        return res.rows[0]['Create Table'] ?? res.rows[0]?.['Create View'] ?? ''
       }
       return ''
     },
@@ -359,7 +356,7 @@ export function useDatabaseAPI() {
     },
     dbBackupDelete: async (file: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_backup_delete', { file })
-      return res.success && res.data?.success === true
+      return res.success
     },
     // Redis 操作
     dbRedisDatabases: async (id: string): Promise<number[]> => {
@@ -430,15 +427,15 @@ export function useDatabaseAPI() {
     },
     dbRedisSetKey: async (id: string, dbIndex: number, key: string, value: string, ttl?: number): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_set_key', { id, dbIndex, key, value, ttl: ttl ?? 0 })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisAddKey: async (id: string, dbIndex: number, keyType: string, key: string, value: any): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_add_key', { id, dbIndex, keyType, key, value })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisDeleteKey: async (id: string, dbIndex: number, key: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_delete_key', { id, dbIndex, key })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisExec: async (id: string, dbIndex: number, command: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_exec', { id, dbIndex, command })
@@ -762,19 +759,19 @@ export function useLanAPI() {
     },
     dbRedisStreamDel: async (id: string, dbIndex: number, stream: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_del', { id, dbIndex, stream })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisStreamDelete: async (id: string, dbIndex: number, stream: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_delete', { id, dbIndex, stream })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisStreamGroupCreate: async (id: string, dbIndex: number, stream: string, group: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_group_create', { id, dbIndex, stream, group })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisStreamGroupDestroy: async (id: string, dbIndex: number, stream: string, group: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_group_destroy', { id, dbIndex, stream, group })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisStreamConsumers: async (id: string, dbIndex: number, stream: string, group: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_stream_consumers', { id, dbIndex, stream, group })
@@ -790,7 +787,7 @@ export function useLanAPI() {
     },
     dbRedisStreamAck: async (id: string, dbIndex: number, stream: string, group: string, msgIds: string[]): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_ack', { id, dbIndex, stream, group, msgIds })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisStreamRetry: async (id: string, dbIndex: number, stream: string, group: string, consumer: string, msgIds: string[]): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_stream_retry', { id, dbIndex, stream, group, consumer, msgIds })
@@ -798,7 +795,7 @@ export function useLanAPI() {
     },
     dbRedisStreamTrim: async (id: string, dbIndex: number, stream: string, count: number): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_stream_trim', { id, dbIndex, stream, count })
-      return res.success && res.data?.success === true
+      return res.success
     },
     dbRedisScanKeys: async (id: string, dbIndex: number, pattern: string, type?: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_scan_keys', { id, dbIndex, pattern, type: type ?? '*' })
@@ -810,13 +807,13 @@ export function useLanAPI() {
     },
     dbRedisZSetRemove: async (id: string, dbIndex: number, key: string, members: string[]): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_zset_remove', { id, dbIndex, key, members })
-      return res.success && res.data?.success === true
+      return res.success
     },
     // 表结构导出
     dbGetTableStructure: async (id: string, table: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
       if (res.success) {
-        return { rows: res.rows ?? res.data?.rows ?? [], indexes: res.indexes ?? res.data?.indexes ?? [] }
+        return { rows: res.rows ?? res.rows ?? [], indexes: res.indexes ?? res.indexes ?? [] }
       }
       return { rows: [], indexes: [] }
     },
