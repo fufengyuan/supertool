@@ -405,12 +405,17 @@ async function connectTab(tab: TerminalTab) {
     try {
       // 步骤1：建立 SSH 连接
       logger.info(`[Terminal] Step 1: Checking isServerConnected for ${tab.server.id}`)
-      const isConnected = await getTauriAPI().isServerConnected(tab.server.id)
+      const connStatus = await getTauriAPI().isServerConnected(tab.server.id)
+      const isConnected = connStatus?.connected === true
       logger.info(`[Terminal] isServerConnected result: ${isConnected}`)
 
       if (!isConnected) {
         logger.info('[Terminal] Not connected, calling connectServer...')
-        await getTauriAPI().connectServer(tab.server.id)
+        const connResult = await getTauriAPI().connectServer(tab.server.id)
+        logger.info(`[Terminal] connectServer result: ${JSON.stringify(connResult)}`)
+        if (!connResult?.success) {
+          throw new Error(connResult?.error || 'SSH 连接失败')
+        }
         term.writeln(`\x1b[1;32m✓ SSH 已连接\x1b[0m`)
       } else {
         term.writeln(`\x1b[1;33m⚡ 复用已有 SSH 连接\x1b[0m`)
@@ -445,7 +450,11 @@ async function connectTab(tab: TerminalTab) {
       const sid = `term_${tab.id}_${Date.now()}`
       tab.sessionId = sid
       logger.info(`[Terminal] Step 3: Creating terminal session, sid=${sid}`)
-      await getTauriAPI().createTerminal(tab.server.id, sid, 24, 80)
+      const result = await getTauriAPI().createTerminal(tab.server.id, sid, 24, 80)
+      logger.info('[Terminal] createTerminal result:', JSON.stringify(result))
+      if (!result?.success) {
+        throw new Error(result?.error || '创建终端会话失败')
+      }
 
       // 步骤4：连接成功，打开终端到 DOM
       logger.info('[Terminal] Step 4: Connection success, opening terminal to DOM')
@@ -545,9 +554,10 @@ async function autoReconnectTab(tab: TerminalTab) {
       await new Promise(r => setTimeout(r, 1500))
     }
     try {
-      const connStatus = await getTauriAPI().isServerConnected(tab.server.id)
-      if (!connStatus) {
-        await getTauriAPI().connectServer(tab.server.id)
+      const isConnected = await getTauriAPI().onServerConnected(tab.server.id)
+      if (!isConnected) {
+        const connResult = await getTauriAPI().connectServer(tab.server.id)
+        if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
       }
 
       // 重新注册监听器（旧的可能已经失效）
@@ -571,7 +581,8 @@ async function autoReconnectTab(tab: TerminalTab) {
       // 重新创建终端会话
       const sid = `term_${tab.id}_${Date.now()}`
       tab.sessionId = sid
-      await getTauriAPI().createTerminal(tab.server.id, sid, 24, 80)
+      const result = await getTauriAPI().createTerminal(tab.server.id, sid, 24, 80)
+      if (!result?.success) throw new Error(result?.error || '创建终端会话失败')
 
       tab.status = 'connected'
 
