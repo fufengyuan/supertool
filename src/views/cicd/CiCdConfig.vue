@@ -482,7 +482,7 @@
                 <div class="mb-3.5">
                   <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">{{ config.buildTool }} 路径</label>
                   <div class="flex gap-1.5">
-                    <input v-model="config[`${config.buildTool}Home`]" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': config[`${config.buildTool}Home`] === defaultPaths[`${config.buildTool}Home`] && defaultPaths[`${config.buildTool}Home`] }" :placeholder="defaultPaths[`${config.buildTool}Home`] ? `已检测: ${defaultPaths[`${config.buildTool}Home`]}` : `自动检测 / 如 /usr/local/bin/${config.buildTool}`" />
+                    <input v-model="currentHomePath" class="input input-bordered w-full bg-base-200 text-sm flex-1 min-w-0" :class="{ '!border-success !bg-green-500/5': currentHomePath === getDefaultPathFor(config.buildTool) && getDefaultPathFor(config.buildTool) }" :placeholder="getDefaultPathFor(config.buildTool) ? `已检测: ${getDefaultPathFor(config.buildTool)}` : `自动检测 / 如 /usr/local/bin/${config.buildTool}`" />
                     <button @click="reDetectToolPaths" class="btn btn-ghost btn-sm gap-1 text-xs px-2.5 py-1.5 flex-shrink-0 whitespace-nowrap" :disabled="detectingPaths" title="重新检测">
                       <SvgIcon name="search" size="14" :class="{ 'animate-spin': detectingPaths }" />
                       <span>检测</span>
@@ -805,7 +805,7 @@ defineOptions({ name: 'CiCdConfig' })
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
-import { defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
@@ -826,6 +826,24 @@ function getGitRepoName(id?: string) {
   if (!id) return '';
   const repo = cicd.gitRepos.value.find((r: any) => r.id === id);
   return repo ? repo.name : '';
+}
+
+// openInFileManager — opens a directory in the native file manager
+function openInFileManager(path: string) {
+  import('../../utils/tauri-api').then(({ getTauriAPI }) => {
+    getTauriAPI().openInFileManager(path).catch(() => {});
+  });
+}
+
+// Computed getter/setter for the dynamic `config.*Home` property based on buildTool
+const currentHomePath = computed({
+  get: () => (cicd.config.value as Record<string, any>)[`${cicd.config.value.buildTool}Home`] ?? '',
+  set: (val: string) => { (cicd.config.value as Record<string, any>)[`${cicd.config.value.buildTool}Home`] = val; },
+});
+
+// Helper to access defaultPaths.*Home dynamically
+function getDefaultPathFor(tool: string): string {
+  return (cicd.defaultPaths.value as Record<string, any>)[`${tool}Home`] ?? '';
 }
 
 // Destructure all refs, computed, and functions for template access

@@ -85,14 +85,14 @@ const selectedRange = ref('thisWeek')
 const startDate = ref('')
 const endDate = ref('')
 const generating = ref(false)
-const reportData = ref(null)
+const reportData = ref<Record<string, any> | undefined>(undefined)
 const projects = ref<Project[]>([])
 
 const activeTab = ref('current')
 const historyReports = ref<any[]>([])
 const historyLoading = ref(false)
 const selectedHistoryId = ref(null)
-const historyReportData = ref(null)
+const historyReportData = ref<Record<string, any> | undefined>(undefined)
 
 const calculateDateRange = (range: string) => {
   const today = new Date()
@@ -145,13 +145,13 @@ const generateReport = async () => {
     const allTodos = (await tauri.getTodos()) || []
 
     const completedTasks = allTodos.filter(
-      (todo) => todo.completed && new Date(todo.completedAt) >= range.start && new Date(todo.completedAt) <= range.end
+      (todo: any) => todo.completed && new Date(todo.completedAt) >= range.start && new Date(todo.completedAt) <= range.end
     )
     const activeTasks = allTodos.filter(
-      (todo) => !todo.completed && new Date(todo.updatedAt) >= range.start && new Date(todo.updatedAt) <= range.end
+      (todo: any) => !todo.completed && new Date(todo.updatedAt) >= range.start && new Date(todo.updatedAt) <= range.end
     )
     const nextWeekPlan = allTodos.filter(
-      (todo) =>
+      (todo: any) =>
         !todo.completed && todo.dueDate &&
         new Date(todo.dueDate) > range.end &&
         new Date(todo.dueDate) <= new Date(range.end.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -215,8 +215,8 @@ const saveReportToDatabase = async (data: any) => {
       return val
     })
     await tauri.saveWeeklyReport({
-      weekStart: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
-      weekEnd: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
+      startDate: data.startDate instanceof Date ? data.startDate.toISOString() : data.startDate,
+      endDate: data.endDate instanceof Date ? data.endDate.toISOString() : data.endDate,
       content,
     })
     toast.success('周报已自动保存')
@@ -254,7 +254,7 @@ const loadHistoryReport = async (id: any) => {
 
 const restoreFromHistory = () => {
   if (historyReportData.value) {
-    reportData.value = { ...historyReportData.value }
+    reportData.value = { ...(historyReportData.value ?? {}) }
     activeTab.value = 'current'
     toast.success('已从历史周报恢复')
   }
