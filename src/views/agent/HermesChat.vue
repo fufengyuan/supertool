@@ -134,16 +134,23 @@
           </span>
         </div>
         <div class="flex items-center gap-2">
+          <!-- 停止按钮 - 流式输出时显示，更醒目 -->
           <button 
-            v-if="isStreaming" 
-            class="btn btn-xs gap-1" 
-            :class="isAborting ? 'btn-disabled' : 'btn-error'" 
+            v-if="isStreaming && !isAborting" 
+            class="btn btn-error btn-xs gap-1 animate-pulse shadow-error/30 shadow-md" 
             @click="abortChat"
-            :disabled="isAborting"
           >
-            <span v-if="isAborting" class="loading loading-spinner loading-xs"></span>
-            <SvgIcon v-else name="stop" size="12" />
-            {{ isAborting ? '停止中...' : '停止' }}
+            <SvgIcon name="stop" size="12" />
+            停止
+          </button>
+          <!-- 停止中状态 -->
+          <button 
+            v-if="isAborting" 
+            class="btn btn-xs gap-1 btn-disabled"
+            disabled
+          >
+            <span class="loading loading-spinner loading-xs"></span>
+            停止中...
           </button>
           <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
             <SvgIcon name="download" size="12" />
@@ -233,6 +240,13 @@
                 </div>
                 
                 <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2">
+                  <!-- 已停止徽章 -->
+                  <div v-if="msg.isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
+                    <span class="inline-flex items-center gap-1 bg-warning/10 border border-warning/20 rounded px-1.5 py-0.5">
+                      <SvgIcon name="stop" size="10" class="text-warning" />
+                      已停止
+                    </span>
+                  </div>
                   <!-- Markdown 渲染的消息内容 - 主要样式 -->
                   <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
                   
@@ -346,16 +360,23 @@
                 </div>
               </div>
             </div>
-            <!-- 取消按钮 -->
+            <!-- 取消按钮 - 更醒目 -->
             <button 
-              class="btn btn-sm btn-square self-center"
-              :class="isAborting ? 'btn-disabled' : 'btn-ghost text-error hover:bg-error/10'"
+              v-if="!isAborting"
+              class="btn btn-error btn-sm btn-square self-center animate-pulse shadow-error/20 shadow-sm"
               @click="abortChat"
-              :disabled="isAborting"
-              :title="isAborting ? '停止中...' : '取消处理'"
+              title="取消处理 (Esc)"
             >
-              <span v-if="isAborting" class="loading loading-spinner loading-sm"></span>
-              <SvgIcon v-else name="close" size="16" />
+              <SvgIcon name="stop" size="16" />
+            </button>
+            <!-- 停止中状态 -->
+            <button 
+              v-if="isAborting"
+              class="btn btn-sm btn-square self-center btn-disabled"
+              disabled
+              title="停止中..."
+            >
+              <span class="loading loading-spinner loading-sm"></span>
             </button>
           </div>
         </template>
@@ -480,19 +501,21 @@
             <textarea
               ref="inputRef"
               v-model="inputText"
-              class="textarea textarea-bordered w-full resize-none text-sm"
+              class="textarea w-full resize-none text-sm transition-colors"
+              :class="isStreaming ? 'textarea-warning border-warning/30 bg-warning/5' : 'textarea-bordered'"
               style="min-height: 52px; max-height: 200px;"
-              placeholder="输入消息..."
+              :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
               @keydown.enter.exact.prevent="sendMessage"
             ></textarea>
             <!-- 发送按钮 -->
             <button
-              class="btn btn-primary self-end"
-              :disabled="!inputText.trim()"
+              class="btn self-end transition-colors"
+              :class="isStreaming ? 'btn-warning' : 'btn-primary'"
+              :disabled="!inputText.trim() && !isStreaming"
               @click="sendMessage"
               :title="isStreaming ? '发送新消息将打断当前处理' : '发送'"
             >
-              <SvgIcon v-if="isStreaming" name="send" size="14" class="text-warning" />
+              <SvgIcon v-if="isStreaming" name="send" size="14" class="animate-pulse" />
               <SvgIcon v-else name="send" size="14" />
             </button>
           </div>
@@ -643,6 +666,7 @@ interface Message {
   toolCalls?: ToolCall[];
   thinking?: string; // 思考过程
   isError?: boolean; // 是否是错误消息
+  isStopped?: boolean; // 是否被用户停止
   retryContent?: string; // 用于重试的原始消息内容
   tokens?: { input: number; output: number }; // token 使用量
 }
@@ -1528,18 +1552,24 @@ const abortChat = async () => {
   
   isAborting.value = true;
   
+  // 标记当前正在输出的消息为"已停止"
+  const lastMsg = messages.value[messages.value.length - 1];
+  if (lastMsg && lastMsg.role === 'assistant') {
+    lastMsg.isStopped = true;
+  }
+  
   // 不等待后端完成，立即响应用户
   invoke('agent_abort_chat').catch(e => {
     console.error('Abort error:', e);
   });
   
-  // 给后端一些时间处理，然后重置状态
+  // 立即重置状态，让用户感知响应
   setTimeout(() => {
     isStreaming.value = false;
     isAborting.value = false;
     lastAssistantRoundEnded = false;
     thinkingText.value = '';
-  }, 300);
+  }, 100);
 };
 
 // 复制消息内容
