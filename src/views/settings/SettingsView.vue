@@ -80,6 +80,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'SettingsView' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useSettingsStore } from "../../utils/settings";
 import { useTheme } from "../../utils/theme";

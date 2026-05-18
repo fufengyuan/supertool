@@ -473,6 +473,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AlertView' })
 import { ref, onMounted, reactive, computed } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useToast } from '@/composables/useToast'

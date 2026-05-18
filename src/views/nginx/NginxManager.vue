@@ -363,6 +363,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'NginxManager' })
 import { ref, computed, reactive, onMounted, markRaw } from 'vue'
 import { useNginxConfig } from '../../composables/useNginxConfig'
 import { useToast } from '../../composables/useToast'

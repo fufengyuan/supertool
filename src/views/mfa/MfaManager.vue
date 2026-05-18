@@ -203,6 +203,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'MfaManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { getTauriAPI } from '../../utils/tauri-api'

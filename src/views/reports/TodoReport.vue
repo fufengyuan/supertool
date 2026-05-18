@@ -54,6 +54,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
+defineOptions({ name: 'TodoReport' })
 import { ref, computed } from 'vue';
 import { useTodoStore } from '@/stores/todoStore';
 import StatsSummary from '@/views/reports/StatsSummary.vue';

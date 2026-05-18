@@ -374,6 +374,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'DBManager' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import * as logger from '../../services/logger'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'

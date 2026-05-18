@@ -279,7 +279,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
+defineOptions({ name: 'TodoList' })
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'

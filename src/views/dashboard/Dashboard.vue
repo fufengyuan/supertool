@@ -243,6 +243,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'Dashboard' })
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';

@@ -204,6 +204,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'GitRepoList' })
 import { ref, computed, onMounted } from 'vue';
 import UiButton from '@/components/ui/Button.vue';
 import UiModal from '@/components/ui/Modal.vue';

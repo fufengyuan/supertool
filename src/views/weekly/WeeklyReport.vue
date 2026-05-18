@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-// @ts-nocheck
+defineOptions({ name: 'WeeklyReport' })
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '../../composables/useToast'

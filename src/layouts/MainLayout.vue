@@ -88,10 +88,15 @@
         </div>
       </aside>
 
-      <!-- 主内容区 -->
-      <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-        <router-view />
-      </main>
+      <!-- 主内容区（含标签栏） -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <TabBar class="bg-base-100 border-b border-base-300 shrink-0" />
+        <main class="flex-1 overflow-y-auto p-4 lg:p-6">
+          <KeepAlive :include="tabStore.includeList">
+            <router-view :key="$route.fullPath" />
+          </KeepAlive>
+        </main>
+      </div>
 
       <!-- 右侧 LAN 面板 -->
       <aside v-if="showLan" class="flex-none w-96 bg-base-100 border-l border-base-300 overflow-y-auto">
@@ -115,10 +120,12 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import PageFind from '@/components/PageFind.vue'
-import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import TabBar from '@/components/TabBar.vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
+import { useTabStore, VIEW_ID_TO_PATH, KNOWN_ROUTES } from '@/stores/tabStore'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
 
@@ -168,7 +175,9 @@ const iconMap: Record<string, any> = {
 }
 
 const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
+const tabStore = useTabStore()
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
@@ -208,6 +217,12 @@ const navGroups = {
 
 function onNavClick(viewId: string, path: string) {
   appStore.recordNavClick(viewId)
+  const routeInfo = KNOWN_ROUTES[path]
+  if (routeInfo) {
+    tabStore.openOrActivate(path, routeInfo.label, routeInfo.viewId)
+  } else {
+    tabStore.syncRoute(path)
+  }
   router.push(path)
 }
 
@@ -246,6 +261,11 @@ function openGlobalSearch() {
 
 let unlistenFns: (() => void)[] = []
 
+// 同步路由变化到标签页（内部导航自动创建/激活标签页）
+watch(() => route.fullPath, (newPath) => {
+  tabStore.syncRoute(newPath)
+})
+
 onMounted(async () => {
   const api = getTauriAPI()
   try {
@@ -253,6 +273,9 @@ onMounted(async () => {
     isDark.value = theme === 'dark'
     document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
   } catch {}
+
+  // 为当前路由打开标签页
+  tabStore.syncRoute(route.fullPath)
 
   const unlistenNav = await api.onMenuNav((view: string) => {
     const routeMap: Record<string, string> = {
@@ -263,7 +286,13 @@ onMounted(async () => {
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
     }
     const path = routeMap[view]
-    if (path) router.push(path)
+    if (path) {
+      const routeInfo = KNOWN_ROUTES[path]
+      if (routeInfo) {
+        tabStore.openOrActivate(path, routeInfo.label, routeInfo.viewId)
+      }
+      router.push(path)
+    }
   }).catch(() => () => {})
   unlistenFns.push(unlistenNav as () => void)
 })
