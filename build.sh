@@ -152,7 +152,20 @@ build_macos_all() {
 
     # ── 2. 生成增强 .pkg（CLI + Skills 通过 postinstall 从 app bundle 分发）──
     local APP_PATH=""
-    for d in target/release/bundle/macos/*.app target/release/bundle/osx/*.app; do
+    # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
+    local bundle_search_paths="target/release/bundle/macos/*.app target/release/bundle/osx/*.app"
+    # 检查 target 特定路径
+    if [ -n "$target_flag" ]; then
+        local target_triple=""
+        case "$arch" in
+            x64|x86_64) target_triple="x86_64-apple-darwin" ;;
+            arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
+        esac
+        if [ -n "$target_triple" ]; then
+            bundle_search_paths="target/${target_triple}/release/bundle/macos/*.app ${bundle_search_paths}"
+        fi
+    fi
+    for d in $bundle_search_paths; do
         if [ -d "$d" ]; then APP_PATH="$d"; break; fi
     done
     if [ -z "$APP_PATH" ]; then
@@ -359,7 +372,19 @@ case "$MODE" in
     mkdir -p "$PKG_OUTPUT"
     rm -f target/release/bundle/macos/rw.*.dmg
     DMG_SRC=""
-    for d in target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg; do
+    # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
+    dmg_search_paths="target/release/bundle/dmg/*.dmg target/release/bundle/macos/*.dmg"
+    if [ -n "$target_flag" ]; then
+        target_triple=""
+        case "$ARCH" in
+            x64|x86_64) target_triple="x86_64-apple-darwin" ;;
+            arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
+        esac
+        if [ -n "$target_triple" ]; then
+            dmg_search_paths="target/${target_triple}/release/bundle/dmg/*.dmg target/${target_triple}/release/bundle/macos/*.dmg ${dmg_search_paths}"
+        fi
+    fi
+    for d in $dmg_search_paths; do
         if [ -f "$d" ]; then DMG_SRC="$d"; break; fi
     done
     if [ -n "$DMG_SRC" ]; then
@@ -392,7 +417,20 @@ case "$MODE" in
     mkdir -p "$PKG_OUTPUT"
     
     APP_PATH=""
-    for d in target/release/bundle/macos/*.app target/release/bundle/osx/*.app; do
+    # Tauri 2.x: with --target, bundle goes to target/<triple>/release/bundle/
+    bundle_search_paths="target/release/bundle/macos/*.app target/release/bundle/osx/*.app"
+    # 检查 target 特定路径
+    if [ -n "$target_flag" ]; then
+        target_triple=""
+        case "$ARCH" in
+            x64|x86_64) target_triple="x86_64-apple-darwin" ;;
+            arm64|aarch64) target_triple="aarch64-apple-darwin" ;;
+        esac
+        if [ -n "$target_triple" ]; then
+            bundle_search_paths="target/${target_triple}/release/bundle/macos/*.app ${bundle_search_paths}"
+        fi
+    fi
+    for d in $bundle_search_paths; do
         if [ -d "$d" ]; then APP_PATH="$d"; break; fi
     done
     if [ -z "$APP_PATH" ]; then
