@@ -372,7 +372,7 @@ async function autoReconnectSftp() {
     if (attempt > 1) await new Promise(r => setTimeout(r, 1500))
     try {
       const connStatus = await getTauriAPI().isServerConnected(props.server.id)
-      if (!connStatus?.connected) {
+      if (!connStatus) {
         await getTauriAPI().connectServer(props.server.id)
       }
       // 重连成功，刷新目录
@@ -488,7 +488,7 @@ async function doUpload(filePaths: string[]) {
 
   try {
     // 确保 SSH 已连接
-    const isConnected = await getTauriAPI().onServerConnected(props.server.id)
+    const isConnected = await getTauriAPI().isServerConnected(props.server.id)
     if (!isConnected) {
       await getTauriAPI().connectServer(props.server.id)
     }
