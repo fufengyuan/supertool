@@ -1005,7 +1005,7 @@ impl LanService {
 
     /// Handle incoming TCP connections for file transfers
     fn handle_tcp_connection(
-        mut stream: TcpStream,
+        stream: TcpStream,
         receive_path: &str,
         transfers: &Arc<Mutex<HashMap<String, FileTransfer>>>,
         log: &Arc<Mutex<Vec<LanLogEntry>>>,
@@ -1530,10 +1530,10 @@ impl LanService {
         peer: &Peer,
         msg_id: &str,
         content: &str,
-        to_name: &str,
+        _to_name: &str,
     ) -> Result<bool, String> {
         let nick = self.nick_name.lock().unwrap().clone();
-        let from_name = if nick.is_empty() { &self.user_id } else { &nick };
+        let _from_name = if nick.is_empty() { &self.user_id } else { &nick };
 
         let addr = format!("{}:{}", peer.address, FILE_TRANSFER_PORT);
         let mut stream = match TcpStream::connect(&addr) {

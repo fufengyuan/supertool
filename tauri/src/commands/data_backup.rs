@@ -377,7 +377,7 @@ async fn export_extra_tables(core: &CoreService) -> Result<serde_json::Value, St
                             Ok(rusqlite::types::Value::Text(v)) => {
                                 map.insert(col.clone(), json!(v));
                             }
-                            Ok(rusqlite::types::Value::Blob(v)) => {
+                            Ok(rusqlite::types::Value::Blob(_v)) => {
                                 map.insert(col.clone(), json!("[blob]"));
                             }
                             _ => {}
