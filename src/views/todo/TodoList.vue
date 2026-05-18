@@ -100,26 +100,26 @@
               :search-query="todoStore.searchQuery"
               :is-selected="selectedTodoIds.includes(todo.id)"
               :expanded="expandedTodo === todo.id"
-              :editing-id="editingId" v-model:edit-text="editText"
+              :editing-id="editingId ?? undefined" v-model:edit-text="editText"
               :tags="todoStore.tags" :projects="(projectStore.projects as any[])"
               :is-markdown-editing="isMarkdownEditing"
-              :editing-markdown-id="editingMarkdownId"
+              :editing-markdown-id="editingMarkdownId ?? undefined"
               v-model:editing-markdown-content="editingMarkdownContent"
-              :collaborating-user="collab.collaboratingUsers[todo.id] || ''"
-              :comments="collab.taskComments[todo.id] || []"
-              :comment-input="collab.commentInputs[todo.id] || ''"
+              :collaborating-user="collaboratingUsers[todo.id] || ''"
+              :comments="taskComments[todo.id] || []"
+              :comment-input="commentInputs[todo.id] || ''"
               :highlighted="highlightTodoId === todo.id"
               :data-todo-id="todo.id"
               :class="{ 'keyboard-focused': keyboardFocusedIndex >= 0 && flatActiveTodos[keyboardFocusedIndex]?.id === todo.id }"
-              @update:comment-input="(val) => collab.commentInputs[todo.id] = val"
+              @update:comment-input="(val) => commentInputs[todo.id] = val"
               @toggle="todoStore.toggleTodo" @delete="deleteTodo"
               @toggle-selected="batch.toggleSelected" @toggle-expand="toggleExpand"
               @start-edit="startEdit" @save-edit="saveEdit" @cancel-edit="cancelEdit"
               @update-tag="updateTodoTag" @add-new-tag="addNewTag"
               @start-markdown-edit="startMarkdownEdit"
-              @handle-markdown-double-click="(t) => collab.handleMarkdownDoubleClick(t, startMarkdownEdit)"
+              @handle-markdown-double-click="(t) => handleMarkdownDoubleClick(t, startMarkdownEdit)"
               @save-markdown="saveMarkdown" @cancel-markdown="cancelMarkdownEdit"
-              @add-comment="collab.addComment" @subtask-completed="handleSubtaskCompletion"
+              @add-comment="collabAddComment" @subtask-completed="handleSubtaskCompletion"
             />
           </ul>
         </template>
@@ -155,14 +155,14 @@
                     :search-query="todoStore.searchQuery"
                     :is-selected="selectedTodoIds.includes(todo.id)"
                     :expanded="expandedTodo === todo.id"
-                    :editing-id="editingId" v-model:edit-text="editText"
+                    :editing-id="editingId ?? undefined" v-model:edit-text="editText"
                     :tags="todoStore.tags" :projects="(projectStore.projects as any[])"
                     :is-markdown-editing="isMarkdownEditing"
-                    :editing-markdown-id="editingMarkdownId"
+                    :editing-markdown-id="editingMarkdownId ?? undefined"
                     v-model:editing-markdown-content="editingMarkdownContent"
-                    :collaborating-user="collab.collaboratingUsers[todo.id] || ''"
-                    :comments="collab.taskComments[todo.id] || []"
-                    :comment-input="collab.commentInputs[todo.id] || ''"
+                    :collaborating-user="collaboratingUsers[todo.id] || ''"
+                    :comments="taskComments[todo.id] || []"
+                    :comment-input="commentInputs[todo.id] || ''"
                     :highlighted="highlightTodoId === todo.id"
                     @toggle="todoStore.toggleTodo" @delete="deleteTodo"
                     @toggle-selected="batch.toggleSelected" @toggle-expand="toggleExpand"
@@ -170,7 +170,7 @@
                     @update-tag="updateTodoTag" @add-new-tag="addNewTag"
                     @start-markdown-edit="startMarkdownEdit"
                     @save-markdown="saveMarkdown" @cancel-markdown="cancelMarkdownEdit"
-                    @add-comment="collab.addComment" @subtask-completed="handleSubtaskCompletion"
+                    @add-comment="collabAddComment" @subtask-completed="handleSubtaskCompletion"
                   />
                 </ul>
               </template>
@@ -337,8 +337,8 @@ const handleQuickAdd = async () => {
     repeatEndDate: null,
     repeatCount: -1,
     parentTodoId: null,
-    projectId: quickAddProjectId.value || null,
-  }
+    projectId: quickAddProjectId.value || undefined,
+  } as any
   try {
     await todoStore.addTodo(newTodo)
     quickAddText.value = ''
@@ -469,6 +469,15 @@ watch(useVirtualScroll, (enabled) => {
 // ===== Composables =====
 const filters = useTodoFilters(todoStore as any)
 const collab = useTodoCollaboration(todosApi)
+const {
+  collaboratingUsers,
+  taskComments,
+  commentInputs,
+  addComment: collabAddComment,
+  endCollaborationEdit,
+  handleMarkdownDoubleClick,
+  setupLanListeners,
+} = collab
 const batch = useTodoBatch(todoStore as any, todosApi)
 
 // Unwrap filter ComputedRefs for v-model compatibility (cast to bypass readonly)
@@ -676,31 +685,31 @@ const scrollToFocusedTodo = () => {
 const onDragEnd = async () => {
   try {
     console.log("[components/todo/TodoList.vue] onDragEnd() called");
-    await todoStore.updateTodo(todoStore.todos) }
+    await todoStore.updateTodoOrder(todoStore.todos) }
   catch (error) { handleError(error, { context: '保存排序', showToast: false }) }
 }
 
 // ===== 任务操作 =====
-const handleAddTodo = async (newTodoObj) => {
+const handleAddTodo = async (newTodoObj: any) => {
   try {
     console.log("[components/todo/TodoList.vue] handleAddTodo() called");
     await todoStore.addTodo(newTodoObj) }
   catch (error) { handleError(error, { context: '添加任务', showToast: true }) }
 }
 
-const deleteTodo = async (id) => {
+const deleteTodo = async (id: string) => {
   try {
     console.log("[components/todo/TodoList.vue] deleteTodo() called");
     await todoStore.deleteTodo(id) }
   catch (error) { handleError(error, { context: '删除任务', showToast: true }) }
 }
 
-const toggleExpand = (id) => {
+const toggleExpand = (id: string) => {
   expandedTodo.value = expandedTodo.value === id ? null : id
 }
 
 // ===== 编辑 =====
-const startEdit = (todo) => {
+const startEdit = (todo: any) => {
   editingId.value = todo.id
   editText.value = todo.text
 }
@@ -736,7 +745,7 @@ const cancelEdit = () => {
 }
 
 // ===== 标签 =====
-const updateTodoTag = async (todo) => {
+const updateTodoTag = async (todo: any) => {
   try {
     console.log("[components/todo/TodoList.vue] updateTodoTag() called");
     await todoStore.updateTodo(todo) }
@@ -744,7 +753,7 @@ const updateTodoTag = async (todo) => {
   try { await todosApi.broadcastTaskUpdate(todo) } catch {}
 }
 
-const addNewTag = async (todo) => {
+const addNewTag = async (todo: any) => {
   const tagName = newTagName.value.trim()
   if (tagName && !todoStore.tags.includes(tagName)) {
     console.log("[components/todo/TodoList.vue] addNewTag() called");
@@ -756,20 +765,20 @@ const addNewTag = async (todo) => {
 }
 
 // ===== Markdown =====
-const startMarkdownEdit = (todo) => {
+const startMarkdownEdit = (todo: any) => {
   editingMarkdownId.value = todo.id
   editingMarkdownContent.value = (todo as any).markdownDescription || ''
   isMarkdownEditing.value = true
 }
 
-const saveMarkdown = async (id) => {
+const saveMarkdown = async (id: string) => {
   try {
     console.log("[components/todo/TodoList.vue] saveMarkdown() called");
     const todo = todoStore.todos.find(t => t.id === id)
     if (todo) {
       await todoStore.updateTodo({ ...todo, markdownDescription: editingMarkdownContent.value } as any)
       try { await todosApi.broadcastTaskUpdate(todo) } catch {}
-      await collab.endCollaborationEdit(id)
+      await endCollaborationEdit(id)
       isMarkdownEditing.value = false
       editingMarkdownId.value = null
       editingMarkdownContent.value = ''
@@ -784,7 +793,7 @@ const cancelMarkdownEdit = () => {
 }
 
 // ===== 子任务 =====
-const handleSubtaskCompletion = async (data) => {
+const handleSubtaskCompletion = async (data: any) => {
   if (data.allCompleted) {
     console.log("[components/todo/TodoList.vue] handleSubtaskCompletion() called");
     const todo = todoStore.todos.find(t => t.id === data.todoId)
@@ -798,7 +807,7 @@ const handleSubtaskCompletion = async (data) => {
 // ===== 通知高亮 =====
 const highlightTodoId = ref<string | null>(null)
 
-function navigateToTodo(todoId) {
+function navigateToTodo(todoId: string) {
   if (!todoId) return
   let todo = todoStore.todos.find(t => t.id === todoId)
   if (!todo) return
@@ -830,7 +839,7 @@ onMounted(async () => {
 })
 
 // ===== LAN & 菜单监听 =====
-collab.setupLanListeners(todoStore as any)
+setupLanListeners(todoStore as any)
 
 const setupMenuListeners = () => {
   const e = getTauriAPI()

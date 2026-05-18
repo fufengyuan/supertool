@@ -350,7 +350,7 @@ export function useCicdConfig() {
     { key: 'gradle', name: 'Gradle', icon: '🟠' },
   ];
   const availableBuildTools = computed(() => buildToolDefs.map(td => ({ ...td, version: detectedTools.value[td.key]?.version })));
-  const addedModulePaths = computed(() => new Set(modules.value.map(m => m.modulePath || m.buildPath)));
+  const addedModulePaths = computed(() => new Set(modules.value.map(m => m.modulePath || m.buildPath || '')));
 
   // Parent-build auto-detection state
   const parentBuildAutoDetected = ref(false);
