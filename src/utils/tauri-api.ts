@@ -58,6 +58,13 @@ function safeJsonLog(val: unknown, maxLen = 300): string {
 
 // ============ 核心调用 ============
 
+/** 检测是否为后端标准响应格式 { success, data/error } */
+function isApiResponse(obj: unknown): boolean {
+  if (obj === null || typeof obj !== 'object') return false
+  const o = obj as Record<string, unknown>
+  return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
+}
+
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<ApiResponse<T>> {
   if (!silent) console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)
   const t0 = performance.now()
@@ -67,6 +74,13 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
     if (!silent) {
       console.log(`[Tauri IPC] ← ${command} ✅ ${elapsed}ms  ${safeJsonLog(raw)}`)
     }
+    
+    // 后端返回标准格式 { success, data/error } 时直接返回（避免双层嵌套）
+    if (isApiResponse(raw)) {
+      return raw as ApiResponse<T>
+    }
+    
+    // 非标准格式，包装为统一响应
     return { success: true, data: raw as unknown as T }
   } catch (err: unknown) {
     const elapsed = (performance.now() - t0).toFixed(0)
