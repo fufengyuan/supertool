@@ -76,17 +76,42 @@ build_cli() {
 
 # ─── 通用：Tauri 构建 ───
 tauri_build() {
-    echo "🔨 Building Tauri app..."
+    local arch="${1:-native}"
+    echo "🔨 Building Tauri app... (arch: $arch)"
     local os
     os="$(uname)"
+
+    # 根据 arch 确定 Rust 编译目标 triple
+    local target_flag=""
+    if [ "$arch" != "native" ] && [ "$arch" != "all" ]; then
+        case "$os" in
+            Darwin)
+                if [ "$arch" = "x64" ] || [ "$arch" = "x86_64" ]; then
+                    target_flag="--target x86_64-apple-darwin"
+                elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
+                    target_flag="--target aarch64-apple-darwin"
+                fi
+                ;;
+            Linux)
+                if [ "$arch" = "x64" ] || [ "$arch" = "x86_64" ]; then
+                    target_flag="--target x86_64-unknown-linux-gnu"
+                elif [ "$arch" = "arm64" ] || [ "$arch" = "aarch64" ]; then
+                    target_flag="--target aarch64-unknown-linux-gnu"
+                fi
+                ;;
+        esac
+    fi
+
     case "$os" in
         Darwin)
             # macOS: dmg + app (pkg 由后续步骤处理)
-            pnpm tauri build --bundles dmg,app || pnpm tauri build
+            # shellcheck disable=SC2086
+            pnpm tauri build --bundles dmg,app $target_flag || pnpm tauri build --bundles dmg,app $target_flag
             ;;
         Linux)
             # Linux: deb + rpm
-            pnpm tauri build --bundles deb,rpm || pnpm tauri build
+            # shellcheck disable=SC2086
+            pnpm tauri build --bundles deb,rpm $target_flag || pnpm tauri build --bundles deb,rpm $target_flag
             ;;
         *)
             pnpm tauri build
@@ -101,7 +126,7 @@ tauri_build() {
 build_macos_all() {
     local arch="$1"
     build_cli "$arch"
-    tauri_build
+    tauri_build "$arch"
 
     mkdir -p "$PKG_OUTPUT"
 
@@ -201,7 +226,7 @@ POSTINSTALL
 build_linux_all() {
     local arch="$1"
     build_cli "$arch"
-    tauri_build
+    tauri_build "$arch"
 
     mkdir -p "$PKG_OUTPUT"
 
@@ -261,7 +286,7 @@ POSTINST
 build_windows_all() {
     local arch="$1"
     build_cli "$arch"
-    tauri_build
+    tauri_build "$arch"
 
     mkdir -p "$PKG_OUTPUT"
 
@@ -320,7 +345,17 @@ case "$MODE" in
   dmg)
     # 只生成 dmg，不生成 pkg
     build_cli "$ARCH"
-    pnpm tauri build --bundles dmg,app
+
+    # 根据 ARCH 确定 Tauri 编译目标
+    target_flag=""
+    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+        target_flag="--target x86_64-apple-darwin"
+    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+        target_flag="--target aarch64-apple-darwin"
+    fi
+
+    # shellcheck disable=SC2086
+    pnpm tauri build --bundles dmg,app $target_flag
     mkdir -p "$PKG_OUTPUT"
     rm -f target/release/bundle/macos/rw.*.dmg
     DMG_SRC=""
@@ -335,7 +370,17 @@ case "$MODE" in
   pkg)
     # 只生成 pkg installer（含 CLI + Skills），跳过 dmg
     build_cli "$ARCH"
-    pnpm tauri build --bundles app
+
+    # 根据 ARCH 确定 Tauri 编译目标
+    target_flag=""
+    if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
+        target_flag="--target x86_64-apple-darwin"
+    elif [ "$ARCH" = "arm64" ] || [ "$ARCH" = "aarch64" ]; then
+        target_flag="--target aarch64-apple-darwin"
+    fi
+
+    # shellcheck disable=SC2086
+    pnpm tauri build --bundles app $target_flag
 
     arch_label=""
     if [ "$ARCH" = "x64" ] || [ "$ARCH" = "x86_64" ]; then
