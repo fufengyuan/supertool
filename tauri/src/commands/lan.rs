@@ -381,7 +381,7 @@ pub fn lan_get_receive_path() -> Result<String, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_get_peers() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_peers() called");
-    let peers = with_lan(|lan| lan.get_online_peers()).unwrap_or_default();
+    let peers = with_lan(|lan| lan.get_all_peers()).unwrap_or_default();
     Ok(serde_json::to_value(peers).map_err(|e| e.to_string())?)
 }
 

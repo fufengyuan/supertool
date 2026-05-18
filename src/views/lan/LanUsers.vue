@@ -99,10 +99,11 @@
       <div class="flex items-center gap-2">
         <span class="text-base"><SvgIcon name="globe" size="14" class="inline-block align-text-bottom" /></span>
         <span class="text-sm font-semibold text-base-content">局域网用户</span>
-        <span class="badge badge-sm" :class="peers.length > 0 ? 'badge-success' : 'badge-ghost'">
-          <span v-if="peers.length > 0" class="size-1.5 rounded-full bg-green-500 animate-pulse mr-1"></span>
-          {{ peers.length }}
+        <span class="badge badge-sm" :class="onlineCount > 0 ? 'badge-success' : 'badge-ghost'">
+          <span v-if="onlineCount > 0" class="size-1.5 rounded-full bg-green-500 animate-pulse mr-1"></span>
+          {{ onlineCount }}
         </span>
+        <span v-if="offlineCount > 0" class="text-xs text-base-content/40">离线 {{ offlineCount }}</span>
       </div>
       <button class="btn btn-ghost btn-square btn-sm" @click="refreshDiscovery" :class="{ 'animate-spin text-primary': scanning }" title="重新扫描">
         <SvgIcon name="refresh" size="16" />
@@ -259,6 +260,14 @@ const emit = defineEmits<{
   'open-chat': [peer: LanPeer];
   'open-assign': [peer: LanPeer];
 }>();
+
+// 在线/离线计数（用于头部 badge）
+const onlineCount = computed(() => {
+  return peers.value.filter(p => getStatusClass(p) === 'online').length;
+});
+const offlineCount = computed(() => {
+  return peers.value.filter(p => getStatusClass(p) === 'offline').length;
+});
 
 // 排序：有未读消息 > 在线 > 按名称
 const sortedPeers = computed(() => {
@@ -427,9 +436,9 @@ onMounted(async () => {
   }));
 
   cleanupIpcListeners.push(await getTauriAPI().onLanPeerLost((peer: any) => {
-    peers.value = peers.value.filter((p) => p.id !== peer.id);
-    if (selectedPeer.value?.id === peer.id) {
-      selectedPeer.value = null;
+    const existing = peers.value.find((p) => p.id === peer.id);
+    if (existing) {
+      existing.online = false;
     }
   }));
   cleanupIpcListeners.push(await getTauriAPI().onLanPeerAvatarUpdated((data: any) => {

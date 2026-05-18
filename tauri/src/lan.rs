@@ -337,11 +337,12 @@ impl LanService {
             let heartbeat_peers = Arc::clone(&self.peers);
             let heartbeat_log = Arc::clone(&self.log_buffer);
             let heartbeat_app = self.app_handle.lock().unwrap().clone();
+            let heartbeat_db = Arc::clone(&self.db_conn);
 
             thread::spawn(move || {
                 while !heartbeat_stop.load(Ordering::SeqCst) {
                     thread::sleep(Duration::from_secs(HEARTBEAT_INTERVAL_SECS));
-                    Self::check_offline_peers(&heartbeat_peers, &heartbeat_log, &heartbeat_app);
+                    Self::check_offline_peers(&heartbeat_peers, &heartbeat_log, &heartbeat_app, &heartbeat_db);
                 }
             });
         }
@@ -511,6 +512,23 @@ impl LanService {
                     status: peer_status,
                 };
                 peers_map.insert(peer_id.to_string(), peer);
+
+                // Save peer to DB for persistence across restarts
+                if let Ok(conn) = db_conn.lock() {
+                    let _ = lan::insert_user(
+                        &conn,
+                        &supertool_core::db::lan::LanUser {
+                            id: peer_id.to_string(),
+                            name: peer_name.clone(),
+                            ip: addr.ip().to_string(),
+                            port: message_port as i64,
+                            last_seen: chrono::Utc::now()
+                                .format("%Y-%m-%dT%H:%M:%S%.3fZ")
+                                .to_string(),
+                            is_online: true,
+                        },
+                    );
+                }
 
                 // Get peer reference for further use
                 let peer_ref = peers_map.get(peer_id).unwrap();
@@ -1329,19 +1347,25 @@ impl LanService {
         peers: &Arc<Mutex<HashMap<String, Peer>>>,
         log: &Arc<Mutex<Vec<LanLogEntry>>>,
         app_handle: &Option<tauri::AppHandle>,
+        db_conn: &Arc<Mutex<Connection>>,
     ) {
         let now = chrono::Utc::now().timestamp_millis();
         let mut peers_map = peers.lock().unwrap();
         for peer in peers_map.values_mut() {
             if peer.online && (now - peer.last_seen) > (PEER_TIMEOUT_SECS as i64 * 1000) {
                 peer.online = false;
-                Self::add_log_static(log, "info", &format!("Peer offline: {}", peer.id));
-                // Emit lan-peer-lost event for frontend
+                Self::add_log_static(log, "info", &format!("Peer offline: {0}", peer.id));
+                // Update DB
+                if let Ok(conn) = db_conn.lock() {
+                    let _ = lan::update_user_online_status(&conn, &peer.id, false);
+                }
+                // Emit lan-peer-lost event for frontend (with online=false so frontend keeps it)
                 if let Some(app) = app_handle {
                     let payload = serde_json::json!({
                         "id": peer.id,
                         "name": peer.name,
                         "address": peer.address,
+                        "online": false,
                     });
                     let _ = app.emit("lan-peer-lost", payload);
                 }
@@ -1543,14 +1567,38 @@ impl LanService {
         Ok(true)
     }
 
-    pub fn get_online_peers(&self) -> Vec<Peer> {
-        self.peers
+    pub fn get_all_peers(&self) -> Vec<Peer> {
+        let mut result: Vec<Peer> = self.peers
             .lock()
             .unwrap()
             .values()
-            .filter(|p| p.online)
             .cloned()
-            .collect()
+            .collect();
+
+        // Include peers from DB that aren't in the in-memory HashMap
+        if let Ok(conn) = self.db_conn.lock() {
+            if let Ok(db_users) = lan::get_all_users(&conn) {
+                let in_memory_ids: std::collections::HashSet<String> =
+                    result.iter().map(|p| p.id.clone()).collect();
+                for user in db_users {
+                    if !in_memory_ids.contains(&user.id) {
+                        result.push(Peer {
+                            id: user.id,
+                            name: user.name,
+                            avatar: None,
+                            address: user.ip,
+                            message_port: user.port as u16,
+                            version: None,
+                            last_seen: 0,
+                            online: false,
+                            status: None,
+                        });
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     pub fn get_logs(&self, limit: usize) -> Vec<LanLogEntry> {
