@@ -114,6 +114,10 @@ def _ensure_session_db() -> SessionDB:
 
 def _output(msg: Dict[str, Any]) -> None:
     """Write JSON message to stdout."""
+    global _current_session_id
+    # 所有事件添加 session_id（如果已知）
+    if _current_session_id is not None and "session_id" not in msg:
+        msg["session_id"] = _current_session_id
     sys.stdout.write(json.dumps(msg, ensure_ascii=False) + "\n")
     sys.stdout.flush()
 
@@ -187,7 +191,12 @@ def _create_agent(
     )
 
     _current_agent = agent
-    _current_session_id = session_id
+    # 如果 session_id 为 None（新建会话），从 agent 获取实际的 session_id
+    if session_id is None:
+        # AIAgent 创建新会话时会生成 session_id
+        _current_session_id = getattr(agent, "session_id", None)
+    else:
+        _current_session_id = session_id
 
     return agent
 
