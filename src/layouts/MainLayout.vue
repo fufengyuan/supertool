@@ -92,7 +92,7 @@
       <div class="flex-1 flex flex-col overflow-hidden">
         <TabBar class="bg-base-100 border-b border-base-300 shrink-0" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-          <KeepAlive :include="tabStore.includeList">
+          <KeepAlive>
             <router-view />
           </KeepAlive>
         </main>
