@@ -78,20 +78,28 @@ fn default_limit() -> usize {
 pub enum BridgeMessage {
     Delta {
         text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     ToolStart {
         id: Option<String>,
         name: String,
         args: serde_json::Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     ToolComplete {
         id: Option<String>,
         name: String,
         result: Option<String>,
-        duration_ms: f64,
+        duration_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     Thinking {
         text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     Done {
         response: Option<String>,
@@ -100,6 +108,8 @@ pub enum BridgeMessage {
     },
     Error {
         message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
     },
     Sessions {
         data: Vec<SessionInfo>,
@@ -507,14 +517,21 @@ pub async fn agent_chat(
         };
 
         match msg {
-            BridgeMessage::Delta { text } => {
+            BridgeMessage::Delta { text, session_id } => {
                 if let Some(t) = &text {
                     accumulated_text.push_str(t);
                 }
                 eprintln!("[DEBUG] agent-delta: {:?}", text);
-                app.emit("agent-delta", &text).ok();
+                app.emit(
+                    "agent-delta",
+                    serde_json::json!({
+                        "text": text,
+                        "session_id": session_id
+                    }),
+                )
+                .ok();
             }
-            BridgeMessage::ToolStart { id, name, args } => {
+            BridgeMessage::ToolStart { id, name, args, session_id } => {
                 eprintln!(
                     "[DEBUG] agent-tool-start: {} {:?} (id: {:?})",
                     name, args, id
@@ -524,7 +541,8 @@ pub async fn agent_chat(
                     serde_json::json!({
                         "id": id,
                         "name": name,
-                        "args": args
+                        "args": args,
+                        "session_id": session_id
                     }),
                 )
                 .ok();
@@ -534,6 +552,7 @@ pub async fn agent_chat(
                 name,
                 result,
                 duration_ms,
+                session_id,
             } => {
                 eprintln!(
                     "[DEBUG] agent-tool-complete: {} (id: {:?}, duration: {}ms)",
@@ -545,13 +564,21 @@ pub async fn agent_chat(
                         "id": id,
                         "name": name,
                         "result": result,
-                        "duration_ms": duration_ms
+                        "duration_ms": duration_ms,
+                        "session_id": session_id
                     }),
                 )
                 .ok();
             }
-            BridgeMessage::Thinking { text } => {
-                app.emit("agent-thinking", &text).ok();
+            BridgeMessage::Thinking { text, session_id } => {
+                app.emit(
+                    "agent-thinking",
+                    serde_json::json!({
+                        "text": text,
+                        "session_id": session_id
+                    }),
+                )
+                .ok();
             }
             BridgeMessage::Done {
                 response,
@@ -572,8 +599,15 @@ pub async fn agent_chat(
                 final_session_id = Some(session_id);
                 final_message_count = message_count;
             }
-            BridgeMessage::Error { message } => {
-                app.emit("agent-error", &message).ok();
+            BridgeMessage::Error { message, session_id } => {
+                app.emit(
+                    "agent-error",
+                    serde_json::json!({
+                        "message": message,
+                        "session_id": session_id
+                    }),
+                )
+                .ok();
                 return Err(message);
             }
             BridgeMessage::Aborted { .. } => {
@@ -656,7 +690,7 @@ pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Val
                 "sessions": data,
                 "total": total,
             }));
-        } else if let BridgeMessage::Error { message } = msg {
+        } else if let BridgeMessage::Error { message, .. } = msg {
             child.wait().ok();
             return Err(message);
         }
@@ -711,7 +745,7 @@ pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, 
                 "session_id": session_id,
                 "messages": messages,
             }));
-        } else if let BridgeMessage::Error { message } = msg {
+        } else if let BridgeMessage::Error { message, .. } = msg {
             child.wait().ok();
             return Err(message);
         }
@@ -759,7 +793,7 @@ pub async fn agent_delete_session(session_id: String) -> Result<serde_json::Valu
         if let BridgeMessage::Deleted { session_id } = msg {
             child.wait().ok();
             return Ok(serde_json::json!({ "deleted": session_id }));
-        } else if let BridgeMessage::Error { message } = msg {
+        } else if let BridgeMessage::Error { message, .. } = msg {
             child.wait().ok();
             return Err(message);
         }
@@ -810,7 +844,7 @@ pub async fn agent_rename_session(
         if let BridgeMessage::Renamed { session_id, title } = msg {
             child.wait().ok();
             return Ok(serde_json::json!({ "session_id": session_id, "title": title }));
-        } else if let BridgeMessage::Error { message } = msg {
+        } else if let BridgeMessage::Error { message, .. } = msg {
             child.wait().ok();
             return Err(message);
         }
@@ -870,7 +904,7 @@ pub async fn agent_search_sessions(
                 "total": total,
                 "query": query,
             }));
-        } else if let BridgeMessage::Error { message } = msg {
+        } else if let BridgeMessage::Error { message, .. } = msg {
             child.wait().ok();
             return Err(message);
         }
@@ -1039,7 +1073,7 @@ pub async fn agent_get_models() -> Result<serde_json::Value, String> {
                     "defaultModel": default_model,
                 }));
             }
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 child.wait().ok();
                 return Err(message);
             }
@@ -1108,7 +1142,7 @@ pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String>
                     "customModels": custom_models,
                 }));
             }
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 child.wait().ok();
                 return Err(message);
             }
@@ -1177,7 +1211,7 @@ pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, Stri
                     "customModels": custom_models,
                 }));
             }
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 child.wait().ok();
                 return Err(message);
             }
@@ -1510,7 +1544,7 @@ mod tests {
                     assert!(!s.model.is_empty());
                 }
             }
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 // Hermes 未安装是可接受的错误
                 if message.contains("Hermes not available") {
                     eprintln!("Skipping: Hermes not installed");
@@ -1679,7 +1713,7 @@ mod tests {
                     }
                 }
             }
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 // API key 问题等可以接受
                 if message.contains("API key")
                     || message.contains("authentication")
@@ -1731,7 +1765,7 @@ mod tests {
         let json = "{\"type\":\"error\",\"message\":\"Something went wrong\"}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Error { message } => {
+            BridgeMessage::Error { message, .. } => {
                 assert_eq!(message, "Something went wrong");
             }
             _ => panic!("Wrong type"),

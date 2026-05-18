@@ -1777,12 +1777,20 @@ onMounted(async () => {
   document.addEventListener('keydown', handleGlobalKeydown);
   
 // 监听流式事件
-  unlistenDelta = await listen<string | null>('agent-delta', (event) => {
-    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.slice(0, 50)));
+  unlistenDelta = await listen<{ text: string | null; session_id: string | null }>('agent-delta', (event) => {
+    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.text?.slice(0, 50)) + ' session_id: ' + event.payload?.session_id);
+    
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      void agentLog('[agent-delta] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+      return;
+    }
+    
     // 收到实际内容时清空思考动画
     thinkingText.value = '';
     
-    if (event.payload) {
+    if (event.payload?.text) {
       // 查找最后一个 assistant 消息
       const messagesCopy = [...messages.value].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
@@ -1794,8 +1802,8 @@ onMounted(async () => {
       // 检查是否已有空内容的 assistant 消息（由 tool_start 创建），避免重复创建
       const hasEmptyAssistant = currentMsg && !currentMsg.content && currentMsg.toolCalls && currentMsg.toolCalls.length > 0;
       
-      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
-        ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded + 
+      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
+        ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded +
         ' 最后一条: ' + (lastMsg?.role || 'none') +
         ' needsNewMsg: ' + needsNewMsg +
         ' hasEmptyAssistant: ' + hasEmptyAssistant);
@@ -1823,14 +1831,22 @@ onMounted(async () => {
       
       // 添加 delta 内容（currentMsg 是 Vue reactive proxy，修改会触发响应式）
       if (currentMsg) {
-        currentMsg.content = (currentMsg.content || '') + event.payload;
+        currentMsg.content = (currentMsg.content || '') + event.payload.text;
       }
       scrollToBottom();
     }
   });
 
-  unlistenToolStart = await listen<{ id?: string; name: string; args: unknown }>('agent-tool-start', (event) => {
-    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload));
+  unlistenToolStart = await listen<{ id?: string; name: string; args: unknown; session_id: string | null }>('agent-tool-start', (event) => {
+    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + event.payload?.session_id);
+    
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      void agentLog('[agent-tool-start] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+      return;
+    }
+    
     // 工具开始
     const toolId = event.payload.id;
     const toolName = event.payload.name;
@@ -1890,8 +1906,16 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number }>('agent-tool-complete', (event) => {
-    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms}));
+  unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number; session_id: string | null }>('agent-tool-complete', (event) => {
+    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms, session_id: event.payload.session_id}));
+    
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      void agentLog('[agent-tool-complete] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+      return;
+    }
+    
     thinkingText.value = '';
     
     // 获取当前 assistant 消息
@@ -1952,20 +1976,34 @@ onMounted(async () => {
   });
 
   // 思考动画事件
-  unlistenThinking = await listen<string | null>('agent-thinking', (event) => {
-    if (event.payload) {
-      thinkingText.value = event.payload;
+  unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', (event) => {
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      return;
+    }
+    
+    if (event.payload?.text) {
+      thinkingText.value = event.payload.text;
       scrollToBottom();
     }
   });
 
-  unlistenError = await listen<string>('agent-error', (event) => {
-    void agentLog('[agent-error] 收到事件: ' + event.payload);
+  unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', (event) => {
+    void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + event.payload?.session_id);
+    
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      void agentLog('[agent-error] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+      return;
+    }
+    
     thinkingText.value = '';
     const messagesCopy = [...messages.value].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
     if (currentMsg) {
-      currentMsg.content = (currentMsg.content || '') + `\n[错误: ${event.payload}]`;
+      currentMsg.content = (currentMsg.content || '') + `\n[错误: ${event.payload?.message}]`;
     }
   });
 
