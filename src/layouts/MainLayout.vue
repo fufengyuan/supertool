@@ -92,9 +92,18 @@
       <div class="flex-1 flex flex-col overflow-hidden">
         <TabBar class="bg-base-100 border-b border-base-300 shrink-0" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-          <KeepAlive>
-            <router-view />
-          </KeepAlive>
+          <!-- 每个标签页独立渲染 → 切换标签时全部保持挂载，v-show 显隐 -->
+          <div
+            v-for="tab in tabStore.tabs"
+            :key="tab.id"
+            v-show="tab.id === tabStore.activeTabId"
+            class="h-full"
+          >
+            <component :is="resolveComponent(tab.currentPath)" :key="tab.currentPath" />
+          </div>
+          <div v-if="tabStore.tabs.length === 0" class="flex items-center justify-center h-full text-base-content/30 text-sm">
+            请从左侧导航栏打开页面
+          </div>
         </main>
       </div>
 
@@ -151,6 +160,50 @@ import {
   IconBell,
   IconRobot,
 } from '@tabler/icons-vue'
+
+import { defineAsyncComponent, type Component } from 'vue'
+
+// 标签页 → 视图组件映射（异步懒加载）
+const tabComponents: Record<string, Component> = {
+  '/': defineAsyncComponent(() => import('@/views/dashboard/Dashboard.vue')),
+  '/todo': defineAsyncComponent(() => import('@/views/todo/TodoList.vue')),
+  '/weekly': defineAsyncComponent(() => import('@/views/weekly/WeeklyReport.vue')),
+  '/projects': defineAsyncComponent(() => import('@/views/projects/ProjectList.vue')),
+  '/accounting': defineAsyncComponent(() => import('@/views/accounting/AccountingBook.vue')),
+  '/servers': defineAsyncComponent(() => import('@/views/server/ServerManager.vue')),
+  '/cicd': defineAsyncComponent(() => import('@/views/cicd/CiCdConfig.vue')),
+  '/logs': defineAsyncComponent(() => import('@/views/logs/LogAggregator.vue')),
+  '/nginx': defineAsyncComponent(() => import('@/views/nginx/NginxManager.vue')),
+  '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
+  '/agent': defineAsyncComponent(() => import('@/views/agent/AgentManager.vue')),
+  '/agent/chat': defineAsyncComponent(() => import('@/views/agent/HermesChat.vue')),
+  '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
+  '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
+  '/notes': defineAsyncComponent(() => import('@/views/notes/NoteManager.vue')),
+  '/git': defineAsyncComponent(() => import('@/views/git/GitRepoList.vue')),
+  '/mfa': defineAsyncComponent(() => import('@/views/mfa/MfaManager.vue')),
+  '/vpn': defineAsyncComponent(() => import('@/views/vpn/VPNManager.vue')),
+  '/backup': defineAsyncComponent(() => import('@/views/backup/DataBackup.vue')),
+  '/disk-cleaner': defineAsyncComponent(() => import('@/components/DiskCleaner.vue')),
+  '/report': defineAsyncComponent(() => import('@/views/reports/TodoReport.vue')),
+  '/settings': defineAsyncComponent(() => import('@/views/settings/SettingsView.vue')),
+}
+
+/** 根据路径查找最匹配的视图组件（精确匹配 → 逐级回退 → 看板） */
+function resolveComponent(path: string): Component {
+  // 去掉 query params
+  const cleanPath = path.split('?')[0].split('#')[0]
+  const tryPath = (p: string) => tabComponents[p]
+  // 精确路径
+  if (tryPath(cleanPath)) return tabComponents[cleanPath]
+  // 逐级回退（/agent/chat → /agent → /）
+  const segs = cleanPath.split('/').filter(Boolean)
+  for (let len = segs.length - 1; len >= 0; len--) {
+    const p = '/' + segs.slice(0, len).join('/')
+    if (tryPath(p)) return tabComponents[p]
+  }
+  return tabComponents['/']
+}
 
 const iconMap: Record<string, any> = {
   'dashboard': IconLayoutDashboard,
