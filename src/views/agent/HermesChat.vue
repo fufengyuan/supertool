@@ -134,9 +134,16 @@
           </span>
         </div>
         <div class="flex items-center gap-2">
-          <button v-if="isStreaming" class="btn btn-error btn-xs gap-1" @click="abortChat">
-            <SvgIcon name="stop" size="12" />
-            停止
+          <button 
+            v-if="isStreaming" 
+            class="btn btn-xs gap-1" 
+            :class="isAborting ? 'btn-disabled' : 'btn-error'" 
+            @click="abortChat"
+            :disabled="isAborting"
+          >
+            <span v-if="isAborting" class="loading loading-spinner loading-xs"></span>
+            <SvgIcon v-else name="stop" size="12" />
+            {{ isAborting ? '停止中...' : '停止' }}
           </button>
           <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
             <SvgIcon name="download" size="12" />
@@ -341,11 +348,14 @@
             </div>
             <!-- 取消按钮 -->
             <button 
-              class="btn btn-ghost btn-sm btn-square self-center text-error hover:bg-error/10"
+              class="btn btn-sm btn-square self-center"
+              :class="isAborting ? 'btn-disabled' : 'btn-ghost text-error hover:bg-error/10'"
               @click="abortChat"
-              title="取消处理"
+              :disabled="isAborting"
+              :title="isAborting ? '停止中...' : '取消处理'"
             >
-              <SvgIcon name="close" size="16" />
+              <span v-if="isAborting" class="loading loading-spinner loading-sm"></span>
+              <SvgIcon v-else name="close" size="16" />
             </button>
           </div>
         </template>
@@ -681,6 +691,7 @@ const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
 const isStreaming = ref(false);
+const isAborting = ref(false); // 正在停止中
 const thinkingText = ref(''); // 思考动画文本
 const hermesAvailable = ref(false);
 
@@ -1513,17 +1524,22 @@ const retryMessage = async (retryContent: string) => {
 
 // 取消当前处理
 const abortChat = async () => {
-  if (!isStreaming.value) return;
+  if (!isStreaming.value || isAborting.value) return;
   
-  try {
-    await invoke('agent_abort_chat');
-    // 清空流式状态（消息已在 messages 数组中）
+  isAborting.value = true;
+  
+  // 不等待后端完成，立即响应用户
+  invoke('agent_abort_chat').catch(e => {
+    console.error('Abort error:', e);
+  });
+  
+  // 给后端一些时间处理，然后重置状态
+  setTimeout(() => {
     isStreaming.value = false;
+    isAborting.value = false;
     lastAssistantRoundEnded = false;
     thinkingText.value = '';
-  } catch (e) {
-    console.error('Abort error:', e);
-  }
+  }, 300);
 };
 
 // 复制消息内容
