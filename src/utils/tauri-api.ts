@@ -58,11 +58,11 @@ function safeJsonLog(val: unknown, maxLen = 300): string {
 
 // ============ 核心调用 ============
 
-/** 检测是否为后端标准响应格式（包含 success 布尔字段的对象） */
+/** 检测是否为后端标准响应格式 { success, data/error } */
 function isApiResponse(obj: unknown): boolean {
   if (obj === null || typeof obj !== 'object') return false
   const o = obj as Record<string, unknown>
-  return typeof o['success'] === 'boolean'
+  return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
 }
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<ApiResponse<T>> {
@@ -78,6 +78,12 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
     // 后端返回标准格式 { success, data/error } 时直接返回（避免双层嵌套）
     if (isApiResponse(raw)) {
       return raw as ApiResponse<T>
+    }
+    
+    // 扁平后端响应 { success, rows/backups/... } 无 data/error 字段时，提取子字段到 data
+    if (raw && typeof raw === 'object' && 'success' in (raw as Record<string, unknown>)) {
+      const { success, ...fields } = raw as Record<string, unknown>
+      return { success: success as boolean, data: fields as unknown as T }
     }
     
     // 非标准格式，包装为统一响应
@@ -256,25 +262,25 @@ export function useDatabaseAPI() {
     },
     dbQuery: async (id: string, sql: string): Promise<{ success: boolean; rows?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_query', { id, sql })
-      // Rust 返回 { success, rows }，tauriInvoke 自动解包为标准格式
-      return { success: res.success ?? false, rows: res.rows, error: res.error }
+      // Rust 返回 { success, rows }，tauriInvoke 包装到 data 下
+      return { success: res.success ?? false, rows: res.data?.rows ?? [], error: res.data?.error || res.error }
     },
     getTables: async (id: string, dbName: string): Promise<{ success: boolean; tables?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_tables', { id, dbName })
-      if (res.success && res.rows) {
-        // SHOW TABLES returns objects like { "Tables_in_dbname": "table1" }
+      if (res.success && res.data?.rows) {
+        // SHOW TABLES returns objects with table names
         // Extract just the table names.
-        const rows = res.rows;
+        const rows = res.data.rows;
         const tables = rows.map((r: any) => Object.values(r)[0] || r);
-        return { success: true, tables: tables, error: res.error }
+        return { success: true, tables: tables, error: res.data?.error || res.error }
       }
       return { success: res.success, error: res.error }
     },
     getDatabases: async (id: string): Promise<{ success: boolean; databases?: any; error?: string }> => {
       const res = await tauriInvoke<any>('db_get_databases', { id })
-      if (res.success && res.rows) {
-        const rows = res.rows;
-        // 健壮性提取：兼容 { "Database": "name" } 或 { "datname": "name" } 或直接是字符串
+      if (res.success && res.data?.rows) {
+        const rows = res.data.rows;
+        // Extract database names from rows
         const names = rows.map((r: any) => {
           if (typeof r === 'object' && r !== null) {
             return Object.values(r)[0] as string;
@@ -290,23 +296,23 @@ export function useDatabaseAPI() {
       const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
       if (res.success) {
         // Return full object with rows + indexes so composable can access both
-        return { rows: res.rows ?? res.rows ?? [], indexes: res.indexes ?? res.indexes ?? [] }
+        return { rows: res.data?.rows ?? [], indexes: res.data?.indexes ?? [] }
       }
       return { rows: [], indexes: [] }
     },
     dbGetTablePrimaryKeys: async (id: string, table: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_table_primary_keys', { id, table, dbName })
-      if (res.success && res.rows) {
-        const pks = res.rows.map((r: any) => r.COLUMN_NAME || r.column_name).filter(Boolean)
+      if (res.success && res.data?.rows) {
+        const pks = res.data.rows.map((r: any) => r.COLUMN_NAME || r.column_name).filter(Boolean)
         return { success: true, primaryKeys: pks }
       }
       return { success: false, primaryKeys: [] }
     },
     dbGetViews: async (id: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_views', { id, dbName })
-      // SHOW FULL TABLES returns rows like { "Tables_in_db": "view_name", "Table_type": "VIEW" }
-      if (res.success && res.rows) {
-        const rows = res.rows;
+      // SHOW FULL TABLES returns rows with table/view names
+      if (res.success && res.data?.rows) {
+        const rows = res.data.rows;
         // Extract view names (usually the first value or keyed by Tables_in_...)
         const views = rows.map((r: any) => {
             // Try common keys for table/view names
@@ -321,8 +327,8 @@ export function useDatabaseAPI() {
     },
     dbGetCreateSql: async (id: string, table: string, dbName: string): Promise<string> => {
       const res = await tauriInvoke<any>('db_get_create_sql', { id, table, dbName })
-      if (res.success && res.rows && res.rows.length > 0) {
-        return res.rows[0]['Create Table'] ?? res.rows[0]?.['Create View'] ?? ''
+      if (res.success && res.data?.rows && res.data.rows.length > 0) {
+        return res.data.rows[0]['Create Table'] ?? res.data.rows[0]?.['Create View'] ?? ''
       }
       return ''
     },
@@ -819,7 +825,7 @@ export function useLanAPI() {
     dbGetTableStructure: async (id: string, table: string, dbName: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_get_table_structure', { id, table, dbName })
       if (res.success) {
-        return { rows: res.rows ?? res.rows ?? [], indexes: res.indexes ?? res.indexes ?? [] }
+        return { rows: res.data?.rows ?? [], indexes: res.data?.indexes ?? [] }
       }
       return { rows: [], indexes: [] }
     },
