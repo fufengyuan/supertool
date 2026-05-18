@@ -266,7 +266,7 @@ export function useDatabaseAPI() {
         // Extract just the table names.
         const rows = res.rows;
         const tables = rows.map((r: any) => Object.values(r)[0] || r);
-        return { success: true, tables: tables, error: res.data.error }
+        return { success: true, tables: tables, error: res.error }
       }
       return { success: res.success, error: res.error }
     },
