@@ -242,22 +242,30 @@ pub struct FunctionInfo {
 fn find_bridge_script() -> Option<PathBuf> {
     // Try bundled location first (when packaged)
     // macOS .app bundle: exe is in Contents/MacOS/, resources are in Contents/Resources/
-    // Other platforms: resources are typically alongside exe or in a resources subdir
+    // Tauri 2.x stores relative-path resources under Contents/Resources/_up_/
+    // e.g. "../scripts/hermes_bridge.py" → Contents/Resources/_up_/scripts/hermes_bridge.py
     let exe = std::env::current_exe().ok()?;
     let exe_parent = exe.parent()?;
     
     // Check if running inside macOS .app bundle
     // exe_parent for macOS .app: /path/to/SuperTool.app/Contents/MacOS
-    // resources dir: /path/to/SuperTool.app/Contents/Resources/
     if exe_parent.ends_with("MacOS") {
-        // macOS .app bundle structure
         let contents_dir = exe_parent.parent()?; // Contents/
         let resources_dir = contents_dir.join("Resources");
-        let script_path = resources_dir.join("scripts").join("hermes_bridge.py");
+        
+        // Tauri 2.x: resources from "../scripts/..." are stored under _up_/
+        let script_path = resources_dir.join("_up_").join("scripts").join("hermes_bridge.py");
         if script_path.exists() {
             return Some(script_path);
         }
-        // Also try direct path (some builds)
+        
+        // Also try flat path (older Tauri or different config)
+        let flat_path = resources_dir.join("scripts").join("hermes_bridge.py");
+        if flat_path.exists() {
+            return Some(flat_path);
+        }
+        
+        // Direct path (some builds)
         let direct_path = resources_dir.join("hermes_bridge.py");
         if direct_path.exists() {
             return Some(direct_path);
@@ -270,12 +278,16 @@ fn find_bridge_script() -> Option<PathBuf> {
         return Some(bundled);
     }
     
-    // Linux/Windows: try exe_parent/../resources/scripts/ (Tauri default)
-    let resources_alt = exe_parent.parent()
-        .map(|p| p.join("resources").join("scripts").join("hermes_bridge.py"))
-        .filter(|p| p.exists());
-    if resources_alt.is_some() {
-        return resources_alt;
+    // Linux/Windows: try exe_parent/../resources/scripts/ or _up_/scripts/
+    if let Some(parent) = exe_parent.parent() {
+        let up_path = parent.join("_up_").join("scripts").join("hermes_bridge.py");
+        if up_path.exists() {
+            return Some(up_path);
+        }
+        let resources_path = parent.join("resources").join("scripts").join("hermes_bridge.py");
+        if resources_path.exists() {
+            return Some(resources_path);
+        }
     }
 
     // Try development location
