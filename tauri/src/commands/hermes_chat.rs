@@ -974,17 +974,21 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
             // Set abort flag to break the read loop in agent_chat
             flag.store(true, Ordering::SeqCst);
 
-            // Kill by OS PID (primary method — child handle was taken from PROCESSES)
+            // Send SIGTERM (signal 15) instead of SIGKILL to allow graceful shutdown
+            // Python can capture SIGTERM, set abort flag, and Hermes will call _persist_session
             {
                 let pids = PROCESS_PIDS.lock().unwrap();
                 if let Some(&os_pid) = pids.get(&pid) {
+                    // SIGTERM (15) allows Python signal handler to run and save messages
                     let _ = std::process::Command::new("kill")
+                        .arg("-15")  // SIGTERM instead of SIGKILL (9)
                         .arg(os_pid.to_string())
                         .status();
                 }
             }
 
-            // Also try to kill the process directly for immediate termination
+            // Wait for Python to complete graceful shutdown (with timeout)
+            // Python signal handler sets abort_flag, Hermes calls _persist_session
             let process = {
                 let processes = PROCESSES.lock().unwrap();
                 processes.get(&pid).cloned()
@@ -992,9 +996,36 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
 
             if let Some(arc_child) = process {
                 if let Some(mut child) = arc_child.lock().unwrap().take() {
-                    // Kill the Python bridge process and wait to avoid zombie
-                    child.kill().ok();
-                    child.wait().ok(); // 避免僵尸进程
+                    // Wait up to 5 seconds for graceful shutdown using try_wait
+                    let start = std::time::Instant::now();
+                    let timeout = std::time::Duration::from_secs(5);
+                    let mut gracefully_terminated = false;
+                    
+                    while start.elapsed() < timeout {
+                        match child.try_wait() {
+                            Ok(Some(_status)) => {
+                                // Process exited gracefully - messages were saved
+                                gracefully_terminated = true;
+                                eprintln!("[INFO] Agent process gracefully terminated, messages saved");
+                                break;
+                            }
+                            Ok(None) => {
+                                // Process still running, wait a bit more
+                                std::thread::sleep(std::time::Duration::from_millis(100));
+                            }
+                            Err(e) => {
+                                eprintln!("[WARN] Error checking process status: {}", e);
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if !gracefully_terminated {
+                        // Timeout - force kill only if SIGTERM didn't work
+                        eprintln!("[WARN] SIGTERM timeout after 5s, forcing SIGKILL");
+                        child.kill().ok();
+                        child.wait().ok();
+                    }
                 }
             }
 

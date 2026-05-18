@@ -577,13 +577,15 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
 
 
 def _signal_handler(signum, frame):
-    """Handle interrupt signals."""
+    """Handle interrupt signals - set abort flag and let Hermes complete gracefully."""
     global _abort_flag, _current_agent
     _abort_flag = True
     if _current_agent:
+        # Call interrupt() to set Hermes _interrupt_requested flag
+        # Hermes will detect this in its loop, call _persist_session, and return
         _current_agent.interrupt("Signal received")
-    _output({"type": "aborted", "session_id": _current_session_id})
-    sys.exit(0)
+    # DO NOT sys.exit(0) here - let Hermes complete _persist_session first
+    # The main loop will check _abort_flag and exit after run_conversation returns
 
 
 def main():
