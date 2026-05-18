@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm run dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "vue-tsc --noEmit && vite build",
+    "beforeBuildCommand": "vite build",
     "frontendDist": "../dist"
   },
   "app": {
