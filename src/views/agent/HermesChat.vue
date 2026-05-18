@@ -90,6 +90,14 @@
                 <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
               </div>
               <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
+              <!-- hover 显示删除按钮 -->
+              <button 
+                class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                @click.stop="deleteSession(session.id)"
+                title="删除会话"
+              >
+                <SvgIcon name="trash" size="10" class="text-error" />
+              </button>
             </div>
           </div>
         </template>
@@ -130,7 +138,7 @@
           </span>
           <!-- 会话统计 -->
           <span v-if="messages.length > 0" class="text-xs text-base-content/40">
-            {{ sessionStats.totalMessages }} 条消息
+            {{ sessionStats.totalMessages }} 条消息 · {{ sessionStats.totalTokens > 0 ? `${sessionStats.totalTokens} tokens` : '' }}
           </span>
         </div>
         <div class="flex items-center gap-2">
@@ -225,6 +233,10 @@
                   <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
                   <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
                 </div>
+                <!-- 时间戳 -->
+                <div v-if="msg.timestamp" class="mt-1 text-xs text-base-content/40">
+                  {{ formatMessageTime(msg.timestamp) }}
+                </div>
               </div>
             </div>
 
@@ -234,9 +246,19 @@
                 <SvgIcon name="bot" size="14" class="text-primary" />
               </div>
               <div class="max-w-[800px]">
-                <!-- 思考过程（如果有）- 次要样式 -->
-                <div v-if="msg.thinking" class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10">
-                  💭 {{ msg.thinking }}
+                <!-- 思考过程（如果有）- 可折叠 -->
+                <div 
+                  v-if="msg.thinking" 
+                  class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
+                  @click="toggleThinkingExpand(idx)"
+                >
+                  <div class="flex items-center justify-between">
+                    <span>💭 思考过程</span>
+                    <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
+                  </div>
+                  <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
+                    {{ msg.thinking }}
+                  </div>
                 </div>
                 
                 <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2">
@@ -338,6 +360,21 @@
                     </div>
                   </div>
                 </div>
+                <!-- 时间戳和重试按钮 -->
+                <div class="mt-1 flex items-center justify-between">
+                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
+                    {{ formatMessageTime(msg.timestamp) }}
+                  </span>
+                  <!-- 错误消息重试按钮 -->
+                  <button 
+                    v-if="msg.isError && msg.retryContent"
+                    class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
+                    @click="retryMessage(msg.retryContent!)"
+                  >
+                    <SvgIcon name="refresh" size="10" />
+                    重试
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -386,7 +423,38 @@
           <SvgIcon name="chat" size="32" class="text-base-content/30" />
           <p class="mt-2 text-sm text-base-content/50">开始对话</p>
           <p class="text-xs text-base-content/40">输入消息与 Hermes Agent 交流</p>
+          <!-- 快捷建议 -->
+          <div class="mt-4 flex flex-wrap gap-2 justify-center">
+            <button 
+              class="btn btn-ghost btn-xs text-xs"
+              @click="inputText = '帮我分析一下当前项目的结构'"
+            >
+              分析项目
+            </button>
+            <button 
+              class="btn btn-ghost btn-xs text-xs"
+              @click="inputText = '帮我写一个测试用例'"
+            >
+              写测试
+            </button>
+            <button 
+              class="btn btn-ghost btn-xs text-xs"
+              @click="inputText = '帮我重构这段代码'"
+            >
+              重构代码
+            </button>
+          </div>
         </div>
+        
+        <!-- 回到底部按钮 - 用户向上滚动时显示 -->
+        <button 
+          v-if="showScrollToBottom && messages.length > 0"
+          class="fixed bottom-[140px] right-[30px] btn btn-circle btn-sm btn-primary shadow-lg opacity-90 hover:opacity-100 transition-opacity z-10"
+          @click="scrollToBottom"
+          title="回到底部"
+        >
+          <SvgIcon name="chevronDown" size="16" />
+        </button>
       </div>
 
       <!-- 输入区域 -->
@@ -717,6 +785,7 @@ const loadingMessages = ref(false);
 const isStreaming = ref(false);
 const isAborting = ref(false); // 正在停止中
 const thinkingText = ref(''); // 思考动画文本
+const showScrollToBottom = ref(false); // 是否显示回到底部按钮
 const hermesAvailable = ref(false);
 
 // 当前流式响应的 assistant 消息（数组最后一个 assistant 消息）
@@ -794,6 +863,9 @@ const filteredMessages = ref<Message[]>([]);
 // 工具调用展开状态 (key: `${msgIdx}-${toolIdx}`)
 const expandedToolCalls = ref<Set<string>>(new Set());
 
+// 思考过程展开状态 (key: msgIdx)
+const expandedThinking = ref<Set<number>>(new Set());
+
 // 切换工具调用展开
 const toggleToolCallExpand = (key: string) => {
   if (expandedToolCalls.value.has(key)) {
@@ -806,6 +878,20 @@ const toggleToolCallExpand = (key: string) => {
 // 检查是否展开
 const isToolCallExpanded = (key: string): boolean => {
   return expandedToolCalls.value.has(key);
+};
+
+// 切换思考过程展开
+const toggleThinkingExpand = (msgIdx: number) => {
+  if (expandedThinking.value.has(msgIdx)) {
+    expandedThinking.value.delete(msgIdx);
+  } else {
+    expandedThinking.value.add(msgIdx);
+  }
+};
+
+// 检查思考过程是否展开
+const isThinkingExpanded = (msgIdx: number): boolean => {
+  return expandedThinking.value.has(msgIdx);
 };
 
 // Refs
@@ -1285,6 +1371,20 @@ const formatTime = (ts: number | null | undefined) => {
   return date.toLocaleDateString();
 };
 
+// 格式化消息时间戳（显示具体时间，不是相对时间）
+const formatMessageTime = (ts: number | null | undefined) => {
+  if (!ts) return '';
+  const date = new Date(ts * 1000);
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+  
+  if (isToday) {
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  } else {
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }
+};
+
 // Methods
 const refreshSessions = async () => {
   loadingSessions.value = true;
@@ -1746,6 +1846,25 @@ const deleteCurrentSession = async () => {
   }
 };
 
+// 删除指定会话（从列表直接删除）
+const deleteSession = async (sessionId: string) => {
+  if (!sessionId) return;
+
+  // 简单确认对话框
+  if (!confirm('确定要删除该会话吗？')) return;
+
+  try {
+    await invoke('agent_delete_session', { sessionId });
+    sessions.value = sessions.value.filter(s => s.id !== sessionId);
+    // 如果删除的是当前会话，清空消息
+    if (currentSessionId.value === sessionId) {
+      startNewChat();
+    }
+  } catch (e) {
+    console.error('Delete error:', e);
+  }
+};
+
 // 标题编辑功能
 const startEditTitle = () => {
   if (!currentSession.value) return;
@@ -1813,14 +1932,30 @@ const scrollToBottom = () => {
   nextTick(() => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      showScrollToBottom.value = false;
     }
   });
+};
+
+// 检测是否需要显示"回到底部"按钮
+const checkScrollPosition = () => {
+  if (messagesContainer.value) {
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainer.value;
+    // 当用户向上滚动超过 100px 时显示按钮
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    showScrollToBottom.value = !isNearBottom && messages.value.length > 0;
+  }
 };
 
 // Lifecycle
 onMounted(async () => {
   // 全局快捷键
   document.addEventListener('keydown', handleGlobalKeydown);
+  
+  // 滚动监听 - 检测是否需要显示"回到底部"按钮
+  if (messagesContainer.value) {
+    messagesContainer.value.addEventListener('scroll', checkScrollPosition);
+  }
   
 // 监听流式事件
   unlistenDelta = await listen<{ text: string | null; session_id: string | null }>('agent-delta', (event) => {
@@ -2120,6 +2255,10 @@ onUnmounted(() => {
   unlistenDone?.();
   // 移除快捷键监听
   document.removeEventListener('keydown', handleGlobalKeydown);
+  // 移除滚动监听
+  if (messagesContainer.value) {
+    messagesContainer.value.removeEventListener('scroll', checkScrollPosition);
+  }
 });
 
 // Watch inputText to auto-adjust textarea height
