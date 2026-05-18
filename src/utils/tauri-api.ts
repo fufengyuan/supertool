@@ -65,7 +65,7 @@ function isStandardResponse(obj: unknown): boolean {
   return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
 }
 
-async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<ApiResponse<T>> {
+async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = true): Promise<ApiResponse<T>> {
   if (!silent) console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)
   const t0 = performance.now()
   try {
@@ -90,7 +90,7 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
 }
 
 /** tauriCall: like tauriInvoke but auto-unwraps .data */
-async function tauriCall<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<T> {
+async function tauriCall<T>(command: string, args: Record<string, unknown> = {}, silent = true): Promise<T> {
   const res = await tauriInvoke<T>(command, args, silent)
   if (!res.success) throw new Error(res.error || `IPC call failed: ${command}`)
   return res.data as T
