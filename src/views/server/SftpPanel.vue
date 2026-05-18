@@ -371,9 +371,10 @@ async function autoReconnectSftp() {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 1) await new Promise(r => setTimeout(r, 1500))
     try {
-      const connStatus = await getTauriAPI().isServerConnected(props.server.id)
-      if (!connStatus) {
-        await getTauriAPI().connectServer(props.server.id)
+      const isConnected = await getTauriAPI().onServerConnected(props.server.id)
+      if (!isConnected) {
+        const connResult = await getTauriAPI().connectServer(props.server.id)
+        if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
       }
       // 重连成功，刷新目录
       await loadDir()
@@ -419,7 +420,10 @@ async function handleDoubleClick(file) {
 async function openFileEditor(file) {
   try {
     const remotePath = currentPath.value + '/' + file.name;
-    await getTauriAPI().openSftpFileEditor(props.server.id, remotePath);
+    const result = await getTauriAPI().openSftpFileEditor(props.server.id, remotePath);
+    if (!result?.success) {
+      toast.error(`打开文件失败: ${result?.error}`);
+    }
   } catch (error: any) {
     handleError(error, { context: 'SFTP openFileEditor' });
   }
@@ -463,11 +467,16 @@ async function uploadFolder() {
 
   try {
     toast.info(`正在压缩 ${folderName}...`)
-    await getTauriAPI().uploadFolder(props.server.id, currentPath.value, localDirPath)
+    const resp = await getTauriAPI().uploadFolder(props.server.id, currentPath.value, localDirPath)
 
     uploadProgress.value = { file: folderName, percent: 100 }
-    toast.success(`文件夹上传成功: ${folderName}`)
-    await loadDir()
+
+    if (!resp?.success) {
+      toast.error(`上传失败: ${resp?.error}`)
+    } else {
+      toast.success(`文件夹上传成功: ${folderName}`)
+      await loadDir()
+    }
   } catch (error: any) {
     toast.error(`上传失败: ${error.message}`)
   } finally {
@@ -488,7 +497,7 @@ async function doUpload(filePaths: string[]) {
 
   try {
     // 确保 SSH 已连接
-    const isConnected = await getTauriAPI().isServerConnected(props.server.id)
+    const isConnected = await getTauriAPI().onServerConnected(props.server.id)
     if (!isConnected) {
       await getTauriAPI().connectServer(props.server.id)
     }

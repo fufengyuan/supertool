@@ -207,7 +207,7 @@ async function refresh() {
     ]
 
     const resp = await getTauriAPI().getServerMonitor(props.serverId, commands)
-    if (!resp?.results) { error.value = '获取数据失败'; return }
+    if (!resp?.success || !resp.results) { error.value = '获取数据失败'; return }
     const r = (cmd: string) => (resp.results![cmd] || '').trim()
 
     // CPU
