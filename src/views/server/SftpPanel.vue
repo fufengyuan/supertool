@@ -371,7 +371,7 @@ async function autoReconnectSftp() {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     if (attempt > 1) await new Promise(r => setTimeout(r, 1500))
     try {
-      const isConnected = await getTauriAPI().onServerConnected(props.server.id)
+      const isConnected = await getTauriAPI().isServerConnected(props.server.id)
       if (!isConnected) {
         const connResult = await getTauriAPI().connectServer(props.server.id)
         if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
@@ -497,7 +497,7 @@ async function doUpload(filePaths: string[]) {
 
   try {
     // 确保 SSH 已连接
-    const isConnected = await getTauriAPI().onServerConnected(props.server.id)
+    const isConnected = await getTauriAPI().isServerConnected(props.server.id)
     if (!isConnected) {
       await getTauriAPI().connectServer(props.server.id)
     }

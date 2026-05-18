@@ -554,7 +554,7 @@ async function autoReconnectTab(tab: TerminalTab) {
       await new Promise(r => setTimeout(r, 1500))
     }
     try {
-      const isConnected = await getTauriAPI().onServerConnected(tab.server.id)
+      const isConnected = await getTauriAPI().isServerConnected(tab.server.id)
       if (!isConnected) {
         const connResult = await getTauriAPI().connectServer(tab.server.id)
         if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
