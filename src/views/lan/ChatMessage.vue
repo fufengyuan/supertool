@@ -268,11 +268,13 @@ const loadImageViaBackend = async () => {
   imageLoadFailed.value = false;
   
   try {
-    const result = await tauriInvoke<{ url: string; size: number }>('lan_read_image_file', { filePath: props.message.filePath });
+    const result = await tauriInvoke<{ success: boolean; data: { url: string; size: number } }>('lan_read_image_file', { filePath: props.message.filePath });
     
-    if (result.success && result.data?.url) {
-      imageUrlBase64.value = result.data.url;
-      console.log('[ChatMessage] Loaded image via backend, size:', result.data.size);
+    // tauriInvoke wraps backend response: { success, data: { success, data: { url } } }
+    const innerData = result.data?.data;
+    if (result.success && innerData?.url) {
+      imageUrlBase64.value = innerData.url;
+      console.log('[ChatMessage] Loaded image via backend, size:', innerData.size);
     } else {
       console.error('[ChatMessage] Backend returned error:', result.error);
       imageLoadFailed.value = true;
