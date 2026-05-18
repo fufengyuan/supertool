@@ -989,25 +989,29 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
 
             // Wait for Python to complete graceful shutdown (with timeout)
             // Python signal handler sets abort_flag, Hermes calls _persist_session
-            let process = {
+            let child_opt = {
                 let processes = PROCESSES.lock().unwrap();
-                processes.get(&pid).cloned()
+                if let Some(arc_child) = processes.get(&pid) {
+                    arc_child.lock().unwrap().take()
+                } else {
+                    None
+                }
             };
+            // MutexGuard is dropped here, before spawn_blocking
 
-            if let Some(arc_child) = process {
-                if let Some(mut child) = arc_child.lock().unwrap().take() {
-                    // Wait up to 5 seconds for graceful shutdown using try_wait
+            if let Some(mut child) = child_opt {
+                // Use spawn_blocking to avoid blocking tokio runtime
+                let wait_result = tokio::task::spawn_blocking(move || {
+                    // Wait up to 5 seconds for graceful shutdown
                     let start = std::time::Instant::now();
                     let timeout = std::time::Duration::from_secs(5);
-                    let mut gracefully_terminated = false;
                     
                     while start.elapsed() < timeout {
                         match child.try_wait() {
                             Ok(Some(_status)) => {
                                 // Process exited gracefully - messages were saved
-                                gracefully_terminated = true;
                                 eprintln!("[INFO] Agent process gracefully terminated, messages saved");
-                                break;
+                                return true; // Success
                             }
                             Ok(None) => {
                                 // Process still running, wait a bit more
@@ -1020,11 +1024,24 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
                         }
                     }
                     
-                    if !gracefully_terminated {
-                        // Timeout - force kill only if SIGTERM didn't work
-                        eprintln!("[WARN] SIGTERM timeout after 5s, forcing SIGKILL");
-                        child.kill().ok();
-                        child.wait().ok();
+                    // Timeout - force kill
+                    eprintln!("[WARN] SIGTERM timeout after 5s, forcing SIGKILL");
+                    child.kill().ok();
+                    child.wait().ok();
+                    return false; // Forced termination
+                }).await;
+                
+                match wait_result {
+                    Ok(true) => {
+                        // Graceful shutdown completed
+                        eprintln!("[INFO] Messages saved successfully");
+                    }
+                    Ok(false) => {
+                        // Forced termination
+                        eprintln!("[WARN] Messages may be incomplete due to forced termination");
+                    }
+                    Err(e) => {
+                        eprintln!("[ERROR] Spawn blocking failed: {}", e);
                     }
                 }
             }
