@@ -91,11 +91,17 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
   }
 }
 
-/** tauriCall: like tauriInvoke but auto-unwraps .data */
+/** tauriCall: 自动解包响应，返回实际数据（去掉 success 包装层） */
 async function tauriCall<T>(command: string, args: Record<string, unknown> = {}, silent = false): Promise<T> {
   const res = await tauriInvoke<T>(command, args, silent)
   if (!res.success) throw new Error(res.error || `IPC call failed: ${command}`)
-  return res.data as T
+  // 如果有 data 字段，返回 data；否则返回整个响应去掉 success/error
+  if ('data' in res && res.data !== undefined) {
+    return res.data as T
+  }
+  // 没有 data 字段时，返回响应的其他字段（去掉 success/error 包装）
+  const { success, error, ...rest } = res as Record<string, unknown>
+  return rest as T
 }
 
 export { tauriInvoke, tauriCall }
