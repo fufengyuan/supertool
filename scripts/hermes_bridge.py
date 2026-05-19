@@ -191,6 +191,10 @@ def _create_agent(
         # Track user message for signal handler
         _accumulated_messages = [{"role": "user", "content": _user_message}]
 
+    # CRITICAL: Set _current_session_id BEFORE creating AIAgent
+    # If signal is received during AIAgent creation, we need session_id available
+    _current_session_id = session_id
+
     # Create agent
     agent = AIAgent(
         model=model or _DEFAULT_MODEL,
@@ -210,12 +214,9 @@ def _create_agent(
     agent._bridge_accumulated_text = _accumulated_assistant_text
 
     _current_agent = agent
-    # 如果 session_id 为 None（新建会话），从 agent 获取实际的 session_id
+    # Update session_id from agent if it was None (agent may have created new session)
     if session_id is None:
-        # AIAgent 创建新会话时会生成 session_id
         _current_session_id = getattr(agent, "session_id", None)
-    else:
-        _current_session_id = session_id
 
     return agent
 
