@@ -193,7 +193,7 @@ pub async fn delete_sftp_file(
     log::info!("[Tauri CMD] delete_sftp_file() called");
     if is_dir {
         // Fallback to shell rm -rf for reliable directory deletion
-        let escaped = file_path.replace('\'', "'\\\\''");
+        let escaped = file_path.replace('\'', "'\\''");
         let result = core
             .exec_ssh_command(&server_id, &format!("rm -rf '{}'", escaped))
             .await?;
@@ -214,4 +214,14 @@ pub async fn delete_sftp_file(
     } else {
         core.sftp_delete_file(&server_id, &file_path).await
     }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn sftp_create_dir(
+    core: State<'_, supertool_core::logic::CoreService>,
+    server_id: String,
+    path: String,
+) -> Result<serde_json::Value, String> {
+    core.ensure_ssh_connected(&server_id).await?;
+    core.sftp_create_dir(&server_id, &path).await
 }

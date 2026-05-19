@@ -431,6 +431,7 @@ fn main() {
             commands::servers::list_sftp_dir,
             commands::servers::open_sftp_file_editor,
             commands::servers::delete_sftp_file,
+            commands::servers::sftp_create_dir,
             // Database commands (external DB connections)
             commands::database::db_connect,
             commands::database::db_disconnect,

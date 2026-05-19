@@ -2517,6 +2517,7 @@ export function getTauriAPI(): TauriAPI {
     listSftpDir: async (serverId: string, path: string) => tauriCall("list_sftp_dir", { serverId, path }),
     openSftpFileEditor: async (serverId: string, filePath: string) => tauriCall("open_sftp_file_editor", { serverId, filePath }),
     deleteSftpFile: async (serverId: string, filePath: string, isDir = false) => tauriCall("delete_sftp_file", { serverId, filePath, isDir }),
+    sftpCreateDir: async (serverId: string, path: string) => tauriCall("sftp_create_dir", { serverId, path }),
     uploadSessionStart: async (serverId: string, remotePath: string) => tauriCall("upload_session_start", { serverId, remotePath }),
     uploadSessionAdd: async (sessionId: string, localPath: string, remotePath: string) => tauriCall("upload_session_add", { sessionId, localPath, remotePath }),
     uploadSessionCheckConflicts: async (sessionId: string) => tauriCall("upload_session_check_conflicts", { sessionId }),
