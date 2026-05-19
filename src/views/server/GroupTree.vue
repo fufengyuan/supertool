@@ -191,15 +191,15 @@ function getGroupBgColor(hex: string): string {
 }
 
 // 处理节点展开
-function handleOpenNode({ stat }: { stat: any }) {
-  if (stat.data.type === 'group') {
+function handleOpenNode(stat: any) {
+  if (stat.data?.type === 'group') {
     emit('toggle', stat.data.id)
   }
 }
 
 // 处理节点点击
-function handleClickNode({ stat }: { stat: any }) {
-  if (stat.data.type === 'group') {
+function handleClickNode(stat: any) {
+  if (stat.data?.type === 'group') {
     // 分组节点：切换展开（stat.open 是响应式的）
     stat.open = !stat.open
     emit('toggle', stat.data.id)
