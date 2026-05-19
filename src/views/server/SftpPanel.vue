@@ -255,4 +255,18 @@ onUnmounted(() => {
   background: var(--color-primary);
   color: white;
 }
+
+/* VueFinder modal/dialog z-index - higher than SFTP panel (z-[1000]) */
+.vuefinder :deep(.vuefinder__modal-layout) {
+  z-index: 1010 !important;
+}
+
+.vuefinder :deep([role="dialog"]) {
+  z-index: 1010 !important;
+}
+
+/* VueFinder message/toast notifications */
+.vuefinder :deep(.vuefinder__message) {
+  z-index: 1020 !important;
+}
 </style>
