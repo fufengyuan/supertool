@@ -177,12 +177,14 @@ build_macos_all() {
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
 
-    # postinstall：从 /Applications/SuperTool.app 内部取出 stool CLI + skills
+    # postinstall：从已安装的 SuperTool.app 内部取出 stool CLI + skills
+    # 注意: pkgbuild --component 的 postinstall 参数中
+    # $2 = 已安装组件的绝对路径 (如 /Applications/SuperTool.app)
+    # $3 = 目标卷 (如 /)
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-INSTALL_DIR="$2"
-APP_DIR="${INSTALL_DIR}/SuperTool.app"
+APP_DIR="$2"
 echo "🔧 SuperTool postinstall..."
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
@@ -442,12 +444,14 @@ case "$MODE" in
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
     
-    # postinstall：从 /Applications/SuperTool.app 内部取出 stool CLI + skills
+    # postinstall：从已安装的 SuperTool.app 内部取出 stool CLI + skills
+    # 注意: pkgbuild --component 的 postinstall 参数中
+    # $2 = 已安装组件的绝对路径 (如 /Applications/SuperTool.app)
+    # $3 = 目标卷 (如 /)
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-INSTALL_DIR="$2"
-APP_DIR="${INSTALL_DIR}/SuperTool.app"
+APP_DIR="$2"
 echo "🔧 SuperTool postinstall..."
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
