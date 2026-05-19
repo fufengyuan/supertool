@@ -1152,22 +1152,6 @@ async function onPaste(e: ClipboardEvent) {
   // 4. 如有处理文件/图片/路径，阻止默认粘贴 + 追加到已选路径
   if (savedPaths.length > 0) {
     e.preventDefault();
-    // 仅在粘贴纯文本（无文件）时手动插入文本内容
-    // 有文件时 text/plain 只是文件路径元数据，不应落入输入框
-    if (files.length === 0) {
-      const text = dt.getData('text/plain');
-      if (text) {
-        const ta = inputRef.value;
-        if (ta) {
-          const start = ta.selectionStart;
-          const end = ta.selectionEnd;
-          const before = inputText.value.substring(0, start);
-          const after = inputText.value.substring(end);
-          inputText.value = before + text + after;
-          nextTick(() => ta.setSelectionRange(start + text.length, start + text.length));
-        }
-      }
-    }
     // 追加到已选路径徽章
     for (const path of savedPaths) {
       const name = path.split('/').pop() || path;
