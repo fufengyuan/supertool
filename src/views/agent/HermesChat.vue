@@ -229,9 +229,23 @@
               </div>
               <div class="max-w-[800px]">
                 <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+                  <!-- 文件/文件夹路径徽章 -->
+                  <div v-if="msg.filePaths && msg.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
+                    <div
+                      v-for="(pathItem, pi) in msg.filePaths" :key="pi"
+                      class="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border cursor-default"
+                      :class="pathItem.type === 'folder'
+                        ? 'bg-warning/10 border-warning/25 text-warning'
+                        : 'bg-info/10 border-info/25 text-info/90'"
+                      :title="pathItem.path"
+                    >
+                      <SvgIcon :name="pathItem.type === 'folder' ? 'folder' : 'file'" size="11" />
+                      <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
+                    </div>
+                  </div>
                   <!-- 搜索时高亮显示 -->
-                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(msg.content, searchQuery)"></p>
-                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ msg.content }}</p>
+                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(userDisplayContent(msg), searchQuery)"></p>
+                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ userDisplayContent(msg) }}</p>
                 </div>
                 <!-- 时间戳 -->
                 <div v-if="msg.timestamp" class="mt-1 text-xs text-base-content/40">
@@ -761,6 +775,7 @@ interface Message {
   isStopped?: boolean; // 是否被用户停止
   retryContent?: string; // 用于重试的原始消息内容
   tokens?: { input: number; output: number }; // token 使用量
+  filePaths?: PathItem[]; // 附带的文件/文件夹路径（仅用户消息）
 }
 
 // Raw message from backend (matches HermesMessage in Rust)
@@ -1710,10 +1725,12 @@ const sendMessage = async () => {
   // 构建消息
   let text = inputText.value.trim();
   inputText.value = '';
-  // 将已选择路径拼入消息头部
+  // 将已选择路径拼入消息头部（Agent 接收文本路径），同时保存结构化数据用于 UI 显示
   let pathPrefix = '';
+  let msgFilePaths: PathItem[] | undefined;
   if (attachedPaths.value.length > 0) {
     pathPrefix = attachedPaths.value.map(p => p.path).join('\n') + '\n';
+    msgFilePaths = [...attachedPaths.value];
     attachedPaths.value = [];
   }
   text = pathPrefix + text;
@@ -1724,6 +1741,7 @@ const sendMessage = async () => {
     content: text,
     timestamp: Date.now() / 1000,
     toolName: null,
+    filePaths: msgFilePaths,
   });
   scrollToBottom();
 
@@ -1850,6 +1868,15 @@ const copyMessageContent = async (content: string | null) => {
   } catch (e) {
     console.error('Copy failed:', e);
   }
+};
+
+// 获取用户消息的显示内容（去除已单独展示的文件路径前缀）
+const userDisplayContent = (msg: Message): string => {
+  if (!msg.content) return '';
+  if (!msg.filePaths || msg.filePaths.length === 0) return msg.content;
+  // 跳过文件路径行（用户不可见的原始内容）
+  const lines = msg.content.split('\n');
+  return lines.slice(msg.filePaths.length).join('\n').trimStart();
 };
 
 // 高亮搜索匹配文本
