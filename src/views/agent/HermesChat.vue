@@ -713,6 +713,11 @@ hljs.registerLanguage('yaml', yaml);
 // 配置 marked 使用 highlight.js
 marked.use(markedHighlight({
   highlight(code: string, lang: string | undefined) {
+    // 检测内容是否已经被 hljs 高亮过（包含 hljs-xxx 类名）
+    if (code.includes('class="hljs-') || code.includes('class=\'hljs-')) {
+      // 已经高亮过，直接返回，避免双重编码
+      return code;
+    }
     if (lang && hljs.getLanguage(lang)) {
       try {
         return hljs.highlight(code, { language: lang }).value;
