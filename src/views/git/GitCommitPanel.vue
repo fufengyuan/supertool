@@ -381,6 +381,16 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   background: var(--hover-bg);
 }
 
+/* 文件图标不响应点击 */
+.file-icon {
+  pointer-events: none;
+}
+
+/* checkbox 可点击 */
+.file-checkbox {
+  pointer-events: auto;
+}
+
 .file-item.selected {
   background: color-mix(in oklab, var(--color-primary) 8%, transparent);
 }
@@ -394,7 +404,9 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   width: 12px;
   height: 12px;
   accent-color: var(--color-primary);
-  cursor: pointer;
+  cursor: pointer !important;
+  margin: 0;
+  padding: 0;
 }
 
 .file-icon {
