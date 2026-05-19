@@ -86,48 +86,34 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 .log_search(&actual_id, keyword, *lines)
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
-            if !resp
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                anyhow::bail!(
-                    "{}",
-                    resp.get("error")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("未知错误")
-                );
-            }
+            
             let preset_name = resp
-                .get("presetName")
+                .get("presetId")
                 .and_then(|v| v.as_str())
                 .unwrap_or(preset_id);
             println!("\n  🔍 搜索日志: {} → \"{}\"", preset_name, keyword);
             println!("  {}", "─".repeat(60));
-            if let Some(results) = resp.get("results").and_then(|v| v.as_array()) {
-                for r in results {
+            if let Some(matches) = resp.get("matches").and_then(|v| v.as_array()) {
+                for r in matches {
                     let sid = r.get("serverId").and_then(|v| v.as_str()).unwrap_or("");
                     let sname = r.get("serverName").and_then(|v| v.as_str()).unwrap_or("");
-                    let ok = r.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
-                    if ok {
-                        if let Some(output) = r.get("output").and_then(|v| v.as_str()) {
-                            if !output.trim().is_empty() {
-                                for line in output.trim().lines() {
-                                    println!("  {}", line);
+                    if let Some(error) = r.get("error").and_then(|v| v.as_str()) {
+                        if !error.is_empty() {
+                            println!("  {} ({}) ❌ {}", sid, sname, error);
+                            continue;
+                        }
+                    }
+                    if let Some(lines_arr) = r.get("lines").and_then(|v| v.as_array()) {
+                        let match_count = r.get("matchCount").and_then(|v| v.as_u64()).unwrap_or(0);
+                        if match_count == 0 {
+                            println!("  {} ({}) (无匹配)", sid, sname);
+                        } else {
+                            for line in lines_arr {
+                                if let Some(l) = line.as_str() {
+                                    println!("  {}", l);
                                 }
-                            } else {
-                                println!("  {} ({}) (无匹配)", sid, sname);
                             }
                         }
-                    } else {
-                        println!(
-                            "  {} ({}) (失败: {})",
-                            sid,
-                            sname,
-                            r.get("error")
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("未知错误")
-                        );
                     }
                 }
             }
