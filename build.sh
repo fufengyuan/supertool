@@ -223,8 +223,8 @@ POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
     
     # 创建 component plist：禁止 macOS 26 上 pkgbuild 的自动 bundle relocate
-    mkdir -p "$PKG_DIR/scripts/Applications"
-    cat > "$PKG_DIR/scripts/Applications/SuperTool.app.plist" << 'PLIST'
+    # 用 --component-plist 显式传递，防止 pkgbuild 忽略
+    cat > "$PKG_DIR/component.plist" << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -243,6 +243,7 @@ PLIST
     mkdir -p "$PKG_DIR/root/Applications"
     cp -Rf "$APP_PATH" "$PKG_DIR/root/Applications/SuperTool.app"
     pkgbuild --root "$PKG_DIR/root" \
+        --component-plist "$PKG_DIR/component.plist" \
         --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
         --install-location "/" \
@@ -512,6 +513,7 @@ POSTINSTALL
     mkdir -p "$PKG_DIR/root/Applications"
     cp -Rf "$APP_PATH" "$PKG_DIR/root/Applications/SuperTool.app"
     pkgbuild --root "$PKG_DIR/root" \
+        --component-plist "$PKG_DIR/component.plist" \
         --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
         --install-location "/" \
