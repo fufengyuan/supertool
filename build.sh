@@ -177,14 +177,14 @@ build_macos_all() {
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
 
-    # postinstall：从已安装的 SuperTool.app 内部取出 stool CLI + skills
-    # 注意: pkgbuild --component 的 postinstall 参数中
-    # $2 = 已安装组件的绝对路径 (如 /Applications/SuperTool.app)
-    # $3 = 目标卷 (如 /)
+    # macOS 26.4.1+: pkgbuild --component 有 bug，bundle 路径会相对 CWD 解析
+    # 导致 app 被装到 build 目录而非 /Applications。改用 --root 更可靠。
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-APP_DIR="$2"
+# postinstall 参数: $1=包路径, $2=目标卷("/"), $3=安装位置("/" for --root)
+# 硬编码路径，因为一定安装到 /Applications
+APP_DIR="/Applications/SuperTool.app"
 echo "🔧 SuperTool postinstall..."
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
@@ -222,12 +222,15 @@ exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
 
-    # 使用 pkgbuild --component 标准方式打包 .app（比 --root 更可靠）
-    # 自动安装到 /Applications，无 bundle relocate 副作用
-    pkgbuild --component "$APP_PATH" \
+    # macOS 26.4.1+: pkgbuild --component 的 bundle 路径解析有问题
+    # 会相对 CWD 安装到 build 目录。改用 --root 显式指定目录结构。
+    rm -rf "$PKG_DIR/root"
+    mkdir -p "$PKG_DIR/root/Applications"
+    cp -Rf "$APP_PATH" "$PKG_DIR/root/Applications/SuperTool.app"
+    pkgbuild --root "$PKG_DIR/root" \
         --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
-        --install-location "/Applications" \
+        --install-location "/" \
         --scripts "$PKG_DIR/scripts" \
         "$PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
 
@@ -444,14 +447,14 @@ case "$MODE" in
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
     
-    # postinstall：从已安装的 SuperTool.app 内部取出 stool CLI + skills
-    # 注意: pkgbuild --component 的 postinstall 参数中
-    # $2 = 已安装组件的绝对路径 (如 /Applications/SuperTool.app)
-    # $3 = 目标卷 (如 /)
+    # macOS 26.4.1+: pkgbuild --component 有 bug，bundle 路径会相对 CWD 解析
+    # 导致 app 被装到 build 目录而非 /Applications。改用 --root 更可靠。
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
 #!/bin/bash
 set -e
-APP_DIR="$2"
+# postinstall 参数: $1=包路径, $2=目标卷("/"), $3=安装位置("/" for --root)
+# 硬编码路径，因为一定安装到 /Applications
+APP_DIR="/Applications/SuperTool.app"
 echo "🔧 SuperTool postinstall..."
 
 CLI_SRC="${APP_DIR}/Contents/Resources/_up_/target/release/stool"
@@ -489,11 +492,14 @@ exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
     
-    # 使用 pkgbuild --component 标准方式打包 .app
-    pkgbuild --component "$APP_PATH" \
+    # macOS 26.4.1+: pkgbuild --component 有 bug，改用 --root
+    rm -rf "$PKG_DIR/root"
+    mkdir -p "$PKG_DIR/root/Applications"
+    cp -Rf "$APP_PATH" "$PKG_DIR/root/Applications/SuperTool.app"
+    pkgbuild --root "$PKG_DIR/root" \
         --identifier "com.fufengyuan.supertool" \
         --version "$VERSION" \
-        --install-location "/Applications" \
+        --install-location "/" \
         --scripts "$PKG_DIR/scripts" \
         "$PKG_OUTPUT/SuperTool-${VERSION}${arch_label}.pkg"
     
