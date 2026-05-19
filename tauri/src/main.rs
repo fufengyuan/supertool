@@ -834,9 +834,9 @@ fn main() {
             commands::agent::agent_installed,
             commands::agent::agent_list_messages,
             commands::agent::agent_get_stats,
+            commands::agent::agent_list_sessions,
             // Agent Chat Bridge commands (Python bridge for AI interaction)
             commands::hermes_chat::agent_chat,
-            commands::hermes_chat::agent_list_sessions,
             commands::hermes_chat::agent_search_sessions,
             commands::hermes_chat::agent_get_session,
             commands::hermes_chat::agent_delete_session,

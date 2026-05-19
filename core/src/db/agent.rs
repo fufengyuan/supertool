@@ -146,6 +146,27 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
     Ok(sessions)
 }
 
+/// Count total Hermes sessions (excluding child sessions)
+pub fn count_hermes_sessions() -> Result<i64, String> {
+    let db_path = get_hermes_state_db_path();
+    if !db_path.exists() {
+        return Ok(0);
+    }
+
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+
+    let count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    Ok(count)
+}
+
 /// Get Hermes session by ID
 pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, String> {
     let db_path = get_hermes_state_db_path();

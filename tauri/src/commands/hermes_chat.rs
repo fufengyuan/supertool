@@ -687,59 +687,6 @@ pub async fn agent_chat(
     }))
 }
 
-/// List Agent sessions
-#[tauri::command(rename_all = "camelCase")]
-pub async fn agent_list_sessions(limit: Option<usize>) -> Result<serde_json::Value, String> {
-    let (_, mut child, _) = start_bridge_process()?;
-
-    let cmd = BridgeCommand::ListSessions {
-        limit: limit.unwrap_or(20),
-    };
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "stdin not available".to_string())?;
-        stdin
-            .write_all(cmd_json.as_bytes())
-            .map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
-    }
-
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "stdout not available".to_string())?;
-    let reader = BufReader::new(stdout);
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.is_empty() {
-            continue;
-        }
-
-        let msg: BridgeMessage =
-            serde_json::from_str(&line).map_err(|e| format!("Failed to parse: {}", e))?;
-
-        if let BridgeMessage::Sessions { data, total } = msg {
-            child.wait().ok();
-            return Ok(serde_json::json!({
-                "sessions": data,
-                "total": total,
-            }));
-        } else if let BridgeMessage::Error { message, .. } = msg {
-            child.wait().ok();
-            return Err(message);
-        }
-    }
-
-    child.wait().ok();
-    Err("No response from bridge".to_string())
-}
-
 /// Get session messages
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_get_session(session_id: String) -> Result<serde_json::Value, String> {
