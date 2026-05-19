@@ -606,50 +606,49 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
 
 
 def _signal_handler(signum, frame):
-    """Handle interrupt signals - set abort flag and persist session immediately."""
+    """Handle interrupt signals - persist session before exit."""
     global _abort_flag, _current_agent, _current_session_id, _accumulated_messages
-    
-    # Set abort flag first
+
     _abort_flag = True
-    
+
     # Immediately persist session to prevent message loss on forced termination
     # This is critical because SIGTERM may be followed by SIGKILL after timeout
     if _current_session_id:
         try:
             session_db = _ensure_session_db()
-            
+
             # Get accumulated assistant text from agent (if available)
             assistant_text = ""
             if _current_agent:
                 accumulated_list = getattr(_current_agent, "_bridge_accumulated_text", [])
                 if accumulated_list:
                     assistant_text = "".join(accumulated_list)
-            
+
             # Build messages to save:
             # 1. User message from global state
             # 2. Accumulated assistant text (if any)
             messages_to_save = list(_accumulated_messages)  # Start with user message
-            
+
             if assistant_text:
                 messages_to_save.append({
                     "role": "assistant",
                     "content": assistant_text,
                 })
-            
+
             # Also try to get messages from Hermes agent's internal state
             if _current_agent:
                 agent_messages = getattr(_current_agent, "_session_messages", [])
                 if agent_messages:
                     # Prefer agent's internal messages if available
                     messages_to_save = agent_messages
-            
+
             # Ensure session row exists
             session_db.ensure_session(
                 _current_session_id,
                 source="supertool",
                 model=_current_agent.model if _current_agent else "",
             )
-            
+
             # Save messages
             if messages_to_save:
                 for msg in messages_to_save:
@@ -668,25 +667,29 @@ def _signal_handler(signum, frame):
                         finish_reason=msg.get("finish_reason"),
                         reasoning=msg.get("reasoning") if role == "assistant" else None,
                     )
-                
+
                 # Force flush to disk
                 if hasattr(session_db, "_conn"):
                     session_db._conn.commit()
-                
+
                 sys.stderr.write(f"[INFO] Session {_current_session_id} persisted on signal ({len(messages_to_save)} messages)\n")
-        
+
         except Exception as e:
             sys.stderr.write(f"[WARN] Failed to persist session on signal: {e}\n")
-    
-    # Also call interrupt() to signal Hermes to stop gracefully
+
+    # Also call interrupt() and persist via Hermes internal method as fallback
     if _current_agent:
         _current_agent.interrupt("Signal received")
-    
-    # Send aborted event to stdout (use stderr to avoid JSON parsing issues)
+        try:
+            if getattr(_current_agent, '_session_messages', None):
+                _current_agent._persist_session(_current_agent._session_messages)
+        except Exception:
+            pass
+
+    # Send aborted event (use stderr to avoid stdout JSON parsing issues during signal)
     sys.stderr.write(json.dumps({"type": "aborted", "session_id": _current_session_id}) + "\n")
-    
-    # Exit immediately after persisting - don't wait for run_conversation to complete
-    # because SIGKILL may be sent after timeout and we already saved the data
+    sys.stderr.flush()
+
     sys.exit(0)
 
 
