@@ -102,6 +102,9 @@ _current_agent: Optional[AIAgent] = None
 _current_session_id: Optional[str] = None
 _abort_flag: bool = False
 _session_db: Optional[SessionDB] = None
+# Track accumulated messages for signal handler (updated by stream callbacks)
+_accumulated_messages: List[Dict[str, Any]] = []
+_user_message: Optional[str] = None  # Store the user message for signal handler
 
 
 def _ensure_session_db() -> SessionDB:
@@ -128,16 +131,21 @@ def _create_agent(
     toolsets: Optional[List[str]] = None,
 ) -> AIAgent:
     """Create an AIAgent instance."""
-    global _current_agent, _current_session_id
+    global _current_agent, _current_session_id, _accumulated_messages
 
     # Resolve toolsets
     enabled_toolsets = None
     if toolsets:
         enabled_toolsets = resolve_multiple_toolsets(toolsets)
 
+    # Accumulated assistant text for signal handler
+    _accumulated_assistant_text: List[str] = []
+
     # Create callbacks for streaming
     def stream_callback(delta: str) -> None:
         if not _abort_flag:
+            # Accumulate assistant text for signal handler
+            _accumulated_assistant_text.append(delta)
             _output({"type": "delta", "text": delta})
 
     def tool_start_callback(tool_call_id: str, tool_name: str, tool_args: Dict) -> None:
@@ -175,6 +183,14 @@ def _create_agent(
     if not session_id:
         session_id = str(uuid.uuid4())
 
+    # Initialize accumulated messages with user message for signal handler
+    # The user message will be added by run_conversation, but we need it
+    # in the signal handler before run_conversation completes
+    global _user_message
+    if _user_message:
+        # Track user message for signal handler
+        _accumulated_messages = [{"role": "user", "content": _user_message}]
+
     # Create agent
     agent = AIAgent(
         model=model or _DEFAULT_MODEL,
@@ -190,6 +206,9 @@ def _create_agent(
         quiet_mode=True,
     )
 
+    # Store accumulated assistant text reference on agent for signal handler
+    agent._bridge_accumulated_text = _accumulated_assistant_text
+
     _current_agent = agent
     # 如果 session_id 为 None（新建会话），从 agent 获取实际的 session_id
     if session_id is None:
@@ -203,7 +222,7 @@ def _create_agent(
 
 def _handle_chat(params: Dict[str, Any]) -> None:
     """Handle chat action."""
-    global _abort_flag
+    global _abort_flag, _accumulated_messages, _user_message
 
     if not HERMES_AVAILABLE:
         _output({"type": "error", "message": f"Hermes not available: {_IMPORT_ERROR}"})
@@ -217,6 +236,10 @@ def _handle_chat(params: Dict[str, Any]) -> None:
     session_id = params.get("session_id")
     model = params.get("model")
     toolsets = params.get("toolsets")
+
+    # Reset accumulated messages for this turn
+    _accumulated_messages = []
+    _user_message = message
 
     # Resume existing session or create new
     conversation_history = None
@@ -243,6 +266,10 @@ def _handle_chat(params: Dict[str, Any]) -> None:
 
         # Run conversation with history
         result = agent.run_conversation(message, conversation_history=conversation_history)
+
+        # Clear accumulated messages after successful completion
+        _accumulated_messages = []
+        _user_message = None
 
         if _abort_flag:
             _output({"type": "aborted", "session_id": _current_session_id})
@@ -577,15 +604,88 @@ def _handle_command(cmd: Dict[str, Any]) -> None:
 
 
 def _signal_handler(signum, frame):
-    """Handle interrupt signals - set abort flag and let Hermes complete gracefully."""
-    global _abort_flag, _current_agent
+    """Handle interrupt signals - set abort flag and persist session immediately."""
+    global _abort_flag, _current_agent, _current_session_id, _accumulated_messages
+    
+    # Set abort flag first
     _abort_flag = True
+    
+    # Immediately persist session to prevent message loss on forced termination
+    # This is critical because SIGTERM may be followed by SIGKILL after timeout
+    if _current_session_id:
+        try:
+            session_db = _ensure_session_db()
+            
+            # Get accumulated assistant text from agent (if available)
+            assistant_text = ""
+            if _current_agent:
+                accumulated_list = getattr(_current_agent, "_bridge_accumulated_text", [])
+                if accumulated_list:
+                    assistant_text = "".join(accumulated_list)
+            
+            # Build messages to save:
+            # 1. User message from global state
+            # 2. Accumulated assistant text (if any)
+            messages_to_save = list(_accumulated_messages)  # Start with user message
+            
+            if assistant_text:
+                messages_to_save.append({
+                    "role": "assistant",
+                    "content": assistant_text,
+                })
+            
+            # Also try to get messages from Hermes agent's internal state
+            if _current_agent:
+                agent_messages = getattr(_current_agent, "_session_messages", [])
+                if agent_messages:
+                    # Prefer agent's internal messages if available
+                    messages_to_save = agent_messages
+            
+            # Ensure session row exists
+            session_db.ensure_session(
+                _current_session_id,
+                source="supertool",
+                model=_current_agent.model if _current_agent else "",
+            )
+            
+            # Save messages
+            if messages_to_save:
+                for msg in messages_to_save:
+                    role = msg.get("role", "unknown")
+                    content = msg.get("content")
+                    tool_calls_data = None
+                    if isinstance(msg.get("tool_calls"), list):
+                        tool_calls_data = msg["tool_calls"]
+                    session_db.append_message(
+                        session_id=_current_session_id,
+                        role=role,
+                        content=content,
+                        tool_name=msg.get("tool_name"),
+                        tool_calls=tool_calls_data,
+                        tool_call_id=msg.get("tool_call_id"),
+                        finish_reason=msg.get("finish_reason"),
+                        reasoning=msg.get("reasoning") if role == "assistant" else None,
+                    )
+                
+                # Force flush to disk
+                if hasattr(session_db, "_conn"):
+                    session_db._conn.commit()
+                
+                sys.stderr.write(f"[INFO] Session {_current_session_id} persisted on signal ({len(messages_to_save)} messages)\n")
+        
+        except Exception as e:
+            sys.stderr.write(f"[WARN] Failed to persist session on signal: {e}\n")
+    
+    # Also call interrupt() to signal Hermes to stop gracefully
     if _current_agent:
-        # Call interrupt() to set Hermes _interrupt_requested flag
-        # Hermes will detect this in its loop, call _persist_session, and return
         _current_agent.interrupt("Signal received")
-    # DO NOT sys.exit(0) here - let Hermes complete _persist_session first
-    # The main loop will check _abort_flag and exit after run_conversation returns
+    
+    # Send aborted event to stdout (use stderr to avoid JSON parsing issues)
+    sys.stderr.write(json.dumps({"type": "aborted", "session_id": _current_session_id}) + "\n")
+    
+    # Exit immediately after persisting - don't wait for run_conversation to complete
+    # because SIGKILL may be sent after timeout and we already saved the data
+    sys.exit(0)
 
 
 def main():
