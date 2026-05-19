@@ -2,7 +2,7 @@
 # 自动版本号更新脚本 - 统一更新所有4处版本号
 # 用法: ./scripts/bump-version.sh [level] [--no-add]
 # level: patch (默认, +0.0.1), minor (+0.1.0), major (+1.0.0)
-# --no-add: 不自动 git add（pre-commit 钩子调用时使用）
+# --no-add: 不自动 git add（钩子调用时使用）
 #
 # 更新位置:
 #   - package.json
@@ -78,10 +78,8 @@ cd "$PROJECT_DIR"
 
 for file in "${VERSION_FILES[@]}"; do
     if [[ "$file" == *"package.json"* ]]; then
-        # JSON 格式
         sed -i -E 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
     else
-        # TOML 格式
         sed -i -E 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
     fi
     
@@ -99,4 +97,4 @@ if [[ "$NO_ADD" == "false" ]]; then
     echo ""
     echo "建议提交信息:"
     echo "  git commit -m \"chore: bump version to $NEW_VERSION\""
-fi// test
+fi
