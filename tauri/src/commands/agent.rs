@@ -9,7 +9,10 @@
 
 use serde_json::json;
 
-use supertool_core::db::agent::{get_hermes_stats, hermes_is_installed, list_hermes_messages};
+use supertool_core::db::agent::{
+    count_hermes_sessions, get_hermes_stats, hermes_is_installed, list_hermes_messages,
+    list_hermes_sessions,
+};
 
 /// Check if Agent is installed
 #[tauri::command(rename_all = "camelCase")]
@@ -39,6 +42,19 @@ pub fn agent_get_stats() -> Result<serde_json::Value, String> {
     Ok(json!({
         "success": true,
         "stats": stats
+    }))
+}
+
+/// List Agent sessions (direct SQLite access, no Python bridge)
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_list_sessions(limit: Option<i32>) -> Result<serde_json::Value, String> {
+    let limit = limit.unwrap_or(50);
+    let sessions = list_hermes_sessions(limit, 0)?;
+    let total = count_hermes_sessions()?;
+    Ok(json!({
+        "success": true,
+        "sessions": sessions,
+        "total": total
     }))
 }
 
