@@ -130,6 +130,9 @@ onMounted(loadFileTree)
 .git-file-tree {
   display: flex;
   flex-direction: column;
+  width: 200px;
+  min-width: 150px;
+  max-width: 300px;
   height: 100%;
   background: var(--color-base-200);
   border-right: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);

@@ -9,7 +9,6 @@
       :pushing="pushing"
       :show-stash-menu="showStashMenu"
       :show-git-menu="showGitMenu"
-      :show-file-browser="showFileBrowser"
       @close="$emit('close')"
       @update:show-stash-menu="showStashMenu = $event"
       @update:show-git-menu="showGitMenu = $event"
@@ -18,7 +17,6 @@
       @stash-save="openStashSave()"
       @stash-save-untracked="openStashSaveIncludeUntracked()"
       @toggle-stash-panel="showStashPanel = !showStashPanel"
-      @toggle-file-browser="showFileBrowser = !showFileBrowser"
       @pull="doPull()"
       @push="doPush()"
       @force-push="doForcePush()"
@@ -27,122 +25,210 @@
 
     <!-- ===== 主内容区域 ===== -->
     <div class="flex flex-1 overflow-hidden">
-      <!-- ===== 文件浏览模式 ===== -->
-      <template v-if="showFileBrowser">
-        <GitFileTree
-          :repo-path="repo.path"
-          @select-file="handleSelectFile"
-        />
-        <div class="w-1 shrink-0 bg-base-content/8 hover:bg-base-content/12 transition-colors duration-150"></div>
-        <GitCodeEditor
-          v-if="selectedFilePath"
-          :repo-path="repo.path"
-          :file-path="selectedFilePath"
-          @close="selectedFilePath = null"
-          @saved="handleFileSaved"
-        />
-        <div v-else class="flex-1 flex items-center justify-center bg-base-100 text-base-content/50 text-xs">
-          <span>选择文件查看内容</span>
-        </div>
-      </template>
-
-      <!-- ===== Git 模式 ===== -->
-      <template v-else>
-        <!-- ===== 左侧：提交面板 ===== -->
-        <GitCommitPanel
-        :status-data="statusData"
-        :loading="loading"
-        :selected-files="selectedFiles"
-        :collapsed-groups="collapsedGroups"
-        :commit-message="commitMessage"
-        :committing="committing"
-        :total-changes="totalChanges"
-        :commit-sign-off="commitSignOff"
-        :commit-no-verify="commitNoVerify"
-        :preview-diff="previewDiff"
-        :selected-preview-file="selectedPreviewFile"
-        :loading-preview="loadingPreview"
-        @update:commit-message="commitMessage = $event"
-        @update:commit-sign-off="commitSignOff = $event"
-        @update:commit-no-verify="commitNoVerify = $event"
-        @toggle-group="toggleGroup"
-        @toggle-file-select="toggleFileSelect"
-        @select-all-files="selectAllFiles"
-        @commit="handleCommit"
-        @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
-        @preview-file="previewCommitFile"
-        @clear-preview="clearPreview"
+      <!-- ===== 左侧：文件树（始终显示） ===== -->
+      <GitFileTree
+        :repo-path="repo.path"
+        @select-file="handleSelectFile"
       />
+      <div class="w-1 shrink-0 bg-base-content/8 hover:bg-base-content/12 transition-colors duration-150"></div>
 
-      <!-- ===== Stash 面板 ===== -->
-      <GitStashPanel
-        v-if="showStashPanel"
-        :stash-list="stashList"
-        :selected-stash="selectedStash"
-        :stash-show-content="stashShowContent"
-        :loading="loading"
-        @update:selected-stash="selectedStash = $event"
-        @select-stash="selectStash"
-        @stash-context-menu="showStashContextMenu($event.event, $event.stash)"
-        @open-stash-save="openStashSave"
-      />
+      <!-- ===== 右侧内容区域 ===== -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- 变更模式：变更面板 + 日志面板 -->
+        <template v-if="rightPanelMode === 'changes'">
+          <div class="flex flex-1 overflow-hidden">
+            <!-- 变更面板 -->
+            <GitCommitPanel
+              :status-data="statusData"
+              :loading="loading"
+              :selected-files="selectedFiles"
+              :collapsed-groups="collapsedGroups"
+              :commit-message="commitMessage"
+              :committing="committing"
+              :total-changes="totalChanges"
+              :commit-sign-off="commitSignOff"
+              :commit-no-verify="commitNoVerify"
+              :preview-diff="previewDiff"
+              :selected-preview-file="selectedPreviewFile"
+              :loading-preview="loadingPreview"
+              @update:commit-message="commitMessage = $event"
+              @update:commit-sign-off="commitSignOff = $event"
+              @update:commit-no-verify="commitNoVerify = $event"
+              @toggle-group="toggleGroup"
+              @toggle-file-select="toggleFileSelect"
+              @select-all-files="selectAllFiles"
+              @commit="handleCommit"
+              @file-context-menu="showFileContextMenu($event.event, $event.file, $event.type)"
+              @preview-file="previewCommitFile"
+              @clear-preview="clearPreview"
+            />
 
-      <!-- ===== 中间分割条 ===== -->
-      <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150" @mousedown="startResize"></div>
+            <!-- Stash 面板 -->
+            <GitStashPanel
+              v-if="showStashPanel"
+              :stash-list="stashList"
+              :selected-stash="selectedStash"
+              :stash-show-content="stashShowContent"
+              :loading="loading"
+              @update:selected-stash="selectedStash = $event"
+              @select-stash="selectStash"
+              @stash-context-menu="showStashContextMenu($event.event, $event.stash)"
+              @open-stash-save="openStashSave"
+            />
 
-      <!-- ===== 右侧：日志面板 ===== -->
-      <GitLogPanel
-        :log-view-mode="logViewMode"
-        :log-search="logSearch"
-        :log-date-from="logDateFrom"
-        :log-date-to="logDateTo"
-        :show-author-filter="showAuthorFilter"
-        :log-authors="logAuthors"
-        :selected-authors="selectedAuthors"
-        :filtered-log="filteredLog"
-        :selected-log-commits="selectedLogCommits"
-        :selected-commit="selectedCommit"
-        :commit-diff="commitDiff"
-        :loading-diff="loadingDiff"
-        :loading="loading"
-        :has-more-log="hasMoreLog"
-        :log-count="logCount"
-        :log-total-estimate="logTotalEstimate"
-        :graph-log="graphLog"
-        :graph-loading="graphLoading"
-        :graph-hovered-index="graphHoveredIndex"
-        :graph-selected-commit="graphSelectedCommit"
-        :branch-colors="BRANCH_COLORS"
-        :console-history="consoleHistory"
-        :console-input="consoleInput"
-        :local-branches="localBranches"
-        :get-author-name="getAuthorName"
-        :format-relative-date="formatRelativeDate"
-        :format-full-date="formatFullDate"
-        :parse-refs="parseRefs"
-        @update:log-view-mode="logViewMode = $event"
-        @update:log-search="logSearch = $event"
-        @update:log-date-from="logDateFrom = $event"
-        @update:log-date-to="logDateTo = $event"
-        @update:show-author-filter="showAuthorFilter = $event"
-        @update:selected-commit="selectedCommit = $event"
-        @update:console-input="consoleInput = $event"
-        @toggle-author="toggleAuthor($event)"
-        @load-log="loadLog()"
-        @load-more-log="loadMoreLog()"
-        @select-commit="selectCommit($event)"
-        @toggle-log-commit-select="toggleLogCommitSelect($event)"
-        @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
-        @log-context-menu="showLogContextMenu($event.event, $event.commit)"
-        @exec-console-command="execConsoleCommand()"
-        @console-history-up="consoleHistoryUp()"
-        @console-history-down="consoleHistoryDown()"
-        @switch-to-graph-view="switchToGraphView()"
-        @on-graph-mouse-move="onGraphMouseMove($event)"
-        @on-graph-click="onGraphClick($event)"
-        @load-commit-diff="loadCommitDiff()"
-      />
-      </template>
+            <!-- 中间分割条 -->
+            <div class="w-1 cursor-col-resize shrink-0 bg-base-content/10 hover:bg-primary transition-colors duration-150" @mousedown="startResize"></div>
+
+            <!-- 日志面板 -->
+            <GitLogPanel
+              :log-view-mode="logViewMode"
+              :log-search="logSearch"
+              :log-date-from="logDateFrom"
+              :log-date-to="logDateTo"
+              :show-author-filter="showAuthorFilter"
+              :log-authors="logAuthors"
+              :selected-authors="selectedAuthors"
+              :filtered-log="filteredLog"
+              :selected-log-commits="selectedLogCommits"
+              :selected-commit="selectedCommit"
+              :commit-diff="commitDiff"
+              :loading-diff="loadingDiff"
+              :loading="loading"
+              :has-more-log="hasMoreLog"
+              :log-count="logCount"
+              :log-total-estimate="logTotalEstimate"
+              :graph-log="graphLog"
+              :graph-loading="graphLoading"
+              :graph-hovered-index="graphHoveredIndex"
+              :graph-selected-commit="graphSelectedCommit"
+              :branch-colors="BRANCH_COLORS"
+              :console-history="consoleHistory"
+              :console-input="consoleInput"
+              :local-branches="localBranches"
+              :get-author-name="getAuthorName"
+              :format-relative-date="formatRelativeDate"
+              :format-full-date="formatFullDate"
+              :parse-refs="parseRefs"
+              @update:log-view-mode="logViewMode = $event"
+              @update:log-search="logSearch = $event"
+              @update:log-date-from="logDateFrom = $event"
+              @update:log-date-to="logDateTo = $event"
+              @update:show-author-filter="showAuthorFilter = $event"
+              @update:selected-commit="selectedCommit = $event"
+              @update:console-input="consoleInput = $event"
+              @toggle-author="toggleAuthor($event)"
+              @load-log="loadLog()"
+              @load-more-log="loadMoreLog()"
+              @select-commit="selectCommit($event)"
+              @toggle-log-commit-select="toggleLogCommitSelect($event)"
+              @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
+              @log-context-menu="showLogContextMenu($event.event, $event.commit)"
+              @exec-console-command="execConsoleCommand()"
+              @console-history-up="consoleHistoryUp()"
+              @console-history-down="consoleHistoryDown()"
+              @switch-to-graph-view="switchToGraphView()"
+              @on-graph-mouse-move="onGraphMouseMove($event)"
+              @on-graph-click="onGraphClick($event)"
+              @load-commit-diff="loadCommitDiff()"
+            />
+          </div>
+        </template>
+
+        <!-- 日志模式：只显示日志面板 -->
+        <template v-else-if="rightPanelMode === 'log'">
+          <GitLogPanel
+            :log-view-mode="logViewMode"
+            :log-search="logSearch"
+            :log-date-from="logDateFrom"
+            :log-date-to="logDateTo"
+            :show-author-filter="showAuthorFilter"
+            :log-authors="logAuthors"
+            :selected-authors="selectedAuthors"
+            :filtered-log="filteredLog"
+            :selected-log-commits="selectedLogCommits"
+            :selected-commit="selectedCommit"
+            :commit-diff="commitDiff"
+            :loading-diff="loadingDiff"
+            :loading="loading"
+            :has-more-log="hasMoreLog"
+            :log-count="logCount"
+            :log-total-estimate="logTotalEstimate"
+            :graph-log="graphLog"
+            :graph-loading="graphLoading"
+            :graph-hovered-index="graphHoveredIndex"
+            :graph-selected-commit="graphSelectedCommit"
+            :branch-colors="BRANCH_COLORS"
+            :console-history="consoleHistory"
+            :console-input="consoleInput"
+            :local-branches="localBranches"
+            :get-author-name="getAuthorName"
+            :format-relative-date="formatRelativeDate"
+            :format-full-date="formatFullDate"
+            :parse-refs="parseRefs"
+            @update:log-view-mode="logViewMode = $event"
+            @update:log-search="logSearch = $event"
+            @update:log-date-from="logDateFrom = $event"
+            @update:log-date-to="logDateTo = $event"
+            @update:show-author-filter="showAuthorFilter = $event"
+            @update:selected-commit="selectedCommit = $event"
+            @update:console-input="consoleInput = $event"
+            @toggle-author="toggleAuthor($event)"
+            @load-log="loadLog()"
+            @load-more-log="loadMoreLog()"
+            @select-commit="selectCommit($event)"
+            @toggle-log-commit-select="toggleLogCommitSelect($event)"
+            @toggle-select-all-log-commits="toggleSelectAllLogCommits()"
+            @log-context-menu="showLogContextMenu($event.event, $event.commit)"
+            @exec-console-command="execConsoleCommand()"
+            @console-history-up="consoleHistoryUp()"
+            @console-history-down="consoleHistoryDown()"
+            @switch-to-graph-view="switchToGraphView()"
+            @on-graph-mouse-move="onGraphMouseMove($event)"
+            @on-graph-click="onGraphClick($event)"
+            @load-commit-diff="loadCommitDiff()"
+          />
+        </template>
+
+        <!-- 文件详情模式 -->
+        <template v-else-if="rightPanelMode === 'file' && selectedFilePath">
+          <GitCodeEditor
+            :repo-path="repo.path"
+            :file-path="selectedFilePath"
+            @close="closeFileEditor"
+            @saved="handleFileSaved"
+          />
+        </template>
+      </div>
+    </div>
+
+    <!-- ===== 底部切换栏 ===== -->
+    <div class="git-bottom-bar">
+      <button
+        class="bottom-btn"
+        :class="{ active: rightPanelMode === 'changes' }"
+        @click="rightPanelMode = 'changes'"
+      >
+        <SvgIcon name="pencil" :size="14" />
+        <span>变更</span>
+        <span v-if="totalChanges > 0" class="badge">{{ totalChanges }}</span>
+      </button>
+      <button
+        class="bottom-btn"
+        :class="{ active: rightPanelMode === 'log' }"
+        @click="rightPanelMode = 'log'"
+      >
+        <SvgIcon name="clock" :size="14" />
+        <span>日志</span>
+      </button>
+      <button
+        v-if="selectedFilePath"
+        class="bottom-btn"
+        :class="{ active: rightPanelMode === 'file' }"
+        @click="rightPanelMode = 'file'"
+      >
+        <SvgIcon name="file" :size="14" />
+        <span>文件</span>
+      </button>
     </div>
 
     <!-- ===== 右键菜单 ===== -->
@@ -535,11 +621,17 @@ import GitFileTree from './GitFileTree.vue'
 import GitCodeEditor from './GitCodeEditor.vue'
 
 // 文件浏览状态
-const showFileBrowser = ref(false)
 const selectedFilePath = ref<string | null>(null)
+const rightPanelMode = ref<'changes' | 'log' | 'file'>('changes')
 
 function handleSelectFile(path: string) {
   selectedFilePath.value = path
+  rightPanelMode.value = 'file'
+}
+
+function closeFileEditor() {
+  selectedFilePath.value = null
+  rightPanelMode.value = 'changes'
 }
 
 function handleFileSaved(path: string) {
@@ -887,5 +979,50 @@ function handleCommit(shouldPush: boolean) {
 
 </script>
 <style>
-/* CSS moved to sub-components */
+/* ===== 底部切换栏 ===== */
+.git-bottom-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 8px;
+  border-top: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  background: var(--color-base-200);
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.bottom-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 2px;
+  font-size: 11px;
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.bottom-btn:hover {
+  background: var(--hover-bg);
+}
+
+.bottom-btn.active {
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+}
+
+.bottom-btn .badge {
+  background: color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  padding: 0 4px;
+  border-radius: 2px;
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+.bottom-btn.active .badge {
+  background: color-mix(in oklab, var(--color-primary-content) 20%, transparent);
+}
 </style>
