@@ -73,23 +73,33 @@ NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 echo "📦 版本号更新: $CURRENT_VERSION → $NEW_VERSION ($LEVEL)"
 
-# 更新所有文件
+# macOS sed 兼容: -i 需要显式传空备份扩展名，-E 表示扩展正则
+SED_INPLACE=(-i '')
+if [[ "$(uname)" == "Darwin" ]]; then
+    SED_INPLACE=(-i '' -E)
+else
+    SED_INPLACE=(-i -E)
+fi
+
 cd "$PROJECT_DIR"
 
 for file in "${VERSION_FILES[@]}"; do
     if [[ "$file" == *"package.json"* ]]; then
-        sed -i -E 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
+        sed "${SED_INPLACE[@]}" 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
     else
-        sed -i -E 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
+        sed "${SED_INPLACE[@]}" 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
     fi
-    
+
     if [[ "$NO_ADD" == "false" ]]; then
         git add "$file"
     fi
-    
+
     fname=$(basename "$file")
     echo "  ✅ $fname"
 done
+
+# 清理 macOS sed 备份文件
+rm -f "$PROJECT_DIR"/*-E "$PROJECT_DIR"/cli/*-E "$PROJECT_DIR"/core/*-E "$PROJECT_DIR"/tauri/*-E
 
 if [[ "$NO_ADD" == "false" ]]; then
     echo ""
