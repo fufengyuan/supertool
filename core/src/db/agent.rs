@@ -9,6 +9,7 @@ use std::path::PathBuf;
 
 /// Hermes session summary for list display
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HermesSession {
     pub id: String,
     pub source: String,
@@ -23,6 +24,7 @@ pub struct HermesSession {
 
 /// Hermes message detail for conversation display
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct HermesMessage {
     pub id: i64,
     pub session_id: String,
