@@ -747,6 +747,7 @@ interface RawMessage {
   toolName: string | null;
   toolCallId: string | null;  // 工具调用 ID（tool 消息才有）
   toolCalls?: RawToolCall[];  // assistant 消息的 tool_calls
+  thinking?: string;  // 思考内容（从数据库 reasoning 字段映射）
 }
 
 // Raw tool call from backend
@@ -1477,6 +1478,7 @@ const selectSession = async (session: Session) => {
         timestamp: m.timestamp,
         toolName: m.toolName,
         toolCalls: [],
+        thinking: m.thinking, // 思考内容（从数据库 reasoning 字段映射）
       };
       
       // 如果是 assistant 消息且有 tool_calls，解析并关联结果
