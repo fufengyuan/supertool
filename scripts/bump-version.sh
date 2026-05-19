@@ -99,4 +99,4 @@ if [[ "$NO_ADD" == "false" ]]; then
     echo ""
     echo "建议提交信息:"
     echo "  git commit -m \"chore: bump version to $NEW_VERSION\""
-fi
+fi// test
