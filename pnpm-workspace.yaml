@@ -1,3 +1,4 @@
 allowBuilds:
   '@tailwindcss/oxide': false
   esbuild: false
+  vue-demi: true
