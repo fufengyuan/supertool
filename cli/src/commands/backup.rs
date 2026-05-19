@@ -47,34 +47,23 @@ pub async fn cmd_backup(
                 .import_all_data(data, mode)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
-                print_success("数据导入成功");
-            } else {
-                let imported = result
-                    .get("importedCount")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let skipped = result
-                    .get("skippedCount")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(0);
-                let errors = result
-                    .get("errors")
-                    .and_then(|v| v.as_array())
-                    .map(|a| a.len())
-                    .unwrap_or(0);
-                println!("导入: {}, 跳过: {}, 错误: {}", imported, skipped, errors);
-                if errors > 0 {
-                    if let Some(errs) = result.get("errors").and_then(|v| v.as_array()) {
-                        for e in errs.iter().take(5) {
-                            print_error(&format!("  {}", e.as_str().unwrap_or("?")));
+            // Core returns counts hashmap like {"todos": 10, "servers": 5}
+            // Check if any items were imported
+            let total_imported: u64 = result
+                .as_object()
+                .map(|o| o.values().filter_map(|v| v.as_u64()).sum())
+                .unwrap_or(0);
+            if total_imported > 0 {
+                print_success(&format!("数据导入成功: {} 条记录", total_imported));
+                for (table, count) in result.as_object().unwrap_or(&serde_json::Map::new()) {
+                    if let Some(c) = count.as_u64() {
+                        if c > 0 {
+                            println!("  {}: {}", table, c);
                         }
                     }
                 }
+            } else {
+                print_error("导入失败: 无数据导入");
             }
         }
         BackupCommands::ExportCsv => {

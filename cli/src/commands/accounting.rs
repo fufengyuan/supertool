@@ -47,11 +47,8 @@ pub async fn cmd_accounting(
                 .add_accounting_record(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success(&format!("已添加记录: {} {}", r#type, amount));
             } else {
                 print_error(&format!("添加失败: {}", result));
@@ -87,11 +84,8 @@ pub async fn cmd_accounting(
                 .update_accounting_record(id, serde_json::Value::Object(updates))
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("记录已更新");
             } else {
                 print_error(&format!("更新失败: {}", result));
@@ -103,11 +97,8 @@ pub async fn cmd_accounting(
                 .delete_accounting_record(id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("记录已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));
@@ -132,11 +123,8 @@ pub async fn cmd_accounting(
                 .add_accounting_category(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, name} on success
+            if result.get("id").is_some() {
                 print_success(&format!("分类已添加: {}", name));
             } else {
                 print_error(&format!("添加失败: {}", result));
@@ -148,11 +136,8 @@ pub async fn cmd_accounting(
                 .delete_accounting_category(id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("分类已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));
@@ -177,11 +162,8 @@ pub async fn cmd_accounting(
                 .add_budget(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, name} on success
+            if result.get("id").is_some() {
                 print_success(&format!("预算已添加: {} {}", category, amount));
             } else {
                 print_error(&format!("添加失败: {}", result));
@@ -193,11 +175,8 @@ pub async fn cmd_accounting(
                 .delete_budget(id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("预算已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));

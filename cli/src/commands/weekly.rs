@@ -49,11 +49,8 @@ pub async fn cmd_weekly(
                 .save_weekly_report(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success(&format!("周报已保存: {}", title));
             } else {
                 print_error(&format!("保存失败: {}", result));

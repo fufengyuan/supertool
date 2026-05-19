@@ -35,11 +35,8 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 .add_mfa_secret(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, name} on success
+            if result.get("id").is_some() {
                 print_success(&format!("MFA 密钥已添加: {}", name));
                 if let Some(id) = result.get("id") {
                     println!("ID: {}", id);
@@ -54,11 +51,8 @@ pub async fn cmd_mfa(runtime: &mut CliRuntime, action: &crate::types::MfaCommand
                 .delete_mfa_secret(id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("MFA 密钥已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));
