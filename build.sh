@@ -221,6 +221,21 @@ echo "✅ SuperTool installation complete!"
 exit 0
 POSTINSTALL
     chmod 755 "$PKG_DIR/scripts/postinstall"
+    
+    # 创建 component plist：禁止 macOS 26 上 pkgbuild 的自动 bundle relocate
+    mkdir -p "$PKG_DIR/scripts/Applications"
+    cat > "$PKG_DIR/scripts/Applications/SuperTool.app.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>BundleIsRelocatable</key>
+    <false/>
+    <key>BundleIsVersionChecked</key>
+    <true/>
+</dict>
+</plist>
+PLIST
 
     # macOS 26.4.1+: pkgbuild --component 的 bundle 路径解析有问题
     # 会相对 CWD 安装到 build 目录。改用 --root 显式指定目录结构。
