@@ -1132,12 +1132,27 @@ async function onPaste(e: ClipboardEvent) {
     }
   }
 
-  // 3. 从纯文本检测文件系统路径（macOS Finder 粘贴时 files 为空，路径在 text/plain 中）
+  // 3. 从 text/uri-list 检测文件路径（macOS Finder 粘贴时 text/plain 只有文件名，
+  //    完整路径在 text/uri-list 中，格式为 file:///Users/xxx/file.txt）
+  if (savedPaths.length === 0) {
+    const uriText = dt.getData('text/uri-list')?.trim();
+    if (uriText) {
+      const urls = uriText.split('\n').map(l => l.trim()).filter(l => l.startsWith('file://'));
+      if (urls.length > 0) {
+        for (const url of urls) {
+          // file:///Users/xxx/file.txt → /Users/xxx/file.txt
+          const path = decodeURIComponent(url.replace(/^file:\/\//, ''));
+          savedPaths.push(path);
+        }
+      }
+    }
+  }
+
+  // 3b. 备选：从 text/plain 检测绝对路径（粘贴路径文本 /Users/xxx/file.txt）
   if (savedPaths.length === 0) {
     const rawText = dt.getData('text/plain')?.trim();
     if (rawText) {
       const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      // 判定为路径: 所有行都以 / 开头、包含至少两层目录、无空格
       const allArePaths = lines.length > 0 && lines.every(l =>
         l.startsWith('/') && l.lastIndexOf('/') > 0 && l.indexOf(' ') === -1
       );
