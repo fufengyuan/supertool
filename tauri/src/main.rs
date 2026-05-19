@@ -373,6 +373,35 @@ fn main() {
             // 启动后台告警检查定时器（每分钟检查服务端口和资源到期）
             crate::commands::alert::start_alert_scheduler(app.handle().clone());
 
+            // 启动时清理临时目录中超过 24 小时的旧文件
+            {
+                let temp_dir = supertool_core::logic::data_dir::tmp_dir();
+                if temp_dir.exists() {
+                    let now = std::time::SystemTime::now();
+                    let mut deleted = 0u64;
+                    if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+                        for entry in entries.flatten() {
+                            let path = entry.path();
+                            if path.is_file() {
+                                if let Ok(metadata) = path.metadata() {
+                                    if let Ok(modified) = metadata.modified() {
+                                        if let Ok(duration) = now.duration_since(modified) {
+                                            if duration.as_secs() > 24 * 3600 {
+                                                let _ = std::fs::remove_file(&path);
+                                                deleted += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if deleted > 0 {
+                        log::info!("[Main] 启动时清理临时目录，删除了 {} 个旧文件", deleted);
+                    }
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -838,6 +867,8 @@ fn main() {
             commands::agent::agent_delete_session,
             commands::agent::agent_rename_session,
             commands::agent::agent_search_sessions,
+            commands::agent::save_temp_file,
+            commands::agent::clean_temp_dir,
             // Agent Chat Bridge commands (Python bridge for AI interaction)
             commands::hermes_chat::agent_chat,
             commands::hermes_chat::agent_abort_chat,
