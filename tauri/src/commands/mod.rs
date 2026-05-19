@@ -11,6 +11,7 @@ pub mod git;
 pub mod git_repo;
 pub mod git_sync;
 pub mod hermes_chat;
+pub mod hermes_config;
 pub mod lan;
 pub mod logs;
 pub mod mfa;

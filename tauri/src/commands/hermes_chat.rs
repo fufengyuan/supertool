@@ -832,253 +832,37 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     }
 }
 
-/// Check Agent availability
+/// Check Agent availability (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {
-    let script = find_bridge_script();
-    let python = find_python();
-
-    // Expand home directory path
-    let hermes_path = dirs::home_dir()
-        .map(|h| h.join(".hermes").join("hermes-agent"))
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "~/.hermes/hermes-agent".to_string());
-
-    // Try to import Hermes
-    let check_script = format!(
-        r#"
-import sys
-sys.path.insert(0, "{}")
-try:
-    from run_agent import AIAgent
-    print("OK")
-except ImportError as e:
-    print(f"ERROR: {{e}}")
-"#,
-        hermes_path
-    );
-
-    let output = Command::new(&python)
-        .arg("-c")
-        .arg(&check_script)
-        .output()
-        .map_err(|e| format!("Failed to check Agent: {}", e))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-
+    let available = crate::commands::hermes_config::hermes_is_installed();
+    let script_found = find_bridge_script().is_some();
     Ok(serde_json::json!({
-        "available": stdout == "OK",
-        "script_found": script.is_some(),
-        "python": python,
-        "error": if stdout.starts_with("ERROR") { Some(stdout) } else { None },
+        "available": available,
+        "script_found": script_found,
+        "python": "rust-native",
+        "error": if available { serde_json::Value::Null } else {
+            serde_json::Value::String("Hermes Agent not installed. Please install Hermes first.".to_string())
+        },
     }))
 }
 
-/// Get custom models from Hermes config
+/// Get custom models from Hermes config (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_get_models() -> Result<serde_json::Value, String> {
-    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
-    let python = find_python();
-
-    let mut child = Command::new(&python)
-        .arg(&script)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-
-    // Send get_models command
-    let cmd = BridgeCommand::GetModels {};
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "stdin not available".to_string())?;
-        stdin
-            .write_all(cmd_json.as_bytes())
-            .map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
-    }
-
-    // Read response
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "stdout not available".to_string())?;
-    let reader = BufReader::new(stdout);
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.is_empty() || !line.trim_start().starts_with('{') {
-            continue;
-        }
-
-        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-
-        match msg {
-            BridgeMessage::Models {
-                custom_models,
-                default_model,
-            } => {
-                // Wait for process to finish
-                child.wait().ok();
-                return Ok(serde_json::json!({
-                    "customModels": custom_models,
-                    "defaultModel": default_model,
-                }));
-            }
-            BridgeMessage::Error { message, .. } => {
-                child.wait().ok();
-                return Err(message);
-            }
-            _ => continue,
-        }
-    }
-
-    child.wait().ok();
-    Err("No response from bridge".to_string())
+    crate::commands::hermes_config::get_models()
 }
 
-/// Add a model to Hermes config
+/// Add a model to Hermes config (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_add_model(model: String) -> Result<serde_json::Value, String> {
-    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
-    let python = find_python();
-
-    let mut child = Command::new(&python)
-        .arg(&script)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-
-    // Send add_model command
-    let cmd = BridgeCommand::AddModel { model };
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "stdin not available".to_string())?;
-        stdin
-            .write_all(cmd_json.as_bytes())
-            .map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
-    }
-
-    // Read response
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "stdout not available".to_string())?;
-    let reader = BufReader::new(stdout);
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.is_empty() || !line.trim_start().starts_with('{') {
-            continue;
-        }
-
-        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-
-        match msg {
-            BridgeMessage::ModelAdded {
-                model,
-                custom_models,
-            } => {
-                child.wait().ok();
-                return Ok(serde_json::json!({
-                    "success": true,
-                    "model": model,
-                    "customModels": custom_models,
-                }));
-            }
-            BridgeMessage::Error { message, .. } => {
-                child.wait().ok();
-                return Err(message);
-            }
-            _ => continue,
-        }
-    }
-
-    child.wait().ok();
-    Err("No response from bridge".to_string())
+    crate::commands::hermes_config::add_model(model)
 }
 
-/// Remove a model from Hermes config
+/// Remove a model from Hermes config (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, String> {
-    let script = find_bridge_script().ok_or_else(|| "Bridge script not found".to_string())?;
-    let python = find_python();
-
-    let mut child = Command::new(&python)
-        .arg(&script)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-
-    // Send remove_model command
-    let cmd = BridgeCommand::RemoveModel { model };
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
-
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "stdin not available".to_string())?;
-        stdin
-            .write_all(cmd_json.as_bytes())
-            .map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
-    }
-
-    // Read response
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "stdout not available".to_string())?;
-    let reader = BufReader::new(stdout);
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| e.to_string())?;
-        if line.is_empty() || !line.trim_start().starts_with('{') {
-            continue;
-        }
-
-        let msg: BridgeMessage = serde_json::from_str(&line).map_err(|e| e.to_string())?;
-
-        match msg {
-            BridgeMessage::ModelRemoved {
-                model,
-                custom_models,
-            } => {
-                child.wait().ok();
-                return Ok(serde_json::json!({
-                    "success": true,
-                    "model": model,
-                    "customModels": custom_models,
-                }));
-            }
-            BridgeMessage::Error { message, .. } => {
-                child.wait().ok();
-                return Err(message);
-            }
-            _ => continue,
-        }
-    }
-
-    child.wait().ok();
-    Err("No response from bridge".to_string())
+    crate::commands::hermes_config::remove_model(model)
 }
 
 #[cfg(test)]

@@ -870,9 +870,10 @@ fn main() {
             commands::agent::agent_search_sessions,
             commands::agent::save_temp_file,
             commands::agent::clean_temp_dir,
-            // Agent Chat Bridge commands (Python bridge for AI interaction)
+            // Agent Chat Bridge commands (chat/abort still use HTTP bridge)
             commands::hermes_chat::agent_chat,
             commands::hermes_chat::agent_abort_chat,
+            // Hermes config management (pure Rust, no Python bridge)
             commands::hermes_chat::agent_check_available,
             commands::hermes_chat::agent_get_models,
             commands::hermes_chat::agent_add_model,
