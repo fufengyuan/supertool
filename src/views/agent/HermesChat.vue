@@ -739,15 +739,19 @@ interface Message {
   tokens?: { input: number; output: number }; // token 使用量
 }
 
-// Raw message from backend (matches MessageInfo in Rust)
+// Raw message from backend (matches HermesMessage in Rust)
 interface RawMessage {
+  id: number;
+  sessionId: string;
   role: string;
   content: string | null;
-  timestamp: number | null;
+  timestamp: number;
   toolName: string | null;
   toolCallId: string | null;  // 工具调用 ID（tool 消息才有）
-  toolCalls?: RawToolCall[];  // assistant 消息的 tool_calls
-  thinking?: string;  // 思考内容（从数据库 reasoning 字段映射）
+  toolCalls?: string;  // JSON string, parse in frontend
+  finishReason: string | null;
+  reasoning: string | null;  // 思考内容
+  reasoningContent: string | null;
 }
 
 // Raw tool call from backend
@@ -1453,9 +1457,16 @@ const selectSession = async (session: Session) => {
   messages.value = [];
 
   try {
-    const result = await invoke<{ session_id: string; messages: RawMessage[] }>('agent_get_session', {
+    // 直接从 SQLite 读取（毫秒级），不再通过 Python bridge
+    const result = await invoke<{ success: boolean; messages: RawMessage[]; sessionId: string }>('agent_list_messages', {
       sessionId: session.id,
     });
+    
+    if (!result.success || !result.messages) {
+      console.error('Failed to load messages');
+      messages.value = [];
+      return;
+    }
     
     // 处理消息：关联 tool_calls 和 tool 结果
     const processedMessages: Message[] = [];
@@ -1472,31 +1483,39 @@ const selectSession = async (session: Session) => {
     for (const m of result.messages) {
       if (m.role === 'tool') continue; // tool 消息不单独显示，合并到 assistant
       
+      // 思考内容：优先 reasoning，其次 reasoningContent
+      const thinking = m.reasoning || m.reasoningContent || undefined;
+      
       const msg: Message = {
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
         toolName: m.toolName,
         toolCalls: [],
-        thinking: m.thinking, // 思考内容（从数据库 reasoning 字段映射）
+        thinking,
       };
       
-      // 如果是 assistant 消息且有 tool_calls，解析并关联结果
-      if (m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0) {
-        for (const tc of m.toolCalls) {
-          const toolName = tc.function?.name || 'unknown';
-          const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
-          const toolResult = toolResultsMap.get(tc.id) || '';
-          
-          if (!msg.toolCalls) msg.toolCalls = [];
-          msg.toolCalls.push({
-            name: toolName,
-            args: toolArgs,
-            result: toolResult,
-            durationMs: 0, // 历史消息没有时长信息
-            isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
-            status: 'completed',
-          });
+      // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果
+      if (m.role === 'assistant' && m.toolCalls) {
+        try {
+          const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
+          for (const tc of toolCallsParsed) {
+            const toolName = tc.function?.name || 'unknown';
+            const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+            const toolResult = toolResultsMap.get(tc.id) || '';
+            
+            if (!msg.toolCalls) msg.toolCalls = [];
+            msg.toolCalls.push({
+              name: toolName,
+              args: toolArgs,
+              result: toolResult,
+              durationMs: 0, // 历史消息没有时长信息
+              isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
+              status: 'completed',
+            });
+          }
+        } catch (e) {
+          console.warn('Failed to parse tool_calls:', e);
         }
       }
       

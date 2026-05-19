@@ -30,8 +30,14 @@ pub struct HermesMessage {
     pub content: Option<String>,
     pub tool_name: Option<String>,
     pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<String>, // JSON string, parse in frontend
     pub timestamp: f64,
     pub finish_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reasoning_content: Option<String>,
 }
 
 /// Get Hermes home directory (~/.hermes)
@@ -230,8 +236,11 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             content,
             tool_name,
             tool_call_id,
+            tool_calls,
             timestamp,
-            finish_reason
+            finish_reason,
+            reasoning,
+            reasoning_content
         FROM messages
         WHERE session_id = ?
         ORDER BY timestamp, id
@@ -250,8 +259,11 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
                 content: row.get::<_, Option<String>>(3)?,
                 tool_name: row.get::<_, Option<String>>(4)?,
                 tool_call_id: row.get::<_, Option<String>>(5)?,
-                timestamp: row.get(6)?,
-                finish_reason: row.get::<_, Option<String>>(7)?,
+                tool_calls: row.get::<_, Option<String>>(6)?,
+                timestamp: row.get(7)?,
+                finish_reason: row.get::<_, Option<String>>(8)?,
+                reasoning: row.get::<_, Option<String>>(9)?,
+                reasoning_content: row.get::<_, Option<String>>(10)?,
             })
         })
         .map_err(|e| format!("读取消息失败: {}", e))?
