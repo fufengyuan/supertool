@@ -261,8 +261,22 @@ const imageUrlLoading = ref(false);
 
 // 通过后端 IPC 读取图片并返回 base64 URL
 const loadImageViaBackend = async () => {
-  if (!props.message.filePath || !isImageFile.value) return;
-  if (props.message.status !== 'completed') return;
+  // 诊断日志：查看调用时的参数
+  console.log('[ChatMessage] loadImageViaBackend called:', {
+    filePath: props.message.filePath,
+    fileName: props.message.fileName,
+    status: props.message.status,
+    isImageFile: isImageFile.value,
+  });
+  
+  if (!props.message.filePath || !isImageFile.value) {
+    console.log('[ChatMessage] loadImageViaBackend skipped: no filePath or not image');
+    return;
+  }
+  if (props.message.status !== 'completed') {
+    console.log('[ChatMessage] loadImageViaBackend skipped: status not completed');
+    return;
+  }
   
   imageUrlLoading.value = true;
   imageLoadFailed.value = false;
@@ -270,11 +284,20 @@ const loadImageViaBackend = async () => {
   try {
     const result = await tauriInvoke<{ url: string; size: number }>('lan_read_image_file', { filePath: props.message.filePath });
     
-    if (result.success && result.data?.url) {
+    // 详细日志诊断
+    console.log('[ChatMessage] lan_read_image_file result:', JSON.stringify(result));
+    
+    // 健壮检查：支持 success 格式和直接返回格式
+    if (result.success === true && result.data?.url) {
       imageUrlBase64.value = result.data.url;
       console.log('[ChatMessage] Loaded image via backend, size:', result.data.size);
+    } else if ((result as any).url) {
+      // 后端直接返回 { url, size } 格式（非标准 ApiResponse）
+      imageUrlBase64.value = (result as any).url;
+      console.log('[ChatMessage] Loaded image via backend (direct format), size:', (result as any).size);
     } else {
-      console.error('[ChatMessage] Backend returned error:', result.error);
+      const errMsg = result.error || '未知错误';
+      console.error('[ChatMessage] Backend returned error:', errMsg, 'full result:', result);
       imageLoadFailed.value = true;
     }
   } catch (e) {
