@@ -1,9 +1,10 @@
 {
   "name": "supertool",
   "private": true,
-  "version": "4.3.3",
+  "version": "4.4.0",
   "type": "module",
   "scripts": {
+    "postinstall": "./scripts/init-hooks.sh",
     "dev": "vite --port 1420",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
