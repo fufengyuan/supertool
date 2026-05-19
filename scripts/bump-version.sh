@@ -1,7 +1,8 @@
 #!/bin/bash
 # 自动版本号更新脚本 - 统一更新所有4处版本号
-# 用法: ./scripts/bump-version.sh [level]
+# 用法: ./scripts/bump-version.sh [level] [--no-add]
 # level: patch (默认, +0.0.1), minor (+0.1.0), major (+1.0.0)
+# --no-add: 不自动 git add（pre-commit 钩子调用时使用）
 #
 # 更新位置:
 #   - package.json
@@ -15,6 +16,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 LEVEL="${1:-patch}"
+NO_ADD=false
+
+if [[ "$LEVEL" == "--no-add" ]]; then
+    LEVEL="patch"
+    NO_ADD=true
+fi
+
+if [[ "$2" == "--no-add" ]]; then
+    NO_ADD=true
+fi
 
 if [[ ! "$LEVEL" =~ ^(patch|minor|major)$ ]]; then
     echo "❌ 无效级别: $LEVEL (可用: patch, minor, major)"
@@ -61,26 +72,31 @@ esac
 NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 
 echo "📦 版本号更新: $CURRENT_VERSION → $NEW_VERSION ($LEVEL)"
-echo ""
 
 # 更新所有文件
 cd "$PROJECT_DIR"
 
 for file in "${VERSION_FILES[@]}"; do
-    if [[ "$file" == *"package.json" ]]; then
+    if [[ "$file" == *"package.json"* ]]; then
         # JSON 格式
         sed -i -E 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
     else
         # TOML 格式
         sed -i -E 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
     fi
-    git add "$file"
+    
+    if [[ "$NO_ADD" == "false" ]]; then
+        git add "$file"
+    fi
+    
     fname=$(basename "$file")
     echo "  ✅ $fname"
 done
 
-echo ""
-echo "📋 所有版本号文件已添加到 git 暂存区"
-echo ""
-echo "建议提交命令:"
-echo "  git commit -m \"chore: bump version to $NEW_VERSION\""
+if [[ "$NO_ADD" == "false" ]]; then
+    echo ""
+    echo "📋 所有版本号已添加到 git 暂存区"
+    echo ""
+    echo "建议提交信息:"
+    echo "  git commit -m \"chore: bump version to $NEW_VERSION\""
+fi

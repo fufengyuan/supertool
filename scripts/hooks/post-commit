@@ -1,0 +1,71 @@
+#!/bin/bash
+# Git post-commit 钘子 - 自动版本号更新 (amend 方式)
+# 根据 conventional commits 规范自动评估级别
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+BUMP_SCRIPT="$SCRIPT_DIR/../bump-version.sh"
+MARKER_FILE="$PROJECT_DIR/.git/.version-bump-marker"
+
+# 检查是否已经处理过（防止循环）
+if [[ -f "$MARKER_FILE" ]]; then
+    rm -f "$MARKER_FILE"
+    exit 0
+fi
+
+# 获取刚提交的消息
+COMMIT_MSG=$(git log -1 --pretty=%s)
+
+if [[ -z "$COMMIT_MSG" ]]; then
+    exit 0
+fi
+
+# 解析 conventional commit 前缀
+PREFIX=$(echo "$COMMIT_MSG" | sed -E 's/^([a-z]+)(\!?):.*/\1\2/')
+
+# 判断版本级别
+LEVEL=""
+
+case "$PREFIX" in
+    feat!)
+        LEVEL="major"
+        ;;
+    feat)
+        LEVEL="minor"
+        ;;
+    fix)
+        LEVEL="patch"
+        ;;
+    perf|refactor)
+        if echo "$COMMIT_MSG" | grep -qi "BREAKING"; then
+            LEVEL="major"
+        else
+            LEVEL="patch"
+        fi
+        ;;
+    chore|docs|style|test|ci|build|revert)
+        exit 0
+        ;;
+    *)
+        if echo "$COMMIT_MSG" | grep -qi "BREAKING"; then
+            LEVEL="major"
+        else
+            LEVEL="patch"
+        fi
+        ;;
+esac
+
+if [[ -n "$LEVEL" ]]; then
+    echo "🔄 检测到 $PREFIX 提交，自动更新版本号 ($LEVEL)..."
+    
+    # 设置标记防止循环
+    touch "$MARKER_FILE"
+    
+    # 更新版本号
+    "$BUMP_SCRIPT" "$LEVEL"
+    
+    # Amend 提交，将版本号更新加入
+    git commit --amend --no-edit
+fi
+
+exit 0
