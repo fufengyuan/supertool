@@ -50,10 +50,14 @@ function sanitizeLogValue(val: unknown): unknown {
 
 /** 将任意 JSON 值序列化为安全日志字符串（不超过 maxLen 字符） */
 function safeJsonLog(val: unknown, maxLen = 300): string {
-  const clone = JSON.parse(JSON.stringify(val))
-  sanitizeLogValue(clone)
-  const s = JSON.stringify(clone)
-  return s.length <= maxLen ? s : s.slice(0, maxLen) + '...'
+  try {
+    const clone = JSON.parse(JSON.stringify(val))
+    sanitizeLogValue(clone)
+    const s = JSON.stringify(clone)
+    return s.length <= maxLen ? s : s.slice(0, maxLen) + '...'
+  } catch {
+    return '[日志序列化失败]'
+  }
 }
 
 // ============ 核心调用 ============
@@ -2483,7 +2487,7 @@ export function getTauriAPI(): TauriAPI {
     openFileFolder: async (filePath: string) => tauriCall("lan_open_file_folder", { filePath }),
     saveTempFile: async (base64Data: string, fileName: string): Promise<string | null> => {
       const res = await tauriCall<any>('save_temp_file', { base64Data, fileName });
-      return res?.data?.path ?? null;
+      return res?.path ?? null;
     },
     loadLocalFileAsBase64: async (filePath: string) => tauriCall("lan_load_local_file_as_base64", { filePath }),
     // SSH Terminal

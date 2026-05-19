@@ -1431,14 +1431,42 @@ const formatToolResult = (toolName: string, result: string): string => {
   }
 };
 
+// Markdown 渲染缓存 — key 为消息原文，value 为渲染后的 HTML
+const markdownCache = new Map<string, string>();
+const MAX_CACHE = 500;
+
+// 自定义渲染器单例（不依赖输入，只需创建一次）
+const markdownRenderer = new marked.Renderer();
+markdownRenderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
+  const language = lang || 'plaintext';
+  const highlighted = language && hljs.getLanguage(language) 
+    ? hljs.highlight(code, { language }).value 
+    : hljs.highlightAuto(code).value;
+  
+  const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
+  
+  return `<div class="code-block-wrapper">
+    <div class="code-header">
+      <span class="code-lang">${language}</span>
+      <button class="copy-btn" onclick="copyCode('${codeId}')" title="复制代码">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+      </button>
+    </div>
+    <pre><code id="${codeId}" class="hljs">${highlighted}</code></pre>
+  </div>`;
+};
+
 // Markdown 渲染函数 - 添加代码块复制按钮和特殊格式处理
 const renderMarkdown = (text: string | null): string => {
   if (!text) return '';
+  // 缓存命中 — 避免重复解析已渲染过的消息
+  const cached = markdownCache.get(text);
+  if (cached) return cached;
   try {
     // 预处理：处理特殊格式的警告框
-    // [IMPORTANT: ...] -> 警告框
-    // [WARNING: ...] -> 警告框
-    // [NOTE: ...] -> 信息框
     let processedText = text
       .replace(/^\[IMPORTANT:\s*([^\]]+)\]/gm, '<div class="alert-box alert-important">⚠️ <strong>重要:</strong> $1</div>')
       .replace(/^\[WARNING:\s*([^\]]+)\]/gm, '<div class="alert-box alert-warning">⚠️ <strong>警告:</strong> $1</div>')
@@ -1446,37 +1474,25 @@ const renderMarkdown = (text: string | null): string => {
       .replace(/^\[SILENT\]/gm, '<div class="alert-box alert-silent">🔇 <strong>静默模式</strong></div>')
       .replace(/^\[CONTEXT:/gm, '<div class="alert-box alert-context">📋 <strong>上下文压缩摘要</strong><br>');
 
-    // 自定义渲染器，为代码块添加复制按钮
-    const renderer = new marked.Renderer();
-    renderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
-      const language = lang || 'plaintext';
-      const highlighted = language && hljs.getLanguage(language) 
-        ? hljs.highlight(code, { language }).value 
-        : hljs.highlightAuto(code).value;
-      
-      // 生成唯一 ID 用于复制功能
-      const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
-      
-      return `<div class="code-block-wrapper">
-        <div class="code-header">
-          <span class="code-lang">${language}</span>
-          <button class="copy-btn" onclick="copyCode('${codeId}')" title="复制代码">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
-          </button>
-        </div>
-        <pre><code id="${codeId}" class="hljs">${highlighted}</code></pre>
-      </div>`;
-    };
-    
-    marked.setOptions({ renderer, breaks: true, gfm: true });
-    const html = marked.parse(processedText, { async: false }) as string;
-    return DOMPurify.sanitize(html, {
+    // 直接传 renderer 给 marked.parse，不修改全局 marked 配置
+    const html = marked.parse(processedText, {
+      renderer: markdownRenderer,
+      breaks: true,
+      gfm: true,
+      async: false,
+    }) as string;
+    const result = DOMPurify.sanitize(html, {
       ADD_ATTR: ['target', 'onclick', 'id', 'title'],
       ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div'],
     });
+
+    // LRU 缓存：淘汰最旧的条目
+    if (markdownCache.size >= MAX_CACHE) {
+      const firstKey = markdownCache.keys().next().value;
+      if (firstKey) markdownCache.delete(firstKey);
+    }
+    markdownCache.set(text, result);
+    return result;
   } catch (e) {
     console.error('[renderMarkdown] Error:', e);
     return text;
