@@ -268,7 +268,7 @@ const renameInputRef = ref<HTMLInputElement | null>(null)
 
 const renderedContent = computed(() => {
   if (!editorContent.value) return '<p class="preview-empty">没有内容</p>'
-  let html = marked.parse(editorContent.value) as string
+  let html = marked.parse(editorContent.value, { async: false }) as string
   if (searchQuery.value) {
     const regex = new RegExp(`(${escapeRegex(searchQuery.value)})`, 'gi')
     html = html.replace(regex, '<mark class="search-highlight">$1</mark>')
