@@ -1483,16 +1483,13 @@ const selectSession = async (session: Session) => {
     for (const m of result.messages) {
       if (m.role === 'tool') continue; // tool 消息不单独显示，合并到 assistant
       
-      // 思考内容：优先 reasoning，其次 reasoningContent
-      const thinking = m.reasoning || m.reasoningContent || undefined;
-      
+      // 历史消息不需要显示思考内容（干扰视线）
       const msg: Message = {
         role: m.role,
         content: m.content,
         timestamp: m.timestamp,
         toolName: m.toolName,
         toolCalls: [],
-        thinking,
       };
       
       // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果
