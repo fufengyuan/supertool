@@ -589,7 +589,8 @@
                 : 'bg-info/5 border-info/20 text-info/80'"
               :title="item.path"
             >
-              <SvgIcon :name="item.type === 'folder' ? 'folder' : 'file'" size="12" />
+              <img v-if="item.previewUrl" :src="item.previewUrl" class="w-6 h-6 rounded object-cover shrink-0" />
+              <SvgIcon v-else :name="item.type === 'folder' ? 'folder' : 'file'" size="12" />
               <span class="max-w-[160px] truncate">{{ item.name }}</span>
               <button
                 class="ml-0.5 opacity-40 group-hover:opacity-100 hover:!opacity-100 transition-opacity rounded-full hover:bg-base-content/10 p-0.5"
@@ -824,6 +825,7 @@ interface PathItem {
   path: string;
   type: 'file' | 'folder';
   name: string;
+  previewUrl?: string; // 图片预览（object URL，需在移除时 revoke）
 }
 const attachedPaths = ref<PathItem[]>([]);
 const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
@@ -1068,8 +1070,10 @@ const selectFromFavorite = (folder: string, type: 'file' | 'folder') => {
   }
 };
 
-// 移除已选择的路径
+// 移除已选择的路径（同时释放图片预览的 object URL）
 const removeAttachedPath = (idx: number) => {
+  const item = attachedPaths.value[idx];
+  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
   attachedPaths.value.splice(idx, 1);
   nextTick(() => adjustTextareaHeight());
 };
@@ -1081,7 +1085,7 @@ async function onPaste(e: ClipboardEvent) {
 
   const files = dt.files;
   const items = dt.items;
-  const savedPaths: string[] = [];
+  const savedPaths: SavedFile[] = [];
 
   // === 先做同步检测，再决定是否阻止默认粘贴 ===
   // WKWebView 在 await 期间可能已经执行了默认行为，
@@ -1104,12 +1108,17 @@ async function onPaste(e: ClipboardEvent) {
     return; // 纯文本，让浏览器默认行为处理
   }
 
-  // 辅助：将 File 保存为临时文件，返回路径
-  const saveFile = async (file: File): Promise<string | null> => {
+  // 辅助：将 File 保存为临时文件，返回路径和图片预览
+  type SavedFile = { path: string; previewUrl?: string };
+  const saveFile = async (file: File, isImage: boolean): Promise<SavedFile | null> => {
     try {
       const arrayBuffer = await file.arrayBuffer();
-      // 用 Blob + DataURL 转 base64，避免大文件 spread operator 栈溢出
       const blob = new Blob([arrayBuffer]);
+      // 图片文件创建 object URL 用于预览（非图片不创建）
+      let previewUrl: string | undefined;
+      if (isImage) {
+        previewUrl = URL.createObjectURL(blob);
+      }
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(reader.result as string);
@@ -1117,10 +1126,14 @@ async function onPaste(e: ClipboardEvent) {
         reader.readAsDataURL(blob);
       });
       const base64 = dataUrl.split(',')[1];
-      // 保留原始文件名（加时间戳防冲突）
       const fileName = file.name ? `pasted_${Date.now()}_${file.name}` : `pasted_${Date.now()}`;
       const result = await getTauriAPI().saveTempFile(base64, fileName);
-      return result ?? null;
+      if (result) {
+        return { path: result, previewUrl };
+      }
+      // 保存失败时释放 object URL
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      return null;
     } catch (err) {
       console.error('[HermesChat] paste save error:', err);
       return null;
@@ -1132,9 +1145,9 @@ async function onPaste(e: ClipboardEvent) {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       if (!file) continue;
-      // 所有类型都保存到 temp 并显示为徽章，包括 WKWebView 中 type="" 的文件
-      const path = await saveFile(file);
-      if (path) savedPaths.push(path);
+      const isImage = !!file.type?.startsWith('image/');
+      const saved = await saveFile(file, isImage);
+      if (saved) savedPaths.push(saved);
     }
   }
 
@@ -1145,31 +1158,29 @@ async function onPaste(e: ClipboardEvent) {
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
         if (file) {
-          const path = await saveFile(file);
-          if (path) savedPaths.push(path);
+          const saved = await saveFile(file, true);
+          if (saved) savedPaths.push(saved);
         }
         break;
       }
     }
   }
 
-  // 3. 从 text/uri-list 检测文件路径（macOS Finder 粘贴时 text/plain 只有文件名，
-  //    完整路径在 text/uri-list 中，格式为 file:///Users/xxx/file.txt）
+  // 3. 从 text/uri-list 检测文件路径（macOS Finder 粘贴）
   if (savedPaths.length === 0) {
     const uriText = dt.getData('text/uri-list')?.trim();
     if (uriText) {
       const urls = uriText.split('\n').map(l => l.trim()).filter(l => l.startsWith('file://'));
       if (urls.length > 0) {
         for (const url of urls) {
-          // file:///Users/xxx/file.txt → /Users/xxx/file.txt
           const path = decodeURIComponent(url.replace(/^file:\/\//, ''));
-          savedPaths.push(path);
+          savedPaths.push({ path });
         }
       }
     }
   }
 
-  // 3b. 备选：从 text/plain 检测绝对路径（粘贴路径文本 /Users/xxx/file.txt）
+  // 3b. 备选：从 text/plain 检测绝对路径
   if (savedPaths.length === 0) {
     const rawText = dt.getData('text/plain')?.trim();
     if (rawText) {
@@ -1179,7 +1190,7 @@ async function onPaste(e: ClipboardEvent) {
       );
       if (allArePaths) {
         for (const path of lines) {
-          savedPaths.push(path);
+          savedPaths.push({ path });
         }
       }
     }
@@ -1187,17 +1198,14 @@ async function onPaste(e: ClipboardEvent) {
 
   // 4. 追加到已选路径徽章
   if (savedPaths.length > 0) {
-    // 追加到已选路径徽章
-    for (const path of savedPaths) {
+    for (const { path, previewUrl } of savedPaths) {
       const name = path.split('/').pop() || path;
-      // 无扩展名或以 / 结尾 → 视为文件夹
       const type: 'file' | 'folder' = (!name.includes('.') || path.endsWith('/')) ? 'folder' : 'file';
-      attachedPaths.value.push({ path, type, name });
+      attachedPaths.value.push({ path, type, name, previewUrl });
     }
     nextTick(() => adjustTextareaHeight());
   }
 }
-
 // 追加路径到输入框（保留用于兼容外部调用）
 const appendPathToInput = (path: string) => {
   if (inputText.value.trim()) {
@@ -1770,6 +1778,10 @@ const sendMessage = async () => {
   if (attachedPaths.value.length > 0) {
     pathPrefix = attachedPaths.value.map(p => p.path).join('\n') + '\n';
     msgFilePaths = [...attachedPaths.value];
+    // 释放所有图片预览的 object URL
+    for (const item of attachedPaths.value) {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    }
     attachedPaths.value = [];
   }
   text = pathPrefix + text;
@@ -2518,6 +2530,10 @@ onUnmounted(() => {
   // 移除滚动监听
   if (messagesContainer.value) {
     messagesContainer.value.removeEventListener('scroll', checkScrollPosition);
+  }
+  // 释放残存的图片预览 object URL
+  for (const item of attachedPaths.value) {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
   }
 });
 
