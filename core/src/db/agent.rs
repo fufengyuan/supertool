@@ -365,6 +365,103 @@ pub fn delete_hermes_session(session_id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Rename a Hermes session (update title)
+pub fn rename_hermes_session(session_id: &str, new_title: &str) -> Result<(), String> {
+    let db_path = get_hermes_state_db_path();
+    if !db_path.exists() {
+        return Err("Hermes 未安装或 state.db 不存在".to_string());
+    }
+
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+
+    conn.execute(
+        "UPDATE sessions SET title = ? WHERE id = ?",
+        [new_title, session_id],
+    )
+    .map_err(|e| format!("重命名会话失败: {}", e))?;
+
+    Ok(())
+}
+
+/// Search Hermes sessions by keyword (title or preview)
+pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSession>, String> {
+    let db_path = get_hermes_state_db_path();
+    if !db_path.exists() {
+        return Err("Hermes 未安装或 state.db 不存在".to_string());
+    }
+
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+
+    let pattern = format!("%{}%", keyword);
+    let query = r#"
+        SELECT 
+            s.id,
+            s.source,
+            s.model,
+            s.title,
+            s.started_at,
+            s.ended_at,
+            s.message_count,
+            COALESCE(
+                (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
+                 FROM messages m
+                 WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
+                 ORDER BY m.timestamp, m.id LIMIT 1),
+                ''
+            ) AS preview_raw,
+            COALESCE(
+                (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
+                s.started_at
+            ) AS last_active
+        FROM sessions s
+        WHERE s.parent_session_id IS NULL
+          AND (s.title LIKE ?1 OR s.id IN (
+              SELECT DISTINCT session_id FROM messages 
+              WHERE content LIKE ?1
+          ))
+        ORDER BY s.started_at DESC
+        LIMIT ?2
+    "#;
+
+    let mut stmt = conn
+        .prepare(query)
+        .map_err(|e| format!("查询会话失败: {}", e))?;
+
+    let sessions = stmt
+        .query_map([&pattern, &limit.to_string()], |row| {
+            let raw_preview: String = row.get(7)?;
+            let preview = if raw_preview.is_empty() {
+                String::new()
+            } else {
+                let text = raw_preview.trim();
+                if text.chars().count() > 60 {
+                    format!("{}...", text.chars().take(60).collect::<String>())
+                } else {
+                    text.to_string()
+                }
+            };
+
+            Ok(HermesSession {
+                id: row.get(0)?,
+                source: row.get(1)?,
+                model: row.get(2)?,
+                title: row.get::<_, Option<String>>(3)?,
+                started_at: row.get(4)?,
+                ended_at: row.get::<_, Option<f64>>(5)?,
+                message_count: row.get(6)?,
+                preview,
+                last_active: row.get(8)?,
+            })
+        })
+        .map_err(|e| format!("读取会话失败: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("解析会话失败: {}", e))?;
+
+    Ok(sessions)
+}
+
 /// Format timestamp (Unix epoch float) to human-readable string
 pub fn format_hermes_timestamp(ts: f64) -> String {
     use chrono::{DateTime, Utc};

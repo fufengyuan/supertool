@@ -10,8 +10,8 @@
 use serde_json::json;
 
 use supertool_core::db::agent::{
-    count_hermes_sessions, get_hermes_stats, hermes_is_installed, list_hermes_messages,
-    list_hermes_sessions,
+    count_hermes_sessions, delete_hermes_session, get_hermes_stats, hermes_is_installed,
+    list_hermes_messages, list_hermes_sessions, rename_hermes_session, search_hermes_sessions,
 };
 
 /// Check if Agent is installed
@@ -55,6 +55,45 @@ pub fn agent_list_sessions(limit: Option<i32>) -> Result<serde_json::Value, Stri
         "success": true,
         "sessions": sessions,
         "total": total
+    }))
+}
+
+/// Delete Agent session (direct SQLite access)
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_delete_session(session_id: String) -> Result<serde_json::Value, String> {
+    delete_hermes_session(&session_id)?;
+    Ok(json!({
+        "success": true,
+        "sessionId": session_id
+    }))
+}
+
+/// Rename Agent session (direct SQLite access)
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_rename_session(
+    session_id: String,
+    new_title: String,
+) -> Result<serde_json::Value, String> {
+    rename_hermes_session(&session_id, &new_title)?;
+    Ok(json!({
+        "success": true,
+        "sessionId": session_id,
+        "newTitle": new_title
+    }))
+}
+
+/// Search Agent sessions (direct SQLite access)
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_search_sessions(
+    keyword: String,
+    limit: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    let limit = limit.unwrap_or(50);
+    let sessions = search_hermes_sessions(&keyword, limit)?;
+    Ok(json!({
+        "success": true,
+        "sessions": sessions,
+        "keyword": keyword
     }))
 }
 
