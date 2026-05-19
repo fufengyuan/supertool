@@ -639,8 +639,15 @@ def _signal_handler(signum, frame):
             if _current_agent:
                 agent_messages = getattr(_current_agent, "_session_messages", [])
                 if agent_messages:
-                    # Prefer agent's internal messages if available
-                    messages_to_save = agent_messages
+                    # Strip orphan tool_calls from tail to avoid API validation errors on resume
+                    while (agent_messages
+                           and isinstance(agent_messages[-1], dict)
+                           and agent_messages[-1].get("role") == "assistant"
+                           and agent_messages[-1].get("tool_calls")):
+                        agent_messages.pop()
+                    if agent_messages:
+                        # Prefer agent's internal messages if available
+                        messages_to_save = agent_messages
 
             # Ensure session row exists
             session_db.ensure_session(
