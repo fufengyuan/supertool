@@ -1083,6 +1083,27 @@ async function onPaste(e: ClipboardEvent) {
   const items = dt.items;
   const savedPaths: string[] = [];
 
+  // === 先做同步检测，再决定是否阻止默认粘贴 ===
+  // WKWebView 在 await 期间可能已经执行了默认行为，
+  // 所以 preventDefault() 必须在任意 await 之前同步调用
+
+  const hasFiles = files.length > 0;
+  const hasImageItems = items && Array.from(items).some(item => item.type.startsWith('image/'));
+  const uriText = dt.getData('text/uri-list')?.trim();
+  const hasFileUrls = !!uriText && uriText.includes('file://');
+  const rawText = dt.getData('text/plain')?.trim();
+  const hasPathText = !!rawText && rawText.split('\n').every(l => {
+    const t = l.trim();
+    return t.length > 0 && t.startsWith('/') && t.lastIndexOf('/') > 0 && t.indexOf(' ') === -1;
+  });
+
+  // 有文件/图片/路径 → 同步阻止默认粘贴
+  if (hasFiles || hasImageItems || hasFileUrls || hasPathText) {
+    e.preventDefault();
+  } else {
+    return; // 纯文本，让浏览器默认行为处理
+  }
+
   // 辅助：将 File 保存为临时文件，返回路径
   const saveFile = async (file: File): Promise<string | null> => {
     try {
@@ -1164,9 +1185,8 @@ async function onPaste(e: ClipboardEvent) {
     }
   }
 
-  // 4. 如有处理文件/图片/路径，阻止默认粘贴 + 追加到已选路径
+  // 4. 追加到已选路径徽章
   if (savedPaths.length > 0) {
-    e.preventDefault();
     // 追加到已选路径徽章
     for (const path of savedPaths) {
       const name = path.split('/').pop() || path;
