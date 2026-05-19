@@ -80,9 +80,21 @@ const connectionLabel = ref('连接中...')
 
 // VueFinder configuration
 const locale = 'zh-CN'
-const features = {
-  // Enable/disable features
-  // Disable features not supported by SFTP or not needed
+// Disable features not supported by SFTP
+const features: Record<string, boolean> = {
+  upload: false,      // SFTP upload requires local file path
+  archive: false,     // Not supported
+  unarchive: false,   // Not supported
+  search: false,      // Not supported
+  copy: false,        // Not supported
+  move: false,        // Not supported
+  rename: false,      // Not supported (use SSH terminal)
+  edit: true,         // Supported via file editor
+  newfile: false,     // Requires backend support
+  newfolder: false,   // Requires backend support
+  delete: true,       // Supported
+  download: true,     // Supported
+  preview: false,     // Remote files can't preview in browser
 }
 const config = {
   maxFileSize: 1024 * 1024 * 1024, // 1GB

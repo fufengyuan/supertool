@@ -109,10 +109,20 @@ export class SftpDriver extends BaseAdapter {
   }
 
   /**
+   * Normalize path - ensure it starts with /
+   */
+  private normalizePath(path: string): string {
+    if (!path) return '/'
+    if (!path.startsWith('/')) return '/' + path
+    return path
+  }
+
+  /**
    * List files at a path
    */
   async list(params?: ListParams): Promise<FsData> {
-    const path = params?.path || this.currentPath
+    const rawPath = params?.path || this.currentPath
+    const path = this.normalizePath(rawPath)
     this.currentPath = path
 
     try {
