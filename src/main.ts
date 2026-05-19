@@ -7,6 +7,10 @@ import router from "./router";
 // Tailwind CSS + daisyUI + global CSS variables
 import "./styles.css";
 
+// VueFinder
+import { VueFinderPlugin } from "vuefinder";
+import "vuefinder/dist/vuefinder.css";
+
 // i18n
 import zhCN from "./locales/zh-CN";
 import en from "./locales/en";
@@ -37,6 +41,7 @@ const pinia = createPinia();
 app.use(pinia);
 app.use(router);
 app.use(i18n);
+app.use(VueFinderPlugin, { locale: "zh-CN" });
 
 // Global error handler
 window.onerror = function (msg, url, line, col, error) {
