@@ -2,12 +2,13 @@
   <!-- IDEA 风格：分组标题栏 + 服务器平铺 -->
   <div class="group-tree mb-2">
     <BaseTree
+      v-if="treeData.length > 0"
       ref="treeRef"
-      :value="treeData"
+      v-model="treeDataModel"
       :children-key="childrenKey"
       :text-key="textKey"
       :indent="16"
-      :default-open="false"
+      :default-open="defaultOpen"
       v-slot="{ stat }"
       @open:node="handleOpenNode"
       @click:node="handleClickNode"
@@ -120,10 +121,19 @@ const treeRef = ref<InstanceType<typeof BaseTree> | null>(null)
 const childrenKey = 'children'
 const textKey = 'name'
 
+// 默认是否展开
+const defaultOpen = computed(() => props.expandedGroups.has(props.group.id as string | null))
+
 // 构建树数据
 const treeData = computed<TreeNode[]>(() => {
   return buildTreeData(props.group, props.groups, props.servers, props.connectionStatusMap)
 })
+
+// v-model 需要 mutable 数据
+const treeDataModel = ref<TreeNode[]>([])
+watch(treeData, (newData) => {
+  treeDataModel.value = newData
+}, { immediate: true })
 
 function buildTreeData(
   group: GroupNode,
@@ -190,33 +200,12 @@ function handleOpenNode({ stat }: { stat: any }) {
 // 处理节点点击
 function handleClickNode({ stat }: { stat: any }) {
   if (stat.data.type === 'group') {
-    // 分组节点：切换展开
-    const tree = treeRef.value
-    if (tree) {
-      const treeStat = tree.getStat(stat.data)
-      if (treeStat) {
-        treeStat.open = !treeStat.open
-      }
-    }
+    // 分组节点：切换展开（stat.open 是响应式的）
+    stat.open = !stat.open
     emit('toggle', stat.data.id)
   }
   // 服务器节点的事件由 ServerItem 处理
 }
-
-// 初始化展开状态
-const initialExpanded = computed(() => {
-  return props.expandedGroups.has(props.group.id as string | null)
-})
-
-// 监听初始展开状态
-watch(initialExpanded, (expanded) => {
-  if (expanded && treeRef.value) {
-    const stat = treeRef.value.getStat(treeData.value[0])
-    if (stat) {
-      stat.open = true
-    }
-  }
-}, { immediate: true })
 </script>
 
 <style scoped>
