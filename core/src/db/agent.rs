@@ -415,8 +415,11 @@ mod tests {
                 content TEXT,
                 tool_name TEXT,
                 tool_call_id TEXT,
+                tool_calls TEXT,
                 timestamp REAL NOT NULL,
                 finish_reason TEXT,
+                reasoning TEXT,
+                reasoning_content TEXT,
                 FOREIGN KEY (session_id) REFERENCES sessions(id)
             )"#,
             [],
@@ -510,8 +513,11 @@ mod tests {
             content: Some("Hello".to_string()),
             tool_name: None,
             tool_call_id: None,
+            tool_calls: None,
             timestamp: 1700000000.0,
             finish_reason: None,
+            reasoning: None,
+            reasoning_content: None,
         };
 
         assert_eq!(message.id, 1);
@@ -767,8 +773,11 @@ mod tests {
                 content,
                 tool_name,
                 tool_call_id,
+                tool_calls,
                 timestamp,
-                finish_reason
+                finish_reason,
+                reasoning,
+                reasoning_content
             FROM messages
             WHERE session_id = ?
             ORDER BY timestamp, id
@@ -784,8 +793,11 @@ mod tests {
                     content: row.get::<_, Option<String>>(3)?,
                     tool_name: row.get::<_, Option<String>>(4)?,
                     tool_call_id: row.get::<_, Option<String>>(5)?,
-                    timestamp: row.get(6)?,
-                    finish_reason: row.get::<_, Option<String>>(7)?,
+                    tool_calls: row.get::<_, Option<String>>(6)?,
+                    timestamp: row.get(7)?,
+                    finish_reason: row.get::<_, Option<String>>(8)?,
+                    reasoning: row.get::<_, Option<String>>(9)?,
+                    reasoning_content: row.get::<_, Option<String>>(10)?,
                 })
             })
             .expect("Failed to query messages")
