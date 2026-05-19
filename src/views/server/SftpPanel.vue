@@ -34,6 +34,7 @@
       <input v-model="currentPath" @keyup.enter="loadDir" placeholder="/home/user" class="input input-bordered input-sm flex-1 text-xs" />
       <button @click="loadDir" class="btn btn-ghost btn-sm">刷新</button>
       <button @click="goUp" class="btn btn-ghost btn-sm" :disabled="currentPath === '/'">↑ 上级</button>
+      <button @click="showCreateFolderDialog" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folderPlus" size="14" /> 新建文件夹</button>
       <button @click="uploadFile" class="btn btn-ghost btn-sm">↑ 上传文件</button>
       <button @click="uploadFolder" class="btn btn-ghost btn-sm gap-1.5"><SvgIcon name="folder" size="14" /> 上传文件夹</button>
     </div>
@@ -135,6 +136,25 @@
       <progress class="progress progress-primary flex-1 h-1" :value="downloadProgress.percent" max="100"></progress>
       <span class="min-w-[40px] text-right font-semibold text-primary">{{ downloadProgress.percent }}%</span>
     </div>
+
+    <!-- 创建文件夹对话框 -->
+    <div v-if="showCreateFolder" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40" @click.self="showCreateFolder = false">
+      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4">
+        <h3 class="text-sm font-semibold mb-3">新建文件夹</h3>
+        <input
+          v-model="newFolderName"
+          type="text"
+          placeholder="文件夹名称"
+          class="input input-bordered input-sm w-full text-xs"
+          @keyup.enter="createFolder"
+          ref="newFolderInputRef"
+        />
+        <div class="flex justify-end gap-2 mt-3">
+          <button class="btn btn-ghost btn-sm" @click="showCreateFolder = false">取消</button>
+          <button class="btn btn-primary btn-sm" @click="createFolder" :disabled="!newFolderName.trim()">创建</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -192,9 +212,41 @@ let disconnectCleanup: (() => void) | null = null;
 let currentEntries: any[] = []; // 保存拖拽条目用于重试
 const fileListRef = ref<HTMLElement | null>(null);
 
+// 创建文件夹
+const showCreateFolder = ref(false);
+const newFolderName = ref('');
+const newFolderInputRef = ref<HTMLInputElement | null>(null);
+
+function showCreateFolderDialog() {
+  newFolderName.value = '';
+  showCreateFolder.value = true;
+  setTimeout(() => {
+    newFolderInputRef.value?.focus();
+  }, 50);
+}
+
+async function createFolder() {
+  if (!newFolderName.value.trim()) return;
+  const folderPath = currentPath.value === '/' ? '/' + newFolderName.value : currentPath.value + '/' + newFolderName.value;
+
+  try {
+    const result = await getTauriAPI().sftpCreateDir(props.server.id, folderPath);
+    if (result?.success) {
+      toast.success(`文件夹创建成功: ${newFolderName.value}`);
+      showCreateFolder.value = false;
+      newFolderName.value = '';
+      await loadDir();
+    } else {
+      toast.error(`创建失败: ${result?.error || '未知错误'}`);
+    }
+  } catch (error: any) {
+    handleError(error, { context: 'SFTP createFolder' });
+  }
+}
+
 const connectionLabel = ref('连接中...');
 const isMaximized = ref(false);
-const defaultPos = props.initialPosition || { x: Math.max(50, (window.innerWidth - 800) / 2), y: 80 };
+const defaultPos = props.initialPosition || { x: Math.max(50, (window.innerWidth - 900) / 2), y: 50 };
 const panelPos = ref({ x: defaultPos.x, y: defaultPos.y });
 
 const panelStyle = computed(() => {
@@ -204,8 +256,8 @@ const panelStyle = computed(() => {
   return {
     left: panelPos.value.x + 'px',
     top: panelPos.value.y + 'px',
-    width: '800px',
-    height: '600px',
+    width: '900px',
+    height: '700px',
   };
 });
 
