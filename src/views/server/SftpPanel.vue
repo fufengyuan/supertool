@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import VueFinder from 'vuefinder'
+import { VueFinder } from 'vuefinder'
 import 'vuefinder/dist/vuefinder.css'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { SftpDriver } from '@/drivers/SftpDriver'

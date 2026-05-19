@@ -5,11 +5,19 @@
  */
 import { BaseAdapter } from 'vuefinder'
 import type {
+  Driver,
   FsData,
   DirEntry,
   DeleteResult,
   FileOperationResult,
-  FileContentResult
+  FileContentResult,
+  ListParams,
+  DeleteParams,
+  RenameParams,
+  TransferParams,
+  ArchiveParams,
+  SaveParams,
+  SearchParams
 } from 'vuefinder'
 import { getTauriAPI } from '@/utils/tauri-api'
 
@@ -17,45 +25,6 @@ export interface SftpDriverConfig {
   serverId: string
   serverName: string
   initialPath?: string
-}
-
-// Type definitions for VueFinder (inline since dist types may not be accessible)
-interface ListParams {
-  path?: string
-}
-
-interface DeleteParams {
-  path: string
-  items: { path: string; type: string }[]
-}
-
-interface RenameParams {
-  path: string
-  item: string
-  name: string
-}
-
-interface TransferParams {
-  path?: string
-  sources: string[]
-  destination: string
-}
-
-interface ArchiveParams {
-  items: { path: string; type: string }[]
-  path: string
-  name: string
-}
-
-interface SaveParams {
-  path: string
-  content: string
-}
-
-interface SearchParams {
-  path?: string
-  filter: string
-  deep?: boolean
 }
 
 /**
