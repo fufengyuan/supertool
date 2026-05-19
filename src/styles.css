@@ -29,6 +29,17 @@ input, textarea, select, [contenteditable] {
   cursor: text !important;
 }
 
+/* 全局禁用双击文本选择（桌面应用风格） */
+* {
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* 仅允许输入框和编辑器选择文本 */
+input, textarea, [contenteditable], .allow-select {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 /* 滚动条 */
 ::-webkit-scrollbar {
   width: 6px;
