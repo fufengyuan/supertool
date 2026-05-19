@@ -1096,9 +1096,8 @@ async function onPaste(e: ClipboardEvent) {
         reader.readAsDataURL(blob);
       });
       const base64 = dataUrl.split(',')[1];
-      // 保留原扩展名
-      const ext = file.name?.split('.').pop() || 'png';
-      const fileName = `pasted_${Date.now()}.${ext}`;
+      // 保留原始文件名（加时间戳防冲突）
+      const fileName = file.name ? `pasted_${Date.now()}_${file.name}` : `pasted_${Date.now()}`;
       const result = await getTauriAPI().saveTempFile(base64, fileName);
       return result ?? null;
     } catch (err) {
@@ -1107,13 +1106,12 @@ async function onPaste(e: ClipboardEvent) {
     }
   };
 
-  // 1. 从 clipboardData.files 检测粘贴的图片/文件（截图、从浏览器复制图片等）
+  // 1. 从 clipboardData.files 检测粘贴的文件/图片（Finder 粘贴文件、截图等）
   if (files.length > 0) {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
-      if (!file || !file.type) continue;
-      // 只处理图片类型 — WKWebView/macOS 文件管理器粘贴不会出现在 files 中
-      if (!file.type.startsWith('image/')) continue;
+      if (!file) continue;
+      // 所有类型都保存到 temp 并显示为徽章，包括 WKWebView 中 type="" 的文件
       const path = await saveFile(file);
       if (path) savedPaths.push(path);
     }
