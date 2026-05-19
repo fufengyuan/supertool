@@ -1506,6 +1506,25 @@ const MAX_CACHE = 500;
 const markdownRenderer = new marked.Renderer();
 markdownRenderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
   const language = lang || 'plaintext';
+  
+  // 检测内容是否已经被 hljs 高亮过（包含 hljs-xxx 类名）
+  if (code.includes('class="hljs-') || code.includes('class=\'hljs-')) {
+    // 已经高亮过，直接返回，避免双重编码
+    const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
+    return `<div class="code-block-wrapper">
+      <div class="code-header">
+        <span class="code-lang">${language}</span>
+        <button class="copy-btn" onclick="copyCode('${codeId}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+        </button>
+      </div>
+      <pre><code id="${codeId}" class="hljs">${code}</code></pre>
+    </div>`;
+  }
+  
   const highlighted = language && hljs.getLanguage(language) 
     ? hljs.highlight(code, { language }).value 
     : hljs.highlightAuto(code).value;
