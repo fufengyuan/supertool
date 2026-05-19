@@ -1344,13 +1344,14 @@ const renderMarkdown = (text: string | null): string => {
       </div>`;
     };
     
-    marked.setOptions({ renderer });
-    const html = marked.parse(processedText) as string;
+    marked.setOptions({ renderer, breaks: true, gfm: true });
+    const html = marked.parse(processedText, { async: false }) as string;
     return DOMPurify.sanitize(html, {
       ADD_ATTR: ['target', 'onclick', 'id', 'title'],
       ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div'],
     });
-  } catch {
+  } catch (e) {
+    console.error('[renderMarkdown] Error:', e);
     return text;
   }
 };
