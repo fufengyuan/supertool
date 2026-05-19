@@ -597,6 +597,7 @@
               style="min-height: 52px; max-height: 200px;"
               :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
               @keydown.enter.exact.prevent="sendMessage"
+              @paste="onPaste"
             ></textarea>
             <!-- 发送按钮 -->
             <button
@@ -1057,6 +1058,91 @@ const removeAttachedPath = (idx: number) => {
   attachedPaths.value.splice(idx, 1);
   nextTick(() => adjustTextareaHeight());
 };
+
+// 粘贴处理（支持粘贴图片/文件到输入框，保存为临时文件后追加路径到已选路径列表）
+async function onPaste(e: ClipboardEvent) {
+  const dt = e.clipboardData;
+  if (!dt) return;
+
+  const files = dt.files;
+  const items = dt.items;
+  const savedPaths: string[] = [];
+
+  // 辅助：将 File 保存为临时文件，返回路径
+  const saveFile = async (file: File): Promise<string | null> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      // 用 Blob + DataURL 转 base64，避免大文件 spread operator 栈溢出
+      const blob = new Blob([arrayBuffer]);
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+      });
+      const base64 = dataUrl.split(',')[1];
+      // 保留原扩展名
+      const ext = file.name?.split('.').pop() || 'png';
+      const fileName = `pasted_${Date.now()}.${ext}`;
+      const result = await getTauriAPI().lanSaveTempFile(base64, fileName);
+      return result?.path ?? null;
+    } catch (err) {
+      console.error('[HermesChat] paste save error:', err);
+      return null;
+    }
+  };
+
+  // 1. 从 clipboardData.files 检测粘贴的图片/文件（截图、从浏览器复制图片等）
+  if (files.length > 0) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (!file || !file.type) continue;
+      // 只处理图片类型 — WKWebView/macOS 文件管理器粘贴不会出现在 files 中
+      if (!file.type.startsWith('image/')) continue;
+      const path = await saveFile(file);
+      if (path) savedPaths.push(path);
+    }
+  }
+
+  // 2. 备用：从 clipboardData.items 检测图片（部分场景 files 为空但 items 有）
+  if (savedPaths.length === 0 && items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) {
+          const path = await saveFile(file);
+          if (path) savedPaths.push(path);
+        }
+        break;
+      }
+    }
+  }
+
+  // 3. 如有处理文件/图片，阻止默认粘贴 + 手动插入文本 + 追加到已选路径
+  if (savedPaths.length > 0) {
+    e.preventDefault();
+    // 文本部分手动插入光标位置
+    const text = dt.getData('text/plain');
+    if (text) {
+      const ta = inputRef.value;
+      if (ta) {
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        const before = inputText.value.substring(0, start);
+        const after = inputText.value.substring(end);
+        inputText.value = before + text + after;
+        nextTick(() => ta.setSelectionRange(start + text.length, start + text.length));
+      }
+    }
+    // 追加到已选路径徽章
+    for (const path of savedPaths) {
+      const name = path.split('/').pop() || path;
+      attachedPaths.value.push({ path, type: 'file', name });
+    }
+    nextTick(() => adjustTextareaHeight());
+  }
+}
 
 // 追加路径到输入框（保留用于兼容外部调用）
 const appendPathToInput = (path: string) => {
