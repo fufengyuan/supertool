@@ -2168,6 +2168,31 @@ onMounted(async () => {
     
     if (event.payload?.text) {
       thinkingText.value = event.payload.text;
+      
+      // 累积思考内容到当前 assistant 消息，支持点击展开查看
+      const messagesCopy = [...messages.value].reverse();
+      let currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
+      
+      // 如果没有 assistant 消息或最后一条是 user，创建新消息
+      const lastMsg = messages.value[messages.value.length - 1];
+      const needsNewMsg = lastMsg?.role === 'user';
+      
+      if (!currentMsg || needsNewMsg) {
+        const newMsg: Message = {
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now() / 1000,
+          toolName: null,
+          toolCalls: [],
+          thinking: event.payload.text,
+        };
+        messages.value.push(newMsg);
+        currentMsg = messages.value[messages.value.length - 1];
+      } else if (currentMsg) {
+        // 追加思考内容（thinking 事件可能多次发送）
+        currentMsg.thinking = (currentMsg.thinking || '') + event.payload.text;
+      }
+      
       scrollToBottom();
     }
   });
