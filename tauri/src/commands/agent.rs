@@ -85,15 +85,17 @@ pub fn agent_rename_session(
 /// Search Agent sessions (direct SQLite access)
 #[tauri::command(rename_all = "camelCase")]
 pub fn agent_search_sessions(
-    keyword: String,
+    query: String,
     limit: Option<i32>,
 ) -> Result<serde_json::Value, String> {
     let limit = limit.unwrap_or(50);
-    let sessions = search_hermes_sessions(&keyword, limit)?;
+    let sessions = search_hermes_sessions(&query, limit)?;
+    let total = sessions.len() as i64;
     Ok(json!({
         "success": true,
-        "sessions": sessions,
-        "keyword": keyword
+        "results": sessions,
+        "total": total,
+        "query": query
     }))
 }
 
