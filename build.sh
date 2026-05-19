@@ -228,12 +228,16 @@ POSTINSTALL
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-    <key>BundleIsRelocatable</key>
-    <false/>
-    <key>BundleIsVersionChecked</key>
-    <true/>
-</dict>
+<array>
+    <dict>
+        <key>BundleIsRelocatable</key>
+        <false/>
+        <key>BundleIsVersionChecked</key>
+        <true/>
+        <key>RootRelativeBundlePath</key>
+        <string>Applications/SuperTool.app</string>
+    </dict>
+</array>
 </plist>
 PLIST
 
@@ -463,6 +467,25 @@ case "$MODE" in
     rm -rf "$PKG_DIR"
     mkdir -p "$PKG_DIR/scripts"
     
+    # 创建 component plist：禁止 macOS 26 上 pkgbuild 的自动 bundle relocate
+    # 用 --component-plist 显式传递，防止 pkgbuild 忽略
+    cat > "$PKG_DIR/component.plist" << 'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+    <dict>
+        <key>BundleIsRelocatable</key>
+        <false/>
+        <key>BundleIsVersionChecked</key>
+        <true/>
+        <key>RootRelativeBundlePath</key>
+        <string>Applications/SuperTool.app</string>
+    </dict>
+</array>
+</plist>
+PLIST
+
     # macOS 26.4.1+: pkgbuild --component 有 bug，bundle 路径会相对 CWD 解析
     # 导致 app 被装到 build 目录而非 /Applications。改用 --root 更可靠。
     cat > "$PKG_DIR/scripts/postinstall" << 'POSTINSTALL'
