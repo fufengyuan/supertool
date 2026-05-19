@@ -155,6 +155,21 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认对话框 -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40" @click.self="showDeleteConfirm = false">
+      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4">
+        <h3 class="text-sm font-semibold mb-2">确认删除</h3>
+        <p class="text-xs text-base-content/70 mb-1">
+          {{ deleteTarget?.type === 'directory' ? '文件夹' : '文件' }}：<span class="font-medium text-base-content">{{ deleteTarget?.name }}</span>
+        </p>
+        <p class="text-xs text-error mb-3">{{ deleteTarget?.type === 'directory' ? '文件夹内所有内容都将被删除，此操作不可恢复！' : '删除后无法恢复，确定要继续吗？' }}</p>
+        <div class="flex justify-end gap-2">
+          <button class="btn btn-ghost btn-sm" @click="showDeleteConfirm = false">取消</button>
+          <button class="btn btn-error btn-sm" @click="confirmDelete">删除</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -216,6 +231,10 @@ const fileListRef = ref<HTMLElement | null>(null);
 const showCreateFolder = ref(false);
 const newFolderName = ref('');
 const newFolderInputRef = ref<HTMLInputElement | null>(null);
+
+// 删除确认
+const showDeleteConfirm = ref(false);
+const deleteTarget = ref<SftpFile | null>(null);
 
 function showCreateFolderDialog() {
   newFolderName.value = '';
@@ -788,7 +807,15 @@ function readDirRecursive(entry: any): Promise<{ path: string; file: File }[]> {
 }
 
 async function deleteFile(file) {
-  if (!confirm(`确定删除 ${file.name}？`)) return;
+  deleteTarget.value = file;
+  showDeleteConfirm.value = true;
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+  const file = deleteTarget.value;
+  showDeleteConfirm.value = false;
+  deleteTarget.value = null;
 
   const path = currentPath.value + '/' + file.name;
 
