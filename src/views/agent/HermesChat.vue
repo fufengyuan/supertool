@@ -1084,8 +1084,8 @@ async function onPaste(e: ClipboardEvent) {
       // 保留原扩展名
       const ext = file.name?.split('.').pop() || 'png';
       const fileName = `pasted_${Date.now()}.${ext}`;
-      const result = await getTauriAPI().lanSaveTempFile(base64, fileName);
-      return result?.path ?? null;
+      const result = await getTauriAPI().saveTempFile(base64, fileName);
+      return result ?? null;
     } catch (err) {
       console.error('[HermesChat] paste save error:', err);
       return null;

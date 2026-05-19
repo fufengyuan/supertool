@@ -384,9 +384,16 @@ async function onPaste(e: ClipboardEvent) {
       // Convert clipboard image to base64 and save via IPC
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const base64 = (globalThis as any).Buffer?.from(arrayBuffer).toString('base64') ?? btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        const blob = new Blob([arrayBuffer]);
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        const base64 = dataUrl.split(',')[1];
         const fileName = `pasted_image_${Date.now()}.png`;
-        const tmpPath = await getTauriAPI().lanSaveTempFile(base64, fileName);
+        const tmpPath = await getTauriAPI().saveTempFile(base64, fileName);
         if (tmpPath) {
           await sendFile({ path: tmpPath, name: fileName, size: file.size });
         }

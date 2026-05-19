@@ -1700,7 +1700,7 @@ export interface TauriAPI {
   sendFile: (userId: string, filePath: string) => Promise<any>
   openFile: (filePath: string) => Promise<any>
   openFileFolder: (filePath: string) => Promise<any>
-  saveTempFile: (name: string, content: string) => Promise<any>
+  saveTempFile: (base64Data: string, fileName: string) => Promise<string | null>
   loadLocalFileAsBase64: (filePath: string) => Promise<string>
   connectServer: (serverId: string) => Promise<any>
   disconnectServer: (serverId: string) => Promise<any>
@@ -2481,7 +2481,10 @@ export function getTauriAPI(): TauriAPI {
     setReceivePath: async (path: string) => tauriCall("lan_set_receive_path", { path }),
     openFile: async (filePath: string) => tauriCall("lan_open_file", { filePath }),
     openFileFolder: async (filePath: string) => tauriCall("lan_open_file_folder", { filePath }),
-    saveTempFile: async (name: string, content: string) => tauriCall("save_temp_file", { name, content }),
+    saveTempFile: async (base64Data: string, fileName: string): Promise<string | null> => {
+      const res = await tauriCall<any>('save_temp_file', { base64Data, fileName });
+      return res?.data?.path ?? null;
+    },
     loadLocalFileAsBase64: async (filePath: string) => tauriCall("lan_load_local_file_as_base64", { filePath }),
     // SSH Terminal
     connectServer: async (serverId: string) => tauriCall("connect_server", { serverId }),

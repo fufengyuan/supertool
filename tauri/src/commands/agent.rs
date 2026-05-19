@@ -100,6 +100,69 @@ pub fn agent_search_sessions(
 }
 
 // ============================================================================
+// Generic temp file utilities (used by Agent, LAN Chat, and any paste feature)
+// ============================================================================
+
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use std::fs;
+
+/// Save base64-encoded data as a temp file in ~/.supertool/tmp/
+/// Returns the saved file path.
+#[tauri::command(rename_all = "camelCase")]
+pub fn save_temp_file(base64_data: String, file_name: String) -> Result<serde_json::Value, String> {
+    let temp_dir = supertool_core::logic::data_dir::tmp_dir();
+    fs::create_dir_all(&temp_dir).map_err(|e| format!("创建临时目录失败: {e}"))?;
+
+    let file_path = temp_dir.join(&file_name);
+    let decoded = BASE64
+        .decode(&base64_data)
+        .map_err(|e| format!("Base64 解码失败: {e}"))?;
+    fs::write(&file_path, decoded).map_err(|e| format!("写入文件失败: {e}"))?;
+
+    Ok(json!({
+        "success": true,
+        "data": { "path": file_path.to_string_lossy().to_string() }
+    }))
+}
+
+/// Clean temp files older than max_age_hours (default: 24h) in ~/.supertool/tmp/
+#[tauri::command(rename_all = "camelCase")]
+pub fn clean_temp_dir(max_age_hours: Option<u64>) -> Result<serde_json::Value, String> {
+    let temp_dir = supertool_core::logic::data_dir::tmp_dir();
+    if !temp_dir.exists() {
+        return Ok(json!({ "success": true, "deleted": 0 }));
+    }
+
+    let max_age = max_age_hours.unwrap_or(24);
+    let now = std::time::SystemTime::now();
+    let mut deleted = 0u64;
+
+    for entry in fs::read_dir(&temp_dir).map_err(|e| format!("读取目录失败: {e}"))? {
+        let entry = entry.map_err(|e| format!("读取条目失败: {e}"))?;
+        let path = entry.path();
+        if path.is_file() {
+            if let Ok(metadata) = path.metadata() {
+                if let Ok(modified) = metadata.modified() {
+                    if let Ok(duration) = now.duration_since(modified) {
+                        if duration.as_secs() > max_age * 3600 {
+                            let _ = fs::remove_file(&path);
+                            deleted += 1;
+                            log::info!("[clean_temp_dir] deleted old temp file: {:?}", path);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(json!({
+        "success": true,
+        "deleted": deleted,
+        "maxAgeHours": max_age
+    }))
+}
+
+// ============================================================================
 // Unit Tests - Simulating frontend IPC calls
 // ============================================================================
 
