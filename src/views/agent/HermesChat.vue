@@ -1132,7 +1132,24 @@ async function onPaste(e: ClipboardEvent) {
     }
   }
 
-  // 3. 如有处理文件/图片，阻止默认粘贴 + 追加到已选路径
+  // 3. 从纯文本检测文件系统路径（macOS Finder 粘贴时 files 为空，路径在 text/plain 中）
+  if (savedPaths.length === 0) {
+    const rawText = dt.getData('text/plain')?.trim();
+    if (rawText) {
+      const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      // 判定为路径: 所有行都以 / 开头、包含至少两层目录、无空格
+      const allArePaths = lines.length > 0 && lines.every(l =>
+        l.startsWith('/') && l.lastIndexOf('/') > 0 && l.indexOf(' ') === -1
+      );
+      if (allArePaths) {
+        for (const path of lines) {
+          savedPaths.push(path);
+        }
+      }
+    }
+  }
+
+  // 4. 如有处理文件/图片/路径，阻止默认粘贴 + 追加到已选路径
   if (savedPaths.length > 0) {
     e.preventDefault();
     // 仅在粘贴纯文本（无文件）时手动插入文本内容
@@ -1154,7 +1171,9 @@ async function onPaste(e: ClipboardEvent) {
     // 追加到已选路径徽章
     for (const path of savedPaths) {
       const name = path.split('/').pop() || path;
-      attachedPaths.value.push({ path, type: 'file', name });
+      // 无扩展名或以 / 结尾 → 视为文件夹
+      const type: 'file' | 'folder' = (!name.includes('.') || path.endsWith('/')) ? 'folder' : 'file';
+      attachedPaths.value.push({ path, type, name });
     }
     nextTick(() => adjustTextareaHeight());
   }
