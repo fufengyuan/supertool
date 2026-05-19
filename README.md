@@ -152,6 +152,36 @@ pnpm format       # Prettier
 vue-tsc --noEmit  # TypeScript type checking
 ```
 
+## Git Commit Convention (Auto Versioning)
+
+Follows **Conventional Commits** with automatic version bumping:
+
+| Commit Type | Version Change | Description |
+|-------------|----------------|-------------|
+| `feat:` | minor (+0.1.0) | New feature |
+| `fix:` | patch (+0.0.1) | Bug fix |
+| `feat!:` or `BREAKING CHANGE` | major (+1.0.0) | Breaking change |
+| `chore:`, `docs:`, `style:` | No change | Maintenance commits |
+
+**Examples**:
+```bash
+git commit -m "feat: add user authentication"    # 4.3.0 → 4.4.0
+git commit -m "fix: resolve login timeout"       # 4.4.0 → 4.4.1
+git commit -m "feat!: redesign API structure"    # 4.4.1 → 5.0.0
+git commit -m "chore: update dependencies"       # No version change
+```
+
+**Files Updated (4 locations)**:
+- `package.json`
+- `cli/Cargo.toml`
+- `core/Cargo.toml`
+- `tauri/Cargo.toml`
+
+**Mechanism**:
+- Git hooks in `scripts/hooks/`
+- Auto-configured on `pnpm install` (postinstall)
+- New clone: run `./scripts/init-hooks.sh` or `pnpm install`
+
 ## Project Structure
 
 ```

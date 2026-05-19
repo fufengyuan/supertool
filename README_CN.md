@@ -152,6 +152,36 @@ pnpm format       # Prettier
 vue-tsc --noEmit  # TypeScript 类型检查
 ```
 
+## Git 提交规范（自动版本号）
+
+遵循 **Conventional Commits** 规范，版本号自动更新：
+
+| Commit 类型 | 版本号变化 | 说明 |
+|-------------|------------|------|
+| `feat:` | minor (+0.1.0) | 新功能 |
+| `fix:` | patch (+0.0.1) | Bug 修复 |
+| `feat!:` 或 `BREAKING CHANGE` | major (+1.0.0) | 破坏性变更 |
+| `chore:`, `docs:`, `style:` | 不更新 | 维护性提交 |
+
+**示例**：
+```bash
+git commit -m "feat: add user authentication"    # 4.3.0 → 4.4.0
+git commit -m "fix: resolve login timeout"       # 4.4.0 → 4.4.1
+git commit -m "feat!: redesign API structure"    # 4.4.1 → 5.0.0
+git commit -m "chore: update dependencies"       # 版本号不变
+```
+
+**更新位置（4处统一）**：
+- `package.json`
+- `cli/Cargo.toml`
+- `core/Cargo.toml`
+- `tauri/Cargo.toml`
+
+**机制**：
+- Git hooks 位于 `scripts/hooks/`
+- `pnpm install` 时自动配置 hooks（postinstall）
+- 新环境克隆后运行 `./scripts/init-hooks.sh` 或 `pnpm install`
+
 ## 项目结构
 
 ```
