@@ -554,20 +554,18 @@ fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
         }
     }
     if pattern.contains(r"^(?:[^:]*:)?(\d+):(.*)$") {
-        // "filename:lineNum:content" or "lineNum:content"
-        let parts: Vec<&str> = line.splitn(3, ':').collect();
-        if parts.len() >= 2 {
-            if parts.len() == 2 {
-                // "lineNum:content"
-                if parts[0].chars().all(|c| c.is_ascii_digit()) {
-                    return Some((parts[0].to_string(), parts[1].to_string()));
-                }
-            } else {
-                // "filename:lineNum:content"
-                if parts[1].chars().all(|c| c.is_ascii_digit()) {
-                    return Some((parts[1].to_string(), parts[2].to_string()));
-                }
+        // "filename:lineNum:content" or "lineNum:content" (content may contain colons)
+        // First try: find first ':', check if prefix is digits → "lineNum:content"
+        if let Some(pos) = line.find(':') {
+            let num_part = &line[..pos];
+            if num_part.chars().all(|c| c.is_ascii_digit()) {
+                return Some((num_part.to_string(), line[pos + 1..].to_string()));
             }
+        }
+        // Fallback: "filename:lineNum:content" — split at most 3 parts
+        let parts: Vec<&str> = line.splitn(3, ':').collect();
+        if parts.len() == 3 && parts[1].chars().all(|c| c.is_ascii_digit()) {
+            return Some((parts[1].to_string(), parts[2].to_string()));
         }
     }
     if pattern.contains(r"^(?:[^:]*:)?(\d+)-(.*)$") {
