@@ -146,11 +146,11 @@ def _create_agent(
         if not _abort_flag:
             # Accumulate assistant text for signal handler
             _accumulated_assistant_text.append(delta)
-            _output({"type": "delta", "text": delta})
+            _output({"type": "delta", "text": delta, "session_id": _current_session_id})
 
     def tool_start_callback(tool_call_id: str, tool_name: str, tool_args: Dict) -> None:
         if not _abort_flag:
-            _output({"type": "tool_start", "id": tool_call_id, "name": tool_name, "args": tool_args})
+            _output({"type": "tool_start", "id": tool_call_id, "name": tool_name, "args": tool_args, "session_id": _current_session_id})
 
     def tool_complete_callback(tool_call_id: str, tool_name: str, tool_args: Dict, result: Any) -> None:
         if not _abort_flag:
@@ -164,7 +164,8 @@ def _create_agent(
                 "id": tool_call_id,
                 "name": tool_name,
                 "result": result_str,
-                "duration_ms": 0  # Duration not provided by Hermes callback
+                "duration_ms": 0,  # Duration not provided by Hermes callback
+                "session_id": _current_session_id,
             })
 
     def thinking_callback(text: str) -> None:

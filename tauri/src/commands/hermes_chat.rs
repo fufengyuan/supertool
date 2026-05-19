@@ -478,8 +478,12 @@ pub async fn agent_chat(
 
     let mut final_response: Option<String> = None;
     let mut final_session_id: Option<String> = None;
-    let mut final_message_count: usize = 0;
+    let mut message_count: usize = 0;
     let mut accumulated_text = String::new();
+    // Capture session_id from the first event that provides it (Delta, ToolStart, etc.)
+    // This is critical for abort: if "done" is never received, we still need the
+    // session_id so the frontend can resume the conversation instead of creating a new one.
+    let mut captured_session_id: Option<String> = None;
 
     for line in reader.lines() {
         if abort_flag.load(Ordering::SeqCst) {
@@ -520,6 +524,10 @@ pub async fn agent_chat(
             BridgeMessage::Delta { text, session_id } => {
                 if let Some(t) = &text {
                     accumulated_text.push_str(t);
+                }
+                // Capture session_id from the first event
+                if captured_session_id.is_none() {
+                    captured_session_id = session_id.clone();
                 }
                 eprintln!("[DEBUG] agent-delta: {:?}", text);
                 app.emit(
@@ -583,7 +591,7 @@ pub async fn agent_chat(
             BridgeMessage::Done {
                 response,
                 session_id,
-                message_count,
+                message_count: done_message_count,
             } => {
                 // 立即发送 agent-done 事件，让前端恢复状态
                 app.emit(
@@ -591,13 +599,18 @@ pub async fn agent_chat(
                     serde_json::json!({
                         "response": response,
                         "session_id": session_id,
-                        "message_count": message_count,
+                        "message_count": done_message_count,
                     }),
                 )
                 .ok();
                 final_response = response;
                 final_session_id = Some(session_id);
-                final_message_count = message_count;
+                message_count = done_message_count;
+
+                // 捕获 session_id（从 done 事件）
+                if captured_session_id.is_none() {
+                    captured_session_id = final_session_id.clone();
+                }
             }
             BridgeMessage::Error { message, session_id } => {
                 app.emit(
@@ -630,7 +643,11 @@ pub async fn agent_chat(
                 }
                 return Err(message);
             }
-            BridgeMessage::Aborted { .. } => {
+            BridgeMessage::Aborted { session_id } => {
+                // Capture session_id even from aborted message
+                if captured_session_id.is_none() {
+                    captured_session_id = session_id.clone();
+                }
                 // 先清理再返回，避免资源泄漏
                 child.wait().ok();
                 {
@@ -651,7 +668,27 @@ pub async fn agent_chat(
                         *current = None;
                     }
                 }
-                return Err("Chat aborted by user".to_string());
+                // 返回 session_id 而非抛 error，前端需要它来保存会话 ID
+                // 否则下一轮 invoke 用 null sessionId 创建新会话，旧会话丢失
+                let effective_session_id = captured_session_id.clone();
+                if let Some(ref sid) = effective_session_id {
+                    app.emit(
+                        "agent-done",
+                        serde_json::json!({
+                            "response": Option::<String>::None,
+                            "session_id": sid,
+                            "message_count": message_count,
+                            "aborted": true,
+                        }),
+                    )
+                    .ok();
+                }
+                return Ok(serde_json::json!({
+                    "response": Option::<String>::None,
+                    "session_id": effective_session_id,
+                    "message_count": message_count,
+                    "aborted": true,
+                }));
             }
             _ => {}
         }
@@ -679,11 +716,11 @@ pub async fn agent_chat(
         }
     }
 
-    // Return result
+    // Return result with captured session_id as fallback
     Ok(serde_json::json!({
         "response": final_response.unwrap_or(accumulated_text),
-        "session_id": final_session_id,
-        "message_count": final_message_count,
+        "session_id": captured_session_id.or(final_session_id),
+        "message_count": message_count,
     }))
 }
 
