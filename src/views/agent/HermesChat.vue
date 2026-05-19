@@ -564,6 +564,29 @@
               </button>
             </div>
           </div>
+          <!-- 已选择路径徽章 -->
+          <div v-if="attachedPaths.length > 0" class="flex flex-wrap gap-1.5 px-1">
+            <div
+              v-for="(item, idx) in attachedPaths"
+              :key="idx"
+              class="group flex items-center gap-1 px-2 py-1 rounded-md text-xs border cursor-default transition-all"
+              :class="item.type === 'folder'
+                ? 'bg-warning/5 border-warning/20 text-warning/80'
+                : 'bg-info/5 border-info/20 text-info/80'"
+              :title="item.path"
+            >
+              <SvgIcon :name="item.type === 'folder' ? 'folder' : 'file'" size="12" />
+              <span class="max-w-[160px] truncate">{{ item.name }}</span>
+              <button
+                class="ml-0.5 opacity-40 group-hover:opacity-100 hover:!opacity-100 transition-opacity rounded-full hover:bg-base-content/10 p-0.5"
+                :class="item.type === 'folder' ? 'hover:text-warning' : 'hover:text-info'"
+                @click.stop="removeAttachedPath(idx)"
+                title="移除"
+              >
+                <SvgIcon name="close" size="10" />
+              </button>
+            </div>
+          </div>
           <!-- 输入框 -->
           <div class="flex gap-2">
             <textarea
@@ -781,6 +804,12 @@ const messages = ref<Message[]>([]);
 const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
 const showTaskPanel = ref(true); // 是否显示任务面板
 const inputText = ref('');
+interface PathItem {
+  path: string;
+  type: 'file' | 'folder';
+  name: string;
+}
+const attachedPaths = ref<PathItem[]>([]);
 const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
 const showAttachMenu = ref(false); // 显示附件菜单
 const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
@@ -970,10 +999,12 @@ const selectFile = async (defaultPath?: string) => {
     });
     if (selected) {
       const path = Array.isArray(selected) ? selected[0] : selected;
-      appendPathToInput(path);
+      const name = path.split('/').pop() || path;
+      attachedPaths.value.push({ path, type: 'file', name });
       // 记住选择的目录作为常用文件夹
       const dir = path.split('/').slice(0, -1).join('/') || path;
       addFavoriteFolder(dir);
+      nextTick(() => adjustTextareaHeight());
     }
   } catch (e) {
     console.error('选择文件失败:', e);
@@ -992,9 +1023,11 @@ const selectFolder = async (defaultPath?: string) => {
     });
     if (selected) {
       const path = Array.isArray(selected) ? selected[0] : selected;
-      appendPathToInput(path);
+      const name = path.split('/').pop() || path;
+      attachedPaths.value.push({ path, type: 'folder', name });
       // 记住选择的目录作为常用文件夹
       addFavoriteFolder(path);
+      nextTick(() => adjustTextareaHeight());
     }
   } catch (e) {
     console.error('选择文件夹失败:', e);
@@ -1004,8 +1037,10 @@ const selectFolder = async (defaultPath?: string) => {
 
 // 选择 Git 仓库并追加路径到输入框
 const selectGitRepo = (repo: GitRepo) => {
-  appendPathToInput(repo.path);
+  const name = repo.path.split('/').pop() || repo.name || repo.path;
+  attachedPaths.value.push({ path: repo.path, type: 'folder', name });
   showAttachMenu.value = false;
+  nextTick(() => adjustTextareaHeight());
 };
 
 // 从常用文件夹打开文件选择
@@ -1017,7 +1052,13 @@ const selectFromFavorite = (folder: string, type: 'file' | 'folder') => {
   }
 };
 
-// 追加路径到输入框
+// 移除已选择的路径
+const removeAttachedPath = (idx: number) => {
+  attachedPaths.value.splice(idx, 1);
+  nextTick(() => adjustTextareaHeight());
+};
+
+// 追加路径到输入框（保留用于兼容外部调用）
 const appendPathToInput = (path: string) => {
   if (inputText.value.trim()) {
     inputText.value += '\n' + path;
@@ -1565,8 +1606,15 @@ const sendMessage = async () => {
   }
 
   // 构建消息
-  const text = inputText.value.trim();
+  let text = inputText.value.trim();
   inputText.value = '';
+  // 将已选择路径拼入消息头部
+  let pathPrefix = '';
+  if (attachedPaths.value.length > 0) {
+    pathPrefix = attachedPaths.value.map(p => p.path).join('\n') + '\n';
+    attachedPaths.value = [];
+  }
+  text = pathPrefix + text;
 
   // 添加用户消息
   messages.value.push({
