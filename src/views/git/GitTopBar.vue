@@ -101,11 +101,6 @@
         </div>
       </div>
 
-      <!-- Files 按钮 -->
-      <button class="btn btn-ghost btn-sm" :class="{ active: showFileBrowser }" @click="$emit('toggle-file-browser')" title="浏览文件">
-        <SvgIcon name="file" width="14" height="14" />
-        文件
-      </button>
       <button class="btn btn-ghost btn-sm" @click="$emit('pull')" :disabled="pulling" title="拉取">
         <SvgIcon v-if="!pulling" name="download" width="14" height="14" />
         <SvgIcon v-else name="refresh" class="spin-icon" width="14" height="14" />
@@ -144,7 +139,6 @@ defineProps<{
   pushing: boolean
   showStashMenu: boolean
   showGitMenu: boolean
-  showFileBrowser: boolean
 }>()
 
 defineEmits<{
@@ -156,7 +150,6 @@ defineEmits<{
   'stash-save': []
   'stash-save-untracked': []
   'toggle-stash-panel': []
-  'toggle-file-browser': []
   'pull': []
   'push': []
   'force-push': []
