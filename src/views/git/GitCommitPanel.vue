@@ -29,13 +29,11 @@
             :key="'M:' + file"
             class="file-item"
             :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
-            @click="toggleFileSelect(file)"
-            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'modified')"
           >
-            <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
+            <input type="checkbox" :checked="selectedFiles.has(file)" @change="toggleFileSelect(file)" class="file-checkbox" />
             <span class="file-icon modified">M</span>
-            <span class="file-name" :title="file">{{ file }}</span>
+            <span class="file-name" :title="file" @dblclick="previewFile(file)">{{ file }}</span>
           </div>
         </div>
       </div>
@@ -54,13 +52,11 @@
             :key="'A:' + file"
             class="file-item"
             :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
-            @click="toggleFileSelect(file)"
-            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'added')"
           >
-            <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
+            <input type="checkbox" :checked="selectedFiles.has(file)" @change="toggleFileSelect(file)" class="file-checkbox" />
             <span class="file-icon added">A</span>
-            <span class="file-name" :title="file">{{ file }}</span>
+            <span class="file-name" :title="file" @dblclick="previewFile(file)">{{ file }}</span>
           </div>
         </div>
       </div>
@@ -79,13 +75,11 @@
             :key="'D:' + file"
             class="file-item"
             :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
-            @click="toggleFileSelect(file)"
-            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'deleted')"
           >
-            <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
+            <input type="checkbox" :checked="selectedFiles.has(file)" @change="toggleFileSelect(file)" class="file-checkbox" />
             <span class="file-icon deleted">D</span>
-            <span class="file-name" :title="file">{{ file }}</span>
+            <span class="file-name" :title="file" @dblclick="previewFile(file)">{{ file }}</span>
           </div>
         </div>
       </div>
@@ -104,13 +98,11 @@
             :key="'U:' + file"
             class="file-item"
             :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
-            @click="toggleFileSelect(file)"
-            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'untracked')"
           >
-            <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
+            <input type="checkbox" :checked="selectedFiles.has(file)" @change="toggleFileSelect(file)" class="file-checkbox" />
             <span class="file-icon untracked">U</span>
-            <span class="file-name" :title="file">{{ file }}</span>
+            <span class="file-name" :title="file" @dblclick="previewFile(file)">{{ file }}</span>
           </div>
         </div>
       </div>
@@ -129,13 +121,11 @@
             :key="'C:' + file"
             class="file-item conflicted-item"
             :class="{ selected: selectedFiles.has(file), previewing: selectedPreviewFile === file }"
-            @click="toggleFileSelect(file)"
-            @dblclick="previewFile(file)"
             @contextmenu.prevent="showFileContextMenu($event, file, 'conflicted')"
           >
-            <input type="checkbox" :checked="selectedFiles.has(file)" @click.stop="toggleFileSelect(file)" class="file-checkbox" />
+            <input type="checkbox" :checked="selectedFiles.has(file)" @change="toggleFileSelect(file)" class="file-checkbox" />
             <span class="file-icon conflicted">C</span>
-            <span class="file-name" :title="file">{{ file }}</span>
+            <span class="file-name" :title="file" @dblclick="previewFile(file)">{{ file }}</span>
           </div>
         </div>
       </div>
@@ -254,7 +244,7 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   display: flex;
   flex-direction: column;
   border-right: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent);
-  min-width: 180px;
+  min-width: 280px;
   flex-shrink: 0;
   background: var(--color-base-200);
 }
@@ -382,7 +372,6 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   align-items: center;
   gap: 4px;
   padding: 1px 8px;
-  cursor: pointer;
   transition: background 0.1s;
   user-select: none;
   height: 20px;
@@ -452,6 +441,12 @@ function showFileContextMenu(event: MouseEvent, file: string, type: string) {
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
+  cursor: pointer;
+  flex: 1;
+}
+
+.file-name:hover {
+  color: var(--color-primary);
 }
 
 .empty-files {
