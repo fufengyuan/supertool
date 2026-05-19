@@ -109,8 +109,15 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                             println!("  {} ({}) (无匹配)", sid, sname);
                         } else {
                             for line in lines_arr {
-                                if let Some(l) = line.as_str() {
-                                    println!("  {}", l);
+                                // lines 可能是字符串（tail）或对象 {content, isMatch, lineNum}（search）
+                                let text = line
+                                    .as_str()
+                                    .or_else(|| {
+                                        line.get("content").and_then(|v| v.as_str())
+                                    })
+                                    .unwrap_or("");
+                                if !text.is_empty() {
+                                    println!("  {}", text);
                                 }
                             }
                         }
