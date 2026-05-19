@@ -34,11 +34,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 "updatedAt": chrono::Utc::now().to_rfc3339(),
             });
             let result = runtime.core.add_note(data).await.map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, title} on success
+            if result.get("id").is_some() {
                 print_success(&format!("笔记已添加: {}", title));
             } else {
                 print_error(&format!("添加失败: {}", result));
@@ -73,11 +70,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .update_note(id, serde_json::Value::Object(updates))
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns the updated note object
+            if result.get("id").is_some() {
                 print_success("笔记已更新");
             } else {
                 print_error(&format!("更新失败: {}", result));
@@ -85,11 +79,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
         }
         NoteCommands::Delete { id } => {
             let result = runtime.core.delete_note(id).await.map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("笔记已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));
@@ -115,11 +106,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .add_note_group(data)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, name} on success
+            if result.get("id").is_some() {
                 print_success(&format!("分组已添加: {}", name));
             } else {
                 print_error(&format!("添加失败: {}", result));
@@ -138,11 +126,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .update_note_group(id, serde_json::Value::Object(updates))
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id, name} on success
+            if result.get("id").is_some() {
                 print_success("分组已更新");
             } else {
                 print_error(&format!("更新失败: {}", result));
@@ -154,11 +139,8 @@ pub async fn cmd_note(runtime: &mut CliRuntime, action: &crate::types::NoteComma
                 .delete_note_group(id)
                 .await
                 .map_err(|e| anyhow!(e))?;
-            if result
-                .get("success")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false)
-            {
+            // Core returns {id} on success
+            if result.get("id").is_some() {
                 print_success("分组已删除");
             } else {
                 print_error(&format!("删除失败: {}", result));
