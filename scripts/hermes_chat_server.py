@@ -56,6 +56,14 @@ from toolsets import resolve_multiple_toolsets
 from cli import load_cli_config
 
 # ---------------------------------------------------------------------------
+# Parse reasoning_config from Hermes config (same as CLI's _parse_reasoning_config)
+# ---------------------------------------------------------------------------
+try:
+    from hermes_constants import parse_reasoning_effort as _parse_reasoning_effort
+except ImportError:
+    _parse_reasoning_effort = None
+
+# ---------------------------------------------------------------------------
 # Global state
 # ---------------------------------------------------------------------------
 _session_db: Optional[SessionDB] = None
@@ -77,6 +85,13 @@ if isinstance(_model_config, dict):
     _default_model = _model_config.get("default") or _model_config.get("model") or ""
 else:
     _default_model = _model_config or ""
+
+# reasoning_config: read from agent.reasoning_effort (same path as CLI)
+_reasoning_config = None
+if _parse_reasoning_effort is not None:
+    _reasoning_effort = _cli_config.get("agent", {}).get("reasoning_effort", "")
+    if _reasoning_effort:
+        _reasoning_config = _parse_reasoning_effort(_reasoning_effort)
 
 
 def _ensure_session_db() -> SessionDB:
@@ -187,6 +202,7 @@ def _run_chat_in_thread(
                 session_db=session_db,
                 enabled_toolsets=enabled_toolsets,
                 max_iterations=50,
+                reasoning_config=_reasoning_config,
                 stream_delta_callback=stream_callback,
                 tool_start_callback=tool_start_callback,
                 tool_complete_callback=tool_complete_callback,
