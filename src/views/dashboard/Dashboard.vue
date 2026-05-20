@@ -300,7 +300,7 @@ const todoStats = computed(() => {
   };
 });
 
-// 最近待办（前5条未完成的）
+// 最近待办（前10条未完成的）
 const recentTodos = computed(() => {
   return todoStore.todos
     .filter(t => !t.completed)
@@ -312,7 +312,7 @@ const recentTodos = computed(() => {
       if (pa !== pb) return pa - pb;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })
-    .slice(0, 5);
+    .slice(0, 10);
 });
 
 // 服务器统计
@@ -364,7 +364,7 @@ const recentDeployments = ref<{ id: string; status: string; configName?: string;
 const loadRecentDeployments = async () => {
   try {
     const history = await invoke<{ id: string; status: string; configName?: string; deployedAt: string }[]>('get_all_deploy_history');
-    recentDeployments.value = history.slice(0, 5).map(h => ({
+    recentDeployments.value = history.slice(0, 10).map(h => ({
       id: h.id,
       status: h.status,
       configName: h.configName || '未知配置',
