@@ -2053,10 +2053,10 @@ async fn deploy_to_server(
         }
     }
 
-    // Create module-specific deploy paths
+    // Create module-specific deploy paths (shell expand ~ fine)
     for artifact in artifacts {
         if let Some(ref dp) = artifact.deploy_path {
-            if dp != &config.deploy_dir {
+            if dp != deploy_dir {
                 let cmd = format!("mkdir -p {}", shell_escape(dp));
                 ssh_exec(&sess, &cmd)?;
             }
