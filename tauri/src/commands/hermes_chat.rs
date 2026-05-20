@@ -353,8 +353,8 @@ fn find_python() -> String {
     "python3".to_string()
 }
 
-/// Ensure the Hermes Chat HTTP server is running
-fn ensure_server_running() -> Result<(), String> {
+/// Ensure the Hermes Chat HTTP server is running (async version)
+async fn ensure_server_running() -> Result<(), String> {
     {
         let mut server = SERVER_PROCESS.lock().unwrap();
         if let Some(ref mut child) = *server {
@@ -379,13 +379,13 @@ fn ensure_server_running() -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to start server: {}", e))?;
     { let mut s = SERVER_PROCESS.lock().unwrap(); *s = Some(child); }
-    let client = reqwest::blocking::Client::new();
+    let client = reqwest::Client::new();
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(15) {
         if let Ok(r) = client.get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
-            .timeout(std::time::Duration::from_secs(2)).send()
+            .timeout(std::time::Duration::from_secs(2)).send().await
         { if r.status().is_success() { return Ok(()); } }
-        std::thread::sleep(std::time::Duration::from_millis(500));
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
     Err("Server failed to start".to_string())
 }
@@ -400,7 +400,7 @@ pub async fn agent_chat(
     toolsets: Option<Vec<String>>,
 ) -> Result<serde_json::Value, String> {
     // 1. 确保 HTTP 服务器已启动
-    ensure_server_running()?;
+    ensure_server_running().await?;
 
     // 2. 重置 abort flag 并记录 session_id
     ABORT_FLAG.store(false, Ordering::SeqCst);
@@ -1298,7 +1298,8 @@ mod tests {
     /// Test that the HTTP chat server starts and responds to health check
     #[test]
     fn test_http_server_health() {
-        if let Err(e) = ensure_server_running() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(ensure_server_running()) {
             eprintln!("Skipping: server not started - {}", e);
             return;
         }
@@ -1321,7 +1322,8 @@ mod tests {
     /// Test HTTP chat stream - POST /v1/chat, verify newline-delimited JSON response format
     #[test]
     fn test_http_server_chat_stream() {
-        if let Err(e) = ensure_server_running() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(ensure_server_running()) {
             eprintln!("Skipping: server not available - {}", e);
             return;
         }
@@ -1399,7 +1401,8 @@ mod tests {
     /// Test HTTP abort endpoint
     #[test]
     fn test_http_server_abort() {
-        if let Err(e) = ensure_server_running() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(ensure_server_running()) {
             eprintln!("Skipping: server not available - {}", e);
             return;
         }
@@ -1427,7 +1430,8 @@ mod tests {
     /// Test agent_abort_chat IPC command — no AppHandle needed
     #[test]
     fn test_agent_abort_chat_ipc() {
-        if let Err(e) = ensure_server_running() {
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        if let Err(e) = rt.block_on(ensure_server_running()) {
             eprintln!("Skipping: server not available - {}", e);
             return;
         }
