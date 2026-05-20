@@ -540,10 +540,10 @@ pub async fn execute_deploy(
     let build_tool = config.build_tool.as_deref().unwrap_or("maven");
     let is_frontend = ["npm", "pnpm", "yarn"].contains(&build_tool);
 
-    if let Some(ref script) = config.restart_script {
+    if let Some(ref script) = config.restart_script.as_ref().filter(|s| !s.is_empty()) {
         if !is_frontend {
             for srv in &config.servers {
-                if let Err(e) = execute_restart(srv, script, &emit).await {
+                if let Err(e) = execute_restart(srv, script, &config.deploy_dir, &emit).await {
                     emit("restart", "failed", &e);
                     // Non-fatal: restart might fail but deploy succeeded
                 }
@@ -1036,6 +1036,7 @@ async fn do_build(
             "maven" => run_maven_build(&build_path, config, emit).await?,
             "npm" | "pnpm" | "yarn" => run_npm_build(&build_path, config, build_tool, emit).await?,
             "gradle" => run_gradle_build(&build_path, emit).await?,
+            "cargo" => run_cargo_build(&build_path, config, emit).await?,
             _ => return Err(format!("不支持的构建工具: {}", build_tool)),
         }
     }
@@ -1150,6 +1151,7 @@ async fn build_single_module(
     match tool {
         "maven" => run_maven_build(&build_path, config, emit).await,
         "npm" | "pnpm" | "yarn" => run_npm_build(&build_path, config, tool, emit).await,
+        "cargo" => run_cargo_build(&build_path, config, emit).await,
         _ => Err(format!("不支持的构建工具: {}", tool)),
     }
 }
@@ -1511,11 +1513,92 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
     cmd.env("PATH", extra_paths.join(":"));
 }
 
+// =================== Cargo Build ===================
+
+async fn run_cargo_build(
+    build_path: &Path,
+    config: &DeployConfig,
+    emit: &impl Fn(&str, &str, &str),
+) -> Result<(), String> {
+    // Use custom build command if provided, otherwise default
+    // If build_command contains "cargo", treat it as a full command
+    // If build_command is "debug", use "cargo build"
+    // Otherwise default to "cargo build --release"
+    let cmd_str = config.build_command.as_deref().unwrap_or("");
+    let cargo_cmd = if cmd_str.contains("cargo") {
+        cmd_str.to_string()
+    } else if cmd_str == "debug" {
+        "cargo build".to_string()
+    } else {
+        "cargo build --release".to_string()
+    };
+
+    emit("cargo", "starting", &format!("开始 Cargo 构建 ({})", cargo_cmd));
+
+    let mut cmd = user_shell_cmd("sh");
+    cmd.arg("-c").arg(&cargo_cmd);
+    cmd.current_dir(build_path);
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Cargo 构建启动失败: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("无法获取 Cargo stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 Cargo stderr")?;
+
+    let stdout_fut = async {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() {
+                emit("cargo", "building", trimmed);
+            }
+            line.clear();
+        }
+    };
+    let stderr_fut = async {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() {
+                emit("cargo", "building", trimmed);
+            }
+            line.clear();
+        }
+    };
+    let status_fut = child.wait();
+    let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, status_fut);
+    let status = status.map_err(|e| format!("等待 Cargo 进程失败: {}", e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "Cargo 构建失败 (exit {})",
+            status.code().unwrap_or(-1)
+        ));
+    }
+
+    emit("cargo", "success", "Cargo 构建成功");
+    Ok(())
+}
+
 #[allow(dead_code)]
 fn get_last_lines(s: &str, n: usize) -> String {
     let lines: Vec<&str> = s.lines().collect();
     let start = if lines.len() > n { lines.len() - n } else { 0 };
-    lines[start..].join("\n")
+    lines[start..].join("\\n")
 }
 
 // =================== Artifact Collection ===================
@@ -1528,21 +1611,35 @@ fn collect_artifacts(
 
     if config.modules.is_empty() {
         // Single project
+        let is_cargo = config.build_tool.as_deref() == Some("cargo");
+
         let output_dir = if let Some(ref bp) = config.build_path {
-            project_path.join(bp).join("target")
+            if is_cargo {
+                project_path.join(bp).join("target/release")
+            } else {
+                project_path.join(bp).join("target")
+            }
         } else {
-            project_path.join("target")
+            if is_cargo {
+                project_path.join("target/release")
+            } else {
+                project_path.join("target")
+            }
         };
 
         if output_dir.exists() {
-            collect_from_dir(
-                &output_dir,
-                None,
-                &config.deploy_dir,
-                config.lib_separate,
-                None,
-                &mut artifacts,
-            )?;
+            if is_cargo {
+                collect_cargo_binaries(&output_dir, &config.deploy_dir, &mut artifacts)?;
+            } else {
+                collect_from_dir(
+                    &output_dir,
+                    None,
+                    &config.deploy_dir,
+                    config.lib_separate,
+                    None,
+                    &mut artifacts,
+                )?;
+            }
         }
     } else {
         // Multi-module
@@ -1727,6 +1824,62 @@ fn collect_from_dir(
     Ok(())
 }
 
+/// Collect Cargo binary artifacts from `target/release/`.
+/// Finds executable files (no extension) at the top level,
+/// excluding well-known Cargo build artifacts.
+fn collect_cargo_binaries(
+    output_dir: &Path,
+    default_deploy_path: &str,
+    artifacts: &mut Vec<Artifact>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(output_dir).map_err(|e| format!("读取产物目录失败: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Skip known Cargo build artifacts
+        if name.ends_with(".d")
+            || name.ends_with(".rlib")
+            || name.ends_with(".rmeta")
+            || name.ends_with(".so")
+            || name.ends_with(".dylib")
+            || name.ends_with(".dll")
+            || name.ends_with(".pdb")
+            || name == "build" || name.starts_with(".")
+        {
+            continue;
+        }
+
+        // Treat files without extension as Cargo binaries
+        if !name.contains('.') && !name.starts_with('_') {
+            #[cfg(target_os = "windows")]
+            let binary_name = format!("{}.exe", name);
+            #[cfg(not(target_os = "windows"))]
+            let binary_name = name.clone();
+
+            // Check that it's actually an executable (not a directory artifact)
+            if path.is_file() {
+                artifacts.push(Artifact {
+                    name: binary_name,
+                    local_path: path.to_string_lossy().to_string(),
+                    module: None,
+                    is_lib: false,
+                    is_compressed: false,
+                    deploy_path: Some(default_deploy_path.to_string()),
+                });
+            }
+        }
+    }
+
+    Ok(())
+}
+
 fn create_zip(
     src_dir: &Path,
     dest_zip: &Path,
@@ -1853,31 +2006,57 @@ async fn deploy_to_server(
         .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
     // Authenticate
-    if let Some(ref key) = srv.private_key {
+    if let Some(ref key) = srv.private_key.as_ref().filter(|k| !k.is_empty()) {
         sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
             .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
-    } else if let Some(ref pw) = srv.password {
+    } else if let Some(ref pw) = srv.password.as_ref().filter(|p| !p.is_empty()) {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
     } else {
         return Err("缺少认证信息".to_string());
     }
 
-    // Create deploy directory
-    let mkdir_cmd = format!("mkdir -p {}", shell_escape(&srv.deploy_dir));
+    let deploy_dir = if srv.deploy_dir.is_empty() {
+        if config.deploy_dir.is_empty() {
+            return Err("部署路径未配置：请在配置中设置「部署路径」或在服务器节点设置「部署路径」".to_string());
+        }
+        &config.deploy_dir
+    } else {
+        &srv.deploy_dir
+    };
+
+    // Resolve remote home directory for ~ expansion (SFTP doesn't expand ~)
+    let remote_home = ssh_exec(&sess, "echo $HOME")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let expand_path = |p: &str| -> String {
+        if p.starts_with("~/") && !remote_home.is_empty() {
+            format!("{}/{}", remote_home.trim_end_matches('/'), &p[2..])
+        } else if p == "~" && !remote_home.is_empty() {
+            remote_home.clone()
+        } else {
+            p.to_string()
+        }
+    };
+    // Resolve deploy_dir for SFTP usage (keep original for shell commands)
+    let deploy_dir_resolved = expand_path(deploy_dir);
+
+    // Create deploy directory (shell command, ~ works fine)
+    let mkdir_cmd = format!("mkdir -p {}", shell_escape(deploy_dir));
     ssh_exec(&sess, &mkdir_cmd)?;
 
     if config.lib_separate {
-        if let Some(ref lib_dir) = config.lib_dir {
+        if let Some(ref lib_dir) = config.lib_dir.as_ref().filter(|d| !d.is_empty()) {
             let cmd = format!("mkdir -p {}", shell_escape(lib_dir));
             ssh_exec(&sess, &cmd)?;
         }
     }
 
-    // Create module-specific deploy paths
+    // Create module-specific deploy paths (shell expand ~ fine)
     for artifact in artifacts {
         if let Some(ref dp) = artifact.deploy_path {
-            if dp != &config.deploy_dir {
+            if dp != deploy_dir {
                 let cmd = format!("mkdir -p {}", shell_escape(dp));
                 ssh_exec(&sess, &cmd)?;
             }
@@ -1895,18 +2074,20 @@ async fn deploy_to_server(
 
     for artifact in artifacts {
         let target_path = if let Some(ref dp) = artifact.deploy_path {
+            let resolved = expand_path(dp);
             if artifact.is_lib {
-                format!("{}/lib", dp)
+                format!("{}/lib", resolved)
             } else {
-                dp.clone()
+                resolved
             }
         } else if artifact.is_lib && config.lib_separate {
             config
                 .lib_dir
-                .clone()
-                .unwrap_or_else(|| config.deploy_dir.clone())
+                .as_ref()
+                .map(|ld| expand_path(ld))
+                .unwrap_or_else(|| deploy_dir_resolved.clone())
         } else {
-            config.deploy_dir.clone()
+            deploy_dir_resolved.clone()
         };
 
         let remote_file = format!("{}/{}", target_path.trim_end_matches('/'), artifact.name);
@@ -2013,6 +2194,7 @@ fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
 async fn execute_restart(
     srv: &DeployServerConfig,
     script: &str,
+    deploy_dir_fallback: &str,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
     use ssh2::Session;
@@ -2033,10 +2215,10 @@ async fn execute_restart(
     sess.handshake()
         .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-    if let Some(ref key) = srv.private_key {
+    if let Some(ref key) = srv.private_key.as_ref().filter(|k| !k.is_empty()) {
         sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
             .map_err(|e| format!("认证失败: {}", e))?;
-    } else if let Some(ref pw) = srv.password {
+    } else if let Some(ref pw) = srv.password.as_ref().filter(|p| !p.is_empty()) {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("认证失败: {}", e))?;
     } else {
@@ -2073,17 +2255,22 @@ async fn execute_restart(
         }
     } else {
         // 相对路径：需要先 cd 到 deployDir 再执行
+        let restart_deploy_dir = if srv.deploy_dir.is_empty() {
+            deploy_dir_fallback
+        } else {
+            &srv.deploy_dir
+        };
         if script_args.is_empty() {
             format!(
                 "cd {} && chmod +x {} && bash -l -c '{}' 2>&1",
-                shell_escape(&srv.deploy_dir),
+                shell_escape(restart_deploy_dir),
                 script_file,
                 script_file
             )
         } else {
             format!(
                 "cd {} && chmod +x {} && bash -l -c '{} {}' 2>&1",
-                shell_escape(&srv.deploy_dir),
+                shell_escape(restart_deploy_dir),
                 script_file,
                 script_file,
                 script_args

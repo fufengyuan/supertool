@@ -549,6 +549,48 @@
                 </div>
               </template>
 
+              <!-- Cargo options -->
+              <template v-if="config.buildTool === 'cargo'">
+                <div class="mb-3.5 mt-2 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70 flex items-center gap-2.5">
+                  <span>构建工具</span>
+                  <span class="flex-1 h-px bg-base-content/10"></span>
+                </div>
+                <div class="mb-3.5">
+                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">构建命令</label>
+                  <div class="flex gap-2">
+                    <button
+                      class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
+                      :class="config.buildCommand === 'release' || !config.buildCommand
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-base-content/10 text-base-content/60'"
+                      @click="config.buildCommand = 'release'"
+                    >
+                      cargo build --release
+                    </button>
+                    <button
+                      class="flex-1 px-3 py-2 rounded-xl border-2 text-sm font-medium transition-all"
+                      :class="config.buildCommand === 'debug'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-base-content/10 text-base-content/60'"
+                      @click="config.buildCommand = 'debug'"
+                    >
+                      cargo build
+                    </button>
+                  </div>
+                </div>
+                <div class="mb-3.5">
+                  <label class="block mb-1 text-xs font-medium text-base-content/60 uppercase tracking-wider">自定义构建命令</label>
+                  <input v-model="config.buildCommand" class="input input-bordered w-full bg-base-200 text-sm font-mono" placeholder="cargo build --release --features xxx" />
+                  <span class="block text-xs text-base-content/60 mt-1">留空使用上方选择的命令，填写后优先使用自定义命令</span>
+                </div>
+                <div class="px-3 py-2.5 rounded-xl bg-base-200 border border-base-content/10 text-xs text-base-content/60">
+                  <span class="flex items-center gap-1.5">
+                    <SvgIcon name="lightbulb" size="14" />
+                    Cargo 构建产物默认在 <code class="bg-base-100 px-1 rounded">target/release/</code> 目录
+                  </span>
+                </div>
+              </template>
+
               <!-- Deploy settings -->
               <div class="pt-3.5 border-t border-base-content/10">
                 <div class="flex items-center gap-2.5 mb-3.5 text-[11px] font-semibold text-base-content/60 uppercase tracking-wider opacity-70">
