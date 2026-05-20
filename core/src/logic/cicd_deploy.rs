@@ -1036,6 +1036,7 @@ async fn do_build(
             "maven" => run_maven_build(&build_path, config, emit).await?,
             "npm" | "pnpm" | "yarn" => run_npm_build(&build_path, config, build_tool, emit).await?,
             "gradle" => run_gradle_build(&build_path, emit).await?,
+            "cargo" => run_cargo_build(&build_path, config, emit).await?,
             _ => return Err(format!("不支持的构建工具: {}", build_tool)),
         }
     }
@@ -1150,6 +1151,7 @@ async fn build_single_module(
     match tool {
         "maven" => run_maven_build(&build_path, config, emit).await,
         "npm" | "pnpm" | "yarn" => run_npm_build(&build_path, config, tool, emit).await,
+        "cargo" => run_cargo_build(&build_path, config, emit).await,
         _ => Err(format!("不支持的构建工具: {}", tool)),
     }
 }
@@ -1511,11 +1513,92 @@ fn extend_path_npm(cmd: &mut Command, node_home: &Option<String>, npm_home: &Opt
     cmd.env("PATH", extra_paths.join(":"));
 }
 
+// =================== Cargo Build ===================
+
+async fn run_cargo_build(
+    build_path: &Path,
+    config: &DeployConfig,
+    emit: &impl Fn(&str, &str, &str),
+) -> Result<(), String> {
+    // Use custom build command if provided, otherwise default
+    // If build_command contains "cargo", treat it as a full command
+    // If build_command is "debug", use "cargo build"
+    // Otherwise default to "cargo build --release"
+    let cmd_str = config.build_command.as_deref().unwrap_or("");
+    let cargo_cmd = if cmd_str.contains("cargo") {
+        cmd_str.to_string()
+    } else if cmd_str == "debug" {
+        "cargo build".to_string()
+    } else {
+        "cargo build --release".to_string()
+    };
+
+    emit("cargo", "starting", &format!("开始 Cargo 构建 ({})", cargo_cmd));
+
+    let mut cmd = user_shell_cmd("sh");
+    cmd.arg("-c").arg(&cargo_cmd);
+    cmd.current_dir(build_path);
+    cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Cargo 构建启动失败: {}", e))?;
+
+    let stdout = child.stdout.take().ok_or("无法获取 Cargo stdout")?;
+    let stderr = child.stderr.take().ok_or("无法获取 Cargo stderr")?;
+
+    let stdout_fut = async {
+        let mut reader = BufReader::new(stdout);
+        let mut line = String::new();
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() {
+                emit("cargo", "building", trimmed);
+            }
+            line.clear();
+        }
+    };
+    let stderr_fut = async {
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        while reader
+            .read_line(&mut line)
+            .await
+            .map(|n| n > 0)
+            .unwrap_or(false)
+        {
+            let trimmed = line.trim_end();
+            if !trimmed.is_empty() {
+                emit("cargo", "building", trimmed);
+            }
+            line.clear();
+        }
+    };
+    let status_fut = child.wait();
+    let (_, _, status) = tokio::join!(stdout_fut, stderr_fut, status_fut);
+    let status = status.map_err(|e| format!("等待 Cargo 进程失败: {}", e))?;
+
+    if !status.success() {
+        return Err(format!(
+            "Cargo 构建失败 (exit {})",
+            status.code().unwrap_or(-1)
+        ));
+    }
+
+    emit("cargo", "success", "Cargo 构建成功");
+    Ok(())
+}
+
 #[allow(dead_code)]
 fn get_last_lines(s: &str, n: usize) -> String {
     let lines: Vec<&str> = s.lines().collect();
     let start = if lines.len() > n { lines.len() - n } else { 0 };
-    lines[start..].join("\n")
+    lines[start..].join("\\n")
 }
 
 // =================== Artifact Collection ===================
@@ -1528,21 +1611,35 @@ fn collect_artifacts(
 
     if config.modules.is_empty() {
         // Single project
+        let is_cargo = config.build_tool.as_deref() == Some("cargo");
+
         let output_dir = if let Some(ref bp) = config.build_path {
-            project_path.join(bp).join("target")
+            if is_cargo {
+                project_path.join(bp).join("target/release")
+            } else {
+                project_path.join(bp).join("target")
+            }
         } else {
-            project_path.join("target")
+            if is_cargo {
+                project_path.join("target/release")
+            } else {
+                project_path.join("target")
+            }
         };
 
         if output_dir.exists() {
-            collect_from_dir(
-                &output_dir,
-                None,
-                &config.deploy_dir,
-                config.lib_separate,
-                None,
-                &mut artifacts,
-            )?;
+            if is_cargo {
+                collect_cargo_binaries(&output_dir, &config.deploy_dir, &mut artifacts)?;
+            } else {
+                collect_from_dir(
+                    &output_dir,
+                    None,
+                    &config.deploy_dir,
+                    config.lib_separate,
+                    None,
+                    &mut artifacts,
+                )?;
+            }
         }
     } else {
         // Multi-module
@@ -1721,6 +1818,62 @@ fn collect_from_dir(
                 is_compressed: true,
                 deploy_path: Some(default_deploy_path.to_string()),
             });
+        }
+    }
+
+    Ok(())
+}
+
+/// Collect Cargo binary artifacts from `target/release/`.
+/// Finds executable files (no extension) at the top level,
+/// excluding well-known Cargo build artifacts.
+fn collect_cargo_binaries(
+    output_dir: &Path,
+    default_deploy_path: &str,
+    artifacts: &mut Vec<Artifact>,
+) -> Result<(), String> {
+    let entries = fs::read_dir(output_dir).map_err(|e| format!("读取产物目录失败: {}", e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("读取目录项失败: {}", e))?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let name = entry.file_name().to_string_lossy().to_string();
+
+        // Skip known Cargo build artifacts
+        if name.ends_with(".d")
+            || name.ends_with(".rlib")
+            || name.ends_with(".rmeta")
+            || name.ends_with(".so")
+            || name.ends_with(".dylib")
+            || name.ends_with(".dll")
+            || name.ends_with(".pdb")
+            || name == "build" || name.starts_with(".")
+        {
+            continue;
+        }
+
+        // Treat files without extension as Cargo binaries
+        if !name.contains('.') && !name.starts_with('_') {
+            #[cfg(target_os = "windows")]
+            let binary_name = format!("{}.exe", name);
+            #[cfg(not(target_os = "windows"))]
+            let binary_name = name.clone();
+
+            // Check that it's actually an executable (not a directory artifact)
+            if path.is_file() {
+                artifacts.push(Artifact {
+                    name: binary_name,
+                    local_path: path.to_string_lossy().to_string(),
+                    module: None,
+                    is_lib: false,
+                    is_compressed: false,
+                    deploy_path: Some(default_deploy_path.to_string()),
+                });
+            }
         }
     }
 
