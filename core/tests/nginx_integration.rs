@@ -1918,10 +1918,6 @@ fn round_trip_test_config(filename: &str) {
     let parsed_gen = match supertool_core::logic::nginx_parser::parse_nginx_config(&generated) {
         Ok(p) => p,
         Err(e) => {
-            eprintln!("❌ Generated config failed to parse: {}", e);
-            eprintln!("=== Generated config ===");
-            eprintln!("{}", generated);
-            eprintln!("=== End of config ===");
             panic!("{} generated config parse error: {}", filename, e);
         }
     };
