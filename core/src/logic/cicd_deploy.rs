@@ -2017,6 +2017,9 @@ async fn deploy_to_server(
     }
 
     let deploy_dir = if srv.deploy_dir.is_empty() {
+        if config.deploy_dir.is_empty() {
+            return Err("部署路径未配置：请在配置中设置「部署路径」或在服务器节点设置「部署路径」".to_string());
+        }
         &config.deploy_dir
     } else {
         &srv.deploy_dir
