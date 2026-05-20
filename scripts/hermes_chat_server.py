@@ -188,6 +188,10 @@ def _run_chat_in_thread(
                     "id": tool_call_id, "name": tool_name, "result": result_str, "duration_ms": 0
                 })
 
+        def thinking_cb(text: str):
+            if not abort_event.is_set():
+                _put_event("thinking", {"text": text})
+
         # ── Create agent (only on first message for this session) ──
         if cached_agent is None:
             agent = AIAgent(
@@ -200,6 +204,7 @@ def _run_chat_in_thread(
                 stream_delta_callback=stream_callback,
                 tool_start_callback=tool_start_callback,
                 tool_complete_callback=tool_complete_callback,
+                thinking_callback=thinking_cb,
                 platform="supertool",
                 quiet_mode=True,
             )
@@ -208,9 +213,10 @@ def _run_chat_in_thread(
                 _agent_cache[session_id] = agent
         else:
             # Cached agent needs callbacks updated (new queue/abort per request)
-            agent._stream_delta_callback = stream_callback
-            agent._tool_start_callback = tool_start_callback
-            agent._tool_complete_callback = tool_complete_callback
+            agent.stream_delta_callback = stream_callback
+            agent.tool_start_callback = tool_start_callback
+            agent.tool_complete_callback = tool_complete_callback
+            agent.thinking_callback = thinking_cb
 
         # Serialize access to this session's agent (prevent concurrent run_conversation)
         session_lock = _get_session_lock(session_id)

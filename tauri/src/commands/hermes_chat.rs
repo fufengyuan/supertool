@@ -23,6 +23,40 @@ lazy_static::lazy_static! {
     static ref CURRENT_SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 }
 
+/// Create a reqwest client that bypasses system proxy for localhost requests.
+/// Prevents VPN/proxy tools (ClashX, V2Ray, etc.) from buffering NDJSON streams.
+fn local_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("Failed to build reqwest client")
+}
+
+/// Kill any process listening on the given port.
+/// Uses lsof (macOS/Linux) to find the PID, then kills it.
+fn kill_process_on_port(port: &str) {
+    let output = std::process::Command::new("lsof")
+        .args(["-ti", &format!(":{}", port)])
+        .output();
+    if let Ok(output) = output {
+        if output.status.success() {
+            let pid_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !pid_str.is_empty() {
+                // Kill PIDs using kill command (safe, no unsafe code)
+                for pid in pid_str.lines() {
+                    let pid = pid.trim();
+                    if pid.is_empty() { continue; }
+                    let _ = std::process::Command::new("kill")
+                        .args([pid])
+                        .output();
+                }
+                // Give processes a moment to die
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        }
+    }
+}
+
 /// Input command to Python bridge
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action")]
@@ -365,6 +399,9 @@ async fn ensure_server_running() -> Result<(), String> {
             }
         }
     }
+    // Kill any existing process on the port to ensure we get a fresh server with latest code
+    kill_process_on_port(HERMES_CHAT_SERVER_PORT);
+    
     let script = find_bridge_script()
         .and_then(|p| {
             let s = p.parent()?.join("hermes_chat_server.py");
@@ -379,7 +416,7 @@ async fn ensure_server_running() -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to start server: {}", e))?;
     { let mut s = SERVER_PROCESS.lock().unwrap(); *s = Some(child); }
-    let client = reqwest::Client::new();
+    let client = local_client();
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(15) {
         if let Ok(r) = client.get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
@@ -410,7 +447,7 @@ pub async fn agent_chat(
     }
 
     // 3. 发送 HTTP 请求到聊天服务器
-    let client = reqwest::Client::new();
+    let client = local_client();
     let body = serde_json::json!({
         "message": message,
         "session_id": session_id,
@@ -503,13 +540,13 @@ pub async fn agent_chat(
                 BridgeMessage::Delta { text, session_id } => {
                     if let Some(t) = &text {
                         accumulated_text.push_str(t);
+                        if captured_session_id.is_none() {
+                            captured_session_id = session_id.clone();
+                        }
+                        app.emit("agent-delta", serde_json::json!({
+                            "text": t, "session_id": session_id,
+                        })).ok();
                     }
-                    if captured_session_id.is_none() {
-                        captured_session_id = session_id.clone();
-                    }
-                    app.emit("agent-delta", serde_json::json!({
-                        "text": text, "session_id": session_id,
-                    })).ok();
                 }
                 BridgeMessage::ToolStart { id, name, args, session_id } => {
                     app.emit("agent-tool-start", serde_json::json!({
@@ -610,7 +647,7 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     };
 
     if let Some(ref sid) = session_id {
-        let client = reqwest::Client::new();
+        let client = local_client();
         match client
             .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
             .json(&serde_json::json!({"session_id": sid}))
@@ -1329,7 +1366,7 @@ mod tests {
         }
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let client = reqwest::Client::new();
+            let client = local_client();
             let body = serde_json::json!({"message": "嗨，用一句话打个招呼", "toolsets": []});
 
             let resp = match client
@@ -1408,7 +1445,7 @@ mod tests {
         }
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let client = reqwest::Client::new();
+            let client = local_client();
             let resp = match client
                 .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
                 .json(&serde_json::json!({"session_id": "__test__"}))
