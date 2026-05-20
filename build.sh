@@ -4,8 +4,12 @@ set -e
 MODE="${1:-pre-build}"
 ARCH="${2:-native}"
 
-# ─── 版本 ───
-VERSION="4.4.2"
+# ─── 版本（从 package.json 自动读取）───
+VERSION=$(grep '"version"' "$(dirname "$0")/package.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
+if [[ -z "$VERSION" ]]; then
+    echo "❌ 无法从 package.json 读取版本号"
+    exit 1
+fi
 PKG_OUTPUT="target/release"
 
 # ═══════════════════════════════════════════
