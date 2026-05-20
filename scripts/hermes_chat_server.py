@@ -201,7 +201,7 @@ def _run_chat_in_thread(
                 session_id=session_id,
                 session_db=session_db,
                 enabled_toolsets=enabled_toolsets,
-                max_iterations=50,
+                max_iterations=90,
                 reasoning_config=_reasoning_config,
                 stream_delta_callback=stream_callback,
                 tool_start_callback=tool_start_callback,
