@@ -9,8 +9,25 @@
 #   - cli/Cargo.toml
 #   - core/Cargo.toml
 #   - tauri/Cargo.toml
+#   - Cargo.lock（通过 cargo generate-lockfile 同步）
 
 set -e
+
+# ─── 确保 cargo 在 PATH 中（git hooks 环境 PATH 不一定包含）───
+if ! command -v cargo &>/dev/null; then
+    if [[ -f "$HOME/.cargo/env" ]]; then
+        source "$HOME/.cargo/env"
+    elif [[ -x "$HOME/.cargo/bin/cargo" ]]; then
+        export PATH="$HOME/.cargo/bin:$PATH"
+    elif [[ -n "$CARGO_HOME" && -x "$CARGO_HOME/bin/cargo" ]]; then
+        export PATH="$CARGO_HOME/bin:$PATH"
+    fi
+fi
+
+CARGO_AVAILABLE=false
+if command -v cargo &>/dev/null; then
+    CARGO_AVAILABLE=true
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -39,6 +56,8 @@ VERSION_FILES=(
     "$PROJECT_DIR/core/Cargo.toml"
     "$PROJECT_DIR/tauri/Cargo.toml"
 )
+
+CARGO_LOCK="$PROJECT_DIR/Cargo.lock"
 
 # 从 package.json 读取当前版本
 CURRENT_VERSION=$(grep '"version"' "$PROJECT_DIR/package.json" | sed -E 's/.*"version": *"([^"]+)".*/\1/')
@@ -97,6 +116,19 @@ for file in "${VERSION_FILES[@]}"; do
     fname=$(basename "$file")
     echo "  ✅ $fname"
 done
+
+# ─── 更新 Cargo.lock ───
+if [[ "$CARGO_AVAILABLE" == "true" ]]; then
+    echo "  🔄 同步 Cargo.lock..."
+    cd "$PROJECT_DIR"
+    cargo generate-lockfile > /dev/null 2>&1
+    if [[ "$NO_ADD" == "false" ]]; then
+        git add "$CARGO_LOCK"
+    fi
+    echo "  ✅ Cargo.lock"
+else
+    echo "  ⚠️ 未找到 cargo，跳过 Cargo.lock 更新"
+fi
 
 # 清理 macOS sed 备份文件
 rm -f "$PROJECT_DIR"/*-E "$PROJECT_DIR"/cli/*-E "$PROJECT_DIR"/core/*-E "$PROJECT_DIR"/tauri/*-E
