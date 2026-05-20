@@ -411,7 +411,12 @@
                 </div>
               </div>
               <!-- 思考中（无工具调用时） -->
-              <p v-else class="text-sm text-base-content/50 animate-pulse">思考中...</p>
+              <p v-else class="text-sm text-base-content/50 flex items-center gap-0.5">
+                <span>思考</span>
+                <span class="typing-dot">.</span>
+                <span class="typing-dot" style="animation-delay: 0.2s">.</span>
+                <span class="typing-dot" style="animation-delay: 0.4s">.</span>
+              </p>
             </div>
             <!-- 取消按钮 - 更醒目 -->
             <button 
@@ -2788,5 +2793,17 @@ watch(searchQuery, () => {
   background: rgba(168, 85, 247, 0.1);
   border: 1px solid rgba(168, 85, 247, 0.3);
   color: #7c3aed;
+}
+
+/* 思考中打字点动画 */
+.typing-dot {
+  animation: typingDot 1.4s infinite both;
+  opacity: 0;
+}
+
+@keyframes typingDot {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+  100% { opacity: 0; }
 }
 </style>
