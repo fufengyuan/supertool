@@ -2006,10 +2006,10 @@ async fn deploy_to_server(
         .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
     // Authenticate
-    if let Some(ref key) = srv.private_key {
+    if let Some(ref key) = srv.private_key.as_ref().filter(|k| !k.is_empty()) {
         sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
             .map_err(|e| format!("SSH 密钥认证失败: {}", e))?;
-    } else if let Some(ref pw) = srv.password {
+    } else if let Some(ref pw) = srv.password.as_ref().filter(|p| !p.is_empty()) {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("SSH 密码认证失败: {}", e))?;
     } else {
@@ -2186,10 +2186,10 @@ async fn execute_restart(
     sess.handshake()
         .map_err(|e| format!("SSH 握手失败: {}", e))?;
 
-    if let Some(ref key) = srv.private_key {
+    if let Some(ref key) = srv.private_key.as_ref().filter(|k| !k.is_empty()) {
         sess.userauth_pubkey_file(&srv.username, None, Path::new(key), srv.password.as_deref())
             .map_err(|e| format!("认证失败: {}", e))?;
-    } else if let Some(ref pw) = srv.password {
+    } else if let Some(ref pw) = srv.password.as_ref().filter(|p| !p.is_empty()) {
         sess.userauth_password(&srv.username, pw)
             .map_err(|e| format!("认证失败: {}", e))?;
     } else {
