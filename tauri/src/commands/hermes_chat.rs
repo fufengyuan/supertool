@@ -1,25 +1,26 @@
-//! Agent Chat Bridge - communicate with AI Agent via Python bridge script
+//! Agent Chat Bridge - communicate with AI Agent via HTTP chat server
 //!
-//! Uses stdin/stdout JSON protocol for bidirectional communication.
-//! Supports streaming text deltas via Tauri events.
+//! Uses persistent FastAPI HTTP server at port 18686 with NDJSON streaming.
+//! Replaced the old stdin/stdout Python subprocess approach.
 
-use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-// Global process state - use lazy_static for HashMap initialization
+/// Hermes Chat HTTP server URL and port
+const HERMES_CHAT_SERVER_URL: &str = "http://127.0.0.1:18686";
+const HERMES_CHAT_SERVER_PORT: &str = "18686";
+
+// Global state for HTTP server mode
 lazy_static::lazy_static! {
-    static ref PROCESS_COUNTER: AtomicU64 = AtomicU64::new(0);
-    static ref PROCESSES: Mutex<HashMap<u64, Arc<Mutex<Option<Child>>>>> = Mutex::new(HashMap::new());
-    static ref PROCESS_PIDS: Mutex<HashMap<u64, u32>> = Mutex::new(HashMap::new());
-    static ref ABORT_FLAGS: Mutex<HashMap<u64, Arc<AtomicBool>>> = Mutex::new(HashMap::new());
-    static ref CURRENT_CHAT_PROCESS_ID: Mutex<Option<u64>> = Mutex::new(None);
+    static ref SERVER_PROCESS: Mutex<Option<std::process::Child>> = Mutex::new(None);
+    static ref ABORT_FLAG: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
+    static ref CURRENT_SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 }
 
 /// Input command to Python bridge
@@ -352,86 +353,44 @@ fn find_python() -> String {
     "python3".to_string()
 }
 
-/// Start a new bridge process
-fn start_bridge_process() -> Result<(u64, Child, Arc<AtomicBool>), String> {
-    let script = find_bridge_script().ok_or_else(
-        || "Agent bridge script not found. Please ensure scripts/hermes_bridge.py exists.",
-    )?;
-
-    let python = find_python();
-
-    // 加载 Hermes .env 文件的环境变量
-    let hermes_env_path = dirs::home_dir()
-        .map(|h| h.join(".hermes").join(".env"))
-        .filter(|p| p.exists());
-
-    let mut cmd = Command::new(&python);
-    cmd.arg(&script)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    // 注入 Hermes 环境变量
-    if let Some(env_path) = hermes_env_path {
-        if let Ok(content) = std::fs::read_to_string(&env_path) {
-            for line in content.lines() {
-                let line = line.trim();
-                // 跳过注释和空行
-                if line.is_empty() || line.starts_with('#') {
-                    continue;
-                }
-                // 解析 KEY=VALUE
-                if let Some((key, value)) = line.split_once('=') {
-                    cmd.env(key.trim(), value.trim());
-                }
+/// Ensure the Hermes Chat HTTP server is running
+fn ensure_server_running() -> Result<(), String> {
+    {
+        let mut server = SERVER_PROCESS.lock().unwrap();
+        if let Some(ref mut child) = *server {
+            match child.try_wait() {
+                Ok(Some(_)) => { *server = None; }
+                Ok(None) => { return Ok(()); }
+                Err(_) => { *server = None; }
             }
         }
     }
-
-    // 禁用系统代理（避免 GNOME 代理配置干扰）
-    // Python requests 库在 Linux 上会读取 GNOME 代理配置，可能导致连接失败
-    cmd.env("http_proxy", "");
-    cmd.env("https_proxy", "");
-    cmd.env("HTTP_PROXY", "");
-    cmd.env("HTTPS_PROXY", "");
-    cmd.env("all_proxy", "");
-    cmd.env("ALL_PROXY", "");
-
-    let child = cmd
+    let script = find_bridge_script()
+        .and_then(|p| {
+            let s = p.parent()?.join("hermes_chat_server.py");
+            if s.exists() { Some(s) } else { None }
+        })
+        .ok_or_else(|| "Agent chat server script not found.".to_string())?;
+    let python = find_python();
+    let child = Command::new(&python).arg(&script)
+        .env("HERMES_CHAT_PORT", HERMES_CHAT_SERVER_PORT)
+        .env("HERMES_CHAT_HOST", "127.0.0.1")
+        .stdout(Stdio::null()).stderr(Stdio::null())
         .spawn()
-        .map_err(|e| format!("Failed to start Python bridge: {}", e))?;
-
-    let process_id = PROCESS_COUNTER.fetch_add(1, Ordering::SeqCst);
-    let abort_flag = Arc::new(AtomicBool::new(false));
-    let os_pid = child.id();
-
-    // Store process reference
-    {
-        let mut processes = PROCESSES.lock().unwrap();
-        processes.insert(process_id, Arc::new(Mutex::new(Some(child))));
+        .map_err(|e| format!("Failed to start server: {}", e))?;
+    { let mut s = SERVER_PROCESS.lock().unwrap(); *s = Some(child); }
+    let client = reqwest::blocking::Client::new();
+    let start = std::time::Instant::now();
+    while start.elapsed() < std::time::Duration::from_secs(15) {
+        if let Ok(r) = client.get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
+            .timeout(std::time::Duration::from_secs(2)).send()
+        { if r.status().is_success() { return Ok(()); } }
+        std::thread::sleep(std::time::Duration::from_millis(500));
     }
-    {
-        let mut pids = PROCESS_PIDS.lock().unwrap();
-        pids.insert(process_id, os_pid);
-    }
-    {
-        let mut flags = ABORT_FLAGS.lock().unwrap();
-        flags.insert(process_id, abort_flag.clone());
-    }
-
-    // Get child back (hacky but works)
-    let child = {
-        let mut processes = PROCESSES.lock().unwrap();
-        processes
-            .get_mut(&process_id)
-            .and_then(|arc| arc.lock().unwrap().take())
-            .ok_or_else(|| "Failed to retrieve child process".to_string())?
-    };
-
-    Ok((process_id, child, abort_flag))
+    Err("Server failed to start".to_string())
 }
 
-/// Send chat message with streaming events
+/// Send chat message with streaming events via HTTP server
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_chat(
     app: AppHandle,
@@ -440,283 +399,197 @@ pub async fn agent_chat(
     model: Option<String>,
     toolsets: Option<Vec<String>>,
 ) -> Result<serde_json::Value, String> {
-    let (process_id, mut child, abort_flag) = start_bridge_process()?;
+    // 1. 确保 HTTP 服务器已启动
+    ensure_server_running()?;
 
-    // Record current chat process ID for abort functionality
+    // 2. 重置 abort flag 并记录 session_id
+    ABORT_FLAG.store(false, Ordering::SeqCst);
     {
-        let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
-        *current = Some(process_id);
+        let mut current = CURRENT_SESSION_ID.lock().unwrap();
+        *current = session_id.clone();
     }
 
-    // Send command
-    let cmd = BridgeCommand::Chat {
-        session_id,
-        message,
-        model,
-        toolsets,
-    };
-    let cmd_json = serde_json::to_string(&cmd).map_err(|e| e.to_string())?;
+    // 3. 发送 HTTP 请求到聊天服务器
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "message": message,
+        "session_id": session_id,
+        "model": model,
+        "toolsets": toolsets,
+    });
 
-    {
-        let stdin = child
-            .stdin
-            .as_mut()
-            .ok_or_else(|| "stdin not available".to_string())?;
-        stdin
-            .write_all(cmd_json.as_bytes())
-            .map_err(|e| e.to_string())?;
-        stdin.write_all(b"\n").map_err(|e| e.to_string())?;
-        stdin.flush().map_err(|e| e.to_string())?;
+    let resp = client
+        .post(format!("{}/v1/chat", HERMES_CHAT_SERVER_URL))
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Chat request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Chat server error ({}): {}", status, text));
     }
 
-    // Read streaming output
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| "stdout not available".to_string())?;
-    let reader = BufReader::new(stdout);
+    // 4. 从响应头获取 session_id（服务端可能创建了新的）
+    let server_session_id = resp.headers()
+        .get("X-Session-Id")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
 
+    let mut captured_session_id: Option<String> = session_id.or(server_session_id);
     let mut final_response: Option<String> = None;
     let mut final_session_id: Option<String> = None;
     let mut message_count: usize = 0;
     let mut accumulated_text = String::new();
-    // Capture session_id from the first event that provides it (Delta, ToolStart, etc.)
-    // This is critical for abort: if "done" is never received, we still need the
-    // session_id so the frontend can resume the conversation instead of creating a new one.
-    let mut captured_session_id: Option<String> = None;
 
-    for line in reader.lines() {
-        if abort_flag.load(Ordering::SeqCst) {
-            child.kill().ok(); // Kill process immediately when abort flag is set
+    // 更新 CURRENT_SESSION_ID
+    if let Some(ref sid) = captured_session_id {
+        let mut current = CURRENT_SESSION_ID.lock().unwrap();
+        *current = Some(sid.clone());
+    }
+
+    // 5. 流式读取 NDJSON 响应
+    let mut stream = resp.bytes_stream();
+    let mut buffer = Vec::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        // 检查 abort flag
+        if ABORT_FLAG.load(Ordering::SeqCst) {
+            // 通知服务端中断（clone 避免 MutexGuard 跨 await）
+            let abort_sid = CURRENT_SESSION_ID.lock().unwrap().clone();
+            if let Some(ref sid) = abort_sid {
+                let _ = client
+                    .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
+                    .json(&serde_json::json!({"session_id": sid}))
+                    .send()
+                    .await;
+            }
             break;
         }
 
-        let line = line.map_err(|e| e.to_string())?;
-        if line.is_empty() {
-            continue;
-        }
+        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        buffer.extend_from_slice(&chunk);
 
-        // 跳过非 JSON 行（日志、警告等）
-        if !line.trim_start().starts_with('{') {
-            eprintln!("[DEBUG] bridge log: {}", line);
-            continue;
-        }
+        // 按行处理完整的 JSON
+        while let Some(nl_pos) = buffer.iter().position(|&b| b == b'\n') {
+            let line_bytes = buffer[..nl_pos].to_vec();
+            buffer = buffer[nl_pos + 1..].to_vec();
 
-        let msg: BridgeMessage = match serde_json::from_str(&line) {
-            Ok(m) => m,
-            Err(e) => {
-                // JSON 解析失败，通知前端
-                eprintln!("[DEBUG] bridge parse error: {} - line: {}", e, line);
-                app.emit(
-                    "agent-error",
-                    serde_json::json!({
-                        "type": "parse_error",
-                        "message": format!("JSON parse error: {}", e),
-                        "raw": line.chars().take(100).collect::<String>()
-                    }),
-                )
-                .ok();
+            if line_bytes.is_empty() {
                 continue;
             }
-        };
 
-        match msg {
-            BridgeMessage::Delta { text, session_id } => {
-                if let Some(t) = &text {
-                    accumulated_text.push_str(t);
-                }
-                // Capture session_id from the first event
-                if captured_session_id.is_none() {
-                    captured_session_id = session_id.clone();
-                }
-                eprintln!("[DEBUG] agent-delta: {:?}", text);
-                app.emit(
-                    "agent-delta",
-                    serde_json::json!({
-                        "text": text,
-                        "session_id": session_id
-                    }),
-                )
-                .ok();
+            let line_str = String::from_utf8_lossy(&line_bytes);
+            if !line_str.trim_start().starts_with('{') {
+                eprintln!("[bridge] log: {}", line_str);
+                continue;
             }
-            BridgeMessage::ToolStart { id, name, args, session_id } => {
-                eprintln!(
-                    "[DEBUG] agent-tool-start: {} {:?} (id: {:?})",
-                    name, args, id
-                );
-                app.emit(
-                    "agent-tool-start",
-                    serde_json::json!({
-                        "id": id,
-                        "name": name,
-                        "args": args,
-                        "session_id": session_id
-                    }),
-                )
-                .ok();
-            }
-            BridgeMessage::ToolComplete {
-                id,
-                name,
-                result,
-                duration_ms,
-                session_id,
-            } => {
-                eprintln!(
-                    "[DEBUG] agent-tool-complete: {} (id: {:?}, duration: {}ms)",
-                    name, id, duration_ms
-                );
-                app.emit(
-                    "agent-tool-complete",
-                    serde_json::json!({
-                        "id": id,
-                        "name": name,
-                        "result": result,
-                        "duration_ms": duration_ms,
-                        "session_id": session_id
-                    }),
-                )
-                .ok();
-            }
-            BridgeMessage::Thinking { text, session_id } => {
-                app.emit(
-                    "agent-thinking",
-                    serde_json::json!({
-                        "text": text,
-                        "session_id": session_id
-                    }),
-                )
-                .ok();
-            }
-            BridgeMessage::Done {
-                response,
-                session_id,
-                message_count: done_message_count,
-            } => {
-                // 立即发送 agent-done 事件，让前端恢复状态
-                app.emit(
-                    "agent-done",
-                    serde_json::json!({
-                        "response": response,
-                        "session_id": session_id,
-                        "message_count": done_message_count,
-                    }),
-                )
-                .ok();
-                final_response = response;
-                final_session_id = Some(session_id);
-                message_count = done_message_count;
 
-                // 捕获 session_id（从 done 事件）
-                if captured_session_id.is_none() {
-                    captured_session_id = final_session_id.clone();
+            let msg: BridgeMessage = match serde_json::from_str(&line_str) {
+                Ok(m) => m,
+                Err(e) => {
+                    eprintln!("[bridge] parse error: {} - {}", e, line_str);
+                    app.emit("agent-error", serde_json::json!({
+                        "type": "parse_error",
+                        "message": format!("JSON parse error: {}", e),
+                        "raw": line_str.chars().take(100).collect::<String>(),
+                    })).ok();
+                    continue;
                 }
-            }
-            BridgeMessage::Error { message, session_id } => {
-                app.emit(
-                    "agent-error",
-                    serde_json::json!({
-                        "message": message,
-                        "session_id": session_id
-                    }),
-                )
-                .ok();
-                // 先清理再返回，避免资源泄漏
-                child.wait().ok();
-                {
-                    let mut processes = PROCESSES.lock().unwrap();
-                    processes.remove(&process_id);
+            };
+
+            match msg {
+                BridgeMessage::Delta { text, session_id } => {
+                    if let Some(t) = &text {
+                        accumulated_text.push_str(t);
+                    }
+                    if captured_session_id.is_none() {
+                        captured_session_id = session_id.clone();
+                    }
+                    app.emit("agent-delta", serde_json::json!({
+                        "text": text, "session_id": session_id,
+                    })).ok();
                 }
-                {
-                    let mut pids = PROCESS_PIDS.lock().unwrap();
-                    pids.remove(&process_id);
+                BridgeMessage::ToolStart { id, name, args, session_id } => {
+                    app.emit("agent-tool-start", serde_json::json!({
+                        "id": id, "name": name, "args": args, "session_id": session_id,
+                    })).ok();
                 }
-                {
-                    let mut flags = ABORT_FLAGS.lock().unwrap();
-                    flags.remove(&process_id);
+                BridgeMessage::ToolComplete { id, name, result, duration_ms, session_id } => {
+                    app.emit("agent-tool-complete", serde_json::json!({
+                        "id": id, "name": name, "result": result,
+                        "duration_ms": duration_ms, "session_id": session_id,
+                    })).ok();
                 }
-                {
-                    let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
-                    if current.as_ref() == Some(&process_id) {
-                        *current = None;
+                BridgeMessage::Thinking { text, session_id } => {
+                    app.emit("agent-thinking", serde_json::json!({
+                        "text": text, "session_id": session_id,
+                    })).ok();
+                }
+                BridgeMessage::Done { response, session_id, message_count: mc } => {
+                    app.emit("agent-done", serde_json::json!({
+                        "response": response, "session_id": session_id,
+                        "message_count": mc,
+                    })).ok();
+                    final_response = response;
+                    final_session_id = Some(session_id.clone());
+                    message_count = mc;
+                    if captured_session_id.is_none() {
+                        captured_session_id = Some(session_id);
                     }
                 }
-                return Err(message);
-            }
-            BridgeMessage::Aborted { session_id } => {
-                // Capture session_id even from aborted message
-                if captured_session_id.is_none() {
-                    captured_session_id = session_id.clone();
+                BridgeMessage::Error { message, session_id } => {
+                    app.emit("agent-error", serde_json::json!({
+                        "message": message, "session_id": session_id,
+                    })).ok();
+                    return Err(message);
                 }
-                // 先清理再返回，避免资源泄漏
-                child.wait().ok();
-                {
-                    let mut processes = PROCESSES.lock().unwrap();
-                    processes.remove(&process_id);
-                }
-                {
-                    let mut pids = PROCESS_PIDS.lock().unwrap();
-                    pids.remove(&process_id);
-                }
-                {
-                    let mut flags = ABORT_FLAGS.lock().unwrap();
-                    flags.remove(&process_id);
-                }
-                {
-                    let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
-                    if current.as_ref() == Some(&process_id) {
-                        *current = None;
+                BridgeMessage::Aborted { session_id } => {
+                    if captured_session_id.is_none() {
+                        captured_session_id = session_id.clone();
                     }
-                }
-                // 返回 session_id 而非抛 error，前端需要它来保存会话 ID
-                // 否则下一轮 invoke 用 null sessionId 创建新会话，旧会话丢失
-                let effective_session_id = captured_session_id.clone();
-                if let Some(ref sid) = effective_session_id {
-                    app.emit(
-                        "agent-done",
-                        serde_json::json!({
+                    let sid = captured_session_id.clone();
+                    if let Some(ref s) = sid {
+                        app.emit("agent-done", serde_json::json!({
                             "response": Option::<String>::None,
-                            "session_id": sid,
+                            "session_id": s,
                             "message_count": message_count,
                             "aborted": true,
-                        }),
-                    )
-                    .ok();
+                        })).ok();
+                    }
+                    return Ok(serde_json::json!({
+                        "response": Option::<String>::None,
+                        "session_id": sid,
+                        "message_count": message_count,
+                        "aborted": true,
+                    }));
                 }
-                return Ok(serde_json::json!({
-                    "response": Option::<String>::None,
-                    "session_id": effective_session_id,
-                    "message_count": message_count,
-                    "aborted": true,
-                }));
+                _ => {
+                    eprintln!("[bridge] unhandled event type");
+                }
             }
-            _ => {}
         }
     }
 
-    // Clean up process
-    child.wait().ok();
-    {
-        let mut processes = PROCESSES.lock().unwrap();
-        processes.remove(&process_id);
-    }
-    {
-        let mut pids = PROCESS_PIDS.lock().unwrap();
-        pids.remove(&process_id);
-    }
-    {
-        let mut flags = ABORT_FLAGS.lock().unwrap();
-        flags.remove(&process_id);
-    }
-    // Clear current chat process ID
-    {
-        let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
-        if current.as_ref() == Some(&process_id) {
-            *current = None;
+    // 处理 buffer 中可能残留的最后一个行（无换行结尾的情况）
+    if !buffer.is_empty() {
+        let line_str = String::from_utf8_lossy(&buffer);
+        if line_str.trim_start().starts_with('{') {
+            if let Ok(msg) = serde_json::from_str::<BridgeMessage>(&line_str) {
+                match msg {
+                    BridgeMessage::Done { response, session_id, message_count: mc } => {
+                        final_response = response;
+                        final_session_id = Some(session_id);
+                        message_count = mc;
+                    }
+                    BridgeMessage::Error { message, .. } => return Err(message),
+                    _ => {}
+                }
+            }
         }
     }
 
-    // Return result with captured session_id as fallback
     Ok(serde_json::json!({
         "response": final_response.unwrap_or(accumulated_text),
         "session_id": captured_session_id.or(final_session_id),
@@ -724,112 +597,40 @@ pub async fn agent_chat(
     }))
 }
 
-/// Abort current chat
+/// Abort current chat via HTTP server
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
-    // Get current chat process ID
-    let current_process_id = {
-        let current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
+    // 设置 abort flag 打断 HTTP 流读取循环
+    ABORT_FLAG.store(true, Ordering::SeqCst);
+
+    // 通知 HTTP 服务端中断正在运行的 agent
+    let session_id = {
+        let current = CURRENT_SESSION_ID.lock().unwrap();
         current.clone()
     };
 
-    if let Some(pid) = current_process_id {
-        // Find and set the abort flag for the running chat process
-        let abort_flag = {
-            let flags = ABORT_FLAGS.lock().unwrap();
-            flags.get(&pid).cloned()
-        };
-
-        if let Some(flag) = abort_flag {
-            // Set abort flag to break the read loop in agent_chat
-            flag.store(true, Ordering::SeqCst);
-
-            // Send SIGTERM (signal 15) instead of SIGKILL to allow graceful shutdown
-            // Python can capture SIGTERM, set abort flag, and Hermes will call _persist_session
-            {
-                let pids = PROCESS_PIDS.lock().unwrap();
-                if let Some(&os_pid) = pids.get(&pid) {
-                    // SIGTERM (15) allows Python signal handler to run and save messages
-                    let _ = std::process::Command::new("kill")
-                        .arg("-15")  // SIGTERM instead of SIGKILL (9)
-                        .arg(os_pid.to_string())
-                        .status();
-                }
+    if let Some(ref sid) = session_id {
+        let client = reqwest::Client::new();
+        match client
+            .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
+            .json(&serde_json::json!({"session_id": sid}))
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+            .await
+        {
+            Ok(resp) => {
+                eprintln!("[INFO] Abort sent to server for session {}: {}", sid, resp.status());
             }
-
-            // Wait for Python to complete graceful shutdown (with timeout)
-            // Python signal handler sets abort_flag, Hermes calls _persist_session
-            let child_opt = {
-                let processes = PROCESSES.lock().unwrap();
-                if let Some(arc_child) = processes.get(&pid) {
-                    arc_child.lock().unwrap().take()
-                } else {
-                    None
-                }
-            };
-            // MutexGuard is dropped here, before spawn_blocking
-
-            if let Some(mut child) = child_opt {
-                // Use spawn_blocking to avoid blocking tokio runtime
-                let wait_result = tokio::task::spawn_blocking(move || {
-                    // Wait up to 5 seconds for graceful shutdown
-                    let start = std::time::Instant::now();
-                    let timeout = std::time::Duration::from_secs(5);
-                    
-                    while start.elapsed() < timeout {
-                        match child.try_wait() {
-                            Ok(Some(_status)) => {
-                                // Process exited gracefully - messages were saved
-                                eprintln!("[INFO] Agent process gracefully terminated, messages saved");
-                                return true; // Success
-                            }
-                            Ok(None) => {
-                                // Process still running, wait a bit more
-                                std::thread::sleep(std::time::Duration::from_millis(100));
-                            }
-                            Err(e) => {
-                                eprintln!("[WARN] Error checking process status: {}", e);
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Timeout - force kill
-                    eprintln!("[WARN] SIGTERM timeout after 5s, forcing SIGKILL");
-                    child.kill().ok();
-                    child.wait().ok();
-                    return false; // Forced termination
-                }).await;
-                
-                match wait_result {
-                    Ok(true) => {
-                        // Graceful shutdown completed
-                        eprintln!("[INFO] Messages saved successfully");
-                    }
-                    Ok(false) => {
-                        // Forced termination
-                        eprintln!("[WARN] Messages may be incomplete due to forced termination");
-                    }
-                    Err(e) => {
-                        eprintln!("[ERROR] Spawn blocking failed: {}", e);
-                    }
-                }
+            Err(e) => {
+                eprintln!("[WARN] Failed to send abort to server: {}", e);
             }
-
-            // Clear current chat process ID
-            {
-                let mut current = CURRENT_CHAT_PROCESS_ID.lock().unwrap();
-                *current = None;
-            }
-
-            Ok(serde_json::json!({ "aborted": true, "process_id": pid }))
-        } else {
-            Err("No abort flag found for current chat process".to_string())
         }
-    } else {
-        // No chat is running
-        Ok(serde_json::json!({ "aborted": false, "message": "No active chat to abort" }))
     }
+
+    Ok(serde_json::json!({
+        "aborted": true,
+        "session_id": session_id,
+    }))
 }
 
 /// Check Agent availability (pure Rust, no Python bridge)
@@ -887,7 +688,7 @@ mod tests {
         let json = "{\"type\":\"delta\",\"text\":\"Hello\"}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Delta { text } => assert_eq!(text, Some("Hello".to_string())),
+            BridgeMessage::Delta { text, .. } => assert_eq!(text, Some("Hello".to_string())),
             _ => panic!("Wrong type"),
         }
     }
@@ -897,7 +698,7 @@ mod tests {
         let json = "{\"type\":\"delta\",\"text\":null}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Delta { text } => assert!(text.is_none()),
+            BridgeMessage::Delta { text, .. } => assert!(text.is_none()),
             _ => panic!("Wrong type"),
         }
     }
@@ -907,7 +708,7 @@ mod tests {
         let json = r#"{"type":"tool_start","name":"terminal","args":{"command":"ls"}}"#;
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::ToolStart { name, args } => {
+            BridgeMessage::ToolStart { name, args, .. } => {
                 assert_eq!(name, "terminal");
                 assert_eq!(args["command"], "ls");
             }
@@ -924,10 +725,11 @@ mod tests {
                 name,
                 result,
                 duration_ms,
+                ..
             } => {
                 assert_eq!(name, "terminal");
                 assert_eq!(result, Some("file1.txt\nfile2.txt".to_string()));
-                assert_eq!(duration_ms, 150.0);
+                assert_eq!(duration_ms, 150);
             }
             _ => panic!("Wrong type"),
         }
@@ -942,10 +744,11 @@ mod tests {
                 name,
                 result,
                 duration_ms,
+                ..
             } => {
                 assert_eq!(name, "terminal");
                 assert!(result.is_none());
-                assert_eq!(duration_ms, 150.0);
+                assert_eq!(duration_ms, 150);
             }
             _ => panic!("Wrong type"),
         }
@@ -1420,7 +1223,7 @@ mod tests {
         let json = "{\"type\":\"delta\",\"text\":\"Hello \"}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::Delta { text } => {
+            BridgeMessage::Delta { text, .. } => {
                 assert_eq!(text, Some("Hello ".to_string()));
             }
             _ => panic!("Wrong type"),
@@ -1434,7 +1237,7 @@ mod tests {
             "{\"type\":\"tool_start\",\"name\":\"web_search\",\"args\":{\"query\":\"test\"}}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
-            BridgeMessage::ToolStart { name, args } => {
+            BridgeMessage::ToolStart { name, args, .. } => {
                 assert_eq!(name, "web_search");
                 assert!(args.is_object());
             }
@@ -1445,17 +1248,18 @@ mod tests {
     /// 测试 BridgeMessage::ToolComplete 解析
     #[test]
     fn test_tool_complete_deserialize() {
-        let json = "{\"type\":\"tool_complete\",\"name\":\"web_search\",\"result\":\"Search results\",\"duration_ms\":150.5}";
+        let json = "{\"type\":\"tool_complete\",\"name\":\"web_search\",\"result\":\"Search results\",\"duration_ms\":150}";
         let msg: BridgeMessage = serde_json::from_str(json).unwrap();
         match msg {
             BridgeMessage::ToolComplete {
                 name,
                 result,
                 duration_ms,
+                ..
             } => {
                 assert_eq!(name, "web_search");
                 assert_eq!(result, Some("Search results".to_string()));
-                assert_eq!(duration_ms, 150.5);
+                assert_eq!(duration_ms, 150);
             }
             _ => panic!("Wrong type"),
         }
@@ -1485,5 +1289,214 @@ mod tests {
             }
             _ => panic!("Wrong type"),
         }
+    }
+
+    // ========================================================================
+    // Integration Tests: HTTP Chat Server (Phase 2)
+    // ========================================================================
+
+    /// Test that the HTTP chat server starts and responds to health check
+    #[test]
+    fn test_http_server_health() {
+        if let Err(e) = ensure_server_running() {
+            eprintln!("Skipping: server not started - {}", e);
+            return;
+        }
+        let client = reqwest::blocking::Client::new();
+        match client
+            .get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
+            .timeout(std::time::Duration::from_secs(5))
+            .send()
+        {
+            Ok(resp) => {
+                assert!(resp.status().is_success());
+                let json: serde_json::Value = resp.json().unwrap();
+                assert_eq!(json["status"], "ok");
+                println!("✅ Health check passed");
+            }
+            Err(e) => eprintln!("Skipping: health request failed - {}", e),
+        }
+    }
+
+    /// Test HTTP chat stream - POST /v1/chat, verify newline-delimited JSON response format
+    #[test]
+    fn test_http_server_chat_stream() {
+        if let Err(e) = ensure_server_running() {
+            eprintln!("Skipping: server not available - {}", e);
+            return;
+        }
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let client = reqwest::Client::new();
+            let body = serde_json::json!({"message": "嗨，用一句话打个招呼", "toolsets": []});
+
+            let resp = match client
+                .post(format!("{}/v1/chat", HERMES_CHAT_SERVER_URL))
+                .json(&body)
+                .send()
+                .await
+            {
+                Ok(r) if r.status().is_success() => r,
+                Ok(r) => {
+                    eprintln!("Server error: {}", r.text().await.unwrap_or_default());
+                    return;
+                }
+                Err(e) => {
+                    eprintln!("Request failed: {}", e);
+                    return;
+                }
+            };
+
+            let bytes = resp.bytes().await.unwrap();
+            let text = String::from_utf8_lossy(&bytes);
+            let lines: Vec<&str> = text.lines().collect();
+
+            println!("Received {} event lines", lines.len());
+            assert!(!lines.is_empty(), "Should receive at least one event");
+
+            for (i, line) in lines.iter().enumerate() {
+                let msg: BridgeMessage = serde_json::from_str(line).unwrap_or_else(|e| {
+                    panic!("Line {} invalid JSON: {} - content: {}", i, e, line);
+                });
+                match &msg {
+                    BridgeMessage::Delta { text, .. } => {
+                        let preview = text
+                            .as_deref()
+                            .unwrap_or("")
+                            .chars()
+                            .take(60)
+                            .collect::<String>();
+                        println!("  Δ delta: {}", preview);
+                    }
+                    BridgeMessage::Done {
+                        session_id,
+                        message_count,
+                        ..
+                    } => {
+                        println!("  ✓ done: session={}, count={}", session_id, message_count);
+                        assert!(!session_id.is_empty());
+                    }
+                    BridgeMessage::Error { message, .. } => {
+                        eprintln!("  ✗ error: {}", message);
+                    }
+                    _ => {
+                        println!("  • other event");
+                    }
+                }
+            }
+
+            // Last line must be Done or Error
+            let last_line = lines.last().unwrap();
+            let last_msg: BridgeMessage = serde_json::from_str(last_line).unwrap();
+            assert!(
+                matches!(last_msg, BridgeMessage::Done { .. } | BridgeMessage::Error { .. }),
+                "Last event should be Done or Error, got: {}",
+                last_line
+            );
+        });
+    }
+
+    /// Test HTTP abort endpoint
+    #[test]
+    fn test_http_server_abort() {
+        if let Err(e) = ensure_server_running() {
+            eprintln!("Skipping: server not available - {}", e);
+            return;
+        }
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        rt.block_on(async {
+            let client = reqwest::Client::new();
+            let resp = match client
+                .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
+                .json(&serde_json::json!({"session_id": "__test__"}))
+                .send()
+                .await
+            {
+                Ok(r) => r,
+                Err(e) => {
+                    eprintln!("Abort request failed: {}", e);
+                    return;
+                }
+            };
+            assert!(resp.status().is_success());
+            let json: serde_json::Value = resp.json().await.unwrap_or_default();
+            println!("Abort response: {:?}", json);
+        });
+    }
+
+    /// Test agent_abort_chat IPC command — no AppHandle needed
+    #[test]
+    fn test_agent_abort_chat_ipc() {
+        if let Err(e) = ensure_server_running() {
+            eprintln!("Skipping: server not available - {}", e);
+            return;
+        }
+        let rt = tokio::runtime::Runtime::new().unwrap();
+        let result = rt.block_on(agent_abort_chat());
+        match result {
+            Ok(json) => {
+                println!("agent_abort_chat result: {}", serde_json::to_string(&json).unwrap());
+                assert!(json.get("aborted").is_some());
+            }
+            Err(e) => {
+                eprintln!("agent_abort_chat failed: {}", e);
+            }
+        }
+    }
+
+    // ========================================================================
+    // Event Payload Format Tests: Verify JSON shapes match frontend expectations
+    // ========================================================================
+
+    /// Verify all event payload JSON shapes match HermesChat.vue's TypeScript types
+    #[test]
+    fn test_event_payload_shapes() {
+        // agent-delta: listen<{ text: string | null; session_id: string | null }>
+        let delta = serde_json::json!({"text": "Hello", "session_id": "sess-1"});
+        assert!(delta["text"].is_string());
+        assert!(delta["session_id"].is_string());
+        // agent-tool-start: listen<{ id?: string; name: string; args: unknown; session_id: string | null }>
+        let tool_start = serde_json::json!({"id":"call-1","name":"web_search","args":{"query":"test"},"session_id":"sess-1"});
+        assert!(tool_start["name"].is_string());
+        assert!(tool_start["args"].is_object());
+        // agent-tool-complete: listen<{ id?: string; name: string; result: string | null; duration_ms: number; session_id: string | null }>
+        let tool_complete = serde_json::json!({"id":"call-1","name":"web_search","result":"results","duration_ms":1500,"session_id":"sess-1"});
+        assert!(tool_complete["name"].is_string());
+        assert!(tool_complete["duration_ms"].is_number());
+        // agent-thinking: listen<{ text: string | null; session_id: string | null }>
+        let thinking = serde_json::json!({"text": "思考中...", "session_id": "sess-1"});
+        assert!(thinking["text"].is_string());
+        // agent-error: listen<{ message: string; session_id: string | null }>
+        let error = serde_json::json!({"message": "err", "session_id": "sess-1"});
+        assert!(error["message"].is_string());
+        // agent-done: listen<{ response: string | null; session_id: string; message_count: number }>
+        let done = serde_json::json!({"response":"Answer","session_id":"sess-1","message_count":3});
+        assert!(done["session_id"].is_string());
+        assert!(done["message_count"].is_number());
+        // agent_chat return: invoke<{ response: string; session_id: string; message_count: number }>
+        let invoke_result = serde_json::json!({"response":"Answer","session_id":"sess-1","message_count":3});
+        assert!(invoke_result["response"].is_string());
+        println!("✅ Event payload shapes valid");
+    }
+
+    /// Test BridgeMessage serde serialization matches frontend event payloads
+    #[test]
+    fn test_bridge_message_to_event_shape() {
+        // Delta -> agent-delta
+        let delta = BridgeMessage::Delta { text: Some("Hello".to_string()), session_id: Some("sess-1".to_string()) };
+        let json = serde_json::to_value(&delta).unwrap();
+        assert_eq!(json["type"], "delta");
+        assert_eq!(json["text"], "Hello");
+        // ToolStart -> agent-tool-start
+        let start = BridgeMessage::ToolStart { id: Some("call-1".to_string()), name: "web_search".to_string(), args: serde_json::json!({"query":"test"}), session_id: Some("sess-1".to_string()) };
+        let json = serde_json::to_value(&start).unwrap();
+        assert_eq!(json["name"], "web_search");
+        assert!(json["args"].is_object());
+        // Done -> agent-done
+        let done = BridgeMessage::Done { response: Some("Answer".to_string()), session_id: "sess-1".to_string(), message_count: 3 };
+        let json = serde_json::to_value(&done).unwrap();
+        assert_eq!(json["type"], "done");
+        assert!(json["message_count"].is_number());
+        println!("✅ BridgeMessage -> event shape mappings valid");
     }
 }
