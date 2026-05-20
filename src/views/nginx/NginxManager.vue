@@ -208,8 +208,9 @@
     </div>
 
     <!-- 新增/编辑预设弹窗 -->
-    <div v-if="showPresetForm" class="modal modal-open" @click.self="showPresetForm = false">
-      <div class="modal-box">
+    <div v-if="showPresetForm" class="modal modal-open">
+      <div class="modal-box relative">
+        <button @click="showPresetForm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg">{{ editingPreset ? '编辑预设' : '新增预设' }}</h3>
         <div class="flex flex-col gap-1 mt-3">
           <label class="text-xs font-medium text-base-content/80">预设名称</label>
@@ -259,8 +260,9 @@
     </div>
 
     <!-- 发布弹窗 -->
-    <div v-if="showDeployDialog" class="modal modal-open" @click.self="showDeployDialog = false">
-      <div class="modal-box max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+    <div v-if="showDeployDialog" class="modal modal-open">
+      <div class="modal-box relative max-w-5xl w-full max-h-[90vh] overflow-y-auto">
+        <button @click="showDeployDialog = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg"><SvgIcon name="rocket" size="14" /> 发布配置</h3>
 
         <!-- 分解模式开关 -->
@@ -333,8 +335,9 @@
     </div>
 
     <!-- 删除确认弹窗 -->
-    <div v-if="showDeleteConfirm" class="modal modal-open" @click.self="showDeleteConfirm = false">
-      <div class="modal-box">
+    <div v-if="showDeleteConfirm" class="modal modal-open">
+      <div class="modal-box relative">
+        <button @click="showDeleteConfirm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg"><SvgIcon name="alertTriangle" size="14" /> 确认删除</h3>
         <p class="text-sm text-base-content/70 mt-2">确定删除此预设？关联的版本历史也会一并删除。</p>
         <div class="modal-action">
@@ -347,8 +350,9 @@
     </div>
 
     <!-- 回滚确认弹窗 -->
-    <div v-if="showRollbackConfirm" class="modal modal-open" @click.self="showRollbackConfirm = false">
-      <div class="modal-box">
+    <div v-if="showRollbackConfirm" class="modal modal-open">
+      <div class="modal-box relative">
+        <button @click="showRollbackConfirm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg"><SvgIcon name="refresh" size="14" /> 确认回滚</h3>
         <p class="text-sm text-base-content/70 mt-2">确定回滚到此版本？当前配置将被替换。</p>
         <div class="modal-action">

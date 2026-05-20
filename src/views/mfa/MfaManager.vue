@@ -106,8 +106,11 @@
 
     <!-- 添加/编辑对话框 -->
     <Teleport to="body">
-      <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="closeDialogs">
-        <div class="w-[90%] max-w-[520px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
+      <div v-if="showAddDialog || showEditDialog" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45">
+        <div class="w-[90%] max-w-[520px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg relative" @click.stop>
+          <button @click="closeDialogs" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
             <h3 class="m-0 text-base font-semibold text-base-content"><template v-if="editingTarget"><SvgIcon name="pencil" size="14" /> 编辑账户</template><template v-else><SvgIcon name="key" size="14" /> 添加 MFA 账户</template></h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="closeDialogs">×</button>
@@ -183,8 +186,11 @@
 
     <!-- 删除确认对话框 -->
     <Teleport to="body">
-      <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45" @click.self="deleteTarget = null">
-        <div class="w-[90%] max-w-[400px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg" @click.stop>
+      <div v-if="deleteTarget" class="fixed inset-0 z-[10000] flex items-center justify-center bg-black/45">
+        <div class="w-[90%] max-w-[400px] rounded-xl border border-base-content/10 bg-base-100 shadow-lg relative" @click.stop>
+          <button @click="deleteTarget = null" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
             <h3 class="m-0 text-base font-semibold text-base-content"><SvgIcon name="alertTriangle" size="14" /> 确认删除</h3>
             <button class="btn btn-ghost btn-square btn-sm text-lg text-base-content/60" @click="deleteTarget = null">×</button>

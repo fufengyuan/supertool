@@ -69,8 +69,9 @@
     </div>
 
     <!-- 新增/编辑弹窗 -->
-    <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-xl">
+    <div v-if="showDialog" class="modal modal-open">
+      <div class="modal-box relative max-w-xl">
+        <button @click="closeDialog" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg">{{ editingStream ? '编辑 Stream' : '新增 Stream' }}</h3>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">

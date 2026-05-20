@@ -190,8 +190,11 @@
     </div>
 
     <!-- 预设表单弹窗 -->
-    <div v-if="showPresetForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]" @click.self="showPresetForm = false">
-      <div class="bg-base-100 p-5 rounded-2xl w-[680px] max-h-[80vh] overflow-y-auto">
+    <div v-if="showPresetForm" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000]">
+      <div class="bg-base-100 p-5 rounded-2xl w-[680px] max-h-[80vh] overflow-y-auto relative">
+        <button @click="showPresetForm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <h3 class="mt-0 mb-4 text-lg font-semibold">{{ editingPreset ? '编辑预设' : '新增预设' }}</h3>
         <div class="mb-3">
           <label class="block text-xs mb-1 text-base-content/60">预设名称</label>
@@ -252,7 +255,10 @@
 
     <!-- 确认删除对话框 -->
     <dialog ref="deleteConfirmDialog" class="modal">
-      <div class="modal-box max-w-sm">
+      <div class="modal-box max-w-sm relative">
+        <button @click="cancelDeletePreset" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <h3 class="text-lg font-bold flex items-center gap-2">
           <SvgIcon name="alertTriangle" size="18" class="text-warning" />
           <span>确认删除</span>

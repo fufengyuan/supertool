@@ -342,7 +342,7 @@
 
     <!-- ============ 模态框：服务探测表单 ============ -->
     <Teleport to="body">
-      <div v-if="showServiceModal" class="fixed inset-0 z-50 flex items-center justify-center" @click.self="closeServiceModal">
+      <div v-if="showServiceModal" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="fixed inset-0 bg-black/50"></div>
         <div class="bg-base-100 rounded-xl shadow-xl w-full max-w-lg mx-4 z-10 max-h-[85vh] overflow-y-auto">
           <div class="flex items-center justify-between px-5 py-3 border-b border-base-content/10">

@@ -215,8 +215,11 @@
     </div>
 
     <!-- Add Key Dialog -->
-    <div v-if="showAddKeyDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showAddKeyDialog = false">
-      <div class="bg-base-100 rounded-xl p-5 w-[600px] max-w-[90vw] shadow-lg">
+    <div v-if="showAddKeyDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl p-5 w-[600px] max-w-[90vw] shadow-lg relative">
+        <button @click="showAddKeyDialog = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <h3 class="text-base font-semibold text-base-content m-0 mb-4">添加新键</h3>
         <div class="flex flex-col gap-3">
           <div class="grid grid-cols-2 gap-3">

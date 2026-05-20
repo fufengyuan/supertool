@@ -138,8 +138,11 @@
     </div>
 
     <!-- 创建文件夹对话框 -->
-    <div v-if="showCreateFolder" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40" @click.self="showCreateFolder = false">
-      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4">
+    <div v-if="showCreateFolder" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40">
+      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4 relative">
+        <button @click="showCreateFolder = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <h3 class="text-sm font-semibold mb-3">新建文件夹</h3>
         <input
           v-model="newFolderName"
@@ -157,8 +160,11 @@
     </div>
 
     <!-- 删除确认对话框 -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40" @click.self="showDeleteConfirm = false">
-      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4">
+    <div v-if="showDeleteConfirm" class="fixed inset-0 z-[1100] flex items-center justify-center bg-black/40">
+      <div class="w-[320px] bg-base-100 border border-base-content/10 rounded-xl shadow-2xl p-4 relative">
+        <button @click="showDeleteConfirm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <h3 class="text-sm font-semibold mb-2">确认删除</h3>
         <p class="text-xs text-base-content/70 mb-1">
           {{ deleteTarget?.type === 'directory' ? '文件夹' : '文件' }}：<span class="font-medium text-base-content">{{ deleteTarget?.name }}</span>

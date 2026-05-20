@@ -115,8 +115,9 @@
       </div>
 
       <!-- Sudo Password Dialog -->
-      <div v-if="showPasswordDialog" class="modal modal-open" @click.self="cancelPasswordDialog">
-        <div class="modal-box max-w-[600px]">
+      <div v-if="showPasswordDialog" class="modal modal-open">
+        <div class="modal-box relative max-w-[600px]">
+          <button @click="showPasswordDialog = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
           <div class="text-lg font-semibold text-base-content mb-3"><SvgIcon name="lock" size="14" class="inline-block align-text-bottom" /> 需要 sudo 密码</div>
           <div class="text-sm text-base-content mb-4 leading-relaxed">OpenVPN 需要 root 权限创建 TUN 设备。请输入你的系统密码：</div>
           <div class="mb-4">
@@ -210,8 +211,9 @@
     </div>
 
     <!-- WireGuard Add/Edit Dialog -->
-    <div v-if="showWgForm" class="modal modal-open" @click.self="showWgForm = false">
-      <div class="modal-box max-w-[600px] max-h-[90vh] overflow-y-auto">
+    <div v-if="showWgForm" class="modal modal-open">
+      <div class="modal-box relative max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <button @click="showWgForm = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <div class="text-lg font-semibold text-base-content mb-3"><SvgIcon name="zap" size="14" />  {{ editingWg ? '编辑' : '添加' }} WireGuard 配置</div>
         <div class="flex flex-col gap-2.5 text-sm text-base-content mb-4">
           <div class="flex flex-col gap-1">

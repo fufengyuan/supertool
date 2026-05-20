@@ -508,8 +508,11 @@
     </div>
 
     <!-- Add Message Modal -->
-    <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showAddModal = false">
-      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10 relative">
+        <button @click="showAddModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="m-0 text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>  投递消息 (XADD)</h3>
           <button @click="showAddModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -543,8 +546,11 @@
     </div>
 
     <!-- Create Group Modal -->
-    <div v-if="showGroupModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showGroupModal = false">
-      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+    <div v-if="showGroupModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10 relative">
+        <button @click="showGroupModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="m-0 text-sm font-semibold text-base-content">创建消费组 (XGROUP CREATE)</h3>
           <button @click="showGroupModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -569,8 +575,11 @@
     </div>
 
     <!-- Trim Modal -->
-    <div v-if="showTrimModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showTrimModal = false">
-      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10">
+    <div v-if="showTrimModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl w-[560px] max-w-[90vw] shadow-2xl border border-base-content/10 relative">
+        <button @click="showTrimModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="m-0 text-sm font-semibold text-base-content"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block align-text-bottom"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg> 清理队列 (XTRIM)</h3>
           <button @click="showTrimModal = false" class="border-none bg-transparent cursor-pointer text-lg text-base-content/60 p-1 rounded hover:bg-base-200 transition-colors"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>

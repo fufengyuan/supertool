@@ -202,8 +202,11 @@
     </div>
 
     <!-- 添加任务弹出框 -->
-    <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
-      <div class="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+    <div v-if="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <div class="bg-base-100 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden relative">
+        <button @click="showAddModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-6 pt-5 pb-3">
           <h3 class="text-lg font-semibold text-base-content">添加任务</h3>
           <button class="btn btn-circle btn-ghost btn-sm" @click="showAddModal = false"><SvgIcon name="x" size="14" /></button>
