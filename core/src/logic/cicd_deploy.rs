@@ -2025,7 +2025,24 @@ async fn deploy_to_server(
         &srv.deploy_dir
     };
 
-    // Create deploy directory
+    // Resolve remote home directory for ~ expansion (SFTP doesn't expand ~)
+    let remote_home = ssh_exec(&sess, "echo $HOME")
+        .unwrap_or_default()
+        .trim()
+        .to_string();
+    let expand_path = |p: &str| -> String {
+        if p.starts_with("~/") && !remote_home.is_empty() {
+            format!("{}/{}", remote_home.trim_end_matches('/'), &p[2..])
+        } else if p == "~" && !remote_home.is_empty() {
+            remote_home.clone()
+        } else {
+            p.to_string()
+        }
+    };
+    // Resolve deploy_dir for SFTP usage (keep original for shell commands)
+    let deploy_dir_resolved = expand_path(deploy_dir);
+
+    // Create deploy directory (shell command, ~ works fine)
     let mkdir_cmd = format!("mkdir -p {}", shell_escape(deploy_dir));
     ssh_exec(&sess, &mkdir_cmd)?;
 
@@ -2057,18 +2074,20 @@ async fn deploy_to_server(
 
     for artifact in artifacts {
         let target_path = if let Some(ref dp) = artifact.deploy_path {
+            let resolved = expand_path(dp);
             if artifact.is_lib {
-                format!("{}/lib", dp)
+                format!("{}/lib", resolved)
             } else {
-                dp.clone()
+                resolved
             }
         } else if artifact.is_lib && config.lib_separate {
             config
                 .lib_dir
-                .clone()
-                .unwrap_or_else(|| config.deploy_dir.clone())
+                .as_ref()
+                .map(|ld| expand_path(ld))
+                .unwrap_or_else(|| deploy_dir_resolved.clone())
         } else {
-            config.deploy_dir.clone()
+            deploy_dir_resolved.clone()
         };
 
         let remote_file = format!("{}/{}", target_path.trim_end_matches('/'), artifact.name);
