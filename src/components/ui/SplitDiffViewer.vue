@@ -94,7 +94,7 @@ const oldFileName = computed(() => {
   const diffStart = props.diff.indexOf('diff --git')
   if (diffStart === -1) return '旧文件'
   const diffPart = props.diff.slice(diffStart)
-  const match = diffPart.match(/^\-\-\- (.+)/m)
+  const match = diffPart.match(/^--- (.+)/m)
   return match ? match[1].replace('a/', '') : '旧文件'
 })
 
@@ -110,6 +110,7 @@ const newFileName = computed(() => {
 
 // 解析 diff 为左右两边的行
 // 策略：将删除行放左边，新增行放右边，上下文行两边都放
+// 优化：仅缩进变化的行对标记为 whitespace 类型，不显示为删除/新增
 const oldLines = computed(() => {
   if (!props.diff) return []
   return parseDiffLines(props.diff, 'old')
@@ -142,9 +143,93 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
   // 只处理 diff 部分
   const diffLines = lines.slice(diffStartIndex)
   
+  // 收集相邻的删除/新增行对，用于检测仅缩进变化
+  const pendingRemoves: { content: string; oldNum: number }[] = []
+  const pendingAdds: { content: string; newNum: number }[] = []
+  
+  function flushPendingLines() {
+    // 检查是否有仅缩进变化的行对（内容相同，仅空白差异）
+    const pairs: Array<{ oldIdx: number; newIdx: number }> = []
+    const usedNewIdx = new Set<number>()
+    
+    for (let i = 0; i < pendingRemoves.length; i++) {
+      const oldContent = pendingRemoves[i].content
+      // 找第一个未被匹配的、内容相同的新行
+      for (let j = 0; j < pendingAdds.length; j++) {
+        if (usedNewIdx.has(j)) continue
+        const newContent = pendingAdds[j].content
+        // 去除空白后比较内容
+        if (oldContent.trim() === newContent.trim()) {
+          pairs.push({ oldIdx: i, newIdx: j })
+          usedNewIdx.add(j)
+          break
+        }
+      }
+    }
+    
+    // 处理删除行
+    for (let i = 0; i < pendingRemoves.length; i++) {
+      const pair = pairs.find(p => p.oldIdx === i)
+      if (pair) {
+        // 仅缩进变化：标记为 whitespace，使用淡色显示
+        if (side === 'old') {
+          result.push({ 
+            content: pendingRemoves[i].content, 
+            type: 'whitespace', 
+            oldNum: pendingRemoves[i].oldNum, 
+            newNum: '',
+            pairedNewNum: pendingAdds[pair.newIdx].newNum
+          })
+        } else {
+          // 右侧显示 placeholder
+          result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
+        }
+      } else {
+        // 真正的删除
+        if (side === 'old') {
+          result.push({ content: pendingRemoves[i].content, type: 'remove', oldNum: pendingRemoves[i].oldNum, newNum: '' })
+        } else {
+          result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
+        }
+      }
+    }
+    
+    // 处理新增行
+    for (let j = 0; j < pendingAdds.length; j++) {
+      const pair = pairs.find(p => p.newIdx === j)
+      if (pair) {
+        // 仅缩进变化：标记为 whitespace
+        if (side === 'new') {
+          result.push({ 
+            content: pendingAdds[j].content, 
+            type: 'whitespace', 
+            oldNum: '', 
+            newNum: pendingAdds[j].newNum,
+            pairedOldNum: pendingRemoves[pair.oldIdx].oldNum
+          })
+        } else {
+          result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
+        }
+      } else {
+        // 真正的新增
+        if (side === 'new') {
+          result.push({ content: pendingAdds[j].content, type: 'add', oldNum: '', newNum: pendingAdds[j].newNum })
+        } else {
+          result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
+        }
+      }
+    }
+    
+    // 清空待处理列表
+    pendingRemoves.length = 0
+    pendingAdds.length = 0
+  }
+  
   for (const line of diffLines) {
     // 解析 @@ -1,10 +1,15 @@ 格式
     if (line.startsWith('@@')) {
+      // 先处理之前积累的行
+      flushPendingLines()
       const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/)
       if (match) {
         oldStart = parseInt(match[1])
@@ -165,39 +250,34 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
     const content = line.slice(1)
     
     if (prefix === '-') {
-      // 删除行：只放左边
+      // 删除行：先积累
       oldNum++
-      if (side === 'old') {
-        result.push({ content, type: 'remove', oldNum: oldNum, newNum: '' })
-      } else {
-        // 右边显示空行占位，保持对齐
-        result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
-      }
+      pendingRemoves.push({ content, oldNum })
     } else if (prefix === '+') {
-      // 新增行：只放右边
+      // 新增行：先积累
       newNum++
-      if (side === 'new') {
-        result.push({ content, type: 'add', oldNum: '', newNum: newNum })
-      } else {
-        // 左边显示空行占位，保持对齐
-        result.push({ content: '', type: 'placeholder', oldNum: '', newNum: '' })
-      }
+      pendingAdds.push({ content, newNum })
     } else if (prefix === ' ') {
-      // 上下文行：两边都放
+      // 上下文行：先处理积累的行，再输出上下文
+      flushPendingLines()
       oldNum++
       newNum++
-      result.push({ content, type: 'context', oldNum: oldNum, newNum: newNum })
+      result.push({ content, type: 'context', oldNum, newNum })
     } else {
-      // 其他行（如空行）
+      // 其他行（如空行）：先处理积累的行
+      flushPendingLines()
       if (line === '') {
         oldNum++
         newNum++
-        result.push({ content: '', type: 'context', oldNum: oldNum, newNum: newNum })
+        result.push({ content: '', type: 'context', oldNum, newNum })
       } else {
         result.push({ content: line, type: 'meta', oldNum: '', newNum: '' })
       }
     }
   }
+  
+  // 处理最后积累的行
+  flushPendingLines()
   
   return result
 }
@@ -229,6 +309,7 @@ function getLineClass(line: any, side: 'old' | 'new') {
     'line-add': line.type === 'add',
     'line-context': line.type === 'context',
     'line-placeholder': line.type === 'placeholder',
+    'line-whitespace': line.type === 'whitespace',
     'line-meta': line.type === 'meta'
   }
 }
@@ -419,6 +500,15 @@ function getLineClass(line: any, side: 'old' | 'new') {
 
 .line-context {
   background: transparent;
+}
+
+/* 仅缩进变化的行 - 使用淡灰色，不明显标记为变更 */
+.line-whitespace {
+  background: color-mix(in oklab, var(--color-base-content) 5%, transparent);
+}
+
+.line-whitespace .line-content {
+  color: color-mix(in oklab, var(--color-base-content) 70%, transparent);
 }
 
 .line-placeholder {
