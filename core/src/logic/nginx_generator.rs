@@ -752,14 +752,14 @@ fn append_location_block(
     // Custom params - prepend mode
     append_location_param_json_prepend(conn, loc, out);
 
-    match loc.loc_type {
+    match loc.upstream_type {
         0 | 2 => {
             // proxy_pass (type 0) or upstream (type 2)
 
             // proxy_pass directive
-            if loc.loc_type == 0 && !loc.value.is_empty() {
+            if loc.upstream_type == 0 && !loc.value.is_empty() {
                 out.push_str(&format!("            proxy_pass {};\n", loc.value));
-            } else if loc.loc_type == 2 || (!loc.upstream_id.is_empty()) {
+            } else if loc.upstream_type == 2 || (!loc.upstream_id.is_empty()) {
                 let upstream_type = if loc.upstream_type == 1 {
                     "https"
                 } else {
@@ -1519,8 +1519,8 @@ mod tests {
              header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
             rusqlite::params![
-                "loc-2", server_id, 1, "/static", 1, "",
-                0, "", "", "/var/www/static", "index.html", "",
+                "loc-2", server_id, 1, "/static", 0, "",
+                1, "", "", "/var/www/static", "index.html", "",
                 0, 0, 0, "", "", 0, "", 1, "static files", now
             ],
         ).unwrap();
@@ -1532,8 +1532,8 @@ mod tests {
              header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
             rusqlite::params![
-                "loc-3", server_id, 1, "/old", 4, "301",
-                0, "", "", "", "", "",
+                "loc-3", server_id, 1, "/old", 0, "301",
+                4, "", "", "", "", "",
                 0, 0, 0, "", "https://new.example.com", 1, "", 2, "redirect", now
             ],
         ).unwrap();
