@@ -1686,6 +1686,15 @@ const jumpToSearchResult = async (result: SearchResult) => {
 };
 
 const selectSession = async (session: Session) => {
+  // 切换会话时重置流式状态
+  if (isStreaming.value) {
+    invoke('agent_abort_chat').catch(() => {});
+    isAborting.value = false;
+  }
+  isStreaming.value = false;
+  thinkingText.value = '';
+  lastAssistantRoundEnded = false;
+  
   currentSessionId.value = session.id;
   currentSession.value = session;
   loadingMessages.value = true;
