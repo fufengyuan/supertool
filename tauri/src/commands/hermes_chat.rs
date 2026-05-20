@@ -540,13 +540,13 @@ pub async fn agent_chat(
                 BridgeMessage::Delta { text, session_id } => {
                     if let Some(t) = &text {
                         accumulated_text.push_str(t);
+                        if captured_session_id.is_none() {
+                            captured_session_id = session_id.clone();
+                        }
+                        app.emit("agent-delta", serde_json::json!({
+                            "text": t, "session_id": session_id,
+                        })).ok();
                     }
-                    if captured_session_id.is_none() {
-                        captured_session_id = session_id.clone();
-                    }
-                    app.emit("agent-delta", serde_json::json!({
-                        "text": text, "session_id": session_id,
-                    })).ok();
                 }
                 BridgeMessage::ToolStart { id, name, args, session_id } => {
                     app.emit("agent-tool-start", serde_json::json!({
