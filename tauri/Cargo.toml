@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "4.4.4"
+version = "4.8.0"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -10,7 +10,7 @@ name = "supertool"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "2", features = [ "protocol-asset", "tray-icon", "devtools"] }
+tauri = { version = "2", features = [ "protocol-asset", "tray-icon", "devtools", "test"] }
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
@@ -65,10 +65,12 @@ if-addrs = "0.13"
 socket2 = "0.5"
 hostname = "0.4"
 lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1-native-tls"] }
-reqwest = { version = "0.12", features = ["json"] }
+reqwest = { version = "0.12", features = ["json", "stream", "blocking"] }
 html2md = "0.2"
 shellexpand = "3.1.2"
 lazy_static = "1.4"
+serde_yaml = "0.9"
+futures = "0.3"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
