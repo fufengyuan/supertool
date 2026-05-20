@@ -411,12 +411,10 @@
                 </div>
               </div>
               <!-- 思考中（无工具调用时） -->
-              <p v-else class="text-sm text-base-content/50 flex items-center gap-0.5">
-                <span>思考</span>
-                <span class="typing-dot">.</span>
-                <span class="typing-dot" style="animation-delay: 0.2s">.</span>
-                <span class="typing-dot" style="animation-delay: 0.4s">.</span>
-              </p>
+              <div v-else class="flex items-center gap-2 text-sm text-base-content/80">
+                <span class="loading loading-spinner loading-xs text-primary"></span>
+                <span>思考中...</span>
+              </div>
             </div>
             <!-- 取消按钮 - 更醒目 -->
             <button 
@@ -989,6 +987,7 @@ if (typeof window !== 'undefined') {
 
 // Event listeners
 let unlistenDelta: UnlistenFn | null = null;
+let unlistenThinking: UnlistenFn | null = null;
 let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
@@ -2374,7 +2373,8 @@ onMounted(async () => {
       return;
     }
     
-    thinkingText.value = '';
+    // 保留 lastAssistantRoundEnded 时 thinkingText 不清空，避免气泡变空
+    // thinkingText.value = '';
     
     // 获取当前 assistant 消息
     const messagesCopy = [...messages.value].reverse();
@@ -2433,7 +2433,19 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  // 思考动画事件已移除（服务端不再发送 agent-thinking 事件）
+  // 思考动画事件
+  unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', (event) => {
+    // 会话 ID 过滤：只处理当前会话的事件
+    const eventSessionId = event.payload?.session_id;
+    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
+      return;
+    }
+    if (event.payload?.text) {
+      thinkingText.value = event.payload.text;
+    } else {
+      thinkingText.value = '';
+    }
+  });
   
   unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', (event) => {
     void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + event.payload?.session_id);
@@ -2513,6 +2525,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // Properly clean up event listeners
   unlistenDelta?.();
+  unlistenThinking?.();
   unlistenToolStart?.();
   unlistenToolComplete?.();
   unlistenError?.();
