@@ -208,9 +208,9 @@ def _run_chat_in_thread(
                 _agent_cache[session_id] = agent
         else:
             # Cached agent needs callbacks updated (new queue/abort per request)
-            agent._stream_delta_callback = stream_callback
-            agent._tool_start_callback = tool_start_callback
-            agent._tool_complete_callback = tool_complete_callback
+            agent.stream_delta_callback = stream_callback
+            agent.tool_start_callback = tool_start_callback
+            agent.tool_complete_callback = tool_complete_callback
 
         # Serialize access to this session's agent (prevent concurrent run_conversation)
         session_lock = _get_session_lock(session_id)
