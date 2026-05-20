@@ -1851,3 +1851,155 @@ fn test_prod3_round_trip_generate() {
         "Same stream count"
     );
 }
+
+/// Generic round-trip test for any nginx config file
+fn round_trip_test_config(filename: &str) {
+    use std::io::Write;
+
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("testdata");
+    let path = test_dir.join(filename);
+    
+    if !path.exists() {
+        eprintln!("⚠️  File not found: {}", filename);
+        return;
+    }
+    
+    let original = std::fs::read_to_string(&path).unwrap_or_default();
+    if original.is_empty() {
+        eprintln!("⚠️  Empty file: {}", filename);
+        return;
+    }
+
+    eprintln!("\n========== Testing {} ==========", filename);
+    eprintln!("Size: {} bytes, {} lines", original.len(), original.lines().count());
+
+    // Skip generated files
+    if filename.contains("_generated") {
+        eprintln!("⏭️  Skipping generated file");
+        return;
+    }
+
+    // Step 1: Parse
+    let parsed = match supertool_core::logic::nginx_parser::parse_nginx_config(&original) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("❌ Parse failed: {}", e);
+            panic!("{} failed to parse: {}", filename, e);
+        }
+    };
+
+    eprintln!(
+        "Parsed: {} upstreams, {} servers, {} http_params, {} basic_settings, {} streams, {} locations total",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.http_params.len(),
+        parsed.basic_settings.len(),
+        parsed.streams.len(),
+        parsed.servers.iter().map(|s| s.locations.len()).sum::<usize>()
+    );
+
+    // Step 2: Insert into DB
+    let (conn, preset_id) = setup_empty_db_for_import();
+    insert_parsed_to_db(&conn, &preset_id, &parsed);
+
+    // Step 3: Generate
+    let generated = match supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id) {
+        Ok(g) => g,
+        Err(e) => {
+            eprintln!("❌ Generate failed: {}", e);
+            panic!("{} failed to generate: {}", filename, e);
+        }
+    };
+
+    // Step 4: Parse generated
+    let parsed_gen = match supertool_core::logic::nginx_parser::parse_nginx_config(&generated) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("❌ Generated config failed to parse: {}", e);
+            eprintln!("=== Generated config ===");
+            eprintln!("{}", generated);
+            eprintln!("=== End of config ===");
+            panic!("{} generated config parse error: {}", filename, e);
+        }
+    };
+
+    // Compare counts
+    let upstream_match = parsed_gen.upstreams.len() == parsed.upstreams.len();
+    let server_match = parsed_gen.servers.len() == parsed.servers.len();
+    let stream_match = parsed_gen.streams.len() == parsed.streams.len();
+    let http_param_match = parsed_gen.http_params.len() == parsed.http_params.len();
+    let basic_match = parsed_gen.basic_settings.len() == parsed.basic_settings.len();
+    
+    // Count total locations
+    let orig_locs = parsed.servers.iter().map(|s| s.locations.len()).sum::<usize>();
+    let gen_locs = parsed_gen.servers.iter().map(|s| s.locations.len()).sum::<usize>();
+    let loc_match = orig_locs == gen_locs;
+
+    eprintln!(
+        "Result: upstreams {} | servers {} | streams {} | http_params {} | basic {} | locations {}",
+        if upstream_match { "✅" } else { "❌" },
+        if server_match { "✅" } else { "❌" },
+        if stream_match { "✅" } else { "❌" },
+        if http_param_match { "✅" } else { "❌" },
+        if basic_match { "✅" } else { "❌" },
+        if loc_match { "✅" } else { "❌" }
+    );
+
+    if !upstream_match {
+        eprintln!("  Upstreams: orig={}, gen={}", parsed.upstreams.len(), parsed_gen.upstreams.len());
+    }
+    if !server_match {
+        eprintln!("  Servers: orig={}, gen={}", parsed.servers.len(), parsed_gen.servers.len());
+    }
+    if !stream_match {
+        eprintln!("  Streams: orig={}, gen={}", parsed.streams.len(), parsed_gen.streams.len());
+    }
+    if !loc_match {
+        eprintln!("  Locations: orig={}, gen={}", orig_locs, gen_locs);
+        // Show per-server breakdown
+        for srv in &parsed.servers {
+            let gen_srv = parsed_gen.servers.iter().find(|g| g.server_name == srv.server_name);
+            let gen_count = gen_srv.map(|g| g.locations.len()).unwrap_or(0);
+            if srv.locations.len() != gen_count {
+                eprintln!("    Server '{}': orig={} locs, gen={} locs", srv.server_name, srv.locations.len(), gen_count);
+            }
+        }
+    }
+
+    // Write generated for inspection
+    let gen_filename = filename.replace(".conf", "_generated.conf");
+    let out_path = test_dir.join(&gen_filename);
+    let mut f = std::fs::File::create(&out_path).unwrap();
+    f.write_all(generated.as_bytes()).unwrap();
+
+    // Assert
+    assert!(upstream_match, "{}: upstream count mismatch", filename);
+    assert!(server_match, "{}: server count mismatch", filename);
+    assert!(stream_match, "{}: stream count mismatch", filename);
+    assert!(loc_match, "{}: location count mismatch", filename);
+}
+
+#[test]
+fn test_all_nginx_configs() {
+    let configs = [
+        "nginx.conf",
+        "nginx_simple.conf",
+        "nginx_production.conf",
+        "nginx_prod2.conf",
+        "nginx_prod3.conf",
+        "nginx_single_domain.conf",
+        "nginx_multi_domain.conf",
+        "nginx_reverse_proxy.conf",
+        "nginx_port_forward.conf",
+        "nginx_complex_app.conf",
+    ];
+    
+    for config in &configs {
+        round_trip_test_config(config);
+    }
+    
+    eprintln!("\n========== All configs tested ==========");
+}

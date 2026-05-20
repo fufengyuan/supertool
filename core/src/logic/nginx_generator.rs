@@ -4,6 +4,29 @@
 use crate::db::nginx::*;
 use rusqlite::Connection;
 
+/// Check if a value needs quoting in nginx config
+/// Values with curly braces (not block-style), semicolons, or special chars need quotes
+fn needs_quoting(value: &str) -> bool {
+    // Contains '{' but not as block start (i.e., '{' followed by newline)
+    if value.contains('{') && !value.contains("{\n") && !value.contains("{ \n") {
+        return true;
+    }
+    // Contains unescaped quotes
+    if value.contains('"') || value.contains('\'') {
+        return true;
+    }
+    // Contains semicolon (outside of context)
+    if value.contains(';') {
+        return true;
+    }
+    false
+}
+
+/// Escape single quotes for nginx config output
+fn escape_quotes(value: &str) -> String {
+    value.replace('\'', "\\'")
+}
+
 /// Parse a listen string into a list of port numbers.
 /// Supports: "80", "80,443", "8080-8090", "127.0.0.1:80", "127.0.0.1:8080-8090"
 fn parse_ports(listen: &str) -> Vec<String> {
@@ -148,9 +171,12 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
             {
                 continue;
             }
-            if p.value.contains("{\n") || p.value.contains("{ ") {
-                // Block-style param (like geo/map) — no trailing semicolon
+            // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
+            if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else if needs_quoting(&p.value) {
+                // Value contains special chars that need quoting (like JSON in log_format)
+                out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
                 out.push_str(&format!("    {} {};\n", p.name, p.value));
             }
@@ -319,9 +345,12 @@ fn append_http_block_decomposed(
             {
                 continue;
             }
-            if p.value.contains("{\n") || p.value.contains("{ ") {
-                // Block-style param (like geo/map) — no trailing semicolon
+            // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
+            if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else if needs_quoting(&p.value) {
+                // Value contains special chars that need quoting (like JSON in log_format)
+                out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
                 out.push_str(&format!("    {} {};\n", p.name, p.value));
             }

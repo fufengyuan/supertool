@@ -937,9 +937,9 @@ dependencies = [
 
 [[package]]
 name = "crypto-common"
-version = "0.2.2"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce6e4c961d6cd6c9a86db418387425e8bdeaf05b3c8bc1411e6dca4c252f1453"
+checksum = "77727bb15fa921304124b128af125e7e3b968275d1b108b379190264f4423710"
 dependencies = [
  "hybrid-array",
 ]
@@ -1168,7 +1168,7 @@ checksum = "f1dd6dbb5841937940781866fa1281a1ff7bd3bf827091440879f9994983d5c2"
 dependencies = [
  "block-buffer 0.12.0",
  "const-oid",
- "crypto-common 0.2.2",
+ "crypto-common 0.2.1",
  "ctutils",
 ]
 
@@ -5042,7 +5042,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "stool"
-version = "4.10.9"
+version = "4.10.10"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5139,7 +5139,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "4.10.9"
+version = "4.10.10"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5194,7 +5194,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "4.10.9"
+version = "4.10.10"
 dependencies = [
  "aes-gcm",
  "anyhow",
