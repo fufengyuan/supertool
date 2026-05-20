@@ -618,6 +618,8 @@
               :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
               @keydown.enter.exact.prevent="sendMessage"
               @paste="onPaste"
+              autocapitalize="off"
+              autocomplete="off"
             ></textarea>
             <!-- 发送按钮 -->
             <button
