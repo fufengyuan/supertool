@@ -2016,8 +2016,14 @@ async fn deploy_to_server(
         return Err("缺少认证信息".to_string());
     }
 
+    let deploy_dir = if srv.deploy_dir.is_empty() {
+        &config.deploy_dir
+    } else {
+        &srv.deploy_dir
+    };
+
     // Create deploy directory
-    let mkdir_cmd = format!("mkdir -p {}", shell_escape(&srv.deploy_dir));
+    let mkdir_cmd = format!("mkdir -p {}", shell_escape(deploy_dir));
     ssh_exec(&sess, &mkdir_cmd)?;
 
     if config.lib_separate {
