@@ -540,10 +540,10 @@ pub async fn execute_deploy(
     let build_tool = config.build_tool.as_deref().unwrap_or("maven");
     let is_frontend = ["npm", "pnpm", "yarn"].contains(&build_tool);
 
-    if let Some(ref script) = config.restart_script {
+    if let Some(ref script) = config.restart_script.as_ref().filter(|s| !s.is_empty()) {
         if !is_frontend {
             for srv in &config.servers {
-                if let Err(e) = execute_restart(srv, script, &emit).await {
+                if let Err(e) = execute_restart(srv, script, &config.deploy_dir, &emit).await {
                     emit("restart", "failed", &e);
                     // Non-fatal: restart might fail but deploy succeeded
                 }
@@ -2047,7 +2047,7 @@ async fn deploy_to_server(
     ssh_exec(&sess, &mkdir_cmd)?;
 
     if config.lib_separate {
-        if let Some(ref lib_dir) = config.lib_dir {
+        if let Some(ref lib_dir) = config.lib_dir.as_ref().filter(|d| !d.is_empty()) {
             let cmd = format!("mkdir -p {}", shell_escape(lib_dir));
             ssh_exec(&sess, &cmd)?;
         }
@@ -2194,6 +2194,7 @@ fn ssh_exec(sess: &ssh2::Session, cmd: &str) -> Result<String, String> {
 async fn execute_restart(
     srv: &DeployServerConfig,
     script: &str,
+    deploy_dir_fallback: &str,
     emit: &impl Fn(&str, &str, &str),
 ) -> Result<(), String> {
     use ssh2::Session;
@@ -2254,17 +2255,22 @@ async fn execute_restart(
         }
     } else {
         // 相对路径：需要先 cd 到 deployDir 再执行
+        let restart_deploy_dir = if srv.deploy_dir.is_empty() {
+            deploy_dir_fallback
+        } else {
+            &srv.deploy_dir
+        };
         if script_args.is_empty() {
             format!(
                 "cd {} && chmod +x {} && bash -l -c '{}' 2>&1",
-                shell_escape(&srv.deploy_dir),
+                shell_escape(restart_deploy_dir),
                 script_file,
                 script_file
             )
         } else {
             format!(
                 "cd {} && chmod +x {} && bash -l -c '{} {}' 2>&1",
-                shell_escape(&srv.deploy_dir),
+                shell_escape(restart_deploy_dir),
                 script_file,
                 script_file,
                 script_args
