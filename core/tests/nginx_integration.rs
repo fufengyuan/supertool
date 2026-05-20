@@ -150,8 +150,8 @@ fn setup_full_db() -> (Connection, String) {
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
          header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
-        rusqlite::params!["loc-3", srv1_id, 1, "/static", 1, "",
-         0, "", "", "/var/www/static", "index.html", "",
+        rusqlite::params!["loc-3", srv1_id, 1, "/static", 0, "",
+         1, "", "", "/var/www/static", "index.html", "",
          0, 0, 0, "", "", 0, "", 2, "static files", now],
     ).unwrap();
     conn.execute(
@@ -159,8 +159,8 @@ fn setup_full_db() -> (Connection, String) {
          upstreamType, upstreamId, upstreamPath, rootPath, rootPage, rootType,
          header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
-        rusqlite::params!["loc-4", srv1_id, 1, "/old", 4, "301",
-         0, "", "", "", "", "",
+        rusqlite::params!["loc-4", srv1_id, 1, "/old", 0, "301",
+         4, "", "", "", "", "",
          0, 0, 0, "", "https://new.example.com", 1, "", 3, "redirect", now],
     ).unwrap();
 
@@ -1255,7 +1255,10 @@ fn insert_parsed_to_db(
                 if srv.ipv6 { 1 } else { 0 },
                 0,
                 srv.server_name, srv.ssl,
-                resolved_cert_id, 0, "", srv.http2, srv.protocols,
+                resolved_cert_id,
+                if srv.rewrite { 1 } else { 0 },
+                srv.rewrite_listen.clone(),
+                srv.http2, srv.protocols,
                 "", srv.deny_allow, "", "",
                 "", "", 1, si as i64, "", now, now,
             ],
@@ -1263,11 +1266,43 @@ fn insert_parsed_to_db(
 
         for (li, loc) in srv.locations.iter().enumerate() {
             let loc_id = format!("srv-{}-loc-{}", si, li);
-            let loc_path = if loc.path.starts_with('@') {
-                loc.path.clone()
+            
+            // Extract modifier from path (e.g., "^~ /prefix" -> modifier="^~", path="/prefix")
+            let (modifier, loc_path) = if loc.path.starts_with("^~ ") {
+                ("^~", loc.path[3..].to_string())
+            } else if loc.path.starts_with("= ") {
+                ("=", loc.path[2..].to_string())
+            } else if loc.path.starts_with("~ ") {
+                ("~", loc.path[2..].to_string())
+            } else if loc.path.starts_with("~* ") {
+                ("~*", loc.path[3..].to_string())
             } else {
-                loc.path.clone()
+                ("", loc.path.clone())
             };
+            
+            // locType in DB = modifier type: 0=none, 1=^~, 2==, 3=~, 4=~*
+            let db_loc_type = match modifier {
+                "^~" => 1,
+                "=" => 2,
+                "~" => 3,
+                "~*" => 4,
+                _ => 0,
+            };
+            
+            // Determine upstreamType from loc_type (instruction type): 0=proxy, 1=root/static, 4=return/redirect
+            let upstream_type = match loc.loc_type.as_str() {
+                "root" => 1,
+                "return" => 4,
+                _ => 0, // proxy_pass or default
+            };
+            
+            // Convert extra_params to paramJson
+            let param_json = if loc.extra_params.is_empty() {
+                String::new()
+            } else {
+                serde_json::to_string(&loc.extra_params).unwrap_or_default()
+            };
+            
             conn.execute(
                 "INSERT OR IGNORE INTO nginx_locations \
                  (id, serverId, enabled, path, locType, value, upstreamType, upstreamId, upstreamPath, \
@@ -1276,17 +1311,15 @@ fn insert_parsed_to_db(
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
                 rusqlite::params![
                     loc_id, srv_id, 1,
-                    loc_path, {
-                        let t = loc.loc_type.as_str();
-                        if t == "^~" { 1 } else if t == "=" { 2 } else if t == "~" { 3 } else if t == "~*" { 4 } else { 0 }
-                    }, loc.value, 0,
+                    loc_path, db_loc_type,
+                    loc.value, upstream_type,
                     loc.upstream_id, loc.upstream_path,
-                     loc.root_path, "", "",
+                    loc.root_path, "", "",
                     if loc.header { 1 } else { 0 },
                     if loc.websocket { 1 } else { 0 },
                     if loc.cros { 1 } else { 0 },
-                     "", loc.return_url, 0,
-                     "", li as i64, loc.descr, now,
+                    "", loc.return_url, 0,
+                    param_json, li as i64, loc.descr, now,
                 ],
             ).unwrap();
         }
@@ -1297,7 +1330,7 @@ fn insert_parsed_to_db(
         let st_id = format!("stream-{}", sti);
         conn.execute(
             "INSERT OR IGNORE INTO nginx_streams (id, presetId, listen, proxyUpstreamId, proxyPass, ssl, certId, protocol, descr, enabled, sort, paramJson, createdAt, updatedAt) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-rusqlite::params![st_id, preset_id, st.listen, st.proxy_upstream_id, st.proxy_pass, if st.ssl != 0 { 1 } else { 0 }, "", st.protocol, "", 1, "", sti as i64, now, now],
+            rusqlite::params![st_id, preset_id, st.listen, st.proxy_upstream_id, st.proxy_pass, if st.ssl != 0 { 1 } else { 0 }, "", st.protocol, "", 1, sti as i64, "", now, now],
         ).unwrap();
     }
 }
@@ -1622,5 +1655,199 @@ fn test_prod2_round_trip_generate() {
         parsed_gen.servers.len(),
         parsed.servers.len(),
         "Same server count"
+    );
+}
+
+#[test]
+fn test_prod3_round_trip_generate() {
+    use std::io::Write;
+
+    let test_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("testdata");
+    let path = test_dir.join("nginx_prod3.conf");
+    let original = std::fs::read_to_string(&path).expect("Cannot read nginx_prod3.conf");
+
+    eprintln!(
+        "Loading nginx_prod3.conf: {} bytes, {} lines",
+        original.len(),
+        original.lines().count()
+    );
+
+    // Step 1: Parse
+    let parsed = supertool_core::logic::nginx_parser::parse_nginx_config(&original)
+        .expect("nginx_prod3.conf should parse");
+
+    eprintln!(
+        "Parsed: {} upstreams, {} servers, {} http_params, {} basic_settings, {} streams",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.http_params.len(),
+        parsed.basic_settings.len(),
+        parsed.streams.len()
+    );
+
+    // Step 2: Insert into DB
+    let (conn, preset_id) = setup_empty_db_for_import();
+    insert_parsed_to_db(&conn, &preset_id, &parsed);
+
+    // DEBUG: Verify data was stored correctly
+    eprintln!("\n--- DB Verification: First few locations ---");
+    let db_locs: Vec<(String, String, String, String)> = conn
+        .prepare("SELECT path, locType, upstreamType, rootPath FROM nginx_locations LIMIT 10")
+        .unwrap()
+        .query_map([], |row| Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, i64>(1)?.to_string(),
+            row.get::<_, i64>(2)?.to_string(),
+            row.get::<_, String>(3)?,
+        )))
+        .unwrap()
+        .map(|r| r.unwrap())
+        .collect();
+    for (path, loc_type, upstream_type, root_path) in db_locs {
+        eprintln!("  DB: path='{}' locType={} upstreamType={} rootPath='{}'", path, loc_type, upstream_type, root_path);
+    }
+
+    // Step 3: Generate
+    let generated =
+        supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id)
+            .expect("Should generate config from imported data");
+
+    // Write generated config
+    {
+        let out_path = test_dir.join("nginx_prod3_generated.conf");
+        let mut f = std::fs::File::create(&out_path).unwrap();
+        f.write_all(generated.as_bytes()).unwrap();
+        eprintln!("✅ Generated config written to: testdata/nginx_prod3_generated.conf");
+    }
+
+    // Step 4: Parse generated config too
+    let parsed_gen = supertool_core::logic::nginx_parser::parse_nginx_config(&generated)
+        .expect("Generated config should parse");
+
+    // Report
+    eprintln!("\n============= PROD3 ROUND-TRIP REPORT =============");
+    eprintln!(
+        "Original: {} upstreams, {} servers, {} http_params, {} basic_settings, {} streams",
+        parsed.upstreams.len(),
+        parsed.servers.len(),
+        parsed.http_params.len(),
+        parsed.basic_settings.len(),
+        parsed.streams.len()
+    );
+    eprintln!(
+        "Generated: {} upstreams, {} servers, {} http_params, {} basic_settings, {} streams",
+        parsed_gen.upstreams.len(),
+        parsed_gen.servers.len(),
+        parsed_gen.http_params.len(),
+        parsed_gen.basic_settings.len(),
+        parsed_gen.streams.len()
+    );
+
+    // Check missing upstreams
+    for up in &parsed.upstreams {
+        let found = parsed_gen.upstreams.iter().any(|g| g.name == up.name);
+        if !found {
+            eprintln!("  ❌ MISSING upstream: {}", up.name);
+        }
+    }
+
+    // Check missing servers
+    for srv in &parsed.servers {
+        let name = if srv.server_name.is_empty() {
+            &srv.listen
+        } else {
+            &srv.server_name
+        };
+        let found = parsed_gen
+            .servers
+            .iter()
+            .any(|g| g.server_name == srv.server_name);
+        if !found {
+            eprintln!("  ❌ MISSING server: {} (listen={})", name, srv.listen);
+        }
+    }
+
+    // Check missing streams
+    for st in &parsed.streams {
+        let found = parsed_gen.streams.iter().any(|g| g.listen == st.listen);
+        if !found {
+            eprintln!("  ❌ MISSING stream: listen={}", st.listen);
+        }
+    }
+
+    // Detailed location count comparison
+    eprintln!("\n--- Server Location Counts ---");
+    for srv in &parsed.servers {
+        eprintln!("  Server: {} ({} locations)", srv.server_name, srv.locations.len());
+        for loc in &srv.locations {
+            eprintln!(
+                "    [{}] path='{}' loc_type='{}' root_path='{}' upstream_id='{}' extra_params={}",
+                srv.server_name, loc.path, loc.loc_type, loc.root_path, loc.upstream_id, loc.extra_params.len()
+            );
+        }
+        let gen_srv = parsed_gen.servers.iter().find(|g| g.server_name == srv.server_name);
+        match gen_srv {
+            Some(g) => {
+                if g.locations.len() != srv.locations.len() {
+                    eprintln!(
+                        "  ❌ {} locations: original={}, generated={}",
+                        srv.server_name,
+                        srv.locations.len(),
+                        g.locations.len()
+                    );
+                    // Show missing locations
+                    for loc in &srv.locations {
+                        let found = g.locations.iter().any(|l| l.path == loc.path);
+                        if !found {
+                            eprintln!("    ❌ MISSING location: {}", loc.path);
+                        }
+                    }
+                } else {
+                    // Show location details for debugging
+                    for loc in &srv.locations {
+                        let gen_loc = g.locations.iter().find(|l| l.path == loc.path);
+                        if let Some(gl) = gen_loc {
+                            if loc.root_path != gl.root_path {
+                                eprintln!(
+                                    "    ⚠️  {} root_path mismatch: orig='{}' gen='{}'",
+                                    loc.path, loc.root_path, gl.root_path
+                                );
+                            }
+                            if loc.extra_params.len() != gl.extra_params.len() {
+                                eprintln!(
+                                    "    ⚠️  {} extra_params count: orig={} gen={}",
+                                    loc.path, loc.extra_params.len(), gl.extra_params.len()
+                                );
+                                // Show original extra_params
+                                for ep in &loc.extra_params {
+                                    eprintln!("      orig: {} {}", ep.name, ep.value);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            None => {}
+        }
+    }
+
+    // Assert
+    assert_eq!(
+        parsed_gen.upstreams.len(),
+        parsed.upstreams.len(),
+        "Same upstream count"
+    );
+    assert_eq!(
+        parsed_gen.servers.len(),
+        parsed.servers.len(),
+        "Same server count"
+    );
+    assert_eq!(
+        parsed_gen.streams.len(),
+        parsed.streams.len(),
+        "Same stream count"
     );
 }
