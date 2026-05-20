@@ -23,6 +23,15 @@ lazy_static::lazy_static! {
     static ref CURRENT_SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
 }
 
+/// Create a reqwest client that bypasses system proxy for localhost requests.
+/// Prevents VPN/proxy tools (ClashX, V2Ray, etc.) from buffering NDJSON streams.
+fn local_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("Failed to build reqwest client")
+}
+
 /// Input command to Python bridge
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action")]
@@ -379,7 +388,7 @@ async fn ensure_server_running() -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to start server: {}", e))?;
     { let mut s = SERVER_PROCESS.lock().unwrap(); *s = Some(child); }
-    let client = reqwest::Client::new();
+    let client = local_client();
     let start = std::time::Instant::now();
     while start.elapsed() < std::time::Duration::from_secs(15) {
         if let Ok(r) = client.get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
@@ -410,7 +419,7 @@ pub async fn agent_chat(
     }
 
     // 3. 发送 HTTP 请求到聊天服务器
-    let client = reqwest::Client::new();
+    let client = local_client();
     let body = serde_json::json!({
         "message": message,
         "session_id": session_id,
@@ -610,7 +619,7 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     };
 
     if let Some(ref sid) = session_id {
-        let client = reqwest::Client::new();
+        let client = local_client();
         match client
             .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
             .json(&serde_json::json!({"session_id": sid}))
@@ -1329,7 +1338,7 @@ mod tests {
         }
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let client = reqwest::Client::new();
+            let client = local_client();
             let body = serde_json::json!({"message": "嗨，用一句话打个招呼", "toolsets": []});
 
             let resp = match client
@@ -1408,7 +1417,7 @@ mod tests {
         }
         let rt = tokio::runtime::Runtime::new().unwrap();
         rt.block_on(async {
-            let client = reqwest::Client::new();
+            let client = local_client();
             let resp = match client
                 .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
                 .json(&serde_json::json!({"session_id": "__test__"}))
