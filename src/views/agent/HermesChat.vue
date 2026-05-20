@@ -393,7 +393,7 @@
             </div>
           </div>
 
-          <!-- 流式响应中的思考动画和工具调用状态（文本内容已显示在消息列表中） -->
+          <!-- 流式响应中的工具调用状态（文本内容已显示在消息列表中） -->
           <div v-if="isStreaming && (thinkingText || (currentStreamingMsg?.toolCalls && currentStreamingMsg.toolCalls.length > 0 && currentStreamingMsg.toolCalls.some(t => t.status === 'running')))" class="flex gap-2 w-full">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
@@ -854,7 +854,7 @@ const currentStreamingMsg = computed(() => {
 // 用于渲染的消息列表（流式输出时跳过最后一个 assistant 消息，避免与实时气泡重复）
 const displayMessages = computed(() => {
   // 直接返回 messages，流式内容实时显示在消息列表
-  // 实时气泡仅用于显示思考动画（thinkingText）和工具调用状态
+  // 实时气泡仅用于显示工具调用状态和进度文本
   return messages.value;
 });
 
@@ -984,7 +984,6 @@ if (typeof window !== 'undefined') {
 let unlistenDelta: UnlistenFn | null = null;
 let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
-let unlistenThinking: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
 // 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
@@ -2427,45 +2426,8 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  // 思考动画事件
-  unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', (event) => {
-    // 会话 ID 过滤：只处理当前会话的事件
-    const eventSessionId = event.payload?.session_id;
-    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
-      return;
-    }
-    
-    if (event.payload?.text) {
-      thinkingText.value = event.payload.text;
-      
-      // 累积思考内容到当前 assistant 消息，支持点击展开查看
-      const messagesCopy = [...messages.value].reverse();
-      let currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
-      
-      // 如果没有 assistant 消息或最后一条是 user，创建新消息
-      const lastMsg = messages.value[messages.value.length - 1];
-      const needsNewMsg = lastMsg?.role === 'user';
-      
-      if (!currentMsg || needsNewMsg) {
-        const newMsg: Message = {
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now() / 1000,
-          toolName: null,
-          toolCalls: [],
-          thinking: event.payload.text,
-        };
-        messages.value.push(newMsg);
-        currentMsg = messages.value[messages.value.length - 1];
-      } else if (currentMsg) {
-        // 追加思考内容（thinking 事件可能多次发送）
-        currentMsg.thinking = (currentMsg.thinking || '') + event.payload.text;
-      }
-      
-      scrollToBottom();
-    }
-  });
-
+  // 思考动画事件已移除（服务端不再发送 agent-thinking 事件）
+  
   unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', (event) => {
     void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + event.payload?.session_id);
     
@@ -2546,7 +2508,6 @@ onUnmounted(() => {
   unlistenDelta?.();
   unlistenToolStart?.();
   unlistenToolComplete?.();
-  unlistenThinking?.();
   unlistenError?.();
   unlistenDone?.();
   // 移除快捷键监听
