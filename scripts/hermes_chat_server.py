@@ -75,13 +75,8 @@ _cli_config = load_cli_config()
 _model_config = _cli_config.get("model", {})
 if isinstance(_model_config, dict):
     _default_model = _model_config.get("default") or _model_config.get("model") or ""
-    _max_tokens = _model_config.get("max_tokens", 4096)
-    # Extract reasoning config if available
-    _reasoning_config = _model_config.get("reasoning_config")
 else:
     _default_model = _model_config or ""
-    _max_tokens = 4096
-    _reasoning_config = None
 
 
 def _ensure_session_db() -> SessionDB:
@@ -192,7 +187,6 @@ def _run_chat_in_thread(
                 session_db=session_db,
                 enabled_toolsets=enabled_toolsets,
                 max_iterations=50,
-                max_tokens=_max_tokens,
                 stream_delta_callback=stream_callback,
                 tool_start_callback=tool_start_callback,
                 tool_complete_callback=tool_complete_callback,
@@ -342,8 +336,6 @@ def main():
 
     print(f"Hermes Chat Server v2 starting on http://{host}:{port}", file=sys.stderr)
     print(f"  Agent cache enabled: will reuse AIAgent per session", file=sys.stderr)
-    if _max_tokens:
-        print(f"  max_tokens: {_max_tokens}", file=sys.stderr)
 
     # Set up signal handlers
     def _signal_handler(signum, frame):
