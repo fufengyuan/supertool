@@ -3,12 +3,14 @@
     <div
       v-if="isVisible"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000] animate-[fadeIn_0.2s_ease]"
-      @click.self="handleClose"
     >
       <div
-        class="bg-base-100 rounded-2xl w-[90%] max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-[slideUp_0.3s_ease]"
+        class="bg-base-100 rounded-2xl w-[90%] max-w-[600px] max-h-[85vh] overflow-y-auto shadow-2xl animate-[slideUp_0.3s_ease] relative"
         @click.stop
       >
+        <button @click="handleClose" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between p-[18px_24px] border-b border-base-content/10 sticky top-0 bg-base-100 rounded-t-2xl z-10">
           <h3 class="m-0 text-[17px] font-semibold text-base-content">📤 {{ $t('lan.assignTitle', { name: peer?.name }) }}</h3>
           <button @click="handleClose" class="w-8 h-8 border-none rounded-lg bg-transparent text-base-content/60 text-xl cursor-pointer flex items-center justify-center transition-all duration-150 hover:bg-primary/10 hover:text-primary" aria-label="关闭">×</button>

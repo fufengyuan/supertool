@@ -169,8 +169,9 @@
           </div>
 
           <!-- 批添加弹窗 -->
-          <div v-if="showBatchAdd" class="modal modal-open" @click.self="showBatchAdd = false">
-            <div class="modal-box max-w-lg">
+          <div v-if="showBatchAdd" class="modal modal-open">
+            <div class="modal-box relative max-w-lg">
+              <button @click="showBatchAdd = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
               <h3 class="font-bold text-lg">批添加上游服务器</h3>
               <p class="text-xs text-base-content/60 mt-1">每行一个服务器，格式：<code>ip:port</code>，可选 <code>weight=N max_fails=N fail_timeout=T max_conns=N backup down</code></p>
               <textarea v-model="batchAddText" class="textarea textarea-bordered w-full font-mono text-xs mt-3" rows="10"

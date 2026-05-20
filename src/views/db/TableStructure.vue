@@ -331,8 +331,11 @@
     </template>
 
     <!-- SQL 预览对话框 -->
-    <div v-if="showPreview" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in" @click.self="showPreview = false">
-      <div class="w-[720px] max-w-[90vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out]">
+    <div v-if="showPreview" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in">
+      <div class="w-[720px] max-w-[90vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out] relative">
+        <button @click="showPreview = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
             <SvgIcon name="code" size="18" />
@@ -367,8 +370,11 @@
     </div>
 
     <!-- CREATE TABLE SQL Modal -->
-    <div v-if="showCreateSqlModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in" @click.self="showCreateSqlModal = false">
-      <div class="w-[900px] max-w-[95vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out]">
+    <div v-if="showCreateSqlModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in">
+      <div class="w-[900px] max-w-[95vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out] relative">
+        <button @click="showCreateSqlModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
         <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
           <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
             <SvgIcon name="code" size="18" />

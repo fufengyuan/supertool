@@ -110,8 +110,11 @@
       </main>
     </div>
     <Teleport to="body">
-      <div v-if="deleteTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteTarget = null">
-        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+      <div v-if="deleteTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)] relative" @click.stop>
+          <button @click="deleteTarget = null" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <h3 class="text-lg font-bold m-0 mb-2 text-base-content"><SvgIcon name="alertTriangle" size="14" class="inline-block align-text-bottom" /> 确认删除</h3>
           <p class="text-sm text-base-content/60 m-0 mb-4">确定要删除「{{ deleteTarget.title || '无标题' }}」吗？此操作不可撤销。</p>
           <div class="flex justify-end gap-2">
@@ -122,8 +125,11 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="showCreateGroup || editingGroup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="cancelGroupEdit">
-        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+      <div v-if="showCreateGroup || editingGroup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)] relative" @click.stop>
+          <button @click="cancelGroupEdit" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <h3 class="text-lg font-bold m-0 mb-3 text-base-content"><template v-if="editingGroup"><SvgIcon name="pencil" size="14" class="inline-block" /> 重命名分组</template><template v-else><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 新建分组</template></h3>
           <div class="mb-4">
             <div class="mb-3"><label class="block text-xs font-semibold text-base-content/60 mb-1">名称</label><input v-model="groupForm.name" class="input input-bordered w-full px-3 py-2 text-sm rounded-lg bg-base-200 text-base-content focus:outline-none focus:border-primary focus:shadow-[0_0_0_3px_rgba(66,133,244,0.15)]" placeholder="分组名称" @keyup.enter="saveGroup" ref="groupInputRef"/></div>
@@ -137,8 +143,11 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="deleteGroupTarget = null">
-        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)]" @click.stop>
+      <div v-if="deleteGroupTarget" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+        <div class="bg-base-100 rounded-2xl p-5 max-w-sm w-[90%] shadow-[0_16px_48px_rgba(0,0,0,0.3)] relative" @click.stop>
+          <button @click="deleteGroupTarget = null" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <h3 class="text-lg font-bold m-0 mb-2 text-base-content"><SvgIcon name="alertTriangle" size="14" class="inline-block align-text-bottom" /> 删除分组</h3>
           <p class="text-sm text-base-content/60 m-0 mb-4">确定要删除分组「{{ deleteGroupTarget.name }}」吗？分组内的笔记不会被删除，将变为未分组。</p>
           <div class="flex justify-end gap-2">
@@ -149,8 +158,11 @@
       </div>
     </Teleport>
     <Teleport to="body">
-      <div v-if="showGroupManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]" @click.self="showGroupManager = false">
-        <div class="bg-base-100 rounded-2xl p-5 w-[420px] max-w-[90vw] max-h-[70vh] shadow-[0_16px_48px_rgba(0,0,0,0.3)] flex flex-col" @click.stop>
+      <div v-if="showGroupManager" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
+        <div class="bg-base-100 rounded-2xl p-5 w-[420px] max-w-[90vw] max-h-[70vh] shadow-[0_16px_48px_rgba(0,0,0,0.3)] flex flex-col relative" @click.stop>
+          <button @click="showGroupManager = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+            <SvgIcon name="x" size="16" />
+          </button>
           <div class="flex items-center justify-between mb-4">
             <h3 class="text-lg font-bold m-0 text-base-content"><SvgIcon name="folder" size="14" class="inline-block align-text-bottom" /> 管理分组</h3>
             <button class="btn btn-ghost btn-xs btn-square" @click="showGroupManager = false"><SvgIcon name="close" size="14" /></button>

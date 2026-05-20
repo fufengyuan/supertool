@@ -49,8 +49,9 @@
     </div>
 
     <!-- 新增/编辑弹窗 -->
-    <div v-if="showDialog" class="modal modal-open" @click.self="closeDialog">
-      <div class="modal-box max-w-2xl max-h-[80vh] overflow-y-auto">
+    <div v-if="showDialog" class="modal modal-open">
+      <div class="modal-box relative max-w-2xl max-h-[80vh] overflow-y-auto">
+        <button @click="closeDialog" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭"><SvgIcon name="x" size="16" /></button>
         <h3 class="font-bold text-lg">{{ editingTemplate ? '编辑模板' : '新增模板' }}</h3>
 
         <div class="flex flex-col gap-2 mt-3">
