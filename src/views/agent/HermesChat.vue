@@ -411,12 +411,10 @@
                 </div>
               </div>
               <!-- 思考中（无工具调用时） -->
-              <p v-else class="text-sm text-base-content/50 flex items-center gap-0.5">
-                <span>思考</span>
-                <span class="typing-dot">.</span>
-                <span class="typing-dot" style="animation-delay: 0.2s">.</span>
-                <span class="typing-dot" style="animation-delay: 0.4s">.</span>
-              </p>
+              <div v-else class="flex items-center gap-2 text-sm text-base-content/80">
+                <span class="loading loading-spinner loading-xs text-primary"></span>
+                <span>思考中...</span>
+              </div>
             </div>
             <!-- 取消按钮 - 更醒目 -->
             <button 
@@ -620,6 +618,8 @@
               :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
               @keydown.enter.exact.prevent="sendMessage"
               @paste="onPaste"
+              autocapitalize="off"
+              autocomplete="off"
             ></textarea>
             <!-- 发送按钮 -->
             <button
@@ -689,7 +689,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'HermesChat' })
-import { ref, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
@@ -846,11 +846,21 @@ const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
 const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
-const isStreaming = ref(false);
 const isAborting = ref(false); // 正在停止中
-const thinkingText = ref(''); // 思考动画文本
 const showScrollToBottom = ref(false); // 是否显示回到底部按钮
 const hermesAvailable = ref(false);
+
+// 每个会话独立的状态（支持同时处理多个会话）
+const streamingSessions = reactive<Record<string, boolean>>({});  // 各会话是否流式响应中
+const thinkingTexts = reactive<Record<string, string>>({});       // 各会话的思考/工具文字
+const sessionRoundEnded = reactive<Record<string, boolean>>({});  // 各会话的轮次结束标记
+
+// 模板中使用的快捷访问（computed 自动解包）
+const isStreaming = computed(() => !!currentSessionId.value && !!streamingSessions[currentSessionId.value]);
+const thinkingText = computed({
+  get: () => currentSessionId.value ? (thinkingTexts[currentSessionId.value] || '') : '',
+  set: (val) => { if (currentSessionId.value) thinkingTexts[currentSessionId.value] = val; },
+});
 
 // 当前流式响应的 assistant 消息（数组最后一个 assistant 消息）
 const currentStreamingMsg = computed(() => {
@@ -989,12 +999,11 @@ if (typeof window !== 'undefined') {
 
 // Event listeners
 let unlistenDelta: UnlistenFn | null = null;
+let unlistenThinking: UnlistenFn | null = null;
 let unlistenToolStart: UnlistenFn | null = null;
 let unlistenToolComplete: UnlistenFn | null = null;
 let unlistenError: UnlistenFn | null = null;
 let unlistenDone: UnlistenFn | null = null;
-// 标志：上一轮是否结束（收到 tool_complete 后等待新一轮）
-let lastAssistantRoundEnded = false;
 
 // 调试日志函数（写入日志文件）
 const agentLog = async (message: string) => {
@@ -1687,6 +1696,8 @@ const jumpToSearchResult = async (result: SearchResult) => {
 };
 
 const selectSession = async (session: Session) => {
+  // 切换会话：不打断旧会话的流式处理，只切显示
+  // 旧会话继续在后台流式处理，事件更新 per-session 状态
   currentSessionId.value = session.id;
   currentSession.value = session;
   loadingMessages.value = true;
@@ -1770,7 +1781,7 @@ const startNewChat = () => {
   messages.value = [];
   inputText.value = '';
   thinkingText.value = '';
-  isStreaming.value = false;
+  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
 };
 
 // 自动生成会话标题（基于第一条用户消息）
@@ -1795,7 +1806,7 @@ const sendMessage = async () => {
     // 确认状态已恢复
     if (isStreaming.value) {
       void agentLog('[sendMessage] abort 后状态仍为 streaming，强制重置');
-      isStreaming.value = false;
+      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
     }
   }
 
@@ -1826,10 +1837,11 @@ const sendMessage = async () => {
   });
   scrollToBottom();
 
-  // 开始流式输出
-  isStreaming.value = true;
-  thinkingText.value = '';
-  lastAssistantRoundEnded = false;
+  // 开始流式输出 — 使用 per-session 状态
+  const sid = currentSessionId.value || '';
+  if (sid) streamingSessions[sid] = true;
+  if (sid) thinkingTexts[sid] = '';
+  if (sid) sessionRoundEnded[sid] = false;
 
   try {
     // 使用选择的模型（如果有）
@@ -1874,7 +1886,7 @@ const sendMessage = async () => {
     // invoke 返回后，消息已通过事件处理添加到 messages 数组
     // 清空流式状态
     thinkingText.value = '';
-    lastAssistantRoundEnded = false;
+    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
   } catch (e) {
     console.error('Chat error:', e);
     // 添加错误消息，保存原始内容以便重试
@@ -1888,7 +1900,7 @@ const sendMessage = async () => {
     });
   }
 
-  isStreaming.value = false;
+  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
   scrollToBottom();
   // 自动聚焦输入框，方便继续输入
   inputRef.value?.focus();
@@ -1933,9 +1945,9 @@ const abortChat = async () => {
   
   // 立即重置状态，让用户感知响应
   setTimeout(() => {
-    isStreaming.value = false;
+    if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
     isAborting.value = false;
-    lastAssistantRoundEnded = false;
+    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
     thinkingText.value = '';
   }, 100);
 };
@@ -2236,19 +2248,23 @@ onMounted(async () => {
   
 // 监听流式事件
   unlistenDelta = await listen<{ text: string | null; session_id: string | null }>('agent-delta', (event) => {
-    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.text?.slice(0, 50)) + ' session_id: ' + event.payload?.session_id);
+    const eventSid = event.payload?.session_id;
+    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.text?.slice(0, 50)) + ' session_id: ' + eventSid);
     
-    // 会话 ID 过滤：只处理当前会话的事件
-    const eventSessionId = event.payload?.session_id;
-    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
-      void agentLog('[agent-delta] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+    // 更新该会话的状态（不论是否当前会话）
+    if (eventSid) {
+      if (event.payload?.text) thinkingTexts[eventSid] = '';
+    }
+    
+    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
+    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
       return;
     }
     
-    // 收到实际内容时清空思考动画
-    thinkingText.value = '';
-    
     if (event.payload?.text) {
+      // 清空当前视图的思考文字
+      if (currentSessionId.value) thinkingTexts[currentSessionId.value] = '';
+      
       // 查找最后一个 assistant 消息
       const messagesCopy = [...messages.value].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
@@ -2261,14 +2277,15 @@ onMounted(async () => {
       const hasEmptyAssistant = currentMsg && !currentMsg.content && currentMsg.toolCalls && currentMsg.toolCalls.length > 0;
       
       void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
-        ' lastAssistantRoundEnded: ' + lastAssistantRoundEnded +
+        ' lastAssistantRoundEnded: ' + (currentSessionId.value ? sessionRoundEnded[currentSessionId.value] : false) +
         ' 最后一条: ' + (lastMsg?.role || 'none') +
         ' needsNewMsg: ' + needsNewMsg +
         ' hasEmptyAssistant: ' + hasEmptyAssistant);
       
       // 如果没有 assistant 消息，或上一轮已结束，或最后一条是 user（需要新消息），创建新消息
       // 但如果已有空内容的 assistant 消息（由 tool_start 创建），则复用
-      if (!currentMsg || (lastAssistantRoundEnded && !hasEmptyAssistant) || needsNewMsg) {
+      const roundEnded = currentSessionId.value ? !!sessionRoundEnded[currentSessionId.value] : false;
+      if (!currentMsg || (roundEnded && !hasEmptyAssistant) || needsNewMsg) {
         const newMsg: Message = {
           role: 'assistant',
           content: '',
@@ -2279,11 +2296,11 @@ onMounted(async () => {
         messages.value.push(newMsg);
         // 从 messages.value 获取 Vue 的 reactive proxy，确保响应式触发
         currentMsg = messages.value[messages.value.length - 1];
-        lastAssistantRoundEnded = false;
+        if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
         void agentLog('[agent-delta] 创建新 assistant 消息, messages.length: ' + messages.value.length);
       } else if (hasEmptyAssistant) {
         // 复用已有的空内容 assistant 消息
-        lastAssistantRoundEnded = false;
+        if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
         void agentLog('[agent-delta] 复用已有空 assistant 消息');
       }
       
@@ -2296,12 +2313,20 @@ onMounted(async () => {
   });
 
   unlistenToolStart = await listen<{ id?: string; name: string; args: unknown; session_id: string | null }>('agent-tool-start', (event) => {
-    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + event.payload?.session_id);
+    const eventSid = event.payload?.session_id;
+    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + eventSid);
     
-    // 会话 ID 过滤：只处理当前会话的事件
-    const eventSessionId = event.payload?.session_id;
-    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
-      void agentLog('[agent-tool-start] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+    // 更新该会话的状态（不论是否当前会话）
+    if (eventSid) {
+      if (event.payload.name) {
+        const isSubAgent = event.payload.name === 'delegate_task';
+        thinkingTexts[eventSid] = isSubAgent ? '🤖 启动子 Agent 处理任务...' : `🔧 调用工具: ${event.payload.name}...`;
+      }
+      sessionRoundEnded[eventSid] = false;
+    }
+    
+    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
+    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
       return;
     }
     
@@ -2323,7 +2348,7 @@ onMounted(async () => {
       ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
     
     // 重置轮结束标志（新的工具调用开始）
-    lastAssistantRoundEnded = false;
+    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
     
     if (!currentMsg || needsNewMsg) {
       const newMsg: Message = {
@@ -2365,16 +2390,21 @@ onMounted(async () => {
   });
 
   unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number; session_id: string | null }>('agent-tool-complete', (event) => {
-    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms, session_id: event.payload.session_id}));
+    const eventSid = event.payload?.session_id;
+    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms, session_id: eventSid}));
     
-    // 会话 ID 过滤：只处理当前会话的事件
-    const eventSessionId = event.payload?.session_id;
-    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
-      void agentLog('[agent-tool-complete] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+    // 更新该会话的状态（不论是否当前会话）
+    if (eventSid) {
+      sessionRoundEnded[eventSid] = true;
+    }
+    
+    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
+    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
       return;
     }
     
-    thinkingText.value = '';
+    // 保留 lastAssistantRoundEnded 时 thinkingText 不清空，避免气泡变空
+    // thinkingText.value = '';
     
     // 获取当前 assistant 消息
     const messagesCopy = [...messages.value].reverse();
@@ -2398,8 +2428,8 @@ onMounted(async () => {
     }
     
     // 标记当前轮次结束（下一次 delta 将创建新消息）
-    lastAssistantRoundEnded = true;
-    void agentLog('[agent-tool-complete] 设置 lastAssistantRoundEnded = true');
+    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = true;
+    void agentLog('[agent-tool-complete] 设置 sessionRoundEnded = true');
     
     // 如果是 todo 工具，更新任务列表
     if (event.payload.name === 'todo' && event.payload.result) {
@@ -2433,15 +2463,35 @@ onMounted(async () => {
     scrollToBottom();
   });
 
-  // 思考动画事件已移除（服务端不再发送 agent-thinking 事件）
+  // 思考动画事件
+  unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', (event) => {
+    const eventSid = event.payload?.session_id;
+    // 更新该会话的思考文字（不论是否当前会话）
+    if (eventSid) {
+      thinkingTexts[eventSid] = event.payload?.text || '';
+    }
+    // 当前会话时同步到视图
+    if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
+      if (event.payload?.text) {
+        thinkingText.value = event.payload.text;
+      } else {
+        thinkingText.value = '';
+      }
+    }
+  });
   
   unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', (event) => {
-    void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + event.payload?.session_id);
+    const eventSid = event.payload?.session_id;
+    void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + eventSid);
     
-    // 会话 ID 过滤：只处理当前会话的事件
-    const eventSessionId = event.payload?.session_id;
-    if (eventSessionId && currentSessionId.value && eventSessionId !== currentSessionId.value) {
-      void agentLog('[agent-error] 忽略非当前会话事件: event=' + eventSessionId + ' current=' + currentSessionId.value);
+    // 更新该会话的状态（不论是否当前会话）
+    if (eventSid) {
+      streamingSessions[eventSid] = false;
+      thinkingTexts[eventSid] = '';
+    }
+    
+    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
+    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
       return;
     }
     
@@ -2455,17 +2505,25 @@ onMounted(async () => {
 
   // 流式结束事件
   unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
+    const eventSid = event.payload?.session_id;
     void agentLog('[agent-done] 收到事件: ' + JSON.stringify(event.payload));
-    // 清空思考动画
-    thinkingText.value = '';
-    
-    // 清空流式状态
-    lastAssistantRoundEnded = false;
-    void agentLog('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
-    
-    // 恢复 UI 状态
-    isStreaming.value = false;
-    scrollToBottom();
+    // 更新该会话的状态（不论是否当前会话）
+    if (eventSid) {
+      streamingSessions[eventSid] = false;
+      thinkingTexts[eventSid] = '';
+      sessionRoundEnded[eventSid] = false;
+    }
+    // 当前会话时同步到视图
+    if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
+      thinkingText.value = '';
+      if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+      void agentLog('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
+      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false; // trigger computed update via streamingSessions
+    }
+    // 恢复 UI 状态（仅当该会话是当前会话时）
+    if (!eventSid || (currentSessionId.value && eventSid === currentSessionId.value)) {
+      scrollToBottom();
+    }
   });
 
   // 初始化
@@ -2513,6 +2571,7 @@ onMounted(async () => {
 onUnmounted(() => {
   // Properly clean up event listeners
   unlistenDelta?.();
+  unlistenThinking?.();
   unlistenToolStart?.();
   unlistenToolComplete?.();
   unlistenError?.();
