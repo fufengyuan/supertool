@@ -61,7 +61,28 @@ async function onQuickSwitchSelect(viewId: string) {
 
 let unlistenFns: (() => void)[] = []
 
+// 阻止双击选中文本（桌面应用风格），但保留滑动选中功能
+function onDoubleClick(e: MouseEvent) {
+  // 排除输入框、编辑器、代码块等需要双击选中的元素
+  const target = e.target as HTMLElement
+  const isEditable = target.tagName === 'INPUT' || 
+                     target.tagName === 'TEXTAREA' || 
+                     target.isContentEditable ||
+                     target.closest('[contenteditable]') ||
+                     target.closest('.allow-select') ||
+                     target.closest('code') ||
+                     target.closest('pre') ||
+                     target.closest('.monaco-editor')
+  if (!isEditable) {
+    // 清除双击产生的选中
+    const sel = window.getSelection()
+    if (sel) sel.removeAllRanges()
+  }
+}
+
 onMounted(async () => {
+  // 添加全局双击事件监听
+  document.addEventListener('dblclick', onDoubleClick)
   const api = getTauriAPI()
   
   // Check theme
@@ -93,6 +114,7 @@ onMounted(async () => {
 })
 
 onUnmounted(async () => {
+  document.removeEventListener('dblclick', onDoubleClick)
   for (const unlisten of unlistenFns) {
     try { unlisten() } catch {}
   }
