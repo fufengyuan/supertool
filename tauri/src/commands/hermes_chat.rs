@@ -32,6 +32,31 @@ fn local_client() -> reqwest::Client {
         .expect("Failed to build reqwest client")
 }
 
+/// Kill any process listening on the given port.
+/// Uses lsof (macOS/Linux) to find the PID, then kills it.
+fn kill_process_on_port(port: &str) {
+    let output = std::process::Command::new("lsof")
+        .args(["-ti", &format!(":{}", port)])
+        .output();
+    if let Ok(output) = output {
+        if output.status.success() {
+            let pid_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !pid_str.is_empty() {
+                // Kill PIDs using kill command (safe, no unsafe code)
+                for pid in pid_str.lines() {
+                    let pid = pid.trim();
+                    if pid.is_empty() { continue; }
+                    let _ = std::process::Command::new("kill")
+                        .args([pid])
+                        .output();
+                }
+                // Give processes a moment to die
+                std::thread::sleep(std::time::Duration::from_millis(200));
+            }
+        }
+    }
+}
+
 /// Input command to Python bridge
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "action")]
@@ -374,6 +399,9 @@ async fn ensure_server_running() -> Result<(), String> {
             }
         }
     }
+    // Kill any existing process on the port to ensure we get a fresh server with latest code
+    kill_process_on_port(HERMES_CHAT_SERVER_PORT);
+    
     let script = find_bridge_script()
         .and_then(|p| {
             let s = p.parent()?.join("hermes_chat_server.py");
