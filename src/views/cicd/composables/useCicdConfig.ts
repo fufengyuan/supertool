@@ -97,6 +97,7 @@ export interface ConfigForm {
   requiresApproval: boolean;
   showAdvanced: boolean;
   buildMode: string;
+  buildCommand: string;
 }
 
 export function useCicdConfig() {
@@ -210,7 +211,7 @@ export function useCicdConfig() {
       buildTool: '', npmScript: 'build', npmCustomScript: '', mavenSettings: '', mavenProfile: 'prod',
       mavenHome: '', javaHome: '', npmHome: '', pnpmHome: '', yarnHome: '', nodeHome: '', deployPath: '', libSeparate: true,
       restartScript: './restart.sh', healthCheckUrl: '', healthCheckTimeout: 30, groupName: '未分组',
-      parentBuildMode: false, parentBuildPath: '', requiresApproval: false, showAdvanced: false, buildMode: 'local',
+      parentBuildMode: false, parentBuildPath: '', requiresApproval: false, showAdvanced: false, buildMode: 'local', buildCommand: '',
     };
   }
 
@@ -347,7 +348,7 @@ export function useCicdConfig() {
   const buildToolDefs = [
     { key: 'maven', name: 'Maven', icon: '🔶' }, { key: 'npm', name: 'npm', icon: '🔴' },
     { key: 'pnpm', name: 'pnpm', icon: '🟢' }, { key: 'yarn', name: 'Yarn', icon: '🔵' },
-    { key: 'gradle', name: 'Gradle', icon: '🟠' },
+    { key: 'gradle', name: 'Gradle', icon: '🟠' }, { key: 'cargo', name: 'Cargo', icon: '🦀' },
   ];
   const availableBuildTools = computed(() => buildToolDefs.map(td => ({ ...td, version: detectedTools.value[td.key]?.version })));
   const addedModulePaths = computed(() => new Set(modules.value.map(m => m.modulePath || m.buildPath || '')));
@@ -379,9 +380,9 @@ export function useCicdConfig() {
     return repo ? repo.name : '';
   }
   function getProjectName(_projectId?: string) { return getGitRepoName(config.value?.gitRepoId) || '项目 ?'; }
-  function getToolBadge(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || ''; }
-  function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠' }; return icons[tool || ''] || '🛠️'; }
-  function getBuildToolName(tool?: string) { const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle' }; return names[tool || ''] || ''; }
+  function getToolBadge(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠', cargo: '🦀' }; return icons[tool || ''] || ''; }
+  function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠', cargo: '🦀' }; return icons[tool || ''] || '🛠️'; }
+  function getBuildToolName(tool?: string) { const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle', cargo: 'Cargo' }; return names[tool || ''] || ''; }
   function formatTime(iso?: string) {
     if (!iso) return ''; const d = new Date(iso); const now = new Date(); const diff = now.getTime() - d.getTime();
     if (diff < 60000) return '刚刚'; if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
