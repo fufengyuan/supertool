@@ -393,12 +393,12 @@
             </div>
           </div>
 
-          <!-- 流式响应中的工具调用状态（文本内容已显示在消息列表中） -->
-          <div v-if="isStreaming && (thinkingText || (currentStreamingMsg?.toolCalls && currentStreamingMsg.toolCalls.length > 0 && currentStreamingMsg.toolCalls.some(t => t.status === 'running')))" class="flex gap-2 w-full">
+          <!-- 流式响应状态（思考中/工具调用）+ 停止按钮 -->
+          <div v-if="isStreaming" class="flex gap-2 w-full">
             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
               <SvgIcon name="bot" size="14" class="text-primary animate-pulse" />
             </div>
-            <div class="max-w-[800px] bg-base-100 border border-base-300 rounded-xl px-3 py-2">
+            <div class="max-w-[1200px] bg-base-100 border border-base-300 rounded-xl px-3 py-2">
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 工具调用（只显示 running 状态的） -->
@@ -410,6 +410,8 @@
                   <span class="text-base-content/60 ml-auto animate-pulse">执行中...</span>
                 </div>
               </div>
+              <!-- 思考中（无工具调用时） -->
+              <p v-else class="text-sm text-base-content/50 animate-pulse">思考中...</p>
             </div>
             <!-- 取消按钮 - 更醒目 -->
             <button 
