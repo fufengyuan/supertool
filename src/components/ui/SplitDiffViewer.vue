@@ -36,8 +36,17 @@
         <!-- 左侧：旧文件 -->
         <div class="diff-pane left">
           <div class="pane-header">
-            <span class="text-xs font-semibold">旧版本</span>
-            <span class="text-xs text-base-content/40">{{ oldFileName }}</span>
+            <div class="pane-header-left">
+              <span class="text-xs font-semibold">旧版本</span>
+              <span class="text-xs text-base-content/40">{{ oldFileName }}</span>
+            </div>
+            <button 
+              class="copy-btn" 
+              @click="copyOldContent"
+              :title="copiedOld ? '已复制' : '复制旧版本内容'"
+            >
+              <SvgIcon :name="copiedOld ? 'check' : 'copy'" size="12" />
+            </button>
           </div>
           <div class="pane-content">
             <div
@@ -55,8 +64,17 @@
         <!-- 右侧：新文件 -->
         <div class="diff-pane right">
           <div class="pane-header">
-            <span class="text-xs font-semibold">新版本</span>
-            <span class="text-xs text-base-content/40">{{ newFileName }}</span>
+            <div class="pane-header-left">
+              <span class="text-xs font-semibold">新版本</span>
+              <span class="text-xs text-base-content/40">{{ newFileName }}</span>
+            </div>
+            <button 
+              class="copy-btn" 
+              @click="copyNewContent"
+              :title="copiedNew ? '已复制' : '复制新版本内容'"
+            >
+              <SvgIcon :name="copiedNew ? 'check' : 'copy'" size="12" />
+            </button>
           </div>
           <div class="pane-content">
             <div
@@ -86,6 +104,8 @@ const props = defineProps<{
 }>()
 
 const selectedFileIdx = ref<number | null>(null)
+const copiedOld = ref(false)
+const copiedNew = ref(false)
 
 // 从 diff 中解析文件名（需要跳过 commit header）
 const oldFileName = computed(() => {
@@ -120,6 +140,62 @@ const newLines = computed(() => {
   if (!props.diff) return []
   return parseDiffLines(props.diff, 'new')
 })
+
+// 从 diff 中提取旧版本的完整内容（用于复制）
+const oldContent = computed(() => {
+  if (!props.diff) return ''
+  return extractContentFromDiff(props.diff, 'old')
+})
+
+// 从 diff 中提取新版本的完整内容（用于复制）
+const newContent = computed(() => {
+  if (!props.diff) return ''
+  return extractContentFromDiff(props.diff, 'new')
+})
+
+// 从 diff 提取完整文件内容
+function extractContentFromDiff(diff: string, side: 'old' | 'new') {
+  const lines = diff.split('\n')
+  const result: string[] = []
+  
+  // 找到 diff 开始的位置
+  let diffStartIndex = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('diff --git')) {
+      diffStartIndex = i
+      break
+    }
+  }
+  
+  const diffLines = lines.slice(diffStartIndex)
+  
+  for (const line of diffLines) {
+    // 跳过元数据行
+    if (line.startsWith('diff --git') || line.startsWith('index ') ||
+        line.startsWith('--- ') || line.startsWith('+++ ') || line.startsWith('@@')) {
+      continue
+    }
+    
+    const prefix = line[0] || ''
+    const content = line.slice(1)
+    
+    if (side === 'old') {
+      // 旧版本：保留上下文行和删除行
+      if (prefix === ' ' || prefix === '-') {
+        result.push(content)
+      }
+      // 跳过新增行（prefix === '+')
+    } else {
+      // 新版本：保留上下文行和新增行
+      if (prefix === ' ' || prefix === '+') {
+        result.push(content)
+      }
+      // 跳过删除行（prefix === '-')
+    }
+  }
+  
+  return result.join('\n')
+}
 
 function parseDiffLines(diff: string, side: 'old' | 'new') {
   const lines = diff.split('\n')
@@ -282,6 +358,28 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
   return result
 }
 
+// 复制旧版本内容
+async function copyOldContent() {
+  try {
+    await navigator.clipboard.writeText(oldContent.value)
+    copiedOld.value = true
+    setTimeout(() => copiedOld.value = false, 2000)
+  } catch (e) {
+    console.error('复制失败:', e)
+  }
+}
+
+// 复制新版本内容
+async function copyNewContent() {
+  try {
+    await navigator.clipboard.writeText(newContent.value)
+    copiedNew.value = true
+    setTimeout(() => copiedNew.value = false, 2000)
+  } catch (e) {
+    console.error('复制失败:', e)
+  }
+}
+
 function selectFile(idx: number) {
   selectedFileIdx.value = idx
 }
@@ -436,6 +534,35 @@ function getLineClass(line: any, side: 'old' | 'new') {
   padding: 0.5rem 0.75rem;
   background: var(--color-base-200);
   border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent);
+}
+
+.pane-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.copy-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent);
+  color: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.copy-btn:hover {
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  color: var(--color-base-content);
+}
+
+.copy-btn:active {
+  transform: scale(0.95);
 }
 
 .pane-content {
