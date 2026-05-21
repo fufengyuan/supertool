@@ -703,6 +703,12 @@ pub async fn agent_remove_model(model: String) -> Result<serde_json::Value, Stri
     crate::commands::hermes_config::remove_model(model)
 }
 
+/// Set the default model in Hermes config (persists to config.yaml)
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_set_model(model: String) -> Result<serde_json::Value, String> {
+    crate::commands::hermes_config::set_default_model(model)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

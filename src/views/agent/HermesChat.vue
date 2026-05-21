@@ -133,8 +133,8 @@
               <SvgIcon name="edit" size="12" />
             </button>
           </template>
-          <span v-if="currentSession" class="badge badge-ghost badge-xs">
-            {{ currentSession.model }}
+          <span v-if="currentSession" class="badge badge-ghost badge-xs" :title="currentSession.model">
+            {{ parseModelName(currentSession.model).name || currentSession.model }}
           </span>
           <!-- 会话统计 -->
           <span v-if="messages.length > 0" class="text-xs text-base-content/40">
@@ -568,14 +568,28 @@
                 </div>
               </div>
               <!-- 模型选择 -->
-              <select
-                v-model="selectedModel"
-                class="select select-bordered select-xs w-auto"
-                :disabled="isStreaming"
-              >
-                <option value="">{{ defaultModel || '默认模型' }}</option>
-                <option v-for="model in availableModels" :key="model" :value="model">{{ model }}</option>
-              </select>
+              <div class="flex items-center gap-1.5">
+                <select
+                  v-model="selectedModel"
+                  class="select select-bordered select-xs max-w-[240px]"
+                  :disabled="isStreaming"
+                  @change="setModel(selectedModel)"
+                >
+                  <option value="">
+                    {{ defaultModel ? parseModelName(defaultModel).name || defaultModel : '默认模型' }}
+                  </option>
+                  <optgroup v-for="group in modelGroups" :key="group.provider" :label="group.label">
+                    <option v-for="m in group.models" :key="m" :value="m">
+                      {{ parseModelName(m).name }}
+                    </option>
+                  </optgroup>
+                </select>
+                <!-- 供应商标签 -->
+                <span v-if="currentProviderLabel"
+                  class="badge badge-ghost badge-xs text-[10px] text-base-content/50 shrink-0 max-w-[80px] truncate"
+                  :title="currentProviderLabel"
+                >{{ currentProviderLabel }}</span>
+              </div>
               <!-- 添加模型按钮 -->
               <button
                 class="btn btn-ghost btn-xs btn-square"
@@ -884,17 +898,124 @@ const selectedModel = ref('');
 const availableModels = ref<string[]>([]); // 从 Hermes 配置读取
 const defaultModel = ref<string>(''); // 默认模型
 
+// 供应商展示名称映射
+const PROVIDER_LABELS: Record<string, string> = {
+  'openai': 'OpenAI',
+  'anthropic': 'Anthropic',
+  'google': 'Google Gemini',
+  'gemini': 'Google Gemini',
+  'deepseek': 'DeepSeek',
+  'meta': 'Meta',
+  'mistral': 'Mistral AI',
+  'cohere': 'Cohere',
+  'x-ai': 'xAI (Grok)',
+  'xai': 'xAI (Grok)',
+  'zai': 'Z.AI / GLM',
+  'z-ai': 'Z.AI / GLM',
+  'stepfun': 'StepFun',
+  'minimax': 'MiniMax',
+  'alibaba': 'Alibaba Cloud',
+  'qwen': 'Qwen',
+  'nous': 'Nous Portal',
+  'openrouter': 'OpenRouter',
+  'copilot': 'GitHub Copilot',
+  'huggingface': 'Hugging Face',
+  'nvidia': 'NVIDIA NIM',
+  'ai-gateway': 'Vercel AI Gateway',
+  'opencode-go': 'OpenCode Go',
+  'opencode-zen': 'OpenCode Zen',
+  'tencent': 'Tencent',
+  'moonshot': 'Moonshot / Kimi',
+  'kimi': 'Kimi',
+  'kimi-coding': 'Kimi',
+  'xiaomi': 'Xiaomi MiMo',
+  'inclusionai': 'Inclusion AI',
+  'minimax-oauth': 'MiniMax (OAuth)',
+  'minimax-cn': 'MiniMax (China)',
+};
+
+// 解析模型名中的供应商前缀（如 anthropic/claude-sonnet-4 → { provider: 'anthropic', model: 'claude-sonnet-4' }）
+function parseModelName(fullName: string): { provider: string | null; name: string } {
+  const slashIdx = fullName.indexOf('/')
+  if (slashIdx > 0) {
+    return { provider: fullName.substring(0, slashIdx), name: fullName.substring(slashIdx + 1) }
+  }
+  return { provider: null, name: fullName }
+}
+
+// 获取供应商显示名
+function providerLabel(provider: string | null): string {
+  if (!provider) return '其他'
+  return PROVIDER_LABELS[provider] || provider
+}
+
+// 按供应商分组的模型列表
+interface ModelGroup {
+  provider: string
+  label: string
+  models: string[]
+}
+
+const modelGroups = computed<ModelGroup[]>(() => {
+  const groups = new Map<string, string[]>()
+  // 添加当前默认模型（可能不在 custom_models 中）
+  const allModels = [...availableModels.value]
+  if (defaultModel.value && !allModels.includes(defaultModel.value)) {
+    allModels.unshift(defaultModel.value)
+  }
+  for (const m of allModels) {
+    const { provider } = parseModelName(m)
+    const key = provider || '__other__'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(m)
+  }
+  // 排序：供应商按名称，模型按名称
+  const result: ModelGroup[] = []
+  for (const [provider, models] of groups) {
+    models.sort()
+    result.push({
+      provider: provider === '__other__' ? '' : provider,
+      label: providerLabel(provider === '__other__' ? null : provider),
+      models,
+    })
+  }
+  result.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
+  return result
+})
+
+// 获取当前选中模型的供应商标签
+const currentProviderLabel = computed(() => {
+  if (!selectedModel.value && !defaultModel.value) return ''
+  const modelName = selectedModel.value || defaultModel.value || ''
+  const { provider } = parseModelName(modelName)
+  return providerLabel(provider)
+})
+
 // 加载模型列表
 const loadModels = async () => {
   try {
     const result = await invoke<{ customModels: string[]; defaultModel: string | null }>('agent_get_models');
     availableModels.value = result.customModels || [];
     defaultModel.value = result.defaultModel || '';
+    // 如果当前未选择模型，使用默认模型
+    if (!selectedModel.value && defaultModel.value) {
+      selectedModel.value = defaultModel.value
+    }
   } catch (e) {
     console.error('Failed to load models:', e);
     availableModels.value = [];
   }
 };
+
+// 切换模型并持久化到 Hermes 配置
+const setModel = async (modelName: string) => {
+  selectedModel.value = modelName
+  try {
+    await invoke('agent_set_model', { model: modelName })
+  } catch (e) {
+    console.error('Failed to persist model:', e)
+  }
+}
 
 // 添加模型
 const showAddModelDialog = ref(false);
