@@ -726,11 +726,21 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                         }
                     }
                 }
-                let value = child.args.join(" ");
+                // For block directives (like if { ... }), serialize the full block content
+                let value = if child.is_block {
+                    let inner: Vec<String> = child
+                        .block
+                        .iter()
+                        .map(|c| format!("        {} {};", c.name, c.args.join(" ")))
+                        .collect();
+                    format!("{} {{\n{}\n    }}", child.args.join(" "), inner.join("\n"))
+                } else {
+                    child.args.join(" ")
+                };
                 srv.extra_params.push(ParsedParamEntry {
                     name: child.name.clone(),
                     value,
-                    position: 0,
+                    position: 1, // prepend — output BEFORE locations
                 });
             }
         }
@@ -812,7 +822,15 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
             }
             "return" => {
                 loc.loc_type = "return".to_string();
-                loc.return_url = child.args.join(" ");
+                // Split status code from URL:
+                //   "return 301 https://..." → value="301", return_url="https://..."
+                //   "return https://..." → value="", return_url="https://..."
+                if !child.args.is_empty() && child.args[0].chars().all(|c| c.is_ascii_digit()) {
+                    loc.value = child.args[0].clone();
+                    loc.return_url = child.args[1..].join(" ");
+                } else {
+                    loc.return_url = child.args.join(" ");
+                }
             }
             "proxy_set_header" => {
                 if child.args.first().map(|s| s == "Host").unwrap_or(false) {
@@ -834,7 +852,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
             "add_header" => {
                 // Non-CORS add_header should be saved as extra param
                 let first_arg = child.args.first().map(|s| s.as_str()).unwrap_or("");
-                if first_arg != "Access-Control-Allow-Origin" {
+                if !first_arg.starts_with("Access-Control-") {
                     let value = child.args.join(" ");
                     if !value.is_empty()
                         && !loc

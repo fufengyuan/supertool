@@ -1238,6 +1238,9 @@ impl CoreService {
                         "upstream" => 2,
                         "blank" => 3,
                         "return" => 4,
+                        // 空 loc_type（如 named location @router/@ops-coffee，只有 rewrite 无 proxy/root/return）
+                        // → 映射为 blank(3)，生成器不输出 proxy_pass/root/return/proxy_redirect
+                        "" => 3,
                         _ => 0,
                     };
                     crate::db::nginx::add_nginx_location(conn, &NginxLocation {
