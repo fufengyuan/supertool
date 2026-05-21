@@ -775,6 +775,7 @@ async fn do_git_sync(
         }
 
         // Pull with rebase to ensure linear history and proper merge
+        // 如果 rebase 失败，尝试 reset --hard 强制同步到远程
         let pull_output = user_shell_cmd(&crate::logic::git::find_git())
             .args(["pull", "--rebase", "origin", branch])
             .current_dir(&target)
@@ -784,11 +785,25 @@ async fn do_git_sync(
 
         if !pull_output.status.success() {
             let err = String::from_utf8_lossy(&pull_output.stderr);
-            // rebase 失败可能是冲突，给出详细错误
-            return Err(format!("git pull --rebase 失败: {}（可能有冲突需要手动解决）", err.trim()));
+            emit("git", "warning", &format!("rebase 失败，尝试硬重置: {}", err.trim()));
+            
+            // 尝试硬重置到远程分支（丢弃本地改动）
+            let reset_output = user_shell_cmd(&crate::logic::git::find_git())
+                .args(["reset", "--hard", &format!("origin/{}", branch)])
+                .current_dir(&target)
+                .output()
+                .await
+                .map_err(|e| format!("git reset 失败: {}", e))?;
+            
+            if !reset_output.status.success() {
+                let err2 = String::from_utf8_lossy(&reset_output.stderr);
+                return Err(format!("git reset --hard 失败: {}（请检查分支是否存在）", err2.trim()));
+            }
+            
+            emit("git", "success", &format!("代码已强制同步 (分支: {})", branch));
+        } else {
+            emit("git", "success", &format!("代码已更新 (分支: {})", branch));
         }
-
-        emit("git", "success", &format!("代码已更新 (分支: {})", branch));
     } else {
         emit("git", "cloning", &format!("克隆仓库 {}", repo_url));
 
