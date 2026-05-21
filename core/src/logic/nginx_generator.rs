@@ -174,8 +174,19 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else if p.name == "log_format" && !p.value.is_empty() {
+                // log_format has syntax: log_format name 'format string'
+                if let Some((fmt_name, rest)) = p.value.split_once(' ') {
+                    if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
+                        out.push_str(&format!("    {} '{}';\n", format!("{} {}", p.name, fmt_name), rest));
+                    } else {
+                        out.push_str(&format!("    {} {};\n", p.name, p.value));
+                    }
+                } else {
+                    out.push_str(&format!("    {} {};\n", p.name, p.value));
+                }
             } else if needs_quoting(&p.value) {
-                // Value contains special chars that need quoting (like JSON in log_format)
+                // Value contains special chars that need quoting
                 out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
                 out.push_str(&format!("    {} {};\n", p.name, p.value));
@@ -348,8 +359,19 @@ fn append_http_block_decomposed(
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
                 out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+            } else if p.name == "log_format" && !p.value.is_empty() {
+                // log_format has syntax: log_format name 'format string'
+                if let Some((fmt_name, rest)) = p.value.split_once(' ') {
+                    if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
+                        out.push_str(&format!("    {} '{}';\n", format!("{} {}", p.name, fmt_name), rest));
+                    } else {
+                        out.push_str(&format!("    {} {};\n", p.name, p.value));
+                    }
+                } else {
+                    out.push_str(&format!("    {} {};\n", p.name, p.value));
+                }
             } else if needs_quoting(&p.value) {
-                // Value contains special chars that need quoting (like JSON in log_format)
+                // Value contains special chars that need quoting
                 out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
                 out.push_str(&format!("    {} {};\n", p.name, p.value));
@@ -866,40 +888,47 @@ fn append_location_block(
         }
         1 => {
             // Root / static
-            let root_type = if loc.root_type == "alias" {
-                "alias"
-            } else {
-                "root"
-            };
-            if loc.root_path.contains('$') {
-                // Dynamic path — use as-is
-                out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
-            } else {
-                let path = loc.root_path.trim_end_matches('/');
-                out.push_str(&format!(
-                    "            {} {};\n",
-                    root_type,
-                    if root_type == "alias" {
-                        format!("{}/", path)
-                    } else {
-                        path.to_string()
-                    }
-                ));
-                if !loc.root_page.is_empty() {
-                    out.push_str(&format!("            index {};\n", loc.root_page));
+            // Skip if root_path is empty (no actual root directive to output)
+            if loc.root_path.is_empty() {
+                if !loc.return_url.is_empty() {
+                    out.push_str(&format!(
+                        "            return {} {};\n",
+                        if loc.value.is_empty() { "302" } else { &loc.value },
+                        loc.return_url
+                    ));
                 }
-            }
-            // Also output return/redirect if present (e.g. "return" directive before "root" in config)
-            if !loc.return_url.is_empty() {
-                out.push_str(&format!(
-                    "            return {} {};\n",
-                    if loc.value.is_empty() { "302" } else { &loc.value },
-                    if loc.return_path {
-                        format!("{}$request_uri", loc.return_url)
-                    } else {
-                        loc.return_url.clone()
+            } else {
+                let root_type = if loc.root_type == "alias" {
+                    "alias"
+                } else {
+                    "root"
+                };
+                if loc.root_path.contains('$') {
+                    // Dynamic path — use as-is
+                    out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
+                } else {
+                    let path = loc.root_path.trim_end_matches('/');
+                    out.push_str(&format!(
+                        "            {} {};\n",
+                        root_type,
+                        if root_type == "alias" {
+                            format!("{}/", path)
+                        } else {
+                            path.to_string()
+                        }
+                    ));
+                    if !loc.root_page.is_empty() {
+                        out.push_str(&format!("            index {};\n", loc.root_page));
                     }
-                ));
+                }
+                // Also output return/redirect if present (e.g. "return" directive before "root" in config)
+                if !loc.return_url.is_empty() {
+                    out.push_str(&format!(
+                        "            return {} {};\n",
+                        if loc.value.is_empty() { "302" } else { &loc.value },
+                        loc.return_url
+                    ));
+                }
             }
         }
         3 => {} // blank — placeholder
