@@ -1,3 +1,20 @@
 [workspace]
 members = ["tauri", "cli", "core"]
 resolver = "2"
+
+[profile.dev]
+# dev profile 保持编译速度
+incremental = true
+# 代码生成单元数，越大编译越快但优化越差
+codegen-units = 256
+
+[profile.release]
+# 最终发布包优化
+strip = true
+lto = true
+codegen-units = 1
+opt-level = "z"
+
+[profile.test]
+# 测试 profile 继承 dev
+incremental = true
