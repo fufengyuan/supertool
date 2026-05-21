@@ -11,8 +11,12 @@
 //!   - "gpt-4"
 //!   - "claude-3-opus"
 //! ```
+//!
+//! Model list is dynamically fetched from ~/.hermes/models_dev_cache.json
+//! (maintained by Hermes Agent from models.dev API), ensuring real-time sync.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Hermes config.yaml model section
@@ -35,12 +39,36 @@ struct HermesConfig {
     custom_models: Vec<String>,
 }
 
+/// Models.dev cache entry for a single model
+#[derive(Debug, Deserialize)]
+struct ModelEntry {
+    id: String,
+}
+
+/// Models.dev cache entry for a provider
+#[derive(Debug, Deserialize)]
+struct ProviderEntry {
+    #[serde(default)]
+    models: HashMap<String, ModelEntry>,
+}
+
+/// Models.dev cache file structure (~/.hermes/models_dev_cache.json)
+type ModelsDevCache = HashMap<String, ProviderEntry>;
+
 /// Get path to Hermes config.yaml
 fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
         .join(".hermes")
         .join("config.yaml")
+}
+
+/// Get path to Hermes models.dev cache
+fn models_cache_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join(".hermes")
+        .join("models_dev_cache.json")
 }
 
 /// Read Hermes config.yaml, return default model + custom models list
@@ -50,6 +78,18 @@ fn read_config() -> Result<HermesConfig, String> {
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     serde_yaml::from_str(&content)
         .map_err(|e| format!("Failed to parse config.yaml: {}", e))
+}
+
+/// Read models.dev cache file, return provider -> models mapping
+fn read_models_cache() -> Result<ModelsDevCache, String> {
+    let path = models_cache_path();
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read models cache: {}", e))?;
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse models_dev_cache.json: {}", e))
 }
 
 /// Write Hermes config.yaml atomically
@@ -74,112 +114,8 @@ pub fn hermes_is_installed() -> bool {
         .is_some()
 }
 
-/// Predefined model lists for common providers (from models.dev)
-/// These are the most commonly used models for each provider.
-const PROVIDER_MODELS: &[(&str, &[&str])] = &[
-    // OpenAI
-    ("openai", &[
-        "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
-        "gpt-4o", "gpt-4o-mini", "gpt-4o-audio-preview",
-        "gpt-4-turbo", "gpt-4", "gpt-4-32k",
-        "gpt-3.5-turbo", "gpt-3.5-turbo-16k",
-        "o1", "o1-mini", "o1-pro", "o3", "o3-mini", "o4-mini",
-    ]),
-    // Anthropic
-    ("anthropic", &[
-        "claude-opus-4-6", "claude-opus-4-5", "claude-opus-4-1-20250514", "claude-opus-4",
-        "claude-sonnet-4-5", "claude-sonnet-4", "claude-3-7-sonnet",
-        "claude-3-5-sonnet", "claude-3-5-sonnet-v2", "claude-3-5-haiku",
-        "claude-3-haiku", "claude-3-opus", "claude-3-sonnet",
-    ]),
-    // Google / Gemini
-    ("google", &[
-        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite",
-        "gemini-2.0-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite",
-        "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.5-flash-8b",
-        "gemini-1.0-pro", "gemini-pro",
-    ]),
-    ("gemini", &[
-        "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite",
-        "gemini-2.0-pro", "gemini-2.0-flash", "gemini-2.0-flash-lite",
-        "gemini-1.5-pro", "gemini-1.5-flash", "gemini-1.5-flash-8b",
-        "gemini-1.0-pro", "gemini-pro",
-    ]),
-    // Alibaba / Qwen / GLM
-    ("alibaba", &[
-        "glm-5", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-flash", "glm-4-long",
-        "qwen3-235b-a22b", "qwen3-32b", "qwen3-14b", "qwen3-8b", "qwen3-4b",
-        "qwen-max", "qwen-max-latest", "qwen-plus", "qwen-turbo", "qwen-long",
-        "qwen2.5-max", "qwen2.5-plus", "qwen2.5-turbo", "qwen2.5-72b", "qwen2.5-32b",
-    ]),
-    ("qwen", &[
-        "glm-5", "glm-4-plus", "glm-4-air", "glm-4-airx", "glm-4-flash", "glm-4-long",
-        "qwen3-235b-a22b", "qwen3-32b", "qwen3-14b", "qwen3-8b", "qwen3-4b",
-        "qwen-max", "qwen-max-latest", "qwen-plus", "qwen-turbo", "qwen-long",
-        "qwen2.5-max", "qwen2.5-plus", "qwen2.5-turbo", "qwen2.5-72b", "qwen2.5-32b",
-    ]),
-    // DeepSeek
-    ("deepseek", &[
-        "deepseek-r1", "deepseek-r1-0528", "deepseek-reasoner",
-        "deepseek-v3", "deepseek-v3-0324", "deepseek-chat",
-        "deepseek-coder", "deepseek-prover-v2",
-    ]),
-    // xAI (Grok)
-    ("x-ai", &[
-        "grok-3", "grok-3-fast", "grok-3-mini", "grok-3-mini-fast",
-        "grok-2-1212", "grok-2-vision-1212", "grok-beta",
-    ]),
-    ("xai", &[
-        "grok-3", "grok-3-fast", "grok-3-mini", "grok-3-mini-fast",
-        "grok-2-1212", "grok-2-vision-1212", "grok-beta",
-    ]),
-    // Mistral AI
-    ("mistral", &[
-        "mistral-large-2", "mistral-large", "mistral-medium",
-        "mistral-small", "mistral-small-3", "mistral-small-2501",
-        "codestral", "codestral-2501", "ministral-8b", "ministral-3b",
-        "pixtral-12b", "pixtral-large",
-    ]),
-    // Meta (Llama)
-    ("meta", &[
-        "llama-4-maverick", "llama-4-scout",
-        "llama-3.3-70b", "llama-3.2-90b", "llama-3.2-11b", "llama-3.2-3b", "llama-3.2-1b",
-        "llama-3.1-405b", "llama-3.1-70b", "llama-3.1-8b",
-        "llama-guard-3", "llama-guard-4",
-    ]),
-    // OpenRouter (aggregator - shows models from multiple providers)
-    ("openrouter", &[
-        "anthropic/claude-opus-4", "anthropic/claude-sonnet-4", "anthropic/claude-3.5-sonnet",
-        "openai/gpt-4o", "openai/gpt-4o-mini", "openai/o1", "openai/o3-mini",
-        "google/gemini-2.5-pro", "google/gemini-2.5-flash",
-        "deepseek/deepseek-r1", "deepseek/deepseek-v3",
-        "meta-llama/llama-4-maverick", "meta-llama/llama-4-scout",
-        "mistral/mistral-large", "x-ai/grok-3",
-    ]),
-    // MiniMax
-    ("minimax", &[
-        "mini-max-01", "abab-6.5s-chat", "abab-6.5g-chat", "abab-6.5t-chat",
-        "abab-5.5-chat", "abab-5.5s-chat", "speech-01-turbo",
-    ]),
-    ("minimax-cn", &[
-        "mini-max-01", "abab-6.5s-chat", "abab-6.5g-chat", "abab-6.5t-chat",
-        "abab-5.5-chat", "abab-5.5s-chat", "speech-01-turbo",
-    ]),
-    // Moonshot / Kimi
-    ("moonshot", &["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k", "kimi-latest"]),
-    ("kimi", &["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k", "kimi-latest"]),
-    ("kimi-coding", &["kimi-latest", "kimi-dev", "kimi-code"]),
-    // StepFun
-    ("stepfun", &["step-2-16k", "step-1-8k", "step-1v-8k"]),
-    // Cohere
-    ("cohere", &["command-r-plus", "command-r", "command-a", "command", "command-light"]),
-    // Nous Portal
-    ("nous", &["nous-hermes-2-mixtral", "nous-capye", "nous-booste"]),
-    // NVIDIA NIM
-    ("nvidia", &["meta/llama-3.1-405b", "meta/llama-3.1-70b", "mistral/mistral-large"]),
-];
-
 /// Get custom models, default model, and provider models from Hermes config
+/// Provider models are dynamically fetched from ~/.hermes/models_dev_cache.json
 pub fn get_models() -> Result<serde_json::Value, String> {
     let config = read_config()?;
 
@@ -198,16 +134,11 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
-    // 获取活跃供应商的预定义模型列表
-    let prefix = if active_provider == "openrouter" {
-        String::new()
-    } else {
-        format!("{}/", active_provider)
-    };
-    let provider_models: Vec<String> = PROVIDER_MODELS
-        .iter()
-        .find(|(p, _)| *p == active_provider)
-        .map(|(_, models)| models.iter().map(|m| format!("{}{}", prefix, m)).collect())
+    // 从 models.dev 缓存动态获取供应商模型列表
+    let cache = read_models_cache().unwrap_or_default();
+    let provider_models: Vec<String> = cache
+        .get(&active_provider)
+        .and_then(|p| Some(p.models.keys().cloned().collect()))
         .unwrap_or_default();
 
     Ok(serde_json::json!({
