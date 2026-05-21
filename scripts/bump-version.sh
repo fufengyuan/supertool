@@ -30,7 +30,8 @@ if command -v cargo &>/dev/null; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+# 用 git 获取 repo 根路径（大小写匹配 git 内部表示，避免 macOS 大小写不敏感路径导致 git add 报错）
+PROJECT_DIR=$(cd "$SCRIPT_DIR" && git rev-parse --show-toplevel 2>/dev/null || echo "$(dirname "$SCRIPT_DIR")")
 
 LEVEL="${1:-patch}"
 NO_ADD=false
