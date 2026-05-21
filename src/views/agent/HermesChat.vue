@@ -875,6 +875,7 @@ const hermesAvailable = ref(false);
 const streamingSessions = reactive<Record<string, boolean>>({});  // 各会话是否流式响应中
 const thinkingTexts = reactive<Record<string, string>>({});       // 各会话的思考/工具文字
 const sessionRoundEnded = reactive<Record<string, boolean>>({});  // 各会话的轮次结束标记
+const sessionMessagesCache = reactive<Record<string, Message[]>>({});  // 各会话的消息缓存（流式输出时保存）
 
 // 模板中使用的快捷访问（computed 自动解包）
 const isStreaming = computed(() => !!currentSessionId.value && !!streamingSessions[currentSessionId.value]);
@@ -1901,6 +1902,19 @@ const selectSession = async (session: Session) => {
   // 旧会话继续在后台流式处理，事件更新 per-session 状态
   currentSessionId.value = session.id;
   currentSession.value = session;
+  
+  // 检查是否有缓存（流式输出中的会话）
+  const cached = sessionMessagesCache[session.id];
+  const isStreamingSession = !!streamingSessions[session.id];
+  
+  if (cached && cached.length > 0 && isStreamingSession) {
+    // 有缓存且正在流式输出，直接用缓存
+    messages.value = [...cached];
+    loadingMessages.value = false;
+    return;
+  }
+  
+  // 没有缓存或流式已结束，从数据库加载
   loadingMessages.value = true;
   messages.value = [];
 
@@ -2452,40 +2466,48 @@ onMounted(async () => {
     const eventSid = event.payload?.session_id;
     void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.text?.slice(0, 50)) + ' session_id: ' + eventSid);
     
-    // 更新该会话的状态（不论是否当前会话）
-    if (eventSid) {
-      if (event.payload?.text) thinkingTexts[eventSid] = '';
-    }
+    // 必须有 session_id 才处理
+    if (!eventSid) return;
     
-    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
-    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
-      return;
+    // 更新该会话的状态
+    if (event.payload?.text) thinkingTexts[eventSid] = '';
+    
+    // 获取该会话的消息缓存（优先用缓存，支持后台会话）
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      // 如果当前会话没有缓存，从 messages.value 复制（当前视图）
+      if (eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        // 非当前会话，初始化空数组
+        sessionMessagesCache[eventSid] = [];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      }
     }
     
     if (event.payload?.text) {
-      // 清空当前视图的思考文字
-      if (currentSessionId.value) thinkingTexts[currentSessionId.value] = '';
-      
-      // 查找最后一个 assistant 消息
-      const messagesCopy = [...messages.value].reverse();
+      // 查找最后一个 assistant 消息（在缓存中）
+      const messagesCopy = [...sessionMsgs].reverse();
       let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
       
       // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
-      const lastMsg = messages.value[messages.value.length - 1];
+      const lastMsg = sessionMsgs[sessionMsgs.length - 1];
       const needsNewMsg = lastMsg?.role === 'user';
       
       // 检查是否已有空内容的 assistant 消息（由 tool_start 创建），避免重复创建
       const hasEmptyAssistant = currentMsg && !currentMsg.content && currentMsg.toolCalls && currentMsg.toolCalls.length > 0;
       
-      void agentLog('[agent-delta] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
-        ' lastAssistantRoundEnded: ' + (currentSessionId.value ? sessionRoundEnded[currentSessionId.value] : false) +
+      void agentLog('[agent-delta] session: ' + eventSid + 
+        ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
+        ' lastAssistantRoundEnded: ' + !!sessionRoundEnded[eventSid] +
         ' 最后一条: ' + (lastMsg?.role || 'none') +
         ' needsNewMsg: ' + needsNewMsg +
         ' hasEmptyAssistant: ' + hasEmptyAssistant);
       
       // 如果没有 assistant 消息，或上一轮已结束，或最后一条是 user（需要新消息），创建新消息
       // 但如果已有空内容的 assistant 消息（由 tool_start 创建），则复用
-      const roundEnded = currentSessionId.value ? !!sessionRoundEnded[currentSessionId.value] : false;
+      const roundEnded = !!sessionRoundEnded[eventSid];
       if (!currentMsg || (roundEnded && !hasEmptyAssistant) || needsNewMsg) {
         const newMsg: Message = {
           role: 'assistant',
@@ -2494,22 +2516,27 @@ onMounted(async () => {
           toolName: null,
           toolCalls: [],
         };
-        messages.value.push(newMsg);
-        // 从 messages.value 获取 Vue 的 reactive proxy，确保响应式触发
-        currentMsg = messages.value[messages.value.length - 1];
-        if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
-        void agentLog('[agent-delta] 创建新 assistant 消息, messages.length: ' + messages.value.length);
+        sessionMsgs.push(newMsg);
+        // 从缓存获取 Vue 的 reactive proxy
+        currentMsg = sessionMsgs[sessionMsgs.length - 1];
+        sessionRoundEnded[eventSid] = false;
+        void agentLog('[agent-delta] 创建新 assistant 消息, 缓存 length: ' + sessionMsgs.length);
       } else if (hasEmptyAssistant) {
         // 复用已有的空内容 assistant 消息
-        if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+        sessionRoundEnded[eventSid] = false;
         void agentLog('[agent-delta] 复用已有空 assistant 消息');
       }
       
-      // 添加 delta 内容（currentMsg 是 Vue reactive proxy，修改会触发响应式）
+      // 添加 delta 内容
       if (currentMsg) {
         currentMsg.content = (currentMsg.content || '') + event.payload.text;
       }
-      scrollToBottom();
+      
+      // 如果是当前会话，同步更新 messages.value
+      if (eventSid === currentSessionId.value) {
+        messages.value = [...sessionMsgs];
+        scrollToBottom();
+      }
     }
   });
 
@@ -2517,18 +2544,26 @@ onMounted(async () => {
     const eventSid = event.payload?.session_id;
     void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + eventSid);
     
-    // 更新该会话的状态（不论是否当前会话）
-    if (eventSid) {
-      if (event.payload.name) {
-        const isSubAgent = event.payload.name === 'delegate_task';
-        thinkingTexts[eventSid] = isSubAgent ? '🤖 启动子 Agent 处理任务...' : `🔧 调用工具: ${event.payload.name}...`;
-      }
-      sessionRoundEnded[eventSid] = false;
-    }
+    // 必须有 session_id 才处理
+    if (!eventSid) return;
     
-    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
-    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
-      return;
+    // 更新该会话的状态
+    if (event.payload.name) {
+      const isSubAgent = event.payload.name === 'delegate_task';
+      thinkingTexts[eventSid] = isSubAgent ? '🤖 启动子 Agent 处理任务...' : `🔧 调用工具: ${event.payload.name}...`;
+    }
+    sessionRoundEnded[eventSid] = false;
+    
+    // 获取该会话的消息缓存
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      if (eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        sessionMessagesCache[eventSid] = [];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      }
     }
     
     // 工具开始
@@ -2537,19 +2572,20 @@ onMounted(async () => {
     const isSubAgent = toolName === 'delegate_task';
     
     // 获取当前消息（如果没有 assistant 消息，创建一个）
-    const messagesCopy = [...messages.value].reverse();
+    const messagesCopy = [...sessionMsgs].reverse();
     let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
     
     // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
-    const lastMsg = messages.value[messages.value.length - 1];
+    const lastMsg = sessionMsgs[sessionMsgs.length - 1];
     const needsNewMsg = lastMsg?.role === 'user';
     
-    void agentLog('[agent-tool-start] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
+    void agentLog('[agent-tool-start] session: ' + eventSid +
+      ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
       ' 最后一条: ' + (lastMsg?.role || 'none') +
       ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
     
     // 重置轮结束标志（新的工具调用开始）
-    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+    sessionRoundEnded[eventSid] = false;
     
     if (!currentMsg || needsNewMsg) {
       const newMsg: Message = {
@@ -2559,18 +2595,17 @@ onMounted(async () => {
         toolName: null,
         toolCalls: [],
       };
-      messages.value.push(newMsg);
-      // 从 messages.value 获取 Vue 的 reactive proxy
-      currentMsg = messages.value[messages.value.length - 1];
-      void agentLog('[agent-tool-start] 创建新 assistant 消息, messages.length: ' + messages.value.length);
+      sessionMsgs.push(newMsg);
+      currentMsg = sessionMsgs[sessionMsgs.length - 1];
+      void agentLog('[agent-tool-start] 创建新 assistant 消息, 缓存 length: ' + sessionMsgs.length);
     }
     
-    // 确保 toolCalls 数组存在（currentMsg 是 Vue reactive proxy）
+    // 确保 toolCalls 数组存在
     if (!currentMsg.toolCalls) {
       currentMsg.toolCalls = [];
     }
     
-    // 添加工具调用（包含 id 用于精确匹配）
+    // 添加工具调用
     currentMsg.toolCalls.push({
       id: toolId,
       name: toolName,
@@ -2581,36 +2616,47 @@ onMounted(async () => {
     });
     void agentLog('[agent-tool-start] 添加工具调用: ' + toolName + ' id: ' + (toolId || 'none') + ' toolCalls.length: ' + currentMsg.toolCalls.length);
     
-    // 显示提示
-    if (isSubAgent) {
-      thinkingText.value = '🤖 启动子 Agent 处理任务...';
-    } else {
-      thinkingText.value = `🔧 调用工具: ${toolName}...`;
+    // 如果是当前会话，同步更新 messages.value
+    if (eventSid === currentSessionId.value) {
+      messages.value = [...sessionMsgs];
+      // 显示提示
+      if (isSubAgent) {
+        thinkingText.value = '🤖 启动子 Agent 处理任务...';
+      } else {
+        thinkingText.value = `🔧 调用工具: ${toolName}...`;
+      }
+      scrollToBottom();
     }
-    scrollToBottom();
   });
 
   unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number; session_id: string | null }>('agent-tool-complete', (event) => {
     const eventSid = event.payload?.session_id;
     void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms, session_id: eventSid}));
     
-    // 更新该会话的状态（不论是否当前会话）
-    if (eventSid) {
-      sessionRoundEnded[eventSid] = true;
-    }
+    // 必须有 session_id 才处理
+    if (!eventSid) return;
     
-    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
-    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
-      return;
-    }
+    // 更新该会话的状态
+    sessionRoundEnded[eventSid] = true;
     
-    // 保留 lastAssistantRoundEnded 时 thinkingText 不清空，避免气泡变空
-    // thinkingText.value = '';
+    // 获取该会话的消息缓存
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      if (eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        // 非当前会话，没有缓存就跳过（这种情况不应该发生）
+        return;
+      }
+    }
     
     // 获取当前 assistant 消息
-    const messagesCopy = [...messages.value].reverse();
+    const messagesCopy = [...sessionMsgs].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
-    void agentLog('[agent-tool-complete] 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + ' toolCalls: ' + (currentMsg?.toolCalls?.length || 0));
+    void agentLog('[agent-tool-complete] session: ' + eventSid + 
+      ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
+      ' toolCalls: ' + (currentMsg?.toolCalls?.length || 0));
     
     if (currentMsg && currentMsg.toolCalls) {
       const toolId = event.payload.id;
@@ -2628,12 +2674,17 @@ onMounted(async () => {
       }
     }
     
-    // 标记当前轮次结束（下一次 delta 将创建新消息）
-    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = true;
+    // 标记当前轮次结束
+    sessionRoundEnded[eventSid] = true;
     void agentLog('[agent-tool-complete] 设置 sessionRoundEnded = true');
     
-    // 如果是 todo 工具，更新任务列表
-    if (event.payload.name === 'todo' && event.payload.result) {
+    // 如果是当前会话，同步更新 messages.value
+    if (eventSid === currentSessionId.value) {
+      messages.value = [...sessionMsgs];
+    }
+    
+    // 如果是 todo 工具，更新任务列表（仅当前会话）
+    if (eventSid === currentSessionId.value && event.payload.name === 'todo' && event.payload.result) {
       try {
         const parsed = JSON.parse(event.payload.result);
         // 支持两种格式：直接数组 或 {todos: [...], summary: {...}}
@@ -2685,22 +2736,36 @@ onMounted(async () => {
     const eventSid = event.payload?.session_id;
     void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + eventSid);
     
-    // 更新该会话的状态（不论是否当前会话）
-    if (eventSid) {
-      streamingSessions[eventSid] = false;
-      thinkingTexts[eventSid] = '';
+    // 必须有 session_id 才处理
+    if (!eventSid) return;
+    
+    // 更新该会话的状态
+    streamingSessions[eventSid] = false;
+    thinkingTexts[eventSid] = '';
+    
+    // 获取该会话的消息缓存
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      if (eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        sessionMessagesCache[eventSid] = [];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      }
     }
     
-    // 会话 ID 过滤：只有当前会话的消息才更新 messages.value
-    if (eventSid && currentSessionId.value && eventSid !== currentSessionId.value) {
-      return;
-    }
-    
-    thinkingText.value = '';
-    const messagesCopy = [...messages.value].reverse();
+    // 在缓存中添加错误信息
+    const messagesCopy = [...sessionMsgs].reverse();
     const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
     if (currentMsg) {
       currentMsg.content = (currentMsg.content || '') + `\n[错误: ${event.payload?.message}]`;
+    }
+    
+    // 如果是当前会话，同步更新 messages.value
+    if (eventSid === currentSessionId.value) {
+      messages.value = [...sessionMsgs];
+      thinkingText.value = '';
     }
   });
 
@@ -2713,6 +2778,8 @@ onMounted(async () => {
       streamingSessions[eventSid] = false;
       thinkingTexts[eventSid] = '';
       sessionRoundEnded[eventSid] = false;
+      // 流式结束后清除缓存（下次切换会话会从数据库加载）
+      delete sessionMessagesCache[eventSid];
     }
     // 当前会话时同步到视图
     if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
