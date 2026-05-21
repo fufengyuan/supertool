@@ -464,7 +464,12 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        out.push_str(&format!("        {} {};\n", name, value));
+                        // Block directives (if { ... }) contain { in their value → no trailing semicolon
+                        if value.contains('{') {
+                            out.push_str(&format!("        {} {}\n", name, value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
                     }
                 }
             }
@@ -512,7 +517,12 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        out.push_str(&format!("        {} {};\n", name, value));
+                        // Block directives (if { ... }) contain { in their value → no trailing semicolon
+                        if value.contains('{') {
+                            out.push_str(&format!("        {} {}\n", name, value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
                     }
                 }
             }
@@ -928,7 +938,12 @@ fn append_param_json_prepend(conn: &Connection, s: &NginxServer, out: &mut Strin
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        out.push_str(&format!("        {} {};\n", name, value));
+                        // Block directives (if { ... }) contain { in their value → no trailing semicolon
+                        if value.contains('{') {
+                            out.push_str(&format!("        {} {}\n", name, value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
                     }
                 }
             }
