@@ -1271,8 +1271,40 @@ impl CoreService {
             }
 
             // 5. Streams
+            // Collect unique certs from imported SSL streams, insert into nginx_certs
+            let mut stream_cert_map: Vec<(String, String, String)> = Vec::new();
+            for st in &parsed.streams {
+                if st.ssl != 0 && !st.pem.is_empty() {
+                    let key = format!("{}|{}", st.pem, st.key);
+                    if !stream_cert_map.iter().any(|(k, _, _)| k == &key) {
+                        stream_cert_map.push((key, st.pem.clone(), st.key.clone()));
+                    }
+                }
+            }
+            let mut stream_cert_lookup: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+            for (idx, (pem_key, pem_path, key_path)) in stream_cert_map.iter().enumerate() {
+                let cert_id = format!("sicert_{}", uuid::Uuid::new_v4().simple());
+                crate::db::nginx::add_nginx_cert(conn, &NginxCert {
+                    id: cert_id.clone(),
+                    preset_id: pid.clone(),
+                    name: format!("导入流证书 #{}", idx + 1),
+                    pem: pem_path.clone(),
+                    key: key_path.clone(),
+                    domain: "stream".to_string(),
+                    created_at: now.clone(),
+                }).map_err(|e| e.to_string())?;
+                stream_cert_lookup.insert(pem_key.clone(), cert_id);
+            }
+
             for st in &parsed.streams {
                 let st_id = format!("st_{}", uuid::Uuid::new_v4().simple());
+                // Resolve cert_id for imported SSL streams
+                let resolved_cert_id = if st.ssl != 0 && !st.pem.is_empty() {
+                    let key = format!("{}|{}", st.pem, st.key);
+                    stream_cert_lookup.get(&key).cloned().unwrap_or_else(|| st.cert_id.clone())
+                } else {
+                    st.cert_id.clone()
+                };
                 crate::db::nginx::add_nginx_stream(conn, &NginxStream {
                     id: st_id,
                     preset_id: pid.clone(),
@@ -1280,7 +1312,7 @@ impl CoreService {
                     proxy_upstream_id: st.proxy_upstream_id.clone(),
                     proxy_pass: st.proxy_pass.clone(),
                     ssl: st.ssl != 0,
-                    cert_id: st.cert_id.clone(),
+                    cert_id: resolved_cert_id,
                     protocol: st.protocol.clone(),
                     descr: st.descr.clone(),
                     enabled: true,

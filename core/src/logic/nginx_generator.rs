@@ -1100,6 +1100,9 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
             }
             out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
         }
+        if !s.protocol.is_empty() {
+            out.push_str(&format!("        protocol {};\n", s.protocol));
+        }
         if !s.proxy_upstream_id.is_empty() {
             let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);
             out.push_str(&format!("        proxy_pass {};\n", upstream_name));

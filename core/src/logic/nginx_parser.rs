@@ -113,6 +113,8 @@ pub struct ParsedStream {
     pub proxy_upstream_id: String,
     pub ssl: i64,
     pub cert_id: String,
+    pub pem: String,
+    pub key: String,
     pub protocol: String,
     pub descr: String,
 }
@@ -709,10 +711,16 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                         || code == "308"
                     {
                         srv.rewrite = true;
-                        if child.args.len() > 1 {
-                            // The rewrite URL — we can't easily extract the port
-                        }
                     }
+                }
+                // Store return directive for regeneration (redirect-only servers need this)
+                let value = child.args.join(" ");
+                if !value.is_empty() {
+                    srv.extra_params.push(ParsedParamEntry {
+                        name: "return".to_string(),
+                        value,
+                        position: 0,
+                    });
                 }
             }
             _ => {
@@ -927,6 +935,8 @@ fn parse_stream_server(d: &Directive) -> Option<ParsedStream> {
         proxy_upstream_id: String::new(),
         ssl: 0,
         cert_id: String::new(),
+        pem: String::new(),
+        key: String::new(),
         protocol: String::new(),
         descr: String::new(),
     };
@@ -951,6 +961,16 @@ fn parse_stream_server(d: &Directive) -> Option<ParsedStream> {
             }
             "ssl_certificate" => {
                 s.cert_id = "imported".to_string();
+                s.pem = child.args.join(" ");
+                if s.ssl == 0 {
+                    s.ssl = 1; // ssl_certificate implies SSL
+                }
+            }
+            "ssl_certificate_key" => {
+                s.key = child.args.join(" ");
+                if s.ssl == 0 {
+                    s.ssl = 1;
+                }
             }
             "protocol" => {
                 s.protocol = child.args.join(" ");
