@@ -731,30 +731,64 @@ async fn do_git_sync(
         emit("git", "pulling", "拉取最新代码...");
 
         // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
-        let branch = config
-            .branch
-            .strip_prefix("origin/")
-            .unwrap_or(&config.branch);
+        let raw_branch = if config.branch.is_empty() {
+            "main"
+        } else {
+            &config.branch
+        };
+        let branch = raw_branch.strip_prefix("origin/").unwrap_or(raw_branch);
 
-        let _ = Command::new(crate::logic::git::find_git())
+        // Fetch latest
+        let fetch_output = user_shell_cmd(&crate::logic::git::find_git())
             .args(["fetch", "origin"])
             .current_dir(&target)
             .output()
-            .await;
+            .await
+            .map_err(|e| format!("git fetch 失败: {}", e))?;
 
-        let _ = Command::new(crate::logic::git::find_git())
+        if !fetch_output.status.success() {
+            let err = String::from_utf8_lossy(&fetch_output.stderr);
+            return Err(format!("git fetch 失败: {}", err.trim()));
+        }
+
+        // Checkout branch
+        let checkout_output = user_shell_cmd(&crate::logic::git::find_git())
             .args(["checkout", branch])
             .current_dir(&target)
             .output()
-            .await;
+            .await
+            .map_err(|e| format!("git checkout 失败: {}", e))?;
 
-        let _ = Command::new(crate::logic::git::find_git())
-            .args(["pull", "origin", branch])
+        if !checkout_output.status.success() {
+            // 分支不存在本地，尝试从 origin 创建
+            let checkout_output2 = user_shell_cmd(&crate::logic::git::find_git())
+                .args(["checkout", "-b", branch, &format!("origin/{}", branch)])
+                .current_dir(&target)
+                .output()
+                .await
+                .map_err(|e| format!("git checkout -b 失败: {}", e))?;
+
+            if !checkout_output2.status.success() {
+                let err = String::from_utf8_lossy(&checkout_output2.stderr);
+                return Err(format!("git checkout 失败: {}", err.trim()));
+            }
+        }
+
+        // Pull with rebase to ensure linear history and proper merge
+        let pull_output = user_shell_cmd(&crate::logic::git::find_git())
+            .args(["pull", "--rebase", "origin", branch])
             .current_dir(&target)
             .output()
-            .await;
+            .await
+            .map_err(|e| format!("git pull 失败: {}", e))?;
 
-        emit("git", "success", "代码已更新");
+        if !pull_output.status.success() {
+            let err = String::from_utf8_lossy(&pull_output.stderr);
+            // rebase 失败可能是冲突，给出详细错误
+            return Err(format!("git pull --rebase 失败: {}（可能有冲突需要手动解决）", err.trim()));
+        }
+
+        emit("git", "success", &format!("代码已更新 (分支: {})", branch));
     } else {
         emit("git", "cloning", &format!("克隆仓库 {}", repo_url));
 
