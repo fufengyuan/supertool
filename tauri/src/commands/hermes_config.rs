@@ -118,7 +118,7 @@ pub fn hermes_is_installed() -> bool {
 
 /// Get custom models, default model, and all available provider models from Hermes config
 /// Provider models are dynamically fetched from ~/.hermes/models_dev_cache.json
-/// Only shows models from providers with configured API keys (env vars set)
+/// Returns all models from all providers (user can select, API call will fail if key not configured)
 pub fn get_models() -> Result<serde_json::Value, String> {
     let config = read_config()?;
 
@@ -139,19 +139,11 @@ pub fn get_models() -> Result<serde_json::Value, String> {
     // 从 models.dev 缓存获取所有供应商模型
     let cache = read_models_cache().unwrap_or_default();
 
-    // 收集已配置密钥的供应商的模型
+    // 收集所有供应商的模型（不做过滤，用户可自行选择）
     let mut provider_models: Vec<String> = Vec::new();
     for (_provider_id, provider_entry) in &cache {
-        // 检查供应商是否已配置密钥（任意一个 env 变量已设置）
-        let has_key = provider_entry.env.iter().any(|env_var| {
-            std::env::var(env_var).is_ok()
-        });
-
-        if has_key {
-            // 添加该供应商的所有模型
-            for model_id in provider_entry.models.keys() {
-                provider_models.push(model_id.clone());
-            }
+        for model_id in provider_entry.models.keys() {
+            provider_models.push(model_id.clone());
         }
     }
 
@@ -162,7 +154,6 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         "providerModels": provider_models,
     }))
 }
-
 /// Add a model to Hermes config
 pub fn add_model(model: String) -> Result<serde_json::Value, String> {
     let mut config = read_config()?;
