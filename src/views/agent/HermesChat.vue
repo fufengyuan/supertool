@@ -306,9 +306,10 @@
                             <span class="text-base-content/50 text-xs truncate flex-1">
                               {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 100) + '...' : '执行任务' }}
                             </span>
-                            <span v-if="tool.status === 'completed'" class="text-base-content/40 text-xs">✓</span>
+                            <span v-if="tool.status === 'completed'" class="text-success text-xs">✓</span>
                             <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
                             <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
+                            <span v-if="tool.durationMs" class="text-base-content/30 text-xs">{{ (tool.durationMs / 1000).toFixed(1) }}s</span>
                             <SvgIcon 
                               :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
                               size="10" 
@@ -316,6 +317,8 @@
                             />
                           </div>
                         </div>
+                        <!-- 子Agent预览：折叠时展示任务摘要 -->
+                        <div v-if="tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
                         <!-- 折叠内容：详细结果 -->
                         <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
                           <!-- 任务参数 -->
@@ -325,8 +328,8 @@
                           </div>
                           <!-- 执行结果 -->
                           <div v-if="tool.result" class="mt-1">
-                            <span class="text-base-content/40">结果：</span>
-                            <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                            <span class="text-base-content/40">原始结果：</span>
+                            <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap font-mono">{{ tool.result }}</pre>
                           </div>
                         </div>
                       </div>
