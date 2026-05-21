@@ -406,7 +406,7 @@
               <!-- 思考文本 -->
               <p v-if="thinkingText" class="text-sm text-base-content/60 animate-pulse">{{ thinkingText }}</p>
               <!-- 工具调用（只显示 running 状态的） -->
-              <div v-else-if="currentStreamingMsg?.toolCalls && currentStreamingMsg.toolCalls.length > 0" class="mt-0 space-y-1">
+              <div v-else-if="currentStreamingMsg?.toolCalls?.some(t => t.status === 'running')" class="mt-0 space-y-1">
                 <div v-for="(tool, idx) in currentStreamingMsg.toolCalls.filter(t => t.status === 'running')" :key="idx" class="flex items-center gap-2 text-xs bg-base-200/50 rounded px-2 py-1">
                   <SvgIcon :name="getToolIcon(tool.name).icon" size="12" :class="getToolIcon(tool.name).color + ' animate-pulse'" />
                   <span :class="getToolIcon(tool.name).color" class="font-medium">{{ tool.name }}</span>
