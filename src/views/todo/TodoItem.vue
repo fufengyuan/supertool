@@ -61,11 +61,27 @@
 
   <!-- 展开详情 -->
   <li v-if="expanded" class="list-none bg-base-200 border-b border-base-content/10 p-3 pl-12">
-    <div class="text-sm text-base-content space-y-2">
-      <div v-if="todo.description" class="detail-section">
+    <div class="text-sm text-base-content space-y-3">
+      <!-- 简要描述（如果有的话，作为 Markdown 详情的补充） -->
+      <div v-if="todo.description && !todo.markdownDescription" class="detail-section">
         <label class="text-[11px] font-semibold uppercase text-base-content/60 tracking-wider block mb-1">描述</label>
         <p class="m-0 leading-normal text-base-content">{{ todo.description }}</p>
       </div>
+
+      <!-- Markdown 富文本详情 -->
+      <div class="detail-section">
+        <label class="text-[11px] font-semibold uppercase text-base-content/60 tracking-wider block mb-1.5">详细描述</label>
+        <TodoDescription
+          :markdown="todo.markdownDescription || todo.description"
+          :is-editing="editingMarkdownId === todo.id"
+          :content="editingMarkdownContent"
+          @update:content="(val) => $emit('update:editingMarkdownContent', val)"
+          @save="$emit('save-markdown', todo.id)"
+          @cancel="$emit('cancel-markdown')"
+          @start-edit="$emit('startMarkdownEdit', todo)"
+        />
+      </div>
+
       <SubtaskList :todo-id="todo.id" @subtask-completed="$emit('subtask-completed', $event)" />
     </div>
   </li>
@@ -117,6 +133,7 @@
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import DOMPurify from 'dompurify'
+import TodoDescription from '@/views/todo/TodoDescription.vue'
 import SubtaskList from '@/views/subtask/SubtaskList.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
