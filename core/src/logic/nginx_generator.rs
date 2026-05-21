@@ -781,7 +781,7 @@ fn append_location_block(
     // Custom params - prepend mode
     append_location_param_json_prepend(conn, loc, out);
 
-    match loc.upstream_type {
+    match loc.loc_type {
         0 | 2 => {
             // proxy_pass (type 0) or upstream (type 2)
 
