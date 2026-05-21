@@ -897,6 +897,7 @@ const displayMessages = computed(() => {
 const selectedModel = ref('');
 const availableModels = ref<string[]>([]); // 从 Hermes 配置读取
 const defaultModel = ref<string>(''); // 默认模型
+const activeProvider = ref<string>(''); // 当前活跃供应商
 
 // 供应商展示名称映射
 const PROVIDER_LABELS: Record<string, string> = {
@@ -965,6 +966,8 @@ const modelGroups = computed<ModelGroup[]>(() => {
   }
   for (const m of allModels) {
     const { provider } = parseModelName(m)
+    // 只显示活跃供应商的模型（无前缀的模型作为"其他"保留）
+    if (provider && provider !== activeProvider.value) continue
     const key = provider || '__other__'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(m)
@@ -994,9 +997,10 @@ const currentProviderLabel = computed(() => {
 // 加载模型列表
 const loadModels = async () => {
   try {
-    const result = await invoke<{ customModels: string[]; defaultModel: string | null }>('agent_get_models');
+    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null }>('agent_get_models');
     availableModels.value = result.customModels || [];
     defaultModel.value = result.defaultModel || '';
+    activeProvider.value = result.activeProvider || '';
     // 如果当前未选择模型，使用默认模型
     if (!selectedModel.value && defaultModel.value) {
       selectedModel.value = defaultModel.value

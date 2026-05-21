@@ -22,6 +22,8 @@ struct ModelConfig {
     default: Option<String>,
     #[serde(default, alias = "model")]
     model: Option<String>,
+    #[serde(default)]
+    provider: Option<String>,
 }
 
 /// Hermes config.yaml root structure
@@ -83,9 +85,18 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
+    // 读取活跃供应商（仅显示该供应商的模型）
+    let active_provider = config
+        .model
+        .as_ref()
+        .and_then(|m| m.provider.as_deref())
+        .unwrap_or("")
+        .to_string();
+
     Ok(serde_json::json!({
         "customModels": config.custom_models,
         "defaultModel": default_model,
+        "activeProvider": active_provider,
     }))
 }
 
@@ -135,6 +146,7 @@ pub fn set_default_model(model: String) -> Result<serde_json::Value, String> {
         config.model = Some(ModelConfig {
             default: None,
             model: None,
+            provider: None,
         });
     }
     if let Some(ref mut m) = config.model {
