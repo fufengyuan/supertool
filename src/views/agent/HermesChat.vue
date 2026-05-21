@@ -254,28 +254,32 @@
               </div>
             </div>
 
-            <!-- Assistant 消息 -->
-            <div v-else class="flex gap-2 w-full group">
-              <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
-                <SvgIcon name="bot" size="14" class="text-primary" />
-              </div>
-              <div class="max-w-[800px]">
-                <!-- 思考过程（如果有）- 可折叠 -->
-                <div 
-                  v-if="msg.thinking" 
-                  class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
-                  @click="toggleThinkingExpand(idx)"
-                >
-                  <div class="flex items-center justify-between">
-                    <span>💭 思考过程</span>
-                    <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
+                <!-- Assistant 消息 -->
+                <div v-else class="flex gap-2 w-full group">
+                  <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
+                    <SvgIcon name="bot" size="14" class="text-primary" />
                   </div>
-                  <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
-                    {{ msg.thinking }}
-                  </div>
-                </div>
-                
-                <div class="bg-base-100 border border-base-300 rounded-xl px-3 py-2">
+                  <div class="max-w-[800px]">
+                    <!-- 思考过程（如果有）- 可折叠 -->
+                    <div 
+                      v-if="msg.thinking" 
+                      class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
+                      @click="toggleThinkingExpand(idx)"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span>💭 思考过程</span>
+                        <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
+                      </div>
+                      <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
+                        {{ msg.thinking }}
+                      </div>
+                    </div>
+                    
+                    <!-- 气泡主体：有内容时才渲染，避免空白气泡闪烁 -->
+                    <div
+                      v-if="msg.content || (msg.toolCalls && msg.toolCalls.length > 0) || msg.isStopped"
+                      class="bg-base-100 border border-base-300 rounded-xl px-3 py-2"
+                    >
                   <!-- 已停止徽章 -->
                   <div v-if="msg.isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
                     <span class="inline-flex items-center gap-1 bg-warning/10 border border-warning/20 rounded px-1.5 py-0.5">
