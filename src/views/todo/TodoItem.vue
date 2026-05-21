@@ -62,24 +62,16 @@
   <!-- 展开详情 -->
   <li v-if="expanded" class="list-none bg-base-200 border-b border-base-content/10 p-3 pl-12">
     <div class="text-sm text-base-content space-y-3">
-      <!-- 简要描述（如果有的话，作为 Markdown 详情的补充） -->
+      <!-- 简要描述（纯文本，仅在无 markdown 时显示） -->
       <div v-if="todo.description && !todo.markdownDescription" class="detail-section">
         <label class="text-[11px] font-semibold uppercase text-base-content/60 tracking-wider block mb-1">描述</label>
         <p class="m-0 leading-normal text-base-content">{{ todo.description }}</p>
       </div>
 
-      <!-- Markdown 富文本详情 -->
-      <div class="detail-section">
+      <!-- Markdown 详情（只读渲染，双击不可编辑） -->
+      <div v-if="todo.markdownDescription" class="detail-section">
         <label class="text-[11px] font-semibold uppercase text-base-content/60 tracking-wider block mb-1.5">详细描述</label>
-        <TodoDescription
-          :markdown="todo.markdownDescription || todo.description"
-          :is-editing="editingMarkdownId === todo.id"
-          :content="editingMarkdownContent"
-          @update:content="(val) => $emit('update:editingMarkdownContent', val)"
-          @save="$emit('save-markdown', todo.id)"
-          @cancel="$emit('cancel-markdown')"
-          @start-edit="$emit('startMarkdownEdit', todo)"
-        />
+        <div class="markdown-preview text-sm leading-relaxed" v-html="renderedMarkdown"></div>
       </div>
 
       <SubtaskList :todo-id="todo.id" @subtask-completed="$emit('subtask-completed', $event)" />
@@ -121,6 +113,11 @@
           </select>
         </div>
       </div>
+      <!-- 详细描述 -->
+      <div class="flex flex-col gap-1">
+        <label class="text-[11px] font-semibold text-base-content/60">详细描述 (Markdown)</label>
+        <textarea v-model="editLocalMarkdown" class="textarea textarea-bordered w-full text-sm font-mono leading-relaxed" rows="4" placeholder="支持 Markdown 格式&#10;&#10;# 标题&#10;**粗体** *斜体*&#10;- 列表项"></textarea>
+      </div>
       <div class="flex gap-2 justify-end mt-1">
         <button class="btn btn-primary btn-sm" @click="emitSaveEdit">保存</button>
         <button class="btn btn-ghost btn-sm" @click="$emit('cancel-edit')">取消</button>
@@ -132,8 +129,8 @@
 <script setup lang="ts">
 import { ref, computed, nextTick, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { marked } from 'marked'
 import DOMPurify from 'dompurify'
-import TodoDescription from '@/views/todo/TodoDescription.vue'
 import SubtaskList from '@/views/subtask/SubtaskList.vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 
@@ -175,6 +172,7 @@ const editLocalProjectId = ref(props.todo.projectId || '')
 const editLocalPriority = ref(props.todo.priority || 'medium')
 const editLocalTag = ref(props.todo.tag || '')
 const editLocalDueDate = ref(props.todo.dueDate || '')
+const editLocalMarkdown = ref(props.todo.markdownDescription || '')
 
 // Watch editingId to initialize local state when entering edit mode
 watch(() => props.editingId, (val) => {
@@ -184,6 +182,7 @@ watch(() => props.editingId, (val) => {
     editLocalPriority.value = props.todo.priority || 'medium'
     editLocalTag.value = props.todo.tag || ''
     editLocalDueDate.value = props.todo.dueDate || ''
+    editLocalMarkdown.value = props.todo.markdownDescription || ''
     nextTick(() => {
       editInputRef.value?.focus()
       editInputRef.value?.select()
@@ -203,6 +202,7 @@ function emitSaveEdit() {
     priority: editLocalPriority.value,
     tag: editLocalTag.value || null,
     dueDate: editLocalDueDate.value || null,
+    markdownDescription: editLocalMarkdown.value,
   })
 }
 
@@ -217,6 +217,18 @@ const highlightedText = computed(() => {
   if (!props.searchQuery) return DOMPurify.sanitize(props.todo.text)
   const q = props.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return DOMPurify.sanitize(props.todo.text.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>'))
+})
+
+// 只读渲染 Markdown 详情（展开视图使用）
+const renderedMarkdown = computed(() => {
+  const md = props.todo.markdownDescription
+  if (!md) return ''
+  try {
+    const html = marked.parse(md, { async: false, breaks: true, gfm: true }) as string
+    return DOMPurify.sanitize(html)
+  } catch {
+    return DOMPurify.sanitize(md)
+  }
 })
 
 const projectName = computed(() => {
@@ -244,3 +256,43 @@ const priorityShort = (p: string) => {
   return map[p] || p
 }
 </script>
+
+<style scoped>
+.markdown-preview {
+  color: var(--color-base-content);
+}
+.markdown-preview :deep(h1) { font-size: 1.3em; font-weight: 700; margin: 0.5em 0 0.25em; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); padding-bottom: 0.15em; }
+.markdown-preview :deep(h2) { font-size: 1.15em; font-weight: 700; margin: 0.4em 0 0.2em; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 8%, transparent); padding-bottom: 0.1em; }
+.markdown-preview :deep(h3) { font-size: 1.05em; font-weight: 600; margin: 0.35em 0 0.15em; }
+.markdown-preview :deep(p) { margin: 0.35em 0; }
+.markdown-preview :deep(ul), .markdown-preview :deep(ol) { padding-left: 1.5em; margin: 0.25em 0; }
+.markdown-preview :deep(li) { margin: 0.1em 0; }
+.markdown-preview :deep(blockquote) {
+  margin: 0.35em 0;
+  padding: 0.25em 0.6em;
+  border-left: 3px solid var(--color-primary);
+  background: color-mix(in oklab, var(--color-primary) 5%, transparent);
+  border-radius: 0 3px 3px 0;
+}
+.markdown-preview :deep(code) {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+  padding: 0.1em 0.3em;
+  background: color-mix(in oklab, var(--color-base-content) 10%, transparent);
+  border-radius: 3px;
+}
+.markdown-preview :deep(pre) {
+  margin: 0.4em 0;
+  padding: 0.6em;
+  background: color-mix(in oklab, var(--color-base-content) 8%, transparent);
+  border-radius: 5px;
+  overflow-x: auto;
+}
+.markdown-preview :deep(pre code) { background: none; padding: 0; font-size: 0.85em; }
+.markdown-preview :deep(a) { color: var(--color-primary); text-decoration: underline; }
+.markdown-preview :deep(img) { max-width: 100%; border-radius: 5px; margin: 0.4em 0; }
+.markdown-preview :deep(hr) { margin: 0.8em 0; border: none; border-top: 1px solid color-mix(in oklab, var(--color-base-content) 10%, transparent); }
+.markdown-preview :deep(table) { width: 100%; border-collapse: collapse; margin: 0.4em 0; }
+.markdown-preview :deep(th), .markdown-preview :deep(td) { padding: 0.3em 0.5em; border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent); text-align: left; }
+.markdown-preview :deep(th) { font-weight: 600; background: color-mix(in oklab, var(--color-base-content) 5%, transparent); }
+</style>
