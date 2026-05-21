@@ -11,8 +11,12 @@
 //!   - "gpt-4"
 //!   - "claude-3-opus"
 //! ```
+//!
+//! Model list is dynamically fetched from ~/.hermes/models_dev_cache.json
+//! (maintained by Hermes Agent from models.dev API), ensuring real-time sync.
 
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 /// Hermes config.yaml model section
@@ -35,12 +39,38 @@ struct HermesConfig {
     custom_models: Vec<String>,
 }
 
+/// Models.dev cache entry for a single model
+#[derive(Debug, Deserialize)]
+struct ModelEntry {
+    id: String,
+}
+
+/// Models.dev cache entry for a provider
+#[derive(Debug, Deserialize)]
+struct ProviderEntry {
+    #[serde(default)]
+    env: Vec<String>,
+    #[serde(default)]
+    models: HashMap<String, ModelEntry>,
+}
+
+/// Models.dev cache file structure (~/.hermes/models_dev_cache.json)
+type ModelsDevCache = HashMap<String, ProviderEntry>;
+
 /// Get path to Hermes config.yaml
 fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
         .join(".hermes")
         .join("config.yaml")
+}
+
+/// Get path to Hermes models.dev cache
+fn models_cache_path() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join(".hermes")
+        .join("models_dev_cache.json")
 }
 
 /// Read Hermes config.yaml, return default model + custom models list
@@ -50,6 +80,18 @@ fn read_config() -> Result<HermesConfig, String> {
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     serde_yaml::from_str(&content)
         .map_err(|e| format!("Failed to parse config.yaml: {}", e))
+}
+
+/// Read models.dev cache file, return provider -> models mapping
+fn read_models_cache() -> Result<ModelsDevCache, String> {
+    let path = models_cache_path();
+    if !path.exists() {
+        return Ok(HashMap::new());
+    }
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read models cache: {}", e))?;
+    serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse models_dev_cache.json: {}", e))
 }
 
 /// Write Hermes config.yaml atomically
@@ -74,7 +116,9 @@ pub fn hermes_is_installed() -> bool {
         .is_some()
 }
 
-/// Get custom models and default model from Hermes config
+/// Get custom models, default model, and all available provider models from Hermes config
+/// Provider models are dynamically fetched from ~/.hermes/models_dev_cache.json
+/// Returns all models from all providers (user can select, API call will fail if key not configured)
 pub fn get_models() -> Result<serde_json::Value, String> {
     let config = read_config()?;
 
@@ -85,7 +129,6 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
-    // 读取活跃供应商（仅显示该供应商的模型）
     let active_provider = config
         .model
         .as_ref()
@@ -93,13 +136,24 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
+    // 从 models.dev 缓存获取所有供应商模型
+    let cache = read_models_cache().unwrap_or_default();
+
+    // 收集所有供应商的模型（不做过滤，用户可自行选择）
+    let mut provider_models: Vec<String> = Vec::new();
+    for (_provider_id, provider_entry) in &cache {
+        for model_id in provider_entry.models.keys() {
+            provider_models.push(model_id.clone());
+        }
+    }
+
     Ok(serde_json::json!({
         "customModels": config.custom_models,
         "defaultModel": default_model,
         "activeProvider": active_provider,
+        "providerModels": provider_models,
     }))
 }
-
 /// Add a model to Hermes config
 pub fn add_model(model: String) -> Result<serde_json::Value, String> {
     let mut config = read_config()?;

@@ -959,15 +959,14 @@ interface ModelGroup {
 
 const modelGroups = computed<ModelGroup[]>(() => {
   const groups = new Map<string, string[]>()
-  // 添加当前默认模型（可能不在 custom_models 中）
+  // 添加当前默认模型（可能不在列表中）
   const allModels = [...availableModels.value]
   if (defaultModel.value && !allModels.includes(defaultModel.value)) {
     allModels.unshift(defaultModel.value)
   }
   for (const m of allModels) {
     const { provider } = parseModelName(m)
-    // 只显示活跃供应商的模型（无前缀的模型作为"其他"保留）
-    if (provider && provider !== activeProvider.value) continue
+    // 显示所有已配置密钥的供应商的模型（不再只显示活跃供应商）
     const key = provider || '__other__'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(m)
@@ -997,8 +996,12 @@ const currentProviderLabel = computed(() => {
 // 加载模型列表
 const loadModels = async () => {
   try {
-    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null }>('agent_get_models');
-    availableModels.value = result.customModels || [];
+    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null; providerModels: string[] }>('agent_get_models');
+    // 合合用户自定义模型和供应商预定义模型（去重）
+    const customModels = result.customModels || [];
+    const predefinedModels = result.providerModels || [];
+    const mergedModels = [...new Set([...predefinedModels, ...customModels])];
+    availableModels.value = mergedModels;
     defaultModel.value = result.defaultModel || '';
     activeProvider.value = result.activeProvider || '';
     // 如果当前未选择模型，使用默认模型
