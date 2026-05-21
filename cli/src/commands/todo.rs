@@ -139,7 +139,34 @@ fn print_todo(t: &Todo) {
     } else {
         "\x1b[33m○\x1b[0m"
     };
-    println!("  {} {} {}", t.id, status, t.text);
+
+    // Priority indicator
+    let prio = match t.priority.as_str() {
+        "high" => "\x1b[31m!\x1b[0m",
+        "urgent" => "\x1b[31m!!!\x1b[0m",
+        "low" => "\x1b[2m↓\x1b[0m",
+        _ => " ",
+    };
+
+    // Tag (colored)
+    let tag_str = if !t.tag.is_empty() {
+        format!(" \x1b[36m[{}]\x1b[0m", t.tag)
+    } else {
+        String::new()
+    };
+
+    // Due date
+    let due_str = if let Some(due) = &t.due_date {
+        if !due.is_empty() {
+            format!(" \x1b[2m📅{}\x1b[0m", due)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
+    println!("  {} {} {}{}{}{}", t.id, status, prio, t.text, tag_str, due_str);
 }
 
 async fn resolve_todo_text(runtime: &mut CliRuntime, id: &str) -> String {
@@ -248,22 +275,7 @@ pub async fn cmd_list(
             println!("  暂无任务");
         } else {
             // 获取项目名称
-            let projects: serde_json::Value = runtime
-                .core
-                .get_all_projects(false)
-                .await
-                .unwrap_or(serde_json::json!([]));
-            let project_map: std::collections::HashMap<String, String> = projects
-                .as_array()
-                .cloned()
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|p| {
-                    let id = p.get("id").and_then(|v| v.as_str())?;
-                    let name = p.get("name").and_then(|v| v.as_str())?;
-                    Some((id.to_string(), name.to_string()))
-                })
-                .collect();
+            let project_map = load_project_map(runtime).await;
             // 按项目分组
             let mut groups: Vec<(String, Vec<&Todo>)> = Vec::new();
             for t in &filtered {
@@ -339,13 +351,26 @@ pub async fn cmd_show(runtime: &mut CliRuntime, id: &str, json: bool) -> Result<
         if json {
             print_json(&todo);
         } else {
-            println!("\n  任务详情:");
+            // Load projects for name resolution
+            let project_map = load_project_map(runtime).await;
+
+            println!("\n  ── 任务详情 ──");
             print_todo(&todo);
+            println!("  优先级: {}", priority_display(&todo.priority));
+            if !todo.tag.is_empty() {
+                println!("  标签: {}", todo.tag);
+            }
+            if let Some(pid) = &todo.project_id {
+                let pname = project_map.get(pid).map(|s| s.as_str()).unwrap_or(pid);
+                println!("  项目: {}", pname);
+            }
             if !todo.description.is_empty() {
                 println!("\n  描述: {}", todo.description);
             }
             if let Some(due) = &todo.due_date {
-                println!("  截止日期: {}", due);
+                if !due.is_empty() {
+                    println!("  截止日期: {}", due);
+                }
             }
             println!(
                 "  创建时间: {}\n  更新时间: {}",
@@ -591,4 +616,33 @@ pub async fn cmd_uncomplete(runtime: &mut CliRuntime, id: &str) -> Result<()> {
         .map_err(|e| anyhow::anyhow!("{}", e))?;
     print_success(&format!("任务「{}」已恢复为未完成", text));
     Ok(())
+}
+
+/// Load a map of project_id → project_name
+async fn load_project_map(runtime: &mut CliRuntime) -> std::collections::HashMap<String, String> {
+    let projects: serde_json::Value = runtime
+        .core
+        .get_all_projects(false)
+        .await
+        .unwrap_or(serde_json::json!([]));
+    projects
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter_map(|p| {
+            let id = p.get("id").and_then(|v| v.as_str())?;
+            let name = p.get("name").and_then(|v| v.as_str())?;
+            Some((id.to_string(), name.to_string()))
+        })
+        .collect()
+}
+
+fn priority_display(p: &str) -> &'static str {
+    match p {
+        "urgent" => "\x1b[31m!!! 紧急\x1b[0m",
+        "high" => "\x1b[33m! 高\x1b[0m",
+        "low" => "\x1b[2m↓ 低\x1b[0m",
+        _ => "中",
+    }
 }
