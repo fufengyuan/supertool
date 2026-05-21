@@ -997,8 +997,12 @@ const currentProviderLabel = computed(() => {
 // 加载模型列表
 const loadModels = async () => {
   try {
-    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null }>('agent_get_models');
-    availableModels.value = result.customModels || [];
+    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null; providerModels: string[] }>('agent_get_models');
+    // 合合用户自定义模型和供应商预定义模型（去重）
+    const customModels = result.customModels || [];
+    const predefinedModels = result.providerModels || [];
+    const mergedModels = [...new Set([...predefinedModels, ...customModels])];
+    availableModels.value = mergedModels;
     defaultModel.value = result.defaultModel || '';
     activeProvider.value = result.activeProvider || '';
     // 如果当前未选择模型，使用默认模型
