@@ -598,7 +598,7 @@ async fn do_git_sync(
             // Fetch and pull
             emit("git", "pulling", "拉取最新代码...");
 
-            let output = Command::new(crate::logic::git::find_git())
+            let output = user_shell_cmd(&crate::logic::git::find_git())
                 .args(["fetch", "origin"])
                 .current_dir(&path)
                 .output()
@@ -618,7 +618,7 @@ async fn do_git_sync(
             };
             // 剥离 origin/ 前缀，避免 git pull origin origin/xxx 双重前缀
             let branch = raw_branch.strip_prefix("origin/").unwrap_or(raw_branch);
-            let output = Command::new(crate::logic::git::find_git())
+            let output = user_shell_cmd(&crate::logic::git::find_git())
                 .args(["checkout", branch])
                 .current_dir(&path)
                 .output()
@@ -627,7 +627,7 @@ async fn do_git_sync(
 
             if !output.status.success() {
                 // 分支不存在，从 origin 创建
-                let output2 = Command::new(crate::logic::git::find_git())
+                let output2 = user_shell_cmd(&crate::logic::git::find_git())
                     .args(["checkout", "-b", branch, &format!("origin/{}", branch)])
                     .current_dir(&path)
                     .output()
@@ -642,7 +642,7 @@ async fn do_git_sync(
 
             // Pull latest - 本地模式智能合并（不强制要求提交）
             // 先检查是否有未提交改动
-            let status_output = Command::new(crate::logic::git::find_git())
+            let status_output = user_shell_cmd(&crate::logic::git::find_git())
                 .args(["status", "--porcelain"])
                 .current_dir(&path)
                 .output()
@@ -655,7 +655,7 @@ async fn do_git_sync(
                 // 有未提交改动，先 stash
                 emit("git", "info", "检测到未提交改动，暂存后拉取...");
 
-                let stash_output = Command::new(crate::logic::git::find_git())
+                let stash_output = user_shell_cmd(&crate::logic::git::find_git())
                     .args(["stash", "push", "-m", "supertool-auto-stash"])
                     .current_dir(&path)
                     .output()
@@ -669,9 +669,9 @@ async fn do_git_sync(
                 }
             }
 
-            // 执行 pull（不使用 rebase，避免冲突）
-            let pull_output = Command::new(crate::logic::git::find_git())
-                .args(["pull", "origin", branch, "--no-edit"])
+            // 执行 pull（使用 --rebase 确保线性合并）
+            let pull_output = user_shell_cmd(&crate::logic::git::find_git())
+                .args(["pull", "--rebase", "origin", branch])
                 .current_dir(&path)
                 .output()
                 .await
@@ -685,7 +685,7 @@ async fn do_git_sync(
 
             // 如果之前有改动，恢复 stash
             if has_changes {
-                let pop_output = Command::new(crate::logic::git::find_git())
+                let pop_output = user_shell_cmd(&crate::logic::git::find_git())
                     .args(["stash", "pop"])
                     .current_dir(&path)
                     .output()

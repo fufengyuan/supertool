@@ -104,6 +104,7 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
             ) AS last_active
         FROM sessions s
         WHERE s.parent_session_id IS NULL
+           OR NOT EXISTS (SELECT 1 FROM sessions child WHERE child.parent_session_id = s.id)
         ORDER BY s.started_at DESC
         LIMIT ? OFFSET ?
     "#;
