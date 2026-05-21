@@ -889,10 +889,34 @@ fn append_location_block(
                     out.push_str(&format!("            index {};\n", loc.root_page));
                 }
             }
+            // Also output return/redirect if present (e.g. "return" directive before "root" in config)
+            if !loc.return_url.is_empty() {
+                out.push_str(&format!(
+                    "            return {} {};\n",
+                    if loc.value.is_empty() { "302" } else { &loc.value },
+                    if loc.return_path {
+                        format!("{}$request_uri", loc.return_url)
+                    } else {
+                        loc.return_url.clone()
+                    }
+                ));
+            }
         }
         3 => {} // blank — placeholder
         4 => {
-            // Return/redirect
+            // Return/redirect — also output root if present (nginx still serves root when return isn't hit)
+            if !loc.root_path.is_empty() {
+                let root_type = if loc.root_type == "alias" {
+                    "alias"
+                } else {
+                    "root"
+                };
+                out.push_str(&format!(
+                    "            {} {};\n",
+                    root_type,
+                    loc.root_path.trim_end_matches('/')
+                ));
+            }
             let ret_url = if loc.return_path {
                 format!("{}$request_uri", loc.return_url)
             } else {
