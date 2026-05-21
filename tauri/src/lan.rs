@@ -466,20 +466,19 @@ impl LanService {
                     .map(|p| p as u16)
                     .unwrap_or(addr.port());
 
-                // Version compatibility check — only compare major version
+                // Log version info without blocking — allow cross-version communication
                 if let Some(ref v) = peer_version {
                     if let Some(peer_major) = v.split('.').next() {
                         if let Some(my_major) = my_version.split('.').next() {
                             if peer_major != my_major {
                                 Self::add_log_static(
                                     log,
-                                    "warn",
+                                    "info",
                                     &format!(
-                                        "Version mismatch: peer {} (v{}) vs local (v{}) — heartbeat dropped",
+                                        "Peer {} version (v{}) differs from local (v{}) — cross-version communication allowed",
                                         peer_id, v, my_version
                                     ),
                                 );
-                                return;
                             }
                         }
                     }
