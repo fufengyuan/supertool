@@ -127,3 +127,19 @@ pub fn remove_model(model: String) -> Result<serde_json::Value, String> {
         "customModels": config.custom_models,
     }))
 }
+
+/// Set the default model in Hermes config (persists to config.yaml)
+pub fn set_default_model(model: String) -> Result<serde_json::Value, String> {
+    let mut config = read_config()?;
+    if config.model.is_none() {
+        config.model = Some(ModelConfig {
+            default: None,
+            model: None,
+        });
+    }
+    if let Some(ref mut m) = config.model {
+        m.default = Some(model.clone());
+    }
+    write_config(&config)?;
+    Ok(serde_json::json!({ "success": true, "model": model }))
+}
