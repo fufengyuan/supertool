@@ -622,7 +622,7 @@ export function useLanAPI() {
     },
     lanSendMessage: async (peerId: string, content: string): Promise<any> => {
       const res = await tauriInvoke<any>('lan_send_message', { peerId, content })
-      return res.success ? res.data : { success: false, error: res.error }
+      return { success: res.success, sent: res.success ? res.data?.sent : false, error: res.error }
     },
     lanSendFile: async (peerId: string, filePath: string, fileName: string, resumeOffset = 0, fileId?: string): Promise<any> => {
       const res = await tauriInvoke<any>('lan_send_file', { peerId, filePath, fileName, resumeOffset, fileId })
