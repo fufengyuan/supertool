@@ -139,11 +139,12 @@ pub fn get_models() -> Result<serde_json::Value, String> {
     // 从 models.dev 缓存获取所有供应商模型
     let cache = read_models_cache().unwrap_or_default();
 
-    // 收集所有供应商的模型（不做过滤，用户可自行选择）
+    // 收集所有供应商的模型，添加供应商前缀以便前端分组显示
     let mut provider_models: Vec<String> = Vec::new();
-    for (_provider_id, provider_entry) in &cache {
+    for (provider_id, provider_entry) in &cache {
         for model_id in provider_entry.models.keys() {
-            provider_models.push(model_id.clone());
+            // 格式化为 "provider/model"，前端可解析供应商分组
+            provider_models.push(format!("{}/{}", provider_id, model_id));
         }
     }
 
