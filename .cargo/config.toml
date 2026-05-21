@@ -1,0 +1,9 @@
+[build]
+# rustc wrapper — uses sccache if available, else falls through to plain rustc
+rustc-wrapper = ".cargo/rustc-wrapper.sh"
+
+[target.aarch64-apple-darwin]
+linker = "cc"
+
+[target.x86_64-apple-darwin]
+linker = "cc"
