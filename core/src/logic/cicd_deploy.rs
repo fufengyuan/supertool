@@ -2239,8 +2239,18 @@ async fn execute_restart(
         "".to_string()
     };
 
-    // 根据脚本路径决定执行方式
-    let exec_cmd = if script_file.starts_with('/') {
+    // 将 ~/ 开头的路径转换为 $HOME/，确保在 bash -l -c 引号内能正确展开
+    let script_file = if script_file.starts_with("~/") {
+        format!("$HOME/{}", &script_file[2..])
+    } else if script_file == "~" {
+        "$HOME".to_string()
+    } else {
+        script_file.to_string()
+    };
+
+    // 根据脚本路径决定执行方式（~/ 已解析为 $HOME/，以 / 开头或 $HOME 开头都视为绝对路径）
+    let is_absolute = script_file.starts_with('/') || script_file.starts_with("$HOME");
+    let exec_cmd = if is_absolute {
         // 绝对路径：直接执行，chmod +x 确保可执行
         if script_args.is_empty() {
             format!(
