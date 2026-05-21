@@ -1628,11 +1628,77 @@ const formatTodoResult = (result: string): string => {
   }
 };
 
+// 格式化子Agent结果（delegate_task）
+const formatDelegateResult = (result: string): string => {
+  try {
+    const parsed = JSON.parse(result);
+    
+    // delegate_task 返回格式: { results: [...], total_duration_seconds }
+    if (parsed.results && Array.isArray(parsed.results)) {
+      const htmlParts: string[] = [];
+      
+      for (const task of parsed.results) {
+        const statusIcon = task.status === 'completed' ? '✓' : 
+                          task.status === 'error' ? '✕' : 
+                          task.status === 'timeout' ? '⏱' : '○';
+        const statusColor = task.status === 'completed' ? 'text-success' : 
+                           task.status === 'error' ? 'text-error' : 
+                           task.status === 'timeout' ? 'text-warning' : 'text-base-content/40';
+        
+        htmlParts.push(`
+          <div class="py-1.5 border-b border-base-content/10 last:border-b-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="${statusColor} text-xs font-bold">${statusIcon}</span>
+              <span class="text-xs text-base-content/60">任务 ${task.task_index + 1}</span>
+              <span class="text-xs text-base-content/40">${task.duration_seconds?.toFixed(1) || '-'}s</span>
+              <span class="text-xs text-base-content/30">${task.model || '-'}</span>
+            </div>
+            <div class="text-xs text-base-content whitespace-pre-wrap max-h-32 overflow-auto">${task.summary || '（无摘要）'}</div>
+          </div>
+        `);
+        
+        // 如果有工具调用记录，显示简要
+        if (task.tool_trace && task.tool_trace.length > 0) {
+          const toolsBrief = task.tool_trace.slice(0, 5).map((t: { tool: string; status: string }) => 
+            `<span class="text-xs text-base-content/40">${t.tool}</span>`
+          ).join(' → ');
+          htmlParts.push(`
+            <div class="px-2 py-0.5 text-xs text-base-content/30">
+              调用链: ${toolsBrief}${task.tool_trace.length > 5 ? ' ...' : ''}
+            </div>
+          `);
+        }
+      }
+      
+      // 总耗时
+      if (parsed.total_duration_seconds) {
+        htmlParts.push(`
+          <div class="pt-1 text-xs text-base-content/40">
+            总耗时: ${parsed.total_duration_seconds.toFixed(1)}s
+          </div>
+        `);
+      }
+      
+      return `<div class="space-y-0">${htmlParts.join('')}</div>`;
+    }
+    
+    // 其他 JSON 格式
+    return `<pre class="text-xs whitespace-pre-wrap">${JSON.stringify(parsed, null, 2)}</pre>`;
+  } catch {
+    return `<div class="text-xs whitespace-pre-wrap">${result}</div>`;
+  }
+};
+
 // 格式化工具结果（根据工具类型选择渲染方式）
 const formatToolResult = (toolName: string, result: string): string => {
   // todo 工具特殊渲染
   if (toolName === 'todo') {
     return formatTodoResult(result);
+  }
+  
+  // delegate_task 工具特殊渲染
+  if (toolName === 'delegate_task') {
+    return formatDelegateResult(result);
   }
   
   // 其他工具，默认显示
