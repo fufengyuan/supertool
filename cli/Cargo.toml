@@ -1,6 +1,6 @@
 [package]
 name = "stool"
-version = "4.17.13"
+version = "4.17.12"
 edition = "2024"
 description = "SuperTool CLI - Direct CoreService access for task, project, server, and log management"
 
@@ -18,9 +18,3 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 supertool-core = { path = "../core" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 chrono = "0.4"
-
-[profile.release]
-strip = true
-lto = true
-codegen-units = 1
-opt-level = "z"

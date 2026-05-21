@@ -1,3 +1,4 @@
+.cargo/config.toml
 node_modules/
 dist/
 dist-electron/
