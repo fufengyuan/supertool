@@ -571,22 +571,86 @@
                 </div>
               </div>
               <!-- 模型选择 -->
-              <div class="flex items-center gap-1.5">
-                <select
-                  v-model="selectedModel"
-                  class="select select-bordered select-xs max-w-[240px]"
+              <div class="relative flex items-center gap-1.5 model-dropdown-container">
+                <!-- 模型选择按钮 -->
+                <button
+                  class="select select-bordered select-xs max-w-[240px] flex items-center justify-between"
                   :disabled="isStreaming"
-                  @change="setModel(selectedModel)"
+                  @click="showModelDropdown = !showModelDropdown"
                 >
-                  <option value="">
-                    {{ defaultModel ? parseModelName(defaultModel).name || defaultModel : '默认模型' }}
-                  </option>
-                  <optgroup v-for="group in modelGroups" :key="group.provider" :label="group.label">
-                    <option v-for="m in group.models" :key="m" :value="m">
-                      {{ parseModelName(m).name }}
-                    </option>
-                  </optgroup>
-                </select>
+                  <span class="truncate">
+                    {{ selectedModel ? parseModelName(selectedModel).name : (defaultModel ? parseModelName(defaultModel).name || defaultModel : '默认模型') }}
+                  </span>
+                  <SvgIcon name="chevronDown" size="12" class="ml-1 shrink-0" />
+                </button>
+                <!-- 下拉菜单 -->
+                <div
+                  v-if="showModelDropdown"
+                  class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 w-[320px] max-h-[400px] overflow-hidden"
+                  @click.stop
+                >
+                  <!-- 搜索框 -->
+                  <div class="p-2 border-b border-base-content/10">
+                    <input
+                      ref="modelSearchRef"
+                      v-model="modelSearchQuery"
+                      type="text"
+                      class="input input-bordered input-xs w-full"
+                      placeholder="搜索模型..."
+                      @keydown.esc="showModelDropdown = false"
+                    />
+                  </div>
+                  <!-- 模型列表 -->
+                  <div class="overflow-y-auto max-h-[340px]">
+                    <!-- 默认模型 -->
+                    <button
+                      class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200"
+                      :class="{ 'bg-primary/10': !selectedModel }"
+                      @click="setModel(''); showModelDropdown = false"
+                    >
+                      <span class="text-base-content/60">默认</span>
+                      <span class="truncate">{{ defaultModel ? parseModelName(defaultModel).name || defaultModel : '系统默认' }}</span>
+                    </button>
+                    <!-- 分组（可折叠） -->
+                    <template v-for="group in filteredModelGroups" :key="group.provider">
+                      <div
+                        class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-base-content/60 cursor-pointer hover:bg-base-200"
+                        @click="toggleModelGroup(group.provider)"
+                      >
+                        <SvgIcon :name="expandedModelGroups[group.provider] ? 'chevronDown' : 'chevronRight'" size="10" />
+                        <span>{{ group.label }}</span>
+                        <span class="text-base-content/40">({{ group.models.length }})</span>
+                      </div>
+                      <template v-if="expandedModelGroups[group.provider]">
+                        <button
+                          v-for="m in group.models.slice(0, 20)" :key="m"
+                          class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
+                          :class="{ 'bg-primary/10': selectedModel === m }"
+                          @click="setModel(m); showModelDropdown = false"
+                        >
+                          <span class="truncate">{{ parseModelName(m).name }}</span>
+                        </button>
+                        <button
+                          v-if="group.models.length > 20"
+                          class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs text-base-content/60 hover:bg-base-200"
+                          @click="toggleModelGroupFull(group.provider)"
+                        >
+                          <span>{{ expandedModelGroupsFull[group.provider] ? '收起' : `展开全部 ${group.models.length} 个` }}</span>
+                        </button>
+                        <template v-if="expandedModelGroupsFull[group.provider]">
+                          <button
+                            v-for="m in group.models.slice(20)" :key="m"
+                            class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
+                            :class="{ 'bg-primary/10': selectedModel === m }"
+                            @click="setModel(m); showModelDropdown = false"
+                          >
+                            <span class="truncate">{{ parseModelName(m).name }}</span>
+                          </button>
+                        </template>
+                      </template>
+                    </template>
+                  </div>
+                </div>
                 <!-- 供应商标签 -->
                 <span v-if="currentProviderLabel"
                   class="badge badge-ghost badge-xs text-[10px] text-base-content/50 shrink-0 max-w-[80px] truncate"
@@ -903,6 +967,26 @@ const availableModels = ref<string[]>([]); // 从 Hermes 配置读取
 const defaultModel = ref<string>(''); // 默认模型
 const activeProvider = ref<string>(''); // 当前活跃供应商
 
+// 模型选择器下拉状态
+const showModelDropdown = ref(false);
+const modelSearchQuery = ref('');
+const modelSearchRef = ref<HTMLInputElement | null>(null);
+const expandedModelGroups = reactive<Record<string, boolean>>({}); // 分组展开状态
+const expandedModelGroupsFull = reactive<Record<string, boolean>>({}); // 分组完全展开状态
+
+// 切换分组展开
+function toggleModelGroup(provider: string) {
+  expandedModelGroups[provider] = !expandedModelGroups[provider];
+  if (!expandedModelGroups[provider]) {
+    expandedModelGroupsFull[provider] = false;
+  }
+}
+
+// 切换分组完全展开（显示超过20个的模型）
+function toggleModelGroupFull(provider: string) {
+  expandedModelGroupsFull[provider] = !expandedModelGroupsFull[provider];
+}
+
 // 供应商展示名称映射
 const PROVIDER_LABELS: Record<string, string> = {
   'openai': 'OpenAI',
@@ -996,6 +1080,26 @@ const currentProviderLabel = computed(() => {
   const { provider } = parseModelName(modelName)
   return providerLabel(provider)
 })
+
+// 搜索过滤后的模型分组
+const filteredModelGroups = computed<ModelGroup[]>(() => {
+  const query = modelSearchQuery.value.toLowerCase();
+  const groups = modelGroups.value;
+  
+  if (!query) return groups;
+  
+  // 搜索时自动展开所有匹配的分组
+  return groups.map(group => {
+    const matchingModels = group.models.filter(m => 
+      m.toLowerCase().includes(query) || 
+      parseModelName(m).name.toLowerCase().includes(query)
+    );
+    if (matchingModels.length > 0) {
+      expandedModelGroups[group.provider] = true;
+    }
+    return { ...group, models: matchingModels };
+  }).filter(group => group.models.length > 0);
+});
 
 // 加载模型列表
 const loadModels = async () => {
@@ -2238,10 +2342,16 @@ const clearSearch = () => {
 
 // 全局快捷键处理
 const handleGlobalKeydown = (e: KeyboardEvent) => {
-  // ESC: 关闭附件菜单
-  if (e.key === 'Escape' && showAttachMenu.value) {
-    showAttachMenu.value = false;
-    return;
+  // ESC: 关闭附件菜单或模型下拉菜单
+  if (e.key === 'Escape') {
+    if (showAttachMenu.value) {
+      showAttachMenu.value = false;
+      return;
+    }
+    if (showModelDropdown.value) {
+      showModelDropdown.value = false;
+      return;
+    }
   }
   
   // Cmd/Ctrl + K: 新对话
@@ -2455,6 +2565,13 @@ const checkScrollPosition = () => {
 onMounted(async () => {
   // 全局快捷键
   document.addEventListener('keydown', handleGlobalKeydown);
+  
+  // 全局点击监听 - 关闭下拉菜单
+  document.addEventListener('click', (e) => {
+    if (showModelDropdown.value && !e.target?.closest('.model-dropdown-container')) {
+      showModelDropdown.value = false;
+    }
+  });
   
   // 滚动监听 - 检测是否需要显示"回到底部"按钮
   if (messagesContainer.value) {
