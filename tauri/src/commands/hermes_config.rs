@@ -49,6 +49,8 @@ struct ModelEntry {
 #[derive(Debug, Deserialize)]
 struct ProviderEntry {
     #[serde(default)]
+    env: Vec<String>,
+    #[serde(default)]
     models: HashMap<String, ModelEntry>,
 }
 
@@ -114,8 +116,9 @@ pub fn hermes_is_installed() -> bool {
         .is_some()
 }
 
-/// Get custom models, default model, and provider models from Hermes config
+/// Get custom models, default model, and all available provider models from Hermes config
 /// Provider models are dynamically fetched from ~/.hermes/models_dev_cache.json
+/// Only shows models from providers with configured API keys (env vars set)
 pub fn get_models() -> Result<serde_json::Value, String> {
     let config = read_config()?;
 
@@ -126,7 +129,6 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
-    // 读取活跃供应商（仅显示该供应商的模型）
     let active_provider = config
         .model
         .as_ref()
@@ -134,12 +136,24 @@ pub fn get_models() -> Result<serde_json::Value, String> {
         .unwrap_or("")
         .to_string();
 
-    // 从 models.dev 缓存动态获取供应商模型列表
+    // 从 models.dev 缓存获取所有供应商模型
     let cache = read_models_cache().unwrap_or_default();
-    let provider_models: Vec<String> = cache
-        .get(&active_provider)
-        .and_then(|p| Some(p.models.keys().cloned().collect()))
-        .unwrap_or_default();
+
+    // 收集已配置密钥的供应商的模型
+    let mut provider_models: Vec<String> = Vec::new();
+    for (_provider_id, provider_entry) in &cache {
+        // 检查供应商是否已配置密钥（任意一个 env 变量已设置）
+        let has_key = provider_entry.env.iter().any(|env_var| {
+            std::env::var(env_var).is_ok()
+        });
+
+        if has_key {
+            // 添加该供应商的所有模型
+            for model_id in provider_entry.models.keys() {
+                provider_models.push(model_id.clone());
+            }
+        }
+    }
 
     Ok(serde_json::json!({
         "customModels": config.custom_models,
