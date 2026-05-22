@@ -243,13 +243,16 @@
                       <div class="flex items-center gap-1.5 min-w-0 flex-1">
                         <span class="text-[11px] text-info/80 font-medium shrink-0">子 Agent</span>
                         <span class="text-[11px] text-base-content/40 shrink-0">{{ (item as ChildSessionGroup).messageCount }}条</span>
-                        <span class="text-[11px] text-base-content/50 truncate">{{ (item as ChildSessionGroup).preview.length > 60 ? (item as ChildSessionGroup).preview.slice(0, 60) + '...' : (item as ChildSessionGroup).preview }}</span>
+                        <span class="text-[11px] text-base-content/50 truncate">{{ (item as ChildSessionGroup).preview.length > 50 ? (item as ChildSessionGroup).preview.slice(0, 50) + '...' : (item as ChildSessionGroup).preview }}</span>
                       </div>
-                      <SvgIcon name="chevronRight" size="12" class="text-info/40 group-hover:text-info/60 transition-colors shrink-0" />
+                      <div class="flex items-center gap-2 shrink-0">
+                        <span v-if="(item as ChildSessionGroup).timestamp" class="text-[11px] text-base-content/35">{{ formatMessageTime((item as ChildSessionGroup).timestamp) }}</span>
+                        <SvgIcon name="chevronRight" size="12" class="text-info/40 group-hover:text-info/60 transition-colors" />
+                      </div>
                     </div>
                   </div>
                   <!-- 展开状态：显示完整消息 -->
-                  <div v-else>
+                  <div v-else class="animate-expand">
                     <!-- 收起按钮 -->
                     <div 
                       class="bg-info/10 border border-info/20 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-info/15 transition-colors mb-2 inline-flex items-center gap-1.5"
@@ -258,6 +261,7 @@
                       <SvgIcon name="chevronDown" size="12" class="text-info/60" />
                       <span class="text-[11px] text-info/80 font-medium">子 Agent</span>
                       <span class="text-[11px] text-base-content/40">{{ (item as ChildSessionGroup).messageCount }}条消息</span>
+                      <span v-if="(item as ChildSessionGroup).timestamp" class="text-[11px] text-base-content/35">{{ formatMessageTime((item as ChildSessionGroup).timestamp) }}</span>
                     </div>
                     <!-- 子会话消息列表 - 紧凑样式 -->
                     <div class="space-y-1.5 pl-1 border-l-2 border-info/20">
@@ -271,6 +275,14 @@
                           </div>
                           <div v-else class="bg-success/5 border border-success/10 rounded-md px-2 py-1">
                             <div v-if="childMsg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(childMsg.content!)"></div>
+                            <!-- 工具调用显示 -->
+                            <div v-if="childMsg.toolCalls && childMsg.toolCalls.length > 0" class="mt-1.5 space-y-1">
+                              <div v-for="(tc, tcIdx) in childMsg.toolCalls" :key="tcIdx" class="flex items-center gap-1.5 text-xs text-base-content/60">
+                                <SvgIcon name="tool" size="10" class="text-warning/60" />
+                                <span class="font-medium">{{ tc.name }}</span>
+                                <span v-if="tc.result" class="text-success/60">✓</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -3137,6 +3149,22 @@ watch(searchQuery, () => {
 </script>
 
 <style scoped>
+/* 子会话展开动画 */
+.animate-expand {
+  animation: expandIn 0.2s ease-out;
+}
+
+@keyframes expandIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
