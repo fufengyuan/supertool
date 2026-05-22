@@ -52,11 +52,16 @@
                   <div v-if="msg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(msg.content)"></div>
                   <!-- 工具调用显示 -->
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-1.5 space-y-1">
-                    <div v-for="(tc, tcIdx) in msg.toolCalls" :key="tcIdx" class="flex items-center gap-1.5 text-xs text-base-content/60">
-                      <SvgIcon name="tool" size="10" class="text-warning/60" />
-                      <span class="font-medium">{{ tc.name }}</span>
-                      <span v-if="tc.result" class="text-success/60">✓</span>
-                    </div>
+                    <ToolCallCard
+                      v-for="(tc, tcIdx) in msg.toolCalls"
+                      :key="tcIdx"
+                      :tool="tc"
+                      :expanded="false"
+                      :icon="tc.isSubAgent ? 'bot' : 'tool'"
+                      :title="tc.name"
+                      :summary="tc.isSubAgent ? '执行任务' : ''"
+                      :formatPreview="() => ''"
+                    />
                   </div>
                 </div>
               </div>
@@ -71,11 +76,21 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import SvgIcon from '../SvgIcon.vue';
+import ToolCallCard from './ToolCallCard.vue';
+
+interface ToolCall {
+  name: string;
+  args?: Record<string, unknown>;
+  result?: string;
+  status?: string;
+  durationMs?: number;
+  isSubAgent?: boolean;
+}
 
 interface Message {
   role: string;
   content?: string | null;
-  toolCalls?: Array<{ name: string; result?: string }>;
+  toolCalls?: ToolCall[];
 }
 
 interface ChildSessionGroup {

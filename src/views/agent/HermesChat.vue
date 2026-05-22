@@ -317,29 +317,10 @@
                           ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 100) + '...' : '执行任务')
                           : (tool.name === 'todo' ? '待办任务' : formatArgsSummary(tool.args || {}))"
                         :resultLabel="tool.isSubAgent ? '原始结果' : (tool.name === 'todo' ? '原始结果' : '结果')"
+                        :formatPreview="(result) => tool.isSubAgent || tool.name !== 'todo' ? formatToolResult(tool.name, result) : formatTodoResult(result)"
+                        :formatResult="(result) => tool.name === 'todo' ? `<pre class='whitespace-pre-wrap font-mono'>${result}</pre>` : formatToolResult(tool.name, result)"
                         @toggle="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                      >
-                        <!-- 子 Agent 预览 -->
-                        <template v-if="tool.isSubAgent" #preview="{ result }">
-                          <div v-html="formatToolResult(tool.name, result as string)"></div>
-                        </template>
-                        <!-- todo 预览 -->
-                        <template v-else-if="tool.name === 'todo'" #preview="{ result }">
-                          <div v-html="formatTodoResult(result as string)"></div>
-                        </template>
-                        <!-- 其他工具预览 -->
-                        <template v-else #preview="{ result }">
-                          <div v-html="formatToolResult(tool.name, result as string)"></div>
-                        </template>
-                        <!-- todo 结果 -->
-                        <template v-if="!tool.isSubAgent && tool.name === 'todo'" #result="{ result }">
-                          <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ result }}</div>
-                        </template>
-                        <!-- 其他工具结果 -->
-                        <template v-else-if="!tool.isSubAgent" #result="{ result }">
-                          <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, result)"></div>
-                        </template>
-                      </ToolCallCard>
+                      />
                     </div>
                   </div>
                   <!-- 时间戳和重试按钮 -->
