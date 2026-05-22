@@ -873,6 +873,7 @@ fn main() {
             // Agent Chat Bridge commands (chat/abort still use HTTP bridge)
             commands::hermes_chat::agent_chat,
             commands::hermes_chat::agent_abort_chat,
+            commands::hermes_chat::agent_clear_cache,
             // Hermes config management (pure Rust, no Python bridge)
             commands::hermes_chat::agent_check_available,
             commands::hermes_chat::agent_get_models,
