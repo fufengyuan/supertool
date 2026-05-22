@@ -293,185 +293,185 @@
             </div>
             
             <!-- 普通消息 -->
-            <div v-else class="flex gap-2 w-full">
-            <!-- 用户消息 -->
-            <div v-if="(item as Message).role === 'user'" class="flex gap-2 w-full group">
-              <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-base-200">
-                <SvgIcon name="user" size="14" class="text-base-content/60" />
-              </div>
-              <div class="max-w-[900px]">
-                <!-- 用户消息气泡 -->
-                <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
-                  <!-- 文件/文件夹路径徽章 -->
-                  <div v-if="(item as Message).filePaths && (item as Message).filePaths!.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
-                    <div
-                      v-for="(pathItem, pi) in (item as Message).filePaths!" :key="pi"
-                      class="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border cursor-default"
-                      :class="pathItem.type === 'folder'
-                        ? 'bg-warning/10 border-warning/25 text-warning'
-                        : 'bg-info/10 border-info/25 text-info/90'"
-                      :title="pathItem.path"
-                    >
-                      <SvgIcon :name="pathItem.type === 'folder' ? 'folder' : 'file'" size="11" />
-                      <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
-                    </div>
-                  </div>
-                  <!-- 搜索时高亮显示 -->
-                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(userDisplayContent((item as Message)), searchQuery)"></p>
-                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ userDisplayContent((item as Message)) }}</p>
+            <template v-else>
+              <!-- 用户消息 -->
+              <div v-if="(item as Message).role === 'user'" class="flex gap-2 w-full group">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-base-200">
+                  <SvgIcon name="user" size="14" class="text-base-content/60" />
                 </div>
-                <!-- 时间戳 -->
-                <div v-if="(item as Message).timestamp" class="mt-1 text-xs text-base-content/40">
-                  {{ formatMessageTime((item as Message).timestamp!) }}
-                </div>
-              </div>
-            </div>
-
-                <!-- Assistant 消息 -->
-                <div v-else class="flex gap-2 w-full group">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-primary/20">
-                    <SvgIcon name="bot" size="14" class="text-primary" />
-                  </div>
-                  <div class="max-w-[900px]">
-                    <!-- 思考过程（如果有）- 可折叠 -->
-                    <div 
-                      v-if="(item as Message).thinking" 
-                      class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
-                      @click="toggleThinkingExpand(idx)"
-                    >
-                      <div class="flex items-center justify-between">
-                        <span>💭 思考过程</span>
-                        <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
-                      </div>
-                      <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
-                        {{ (item as Message).thinking }}
+                <div class="max-w-[900px]">
+                  <!-- 用户消息气泡 -->
+                  <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+                    <!-- 文件/文件夹路径徽章 -->
+                    <div v-if="(item as Message).filePaths && (item as Message).filePaths!.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
+                      <div
+                        v-for="(pathItem, pi) in (item as Message).filePaths!" :key="pi"
+                        class="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border cursor-default"
+                        :class="pathItem.type === 'folder'
+                          ? 'bg-warning/10 border-warning/25 text-warning'
+                          : 'bg-info/10 border-info/25 text-info/90'"
+                        :title="pathItem.path"
+                      >
+                        <SvgIcon :name="pathItem.type === 'folder' ? 'folder' : 'file'" size="11" />
+                        <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
                       </div>
                     </div>
-                    
-                    <!-- 气泡主体：有内容时才渲染，避免空白气泡闪烁 -->
-                    <div
-                      v-if="(item as Message).content || ((item as Message).toolCalls && (item as Message).toolCalls!.length > 0) || (item as Message).isStopped"
-                      class="bg-base-100 border border-base-300 rounded-xl px-3 py-2"
-                    >
-                  <!-- 已停止徽章 -->
-                  <div v-if="(item as Message).isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
-                    <span class="inline-flex items-center gap-1 bg-warning/10 border border-warning/20 rounded px-1.5 py-0.5">
-                      <SvgIcon name="stop" size="10" class="text-warning" />
-                      已停止
-                    </span>
+                    <!-- 搜索时高亮显示 -->
+                    <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(userDisplayContent((item as Message)), searchQuery)"></p>
+                    <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ userDisplayContent((item as Message)) }}</p>
                   </div>
-                  <!-- Markdown 渲染的消息内容 - 主要样式 -->
-                  <div v-if="(item as Message).content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown((item as Message).content!)"></div>
-                  
-                  <!-- 工具调用卡片 - 次要样式 -->
-                  <div v-if="(item as Message).toolCalls && (item as Message).toolCalls!.length > 0" class="space-y-1.5">
-                    <div v-for="(tool, tIdx) in (item as Message).toolCalls!" :key="`${tool.name}-${tIdx}`">
-                      <!-- 子 Agent 卡片（次要样式） -->
-                      <div v-if="tool.isSubAgent" class="bg-base-200/40 rounded-lg border border-base-content/10">
-                        <!-- 外层：工具名 + 参数摘要 -->
-                        <div 
-                          class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
-                          @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                        >
-                          <div class="flex items-center gap-2">
-                            <SvgIcon name="bot" size="12" class="text-base-content/50" />
-                            <span class="text-base-content/60 text-xs font-medium">子 Agent</span>
-                            <span class="text-base-content/50 text-xs truncate flex-1">
-                              {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 100) + '...' : '执行任务' }}
-                            </span>
-                            <span v-if="tool.status === 'completed'" class="text-success text-xs">✓</span>
-                            <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
-                            <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
-                            <span v-if="tool.durationMs" class="text-base-content/30 text-xs">{{ (tool.durationMs / 1000).toFixed(1) }}s</span>
-                            <SvgIcon 
-                              :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
-                              size="10" 
-                              class="text-base-content/30"
-                            />
-                          </div>
-                        </div>
-                        <!-- 子Agent预览：折叠时展示任务摘要 -->
-                        <div v-if="tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
-                        <!-- 折叠内容：详细结果 -->
-                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
-                          <!-- 任务参数 -->
-                          <div v-if="tool.args" class="mb-1">
-                            <span class="text-base-content/40">参数：</span>
-                            <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
-                          </div>
-                          <!-- 执行结果 -->
-                          <div v-if="tool.result" class="mt-1">
-                            <span class="text-base-content/40">原始结果：</span>
-                            <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap font-mono">{{ tool.result }}</pre>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <!-- 普通工具卡片 - 次要样式 -->
-                      <div v-else class="bg-base-200/40 rounded-lg border border-base-content/10">
-                        <!-- 外层：工具名 + 参数摘要 -->
-                        <div 
-                          class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
-                          @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                        >
-                          <div class="flex items-center gap-2">
-                            <SvgIcon :name="getToolIcon(tool.name).icon" size="12" class="text-base-content/50" />
-                            <span class="text-base-content/60 text-xs font-medium">{{ tool.name }}</span>
-                            <!-- 参数摘要：显示关键参数的一行摘要 -->
-                            <span v-if="tool.name === 'todo'" class="text-xs text-success truncate flex-1">
-                              待办任务
-                            </span>
-                            <span v-else-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/40 text-xs truncate flex-1">
-                              {{ formatArgsSummary(tool.args) }}
-                            </span>
-                            <span v-if="tool.status === 'completed'" class="text-base-content/40 text-xs">✓</span>
-                            <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
-                            <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
-                            <SvgIcon 
-                              :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
-                              size="10" 
-                              class="text-base-content/30"
-                            />
-                          </div>
-                        </div>
-                        <!-- todo 预览：折叠时展示格式化结果 -->
-                        <div v-if="tool.name === 'todo' && tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatTodoResult(tool.result)"></div>
-                        <!-- 折叠内容：详细结果 -->
-                        <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
-                          <!-- 参数 -->
-                          <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-1">
-                            <span class="text-base-content/40">参数：</span>
-                            <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
-                          </div>
-                          <!-- 结果 -->
-                          <div v-if="tool.result" class="mt-1">
-                            <span class="text-base-content/40">{{ tool.name === 'todo' ? '原始结果' : '结果' }}：</span>
-                            <div v-if="tool.name === 'todo'" class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ tool.result }}</div>
-                            <div v-else class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <!-- 时间戳和重试按钮 -->
-                <div class="mt-1 flex items-center justify-between">
-                  <span v-if="(item as Message).timestamp" class="text-xs text-base-content/40">
+                  <!-- 时间戳 -->
+                  <div v-if="(item as Message).timestamp" class="mt-1 text-xs text-base-content/40">
                     {{ formatMessageTime((item as Message).timestamp!) }}
-                  </span>
-                  <!-- 错误消息重试按钮 -->
-                  <button 
-                    v-if="(item as Message).isError && (item as Message).retryContent"
-                    class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
-                    @click="retryMessage((item as Message).retryContent!)"
-                  >
-                    <SvgIcon name="refresh" size="10" />
-                    重试
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
+
+              <!-- Assistant 消息 -->
+              <div v-else class="flex gap-2 w-full group">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-primary/20">
+                  <SvgIcon name="bot" size="14" class="text-primary" />
+                </div>
+                <div class="max-w-[900px]">
+                  <!-- 思考过程（如果有）- 可折叠 -->
+                  <div 
+                    v-if="(item as Message).thinking" 
+                    class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
+                    @click="toggleThinkingExpand(idx)"
+                  >
+                    <div class="flex items-center justify-between">
+                      <span>💭 思考过程</span>
+                      <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
+                    </div>
+                    <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
+                      {{ (item as Message).thinking }}
+                    </div>
+                  </div>
+                  
+                  <!-- 气泡主体：有内容时才渲染，避免空白气泡闪烁 -->
+                  <div
+                    v-if="(item as Message).content || ((item as Message).toolCalls && (item as Message).toolCalls!.length > 0) || (item as Message).isStopped"
+                    class="bg-base-100 border border-base-300 rounded-xl px-3 py-2"
+                  >
+                    <!-- 已停止徽章 -->
+                    <div v-if="(item as Message).isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
+                      <span class="inline-flex items-center gap-1 bg-warning/10 border border-warning/20 rounded px-1.5 py-0.5">
+                        <SvgIcon name="stop" size="10" class="text-warning" />
+                        已停止
+                      </span>
+                    </div>
+                    <!-- Markdown 渲染的消息内容 - 主要样式 -->
+                    <div v-if="(item as Message).content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown((item as Message).content!)"></div>
+                    
+                    <!-- 工具调用卡片 - 次要样式 -->
+                    <div v-if="(item as Message).toolCalls && (item as Message).toolCalls!.length > 0" class="space-y-1.5">
+                      <div v-for="(tool, tIdx) in (item as Message).toolCalls!" :key="`${tool.name}-${tIdx}`">
+                        <!-- 子 Agent 卡片（次要样式） -->
+                        <div v-if="tool.isSubAgent" class="bg-base-200/40 rounded-lg border border-base-content/10">
+                          <!-- 外层：工具名 + 参数摘要 -->
+                          <div 
+                            class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
+                            @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                          >
+                            <div class="flex items-center gap-2">
+                              <SvgIcon name="bot" size="12" class="text-base-content/50" />
+                              <span class="text-base-content/60 text-xs font-medium">子 Agent</span>
+                              <span class="text-base-content/50 text-xs truncate flex-1">
+                                {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 100) + '...' : '执行任务' }}
+                              </span>
+                              <span v-if="tool.status === 'completed'" class="text-success text-xs">✓</span>
+                              <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
+                              <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
+                              <span v-if="tool.durationMs" class="text-base-content/30 text-xs">{{ (tool.durationMs / 1000).toFixed(1) }}s</span>
+                              <SvgIcon 
+                                :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
+                                size="10" 
+                                class="text-base-content/30"
+                              />
+                            </div>
+                          </div>
+                          <!-- 子Agent预览：折叠时展示任务摘要 -->
+                          <div v-if="tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                          <!-- 折叠内容：详细结果 -->
+                          <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
+                            <!-- 任务参数 -->
+                            <div v-if="tool.args" class="mb-1">
+                              <span class="text-base-content/40">参数：</span>
+                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            </div>
+                            <!-- 执行结果 -->
+                            <div v-if="tool.result" class="mt-1">
+                              <span class="text-base-content/40">原始结果：</span>
+                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap font-mono">{{ tool.result }}</pre>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <!-- 普通工具卡片 - 次要样式 -->
+                        <div v-else class="bg-base-200/40 rounded-lg border border-base-content/10">
+                          <!-- 外层：工具名 + 参数摘要 -->
+                          <div 
+                            class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
+                            @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                          >
+                            <div class="flex items-center gap-2">
+                              <SvgIcon :name="getToolIcon(tool.name).icon" size="12" class="text-base-content/50" />
+                              <span class="text-base-content/60 text-xs font-medium">{{ tool.name }}</span>
+                              <!-- 参数摘要：显示关键参数的一行摘要 -->
+                              <span v-if="tool.name === 'todo'" class="text-xs text-success truncate flex-1">
+                                待办任务
+                              </span>
+                              <span v-else-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/40 text-xs truncate flex-1">
+                                {{ formatArgsSummary(tool.args) }}
+                              </span>
+                              <span v-if="tool.status === 'completed'" class="text-base-content/40 text-xs">✓</span>
+                              <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
+                              <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
+                              <SvgIcon 
+                                :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
+                                size="10" 
+                                class="text-base-content/30"
+                              />
+                            </div>
+                          </div>
+                          <!-- todo 预览：折叠时展示格式化结果 -->
+                          <div v-if="tool.name === 'todo' && tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatTodoResult(tool.result)"></div>
+                          <!-- 折叠内容：详细结果 -->
+                          <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
+                            <!-- 参数 -->
+                            <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-1">
+                              <span class="text-base-content/40">参数：</span>
+                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+                            </div>
+                            <!-- 结果 -->
+                            <div v-if="tool.result" class="mt-1">
+                              <span class="text-base-content/40">{{ tool.name === 'todo' ? '原始结果' : '结果' }}：</span>
+                              <div v-if="tool.name === 'todo'" class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ tool.result }}</div>
+                              <div v-else class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- 时间戳和重试按钮 -->
+                  <div class="mt-1 flex items-center justify-between">
+                    <span v-if="(item as Message).timestamp" class="text-xs text-base-content/40">
+                      {{ formatMessageTime((item as Message).timestamp!) }}
+                    </span>
+                    <!-- 错误消息重试按钮 -->
+                    <button 
+                      v-if="(item as Message).isError && (item as Message).retryContent"
+                      class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
+                      @click="retryMessage((item as Message).retryContent!)"
+                    >
+                      <SvgIcon name="refresh" size="10" />
+                      重试
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
           </template>
 
           <!-- 流式响应状态（思考中/工具调用）+ 停止按钮 -->
