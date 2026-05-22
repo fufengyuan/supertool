@@ -86,8 +86,8 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
     // Query sessions with preview and last_active
-    // Include parent_session_id to identify subagent sessions
-    // Similar to hermes_state.py list_sessions_rich with include_children=True
+    // Only show parent sessions (parent_session_id IS NULL), child sessions are embedded in parent's dialog
+    // Similar to hermes_state.py list_sessions_rich with include_children=False
     let query = r#"
         SELECT 
             s.id,
@@ -110,6 +110,7 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
             ) AS last_active,
             s.parent_session_id
         FROM sessions s
+        WHERE s.parent_session_id IS NULL
         ORDER BY s.started_at DESC
         LIMIT ? OFFSET ?
     "#;
