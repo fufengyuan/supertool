@@ -412,6 +412,7 @@ pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSes
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
     let pattern = format!("%{}%", keyword);
+    // Only search parent sessions, child sessions are embedded in parent's dialog
     let query = r#"
         SELECT 
             s.id,
@@ -434,7 +435,8 @@ pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSes
             ) AS last_active,
             s.parent_session_id
         FROM sessions s
-        WHERE (s.title LIKE ?1 OR s.id IN (
+        WHERE s.parent_session_id IS NULL
+          AND (s.title LIKE ?1 OR s.id IN (
             SELECT DISTINCT session_id FROM messages 
             WHERE content LIKE ?1
         ))
