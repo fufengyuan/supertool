@@ -5042,7 +5042,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "stool"
-version = "4.17.14"
+version = "4.17.16"
 dependencies = [
  "anyhow",
  "chrono",
@@ -5139,7 +5139,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "4.17.14"
+version = "4.17.16"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -5194,7 +5194,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "4.17.14"
+version = "4.17.16"
 dependencies = [
  "aes-gcm",
  "anyhow",

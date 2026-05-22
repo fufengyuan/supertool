@@ -2568,7 +2568,8 @@ onMounted(async () => {
   
   // 全局点击监听 - 关闭下拉菜单
   document.addEventListener('click', (e) => {
-    if (showModelDropdown.value && !e.target?.closest('.model-dropdown-container')) {
+    const target = e.target as Element | null;
+    if (showModelDropdown.value && !target?.closest('.model-dropdown-container')) {
       showModelDropdown.value = false;
     }
   });
