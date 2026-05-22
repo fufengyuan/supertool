@@ -20,6 +20,8 @@ pub struct HermesSession {
     pub message_count: i32,
     pub preview: String,
     pub last_active: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_session_id: Option<String>,
 }
 
 /// Hermes message detail for conversation display
@@ -81,7 +83,8 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
     // Query sessions with preview and last_active
-    // Similar to hermes_state.py list_sessions_rich
+    // Include parent_session_id to identify subagent sessions
+    // Similar to hermes_state.py list_sessions_rich with include_children=True
     let query = r#"
         SELECT 
             s.id,
@@ -101,10 +104,9 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
             COALESCE(
                 (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
                 s.started_at
-            ) AS last_active
+            ) AS last_active,
+            s.parent_session_id
         FROM sessions s
-        WHERE s.parent_session_id IS NULL
-           OR NOT EXISTS (SELECT 1 FROM sessions child WHERE child.parent_session_id = s.id)
         ORDER BY s.started_at DESC
         LIMIT ? OFFSET ?
     "#;
@@ -138,6 +140,7 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
                 message_count: row.get(6)?,
                 preview,
                 last_active: row.get(8)?,
+                parent_session_id: row.get::<_, Option<String>>(9)?,
             })
         })
         .map_err(|e| format!("读取会话失败: {}", e))?
@@ -415,13 +418,13 @@ pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSes
             COALESCE(
                 (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
                 s.started_at
-            ) AS last_active
+            ) AS last_active,
+            s.parent_session_id
         FROM sessions s
-        WHERE s.parent_session_id IS NULL
-          AND (s.title LIKE ?1 OR s.id IN (
-              SELECT DISTINCT session_id FROM messages 
-              WHERE content LIKE ?1
-          ))
+        WHERE (s.title LIKE ?1 OR s.id IN (
+            SELECT DISTINCT session_id FROM messages 
+            WHERE content LIKE ?1
+        ))
         ORDER BY s.started_at DESC
         LIMIT ?2
     "#;
@@ -454,6 +457,7 @@ pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSes
                 message_count: row.get(6)?,
                 preview,
                 last_active: row.get(8)?,
+                parent_session_id: row.get::<_, Option<String>>(9)?,
             })
         })
         .map_err(|e| format!("读取会话失败: {}", e))?
