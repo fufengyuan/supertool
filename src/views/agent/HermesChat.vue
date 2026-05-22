@@ -2899,14 +2899,14 @@ onMounted(async () => {
     if (eventSid) {
       streamingSessions[eventSid] = false;
       thinkingTexts[eventSid] = '';
-      sessionRoundEnded[eventSid] = false;
+      sessionRoundEnded[eventSid] = true; // 标记这一轮已结束，下一轮新消息需要创建新 assistant 消息
       // 流式结束后清除缓存（下次切换会话会从数据库加载）
       delete sessionMessagesCache[eventSid];
     }
     // 当前会话时同步到视图
     if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
       thinkingText.value = '';
-      if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+      if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = true;
       void agentLog('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
       if (currentSessionId.value) streamingSessions[currentSessionId.value] = false; // trigger computed update via streamingSessions
     }
