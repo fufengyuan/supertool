@@ -195,7 +195,13 @@ pub fn remove_model(model: String) -> Result<serde_json::Value, String> {
 }
 
 /// Set the default model in Hermes config (persists to config.yaml)
+/// Empty string means "use system default" - don't write to config
 pub fn set_default_model(model: String) -> Result<serde_json::Value, String> {
+    if model.is_empty() {
+        // Empty model = use system default, don't modify config
+        return Ok(serde_json::json!({ "success": true, "model": "" }));
+    }
+    
     let mut config = read_config()?;
     if config.model.is_none() {
         config.model = Some(ModelConfig {
