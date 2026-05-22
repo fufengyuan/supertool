@@ -810,7 +810,6 @@ import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ChildSessionGroup from '@/components/chat/ChildSessionGroup.vue';
-import ToolCallCard from '@/components/chat/ToolCallCard.vue';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
