@@ -302,7 +302,7 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
 
     try:
         session_db = _ensure_session_db()
-        sessions = session_db.list_sessions_rich(limit=limit)
+        sessions = session_db.list_sessions_rich(limit=limit, include_children=True)
 
         # Format sessions
         formatted = []
@@ -333,6 +333,7 @@ def _handle_list_sessions(params: Dict[str, Any]) -> None:
                 "message_count": s.get("message_count", 0),
                 "preview": s.get("preview", "")[:200],
                 "last_active": last_active,
+                "parent_session_id": s.get("parent_session_id"),
             })
 
         _output({"type": "sessions", "data": formatted, "total": len(formatted)})
