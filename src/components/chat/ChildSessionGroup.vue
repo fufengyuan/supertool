@@ -69,7 +69,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import SvgIcon from '../SvgIcon.vue';
 
 interface Message {
@@ -98,7 +98,10 @@ const emit = defineEmits<{
   (e: 'toggle', sessionId: string): void;
 }>();
 
-const expanded = ref(props.isExpanded || false);
+const expanded = computed({
+  get: () => props.isExpanded || false,
+  set: () => emit('toggle', props.group.sessionId)
+});
 
 const previewText = computed(() => {
   const text = props.group.preview;
