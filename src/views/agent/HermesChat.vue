@@ -1127,6 +1127,10 @@ const setModel = async (modelName: string) => {
   selectedModel.value = modelName
   try {
     await invoke('agent_set_model', { model: modelName })
+    // 清除当前 session 的 agent 缓存，确保下次对话使用新模型
+    if (currentSessionId.value) {
+      await invoke('agent_clear_cache', { sessionId: currentSessionId.value })
+    }
   } catch (e) {
     console.error('Failed to persist model:', e)
   }

@@ -670,6 +670,29 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     }))
 }
 
+/// Clear cached agent for a session (called when switching models)
+#[tauri::command(rename_all = "camelCase")]
+pub async fn agent_clear_cache(session_id: String) -> Result<serde_json::Value, String> {
+    ensure_server_running().await?;
+
+    let client = local_client();
+    let resp = client
+        .post(format!("{}/v1/clear_cache", HERMES_CHAT_SERVER_URL))
+        .json(&serde_json::json!({"session_id": session_id}))
+        .timeout(std::time::Duration::from_secs(5))
+        .send()
+        .await
+        .map_err(|e| format!("Clear cache request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("Clear cache server error ({}): {}", status, text));
+    }
+
+    Ok(serde_json::json!({"ok": true, "session_id": session_id}))
+}
+
 /// Check Agent availability (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {

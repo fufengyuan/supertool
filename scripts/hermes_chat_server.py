@@ -79,12 +79,17 @@ _agent_cache_lock = threading.Lock()
 _session_locks: Dict[str, threading.Lock] = {}
 _session_locks_lock = threading.Lock()
 
-_cli_config = load_cli_config()
-_model_config = _cli_config.get("model", {})
-if isinstance(_model_config, dict):
-    _default_model = _model_config.get("default") or _model_config.get("model") or ""
-else:
-    _default_model = _model_config or ""
+
+def _get_default_model() -> str:
+    """动态读取当前 default model（每次请求时重新加载配置）"""
+    try:
+        config = load_cli_config()
+        model_config = config.get("model", {})
+        if isinstance(model_config, dict):
+            return model_config.get("default") or model_config.get("model") or ""
+        return model_config or ""
+    except Exception:
+        return ""
 
 # reasoning_config: read from agent.reasoning_effort (same path as CLI)
 _reasoning_config = None
@@ -195,7 +200,7 @@ def _run_chat_in_thread(
         # ── Create agent (only on first message for this session) ──
         if cached_agent is None:
             agent = AIAgent(
-                model=model or _default_model,
+                model=model or _get_default_model(),
                 session_id=session_id,
                 session_db=session_db,
                 enabled_toolsets=enabled_toolsets,
@@ -282,6 +287,10 @@ class AbortRequest(BaseModel):
     session_id: str
 
 
+class ClearCacheRequest(BaseModel):
+    session_id: str
+
+
 @app.get("/v1/health")
 async def health():
     return {"status": "ok", "version": "2.0.0"}
@@ -335,6 +344,14 @@ async def abort(req: AbortRequest):
         if agent:
             agent.interrupt("User aborted")
 
+    return {"ok": True, "session_id": req.session_id}
+
+
+@app.post("/v1/clear_cache")
+async def clear_cache(req: ClearCacheRequest):
+    """Clear cached agent for a session (used when switching models)."""
+    with _agent_cache_lock:
+        _agent_cache.pop(req.session_id, None)
     return {"ok": True, "session_id": req.session_id}
 
 
