@@ -211,6 +211,12 @@ pub struct SessionInfo {
         skip_serializing_if = "Option::is_none"
     )]
     pub last_active: Option<f64>,
+    #[serde(
+        rename = "parentSessionId",
+        alias = "parent_session_id",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub parent_session_id: Option<String>,
 }
 
 /// Search result from FTS5 search

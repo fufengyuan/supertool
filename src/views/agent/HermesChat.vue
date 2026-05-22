@@ -85,6 +85,7 @@
               @click="selectSession(session)"
             >
               <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
+              <SvgIcon v-if="session.parentSessionId" name="gitBranch" size="12" class="shrink-0 text-warning" title="Subagent 会话" />
               <div class="flex flex-col min-w-0 flex-1">
                 <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
                 <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
@@ -836,6 +837,7 @@ interface Session {
   messageCount: number;
   preview: string;
   lastActive?: number; // 可选
+  parentSessionId?: string | null; // subagent 会话标识
 }
 
 // 搜索结果（来自 Hermes FTS5 搜索）
