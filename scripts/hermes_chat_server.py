@@ -94,9 +94,13 @@ def _get_default_model() -> str:
 # reasoning_config: read from agent.reasoning_effort (same path as CLI)
 _reasoning_config = None
 if _parse_reasoning_effort is not None:
-    _reasoning_effort = _cli_config.get("agent", {}).get("reasoning_effort", "")
-    if _reasoning_effort:
-        _reasoning_config = _parse_reasoning_effort(_reasoning_effort)
+    try:
+        _cli_config = load_cli_config()
+        _reasoning_effort = _cli_config.get("agent", {}).get("reasoning_effort", "")
+        if _reasoning_effort:
+            _reasoning_config = _parse_reasoning_effort(_reasoning_effort)
+    except Exception:
+        pass  # 配置加载失败时保持默认值
 
 
 def _ensure_session_db() -> SessionDB:
