@@ -117,6 +117,52 @@ fn find_chat_server_script() -> Option<PathBuf> {
         .map(|cwd| cwd.join("scripts").join("hermes_chat_server.py"))
         .filter(|p| p.exists())
 }
+
+/// Output message from Hermes Chat HTTP server (NDJSON streaming)
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum BridgeMessage {
+    Delta {
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    ToolStart {
+        id: Option<String>,
+        name: String,
+        args: serde_json::Value,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    ToolComplete {
+        id: Option<String>,
+        name: String,
+        result: Option<String>,
+        duration_ms: u64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    Thinking {
+        text: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    Done {
+        response: Option<String>,
+        session_id: String,
+        message_count: usize,
+    },
+    Error {
+        message: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        session_id: Option<String>,
+    },
+    Aborted {
+        session_id: Option<String>,
+    },
+}
+
 /// Find Python executable
 fn find_python() -> String {
     // 优先使用 Hermes Agent venv 的 Python（因为依赖都在 venv 里）
