@@ -223,13 +223,26 @@
         <!-- 消息列表 -->
         <template v-else-if="messages.length > 0">
           <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2 w-full">
+            <!-- 子会话标识线 -->
+            <div v-if="msg.isChild" class="w-1 bg-info/30 rounded-full shrink-0 self-stretch"></div>
+            
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
-              <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
+              <!-- 子会话用户消息头像 -->
+              <div v-if="msg.isChild" class="flex h-8 w-8 items-center justify-center rounded-full bg-info/20 shrink-0">
+                <SvgIcon name="bot" size="14" class="text-info" />
+              </div>
+              <!-- 主会话用户消息头像 -->
+              <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
               <div class="max-w-[900px]">
-                <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+                <!-- 子会话标签 -->
+                <div v-if="msg.isChild" class="mb-1 text-xs text-info/70 flex items-center gap-1">
+                  <SvgIcon name="bot" size="10" />
+                  <span>子 Agent 请求</span>
+                </div>
+                <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2" :class="msg.isChild ? 'bg-info/10 border-info/20' : ''">
                   <!-- 文件/文件夹路径徽章 -->
                   <div v-if="msg.filePaths && msg.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
                     <div
@@ -257,10 +270,20 @@
 
                 <!-- Assistant 消息 -->
                 <div v-else class="flex gap-2 w-full group">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
+                  <!-- 子会话 Assistant 消息头像 -->
+                  <div v-if="msg.isChild" class="flex h-8 w-8 items-center justify-center rounded-full bg-info/20 shrink-0">
+                    <SvgIcon name="bot" size="14" class="text-info" />
+                  </div>
+                  <!-- 主会话 Assistant 消息头像 -->
+                  <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                     <SvgIcon name="bot" size="14" class="text-primary" />
                   </div>
                   <div class="max-w-[900px]">
+                    <!-- 子会话标签 -->
+                    <div v-if="msg.isChild" class="mb-1 text-xs text-info/70 flex items-center gap-1">
+                      <SvgIcon name="bot" size="10" />
+                      <span>子 Agent 回复</span>
+                    </div>
                     <!-- 思考过程（如果有）- 可折叠 -->
                     <div 
                       v-if="msg.thinking" 
@@ -876,6 +899,7 @@ interface Message {
   retryContent?: string; // 用于重试的原始消息内容
   tokens?: { input: number; output: number }; // token 使用量
   filePaths?: PathItem[]; // 附带的文件/文件夹路径（仅用户消息）
+  isChild?: boolean; // 是否来自子会话（subagent）
 }
 
 // Raw message from backend (matches HermesMessage in Rust)
@@ -891,6 +915,7 @@ interface RawMessage {
   finishReason: string | null;
   reasoning: string | null;  // 思考内容
   reasoningContent: string | null;
+  isChild: boolean;  // 是否来自子会话
 }
 
 // Raw tool call from backend
@@ -2062,6 +2087,7 @@ const selectSession = async (session: Session) => {
         timestamp: m.timestamp,
         toolName: m.toolName,
         toolCalls: [],
+        isChild: m.isChild, // 保留子会话标识
       };
       
       // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果

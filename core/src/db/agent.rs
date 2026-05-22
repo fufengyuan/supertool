@@ -42,6 +42,9 @@ pub struct HermesMessage {
     pub reasoning: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_content: Option<String>,
+    /// Whether this message belongs to a child session (subagent)
+    #[serde(default)]
+    pub is_child: bool,
 }
 
 /// Get Hermes home directory (~/.hermes)
@@ -245,9 +248,10 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
     }
 }
 
-/// List Hermes messages for a session
+/// List Hermes messages for a session (including child sessions)
 ///
 /// Order by timestamp, include all roles: user, assistant, tool, system
+/// For parent sessions, also include messages from all child sessions (subagent)
 pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, String> {
     let db_path = get_hermes_state_db_path();
     if !db_path.exists() {
@@ -257,22 +261,27 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
+    // Unified query: include messages from this session and any child sessions
+    // is_child is 1 if message belongs to a child session, 0 otherwise
     let query = r#"
         SELECT 
-            id,
-            session_id,
-            role,
-            content,
-            tool_name,
-            tool_call_id,
-            tool_calls,
-            timestamp,
-            finish_reason,
-            reasoning,
-            reasoning_content
-        FROM messages
-        WHERE session_id = ?
-        ORDER BY timestamp, id
+            m.id,
+            m.session_id,
+            m.role,
+            m.content,
+            m.tool_name,
+            m.tool_call_id,
+            m.tool_calls,
+            m.timestamp,
+            m.finish_reason,
+            m.reasoning,
+            m.reasoning_content,
+            CASE WHEN m.session_id != ? THEN 1 ELSE 0 END as is_child
+        FROM messages m
+        WHERE m.session_id = ? OR m.session_id IN (
+            SELECT id FROM sessions WHERE parent_session_id = ?
+        )
+        ORDER BY m.timestamp, m.id
     "#;
 
     let mut stmt = conn
@@ -280,7 +289,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
         .map_err(|e| format!("查询消息失败: {}", e))?;
 
     let messages = stmt
-        .query_map([session_id], |row| {
+        .query_map([session_id, session_id, session_id], |row| {
             Ok(HermesMessage {
                 id: row.get(0)?,
                 session_id: row.get(1)?,
@@ -293,6 +302,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
                 finish_reason: row.get::<_, Option<String>>(8)?,
                 reasoning: row.get::<_, Option<String>>(9)?,
                 reasoning_content: row.get::<_, Option<String>>(10)?,
+                is_child: row.get::<_, i32>(11)? != 0,
             })
         })
         .map_err(|e| format!("读取消息失败: {}", e))?
