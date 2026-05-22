@@ -190,6 +190,7 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
             s.started_at,
             s.ended_at,
             s.message_count,
+            s.parent_session_id,
             COALESCE(
                 (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
                  FROM messages m
@@ -210,7 +211,7 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
         .map_err(|e| format!("查询会话失败: {}", e))?;
 
     let result = stmt.query_row([session_id], |row| {
-        let raw_preview: String = row.get(7)?;
+        let raw_preview: String = row.get(8)?;
         let preview = if raw_preview.is_empty() {
             String::new()
         } else {
@@ -231,8 +232,9 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
             started_at: row.get(4)?,
             ended_at: row.get::<_, Option<f64>>(5)?,
             message_count: row.get(6)?,
+            parent_session_id: row.get::<_, Option<String>>(7)?,
             preview,
-            last_active: row.get(8)?,
+            last_active: row.get(9)?,
         })
     });
 
