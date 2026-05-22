@@ -227,7 +227,7 @@
               <div class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
                 <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
-              <div class="max-w-[800px]">
+              <div class="max-w-[900px]">
                 <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
                   <!-- 文件/文件夹路径徽章 -->
                   <div v-if="msg.filePaths && msg.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
@@ -259,7 +259,7 @@
                   <div class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
                     <SvgIcon name="bot" size="14" class="text-primary" />
                   </div>
-                  <div class="max-w-[800px]">
+                  <div class="max-w-[900px]">
                     <!-- 思考过程（如果有）- 可折叠 -->
                     <div 
                       v-if="msg.thinking" 
