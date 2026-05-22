@@ -1292,46 +1292,74 @@ const isChildSessionExpanded = (sessionId: string): boolean => {
   return expandedChildSessions.value.has(sessionId);
 };
 
-// 将消息列表转换为显示列表（子会话消息分组折叠）
+// 将消息列表转换为显示列表（子会话消息分组折叠，插入到调用位置）
 const displayItems = computed<DisplayItem[]>(() => {
   const items: DisplayItem[] = [];
-  const childSessionGroups = new Map<string, Message[]>();
   
-  // 按子会话 sessionId 分组
+  // 先分组子会话消息
+  const childSessionGroups = new Map<string, { messages: Message[], firstTimestamp: number, preview: string }>();
   for (const msg of messages.value) {
     if (msg.isChild && msg.sessionId) {
       if (!childSessionGroups.has(msg.sessionId)) {
-        childSessionGroups.set(msg.sessionId, []);
+        const preview = msg.role === 'user' ? (msg.content?.slice(0, 100) || '执行子任务') : '执行子任务';
+        childSessionGroups.set(msg.sessionId, {
+          messages: [],
+          firstTimestamp: msg.timestamp || 0,
+          preview,
+        });
       }
-      childSessionGroups.get(msg.sessionId)!.push(msg);
-    } else {
-      // 主会话消息直接添加
-      items.push(msg);
+      childSessionGroups.get(msg.sessionId)!.messages.push(msg);
     }
   }
   
-  // 将子会话组转换为 ChildSessionGroup
-  for (const [sessionId, msgs] of childSessionGroups) {
-    // 获取第一条用户消息作为预览
-    const firstUserMsg = msgs.find(m => m.role === 'user');
-    const preview = firstUserMsg?.content?.slice(0, 100) || '执行子任务';
+  // 遍历主会话消息，在适当位置插入子会话组
+  const insertedSessions = new Set<string>();
+  for (const msg of messages.value) {
+    if (msg.isChild) continue; // 子会话消息不单独处理
     
-    items.push({
-      type: 'childSessionGroup',
-      sessionId,
-      messages: msgs,
-      preview,
-      messageCount: msgs.length,
-      timestamp: msgs[0]?.timestamp || 0,
-    });
+    items.push(msg);
+    
+    // 检查是否有子会话应该插入到这条消息之后
+    // 子会话的开始时间应该 >= 当前消息时间，且 < 下一条主消息时间（如果有的话）
+    const msgTime = msg.timestamp || 0;
+    for (const [sessionId, group] of childSessionGroups) {
+      if (insertedSessions.has(sessionId)) continue;
+      
+      // 子会话开始时间 >= 当前消息时间，插入到这里
+      if (group.firstTimestamp >= msgTime) {
+        // 检查是否应该插入（没有更早的主消息在后面）
+        const nextMainMsg = messages.value.find(m => 
+          !m.isChild && m.timestamp && m.timestamp > msgTime && m.timestamp < group.firstTimestamp
+        );
+        
+        if (!nextMainMsg) {
+          items.push({
+            type: 'childSessionGroup',
+            sessionId,
+            messages: group.messages,
+            preview: group.preview,
+            messageCount: group.messages.length,
+            timestamp: group.firstTimestamp,
+          });
+          insertedSessions.add(sessionId);
+        }
+      }
+    }
   }
   
-  // 按时间排序
-  items.sort((a, b) => {
-    const timeA = 'type' in a && a.type === 'childSessionGroup' ? a.timestamp : (a.timestamp || 0);
-    const timeB = 'type' in b && b.type === 'childSessionGroup' ? b.timestamp : (b.timestamp || 0);
-    return timeA - timeB;
-  });
+  // 处理未插入的子会话（可能在消息列表末尾）
+  for (const [sessionId, group] of childSessionGroups) {
+    if (!insertedSessions.has(sessionId)) {
+      items.push({
+        type: 'childSessionGroup',
+        sessionId,
+        messages: group.messages,
+        preview: group.preview,
+        messageCount: group.messages.length,
+        timestamp: group.firstTimestamp,
+      });
+    }
+  }
   
   return items;
 });
