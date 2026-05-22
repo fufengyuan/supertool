@@ -228,13 +228,8 @@
             
             <!-- 用户消息 -->
             <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
-              <!-- 子会话用户消息头像 -->
-              <div v-if="msg.isChild" class="flex h-8 w-8 items-center justify-center rounded-full bg-info/20 shrink-0">
-                <SvgIcon name="bot" size="14" class="text-info" />
-              </div>
-              <!-- 主会话用户消息头像 -->
-              <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-base-200 shrink-0">
-                <SvgIcon name="user" size="14" class="text-base-content/60" />
+              <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0" :class="msg.isChild ? 'bg-info/20' : 'bg-base-200'">
+                <SvgIcon :name="msg.isChild ? 'bot' : 'user'" size="14" :class="msg.isChild ? 'text-info' : 'text-base-content/60'" />
               </div>
               <div class="max-w-[900px]">
                 <!-- 子会话标签 -->
@@ -242,7 +237,8 @@
                   <SvgIcon name="bot" size="10" />
                   <span>子 Agent 请求</span>
                 </div>
-                <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2" :class="msg.isChild ? 'bg-info/10 border-info/20' : ''">
+                <!-- 用户消息气泡 - 保持一致样式 -->
+                <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
                   <!-- 文件/文件夹路径徽章 -->
                   <div v-if="msg.filePaths && msg.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
                     <div
@@ -270,13 +266,8 @@
 
                 <!-- Assistant 消息 -->
                 <div v-else class="flex gap-2 w-full group">
-                  <!-- 子会话 Assistant 消息头像 -->
-                  <div v-if="msg.isChild" class="flex h-8 w-8 items-center justify-center rounded-full bg-info/20 shrink-0">
-                    <SvgIcon name="bot" size="14" class="text-info" />
-                  </div>
-                  <!-- 主会话 Assistant 消息头像 -->
-                  <div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 shrink-0">
-                    <SvgIcon name="bot" size="14" class="text-primary" />
+                  <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0" :class="msg.isChild ? 'bg-info/20' : 'bg-primary/20'">
+                    <SvgIcon name="bot" size="14" :class="msg.isChild ? 'text-info' : 'text-primary'" />
                   </div>
                   <div class="max-w-[900px]">
                     <!-- 子会话标签 -->
