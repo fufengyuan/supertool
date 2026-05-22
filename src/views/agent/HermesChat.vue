@@ -306,93 +306,40 @@
                     
                     <!-- 工具调用卡片 - 次要样式 -->
                     <div v-if="(item as Message).toolCalls && (item as Message).toolCalls!.length > 0" class="space-y-1.5">
-                      <div v-for="(tool, tIdx) in (item as Message).toolCalls!" :key="`${tool.name}-${tIdx}`">
-                        <!-- 子 Agent 卡片（次要样式） -->
-                        <div v-if="tool.isSubAgent" class="bg-base-200/40 rounded-lg border border-base-content/10">
-                          <!-- 外层：工具名 + 参数摘要 -->
-                          <div 
-                            class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
-                            @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                          >
-                            <div class="flex items-center gap-2">
-                              <SvgIcon name="bot" size="12" class="text-base-content/50" />
-                              <span class="text-base-content/60 text-xs font-medium">子 Agent</span>
-                              <span class="text-base-content/50 text-xs truncate flex-1">
-                                {{ tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args.goal || tool.args.task || tool.args.prompt).slice(0, 100) + '...' : '执行任务' }}
-                              </span>
-                              <span v-if="tool.status === 'completed'" class="text-success text-xs">✓</span>
-                              <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
-                              <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
-                              <span v-if="tool.durationMs" class="text-base-content/30 text-xs">{{ (tool.durationMs / 1000).toFixed(1) }}s</span>
-                              <SvgIcon 
-                                :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
-                                size="10" 
-                                class="text-base-content/30"
-                              />
-                            </div>
-                          </div>
-                          <!-- 子Agent预览：折叠时展示任务摘要 -->
-                          <div v-if="tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
-                          <!-- 折叠内容：详细结果 -->
-                          <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
-                            <!-- 任务参数 -->
-                            <div v-if="tool.args" class="mb-1">
-                              <span class="text-base-content/40">参数：</span>
-                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
-                            </div>
-                            <!-- 执行结果 -->
-                            <div v-if="tool.result" class="mt-1">
-                              <span class="text-base-content/40">原始结果：</span>
-                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-32 whitespace-pre-wrap font-mono">{{ tool.result }}</pre>
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <!-- 普通工具卡片 - 次要样式 -->
-                        <div v-else class="bg-base-200/40 rounded-lg border border-base-content/10">
-                          <!-- 外层：工具名 + 参数摘要 -->
-                          <div 
-                            class="px-2.5 py-1.5 cursor-pointer hover:bg-base-200/60 transition-colors"
-                            @click="toggleToolCallExpand(`${idx}-${tIdx}`)"
-                          >
-                            <div class="flex items-center gap-2">
-                              <SvgIcon :name="getToolIcon(tool.name).icon" size="12" class="text-base-content/50" />
-                              <span class="text-base-content/60 text-xs font-medium">{{ tool.name }}</span>
-                              <!-- 参数摘要：显示关键参数的一行摘要 -->
-                              <span v-if="tool.name === 'todo'" class="text-xs text-success truncate flex-1">
-                                待办任务
-                              </span>
-                              <span v-else-if="tool.args && Object.keys(tool.args).length > 0" class="text-base-content/40 text-xs truncate flex-1">
-                                {{ formatArgsSummary(tool.args) }}
-                              </span>
-                              <span v-if="tool.status === 'completed'" class="text-base-content/40 text-xs">✓</span>
-                              <span v-else-if="tool.status === 'running'" class="text-base-content/40 text-xs animate-pulse">○</span>
-                              <span v-else-if="tool.status === 'error'" class="text-error/60 text-xs">✕</span>
-                              <SvgIcon 
-                                :name="isToolCallExpanded(`${idx}-${tIdx}`) ? 'chevronDown' : 'chevronRight'" 
-                                size="10" 
-                                class="text-base-content/30"
-                              />
-                            </div>
-                          </div>
-                          <!-- todo 预览：折叠时展示格式化结果 -->
-                          <div v-if="tool.name === 'todo' && tool.result && !isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 pb-1.5 text-xs" v-html="formatTodoResult(tool.result)"></div>
-                          <!-- 折叠内容：详细结果 -->
-                          <div v-if="isToolCallExpanded(`${idx}-${tIdx}`)" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
-                            <!-- 参数 -->
-                            <div v-if="tool.args && Object.keys(tool.args).length > 0" class="mb-1">
-                              <span class="text-base-content/40">参数：</span>
-                              <pre class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto text-xs max-h-24">{{ JSON.stringify(tool.args, null, 2) }}</pre>
-                            </div>
-                            <!-- 结果 -->
-                            <div v-if="tool.result" class="mt-1">
-                              <span class="text-base-content/40">{{ tool.name === 'todo' ? '原始结果' : '结果' }}：</span>
-                              <div v-if="tool.name === 'todo'" class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ tool.result }}</div>
-                              <div v-else class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, tool.result)"></div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <ToolCallCard
+                        v-for="(tool, tIdx) in (item as Message).toolCalls!"
+                        :key="`${tool.name}-${tIdx}`"
+                        :tool="tool"
+                        :expanded="isToolCallExpanded(`${idx}-${tIdx}`)"
+                        :icon="tool.isSubAgent ? 'bot' : getToolIcon(tool.name).icon"
+                        :title="tool.isSubAgent ? '子 Agent' : tool.name"
+                        :summary="tool.isSubAgent 
+                          ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 100) + '...' : '执行任务')
+                          : (tool.name === 'todo' ? '待办任务' : formatArgsSummary(tool.args || {}))"
+                        :resultLabel="tool.isSubAgent ? '原始结果' : (tool.name === 'todo' ? '原始结果' : '结果')"
+                        @toggle="toggleToolCallExpand(`${idx}-${tIdx}`)"
+                      >
+                        <!-- 子 Agent 预览 -->
+                        <template v-if="tool.isSubAgent" #preview="{ result }">
+                          <div v-html="formatToolResult(tool.name, result as string)"></div>
+                        </template>
+                        <!-- todo 预览 -->
+                        <template v-else-if="tool.name === 'todo'" #preview="{ result }">
+                          <div v-html="formatTodoResult(result as string)"></div>
+                        </template>
+                        <!-- 其他工具预览 -->
+                        <template v-else #preview="{ result }">
+                          <div v-html="formatToolResult(tool.name, result as string)"></div>
+                        </template>
+                        <!-- todo 结果 -->
+                        <template v-if="!tool.isSubAgent && tool.name === 'todo'" #result="{ result }">
+                          <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs whitespace-pre-wrap font-mono">{{ result }}</div>
+                        </template>
+                        <!-- 其他工具结果 -->
+                        <template v-else-if="!tool.isSubAgent" #result="{ result }">
+                          <div class="bg-base-200/50 rounded p-1.5 mt-1 overflow-auto max-h-32 text-xs" v-html="formatToolResult(tool.name, result)"></div>
+                        </template>
+                      </ToolCallCard>
                     </div>
                   </div>
                   <!-- 时间戳和重试按钮 -->
@@ -810,6 +757,7 @@ import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ChildSessionGroup from '@/components/chat/ChildSessionGroup.vue';
+import ToolCallCard from '@/components/chat/ToolCallCard.vue';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
