@@ -221,28 +221,80 @@
         </div>
 
         <!-- 消息列表 -->
-        <template v-else-if="messages.length > 0">
-          <div v-for="(msg, idx) in (searchQuery ? filteredMessages : displayMessages)" :key="idx" class="flex gap-2 w-full">
-            <!-- 子会话标识线 -->
-            <div v-if="msg.isChild" class="w-1 bg-info/30 rounded-full shrink-0 self-stretch"></div>
+        <template v-else-if="displayItems.length > 0">
+          <template v-for="(item, idx) in (searchQuery ? filteredMessages : displayItems)" :key="idx">
+            <!-- 子会话组（折叠展示） -->
+            <div v-if="'type' in item && item.type === 'childSessionGroup'" class="flex gap-2 w-full">
+              <!-- 子会话标识线 -->
+              <div class="w-1 bg-info/30 rounded-full shrink-0 self-stretch"></div>
+              <!-- 子会话折叠卡片 -->
+              <div class="flex gap-2 w-full">
+                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-info/20 shrink-0">
+                  <SvgIcon name="bot" size="14" class="text-info" />
+                </div>
+                <div class="max-w-[900px] flex-1">
+                  <!-- 折叠状态：显示摘要 -->
+                  <div 
+                    v-if="!isChildSessionExpanded((item as ChildSessionGroup).sessionId)"
+                    class="bg-info/5 border border-info/20 rounded-xl px-3 py-2 cursor-pointer hover:bg-info/10 transition-colors"
+                    @click="toggleChildSessionExpand((item as ChildSessionGroup).sessionId)"
+                  >
+                    <div class="flex items-center justify-between">
+                      <div class="flex items-center gap-2">
+                        <SvgIcon name="bot" size="12" class="text-info/70" />
+                        <span class="text-xs text-info/70 font-medium">子 Agent</span>
+                        <span class="text-xs text-base-content/50">({{ (item as ChildSessionGroup).messageCount }} 条消息)</span>
+                        <span class="text-xs text-base-content/60 truncate flex-1">{{ (item as ChildSessionGroup).preview }}...</span>
+                      </div>
+                      <SvgIcon name="chevronRight" size="12" class="text-info/50" />
+                    </div>
+                  </div>
+                  <!-- 展开状态：显示完整消息 -->
+                  <div v-else>
+                    <!-- 展开按钮 -->
+                    <div 
+                      class="bg-info/5 border border-info/20 rounded-xl px-3 py-1.5 cursor-pointer hover:bg-info/10 transition-colors mb-2"
+                      @click="toggleChildSessionExpand((item as ChildSessionGroup).sessionId)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <SvgIcon name="chevronDown" size="12" class="text-info/50" />
+                        <span class="text-xs text-info/70 font-medium">子 Agent (已展开)</span>
+                        <span class="text-xs text-base-content/50">({{ (item as ChildSessionGroup).messageCount }} 条消息)</span>
+                      </div>
+                    </div>
+                    <!-- 子会话消息列表 -->
+                    <div v-for="(childMsg, mIdx) in (item as ChildSessionGroup).messages" :key="`${(item as ChildSessionGroup).sessionId}-${mIdx}`" class="flex gap-2 w-full mb-2">
+                      <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0" :class="childMsg.role === 'user' ? 'bg-info/20' : 'bg-info/20'">
+                        <SvgIcon :name="childMsg.role === 'user' ? 'user' : 'bot'" size="14" class="text-info" />
+                      </div>
+                      <div class="max-w-[900px] flex-1">
+                        <div v-if="childMsg.role === 'user'" class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+                          <p class="text-sm text-base-content whitespace-pre-wrap">{{ childMsg.content }}</p>
+                        </div>
+                        <div v-else class="bg-base-100 border border-base-300 rounded-xl px-3 py-2">
+                          <div v-if="childMsg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(childMsg.content!)"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
             
+            <!-- 普通消息 -->
+            <div v-else class="flex gap-2 w-full">
             <!-- 用户消息 -->
-            <div v-if="msg.role === 'user'" class="flex gap-2 w-full group">
-              <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0" :class="msg.isChild ? 'bg-info/20' : 'bg-base-200'">
-                <SvgIcon :name="msg.isChild ? 'bot' : 'user'" size="14" :class="msg.isChild ? 'text-info' : 'text-base-content/60'" />
+            <div v-if="(item as Message).role === 'user'" class="flex gap-2 w-full group">
+              <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-base-200">
+                <SvgIcon name="user" size="14" class="text-base-content/60" />
               </div>
               <div class="max-w-[900px]">
-                <!-- 子会话标签 -->
-                <div v-if="msg.isChild" class="mb-1 text-xs text-info/70 flex items-center gap-1">
-                  <SvgIcon name="bot" size="10" />
-                  <span>子 Agent 请求</span>
-                </div>
-                <!-- 用户消息气泡 - 保持一致样式 -->
+                <!-- 用户消息气泡 -->
                 <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
                   <!-- 文件/文件夹路径徽章 -->
-                  <div v-if="msg.filePaths && msg.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
+                  <div v-if="(item as Message).filePaths && (item as Message).filePaths!.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
                     <div
-                      v-for="(pathItem, pi) in msg.filePaths" :key="pi"
+                      v-for="(pathItem, pi) in (item as Message).filePaths!" :key="pi"
                       class="flex items-center gap-1 px-2 py-0.5 rounded-md text-xs border cursor-default"
                       :class="pathItem.type === 'folder'
                         ? 'bg-warning/10 border-warning/25 text-warning'
@@ -254,30 +306,25 @@
                     </div>
                   </div>
                   <!-- 搜索时高亮显示 -->
-                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(userDisplayContent(msg), searchQuery)"></p>
-                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ userDisplayContent(msg) }}</p>
+                  <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightText(userDisplayContent((item as Message)), searchQuery)"></p>
+                  <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ userDisplayContent((item as Message)) }}</p>
                 </div>
                 <!-- 时间戳 -->
-                <div v-if="msg.timestamp" class="mt-1 text-xs text-base-content/40">
-                  {{ formatMessageTime(msg.timestamp) }}
+                <div v-if="(item as Message).timestamp" class="mt-1 text-xs text-base-content/40">
+                  {{ formatMessageTime((item as Message).timestamp!) }}
                 </div>
               </div>
             </div>
 
                 <!-- Assistant 消息 -->
                 <div v-else class="flex gap-2 w-full group">
-                  <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0" :class="msg.isChild ? 'bg-info/20' : 'bg-primary/20'">
-                    <SvgIcon name="bot" size="14" :class="msg.isChild ? 'text-info' : 'text-primary'" />
+                  <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-primary/20">
+                    <SvgIcon name="bot" size="14" class="text-primary" />
                   </div>
                   <div class="max-w-[900px]">
-                    <!-- 子会话标签 -->
-                    <div v-if="msg.isChild" class="mb-1 text-xs text-info/70 flex items-center gap-1">
-                      <SvgIcon name="bot" size="10" />
-                      <span>子 Agent 回复</span>
-                    </div>
                     <!-- 思考过程（如果有）- 可折叠 -->
                     <div 
-                      v-if="msg.thinking" 
+                      v-if="(item as Message).thinking" 
                       class="mb-2 bg-base-200/30 rounded-lg px-3 py-2 text-xs text-base-content/50 italic border border-base-content/10 cursor-pointer"
                       @click="toggleThinkingExpand(idx)"
                     >
@@ -286,28 +333,28 @@
                         <SvgIcon :name="isThinkingExpanded(idx) ? 'chevronDown' : 'chevronRight'" size="10" />
                       </div>
                       <div v-if="isThinkingExpanded(idx)" class="mt-2 whitespace-pre-wrap">
-                        {{ msg.thinking }}
+                        {{ (item as Message).thinking }}
                       </div>
                     </div>
                     
                     <!-- 气泡主体：有内容时才渲染，避免空白气泡闪烁 -->
                     <div
-                      v-if="msg.content || (msg.toolCalls && msg.toolCalls.length > 0) || msg.isStopped"
+                      v-if="(item as Message).content || ((item as Message).toolCalls && (item as Message).toolCalls!.length > 0) || (item as Message).isStopped"
                       class="bg-base-100 border border-base-300 rounded-xl px-3 py-2"
                     >
                   <!-- 已停止徽章 -->
-                  <div v-if="msg.isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
+                  <div v-if="(item as Message).isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
                     <span class="inline-flex items-center gap-1 bg-warning/10 border border-warning/20 rounded px-1.5 py-0.5">
                       <SvgIcon name="stop" size="10" class="text-warning" />
                       已停止
                     </span>
                   </div>
                   <!-- Markdown 渲染的消息内容 - 主要样式 -->
-                  <div v-if="msg.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(msg.content)"></div>
+                  <div v-if="(item as Message).content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown((item as Message).content!)"></div>
                   
                   <!-- 工具调用卡片 - 次要样式 -->
-                  <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="space-y-1.5">
-                    <div v-for="(tool, tIdx) in msg.toolCalls" :key="`${tool.name}-${tIdx}`">
+                  <div v-if="(item as Message).toolCalls && (item as Message).toolCalls!.length > 0" class="space-y-1.5">
+                    <div v-for="(tool, tIdx) in (item as Message).toolCalls!" :key="`${tool.name}-${tIdx}`">
                       <!-- 子 Agent 卡片（次要样式） -->
                       <div v-if="tool.isSubAgent" class="bg-base-200/40 rounded-lg border border-base-content/10">
                         <!-- 外层：工具名 + 参数摘要 -->
@@ -398,14 +445,14 @@
                 </div>
                 <!-- 时间戳和重试按钮 -->
                 <div class="mt-1 flex items-center justify-between">
-                  <span v-if="msg.timestamp" class="text-xs text-base-content/40">
-                    {{ formatMessageTime(msg.timestamp) }}
+                  <span v-if="(item as Message).timestamp" class="text-xs text-base-content/40">
+                    {{ formatMessageTime((item as Message).timestamp!) }}
                   </span>
                   <!-- 错误消息重试按钮 -->
                   <button 
-                    v-if="msg.isError && msg.retryContent"
+                    v-if="(item as Message).isError && (item as Message).retryContent"
                     class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
-                    @click="retryMessage(msg.retryContent!)"
+                    @click="retryMessage((item as Message).retryContent!)"
                   >
                     <SvgIcon name="refresh" size="10" />
                     重试
@@ -414,6 +461,7 @@
               </div>
             </div>
           </div>
+          </template>
 
           <!-- 流式响应状态（思考中/工具调用）+ 停止按钮 -->
           <div v-if="isStreaming" class="flex gap-2 w-full">
@@ -891,7 +939,21 @@ interface Message {
   tokens?: { input: number; output: number }; // token 使用量
   filePaths?: PathItem[]; // 附带的文件/文件夹路径（仅用户消息）
   isChild?: boolean; // 是否来自子会话（subagent）
+  sessionId?: string; // 子会话的 session_id
 }
+
+// 子会话消息组（用于折叠展示）
+interface ChildSessionGroup {
+  type: 'childSessionGroup';
+  sessionId: string;
+  messages: Message[];  // 该子会话的所有消息
+  preview: string;      // 预览文本（第一条用户消息摘要）
+  messageCount: number; // 消息数量
+  timestamp: number;    // 子会话开始时间
+}
+
+// 显示项：可以是普通消息或子会话组
+type DisplayItem = Message | ChildSessionGroup;
 
 // Raw message from backend (matches HermesMessage in Rust)
 interface RawMessage {
@@ -1201,6 +1263,67 @@ const expandedToolCalls = ref<Set<string>>(new Set());
 
 // 思考过程展开状态 (key: msgIdx)
 const expandedThinking = ref<Set<number>>(new Set());
+
+// 子会话折叠展开状态 (key: sessionId)
+const expandedChildSessions = ref<Set<string>>(new Set());
+
+// 切换子会话展开
+const toggleChildSessionExpand = (sessionId: string) => {
+  if (expandedChildSessions.value.has(sessionId)) {
+    expandedChildSessions.value.delete(sessionId);
+  } else {
+    expandedChildSessions.value.add(sessionId);
+  }
+};
+
+// 检查子会话是否展开
+const isChildSessionExpanded = (sessionId: string): boolean => {
+  return expandedChildSessions.value.has(sessionId);
+};
+
+// 将消息列表转换为显示列表（子会话消息分组折叠）
+const displayItems = computed<DisplayItem[]>(() => {
+  const items: DisplayItem[] = [];
+  const childSessionGroups = new Map<string, Message[]>();
+  
+  // 按子会话 sessionId 分组
+  for (const msg of messages.value) {
+    if (msg.isChild && msg.sessionId) {
+      if (!childSessionGroups.has(msg.sessionId)) {
+        childSessionGroups.set(msg.sessionId, []);
+      }
+      childSessionGroups.get(msg.sessionId)!.push(msg);
+    } else {
+      // 主会话消息直接添加
+      items.push(msg);
+    }
+  }
+  
+  // 将子会话组转换为 ChildSessionGroup
+  for (const [sessionId, msgs] of childSessionGroups) {
+    // 获取第一条用户消息作为预览
+    const firstUserMsg = msgs.find(m => m.role === 'user');
+    const preview = firstUserMsg?.content?.slice(0, 100) || '执行子任务';
+    
+    items.push({
+      type: 'childSessionGroup',
+      sessionId,
+      messages: msgs,
+      preview,
+      messageCount: msgs.length,
+      timestamp: msgs[0]?.timestamp || 0,
+    });
+  }
+  
+  // 按时间排序
+  items.sort((a, b) => {
+    const timeA = 'type' in a && a.type === 'childSessionGroup' ? a.timestamp : (a.timestamp || 0);
+    const timeB = 'type' in b && b.type === 'childSessionGroup' ? b.timestamp : (b.timestamp || 0);
+    return timeA - timeB;
+  });
+  
+  return items;
+});
 
 // 切换工具调用展开
 const toggleToolCallExpand = (key: string) => {
@@ -2079,6 +2202,7 @@ const selectSession = async (session: Session) => {
         toolName: m.toolName,
         toolCalls: [],
         isChild: m.isChild, // 保留子会话标识
+        sessionId: m.sessionId, // 保留子会话 ID
       };
       
       // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果
