@@ -224,73 +224,14 @@
         <template v-else-if="displayItems.length > 0">
           <template v-for="(item, idx) in (searchQuery ? filteredMessages : displayItems)" :key="idx">
             <!-- 子会话组（折叠展示） -->
-            <div v-if="'type' in item && item.type === 'childSessionGroup'" class="flex gap-2 w-full my-1">
-              <!-- 子会话标识线 -->
-              <div class="w-0.5 bg-info/40 rounded-full shrink-0 self-stretch"></div>
-              <!-- 子会话折叠卡片 -->
-              <div class="flex gap-2 w-full">
-                <div class="flex h-6 w-6 items-center justify-center rounded-full bg-info/15 shrink-0 mt-0.5">
-                  <SvgIcon name="bot" size="12" class="text-info/80" />
-                </div>
-                <div class="max-w-[900px] flex-1">
-                  <!-- 折叠状态：显示摘要 -->
-                  <div 
-                    v-if="!isChildSessionExpanded((item as ChildSessionGroup).sessionId)"
-                    class="bg-info/5 border border-info/15 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-info/10 hover:border-info/25 transition-all group"
-                    @click="toggleChildSessionExpand((item as ChildSessionGroup).sessionId)"
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="flex items-center gap-1.5 min-w-0 flex-1">
-                        <span class="text-[11px] text-info/80 font-medium shrink-0">子 Agent</span>
-                        <span class="text-[11px] text-base-content/40 shrink-0">{{ (item as ChildSessionGroup).messageCount }}条</span>
-                        <span class="text-[11px] text-base-content/50 truncate">{{ (item as ChildSessionGroup).preview.length > 50 ? (item as ChildSessionGroup).preview.slice(0, 50) + '...' : (item as ChildSessionGroup).preview }}</span>
-                      </div>
-                      <div class="flex items-center gap-2 shrink-0">
-                        <span v-if="(item as ChildSessionGroup).timestamp" class="text-[11px] text-base-content/35">{{ formatMessageTime((item as ChildSessionGroup).timestamp) }}</span>
-                        <SvgIcon name="chevronRight" size="12" class="text-info/40 group-hover:text-info/60 transition-colors" />
-                      </div>
-                    </div>
-                  </div>
-                  <!-- 展开状态：显示完整消息 -->
-                  <div v-else class="animate-expand">
-                    <!-- 收起按钮 -->
-                    <div 
-                      class="bg-info/10 border border-info/20 rounded-lg px-2.5 py-1 cursor-pointer hover:bg-info/15 transition-colors mb-2 inline-flex items-center gap-1.5"
-                      @click="toggleChildSessionExpand((item as ChildSessionGroup).sessionId)"
-                    >
-                      <SvgIcon name="chevronDown" size="12" class="text-info/60" />
-                      <span class="text-[11px] text-info/80 font-medium">子 Agent</span>
-                      <span class="text-[11px] text-base-content/40">{{ (item as ChildSessionGroup).messageCount }}条消息</span>
-                      <span v-if="(item as ChildSessionGroup).timestamp" class="text-[11px] text-base-content/35">{{ formatMessageTime((item as ChildSessionGroup).timestamp) }}</span>
-                    </div>
-                    <!-- 子会话消息列表 - 紧凑样式 -->
-                    <div class="space-y-1.5 pl-1 border-l-2 border-info/20">
-                      <div v-for="(childMsg, mIdx) in (item as ChildSessionGroup).messages" :key="`${(item as ChildSessionGroup).sessionId}-${mIdx}`" class="flex gap-2 items-start">
-                        <div class="flex h-5 w-5 items-center justify-center rounded-full shrink-0" :class="childMsg.role === 'user' ? 'bg-info/10' : 'bg-success/10'">
-                          <SvgIcon :name="childMsg.role === 'user' ? 'user' : 'bot'" size="10" :class="childMsg.role === 'user' ? 'text-info/70' : 'text-success/70'" />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                          <div v-if="childMsg.role === 'user'" class="bg-info/5 border border-info/10 rounded-md px-2 py-1">
-                            <p class="text-xs text-base-content/80 whitespace-pre-wrap break-words">{{ childMsg.content }}</p>
-                          </div>
-                          <div v-else class="bg-success/5 border border-success/10 rounded-md px-2 py-1">
-                            <div v-if="childMsg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(childMsg.content!)"></div>
-                            <!-- 工具调用显示 -->
-                            <div v-if="childMsg.toolCalls && childMsg.toolCalls.length > 0" class="mt-1.5 space-y-1">
-                              <div v-for="(tc, tcIdx) in childMsg.toolCalls" :key="tcIdx" class="flex items-center gap-1.5 text-xs text-base-content/60">
-                                <SvgIcon name="tool" size="10" class="text-warning/60" />
-                                <span class="font-medium">{{ tc.name }}</span>
-                                <span v-if="tc.result" class="text-success/60">✓</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ChildSessionGroup 
+              v-if="'type' in item && item.type === 'childSessionGroup'"
+              :group="(item as ChildSessionGroup)"
+              :isExpanded="isChildSessionExpanded((item as ChildSessionGroup).sessionId)"
+              :formatTime="formatMessageTime"
+              :renderMarkdown="renderMarkdown"
+              @toggle="toggleChildSessionExpand"
+            />
             
             <!-- 普通消息 -->
             <template v-else>
@@ -868,6 +809,8 @@ import bash from 'highlight.js/lib/languages/bash';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import ChildSessionGroup from '@/components/chat/ChildSessionGroup.vue';
+import ToolCallCard from '@/components/chat/ToolCallCard.vue';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -3177,22 +3120,6 @@ watch(searchQuery, () => {
 </script>
 
 <style scoped>
-/* 子会话展开动画 */
-.animate-expand {
-  animation: expandIn 0.2s ease-out;
-}
-
-@keyframes expandIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 /* Markdown 内容样式 */
 .markdown-content {
   line-height: 1.6;
