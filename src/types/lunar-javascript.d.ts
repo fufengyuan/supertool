@@ -28,15 +28,34 @@ declare module 'lunar-javascript' {
     getDayInGanZhi(): string;
     getDayYi(): string[];
     getDayJi(): string[];
-    getDayPengZu(): string;
-    getDayChong(): string;
-    getDaySha(): string;
-    getDayXiShen(): string;
-    getDayFuShen(): string;
-    getDayCaiShen(): string;
-    getTimeYi(): { type: string; value: string }[];
-    getJieQi(): string;
     getFestivals(): string[];
     getOtherFestivals(): string[];
+    getJieQi(): string;
+    getTimes(): any[];
+    getPengZuGan(): string;
+    getPengZuZhi(): string;
+    getDayChong(): string;
+    getDayChongDesc(): string;
+    getDaySha(): string;
+    getDayNaYin(): string;
+    getDayPositionXi(): string;
+    getDayPositionXiDesc(): string;
+    getDayPositionFu(): string;
+    getDayPositionFuDesc(): string;
+    getDayPositionCai(): string;
+    getDayPositionCaiDesc(): string;
+    getXiu(): string;
+    getXiuLuck(): string;
+    getYearShengXiaoByLiChun(): string;
+  }
+
+  export class LunarTime {
+    getZhiInChinese(): string;
+    getTianShenLuck(): string;
+  }
+
+  export class HolidayUtil {
+    static getHoliday(year: number, month: number, day: number): string;
+    static getDay(year: number, month: number, day: number, info: string): string;
   }
 }

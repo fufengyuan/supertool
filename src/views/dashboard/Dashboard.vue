@@ -115,11 +115,6 @@
     </div>
 
     <!-- 快速操作 -->
-
-    <!-- 万年历 -->
-    <PerpetualCalendar />
-
-    <!-- 快速操作 -->
     <div class="bg-base-100 rounded-xl border border-base-content/10 p-4">
       <div class="flex items-center gap-2 mb-3">
         <SvgIcon name="zap" size="16" class="text-warning" />
@@ -216,6 +211,11 @@
         </div>
       </div>
     </div>
+
+    <!-- 万年历（放在最底部） -->
+    <PerpetualCalendar />
+
+    <!-- 快速添加待办弹窗 -->
 
     <Modal v-model="showQuickTodo" title="添加待办">
       <div class="flex flex-col gap-3">
