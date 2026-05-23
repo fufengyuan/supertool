@@ -134,6 +134,12 @@ importers:
       jsqr:
         specifier: ^1.4.0
         version: 1.4.0
+      lunar-javascript:
+        specifier: ^1.7.7
+        version: 1.7.7
+      markdown-it:
+        specifier: ^14.1.1
+        version: 14.1.1
       marked:
         specifier: ^18.0.2
         version: 18.0.3
@@ -1315,6 +1321,9 @@ packages:
   lru-cache@10.2.0:
     resolution: {integrity: sha512-2bIM8x+VAf6JT4bKAljS1qUWgMsqZRPGJS6FSahIMPVvctcNhyVp7AJu7quxOW9jwkryBReKZY5tY5JYv2n/7Q==}
     engines: {node: 14 || >=16.14}
+
+  lunar-javascript@1.7.7:
+    resolution: {integrity: sha512-u/KYiwPIBo/0bT+WWfU7qO1d+aqeB90Tuy4ErXenr2Gam0QcWeezUvtiOIyXR7HbVnW2I1DKfU0NBvzMZhbVQw==}
 
   magic-string@0.30.17:
     resolution: {integrity: sha512-sNPKHvyjVf7gyjwS4xGTaW/mCnF8wnjtifKBEhxfZ7E/S8tQ0rssrwGNn6q8JH/ohItJfSQp9mBtQYuTlH5QnA==}
@@ -2886,6 +2895,8 @@ snapshots:
       uc.micro: 2.1.0
 
   lru-cache@10.2.0: {}
+
+  lunar-javascript@1.7.7: {}
 
   magic-string@0.30.17:
     dependencies:
