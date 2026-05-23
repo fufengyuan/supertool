@@ -32,7 +32,7 @@
           </span>
         </div>
         <!-- Markdown 渲染的消息内容 -->
-        <VueMarkdown v-if="message.content" :source="message.content" class="markdown-content text-sm text-base-content" :options="mdOptions" />
+        <VueMarkdown v-if="message.content" :source="message.content" class="prose prose-sm max-w-none" :options="mdOptions" />
         
         <!-- 工具调用卡片 -->
         <div v-if="message.toolCalls && message.toolCalls.length > 0" class="space-y-1.5">
@@ -144,60 +144,6 @@ const hasContent = computed(() =>
 const isToolExpanded = (tIdx: number) => props.isToolCallExpanded(`${props.messageIndex}-${tIdx}`);
 
 const toggleThinking = () => props.onToggleThinking(props.messageIndex);
-
 const toggleToolCall = (tIdx: number) => props.onToggleToolCall(`${props.messageIndex}-${tIdx}`);
-
 const retryMessage = (content: string) => props.onRetry(content);
 </script>
-
-<style scoped>
-.markdown-content {
-  line-height: 1.6;
-  word-break: break-word;
-}
-
-.markdown-content :deep(p) {
-  margin: 0.4em 0;
-}
-
-.markdown-content :deep(pre) {
-  margin: 0.5em 0;
-  padding: 0.75em;
-  background: var(--fallback-b2, oklch(var(--b2) / 1));
-  border-radius: 0.5em;
-  overflow-x: auto;
-}
-
-.markdown-content :deep(code) {
-  font-size: 0.85em;
-}
-
-.markdown-content :deep(ul),
-.markdown-content :deep(ol) {
-  margin: 0.4em 0;
-  padding-left: 1.5em;
-}
-
-.markdown-content :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-}
-
-.markdown-content :deep(th),
-.markdown-content :deep(td) {
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  padding: 0.3em 0.6em;
-  text-align: left;
-}
-
-.markdown-content :deep(th) {
-  background: rgba(128, 128, 128, 0.1);
-  font-weight: bold;
-}
-
-.markdown-content :deep(thead) {
-  border-bottom: 2px solid rgba(128, 128, 128, 0.4);
-}
-</style>

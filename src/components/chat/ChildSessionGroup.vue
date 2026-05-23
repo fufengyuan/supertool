@@ -46,10 +46,10 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div v-if="msg.role === 'user'" class="bg-info/5 border border-info/10 rounded-md px-2 py-1">
-                  <VueMarkdown v-if="msg.content" :source="msg.content || ''" class="markdown-content text-xs text-base-content/80" :options="mdOptions" />
+                  <VueMarkdown v-if="msg.content" :source="msg.content || ''" class="prose prose-sm max-w-none" :options="mdOptions" />
                 </div>
                 <div v-else class="bg-success/5 border border-success/10 rounded-md px-2 py-1">
-                  <VueMarkdown v-if="msg.content" :source="msg.content" class="markdown-content text-xs text-base-content/80" :options="mdOptions" />
+                  <VueMarkdown v-if="msg.content" :source="msg.content" class="prose prose-sm max-w-none" :options="mdOptions" />
                   <!-- 工具调用显示 -->
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-1.5 space-y-1">
                     <ToolCallCard
@@ -217,37 +217,5 @@ const toggle = () => emit('toggle', props.group.sessionId);
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-.markdown-content {
-  line-height: 1.5;
-  word-break: break-word;
-}
-
-.markdown-content :deep(p) {
-  margin: 0.3em 0;
-}
-
-.markdown-content :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-}
-
-.markdown-content :deep(th),
-.markdown-content :deep(td) {
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  padding: 0.3em 0.6em;
-  text-align: left;
-}
-
-.markdown-content :deep(th) {
-  background: rgba(128, 128, 128, 0.1);
-  font-weight: bold;
-}
-
-.markdown-content :deep(thead) {
-  border-bottom: 2px solid rgba(128, 128, 128, 0.4);
 }
 </style>
