@@ -143,7 +143,6 @@
               :group="(item as ChildSessionGroup)"
               :isExpanded="isChildSessionExpanded((item as ChildSessionGroup).sessionId)"
               :formatTime="formatMessageTime"
-              :renderMarkdown="renderMarkdown"
               @toggle="toggleChildSessionExpand"
               @continue="handleChildSessionContinue"
             />
@@ -166,7 +165,6 @@
                 :message="(item as Message)"
                 :messageIndex="idx"
                 :formatTime="formatMessageTime"
-                :renderMarkdown="renderMarkdown"
                 :getToolIcon="getToolIcon"
                 :formatArgsSummary="formatArgsSummary"
                 :formatToolResult="formatToolResult"
@@ -327,7 +325,7 @@ import { getTauriAPI } from '../../utils/tauri-api';
 import type { GitRepo } from '../../types';
 import { useSessionManager, type Session, type SearchResult } from '@/composables/useSessionManager';
 import { useToolExpandState, getToolIcon, formatArgsSummary, formatToolResult, formatTodoResult } from '@/composables/useToolFormatter';
-import { renderMarkdown, setupCopyCode } from '@/composables/useMarkdownRenderer';
+import { setupCopyCode } from '@/composables/useMarkdownRenderer';
 import { useFavoriteFolders } from '@/composables/useFavoriteFolders';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';

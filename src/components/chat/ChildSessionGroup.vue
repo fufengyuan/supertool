@@ -46,10 +46,10 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div v-if="msg.role === 'user'" class="bg-info/5 border border-info/10 rounded-md px-2 py-1">
-                  <div v-if="msg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(msg.content || '')"></div>
+                  <VueMarkdown v-if="msg.content" :source="msg.content || ''" class="markdown-content text-xs text-base-content/80" :options="mdOptions" />
                 </div>
                 <div v-else class="bg-success/5 border border-success/10 rounded-md px-2 py-1">
-                  <div v-if="msg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(msg.content)"></div>
+                  <VueMarkdown v-if="msg.content" :source="msg.content" class="markdown-content text-xs text-base-content/80" :options="mdOptions" />
                   <!-- 工具调用显示 -->
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-1.5 space-y-1">
                     <ToolCallCard
@@ -62,7 +62,7 @@
                       :summary="tc.isSubAgent 
                         ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 100) + '...' : '执行任务')
                         : formatArgsSummary(tc.args || {})"
-                      :formatResult="(r: string) => renderMarkdown(r)"
+                      :formatResult="(r: string) => renderMarkdownSimple(r)"
                       @toggle="toggleToolCall(`${idx}-${tcIdx}`)"
                     />
                   </div>
@@ -97,8 +97,29 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import VueMarkdown from 'vue-markdown-render';
+import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
+
+// markdown-it 配置（代码高亮）
+const mdOptions = {
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+  highlight: (str: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(str, { language: lang }).value;
+    }
+    return hljs.highlightAuto(str).value;
+  },
+};
+
+// 简单的 markdown 渲染函数（用于 ToolCallCard）
+import MarkdownIt from 'markdown-it';
+const md = new MarkdownIt(mdOptions);
+const renderMarkdownSimple = (text: string): string => md.render(text);
 
 interface ToolCall {
   name: string;
@@ -128,7 +149,6 @@ const props = defineProps<{
   group: ChildSessionGroup;
   isExpanded?: boolean;
   formatTime: (ts: number) => string;
-  renderMarkdown: (content: string) => string;
 }>();
 
 const emit = defineEmits<{

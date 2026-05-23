@@ -32,7 +32,7 @@
           </span>
         </div>
         <!-- Markdown 渲染的消息内容 -->
-        <div v-if="message.content" class="markdown-content text-sm text-base-content" v-html="renderMarkdown(message.content)"></div>
+        <VueMarkdown v-if="message.content" :source="message.content" class="markdown-content text-sm text-base-content" :options="mdOptions" />
         
         <!-- 工具调用卡片 -->
         <div v-if="message.toolCalls && message.toolCalls.length > 0" class="space-y-1.5">
@@ -73,8 +73,24 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import VueMarkdown from 'vue-markdown-render';
+import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
+
+// markdown-it 配置（代码高亮）
+const mdOptions = {
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+  highlight: (str: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(str, { language: lang }).value;
+    }
+    return hljs.highlightAuto(str).value;
+  },
+};
 
 interface ToolCall {
   name: string;
@@ -106,7 +122,6 @@ const props = defineProps<{
   message: Message;
   messageIndex: number;
   formatTime: (ts: number) => string;
-  renderMarkdown: (content: string) => string;
   getToolIcon: (name: string) => ToolIconInfo;
   formatArgsSummary: (args: Record<string, unknown>) => string;
   formatToolResult: (name: string, result: string) => string;
