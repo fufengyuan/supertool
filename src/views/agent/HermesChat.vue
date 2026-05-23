@@ -326,6 +326,7 @@ import { getTauriAPI } from '../../utils/tauri-api';
 import type { GitRepo } from '../../types';
 import { useSessionManager, type Session, type SearchResult } from '@/composables/useSessionManager';
 import { useToolExpandState, getToolIcon, formatArgsSummary, formatToolResult, formatTodoResult } from '@/composables/useToolFormatter';
+import { renderMarkdown, setupCopyCode } from '@/composables/useMarkdownRenderer';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
@@ -654,25 +655,8 @@ const titleInputRef = ref<HTMLInputElement | null>(null);
 const isEditingTitle = ref(false);
 const editingTitle = ref('');
 
-// 复制代码功能（全局函数）
-const copyCode = (codeId: string) => {
-  const codeElement = document.getElementById(codeId);
-  if (codeElement) {
-    const text = codeElement.textContent || '';
-    navigator.clipboard.writeText(text).then(() => {
-      // 显示复制成功提示
-      const btn = codeElement.closest('.code-block-wrapper')?.querySelector('.copy-btn');
-      if (btn) {
-        btn.classList.add('copied');
-        setTimeout(() => btn.classList.remove('copied'), 2000);
-      }
-    });
-  }
-};
-// 挂载到 window 以便 onclick 调用
-if (typeof window !== 'undefined') {
-  (window as any).copyCode = copyCode;
-}
+// 挂载复制代码功能到 window
+setupCopyCode();
 
 // 处理 ChatInput 发送事件
 interface PathItem {
@@ -815,93 +799,7 @@ const saveFavoriteFolders = () => {
 
 // 注：loadGitRepos, searchSessions, handleSessionSearch, clearSessionSearch, sourceIcon
 // 已从 useSessionManager composable 导入
-
-// Markdown 渲染缓存 — key 为消息原文，value 为渲染后的 HTML
-const markdownCache = new Map<string, string>();
-const MAX_CACHE = 500;
-
-// 自定义渲染器单例（不依赖输入，只需创建一次）
-const markdownRenderer = new marked.Renderer();
-markdownRenderer.code = function({ text: code, lang }: { text: string; lang?: string }): string {
-  const language = lang || 'plaintext';
-  
-  // 检测内容是否已经被 hljs 高亮过（包含 hljs-xxx 类名）
-  if (code.includes('class="hljs-') || code.includes('class=\'hljs-')) {
-    // 已经高亮过，直接返回，避免双重编码
-    const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
-    return `<div class="code-block-wrapper">
-      <div class="code-header">
-        <span class="code-lang">${language}</span>
-        <button class="copy-btn" onclick="copyCode('${codeId}')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-          </svg>
-        </button>
-      </div>
-      <pre><code id="${codeId}" class="hljs">${code}</code></pre>
-    </div>`;
-  }
-  
-  const highlighted = language && hljs.getLanguage(language) 
-    ? hljs.highlight(code, { language }).value 
-    : hljs.highlightAuto(code).value;
-  
-  const codeId = `code-${Math.random().toString(36).substr(2, 9)}`;
-  
-  return `<div class="code-block-wrapper">
-    <div class="code-header">
-      <span class="code-lang">${language}</span>
-      <button class="copy-btn" onclick="copyCode('${codeId}')" title="复制代码">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
-      </button>
-    </div>
-    <pre><code id="${codeId}" class="hljs">${highlighted}</code></pre>
-  </div>`;
-};
-
-// Markdown 渲染函数 - 添加代码块复制按钮和特殊格式处理
-const renderMarkdown = (text: string | null): string => {
-  if (!text) {return '';}
-  // 缓存命中 — 避免重复解析已渲染过的消息
-  const cached = markdownCache.get(text);
-  if (cached) {return cached;}
-  try {
-    // 预处理：处理特殊格式的警告框
-    let processedText = text
-      .replace(/^\[IMPORTANT:\s*([^\]]+)\]/gm, '<div class="alert-box alert-important">⚠️ <strong>重要:</strong> $1</div>')
-      .replace(/^\[WARNING:\s*([^\]]+)\]/gm, '<div class="alert-box alert-warning">⚠️ <strong>警告:</strong> $1</div>')
-      .replace(/^\[NOTE:\s*([^\]]+)\]/gm, '<div class="alert-box alert-note">📝 <strong>注意:</strong> $1</div>')
-      .replace(/^\[SILENT\]/gm, '<div class="alert-box alert-silent">🔇 <strong>静默模式</strong></div>')
-      .replace(/^\[CONTEXT:/gm, '<div class="alert-box alert-context">📋 <strong>上下文压缩摘要</strong><br>');
-
-    // 直接传 renderer 给 marked.parse，不修改全局 marked 配置
-    const html = marked.parse(processedText, {
-      renderer: markdownRenderer,
-      breaks: true,
-      gfm: true,
-      async: false,
-    }) as string;
-    const result = DOMPurify.sanitize(html, {
-      ADD_ATTR: ['target', 'onclick', 'id', 'title'],
-      ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div'],
-    });
-
-    // LRU 缓存：淘汰最旧的条目
-    if (markdownCache.size >= MAX_CACHE) {
-      const firstKey = markdownCache.keys().next().value;
-      if (firstKey) {markdownCache.delete(firstKey);}
-    }
-    markdownCache.set(text, result);
-    return result;
-  } catch (e) {
-    console.error('[renderMarkdown] Error:', e);
-    return text;
-  }
-};
+// Markdown 渲染已从 useMarkdownRenderer composable 导入
 
 const formatTime = (ts: number | null | undefined) => {
   if (!ts) {return '';}
