@@ -164,7 +164,7 @@ function parseDirective(): { directive: NginxDirective | null; commentBefore?: s
     const tok = peek()
     if (tok.type === 'semicolon') {
       consume()
-      if (words.length === 0) return { directive: null, commentBefore }
+      if (words.length === 0) {return { directive: null, commentBefore }}
       const name = words[0]
       const params = words.slice(1)
       return {
@@ -200,7 +200,7 @@ function parseBlock(): NginxBlock | null {
     const tok = peek()
     if (tok.type === 'brace_open') {
       consume() // skip {
-      if (headerWords.length === 0) return null
+      if (headerWords.length === 0) {return null}
       const type = headerWords[0]
       const params = headerWords.slice(1)
       const directives: NginxDirective[] = []
@@ -295,7 +295,7 @@ function tryParseDirectiveBody(): NginxDirective | null {
     const tok = peek()
     if (tok.type === 'semicolon') {
       consume()
-      if (words.length === 0) return null
+      if (words.length === 0) {return null}
       const name = words[0]
       const params = words.slice(1)
       return {
@@ -325,7 +325,7 @@ export function parseNginxConfig(input: string): ParsedNginxConfig {
 
   while (tokenPos < allTokens.length) {
     const tok = peek()
-    if (tok.type === 'eof') break
+    if (tok.type === 'eof') {break}
     if (tok.type === 'comment') {
       consume()
       continue
@@ -377,7 +377,7 @@ function splitParamsSmart(input: string): string[] {
       chunk += input[i]
       i++
     }
-    if (chunk) parts.push(chunk)
+    if (chunk) {parts.push(chunk)}
   }
   return parts
 }
@@ -390,9 +390,9 @@ function splitParamsSmart(input: string): string[] {
 function joinParamsDisplay(params: string[]): string {
   return params.map(p => {
     // If already quoted, return as-is
-    if ((p.startsWith("'") && p.endsWith("'")) || (p.startsWith('"') && p.endsWith('"'))) return p
+    if ((p.startsWith("'") && p.endsWith("'")) || (p.startsWith('"') && p.endsWith('"'))) {return p}
     // If contains spaces that aren't part of the param value, wrap in quotes
-    if (/\s/.test(p)) return `"${p}"`
+    if (/\s/.test(p)) {return `"${p}"`}
     return p
   }).join(' ')
 }
@@ -440,13 +440,13 @@ export const LOCATION_MODIFIERS = new Set(['=', '~', '~*', '^~'])
 
 /** Get location modifier if present (e.g., '~*' from 'location ~* \.php$') */
 export function getLocationModifier(params: string[]): string {
-  if (params.length > 0 && LOCATION_MODIFIERS.has(params[0])) return params[0]
+  if (params.length > 0 && LOCATION_MODIFIERS.has(params[0])) {return params[0]}
   return ''
 }
 
 /** Get location path without modifier */
 export function getLocationPath(params: string[]): string {
-  if (params.length > 0 && LOCATION_MODIFIERS.has(params[0])) return params.slice(1).join(' ')
+  if (params.length > 0 && LOCATION_MODIFIERS.has(params[0])) {return params.slice(1).join(' ')}
   return params.join(' ')
 }
 
@@ -566,12 +566,12 @@ function parseUpstreamServer(d: NginxDirective): UpstreamServer {
   const result: UpstreamServer = { address: d.params[0] || '' }
   for (let i = 1; i < d.params.length; i++) {
     const p = d.params[i]
-    if (p === 'backup') result.backup = true
-    else if (p === 'down') result.down = true
-    else if (p.startsWith('weight=')) result.weight = parseInt(p.split('=')[1]) || undefined
-    else if (p.startsWith('max_fails=')) result.maxFails = parseInt(p.split('=')[1]) || undefined
-    else if (p.startsWith('max_conns=')) result.maxConns = parseInt(p.split('=')[1]) || undefined
-    else if (p.startsWith('fail_timeout=')) result.failTimeout = p.split('=')[1]
+    if (p === 'backup') {result.backup = true}
+    else if (p === 'down') {result.down = true}
+    else if (p.startsWith('weight=')) {result.weight = parseInt(p.split('=')[1]) || undefined}
+    else if (p.startsWith('max_fails=')) {result.maxFails = parseInt(p.split('=')[1]) || undefined}
+    else if (p.startsWith('max_conns=')) {result.maxConns = parseInt(p.split('=')[1]) || undefined}
+    else if (p.startsWith('fail_timeout=')) {result.failTimeout = p.split('=')[1]}
   }
   return result
 }

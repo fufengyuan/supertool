@@ -306,7 +306,7 @@ const loadData = async () => {
 
 // 模糊匹配
 const fuzzyMatch = (text: string, pattern: string): boolean => {
-  if (!text || !pattern) return false
+  if (!text || !pattern) {return false}
   const lowerText = text.toLowerCase()
   const lowerPattern = pattern.toLowerCase()
   return lowerText.includes(lowerPattern)
@@ -314,7 +314,7 @@ const fuzzyMatch = (text: string, pattern: string): boolean => {
 
 // 搜索结果
 const todoResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return todos.value.filter(t =>
     fuzzyMatch(t.text, query.value) ||
     fuzzyMatch(t.tag, query.value) ||
@@ -323,7 +323,7 @@ const todoResults = computed(() => {
 })
 
 const projectResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return projects.value.filter(p =>
     fuzzyMatch(p.name, query.value) ||
     fuzzyMatch(p.description, query.value)
@@ -331,7 +331,7 @@ const projectResults = computed(() => {
 })
 
 const serverResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return servers.value.filter(s =>
     fuzzyMatch(s.name, query.value) ||
     fuzzyMatch(s.host, query.value)
@@ -339,7 +339,7 @@ const serverResults = computed(() => {
 })
 
 const noteResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return notes.value.filter(n =>
     fuzzyMatch(n.title, query.value) ||
     fuzzyMatch(n.content, query.value) ||
@@ -348,7 +348,7 @@ const noteResults = computed(() => {
 })
 
 const cicdResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return cicdConfigs.value.filter(c =>
     fuzzyMatch(c.name, query.value) ||
     fuzzyMatch(c.groupName, query.value) ||
@@ -357,7 +357,7 @@ const cicdResults = computed(() => {
 })
 
 const mfaResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return mfaSecrets.value.filter(m =>
     fuzzyMatch(m.name, query.value) ||
     fuzzyMatch(m.account, query.value) ||
@@ -366,7 +366,7 @@ const mfaResults = computed(() => {
 })
 
 const gitResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return gitRepos.value.filter(g =>
     fuzzyMatch(g.name, query.value) ||
     fuzzyMatch(g.url, query.value) ||
@@ -375,7 +375,7 @@ const gitResults = computed(() => {
 })
 
 const vpnResults = computed(() => {
-  if (!query.value.trim()) return []
+  if (!query.value.trim()) {return []}
   return vpnConfigs.value.filter(v =>
     fuzzyMatch(v.name, query.value)
   ).slice(0, 5)
@@ -408,7 +408,7 @@ const resultCountMap = computed(() => ({
 const getGlobalIndex = (type: string, localIdx: number): number => {
   let offset = 0
   for (const t of resultTypes) {
-    if (t === type) break
+    if (t === type) {break}
     offset += resultCountMap.value[t as keyof typeof resultCountMap.value] || 0
   }
   return offset + localIdx
@@ -419,7 +419,7 @@ const navigateResults = (direction: number) => {
   const totalResults = results.value.length
   const totalQuickActions = frequentNavs.value.length
   const total = query.value.trim() ? totalResults : totalQuickActions
-  if (total === 0) return
+  if (total === 0) {return}
   activeIndex.value = (activeIndex.value + direction + total) % total
 }
 
@@ -484,7 +484,7 @@ const quickNavigateFreq = (item: any) => {
 
 const quickNavigateByIndex = (index: number) => {
   const navs = frequentNavs.value
-  if (navs[index]) quickNavigateFreq(navs[index])
+  if (navs[index]) {quickNavigateFreq(navs[index])}
 }
 
 // 打开/关闭
@@ -537,20 +537,20 @@ const priorityLabel = (priority: string): string => {
 
 // 格式化日期
 const formatDate = (dateStr: string): string => {
-  if (!dateStr) return ''
+  if (!dateStr) {return ''}
   const date = new Date(dateStr)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-  if (days === 0) return '今天'
-  if (days === 1) return '昨天'
-  if (days < 7) return `${days}天前`
+  if (days === 0) {return '今天'}
+  if (days === 1) {return '昨天'}
+  if (days < 7) {return `${days}天前`}
   return date.toLocaleDateString('zh-CN')
 }
 
 // 高亮匹配文本
 const highlightMatch = (text: string, query: string): string => {
-  if (!text || !query) return text || ''
+  if (!text || !query) {return text || ''}
   const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
   return text.replace(regex, '<mark style="background: rgba(108,99,255,0.2); color: inherit; padding: 0 2px; border-radius: 2px;">$1</mark>')
 }

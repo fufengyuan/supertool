@@ -224,7 +224,7 @@ async function onConnectionChange() {
   selectedObjects.value = new Set()
   dataIncluded.value = new Set()
   databases.value = []
-  if (!localConnectionId.value) return
+  if (!localConnectionId.value) {return}
 
   loadingObjects.value = true
   try {
@@ -257,7 +257,7 @@ async function onConnectionChange() {
 }
 
 async function loadObjects() {
-  if (!localConnectionId.value || !selectedDb.value) return
+  if (!localConnectionId.value || !selectedDb.value) {return}
   loadingObjects.value = true
   objects.value = []
   selectedObjects.value = new Set()
@@ -270,10 +270,10 @@ async function loadObjects() {
     ])
     const objs: BackupObject[] = []
     if (tablesResult?.success && tablesResult.tables) {
-      for (const t of tablesResult.tables) objs.push({ type: 'table', name: t, includeData: true })
+      for (const t of tablesResult.tables) {objs.push({ type: 'table', name: t, includeData: true })}
     }
     if (viewsResult?.success && viewsResult.views) {
-      for (const v of viewsResult.views) objs.push({ type: 'view', name: v, includeData: false })
+      for (const v of viewsResult.views) {objs.push({ type: 'view', name: v, includeData: false })}
     }
     objects.value = objs
     // Select all by default
@@ -295,19 +295,19 @@ function toggleObject(name: string, type: 'table' | 'view') {
     dataIncluded.value.delete(name)
   } else {
     selectedObjects.value.add(name)
-    if (type === 'table') dataIncluded.value.add(name)
+    if (type === 'table') {dataIncluded.value.add(name)}
   }
 }
 
 function toggleData(name: string) {
-  if (dataIncluded.value.has(name)) dataIncluded.value.delete(name)
-  else dataIncluded.value.add(name)
+  if (dataIncluded.value.has(name)) {dataIncluded.value.delete(name)}
+  else {dataIncluded.value.add(name)}
 }
 
 function selectAll() {
   objects.value.forEach(o => {
     selectedObjects.value.add(o.name)
-    if (o.type === 'table' && o.includeData !== false) dataIncluded.value.add(o.name)
+    if (o.type === 'table' && o.includeData !== false) {dataIncluded.value.add(o.name)}
   })
 }
 
@@ -318,7 +318,7 @@ function selectNone() {
 
 async function createBackup() {
     console.log("[selectNone] called")
-  if (!canBackup.value) return
+  if (!canBackup.value) {return}
   creating.value = true
   backupInProgress.value = true
   progressMessage.value = '正在生成备份...'
@@ -384,14 +384,14 @@ function showContextMenu(event: MouseEvent, backup: BackupFile) {
 }
 
 function restoreBackup(backup: BackupFile | null) {
-  if (!backup) return
+  if (!backup) {return}
   contextMenu.value.visible = false
   restoreConfirm.value = backup
 }
 
 async function doRestore() {
     console.log("[restoreBackup] called")
-  if (!restoreConfirm.value || !localConnectionId.value) return
+  if (!restoreConfirm.value || !localConnectionId.value) {return}
   const backup = restoreConfirm.value
   restoreConfirm.value = null
   backupInProgress.value = true
@@ -415,7 +415,7 @@ async function doRestore() {
 }
 
 async function deleteBackup(backup: BackupFile | null) {
-  if (!backup) return
+  if (!backup) {return}
   contextMenu.value.visible = false
   try {
     console.log("[deleteBackup] called")
@@ -432,8 +432,8 @@ async function deleteBackup(backup: BackupFile | null) {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024) {return bytes + ' B'}
+  if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB'}
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 

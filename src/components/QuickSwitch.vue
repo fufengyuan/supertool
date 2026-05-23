@@ -109,7 +109,7 @@ const close = (): void => {
 }
 
 const handleKeydown = (e: KeyboardEvent): void => {
-  if (!isOpen.value) return
+  if (!isOpen.value) {return}
 
   switch (e.key) {
     case 'ArrowDown':

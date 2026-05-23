@@ -100,7 +100,7 @@ const regexError = ref('')
 function toggleFlag(flag: string) {
   if (flags.value.includes(flag)) {
     flags.value = flags.value.replace(flag, '')
-    if (!flags.value) flags.value = ''
+    if (!flags.value) {flags.value = ''}
   } else {
     flags.value += flag
   }
@@ -108,7 +108,7 @@ function toggleFlag(flag: string) {
 }
 
 function createRegex(): RegExp | null {
-  if (!pattern.value) return null
+  if (!pattern.value) {return null}
   try {
     regexError.value = ''
     return new RegExp(pattern.value, flags.value)
@@ -142,7 +142,7 @@ function runTest() {
         if (match.length > 1) {
           groups.value = match.slice(1)
         }
-        if (match[0] === '') regex2.lastIndex++ // Avoid infinite loop
+        if (match[0] === '') {regex2.lastIndex++} // Avoid infinite loop
       }
     } else {
       const match = regex.exec(testText.value)
@@ -164,7 +164,7 @@ function runTest() {
 
 function runReplace() {
   const regex = createRegex()
-  if (!regex || !testText.value) return
+  if (!regex || !testText.value) {return}
 
   try {
     replacedResult.value = testText.value.replace(regex, replacement.value)
@@ -176,7 +176,7 @@ function runReplace() {
 
 const highlightedHtml = computed(() => {
   const regex = createRegex()
-  if (!regex || !testText.value) return ''
+  if (!regex || !testText.value) {return ''}
 
   try {
     const escaped = testText.value
@@ -227,7 +227,7 @@ function escapeHtml(str: string): string {
 }
 
 async function copyReplaced() {
-  if (!replacedResult.value) return
+  if (!replacedResult.value) {return}
   await copyText(replacedResult.value, toast)
 }
 </script>

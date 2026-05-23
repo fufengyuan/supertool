@@ -14,7 +14,7 @@ const files = execSync(
 
 // Extract class names from template and script
 const classRegex = /class=["']([^"']+)["']/g;
-const classBindRegex = /:class=["'\[][^"\]]+/g;
+const classBindRegex = /:class=["'[][^"\]]+/g;
 const allClasses = new Set();
 
 for (const file of files) {

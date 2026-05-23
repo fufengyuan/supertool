@@ -66,7 +66,7 @@ const emit = defineEmits(['task-added', 'task-toggled', 'task-deleted', 'data-re
 const newTaskText = ref('')
 
 const formatDate = (dateString) => {
-  if (!dateString) return ''
+  if (!dateString) {return ''}
   return new Date(dateString).toLocaleDateString('zh-CN')
 }
 
@@ -81,7 +81,7 @@ const priorityLabel = (priority) => {
 
 const addTask = async () => {
   const text = newTaskText.value.trim()
-  if (!text) return
+  if (!text) {return}
   emit('task-added', text)
   newTaskText.value = ''
 }

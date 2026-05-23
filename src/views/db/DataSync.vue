@@ -855,12 +855,12 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     });
 
     const affectedTableList = computed(() => {
-        if (!result.value) return [];
+        if (!result.value) {return [];}
         return [...new Set(result.value.diffs.map((d) => d.tableName))];
     });
 
     const filteredDiffs = computed(() => {
-        if (!result.value) return [];
+        if (!result.value) {return [];}
         let diffs = result.value.diffs.filter((d) => filterTypes.value.has(d.diffType));
         if (filterTables.value.length > 0) {
             diffs = diffs.filter((d) => filterTables.value.includes(d.tableName));
@@ -869,17 +869,17 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     });
 
     const totalInserts = computed(() => {
-        if (!result.value) return 0;
+        if (!result.value) {return 0;}
         return result.value.diffs.filter((d) => d.diffType === "insert").length;
     });
 
     const totalUpdates = computed(() => {
-        if (!result.value) return 0;
+        if (!result.value) {return 0;}
         return result.value.diffs.filter((d) => d.diffType === "update").length;
     });
 
     const totalDeletes = computed(() => {
-        if (!result.value) return 0;
+        if (!result.value) {return 0;}
         return result.value.diffs.filter((d) => d.diffType === "delete").length;
     });
 
@@ -933,7 +933,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     });
 
     async function onSourceChange() {
-        if (!sourceId.value) return;
+        if (!sourceId.value) {return;}
         loadingSourceDb.value = true;
         try {
             console.log("[onSourceChange] called");
@@ -953,7 +953,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     async function onTargetChange() {
-        if (!targetId.value) return;
+        if (!targetId.value) {return;}
         loadingTargetDb.value = true;
         try {
             console.log("[onTargetChange] called");
@@ -973,7 +973,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     async function loadSourceTables() {
-        if (!sourceId.value || !sourceDb.value) return;
+        if (!sourceId.value || !sourceDb.value) {return;}
         try {
             console.log("[loadSourceTables] called");
             const res = await getTauriAPI().dbGetTables(sourceId.value, sourceDb.value);
@@ -986,7 +986,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     async function loadTargetTables() {
-        if (!targetId.value || !targetDb.value) return;
+        if (!targetId.value || !targetDb.value) {return;}
         try {
             console.log("[loadTargetTables] called");
             const res = await getTauriAPI().dbGetTables(targetId.value, targetDb.value);
@@ -1015,7 +1015,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     async function autoFetchTableMeta(tables: string[]) {
         for (const table of tables) {
             console.log("[autoFetchTableMeta] called");
-            if (tableColumns.value[table]) continue; // already fetched
+            if (tableColumns.value[table]) {continue;} // already fetched
             try {
                 // Fetch table structure for columns
                 const structRes = await getTauriAPI().dbGetTableStructure(
@@ -1066,7 +1066,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     function toggleCompareKey(table: string, col: string) {
-        if (!compareKeys.value[table]) compareKeys.value[table] = [];
+        if (!compareKeys.value[table]) {compareKeys.value[table] = [];}
         const idx = compareKeys.value[table].indexOf(col);
         if (idx >= 0) {
             compareKeys.value[table].splice(idx, 1);
@@ -1076,7 +1076,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     function removeCompareKey(table: string, key: string) {
-        if (!compareKeys.value[table]) return;
+        if (!compareKeys.value[table]) {return;}
         compareKeys.value[table] = compareKeys.value[table].filter((k) => k !== key);
     }
 
@@ -1118,7 +1118,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
         try {
             for (const table of selectedTables.value) {
                 const pks = compareKeys.value[table];
-                if (!pks || pks.length === 0) continue;
+                if (!pks || pks.length === 0) {continue;}
 
                 // Get table structure to determine columns
                 const structRes = await getTauriAPI().dbGetTableStructure(
@@ -1234,9 +1234,9 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
                     totalDeleted += res.deleted || 0;
                 } else {
                     const r = res as any;
-                    if (r?.errors) allErrors.push(...r.errors);
-                    if (r?.error) allErrors.push(r.error);
-                    if (allErrors.length === 0) allErrors.push("同步失败");
+                    if (r?.errors) {allErrors.push(...r.errors);}
+                    if (r?.error) {allErrors.push(r.error);}
+                    if (allErrors.length === 0) {allErrors.push("同步失败");}
                 }
             }
 
@@ -1305,9 +1305,9 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     }
 
     function formatSqlValue(val: unknown): string {
-        if (val === null || val === undefined) return "NULL";
-        if (typeof val === "number") return String(val);
-        if (typeof val === "boolean") return val ? "1" : "0";
+        if (val === null || val === undefined) {return "NULL";}
+        if (typeof val === "number") {return String(val);}
+        if (typeof val === "boolean") {return val ? "1" : "0";}
         return "'" + String(val).replace(/'/g, "''") + "'";
     }
 
@@ -1354,17 +1354,17 @@ import SvgIcon from '@/components/ui/SvgIcon.vue'
     // Navicat-style: compact row preview showing only non-PK columns
     function getRowPreview(row: Record<string, any>): string {
         const entries = Object.entries(row);
-        if (entries.length === 0) return "—";
+        if (entries.length === 0) {return "—";}
         // Show first 3 key-value pairs as preview
         const shown = entries.slice(0, 3).map(([k, v]) => `${k}=${formatCellValue(v)}`);
         const preview = shown.join(", ");
-        if (entries.length > 3) return preview + ` (+${entries.length - 3} more)`;
+        if (entries.length > 3) {return preview + ` (+${entries.length - 3} more)`;}
         return preview;
     }
 
     function formatCellValue(val: any): string {
-        if (val == null) return "NULL";
-        if (typeof val === "string") return val.length > 50 ? val.slice(0, 50) + "…" : val;
+        if (val == null) {return "NULL";}
+        if (typeof val === "string") {return val.length > 50 ? val.slice(0, 50) + "…" : val;}
         return String(val);
     }
 

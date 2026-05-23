@@ -201,7 +201,7 @@ export const useTodoStore = defineStore('todos', () => {
 
   const toggleTodo = async (id: string): Promise<void> => {
     const todo = todos.value.find((t) => t.id === id);
-    if (!todo) return;
+    if (!todo) {return;}
 
     pushUndoSnapshot();
 
@@ -266,7 +266,7 @@ export const useTodoStore = defineStore('todos', () => {
   // ============ 撤销/重做 ============
 
   const undo = async (): Promise<void> => {
-    if (undoStack.value.length === 0) return;
+    if (undoStack.value.length === 0) {return;}
     const currentState = JSON.parse(JSON.stringify(todos.value)) as Todo[];
     redoStack.value.push(currentState);
     const prevState = undoStack.value.pop()!;
@@ -279,7 +279,7 @@ export const useTodoStore = defineStore('todos', () => {
   };
 
   const redo = async (): Promise<void> => {
-    if (redoStack.value.length === 0) return;
+    if (redoStack.value.length === 0) {return;}
     const currentState = JSON.parse(JSON.stringify(todos.value)) as Todo[];
     undoStack.value.push(currentState);
     if (undoStack.value.length > MAX_UNDO_SIZE) {
@@ -331,7 +331,7 @@ export const useTodoStore = defineStore('todos', () => {
 
   const clearCompleted = async (): Promise<void> => {
     const completedIds = todos.value.filter((t) => t.completed).map((t) => t.id);
-    if (completedIds.length === 0) return;
+    if (completedIds.length === 0) {return;}
     await deleteTodos(completedIds);
   };
 

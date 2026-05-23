@@ -171,7 +171,7 @@ function simpleXmlParse(xml: string): any {
     if (!rootMatch) {
       // Try self-closing
       const selfMatch = str.match(/<(\w+)\s*\/>/)
-      if (selfMatch) return { [selfMatch[1]]: null }
+      if (selfMatch) {return { [selfMatch[1]]: null }}
       return str.trim()
     }
 
@@ -185,7 +185,7 @@ function simpleXmlParse(xml: string): any {
       while (remaining.trim()) {
         // Match a tag
         const tagMatch = remaining.match(/<(\w+)(\s[^>]*)?>([\s\S]*?)<\/\1>/) || remaining.match(/<(\w+)(\s[^>]*)?\/>/)
-        if (!tagMatch) break
+        if (!tagMatch) {break}
 
         const childName = tagMatch[1]
         let childValue: any
@@ -236,13 +236,13 @@ function jsonToPhpArray(jsonStr: string): string {
 function valToPhpArray(val: any, indent: number): string {
   const pad = '  '.repeat(indent)
 
-  if (val === null || val === undefined) return 'null'
-  if (typeof val === 'boolean') return val ? 'true' : 'false'
-  if (typeof val === 'number') return String(val)
-  if (typeof val === 'string') return `'${val.replace(/'/g, "\\'")}'`
+  if (val === null || val === undefined) {return 'null'}
+  if (typeof val === 'boolean') {return val ? 'true' : 'false'}
+  if (typeof val === 'number') {return String(val)}
+  if (typeof val === 'string') {return `'${val.replace(/'/g, "\\'")}'`}
 
   if (Array.isArray(val)) {
-    if (val.length === 0) return '[]'
+    if (val.length === 0) {return '[]'}
     let result = '[\n'
     for (const item of val) {
       result += `${pad}  ${valToPhpArray(item, indent + 1)},\n`
@@ -253,7 +253,7 @@ function valToPhpArray(val: any, indent: number): string {
 
   if (typeof val === 'object') {
     const keys = Object.keys(val)
-    if (keys.length === 0) return '[]'
+    if (keys.length === 0) {return '[]'}
     let result = '[\n'
     for (const key of keys) {
       result += `${pad}  '${key}' => ${valToPhpArray(val[key], indent + 1)},\n`
@@ -292,13 +292,13 @@ function jsonToPhpSerialize(jsonStr: string): string {
 }
 
 function phpSerialize(val: any): string {
-  if (val === null || val === undefined) return 'N;'
-  if (typeof val === 'boolean') return val ? 'b:1;' : 'b:0;'
+  if (val === null || val === undefined) {return 'N;'}
+  if (typeof val === 'boolean') {return val ? 'b:1;' : 'b:0;'}
   if (typeof val === 'number') {
-    if (Number.isInteger(val)) return `i:${val};`
+    if (Number.isInteger(val)) {return `i:${val};`}
     return `d:${val};`
   }
-  if (typeof val === 'string') return `s:${val.length}:"${val}";`
+  if (typeof val === 'string') {return `s:${val.length}:"${val}";`}
 
   if (Array.isArray(val)) {
     const items = val.map((v, i) => `i:${i};${phpSerialize(v)}`).join('')
@@ -323,7 +323,7 @@ function phpUnserialize(str: string): any {
   let pos = 0
 
   function parse(): any {
-    if (pos >= str.length) return null
+    if (pos >= str.length) {return null}
 
     const type = str[pos]
     pos += 2 // skip type and colon
@@ -366,7 +366,7 @@ function phpUnserialize(str: string): any {
           const key = parse()
           const value = parse()
           if (typeof key === 'number' && key === i) {
-            if (!Array.isArray(result)) Object.assign(result, [])
+            if (!Array.isArray(result)) {Object.assign(result, [])}
           }
           if (Array.isArray(result)) {
             result.push(value)
@@ -414,7 +414,7 @@ function propertiesToJson(propsStr: string): string {
 
   for (const line of lines) {
     const eqIndex = line.indexOf('=')
-    if (eqIndex === -1) continue
+    if (eqIndex === -1) {continue}
 
     const key = line.substring(0, eqIndex).trim()
     const value = line.substring(eqIndex + 1).trim()
@@ -428,7 +428,7 @@ function propertiesToJson(propsStr: string): string {
       if (arrayMatch && i === parts.length - 1) {
         const arrKey = arrayMatch[1]
         const idx = parseInt(arrayMatch[2])
-        if (!current[arrKey]) current[arrKey] = []
+        if (!current[arrKey]) {current[arrKey] = []}
         current[arrKey][idx] = tryParseValue(value)
       } else if (i === parts.length - 1) {
         current[part] = tryParseValue(value)
@@ -445,16 +445,16 @@ function propertiesToJson(propsStr: string): string {
 }
 
 function tryParseValue(val: string): any {
-  if (val === 'true') return true
-  if (val === 'false') return false
-  if (val === 'null') return null
+  if (val === 'true') {return true}
+  if (val === 'false') {return false}
+  if (val === 'null') {return null}
   const num = Number(val)
-  if (!isNaN(num) && val !== '') return num
+  if (!isNaN(num) && val !== '') {return num}
   return val
 }
 
 async function copyOutput() {
-  if (!output.value) return
+  if (!output.value) {return}
   await copyText(output.value, toast)
 }
 </script>

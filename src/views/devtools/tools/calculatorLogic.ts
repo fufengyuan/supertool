@@ -23,8 +23,8 @@ export function createInitialState(): CalculatorState {
 }
 
 export function formatResult(num: number): string {
-  if (isNaN(num)) return 'Error'
-  if (!isFinite(num)) return num > 0 ? '∞' : '-∞'
+  if (isNaN(num)) {return 'Error'}
+  if (!isFinite(num)) {return num > 0 ? '∞' : '-∞'}
 
   const abs = Math.abs(num)
   if (abs >= 1e15 || (abs < 1e-10 && abs !== 0)) {
@@ -36,11 +36,11 @@ export function formatResult(num: number): string {
 }
 
 export function factorial(n: number): number {
-  if (n < 0) return NaN
-  if (n === 0 || n === 1) return 1
-  if (n > 170) return Infinity
+  if (n < 0) {return NaN}
+  if (n === 0 || n === 1) {return 1}
+  if (n > 170) {return Infinity}
   let result = 1
-  for (let i = 2; i <= n; i++) result *= i
+  for (let i = 2; i <= n; i++) {result *= i}
   return result
 }
 

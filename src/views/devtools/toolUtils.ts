@@ -50,11 +50,11 @@ export function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
 const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 
 export function baseConvert(numStr: string, fromBase: number, toBase: number): string {
-  if (fromBase < 2 || fromBase > 64 || toBase < 2 || toBase > 64) return '错误: 支持 2-64 进制'
+  if (fromBase < 2 || fromBase > 64 || toBase < 2 || toBase > 64) {return '错误: 支持 2-64 进制'}
   
   // Normalize input
   const normalized = numStr.trim()
-  if (!normalized) return ''
+  if (!normalized) {return ''}
   
   // Convert to BigInt
   let bigInt: bigint
@@ -88,14 +88,14 @@ function customParseBigInt(str: string, base: number): bigint {
   
   for (const char of str) {
     const val = charMap.get(char)
-    if (val === undefined) throw new Error('Invalid character')
+    if (val === undefined) {throw new Error('Invalid character')}
     result = result * BigInt(base) + BigInt(val)
   }
   return result
 }
 
 function customToString(num: bigint, base: number): string {
-  if (num === 0n) return '0'
+  if (num === 0n) {return '0'}
   
   const charMap = []
   for (let i = 0; i < base; i++) {

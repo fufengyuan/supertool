@@ -19,7 +19,7 @@ const rawUsage = ref<Record<string, UsageEntry>>({})
 function load(): void {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) rawUsage.value = JSON.parse(raw)
+    if (raw) {rawUsage.value = JSON.parse(raw)}
   } catch {}
 }
 
@@ -42,7 +42,7 @@ export function useMenuUsage() {
   load()
 
   const recordClick = (viewMode: string): void => {
-    if (!viewMode || viewMode === 'todo') return // 不统计默认首页
+    if (!viewMode || viewMode === 'todo') {return} // 不统计默认首页
     const entry = rawUsage.value[viewMode]
     if (entry) {
       entry.count++

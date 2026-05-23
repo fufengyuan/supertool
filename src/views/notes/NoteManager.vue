@@ -242,8 +242,8 @@ let isUpdatingPreview = false
 // 树状展开状态
 const expandedGroups = ref<Set<string>>(new Set())
 function toggleGroupExpand(groupId: string) {
-  if (expandedGroups.value.has(groupId)) expandedGroups.value.delete(groupId)
-  else expandedGroups.value.add(groupId)
+  if (expandedGroups.value.has(groupId)) {expandedGroups.value.delete(groupId)}
+  else {expandedGroups.value.add(groupId)}
 }
 
 // 未分组笔记（支持搜索过滤）
@@ -279,7 +279,7 @@ const editingGroupName = ref('')
 const renameInputRef = ref<HTMLInputElement | null>(null)
 
 const renderedContent = computed(() => {
-  if (!editorContent.value) return '<p class="preview-empty">没有内容</p>'
+  if (!editorContent.value) {return '<p class="preview-empty">没有内容</p>'}
   let html = marked.parse(editorContent.value, { async: false }) as string
   if (searchQuery.value) {
     const regex = new RegExp(`(${escapeRegex(searchQuery.value)})`, 'gi')
@@ -291,35 +291,35 @@ const renderedContent = computed(() => {
 function escapeRegex(str: string): string { return str.replace(/[.*+?${}()|[\\]\\\\]/g, '\\\\$&') }
 
 function getPreview(content: string): string {
-  if (!content) return '空笔记'
+  if (!content) {return '空笔记'}
   const plain = content.replace(/[#*`>-\\[\\]()!]/g, '').trim()
   return plain.slice(0, 80) + (plain.length > 80 ? '...' : '')
 }
 
 function highlightText(text: string): string {
-  if (!searchQuery.value || !text) return text
+  if (!searchQuery.value || !text) {return text}
   const regex = new RegExp(`(${escapeRegex(searchQuery.value)})`, 'gi')
   return text.replace(regex, '<mark>$1</mark>')
 }
 
 function formatDate(iso: string): string {
-  if (!iso) return ''
+  if (!iso) {return ''}
   const d = new Date(iso), now = new Date(), diff = now.getTime() - d.getTime(), mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins} 分钟前`
+  if (mins < 1) {return '刚刚'}
+  if (mins < 60) {return `${mins} 分钟前`}
   const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours} 小时前`
+  if (hours < 24) {return `${hours} 小时前`}
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
 function getGroupName(groupId: string | null | undefined): string {
-  if (!groupId) return ''
+  if (!groupId) {return ''}
   const group = noteGroups.value.find(g => g.id === groupId)
   return group ? group.name : ''
 }
 
 function renderPreview() {
-  if (!previewRef.value) return
+  if (!previewRef.value) {return}
   const html = renderedContent.value
   previewRef.value.innerHTML = html
 }
@@ -354,14 +354,14 @@ function onSearch() { loadNotes() }
 function selectGroup(groupId: string) {
     selectedGroupId.value = groupId
   // 自动展开该分组
-  if (groupId !== '__ungrouped__') expandedGroups.value.add(groupId)
+  if (groupId !== '__ungrouped__') {expandedGroups.value.add(groupId)}
 }
 
 function selectNote(note: Note) {
     selectedNote.value = note; editorTitle.value = note.title; editorContent.value = note.content
   showRawMd.value = false; saveStatus.value = ''; showGroupSelector.value = false
   // 若笔记有分组且已折叠，自动展开
-  if (note.groupId) expandedGroups.value.add(note.groupId)
+  if (note.groupId) {expandedGroups.value.add(note.groupId)}
   nextTick(() => renderPreview())
 }
 
@@ -371,49 +371,49 @@ async function createNewNote() {
     const note = await getTauriAPI().addNote({ title: '', content: '', pinned: false, groupId: gid })
     notes.value.unshift(note); selectNote(note); toast.success('已创建新笔记')
     // 自动展开对应分组
-    if (gid) expandedGroups.value.add(gid)
+    if (gid) {expandedGroups.value.add(gid)}
   } catch { toast.error('创建失败') }
 }
 
 function onTitleChange() {
-  if (!selectedNote.value) return
-  saveStatus.value = '保存中...'; if (saveTimer) clearTimeout(saveTimer)
+  if (!selectedNote.value) {return}
+  saveStatus.value = '保存中...'; if (saveTimer) {clearTimeout(saveTimer)}
   saveTimer = setTimeout(() => saveNote(), 500)
 }
 
 // 预览区始终在 DOM 中（CSS hidden 切换），ref 稳定可用
 // 在 onContentChange（源码模式编辑）时同步更新预览
 function onContentChange() {
-    if (!selectedNote.value) return
+    if (!selectedNote.value) {return}
   // 同步更新预览区
   if (previewRef.value && !showRawMd.value) {
     renderPreview()
   }
-  saveStatus.value = '保存中...'; if (saveTimer) clearTimeout(saveTimer)
+  saveStatus.value = '保存中...'; if (saveTimer) {clearTimeout(saveTimer)}
   saveTimer = setTimeout(() => saveNote(), 500)
 }
 
 async function saveNote() {
-    if (!selectedNote.value) return
+    if (!selectedNote.value) {return}
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { title: editorTitle.value, content: editorContent.value })
     if (updated) {
       selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
+      if (idx !== -1) {notes.value[idx] = { ...notes.value[idx], ...updated }}
       saveStatus.value = '已保存'
     }
   } catch { saveStatus.value = '保存失败'; toast.error('保存失败') }
 }
 
 async function togglePin() {
-  if (!selectedNote.value) return
+  if (!selectedNote.value) {return}
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { pinned: !selectedNote.value.pinned })
     if (updated) {
       selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
+      if (idx !== -1) {notes.value[idx] = { ...notes.value[idx], ...updated }}
     }
   } catch { toast.error('操作失败') }
 }
@@ -434,7 +434,7 @@ function onDocumentClick(e: MouseEvent) {
 
 // 内容可编辑预览 → 通过 turndown 转回 Markdown
 function onPreviewEdit() {
-  if (!selectedNote.value || !previewRef.value || isUpdatingPreview) return
+  if (!selectedNote.value || !previewRef.value || isUpdatingPreview) {return}
   isUpdatingPreview = true
   try {
     const html = previewRef.value.innerHTML
@@ -442,7 +442,7 @@ function onPreviewEdit() {
     const md = turndownService.turndown(html)
     editorContent.value = md
     saveStatus.value = '保存中...'
-    if (saveTimer) clearTimeout(saveTimer)
+    if (saveTimer) {clearTimeout(saveTimer)}
     saveTimer = setTimeout(() => saveNote(), 500)
   } finally {
     isUpdatingPreview = false
@@ -450,13 +450,13 @@ function onPreviewEdit() {
 }
 
 async function assignGroup(groupId: string | null) {
-  if (!selectedNote.value) return
+  if (!selectedNote.value) {return}
   try {
     const updated = await getTauriAPI().updateNote(selectedNote.value.id, { groupId })
     if (updated) {
       selectedNote.value = { ...selectedNote.value, ...updated }
       const idx = notes.value.findIndex(n => n.id === updated.id)
-      if (idx !== -1) notes.value[idx] = { ...notes.value[idx], ...updated }
+      if (idx !== -1) {notes.value[idx] = { ...notes.value[idx], ...updated }}
       // 切换到新分组并展开
       if (groupId) {
         selectedGroupId.value = groupId
@@ -472,11 +472,11 @@ async function assignGroup(groupId: string | null) {
 function confirmDelete(note: Note) { deleteTarget.value = note }
 
 async function executeDelete() {
-    if (!deleteTarget.value) return
+    if (!deleteTarget.value) {return}
   try {
     await getTauriAPI().deleteNote(deleteTarget.value.id)
     notes.value = notes.value.filter(n => n.id !== deleteTarget.value!.id)
-    if (selectedNote.value?.id === deleteTarget.value.id) selectedNote.value = null
+    if (selectedNote.value?.id === deleteTarget.value.id) {selectedNote.value = null}
     toast.success('已删除')
   } catch { toast.error('删除失败') }
   deleteTarget.value = null
@@ -496,12 +496,12 @@ function startRenameGroupInline(group: NoteGroup) {
 }
 
 async function saveGroupRename(group: NoteGroup) {
-  if (!editingGroupName.value.trim()) return
+  if (!editingGroupName.value.trim()) {return}
   try {
     const updated = await getTauriAPI().updateNoteGroup(group.id, { name: editingGroupName.value.trim() })
     if (updated) {
       const idx = noteGroups.value.findIndex(g => g.id === updated.id)
-      if (idx !== -1) noteGroups.value[idx] = { ...noteGroups.value[idx], ...updated }
+      if (idx !== -1) {noteGroups.value[idx] = { ...noteGroups.value[idx], ...updated }}
       toast.success('分组已重命名')
     }
     editingGroupId.value = null
@@ -515,16 +515,16 @@ function getGroupNoteCount(groupId: string): number {
 function confirmDeleteGroup(group: NoteGroup) { deleteGroupTarget.value = group }
 
 async function executeDeleteGroup() {
-    if (!deleteGroupTarget.value) return
+    if (!deleteGroupTarget.value) {return}
   try {
     await getTauriAPI().deleteNoteGroup(deleteGroupTarget.value.id)
     const notesToUpdate = notes.value.filter(n => n.groupId === deleteGroupTarget.value!.id)
     for (const note of notesToUpdate) {
       const updated = await getTauriAPI().updateNote(note.id, { groupId: null })
-      if (updated) { const idx = notes.value.findIndex(n => n.id === updated.id); if (idx !== -1) notes.value[idx] = updated }
+      if (updated) { const idx = notes.value.findIndex(n => n.id === updated.id); if (idx !== -1) {notes.value[idx] = updated} }
     }
-    if (selectedGroupId.value === deleteGroupTarget.value.id) selectedGroupId.value = null
-    if (selectedNote.value?.groupId === deleteGroupTarget.value.id) selectedNote.value = { ...selectedNote.value, groupId: null }
+    if (selectedGroupId.value === deleteGroupTarget.value.id) {selectedGroupId.value = null}
+    if (selectedNote.value?.groupId === deleteGroupTarget.value.id) {selectedNote.value = { ...selectedNote.value, groupId: null }}
     noteGroups.value = noteGroups.value.filter(g => g.id !== deleteGroupTarget.value!.id)
     toast.success('分组已删除')
   } catch { toast.error('删除分组失败') }
@@ -534,11 +534,11 @@ async function executeDeleteGroup() {
 function cancelGroupEdit() { showCreateGroup.value = false; editingGroup.value = null; groupForm.value = { name: '', icon: '📁' } }
 
 async function saveGroup() {
-  if (!groupForm.value.name.trim()) return
+  if (!groupForm.value.name.trim()) {return}
   try {
     if (editingGroup.value) {
       const updated = await getTauriAPI().updateNoteGroup(editingGroup.value.id, { name: groupForm.value.name.trim(), icon: groupForm.value.icon })
-      if (updated) { const idx = noteGroups.value.findIndex(g => g.id === updated.id); if (idx !== -1) noteGroups.value[idx] = updated }
+      if (updated) { const idx = noteGroups.value.findIndex(g => g.id === updated.id); if (idx !== -1) {noteGroups.value[idx] = updated} }
       toast.success('分组已更新')
     } else {
       const newGroup = await getTauriAPI().addNoteGroup({ name: groupForm.value.name.trim(), icon: groupForm.value.icon })

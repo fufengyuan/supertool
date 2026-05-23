@@ -247,10 +247,10 @@ const columns = computed(() => {
   const keySet = new Set<string>()
   if (props.rows.length > 0) {
     for (const row of props.rows) {
-      for (const key of Object.keys(row)) keySet.add(key)
+      for (const key of Object.keys(row)) {keySet.add(key)}
     }
   } else if (newRowData.value) {
-    for (const key of Object.keys(newRowData.value)) keySet.add(key)
+    for (const key of Object.keys(newRowData.value)) {keySet.add(key)}
   }
   return [...keySet]
 })
@@ -265,7 +265,7 @@ const localEdits = ref<Map<number, Record<string, unknown>>>(new Map())
 // Get the display value for a cell (including local edits)
 function getDisplayValue(rowIdx: number, col: string): unknown {
   const edit = localEdits.value.get(rowIdx)
-  if (edit && col in edit) return edit[col]
+  if (edit && col in edit) {return edit[col]}
   return props.rows[rowIdx]?.[col]
 }
 
@@ -285,39 +285,39 @@ const editInput = ref<HTMLInputElement[] | null>(null)
 
 // Check if a value looks like a datetime (for datetime-local picker)
 function isDatetimeValue(val: unknown): boolean {
-  if (val instanceof Date && !isNaN(val.getTime())) return true
-  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(val)) return true
+  if (val instanceof Date && !isNaN(val.getTime())) {return true}
+  if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(val)) {return true}
   return false
 }
 
 // Convert value to datetime-local input format (YYYY-MM-DDTHH:mm)
 function toDatetimeLocal(val: unknown): string {
   const d = val instanceof Date ? val : new Date(val as string)
-  if (isNaN(d.getTime())) return ''
+  if (isNaN(d.getTime())) {return ''}
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 // Convert datetime-local input value back to appropriate type
 function fromDatetimeLocal(input: string, originalValue: unknown): unknown {
-  if (!input) return null
+  if (!input) {return null}
   const d = new Date(input)
-  if (isNaN(d.getTime())) return input
+  if (isNaN(d.getTime())) {return input}
   // Return same type as original
-  if (originalValue instanceof Date) return d
+  if (originalValue instanceof Date) {return d}
   return d
 }
 
 // Check if value actually changed (deep comparison for primitives and dates)
 function valueChanged(newVal: unknown, oldVal: unknown): boolean {
-  if (newVal === oldVal) return false
-  if (newVal === null && oldVal === undefined) return false
-  if (newVal === undefined && oldVal === null) return false
-  if (newVal === '' && (oldVal === null || oldVal === undefined)) return false
-  if ((newVal === null || newVal === undefined || newVal === '') && oldVal === '') return false
-  if (newVal instanceof Date && oldVal instanceof Date) return newVal.getTime() !== oldVal.getTime()
-  if (typeof newVal === 'number' && typeof oldVal === 'number') return newVal !== oldVal
-  if (typeof newVal === 'boolean' && typeof oldVal === 'boolean') return newVal !== oldVal
+  if (newVal === oldVal) {return false}
+  if (newVal === null && oldVal === undefined) {return false}
+  if (newVal === undefined && oldVal === null) {return false}
+  if (newVal === '' && (oldVal === null || oldVal === undefined)) {return false}
+  if ((newVal === null || newVal === undefined || newVal === '') && oldVal === '') {return false}
+  if (newVal instanceof Date && oldVal instanceof Date) {return newVal.getTime() !== oldVal.getTime()}
+  if (typeof newVal === 'number' && typeof oldVal === 'number') {return newVal !== oldVal}
+  if (typeof newVal === 'boolean' && typeof oldVal === 'boolean') {return newVal !== oldVal}
   return String(newVal) !== String(oldVal)
 }
 
@@ -333,14 +333,14 @@ function startEdit(idx: number, col: string) {
     if (inputs && inputs.length > 0) {
       const el = inputs.find(i => i)
       el?.focus()
-      if (el && el instanceof HTMLInputElement && !isDt) el.select()
+      if (el && el instanceof HTMLInputElement && !isDt) {el.select()}
     }
   })
 }
 
 function finishEdit() {
   const { row, col, isDatetime } = editingCell.value
-  if (row < 0 || !col) return
+  if (row < 0 || !col) {return}
 
   const oldRow = props.rows[row]
   const originalValue = editingOriginal.value ?? oldRow?.[col]
@@ -396,7 +396,7 @@ function cancelEdit() {
 function handleEditTab(event: KeyboardEvent, currentCol: string) {
   event.preventDefault()
   const colIdx = columns.value.indexOf(currentCol)
-  if (colIdx < 0) return
+  if (colIdx < 0) {return}
 
   const currentRow = editingCell.value.row  // capture before finishEdit resets it
   const nextColIdx = event.shiftKey
@@ -413,26 +413,26 @@ function handleEditTab(event: KeyboardEvent, currentCol: string) {
 }
 
 function isComplexType(val: unknown): boolean {
-  if (val === null || val === undefined) return false
+  if (val === null || val === undefined) {return false}
   // Date objects are simple (handled by datetime picker)
-  if (val instanceof Date) return false
-  if (typeof val === 'object') return true
+  if (val instanceof Date) {return false}
+  if (typeof val === 'object') {return true}
   if (typeof val === 'string') {
     try {
       const parsed = JSON.parse(val)
-      if (typeof parsed === 'boolean' || typeof parsed === 'number' || parsed === null) return false
-      if (typeof parsed === 'object') return true
+      if (typeof parsed === 'boolean' || typeof parsed === 'number' || parsed === null) {return false}
+      if (typeof parsed === 'object') {return true}
     } catch {
       // Not JSON
     }
   }
-  if (typeof val === 'string' && val.includes('\n')) return true
-  if (typeof val === 'string' && val.length > 200) return true
+  if (typeof val === 'string' && val.includes('\n')) {return true}
+  if (typeof val === 'string' && val.length > 200) {return true}
   return false
 }
 
 function parseCellValue(input: string, originalValue: unknown): unknown {
-  if (input === '' || input.toLowerCase() === 'null') return null
+  if (input === '' || input.toLowerCase() === 'null') {return null}
 
   // Date objects — parse as Date
   if (originalValue instanceof Date) {
@@ -441,8 +441,8 @@ function parseCellValue(input: string, originalValue: unknown): unknown {
   }
 
   if (typeof originalValue === 'number') {
-    if (input.toLowerCase() === 'true' || input === '1') return 1
-    if (input.toLowerCase() === 'false' || input === '0') return 0
+    if (input.toLowerCase() === 'true' || input === '1') {return 1}
+    if (input.toLowerCase() === 'false' || input === '0') {return 0}
     const num = Number(input)
     return isNaN(num) ? input : num
   }
@@ -468,12 +468,12 @@ function addNewRow() {
     return
   }
   const emptyRow: Record<string, unknown> = {}
-  for (const col of columns.value) emptyRow[col] = null
+  for (const col of columns.value) {emptyRow[col] = null}
   newRowData.value = emptyRow
 }
 
 function startNewEdit(col: string) {
-  if (!newRowData.value) return
+  if (!newRowData.value) {return}
   editingCell.value = { row: -1, col, isDatetime: false }
   const val = newRowData.value[col]
   editingValue.value = val === null || val === undefined ? '' : String(val)
@@ -485,7 +485,7 @@ function startNewEdit(col: string) {
 
 function finishNewEdit() {
   const { col } = editingCell.value
-  if (!col || !newRowData.value) return
+  if (!col || !newRowData.value) {return}
   newRowData.value[col] = parseCellValue(editingValue.value, newRowData.value[col])
   editingCell.value = { row: -1, col: '', isDatetime: false }
 }
@@ -495,7 +495,7 @@ function cancelNewEdit() {
 }
 
 function saveNewRow() {
-  if (!newRowData.value) return
+  if (!newRowData.value) {return}
   emit('insert-row', { ...newRowData.value })
   newRowData.value = null
   editingCell.value = { row: -1, col: '', isDatetime: false }
@@ -591,19 +591,19 @@ function onTableContext(event: MouseEvent) {
 
 // ============ Utilities ============
 function formatValue(val: unknown): string {
-  if (val === null || val === undefined) return ''
-  if (typeof val === 'boolean') return val ? 'true' : 'false'
-  if (val instanceof Boolean) return val.valueOf() ? 'true' : 'false'
+  if (val === null || val === undefined) {return ''}
+  if (typeof val === 'boolean') {return val ? 'true' : 'false'}
+  if (val instanceof Boolean) {return val.valueOf() ? 'true' : 'false'}
 
   // Date objects from database drivers
   if (val instanceof Date) {
-    if (isNaN(val.getTime())) return String(val)
+    if (isNaN(val.getTime())) {return String(val)}
     const pad = (n: number) => String(n).padStart(2, '0')
     return `${val.getFullYear()}-${pad(val.getMonth() + 1)}-${pad(val.getDate())} ${pad(val.getHours())}:${pad(val.getMinutes())}:${pad(val.getSeconds())}`
   }
 
   // BigInt (common for large IDs)
-  if (typeof val === 'bigint') return val.toString()
+  if (typeof val === 'bigint') {return val.toString()}
 
   // Buffer / Uint8Array (binary data, show hex preview)
   if (val instanceof Uint8Array) {
@@ -662,12 +662,12 @@ function formatValue(val: unknown): string {
           return item
         })
       }
-      if (typeof parsed === 'boolean') return parsed ? 'true' : 'false'
-      if (parsed === null) return 'NULL'
-      if (typeof parsed === 'number') return String(parsed)
+      if (typeof parsed === 'boolean') {return parsed ? 'true' : 'false'}
+      if (parsed === null) {return 'NULL'}
+      if (typeof parsed === 'number') {return String(parsed)}
       if (typeof parsed === 'object') {
         const json = JSON.stringify(parsed)
-        if (json.length > 100) return json.slice(0, 100) + '…'
+        if (json.length > 100) {return json.slice(0, 100) + '…'}
         return json
       }
     } catch {

@@ -328,14 +328,14 @@ let pendingDeletePresetId: string | null = null
 
 function deletePreset(id: string) {
   const preset = presets.value.find(p => p.id === id)
-  if (!preset) return
+  if (!preset) {return}
   pendingDeletePresetId = id
   deleteConfirmMessage.value = `确定删除预设"${preset.name}"？`
   deleteConfirmDialog.value?.showModal()
 }
 
 function executeDeletePreset() {
-  if (!pendingDeletePresetId) return
+  if (!pendingDeletePresetId) {return}
   const id = pendingDeletePresetId
   pendingDeletePresetId = null
   deleteConfirmDialog.value?.close()
@@ -375,7 +375,7 @@ const groupedPresets = computed(() => {
   const groups = new Map<string, any[]>()
   for (const preset of presets.value) {
     const g = preset.presetGroup || '未分组'
-    if (!groups.has(g)) groups.set(g, [])
+    if (!groups.has(g)) {groups.set(g, [])}
     groups.get(g)!.push(preset)
   }
   // 排序：生产 → 测试 → 预发 → 开发 → 其他 → 未分组
@@ -383,11 +383,11 @@ const groupedPresets = computed(() => {
   const sorted = [...groups.entries()].sort(([a], [b]) => {
     const ai = groupOrder.indexOf(a)
     const bi = groupOrder.indexOf(b)
-    if (ai !== -1 && bi !== -1) return ai - bi
-    if (ai !== -1) return -1
-    if (bi !== -1) return 1
-    if (a === '未分组') return 1
-    if (b === '未分组') return -1
+    if (ai !== -1 && bi !== -1) {return ai - bi}
+    if (ai !== -1) {return -1}
+    if (bi !== -1) {return 1}
+    if (a === '未分组') {return 1}
+    if (b === '未分组') {return -1}
     return a.localeCompare(b, 'zh')
   })
   return sorted.map(([presetGroup, items]) => ({ presetGroup, presets: items }))
@@ -414,7 +414,7 @@ function buildCommand(preset: any): string {
       return `journalctl ${paths.map((u: string) => `-u ${quotePath(u)}`).join(' ')} -n ${preset.maxLines} -f --no-pager`
     case 'docker':
       // docker logs doesn't support multiple containers, chain them
-      return paths.map((c: string) => `(echo \"=== ${quotePath(c)} ===\" && docker logs --tail ${preset.maxLines} -f ${quotePath(c)} 2>&1)`).join(' & ')
+      return paths.map((c: string) => `(echo "=== ${quotePath(c)} ===" && docker logs --tail ${preset.maxLines} -f ${quotePath(c)} 2>&1)`).join(' & ')
     case 'custom':
       return preset.logPath
     default:
@@ -425,9 +425,9 @@ function buildCommand(preset: any): string {
 // 检测日志级别
 function detectLevel(content: string): string {
   const upper = content.toUpperCase()
-  if (upper.includes('ERROR') || upper.includes('FATAL') || upper.includes('CRITICAL') || upper.includes('EXCEPTION')) return 'error'
-  if (upper.includes('WARN') || upper.includes('WARNING')) return 'warn'
-  if (upper.includes('DEBUG')) return 'debug'
+  if (upper.includes('ERROR') || upper.includes('FATAL') || upper.includes('CRITICAL') || upper.includes('EXCEPTION')) {return 'error'}
+  if (upper.includes('WARN') || upper.includes('WARNING')) {return 'warn'}
+  if (upper.includes('DEBUG')) {return 'debug'}
   return 'info'
 }
 
@@ -441,11 +441,11 @@ function getKeywordsFromPreset(): string {
 
 // 搜索结果高亮
 function highlightSearchResult(content: string): string {
-  if (typeof content !== 'string') return ''
+  if (typeof content !== 'string') {return ''}
   let result = content.replace(/</g, '&lt;').replace(/>/g, '&gt;')
 
   const kw = queryMode.value === 'search' ? searchKeyword.value : getKeywordsFromPreset()
-  if (!kw?.trim()) return result
+  if (!kw?.trim()) {return result}
 
   const escapedKw = kw.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const regex = new RegExp(`(${escapedKw})`, 'gi')
@@ -457,7 +457,7 @@ function highlightSearchResult(content: string): string {
 const searchPlaceholder = computed(() => {
   const preset = selectedPreset.value
   const kw = preset?.keywords?.length ? preset.keywords.join(', ') : ''
-  if (kw) return `搜索日志... 预设关键字：${kw}`
+  if (kw) {return `搜索日志... 预设关键字：${kw}`}
   return '搜索关键字'
 })
 
@@ -551,7 +551,7 @@ async function stopQuery() {
   isStreaming.value = false
 
   try {
-    if (id) await getTauriAPI().logsStopStream(id)
+    if (id) {await getTauriAPI().logsStopStream(id)}
   } catch (e) {
     console.error('Failed to stop stream:', e)
   }
@@ -650,10 +650,10 @@ const logBuffer: Array<{ serverId: string; serverName: string; line: string }> =
 let logFlushTimer: ReturnType<typeof setTimeout> | null = null
 
 function scheduleFlush() {
-  if (logFlushTimer) return
+  if (logFlushTimer) {return}
   logFlushTimer = setTimeout(() => {
     logFlushTimer = null
-    if (logBuffer.length === 0) return
+    if (logBuffer.length === 0) {return}
     const batch = logBuffer.splice(0, logBuffer.length)
     const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean }> = []
     const now = Date.now()
@@ -662,7 +662,7 @@ function scheduleFlush() {
       ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
       : []
     for (const data of batch) {
-      if (!data?.line || typeof data.line !== 'string' || !data?.serverId) continue
+      if (!data?.line || typeof data.line !== 'string' || !data?.serverId) {continue}
       const content = data.line
       newLines.push({
         id: `${data.serverId}-${now}-${Math.random()}`,
@@ -709,9 +709,9 @@ function scrollToBottomSilent() {
 
 // 滚动事件
 function onScroll() {
-  if (!logContainer.value) return
+  if (!logContainer.value) {return}
   // 程序化滚动期间，忽略 onScroll
-  if (scrollingFromRAF) return
+  if (scrollingFromRAF) {return}
 
   const { scrollTop, scrollHeight, clientHeight } = logContainer.value
   const atBottom = scrollHeight - scrollTop - clientHeight < 50
@@ -731,7 +731,7 @@ function scrollToBottom() {
 }
 // 继续查询（终止后重新启动同一预设，不清除日志）
 async function resumeQuery() {
-  if (!selectedPreset.value) return
+  if (!selectedPreset.value) {return}
   // 清理缓冲但不清除已有日志
   if (logFlushTimer) { clearTimeout(logFlushTimer); logFlushTimer = null }
   logBuffer.length = 0
@@ -930,7 +930,7 @@ async function doDeletePreset(id: string) {
     console.log("[deletePreset] called")
     await getTauriAPI().logPresetsDelete(id)
     if (selectedPreset.value?.id === id) {
-      if (isStreaming.value) await stopQuery()
+      if (isStreaming.value) {await stopQuery()}
       selectedPreset.value = null
     }
     await loadPresets()
@@ -960,9 +960,9 @@ async function loadServers() {
 }
 
 // 事件监听
-const onLineHandler = (data: any) => { if (data?.streamId === streamId.value) addLogLine(data) }
+const onLineHandler = (data: any) => { if (data?.streamId === streamId.value) {addLogLine(data)} }
 const onEndHandler = (data: any) => {
-  if (!data?.serverId) return
+  if (!data?.serverId) {return}
   activeServers.value.delete(data.serverId)
   if (activeServers.value.size === 0) {
     isStreaming.value = false
@@ -996,7 +996,7 @@ onMounted(async () => {
   cleanupStreamStopped = await getTauriAPI().onLogsStreamStopped(onStreamStoppedHandler);
 
   _cleanupDataChanged = await getTauriAPI().onDataChanged?.(({ type }: { type: string }) => {
-    if (type === 'servers') loadServers()
+    if (type === 'servers') {loadServers()}
   })
 })
 

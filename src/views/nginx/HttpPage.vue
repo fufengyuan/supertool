@@ -216,7 +216,7 @@ const api = getTauriAPI()
 
 // 加载数据
 async function loadParams() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const result = await api.getHttpParamsByPreset(props.presetId)
@@ -283,12 +283,12 @@ async function onDeleteParam(id: string) {
 
 // 上移/下移
 async function moveUp(index: number) {
-  if (index <= 0) return
+  if (index <= 0) {return}
   swapParams(index, index - 1)
 }
 
 async function moveDown(index: number) {
-  if (index >= params.value.length - 1) return
+  if (index >= params.value.length - 1) {return}
   swapParams(index, index + 1)
 }
 

@@ -12,10 +12,10 @@
       :highlightSnippet="highlightSnippet"
       @refresh="refreshSessions"
       @newChat="startNewChat"
-      @select="selectSession"
-      @delete="deleteSession"
+      @select="selectSessionWithMessages"
+      @delete="deleteSessionLocal"
       @search="handleSessionSearch"
-      @jumpToResult="jumpToSearchResult"
+      @jumpToResult="jumpToSearchResultWithMessages"
       @clearSearch="clearSessionSearch"
     />
 
@@ -92,7 +92,7 @@
             <SvgIcon name="checklist" size="12" />
             <span class="text-xs">{{ completedTasksCount }}/{{ currentTasks.length }}</span>
           </button>
-          <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSession" title="删除">
+          <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSessionLocal" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
           <!-- 搜索按钮 -->
@@ -315,8 +315,8 @@ defineOptions({ name: 'HermesChat' })
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
+import { useStreamingHandler } from '@/composables/useStreamingHandler';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
@@ -324,6 +324,8 @@ import { markedHighlight } from 'marked-highlight';
 import javascript from 'highlight.js/lib/languages/javascript';
 import { getTauriAPI } from '../../utils/tauri-api';
 import type { GitRepo } from '../../types';
+import { useSessionManager, type Session, type SearchResult } from '@/composables/useSessionManager';
+import { useToolExpandState, getToolIcon, formatArgsSummary, formatToolResult, formatTodoResult } from '@/composables/useToolFormatter';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
@@ -374,31 +376,40 @@ function parseModelName(fullName: string): { provider: string | null; name: stri
 const route = useRoute();
 const router = useRouter();
 
-interface Session {
-  id: string;
-  title: string | null;
-  model: string;
-  source: string;
-  startedAt?: number; // 可选，因为 Python bridge 可能不返回
-  endedAt?: number | null; // 可选
-  messageCount: number;
-  preview: string;
-  lastActive?: number; // 可选
-  parentSessionId?: string | null; // subagent 会话标识
-}
+// ===== 使用会话管理 Composable =====
+const {
+  sessions,
+  searchResults,
+  isSearching,
+  currentSessionId,
+  currentSession,
+  loadingSessions,
+  gitRepos,
+  refreshSessions,
+  selectSession: selectSessionBase,
+  startNewChat: startNewSession,
+  deleteSession: deleteSessionBase,
+  deleteCurrentSession: deleteCurrentSessionBase,
+  handleSessionSearch,
+  clearSessionSearch,
+  jumpToSearchResult: jumpToSearchResultBase,
+  loadGitRepos,
+  sourceIcon,
+  highlightSnippet,
+  generateSessionTitle,
+} = useSessionManager();
 
-// 搜索结果（来自 Hermes FTS5 搜索）
-interface SearchResult {
-  sessionId: string;
-  sessionTitle: string | null;
-  messageId: string;
-  role: string;
-  snippet: string;
-  content: string | null;
-  timestamp: number | null;
-  source: string;
-  model: string;
-}
+// 工具展开状态
+const {
+  expandedToolCalls,
+  expandedThinking,
+  toggleToolCallExpand,
+  isToolCallExpanded,
+  toggleThinkingExpand,
+  isThinkingExpanded,
+} = useToolExpandState();
+
+// 搜索结果（来自 Hermes FTS5 搜索） - 类型已从 composable 导入
 
 // 工具调用详情
 interface ToolCall {
@@ -473,35 +484,60 @@ interface TaskItem {
 }
 
 // State
-const sessions = ref<Session[]>([]);
-const searchResults = ref<SearchResult[]>([]); // 搜索结果
-const isSearching = ref(false); // 搜索中状态
-const currentSessionId = ref<string | null>(null);
-const currentSession = ref<Session | null>(null);
+// 注：sessions, searchResults, isSearching, currentSessionId, currentSession, loadingSessions, gitRepos
+// 已从 useSessionManager composable 导入
 const messages = ref<Message[]>([]);
 const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
 const showTaskPanel = ref(true); // 是否显示任务面板
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
-const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
+// 注：gitRepos 已从 useSessionManager composable 导入
 const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
-const loadingSessions = ref(false);
+// 注：loadingSessions 已从 useSessionManager composable 导入
 const loadingMessages = ref(false);
 const isAborting = ref(false); // 正在停止中
 const showScrollToBottom = ref(false); // 是否显示回到底部按钮
 const hermesAvailable = ref(false);
 
-// 每个会话独立的状态（支持同时处理多个会话）
-const streamingSessions = reactive<Record<string, boolean>>({});  // 各会话是否流式响应中
-const thinkingTexts = reactive<Record<string, string>>({});       // 各会话的思考/工具文字
-const sessionRoundEnded = reactive<Record<string, boolean>>({});  // 各会话的轮次结束标记
-const sessionMessagesCache = reactive<Record<string, Message[]>>({});  // 各会话的消息缓存（流式输出时保存）
+// 调试日志函数（写入日志文件）
+const agentLog = async (message: string) => {
+  // 直接写入 DEBUG 日志，不再调用 console.log（会被 main.ts 拦截写入 INFO，导致双重记录）
+  try {
+    const api = getTauriAPI();
+    await api.writeSystemLog('debug', 'agent-chat', message);
+  } catch (e) {
+    // 忽略日志写入失败
+  }
+};
 
-// 模板中使用的快捷访问（computed 自动解包）
-const isStreaming = computed(() => !!currentSessionId.value && !!streamingSessions[currentSessionId.value]);
-const thinkingText = computed({
-  get: () => currentSessionId.value ? (thinkingTexts[currentSessionId.value] || '') : '',
-  set: (val) => { if (currentSessionId.value) thinkingTexts[currentSessionId.value] = val; },
+// 滚动到底部
+const scrollToBottom = () => {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      showScrollToBottom.value = false;
+    }
+  });
+};
+
+// 使用流式响应处理 composable
+const {
+  streamingSessions,
+  thinkingTexts,
+  sessionRoundEnded,
+  sessionMessagesCache,
+  isStreaming,
+  thinkingText,
+  setupStreamingListeners,
+  cleanupStreamingListeners,
+  setStreaming,
+  resetRoundEnded,
+} = useStreamingHandler({
+  currentSessionId,
+  messages,
+  currentTasks,
+  agentLog,
+  scrollToBottom,
 });
 
 // 当前流式响应的 assistant 消息（数组最后一个 assistant 消息）
@@ -520,12 +556,6 @@ const displayMessages = computed(() => {
 // 搜索状态
 const searchQuery = ref('');
 const filteredMessages = ref<Message[]>([]);
-
-// 工具调用展开状态 (key: `${msgIdx}-${toolIdx}`)
-const expandedToolCalls = ref<Set<string>>(new Set());
-
-// 思考过程展开状态 (key: msgIdx)
-const expandedThinking = ref<Set<number>>(new Set());
 
 // 子会话折叠展开状态 (key: sessionId)
 const expandedChildSessions = ref<Set<string>>(new Set());
@@ -567,7 +597,7 @@ const displayItems = computed<DisplayItem[]>(() => {
   // 遍历主会话消息，在适当位置插入子会话组
   const insertedSessions = new Set<string>();
   for (const msg of messages.value) {
-    if (msg.isChild) continue; // 子会话消息不单独处理
+    if (msg.isChild) {continue;} // 子会话消息不单独处理
     
     items.push(msg);
     
@@ -575,7 +605,7 @@ const displayItems = computed<DisplayItem[]>(() => {
     // 子会话的开始时间应该 >= 当前消息时间，且 < 下一条主消息时间（如果有的话）
     const msgTime = msg.timestamp || 0;
     for (const [sessionId, group] of childSessionGroups) {
-      if (insertedSessions.has(sessionId)) continue;
+      if (insertedSessions.has(sessionId)) {continue;}
       
       // 子会话开始时间 >= 当前消息时间，插入到这里
       if (group.firstTimestamp >= msgTime) {
@@ -616,34 +646,6 @@ const displayItems = computed<DisplayItem[]>(() => {
   return items;
 });
 
-// 切换工具调用展开
-const toggleToolCallExpand = (key: string) => {
-  if (expandedToolCalls.value.has(key)) {
-    expandedToolCalls.value.delete(key);
-  } else {
-    expandedToolCalls.value.add(key);
-  }
-};
-
-// 检查是否展开
-const isToolCallExpanded = (key: string): boolean => {
-  return expandedToolCalls.value.has(key);
-};
-
-// 切换思考过程展开
-const toggleThinkingExpand = (msgIdx: number) => {
-  if (expandedThinking.value.has(msgIdx)) {
-    expandedThinking.value.delete(msgIdx);
-  } else {
-    expandedThinking.value.add(msgIdx);
-  }
-};
-
-// 检查思考过程是否展开
-const isThinkingExpanded = (msgIdx: number): boolean => {
-  return expandedThinking.value.has(msgIdx);
-};
-
 // Refs
 const messagesContainer = ref<HTMLElement | null>(null);
 const titleInputRef = ref<HTMLInputElement | null>(null);
@@ -672,25 +674,6 @@ if (typeof window !== 'undefined') {
   (window as any).copyCode = copyCode;
 }
 
-// Event listeners
-let unlistenDelta: UnlistenFn | null = null;
-let unlistenThinking: UnlistenFn | null = null;
-let unlistenToolStart: UnlistenFn | null = null;
-let unlistenToolComplete: UnlistenFn | null = null;
-let unlistenError: UnlistenFn | null = null;
-let unlistenDone: UnlistenFn | null = null;
-
-// 调试日志函数（写入日志文件）
-const agentLog = async (message: string) => {
-  // 直接写入 DEBUG 日志，不再调用 console.log（会被 main.ts 拦截写入 INFO，导致双重记录）
-  try {
-    const api = getTauriAPI();
-    await api.writeSystemLog('debug', 'agent-chat', message);
-  } catch (e) {
-    // 忽略日志写入失败
-  }
-};
-
 // 处理 ChatInput 发送事件
 interface PathItem {
   path: string;
@@ -700,7 +683,7 @@ interface PathItem {
 }
 
 const handleSend = async (text: string, paths: PathItem[], model: string) => {
-  if (!text.trim()) return;
+  if (!text.trim()) {return;}
 
   // 如果正在处理，先打断当前处理
   if (isStreaming.value) {
@@ -708,7 +691,7 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
     await new Promise(resolve => setTimeout(resolve, 200));
     if (isStreaming.value) {
       void agentLog('[handleSend] abort 后状态仍为 streaming，强制重置');
-      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+      if (currentSessionId.value) {streamingSessions[currentSessionId.value] = false;}
     }
   }
 
@@ -733,9 +716,9 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
 
   // 开始流式输出
   const sid = currentSessionId.value || '';
-  if (sid) streamingSessions[sid] = true;
-  if (sid) thinkingTexts[sid] = '';
-  if (sid) sessionRoundEnded[sid] = false;
+  if (sid) {streamingSessions[sid] = true;}
+  if (sid) {thinkingTexts[sid] = '';}
+  if (sid) {sessionRoundEnded[sid] = false;}
 
   try {
     const modelToUse = model || null;
@@ -772,7 +755,7 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
     }
 
     thinkingText.value = '';
-    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+    if (currentSessionId.value) {sessionRoundEnded[currentSessionId.value] = false;}
   } catch (e) {
     console.error('Chat error:', e);
     messages.value.push({
@@ -785,7 +768,7 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
     });
   }
 
-  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+  if (currentSessionId.value) {streamingSessions[currentSessionId.value] = false;}
   scrollToBottom();
   chatInputRef.value?.focus();
 };
@@ -830,301 +813,8 @@ const saveFavoriteFolders = () => {
   }
 };
 
-// 加载 Git 仓库列表
-const loadGitRepos = async () => {
-  try {
-    const api = getTauriAPI();
-    const res = await api.getGitRepos();
-    gitRepos.value = res?.data || [];
-  } catch (e) {
-    console.error('加载 Git 仓库列表失败:', e);
-    gitRepos.value = [];
-  }
-};
-
-// Event listeners
-const searchSessions = async (query: string) => {
-  const trimmedQuery = query.trim();
-  if (!trimmedQuery) {
-    searchResults.value = [];
-    return;
-  }
-  
-  isSearching.value = true;
-  try {
-    const result = await invoke<{ results: SearchResult[]; total: number; query: string }>('agent_search_sessions', {
-      query: trimmedQuery,
-      limit: 20,
-    });
-    searchResults.value = result.results;
-  } catch (e) {
-    console.error('Search failed:', e);
-    searchResults.value = [];
-  } finally {
-    isSearching.value = false;
-  }
-};
-
-// 搜索防抖
-let searchDebounceTimer: number | null = null;
-
-// 处理 SessionSidebar 的搜索事件
-const handleSessionSearch = (query: string) => {
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-  }
-  if (query.trim()) {
-    searchDebounceTimer = window.setTimeout(() => {
-      searchSessions(query);
-    }, 300);
-  } else {
-    searchResults.value = [];
-  }
-};
-
-// 清空搜索
-const clearSessionSearch = () => {
-  searchResults.value = [];
-};
-
-const sourceIcon = (source: string) => {
-  const icons: Record<string, string> = {
-    cli: 'terminal',
-    feishu: 'message',
-    telegram: 'message',
-    discord: 'message',
-    slack: 'message',
-    cron: 'clock',
-  };
-  return icons[source] || 'chat';
-};
-
-// 工具图标映射
-const toolIconMap: Record<string, { icon: string; color: string }> = {
-  // 搜索类
-  'search_files': { icon: 'search', color: 'text-info' },
-  'web_search': { icon: 'search', color: 'text-info' },
-  'browser_*': { icon: 'browser', color: 'text-info' },
-  
-  // 文件操作
-  'read_file': { icon: 'file', color: 'text-success' },
-  'write_file': { icon: 'fileEdit', color: 'text-warning' },
-  'patch': { icon: 'tool', color: 'text-warning' },
-  
-  // 终端/代码
-  'terminal': { icon: 'terminal', color: 'text-error' },
-  'execute_code': { icon: 'code', color: 'text-primary' },
-  
-  // Agent/技能
-  'delegate_task': { icon: 'bot', color: 'text-info' },
-  'skill_view': { icon: 'skill', color: 'text-secondary' },
-  'skill_manage': { icon: 'skill', color: 'text-secondary' },
-  'skills_list': { icon: 'list', color: 'text-secondary' },
-  
-  // 会话/记忆
-  'session_search': { icon: 'history', color: 'text-accent' },
-  'memory': { icon: 'brain', color: 'text-accent' },
-  
-  // 浏览器操作
-  'browser_navigate': { icon: 'browser', color: 'text-info' },
-  'browser_click': { icon: 'mouse', color: 'text-info' },
-  'browser_snapshot': { icon: 'camera', color: 'text-info' },
-  'browser_vision': { icon: 'eye', color: 'text-info' },
-  
-  // Cron
-  'cronjob': { icon: 'clock', color: 'text-warning' },
-  
-  // 其他
-  'clarify': { icon: 'question', color: 'text-warning' },
-  'todo': { icon: 'checklist', color: 'text-success' },
-  'image_generate': { icon: 'image', color: 'text-secondary' },
-  'text_to_speech': { icon: 'audio', color: 'text-secondary' },
-  'vision_analyze': { icon: 'eye', color: 'text-info' },
-  'send_message': { icon: 'send', color: 'text-success' },
-};
-
-// 获取工具图标信息
-const getToolIcon = (toolName: string): { icon: string; color: string } => {
-  // 精确匹配
-  if (toolIconMap[toolName]) {
-    return toolIconMap[toolName];
-  }
-  
-  // 通配符匹配 (browser_*)
-  for (const [pattern, info] of Object.entries(toolIconMap)) {
-    if (pattern.endsWith('*') && toolName.startsWith(pattern.slice(0, -1))) {
-      return info;
-    }
-  }
-  
-  // 默认
-  return { icon: 'tool', color: 'text-warning' };
-};
-
-// 格式化工具参数摘要（显示关键参数的一行）
-const formatArgsSummary = (args: Record<string, unknown>): string => {
-  if (!args || typeof args !== 'object') return '';
-  
-  // 优先显示的关键参数名
-  const priorityKeys = ['path', 'url', 'message', 'query', 'command', 'file', 'text', 'pattern', 'name', 'target'];
-  
-  for (const key of priorityKeys) {
-    if (args[key]) {
-      const value = String(args[key]);
-      return `${key}: ${value.length > 200 ? value.slice(0, 200) + '...' : value}`;
-    }
-  }
-  
-  // 没有优先参数，显示第一个参数
-  const firstKey = Object.keys(args)[0];
-  if (firstKey) {
-    const value = String(args[firstKey]);
-    return `${firstKey}: ${value.length > 200 ? value.slice(0, 200) + '...' : value}`;
-  }
-  
-  return '';
-};
-
-// 格式化 todo 工具返回的任务列表为友好的 HTML
-const formatTodoResult = (result: string): string => {
-  try {
-    // 尝试解析 JSON
-    const parsed = JSON.parse(result);
-    
-    // 提取任务数组：支持两种格式
-    // 1. 直接数组 [{id, content, status}]
-    // 2. 对象格式 {todos: [...], summary: {...}}
-    let tasks: Array<{ id: string; content: string; status?: string }> = [];
-    let summary = null;
-    
-    if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
-      // 直接数组格式
-      tasks = parsed;
-    } else if (parsed.todos && Array.isArray(parsed.todos)) {
-      // 对象格式 {todos, summary}
-      tasks = parsed.todos;
-      summary = parsed.summary;
-    }
-    
-    // 如果成功提取到任务列表
-    if (tasks.length > 0) {
-      const tasksHtml = tasks.map((task: { id: string; content: string; status?: string }) => {
-        const status = task.status || 'pending';
-        const isCompleted = status === 'completed';
-        const isCancelled = status === 'cancelled';
-        const symbol = isCompleted ? '✓' : isCancelled ? '✕' : '○';
-        const colorClass = isCompleted ? 'text-success' : isCancelled ? 'text-base-content/30' : 'text-base-content/40';
-        return `<div class="flex items-center gap-2 py-0.5">
-          <span class="${colorClass} text-xs">${symbol}</span>
-          <span class="text-xs flex-1">${task.content}</span>
-        </div>`;
-      }).join('');
-      
-      // 如果有汇总信息，显示在底部
-      let summaryHtml = '';
-      if (summary) {
-        summaryHtml = `<div class="flex items-center gap-3 mt-2 pt-1 border-t border-base-content/10 text-xs text-base-content/50">
-          <span>总计 ${summary.total}</span>
-          <span class="text-warning">进行中 ${summary.in_progress}</span>
-          <span class="text-base-content/40">待处理 ${summary.pending}</span>
-          <span class="text-success">已完成 ${summary.completed}</span>
-          ${summary.cancelled > 0 ? `<span class="text-base-content/30">已取消 ${summary.cancelled}</span>` : ''}
-        </div>`;
-      }
-      
-      return `<div class="space-y-0">${tasksHtml}${summaryHtml}</div>`;
-    }
-    
-    // 其他 JSON 格式，美化显示
-    return `<pre class="text-xs whitespace-pre-wrap">${JSON.stringify(parsed, null, 2)}</pre>`;
-  } catch {
-    // 非 JSON，直接显示
-    return `<div class="text-xs whitespace-pre-wrap">${result}</div>`;
-  }
-};
-
-// 格式化子Agent结果（delegate_task）
-const formatDelegateResult = (result: string): string => {
-  try {
-    const parsed = JSON.parse(result);
-    
-    // delegate_task 返回格式: { results: [...], total_duration_seconds }
-    if (parsed.results && Array.isArray(parsed.results)) {
-      const htmlParts: string[] = [];
-      
-      for (const task of parsed.results) {
-        const statusIcon = task.status === 'completed' ? '✓' : 
-                          task.status === 'error' ? '✕' : 
-                          task.status === 'timeout' ? '⏱' : '○';
-        const statusColor = task.status === 'completed' ? 'text-success' : 
-                           task.status === 'error' ? 'text-error' : 
-                           task.status === 'timeout' ? 'text-warning' : 'text-base-content/40';
-        
-        htmlParts.push(`
-          <div class="py-1.5 border-b border-base-content/10 last:border-b-0">
-            <div class="flex items-center gap-2 mb-1">
-              <span class="${statusColor} text-xs font-bold">${statusIcon}</span>
-              <span class="text-xs text-base-content/60">任务 ${task.task_index + 1}</span>
-              <span class="text-xs text-base-content/40">${task.duration_seconds?.toFixed(1) || '-'}s</span>
-              <span class="text-xs text-base-content/30">${task.model || '-'}</span>
-            </div>
-            <div class="text-xs text-base-content whitespace-pre-wrap max-h-32 overflow-auto">${task.summary || '（无摘要）'}</div>
-          </div>
-        `);
-        
-        // 如果有工具调用记录，显示简要
-        if (task.tool_trace && task.tool_trace.length > 0) {
-          const toolsBrief = task.tool_trace.slice(0, 5).map((t: { tool: string; status: string }) => 
-            `<span class="text-xs text-base-content/40">${t.tool}</span>`
-          ).join(' → ');
-          htmlParts.push(`
-            <div class="px-2 py-0.5 text-xs text-base-content/30">
-              调用链: ${toolsBrief}${task.tool_trace.length > 5 ? ' ...' : ''}
-            </div>
-          `);
-        }
-      }
-      
-      // 总耗时
-      if (parsed.total_duration_seconds) {
-        htmlParts.push(`
-          <div class="pt-1 text-xs text-base-content/40">
-            总耗时: ${parsed.total_duration_seconds.toFixed(1)}s
-          </div>
-        `);
-      }
-      
-      return `<div class="space-y-0">${htmlParts.join('')}</div>`;
-    }
-    
-    // 其他 JSON 格式
-    return `<pre class="text-xs whitespace-pre-wrap">${JSON.stringify(parsed, null, 2)}</pre>`;
-  } catch {
-    return `<div class="text-xs whitespace-pre-wrap">${result}</div>`;
-  }
-};
-
-// 格式化工具结果（根据工具类型选择渲染方式）
-const formatToolResult = (toolName: string, result: string): string => {
-  // todo 工具特殊渲染
-  if (toolName === 'todo') {
-    return formatTodoResult(result);
-  }
-  
-  // delegate_task 工具特殊渲染
-  if (toolName === 'delegate_task') {
-    return formatDelegateResult(result);
-  }
-  
-  // 其他工具，默认显示
-  // 尝试解析为 JSON 并美化
-  try {
-    const parsed = JSON.parse(result);
-    return `<pre class="text-xs whitespace-pre-wrap overflow-auto max-h-48">${JSON.stringify(parsed, null, 2)}</pre>`;
-  } catch {
-    return `<div class="text-xs whitespace-pre-wrap overflow-auto max-h-48">${result}</div>`;
-  }
-};
+// 注：loadGitRepos, searchSessions, handleSessionSearch, clearSessionSearch, sourceIcon
+// 已从 useSessionManager composable 导入
 
 // Markdown 渲染缓存 — key 为消息原文，value 为渲染后的 HTML
 const markdownCache = new Map<string, string>();
@@ -1175,10 +865,10 @@ markdownRenderer.code = function({ text: code, lang }: { text: string; lang?: st
 
 // Markdown 渲染函数 - 添加代码块复制按钮和特殊格式处理
 const renderMarkdown = (text: string | null): string => {
-  if (!text) return '';
+  if (!text) {return '';}
   // 缓存命中 — 避免重复解析已渲染过的消息
   const cached = markdownCache.get(text);
-  if (cached) return cached;
+  if (cached) {return cached;}
   try {
     // 预处理：处理特殊格式的警告框
     let processedText = text
@@ -1203,7 +893,7 @@ const renderMarkdown = (text: string | null): string => {
     // LRU 缓存：淘汰最旧的条目
     if (markdownCache.size >= MAX_CACHE) {
       const firstKey = markdownCache.keys().next().value;
-      if (firstKey) markdownCache.delete(firstKey);
+      if (firstKey) {markdownCache.delete(firstKey);}
     }
     markdownCache.set(text, result);
     return result;
@@ -1214,7 +904,7 @@ const renderMarkdown = (text: string | null): string => {
 };
 
 const formatTime = (ts: number | null | undefined) => {
-  if (!ts) return '';
+  if (!ts) {return '';}
   const date = new Date(ts * 1000);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -1236,7 +926,7 @@ const formatTime = (ts: number | null | undefined) => {
 
 // 格式化消息时间戳（显示具体时间，不是相对时间）
 const formatMessageTime = (ts: number | null | undefined) => {
-  if (!ts) return '';
+  if (!ts) {return '';}
   const date = new Date(ts * 1000);
   const now = new Date();
   const isToday = date.toDateString() === now.toDateString();
@@ -1249,183 +939,171 @@ const formatMessageTime = (ts: number | null | undefined) => {
 };
 
 // Methods
-const refreshSessions = async () => {
-  loadingSessions.value = true;
-  try {
-    const result = await invoke<{ sessions: Session[]; total: number }>('agent_list_sessions', { limit: 50 });
-    // 按 lastActive 降序排序（最近活跃的在前）
-    sessions.value = result.sessions.sort((a, b) => {
-      const aTime = a.lastActive || a.startedAt || 0;
-      const bTime = b.lastActive || b.startedAt || 0;
-      return bTime - aTime;
-    });
-  } catch (e) {
-    console.error('Failed to list sessions:', e);
-  }
-  loadingSessions.value = false;
-};
+// 注：refreshSessions, highlightSnippet 已从 useSessionManager composable 导入
 
-// 高亮搜索关键词
-const highlightSnippet = (snippet: string, query: string) => {
-  if (!query) return snippet;
-  // FTS5 already marks matches with >>>...<<<
-  // Convert to <mark> tags
-  return snippet
-    .replace(/>>>/g, '<mark class="bg-warning/30 text-warning px-0.5 rounded">')
-    .replace(/<<</g, '</mark>');
-};
-
-// 点击搜索结果，跳转到对应会话和消息
-const jumpToSearchResult = async (result: SearchResult) => {
-  // 清空搜索，回到正常模式
-  clearSessionSearch();
-  
-  // 查找会话是否在列表中
-  const session = sessions.value.find(s => s.id === result.sessionId);
-  if (session) {
-    await selectSession(session);
-  } else {
-    // 会话不在列表中，需要加载
-    try {
-      const sessionResult = await invoke<{ sessionId: string; messages: RawMessage[] }>('agent_get_session', {
-        sessionId: result.sessionId,
-      });
-      // 创建临时 Session 对象
-      const tempSession: Session = {
-        id: result.sessionId,
-        title: result.sessionTitle,
-        model: result.model,
-        source: result.source,
-        messageCount: sessionResult.messages.length,
-        preview: '',
-        lastActive: result.timestamp || Date.now() / 1000,
-      };
-      sessions.value.unshift(tempSession);
-      await selectSession(tempSession);
-    } catch (e) {
-      console.error('Failed to load session:', e);
-    }
-  }
-};
-
-const selectSession = async (session: Session) => {
-  // 切换会话：不打断旧会话的流式处理，只切显示
-  // 旧会话继续在后台流式处理，事件更新 per-session 状态
-  currentSessionId.value = session.id;
-  currentSession.value = session;
-  
-  // 检查是否有缓存（流式输出中的会话）
-  const cached = sessionMessagesCache[session.id];
-  const isStreamingSession = !!streamingSessions[session.id];
-  
-  if (cached && cached.length > 0 && isStreamingSession) {
-    // 有缓存且正在流式输出，直接用缓存
-    messages.value = [...cached];
-    loadingMessages.value = false;
-    return;
-  }
-  
-  // 没有缓存或流式已结束，从数据库加载
-  loadingMessages.value = true;
-  messages.value = [];
-
-  try {
-    // 直接从 SQLite 读取（毫秒级），不再通过 Python bridge
-    const result = await invoke<{ success: boolean; messages: RawMessage[]; sessionId: string }>('agent_list_messages', {
-      sessionId: session.id,
-    });
+// 选择会话并加载消息（包含消息处理逻辑）
+const selectSessionWithMessages = async (session: Session) => {
+  // 使用 composable 的 selectSessionBase，并传递消息处理回调
+  await selectSessionBase(session, async (params) => {
+    // 检查是否有缓存（流式输出中的会话）
+    const cached = sessionMessagesCache[params.sessionId];
+    const isStreamingSession = !!streamingSessions[params.sessionId];
     
-    if (!result.success || !result.messages) {
-      console.error('Failed to load messages');
-      messages.value = [];
+    if (cached && cached.length > 0 && isStreamingSession) {
+      // 有缓存且正在流式输出，直接用缓存
+      messages.value = [...cached];
+      loadingMessages.value = false;
       return;
     }
     
-    // 处理消息：关联 tool_calls 和 tool 结果
-    const processedMessages: Message[] = [];
-    const toolResultsMap = new Map<string, string>();
+    // 没有缓存或流式已结束，处理消息
+    loadingMessages.value = true;
+    messages.value = [];
     
-    // 先收集所有 tool 消息的结果
-    for (const m of result.messages) {
-      if (m.role === 'tool' && m.toolCallId) {
-        toolResultsMap.set(m.toolCallId, m.content || '');
-      }
-    }
-    
-    // 再处理 user 和 assistant 消息
-    for (const m of result.messages) {
-      if (m.role === 'tool') continue; // tool 消息不单独显示，合并到 assistant
+    try {
+      // 处理消息：关联 tool_calls 和 tool 结果
+      const processedMessages: Message[] = [];
+      const toolResultsMap = new Map<string, string>();
       
-      // 历史消息不需要显示思考内容（干扰视线）
-      const msg: Message = {
-        role: m.role,
-        content: m.content,
-        timestamp: m.timestamp,
-        toolName: m.toolName,
-        toolCalls: [],
-        isChild: m.isChild, // 保留子会话标识
-        sessionId: m.sessionId, // 保留子会话 ID
-      };
-      
-      // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果
-      if (m.role === 'assistant' && m.toolCalls) {
-        try {
-          const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
-          for (const tc of toolCallsParsed) {
-            const toolName = tc.function?.name || 'unknown';
-            const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
-            const toolResult = toolResultsMap.get(tc.id) || '';
-            
-            if (!msg.toolCalls) msg.toolCalls = [];
-            msg.toolCalls.push({
-              name: toolName,
-              args: toolArgs,
-              result: toolResult,
-              durationMs: 0, // 历史消息没有时长信息
-              isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
-              status: 'completed',
-            });
-          }
-        } catch (e) {
-          console.warn('Failed to parse tool_calls:', e);
+      // 先收集所有 tool 消息的结果
+      for (const m of params.messages) {
+        if (m.role === 'tool' && m.toolCallId) {
+          toolResultsMap.set(m.toolCallId, m.content || '');
         }
       }
       
-      processedMessages.push(msg);
+      // 再处理 user 和 assistant 消息
+      for (const m of params.messages) {
+        if (m.role === 'tool') {continue;} // tool 消息不单独显示，合并到 assistant
+        
+        // 历史消息不需要显示思考内容（干扰视线）
+        const msg: Message = {
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          toolName: m.toolName,
+          toolCalls: [],
+          isChild: m.isChild, // 保留子会话标识
+          sessionId: m.sessionId, // 保留子会话 ID
+        };
+        
+        // 如果是 assistant 消息且有 tool_calls（JSON 字符串），解析并关联结果
+        if (m.role === 'assistant' && m.toolCalls) {
+          try {
+            const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
+            for (const tc of toolCallsParsed) {
+              const toolName = tc.function?.name || 'unknown';
+              const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+              const toolResult = toolResultsMap.get(tc.id) || '';
+              
+              if (!msg.toolCalls) {msg.toolCalls = [];}
+              msg.toolCalls.push({
+                name: toolName,
+                args: toolArgs,
+                result: toolResult,
+                durationMs: 0, // 历史消息没有时长信息
+                isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
+                status: 'completed',
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to parse tool_calls:', e);
+          }
+        }
+        
+        processedMessages.push(msg);
+      }
+      
+      messages.value = processedMessages;
+    } catch (e) {
+      console.error('Failed to process messages:', e);
     }
     
-    messages.value = processedMessages;
-  } catch (e) {
-    console.error('Failed to get session:', e);
-  }
+    loadingMessages.value = false;
+    scrollToBottom();
+  });
+};
 
-  loadingMessages.value = false;
-  scrollToBottom();
+// 跳转到搜索结果（使用 composable 的 jumpToSearchResultBase 并传递消息处理回调）
+const jumpToSearchResultWithMessages = async (result: SearchResult) => {
+  await jumpToSearchResultBase(result, async (params) => {
+    // 使用与 selectSessionWithMessages 相同的消息处理逻辑
+    loadingMessages.value = true;
+    messages.value = [];
+    
+    try {
+      const processedMessages: Message[] = [];
+      const toolResultsMap = new Map<string, string>();
+      
+      for (const m of params.messages) {
+        if (m.role === 'tool' && m.toolCallId) {
+          toolResultsMap.set(m.toolCallId, m.content || '');
+        }
+      }
+      
+      for (const m of params.messages) {
+        if (m.role === 'tool') {continue;}
+        
+        const msg: Message = {
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          toolName: m.toolName,
+          toolCalls: [],
+          isChild: m.isChild,
+          sessionId: m.sessionId,
+        };
+        
+        if (m.role === 'assistant' && m.toolCalls) {
+          try {
+            const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
+            for (const tc of toolCallsParsed) {
+              const toolName = tc.function?.name || 'unknown';
+              const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+              const toolResult = toolResultsMap.get(tc.id) || '';
+              
+              if (!msg.toolCalls) {msg.toolCalls = [];}
+              msg.toolCalls.push({
+                name: toolName,
+                args: toolArgs,
+                result: toolResult,
+                durationMs: 0,
+                isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
+                status: 'completed',
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to parse tool_calls:', e);
+          }
+        }
+        
+        processedMessages.push(msg);
+      }
+      
+      messages.value = processedMessages;
+    } catch (e) {
+      console.error('Failed to process messages:', e);
+    }
+    
+    loadingMessages.value = false;
+    scrollToBottom();
+  });
 };
 
 const startNewChat = () => {
-  currentSessionId.value = null;
-  currentSession.value = null;
-  messages.value = [];
-  chatInputRef.value?.clear();
-  thinkingText.value = '';
-  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+  // 使用 composable 的 startNewSession，传递清理回调
+  startNewSession(() => {
+    messages.value = [];
+    chatInputRef.value?.clear();
+    thinkingText.value = '';
+  });
 };
 
-// 自动生成会话标题（基于第一条用户消息）
-const generateSessionTitle = (firstMessage: string): string => {
-  // 截取前30个字符作为标题
-  let title = firstMessage.trim().slice(0, 30);
-  // 如果截断，添加省略号
-  if (firstMessage.trim().length > 30) {
-    title += '...';
-  }
-  return title;
-};
+// 注：generateSessionTitle 已从 useSessionManager composable 导入
 
 // 重试发送消息
 const retryMessage = async (retryContent: string) => {
-  if (!retryContent.trim()) return;
+  if (!retryContent.trim()) {return;}
 
   // 如果正在处理，先打断当前处理
   if (isStreaming.value) {
@@ -1444,7 +1122,7 @@ const retryMessage = async (retryContent: string) => {
 
 // 取消当前处理
 const abortChat = async () => {
-  if (!isStreaming.value || isAborting.value) return;
+  if (!isStreaming.value || isAborting.value) {return;}
   
   isAborting.value = true;
   
@@ -1461,16 +1139,16 @@ const abortChat = async () => {
   
   // 立即重置状态，让用户感知响应
   setTimeout(() => {
-    if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+    if (currentSessionId.value) {streamingSessions[currentSessionId.value] = false;}
     isAborting.value = false;
-    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+    if (currentSessionId.value) {sessionRoundEnded[currentSessionId.value] = false;}
     thinkingText.value = '';
   }, 100);
 };
 
 // 复制消息内容
 const copyMessageContent = async (content: string | null) => {
-  if (!content) return;
+  if (!content) {return;}
   try {
     await navigator.clipboard.writeText(content);
     // 可选：显示复制成功提示（用 toast 或临时状态）
@@ -1481,8 +1159,8 @@ const copyMessageContent = async (content: string | null) => {
 
 // 获取用户消息的显示内容（去除已单独展示的文件路径前缀）
 const userDisplayContent = (msg: Message): string => {
-  if (!msg.content) return '';
-  if (!msg.filePaths || msg.filePaths.length === 0) return msg.content;
+  if (!msg.content) {return '';}
+  if (!msg.filePaths || msg.filePaths.length === 0) {return msg.content;}
   // 跳过文件路径行（用户不可见的原始内容）
   const lines = msg.content.split('\n');
   return lines.slice(msg.filePaths.length).join('\n').trimStart();
@@ -1490,7 +1168,7 @@ const userDisplayContent = (msg: Message): string => {
 
 // 高亮搜索匹配文本
 const highlightText = (text: string | null, query: string): string => {
-  if (!text || !query.trim()) return text || '';
+  if (!text || !query.trim()) {return text || '';}
   const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(escapedQuery, 'gi');
   return text.replace(regex, '<mark class="bg-warning/30 text-inherit px-0.5 rounded">$&</mark>');
@@ -1586,7 +1264,7 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
 
 // 导出会话为 Markdown
 const exportSession = () => {
-  if (messages.value.length === 0) return;
+  if (messages.value.length === 0) {return;}
   
   const title = currentSession.value?.title || '新对话';
   const timestamp = new Date().toISOString().split('T')[0];
@@ -1621,8 +1299,8 @@ const exportSession = () => {
 
 // 清空当前会话消息
 const clearMessages = () => {
-  if (messages.value.length === 0) return;
-  if (!confirm('确定清空所有消息？此操作不可撤销。')) return;
+  if (messages.value.length === 0) {return;}
+  if (!confirm('确定清空所有消息？此操作不可撤销。')) {return;}
   messages.value = [];
   currentTasks.value = []; // 清空任务列表
 };
@@ -1636,43 +1314,30 @@ const scrollToTop = () => {
 
 // 滚动到底部（已有 scrollToBottom 函数）
 
-const deleteCurrentSession = async () => {
-  if (!currentSessionId.value) return;
+// 注：deleteSession, deleteCurrentSession 已从 useSessionManager composable 导入
+// 但需要包装以支持清理消息的逻辑
 
-  // 简单确认对话框
-  if (!confirm('确定要删除当前会话吗？此操作不可撤销。')) return;
-
-  try {
-    await invoke('agent_delete_session', { sessionId: currentSessionId.value });
-    sessions.value = sessions.value.filter(s => s.id !== currentSessionId.value);
-    startNewChat();
-  } catch (e) {
-    console.error('Delete error:', e);
-  }
+// 删除当前会话（包装 composable 的版本）
+const deleteCurrentSessionLocal = async () => {
+  await deleteCurrentSessionBase(() => {
+    messages.value = [];
+    thinkingText.value = '';
+  });
 };
 
-// 删除指定会话（从列表直接删除）
-const deleteSession = async (sessionId: string) => {
-  if (!sessionId) return;
-
-  // 简单确认对话框
-  if (!confirm('确定要删除该会话吗？')) return;
-
-  try {
-    await invoke('agent_delete_session', { sessionId });
-    sessions.value = sessions.value.filter(s => s.id !== sessionId);
-    // 如果删除的是当前会话，清空消息
-    if (currentSessionId.value === sessionId) {
-      startNewChat();
+// 删除指定会话（包装 composable 的版本）
+const deleteSessionLocal = async (sessionId: string) => {
+  await deleteSessionBase(sessionId, (deletedSessionId) => {
+    if (currentSessionId.value === deletedSessionId) {
+      messages.value = [];
+      thinkingText.value = '';
     }
-  } catch (e) {
-    console.error('Delete error:', e);
-  }
+  });
 };
 
 // 标题编辑功能
 const startEditTitle = () => {
-  if (!currentSession.value) return;
+  if (!currentSession.value) {return;}
   isEditingTitle.value = true;
   editingTitle.value = currentSession.value.title || '';
   nextTick(() => {
@@ -1686,7 +1351,7 @@ const cancelEditTitle = () => {
 };
 
 const saveTitle = async () => {
-  if (!isEditingTitle.value || !currentSessionId.value) return;
+  if (!isEditingTitle.value || !currentSessionId.value) {return;}
   
   const newTitle = editingTitle.value.trim();
   if (!newTitle) {
@@ -1733,15 +1398,6 @@ const checkHermes = async () => {
   }
 };
 
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
-      showScrollToBottom.value = false;
-    }
-  });
-};
-
 // 检测是否需要显示"回到底部"按钮
 const checkScrollPosition = () => {
   if (messagesContainer.value) {
@@ -1769,338 +1425,8 @@ onMounted(async () => {
     messagesContainer.value.addEventListener('scroll', checkScrollPosition);
   }
   
-// 监听流式事件
-  unlistenDelta = await listen<{ text: string | null; session_id: string | null }>('agent-delta', (event) => {
-    const eventSid = event.payload?.session_id;
-    void agentLog('[agent-delta] 收到事件: ' + JSON.stringify(event.payload?.text?.slice(0, 50)) + ' session_id: ' + eventSid);
-    
-    // 必须有 session_id 才处理
-    if (!eventSid) return;
-    
-    // 更新该会话的状态
-    if (event.payload?.text) thinkingTexts[eventSid] = '';
-    
-    // 获取该会话的消息缓存（优先用缓存，支持后台会话）
-    let sessionMsgs = sessionMessagesCache[eventSid];
-    if (!sessionMsgs) {
-      // 如果当前会话没有缓存，从 messages.value 复制（当前视图）
-      if (eventSid === currentSessionId.value) {
-        sessionMessagesCache[eventSid] = [...messages.value];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      } else {
-        // 非当前会话，初始化空数组
-        sessionMessagesCache[eventSid] = [];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      }
-    }
-    
-    if (event.payload?.text) {
-      // 查找最后一个 assistant 消息（在缓存中）
-      const messagesCopy = [...sessionMsgs].reverse();
-      let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-      
-      // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
-      const lastMsg = sessionMsgs[sessionMsgs.length - 1];
-      const needsNewMsg = lastMsg?.role === 'user';
-      
-      // 检查是否已有空内容的 assistant 消息（由 tool_start 创建），避免重复创建
-      const hasEmptyAssistant = currentMsg && !currentMsg.content && currentMsg.toolCalls && currentMsg.toolCalls.length > 0;
-      
-      void agentLog('[agent-delta] session: ' + eventSid + 
-        ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
-        ' lastAssistantRoundEnded: ' + !!sessionRoundEnded[eventSid] +
-        ' 最后一条: ' + (lastMsg?.role || 'none') +
-        ' needsNewMsg: ' + needsNewMsg +
-        ' hasEmptyAssistant: ' + hasEmptyAssistant);
-      
-      // 如果没有 assistant 消息，或上一轮已结束，或最后一条是 user（需要新消息），创建新消息
-      // 但如果已有空内容的 assistant 消息（由 tool_start 创建），则复用
-      const roundEnded = !!sessionRoundEnded[eventSid];
-      if (!currentMsg || (roundEnded && !hasEmptyAssistant) || needsNewMsg) {
-        const newMsg: Message = {
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now() / 1000,
-          toolName: null,
-          toolCalls: [],
-        };
-        sessionMsgs.push(newMsg);
-        // 从缓存获取 Vue 的 reactive proxy
-        currentMsg = sessionMsgs[sessionMsgs.length - 1];
-        sessionRoundEnded[eventSid] = false;
-        void agentLog('[agent-delta] 创建新 assistant 消息, 缓存 length: ' + sessionMsgs.length);
-      } else if (hasEmptyAssistant) {
-        // 复用已有的空内容 assistant 消息
-        sessionRoundEnded[eventSid] = false;
-        void agentLog('[agent-delta] 复用已有空 assistant 消息');
-      }
-      
-      // 添加 delta 内容
-      if (currentMsg) {
-        currentMsg.content = (currentMsg.content || '') + event.payload.text;
-      }
-      
-      // 如果是当前会话，同步更新 messages.value
-      if (eventSid === currentSessionId.value) {
-        messages.value = [...sessionMsgs];
-        scrollToBottom();
-      }
-    }
-  });
-
-  unlistenToolStart = await listen<{ id?: string; name: string; args: unknown; session_id: string | null }>('agent-tool-start', (event) => {
-    const eventSid = event.payload?.session_id;
-    void agentLog('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + eventSid);
-    
-    // 必须有 session_id 才处理
-    if (!eventSid) return;
-    
-    // 更新该会话的状态
-    if (event.payload.name) {
-      const isSubAgent = event.payload.name === 'delegate_task';
-      thinkingTexts[eventSid] = isSubAgent ? '🤖 启动子 Agent 处理任务...' : `🔧 调用工具: ${event.payload.name}...`;
-    }
-    sessionRoundEnded[eventSid] = false;
-    
-    // 获取该会话的消息缓存
-    let sessionMsgs = sessionMessagesCache[eventSid];
-    if (!sessionMsgs) {
-      if (eventSid === currentSessionId.value) {
-        sessionMessagesCache[eventSid] = [...messages.value];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      } else {
-        sessionMessagesCache[eventSid] = [];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      }
-    }
-    
-    // 工具开始
-    const toolId = event.payload.id;
-    const toolName = event.payload.name;
-    const isSubAgent = toolName === 'delegate_task';
-    
-    // 获取当前消息（如果没有 assistant 消息，创建一个）
-    const messagesCopy = [...sessionMsgs].reverse();
-    let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
-    
-    // 检查最后一条消息是否是 user（刚发送的），如果是，需要创建新 assistant 消息
-    const lastMsg = sessionMsgs[sessionMsgs.length - 1];
-    const needsNewMsg = lastMsg?.role === 'user';
-    
-    void agentLog('[agent-tool-start] session: ' + eventSid +
-      ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
-      ' 最后一条: ' + (lastMsg?.role || 'none') +
-      ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
-    
-    // 重置轮结束标志（新的工具调用开始）
-    sessionRoundEnded[eventSid] = false;
-    
-    if (!currentMsg || needsNewMsg) {
-      const newMsg: Message = {
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now() / 1000,
-        toolName: null,
-        toolCalls: [],
-      };
-      sessionMsgs.push(newMsg);
-      currentMsg = sessionMsgs[sessionMsgs.length - 1];
-      void agentLog('[agent-tool-start] 创建新 assistant 消息, 缓存 length: ' + sessionMsgs.length);
-    }
-    
-    // 确保 toolCalls 数组存在
-    if (!currentMsg.toolCalls) {
-      currentMsg.toolCalls = [];
-    }
-    
-    // 添加工具调用
-    currentMsg.toolCalls.push({
-      id: toolId,
-      name: toolName,
-      args: event.payload.args as Record<string, unknown> || {},
-      durationMs: 0,
-      isSubAgent,
-      status: 'running',
-    });
-    void agentLog('[agent-tool-start] 添加工具调用: ' + toolName + ' id: ' + (toolId || 'none') + ' toolCalls.length: ' + currentMsg.toolCalls.length);
-    
-    // 如果是当前会话，同步更新 messages.value
-    if (eventSid === currentSessionId.value) {
-      messages.value = [...sessionMsgs];
-      // 显示提示
-      if (isSubAgent) {
-        thinkingText.value = '🤖 启动子 Agent 处理任务...';
-      } else {
-        thinkingText.value = `🔧 调用工具: ${toolName}...`;
-      }
-      scrollToBottom();
-    }
-  });
-
-  unlistenToolComplete = await listen<{ id?: string; name: string; result: string | null; duration_ms: number; session_id: string | null }>('agent-tool-complete', (event) => {
-    const eventSid = event.payload?.session_id;
-    void agentLog('[agent-tool-complete] 收到事件: ' + JSON.stringify({id: event.payload.id, name: event.payload.name, duration_ms: event.payload.duration_ms, session_id: eventSid}));
-    
-    // 必须有 session_id 才处理
-    if (!eventSid) return;
-    
-    // 更新该会话的状态
-    sessionRoundEnded[eventSid] = true;
-    
-    // 获取该会话的消息缓存
-    let sessionMsgs = sessionMessagesCache[eventSid];
-    if (!sessionMsgs) {
-      if (eventSid === currentSessionId.value) {
-        sessionMessagesCache[eventSid] = [...messages.value];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      } else {
-        // 非当前会话，没有缓存就跳过（这种情况不应该发生）
-        return;
-      }
-    }
-    
-    // 获取当前 assistant 消息
-    const messagesCopy = [...sessionMsgs].reverse();
-    const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
-    void agentLog('[agent-tool-complete] session: ' + eventSid + 
-      ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') + 
-      ' toolCalls: ' + (currentMsg?.toolCalls?.length || 0));
-    
-    if (currentMsg && currentMsg.toolCalls) {
-      const toolId = event.payload.id;
-      // 优先用 id 精确匹配，如果没有 id 则用 name 匹配（向后兼容）
-      const toolCall = toolId
-        ? currentMsg.toolCalls.find((t: ToolCall) => t.id === toolId)
-        : currentMsg.toolCalls.find((t: ToolCall) => t.name === event.payload.name && t.status === 'running');
-      if (toolCall) {
-        toolCall.result = event.payload.result ?? '';
-        toolCall.durationMs = event.payload.duration_ms || 0;
-        toolCall.status = 'completed';
-        void agentLog('[agent-tool-complete] 更新工具调用: ' + event.payload.name + ' id: ' + (toolId || 'none') + ' status: completed');
-      } else {
-        void agentLog('[agent-tool-complete] 未找到匹配的 running 工具调用, id: ' + (toolId || 'none'));
-      }
-    }
-    
-    // 标记当前轮次结束
-    sessionRoundEnded[eventSid] = true;
-    void agentLog('[agent-tool-complete] 设置 sessionRoundEnded = true');
-    
-    // 如果是当前会话，同步更新 messages.value
-    if (eventSid === currentSessionId.value) {
-      messages.value = [...sessionMsgs];
-    }
-    
-    // 如果是 todo 工具，更新任务列表（仅当前会话）
-    if (eventSid === currentSessionId.value && event.payload.name === 'todo' && event.payload.result) {
-      try {
-        const parsed = JSON.parse(event.payload.result);
-        // 支持两种格式：直接数组 或 {todos: [...], summary: {...}}
-        let tasks: Array<{ id: string; content: string; status?: string }> = [];
-        
-        if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].content) {
-          // 直接数组格式
-          tasks = parsed;
-        } else if (parsed.todos && Array.isArray(parsed.todos) && parsed.todos.length > 0) {
-          // 对象格式 {todos, summary}
-          tasks = parsed.todos;
-        }
-        
-        if (tasks.length > 0) {
-          currentTasks.value = tasks.map((t: { id: string; content: string; status?: string }) => ({
-            id: t.id,
-            content: t.content,
-            status: (['pending', 'in_progress', 'completed', 'cancelled'].includes(t.status || '') 
-              ? t.status 
-              : 'pending') as TaskItem['status'],
-          }));
-        }
-      } catch {
-        // 解析失败，忽略
-      }
-    }
-    
-    scrollToBottom();
-  });
-
-  // 思考动画事件
-  unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', (event) => {
-    const eventSid = event.payload?.session_id;
-    // 更新该会话的思考文字（不论是否当前会话）
-    if (eventSid) {
-      thinkingTexts[eventSid] = event.payload?.text || '';
-    }
-    // 当前会话时同步到视图
-    if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
-      if (event.payload?.text) {
-        thinkingText.value = event.payload.text;
-      } else {
-        thinkingText.value = '';
-      }
-    }
-  });
-  
-  unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', (event) => {
-    const eventSid = event.payload?.session_id;
-    void agentLog('[agent-error] 收到事件: ' + event.payload?.message + ' session_id: ' + eventSid);
-    
-    // 必须有 session_id 才处理
-    if (!eventSid) return;
-    
-    // 更新该会话的状态
-    streamingSessions[eventSid] = false;
-    thinkingTexts[eventSid] = '';
-    
-    // 获取该会话的消息缓存
-    let sessionMsgs = sessionMessagesCache[eventSid];
-    if (!sessionMsgs) {
-      if (eventSid === currentSessionId.value) {
-        sessionMessagesCache[eventSid] = [...messages.value];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      } else {
-        sessionMessagesCache[eventSid] = [];
-        sessionMsgs = sessionMessagesCache[eventSid];
-      }
-    }
-    
-    // 在缓存中添加错误信息
-    const messagesCopy = [...sessionMsgs].reverse();
-    const currentMsg = messagesCopy.find((m: Message) => m.role === 'assistant');
-    if (currentMsg) {
-      currentMsg.content = (currentMsg.content || '') + `\n[错误: ${event.payload?.message}]`;
-    }
-    
-    // 如果是当前会话，同步更新 messages.value
-    if (eventSid === currentSessionId.value) {
-      messages.value = [...sessionMsgs];
-      thinkingText.value = '';
-    }
-  });
-
-  // 流式结束事件
-  unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', (event) => {
-    const eventSid = event.payload?.session_id;
-    void agentLog('[agent-done] 收到事件: ' + JSON.stringify(event.payload));
-    // 更新该会话的状态（不论是否当前会话）
-    if (eventSid) {
-      streamingSessions[eventSid] = false;
-      thinkingTexts[eventSid] = '';
-      sessionRoundEnded[eventSid] = true; // 标记这一轮已结束，下一轮新消息需要创建新 assistant 消息
-      // 流式结束后清除缓存（下次切换会话会从数据库加载）
-      delete sessionMessagesCache[eventSid];
-    }
-    // 当前会话时同步到视图
-    if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
-      thinkingText.value = '';
-      if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = true;
-      void agentLog('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
-      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false; // trigger computed update via streamingSessions
-    }
-    // 恢复 UI 状态（仅当该会话是当前会话时）
-    if (!eventSid || (currentSessionId.value && eventSid === currentSessionId.value)) {
-      scrollToBottom();
-    }
-  });
+  // 使用 composable 设置流式事件监听
+  await setupStreamingListeners();
 
   // 初始化
   await chatInputRef.value?.loadModels(); // 加载模型列表
@@ -2114,7 +1440,7 @@ onMounted(async () => {
   if (sessionIdFromQuery) {
     const session = sessions.value.find(s => s.id === sessionIdFromQuery);
     if (session) {
-      selectSession(session);
+      selectSessionWithMessages(session);
     } else {
       // 会话不存在，尝试直接加载
       try {
@@ -2145,13 +1471,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  // Properly clean up event listeners
-  unlistenDelta?.();
-  unlistenThinking?.();
-  unlistenToolStart?.();
-  unlistenToolComplete?.();
-  unlistenError?.();
-  unlistenDone?.();
+  // 清理流式事件监听（使用 composable）
+  cleanupStreamingListeners();
   // 移除快捷键监听
   document.removeEventListener('keydown', handleGlobalKeydown);
   // 移除滚动监听
@@ -2162,7 +1483,7 @@ onUnmounted(() => {
   const paths = chatInputRef.value?.attachedPaths;
   if (paths) {
     for (const item of paths) {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      if (item.previewUrl) {URL.revokeObjectURL(item.previewUrl);}
     }
   }
 });

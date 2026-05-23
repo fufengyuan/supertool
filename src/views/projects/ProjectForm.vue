@@ -171,7 +171,7 @@ onMounted(loadManagedRepos);
 
 // 选择仓库后加载分支
 const loadBranches = async (repoPath: string) => {
-  if (!repoPath) return [];
+  if (!repoPath) {return [];}
   try {
     return ((await getTauriAPI().getGitBranches(repoPath)) || []).map((b: any) => typeof b === 'string' ? b : b.name);
   } catch {
@@ -235,7 +235,7 @@ const clearRepoSelection2 = () => {
 const getRepoNameByPath = (path) => path.split('/').pop() || path;
 
 const loadBranchesForRepo = async (repoPath, currentBranch) => {
-  if (!repoPath) return;
+  if (!repoPath) {return;}
   branchesLoading.value = true;
   try {
     availableBranches.value = await loadBranches(repoPath);
@@ -246,7 +246,7 @@ const loadBranchesForRepo = async (repoPath, currentBranch) => {
 };
 
 const loadBranchesForRepo2 = async (repoPath, currentBranch) => {
-  if (!repoPath) return;
+  if (!repoPath) {return;}
   branchesLoading2.value = true;
   try {
     availableBranches2.value = await loadBranches(repoPath);
@@ -270,8 +270,8 @@ const initForm = () => {
     formData.branch2 = props.project.branch2 || '';
     formData.gitRepoId = props.project.gitRepoId || '';
     formData.gitRepoId2 = props.project.gitRepoId2 || '';
-    if (props.project.repoPath) loadBranchesForRepo(props.project.repoPath, props.project.branch);
-    if (props.project.repoPath2) loadBranchesForRepo2(props.project.repoPath2, props.project.branch2);
+    if (props.project.repoPath) {loadBranchesForRepo(props.project.repoPath, props.project.branch);}
+    if (props.project.repoPath2) {loadBranchesForRepo2(props.project.repoPath2, props.project.branch2);}
   } else {
     Object.assign(formData, {
       name: '',

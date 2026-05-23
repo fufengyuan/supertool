@@ -323,7 +323,7 @@ const cycleQuickPriority = () => {
 
 const handleQuickAdd = async () => {
   const text = quickAddText.value.trim()
-  if (!text) return
+  if (!text) {return}
   const newTodo = {
     id: crypto.randomUUID(),
     text,
@@ -368,7 +368,7 @@ interface TodoGroup {
 // 按项目分组的活动任务
 const groupedActiveTodos = computed<TodoGroup[]>(() => {
   const todos = activeTodos.value
-  if (todos.length === 0) return []
+  if (todos.length === 0) {return []}
 
   // 构建项目映射
   const projectMap = new Map<string, (typeof projectStore.projects)[number]>()
@@ -402,8 +402,8 @@ const groupedActiveTodos = computed<TodoGroup[]>(() => {
 
   groups.sort((a, b) => {
     // 无项目的排最后
-    if (a.projectId === null) return 1
-    if (b.projectId === null) return -1
+    if (a.projectId === null) {return 1}
+    if (b.projectId === null) {return -1}
     // 有项目的按项目顺序排
     const aOrder = projectOrder.get(a.projectId) ?? Infinity
     const bOrder = projectOrder.get(b.projectId) ?? Infinity
@@ -416,7 +416,7 @@ const groupedActiveTodos = computed<TodoGroup[]>(() => {
 // 按项目分组的已完成任务
 const groupedCompletedTodos = computed<TodoGroup[]>(() => {
   const todos = completedTodos.value
-  if (todos.length === 0) return []
+  if (todos.length === 0) {return []}
 
   // 构建项目映射
   const projectMap = new Map<string, (typeof projectStore.projects)[number]>()
@@ -449,8 +449,8 @@ const groupedCompletedTodos = computed<TodoGroup[]>(() => {
   projectStore.projects.forEach((p, i) => projectOrder.set(p.id, i))
 
   groups.sort((a, b) => {
-    if (a.projectId === null) return 1
-    if (b.projectId === null) return -1
+    if (a.projectId === null) {return 1}
+    if (b.projectId === null) {return -1}
     const aOrder = projectOrder.get(a.projectId) ?? Infinity
     const bOrder = projectOrder.get(b.projectId) ?? Infinity
     return aOrder - bOrder
@@ -499,7 +499,7 @@ const sortValue = computed({
 // ===== 今日进度 =====
 const progressPercent = computed(() => {
   const total = todoStore.todos.length
-  if (total === 0) return 0
+  if (total === 0) {return 0}
   return Math.round((todoStore.completedCount / total) * 100)
 })
 
@@ -563,7 +563,7 @@ const resetModal = () => {
 
 const handleAddFromModal = () => {
   const text = newTaskText.value.trim()
-  if (!text) return
+  if (!text) {return}
   const tag = newTaskTag.value === '__custom__' ? newTaskCustomTag.value.trim() : newTaskTag.value
   const newTodoObj = {
     id: crypto.randomUUID(),
@@ -601,11 +601,11 @@ const handleKeyboardNav = async (event: KeyboardEvent) => {
   const target = event.target as HTMLElement
   const tagName = target.tagName.toLowerCase()
   if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || target.isContentEditable) {
-    if (event.key !== 'Escape') return
+    if (event.key !== 'Escape') {return}
   }
 
   const todos = activeTodos.value
-  if (todos.length === 0) return
+  if (todos.length === 0) {return}
 
   const key = event.key
 
@@ -622,10 +622,10 @@ const handleKeyboardNav = async (event: KeyboardEvent) => {
     return
   }
 
-  if (keyboardFocusedIndex.value < 0) return
+  if (keyboardFocusedIndex.value < 0) {return}
 
   const focusedTodo = todos[keyboardFocusedIndex.value]
-  if (!focusedTodo) return
+  if (!focusedTodo) {return}
 
   if (key === 'Enter') {
     event.preventDefault()
@@ -672,9 +672,9 @@ const handleKeyboardNav = async (event: KeyboardEvent) => {
 
 const scrollToFocusedTodo = () => {
   const todos = activeTodos.value
-  if (keyboardFocusedIndex.value < 0 || keyboardFocusedIndex.value >= todos.length) return
+  if (keyboardFocusedIndex.value < 0 || keyboardFocusedIndex.value >= todos.length) {return}
   const todo = todos[keyboardFocusedIndex.value]
-  if (!todo) return
+  if (!todo) {return}
 
   setTimeout(() => {
     const el = document.querySelector(`[data-todo-id="${todo.id}"]`)
@@ -729,11 +729,11 @@ const saveEdit = async (data: { id: string; text: string; projectId?: string | n
     
     // Apply project, priority, tag, dueDate from edit mode if provided
     if (typeof data !== 'string') {
-      if (data.projectId !== undefined) updates.projectId = data.projectId || null
-      if (data.priority) updates.priority = data.priority
-      if (data.tag !== undefined) updates.tag = data.tag || null
-      if (data.dueDate !== undefined) updates.dueDate = data.dueDate || null
-      if (data.markdownDescription !== undefined) updates.markdownDescription = data.markdownDescription
+      if (data.projectId !== undefined) {updates.projectId = data.projectId || null}
+      if (data.priority) {updates.priority = data.priority}
+      if (data.tag !== undefined) {updates.tag = data.tag || null}
+      if (data.dueDate !== undefined) {updates.dueDate = data.dueDate || null}
+      if (data.markdownDescription !== undefined) {updates.markdownDescription = data.markdownDescription}
     }
     
     try { await todoStore.updateTodo(updates as any) }
@@ -812,9 +812,9 @@ const handleSubtaskCompletion = async (data: any) => {
 const highlightTodoId = ref<string | null>(null)
 
 function navigateToTodo(todoId: string) {
-  if (!todoId) return
+  if (!todoId) {return}
   let todo = todoStore.todos.find(t => t.id === todoId)
-  if (!todo) return
+  if (!todo) {return}
   const inFilteredResults = todoStore.filteredTodos.some(t => t.id === todoId)
   if (!inFilteredResults) {
     if (todoStore.filter !== 'all') {
@@ -856,7 +856,7 @@ const setupMenuListeners = () => {
   e.onMenuSearchTasks(() => { (document.querySelector('.search-input') as HTMLElement | null)?.focus() })
   e.onMenuSelectAll(() => { batch.selectAll() })
   e.onMenuDeleteSelected(() => { batch.batchDelete() })
-  e.onMenuToggleComplete(() => { if (batch.selectedTodos.value.length > 0) batch.batchComplete() })
+  e.onMenuToggleComplete(() => { if (batch.selectedTodos.value.length > 0) {batch.batchComplete()} })
   e.onMenuSetPriority(async (priority) => {
     for (const id of batch.selectedTodos.value) {
       const todo = todoStore.todos.find(t => t.id === id)

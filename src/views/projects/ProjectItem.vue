@@ -108,7 +108,7 @@ const hasGitRepos = computed(() =>
 );
 
 const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
+  if (!dateStr) {return '';}
   return new Date(dateStr).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 };
 </script>

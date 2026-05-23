@@ -74,11 +74,11 @@ function decodeCondition(cond: number): string {
 }
 
 function getRegisterName(reg: number): string {
-  if (reg === 15) return 'PC'
-  if (reg === 14) return 'LR'
-  if (reg === 13) return 'SP'
-  if (reg === 12) return 'IP'
-  if (reg === 11) return 'FP'
+  if (reg === 15) {return 'PC'}
+  if (reg === 14) {return 'LR'}
+  if (reg === 13) {return 'SP'}
+  if (reg === 12) {return 'IP'}
+  if (reg === 11) {return 'FP'}
   return `R${reg}`
 }
 
@@ -222,7 +222,7 @@ function armToHex() {
 function encodeARMInstruction(instr: string): string {
   // Remove condition code suffix for matching
   const match = instr.match(/^([A-Z]+)(EQ|NE|CS|CC|MI|PL|VS|VC|HI|LS|GE|LT|GT|LE)?\s*(.*)/)
-  if (!match) return ''
+  if (!match) {return ''}
 
   const mnemonic = match[1]
   const cond = match[2] || ''
@@ -289,11 +289,11 @@ function encodeARMInstruction(instr: string): string {
 }
 
 function parseRegister(name: string): number {
-  if (name === 'PC') return 15
-  if (name === 'LR') return 14
-  if (name === 'SP') return 13
-  if (name === 'IP') return 12
-  if (name === 'FP') return 11
+  if (name === 'PC') {return 15}
+  if (name === 'LR') {return 14}
+  if (name === 'SP') {return 13}
+  if (name === 'IP') {return 12}
+  if (name === 'FP') {return 11}
   const match = name.match(/R(\d+)/)
   return match ? parseInt(match[1]) : 0
 }

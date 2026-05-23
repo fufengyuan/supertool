@@ -96,7 +96,7 @@ const handleKeydown = (e: KeyboardEvent) => {
 // 自动调整 textarea 高度
 const autoResize = () => {
   const el = inputRef.value;
-  if (!el) return;
+  if (!el) {return;}
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
 };

@@ -57,7 +57,7 @@ export function useTodoBatch(
   const batchDelete = async (): Promise<void> => {
     console.log("[useTodoBatch.ts] batchDelete() called")
     const ids = [...selectedTodos.value];
-    if (ids.length === 0) return;
+    if (ids.length === 0) {return;}
     const snapshot = todoStore.todos.value.filter(t => ids.includes(t.id));
     try {
       await todoStore.deleteTodo(ids);

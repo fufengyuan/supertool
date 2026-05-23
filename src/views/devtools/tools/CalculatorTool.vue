@@ -170,7 +170,7 @@ function calculateIntermediate() {
 }
 
 function calculate() {
-  if (!currentOperator.value && !expression.value) return
+  if (!currentOperator.value && !expression.value) {return}
   
   const prev = parseFloat(previousNumber.value || display.value)
   const curr = parseFloat(currentNumber.value || display.value)
@@ -195,7 +195,7 @@ function calculate() {
       expression: fullExpression.trim(),
       result: display.value
     })
-    if (history.value.length > 20) history.value.pop()
+    if (history.value.length > 20) {history.value.pop()}
   }
   
   expression.value = ''
@@ -265,11 +265,11 @@ function scientificFunc(func: string) {
 }
 
 function factorial(n: number): number {
-  if (n < 0) return NaN
-  if (n === 0 || n === 1) return 1
-  if (n > 170) return Infinity
+  if (n < 0) {return NaN}
+  if (n === 0 || n === 1) {return 1}
+  if (n > 170) {return Infinity}
   let result = 1
-  for (let i = 2; i <= n; i++) result *= i
+  for (let i = 2; i <= n; i++) {result *= i}
   return result
 }
 
@@ -293,8 +293,8 @@ function inputParenthesis(p: string) {
 }
 
 function formatResult(num: number): string {
-  if (isNaN(num)) return 'Error'
-  if (!isFinite(num)) return num > 0 ? '∞' : '-∞'
+  if (isNaN(num)) {return 'Error'}
+  if (!isFinite(num)) {return num > 0 ? '∞' : '-∞'}
   
   const abs = Math.abs(num)
   if (abs >= 1e15 || (abs < 1e-10 && abs !== 0)) {
@@ -323,14 +323,14 @@ watch(mode, () => {
 
 // 全局键盘事件（可选，需要在组件挂载时添加）
 function handleKeydown(e: KeyboardEvent) {
-  if (e.key >= '0' && e.key <= '9') inputNumber(e.key)
-  else if (e.key === '.') inputDecimal()
-  else if (e.key === '+') inputOperator('+')
-  else if (e.key === '-') inputOperator('-')
-  else if (e.key === '*') inputOperator('*')
-  else if (e.key === '/') inputOperator('/')
-  else if (e.key === 'Enter' || e.key === '=') calculate()
-  else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') clear()
+  if (e.key >= '0' && e.key <= '9') {inputNumber(e.key)}
+  else if (e.key === '.') {inputDecimal()}
+  else if (e.key === '+') {inputOperator('+')}
+  else if (e.key === '-') {inputOperator('-')}
+  else if (e.key === '*') {inputOperator('*')}
+  else if (e.key === '/') {inputOperator('/')}
+  else if (e.key === 'Enter' || e.key === '=') {calculate()}
+  else if (e.key === 'Escape' || e.key === 'c' || e.key === 'C') {clear()}
   else if (e.key === 'Backspace') {
     if (currentNumber.value.length > 1) {
       currentNumber.value = currentNumber.value.slice(0, -1)

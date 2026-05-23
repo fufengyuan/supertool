@@ -271,9 +271,9 @@ onMounted(async () => {
 
   // Auto-refresh when server data changes elsewhere
   const cleanupDataChanged = await getTauriAPI().onDataChanged?.(({ type }) => {
-    if (type === 'servers') refreshServers();
+    if (type === 'servers') {refreshServers();}
   });
-  if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
+  if (cleanupDataChanged) {_cleanupDataChanged = cleanupDataChanged;}
 });
 
 let _cleanupDataChanged: (() => void) | undefined;
@@ -339,7 +339,7 @@ function getOnlineCount(groupId) {
 }
 
 function getFilteredServers(serverList) {
-  if (!searchQuery.value.trim()) return serverList;
+  if (!searchQuery.value.trim()) {return serverList;}
   const q = searchQuery.value.trim().toLowerCase();
   return serverList.filter(
     (s) =>
@@ -374,7 +374,7 @@ function openTerminal(server) {
 }
 function openSftp(server: Server, initialPath?: string) {
   // 如果该服务器的 SFTP 已打开，不重复打开
-  if (sftpPanels.value.some(p => p.server.id === server.id)) return;
+  if (sftpPanels.value.some(p => p.server.id === server.id)) {return;}
   // 为每个新面板生成级联偏移位置
   const idx = sftpPanels.value.length;
   const id = `sftp-${server.id}-${Date.now()}`;
@@ -421,7 +421,7 @@ async function deleteServer(serverId) {
 
 // 分组管理
 async function saveGroup() {
-  if (!newGroupName.value.trim()) return;
+  if (!newGroupName.value.trim()) {return;}
   try {
     if (editingGroupId.value) {
       // 编辑模式
@@ -456,7 +456,7 @@ function addGroupAsChild(parentId: string) {
 
 function editGroup(groupId: string) {
   const group = groups.value.find(g => g.id === groupId);
-  if (!group) return;
+  if (!group) {return;}
   editingGroupId.value = groupId;
   addingChildTo.value = null;
   newGroupParent.value = null;

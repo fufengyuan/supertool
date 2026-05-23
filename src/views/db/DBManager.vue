@@ -400,7 +400,7 @@ const treeRef = ref<InstanceType<typeof ConnectionTree> | null>(null)
 // Convert Date objects and ISO strings to MySQL-compatible format before IPC
 // JSON.stringify turns Date into ISO string ('2026-04-21T16:00:00.000Z') which MySQL DATE columns reject
 function sanitizeForDB(obj: Record<string, unknown> | null): Record<string, unknown> | null {
-  if (!obj) return obj
+  if (!obj) {return obj}
   // 深度克隆剥离 Vue Proxy，避免嵌套对象/数组触发 IPC 克隆错误
   const cloned = JSON.parse(JSON.stringify(obj))
   const result: Record<string, unknown> = {}
@@ -460,7 +460,7 @@ const redisMessages = ref<Array<{ type: string; prefix: string; content: string 
 const activeTab = computed(() => db.activeTab.value)
 
 function getTabIcon(tab: WorkspaceTab | null): string {
-  if (!tab) return 'file'
+  if (!tab) {return 'file'}
   switch (tab.type) {
     case 'sql': return 'pencil'
     case 'tableData': return 'barChart'
@@ -475,7 +475,7 @@ function getTabIcon(tab: WorkspaceTab | null): string {
 }
 
 function getTabIconClass(tab: WorkspaceTab | null): string {
-  if (!tab) return ''
+  if (!tab) {return ''}
   switch (tab.type) {
     case 'redisConsole': return 'text-red-500'
     case 'redisManager': return 'text-red-500'
@@ -485,12 +485,12 @@ function getTabIconClass(tab: WorkspaceTab | null): string {
 }
 
 function getTabConnection(tab: WorkspaceTab | null): DBConnection | null {
-  if (!tab) return null
+  if (!tab) {return null}
   return db.connections.value.find(c => c.id === tab.connectionId) || null
 }
 
 function getTabDbType(tab: WorkspaceTab | null): 'mysql' | 'postgresql' | 'sqlite' | undefined {
-  if (!tab) return undefined
+  if (!tab) {return undefined}
   const conn = db.connections.value.find(c => c.id === tab.connectionId)
   return conn?.type as 'mysql' | 'postgresql' | 'sqlite' | undefined
 }
@@ -560,12 +560,12 @@ async function handleDeleteConnection(id: string) {
 }
 
 function openRedisManager() {
-  if (!db.activeConnection.value) return
+  if (!db.activeConnection.value) {return}
   db.openRedisManagerTab(db.activeConnection.value.id, db.activeConnection.value.name)
 }
 
 function openBackupTab() {
-  if (!db.activeConnection.value) return
+  if (!db.activeConnection.value) {return}
   db.openBackupTab(db.activeConnection.value.id, db.activeConnection.value.name)
 }
 
@@ -577,14 +577,14 @@ function handleOpenRedisQueue(connId: string, dbIndex: number) {
 }
 
 async function handleExecute(sqlText: string) {
-  if (!db.activeConnection.value) return
+  if (!db.activeConnection.value) {return}
 
   // Check if connection requires approval
   if ((db.activeConnection.value as any).requiresApproval) {
     const proceed = confirm(
       `⚠️ 安全审核\n\n数据库「${db.activeConnection.value.name}」已开启安全审核。\n\n请确认你要执行以下 SQL：\n\n${sqlText.substring(0, 200)}${sqlText.length > 200 ? '...' : ''}`
     )
-    if (!proceed) return
+    if (!proceed) {return}
   }
 
   executing.value = true
@@ -696,7 +696,7 @@ function handleRefreshTables(connId: string) {
 
 async function handleDeleteTable(connId: string, table: string, dbName?: string) {
   const conn = db.connections.value.find(c => c.id === connId)
-  if (!conn) return
+  if (!conn) {return}
 
   // Check if connection requires approval
   if ((conn as any).requiresApproval) {
@@ -705,7 +705,7 @@ async function handleDeleteTable(connId: string, table: string, dbName?: string)
   }
 
   const confirmed = confirm(`确定要删除表「${table}」吗？\n\n此操作不可撤销，表中的所有数据都将被永久删除。`)
-  if (!confirmed) return
+  if (!confirmed) {return}
 
   try {
     // Build DROP TABLE SQL based on database type
@@ -739,7 +739,7 @@ async function handleDeleteTable(connId: string, table: string, dbName?: string)
 async function fetchColumnComments(connId: string, table: string, dbName?: string) {
   try {
     const conn = db.connections.value.find(c => c.id === connId)
-    if (!conn || conn.type === 'redis') return
+    if (!conn || conn.type === 'redis') {return}
 
     const safeTable = table.replace(/'/g, "''")
     let sql: string
@@ -782,7 +782,7 @@ function clearError() {
 
 async function loadTableData() {
     console.log("[clearError] called")
-  if (!activeTab.value || activeTab.value.type !== 'tableData') return
+  if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   await loadTableDataForTab(tab.connectionId, tab.tableName || '')
 }
@@ -897,7 +897,7 @@ const tablePrimaryKeyColumns = ref<string[]>([])
 
 async function loadTablePrimaryKeys() {
     console.log("[handleNextPage] called")
-  if (!activeTab.value || activeTab.value.type !== 'tableData') return
+  if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
     console.log("[loadTablePrimaryKeys] called")
@@ -913,7 +913,7 @@ async function loadTablePrimaryKeys() {
 }
 
 async function handleUpdateRow(index: number, oldRow: Record<string, unknown>, newRow: Record<string, unknown>) {
-  if (!activeTab.value || activeTab.value.type !== 'tableData') return
+  if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
     console.log("[handleUpdateRow] called")
@@ -937,8 +937,8 @@ async function handleBatchUpdate(updates: Array<{ oldRow: Record<string, unknown
   let failCount = 0
   for (const { oldRow, newRow } of updates) {
     const ok = await handleUpdateRow(0, oldRow, newRow)
-    if (ok) successCount++
-    else failCount++
+    if (ok) {successCount++}
+    else {failCount++}
   }
   if (successCount > 0) {
     toast.success(`已保存 ${successCount} 行${failCount > 0 ? `，${failCount} 行失败` : ''}`)
@@ -950,7 +950,7 @@ async function handleBatchUpdate(updates: Array<{ oldRow: Record<string, unknown
 }
 
 async function handleInsertRow(row: Record<string, unknown>) {
-  if (!activeTab.value || activeTab.value.type !== 'tableData') return
+  if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
     console.log("[handleInsertRow] called")
@@ -969,7 +969,7 @@ async function handleInsertRow(row: Record<string, unknown>) {
 }
 
 async function handleDeleteRow(row: Record<string, unknown>, _index: number) {
-  if (!activeTab.value || activeTab.value.type !== 'tableData') return
+  if (!activeTab.value || activeTab.value.type !== 'tableData') {return}
   const tab = activeTab.value
   try {
     console.log("[handleDeleteRow] called")
@@ -1007,7 +1007,7 @@ watch(() => db.activeTabIndex.value, () => {
 
 // Redis console
 async function executeRedis() {
-  if (!redisCommand.value.trim() || !activeTab.value) return
+  if (!redisCommand.value.trim() || !activeTab.value) {return}
 
   const cmd = redisCommand.value.trim()
   redisMessages.value.push({ type: 'input', prefix: '> ', content: cmd })
@@ -1015,7 +1015,7 @@ async function executeRedis() {
   redisExecuting.value = true
 
   try {
-    if (!activeTab.value) return
+    if (!activeTab.value) {return}
     const connId = activeTab.value.connectionId
     const result = await getTauriAPI().dbRedisExec(connId, activeTab.value.redisDbIndex || 0, cmd)
     if (result?.success) {

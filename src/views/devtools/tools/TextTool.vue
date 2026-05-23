@@ -131,7 +131,7 @@ function toCamelCase() {
   transform(t => {
     const words = t.trim().split(/[\s_-]+/)
     return words.map((w, i) => {
-      if (i === 0) return w.toLowerCase()
+      if (i === 0) {return w.toLowerCase()}
       return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()
     }).join('')
   })
@@ -161,7 +161,7 @@ function toAlternatingCase() {
 function toInverseCase() {
   transform(t => {
     return t.split('').map(c => {
-      if (c === c.toUpperCase()) return c.toLowerCase()
+      if (c === c.toUpperCase()) {return c.toLowerCase()}
       return c.toUpperCase()
     }).join('')
   })
@@ -278,7 +278,7 @@ function uniqueWords() {
 
 /* ─── Statistics ─── */
 const stats = computed(() => {
-  if (!input.value) return null
+  if (!input.value) {return null}
 
   const text = input.value
   return {
@@ -292,7 +292,7 @@ const stats = computed(() => {
 })
 
 async function copyOutput() {
-  if (!input.value) return
+  if (!input.value) {return}
   await copyText(input.value, toast)
 }
 

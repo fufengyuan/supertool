@@ -64,7 +64,7 @@ export const useAppStore = defineStore('app', () => {
 
   let menuUpdateTimer: ReturnType<typeof setTimeout> | null = null
   function updateNativeFrequentMenu() {
-    if (menuUpdateTimer) clearTimeout(menuUpdateTimer)
+    if (menuUpdateTimer) {clearTimeout(menuUpdateTimer)}
     menuUpdateTimer = setTimeout(async () => {
       try {
         const topNavs = getFrequentNavs(6)
@@ -91,7 +91,7 @@ export const useAppStore = defineStore('app', () => {
 function getLocale(): string {
   try {
     const saved = localStorage.getItem('locale');
-    if (saved && ['zh-CN', 'en'].includes(saved)) return saved;
+    if (saved && ['zh-CN', 'en'].includes(saved)) {return saved;}
   } catch {}
   const lang = typeof navigator !== 'undefined' ? navigator.language : 'zh-CN';
   return lang.startsWith('zh') ? 'zh-CN' : 'en';
@@ -154,10 +154,10 @@ const locale = ref(getLocale());
 
       // 通过自定义事件传递给 TodoList（因为 todoStore 还没加载完时可能无法直接访问）
       // 或者使用 localStorage 作为桥接
-      if (filterVal) localStorage.setItem('restore_filter', filterVal);
-      if (tagFilterVal) localStorage.setItem('restore_tagFilter', tagFilterVal);
-      if (priorityFilterVal) localStorage.setItem('restore_priorityFilter', priorityFilterVal);
-      if (sortByVal) localStorage.setItem('restore_sortBy', sortByVal);
+      if (filterVal) {localStorage.setItem('restore_filter', filterVal);}
+      if (tagFilterVal) {localStorage.setItem('restore_tagFilter', tagFilterVal);}
+      if (priorityFilterVal) {localStorage.setItem('restore_priorityFilter', priorityFilterVal);}
+      if (sortByVal) {localStorage.setItem('restore_sortBy', sortByVal);}
     } catch (err) {
       handleError(err, { context: 'restoreState', showToast: false });
     }

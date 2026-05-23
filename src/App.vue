@@ -76,7 +76,7 @@ function onDoubleClick(e: MouseEvent) {
   if (!isEditable) {
     // 清除双击产生的选中
     const sel = window.getSelection()
-    if (sel) sel.removeAllRanges()
+    if (sel) {sel.removeAllRanges()}
   }
 }
 

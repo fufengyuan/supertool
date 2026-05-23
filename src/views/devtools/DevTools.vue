@@ -60,7 +60,7 @@ const searchQuery = ref('')
 const activeTool = ref('')
 
 const tools = computed(() => {
-  if (!searchQuery.value) return DEV_TOOL_REGISTRY
+  if (!searchQuery.value) {return DEV_TOOL_REGISTRY}
   const q = searchQuery.value.toLowerCase()
   return DEV_TOOL_REGISTRY.filter(t =>
     t.name.toLowerCase().includes(q) ||
@@ -130,7 +130,7 @@ const toolComponents: Record<string, ReturnType<typeof defineAsyncComponent>> = 
 }
 
 const currentToolComponent = computed(() => {
-  if (!activeTool.value) return null
+  if (!activeTool.value) {return null}
   return toolComponents[activeTool.value] || null
 })
 </script>

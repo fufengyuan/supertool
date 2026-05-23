@@ -179,7 +179,7 @@ const localForm = ref({ ...props.form });
 // Sync localForm changes back to parent — batch rapid input events
 let emitTimer: ReturnType<typeof setTimeout> | null = null;
 watch(localForm, (newVal) => {
-  if (emitTimer) clearTimeout(emitTimer);
+  if (emitTimer) {clearTimeout(emitTimer);}
   emitTimer = setTimeout(() => {
     emit('update:form', { ...newVal });
   }, 16);

@@ -121,13 +121,13 @@ const calculateDateRange = (range: string) => {
 }
 
 const formatDate = (date: any) => {
-  if (!date) return ''
+  if (!date) {return ''}
   const d = new Date(date)
   return d.toLocaleDateString('zh-CN')
 }
 
 const formatDateTime = (date: any) => {
-  if (!date) return ''
+  if (!date) {return ''}
   const d = new Date(date)
   return d.toLocaleString('zh-CN')
 }
@@ -163,7 +163,7 @@ const generateReport = async () => {
 
     for (const task of completedTasks) {
       const projectId = task.projectId || 'unassigned'
-      if (!weeklyWorkMap.has(projectId)) weeklyWorkMap.set(projectId, [])
+      if (!weeklyWorkMap.has(projectId)) {weeklyWorkMap.set(projectId, [])}
       weeklyWorkMap.get(projectId).push(task)
       if (!projectStatsMap.has(projectId)) {
         projectStatsMap.set(projectId, { projectId, daysActive: new Set().add(new Date(task.completedAt).toDateString()) })
@@ -173,7 +173,7 @@ const generateReport = async () => {
     }
     for (const task of activeTasks) {
       const projectId = task.projectId || 'unassigned'
-      if (!weeklyWorkMap.has(projectId)) weeklyWorkMap.set(projectId, [])
+      if (!weeklyWorkMap.has(projectId)) {weeklyWorkMap.set(projectId, [])}
       weeklyWorkMap.get(projectId).push(task)
       if (!projectStatsMap.has(projectId)) {
         projectStatsMap.set(projectId, { projectId, daysActive: new Set().add(new Date(task.updatedAt).toDateString()) })
@@ -183,7 +183,7 @@ const generateReport = async () => {
     }
     for (const task of nextWeekPlan) {
       const projectId = task.projectId || 'unassigned'
-      if (!nextWeekPlanMap.has(projectId)) nextWeekPlanMap.set(projectId, [])
+      if (!nextWeekPlanMap.has(projectId)) {nextWeekPlanMap.set(projectId, [])}
       nextWeekPlanMap.get(projectId).push(task)
     }
 
@@ -211,7 +211,7 @@ const generateReport = async () => {
 const saveReportToDatabase = async (data: any) => {
   try {
     const content = JSON.stringify(data, (key, val) => {
-      if (val instanceof Date) return val.toISOString()
+      if (val instanceof Date) {return val.toISOString()}
       return val
     })
     await tauri.saveWeeklyReport({
@@ -243,8 +243,8 @@ const loadHistoryReport = async (id: any) => {
     if (report) {
       selectedHistoryId.value = id
       const parsedData = typeof report.content === 'string' ? JSON.parse(report.content) : (report as any).data || report.content
-      if (parsedData.startDate) parsedData.startDate = new Date(parsedData.startDate)
-      if (parsedData.endDate) parsedData.endDate = new Date(parsedData.endDate)
+      if (parsedData.startDate) {parsedData.startDate = new Date(parsedData.startDate)}
+      if (parsedData.endDate) {parsedData.endDate = new Date(parsedData.endDate)}
       historyReportData.value = parsedData
     }
   } catch (error) {
@@ -254,7 +254,7 @@ const loadHistoryReport = async (id: any) => {
 
 const restoreFromHistory = () => {
   if (historyReportData.value) {
-    reportData.value = { ...(historyReportData.value ?? {}) }
+    reportData.value = { ...historyReportData.value }
     activeTab.value = 'current'
     toast.success('已从历史周报恢复')
   }
@@ -262,32 +262,32 @@ const restoreFromHistory = () => {
 
 const onRangeChange = (range: string) => {
   selectedRange.value = range
-  if (range !== 'custom') generateReport()
+  if (range !== 'custom') {generateReport()}
 }
 
 const onCustomDateChange = ({ start, end }: { start: string; end: string }) => {
   startDate.value = start
   endDate.value = end
-  if (selectedRange.value === 'custom' && start && end) generateReport()
+  if (selectedRange.value === 'custom' && start && end) {generateReport()}
 }
 
 const exportMarkdown = () => {
-  if (!reportData.value) return
+  if (!reportData.value) {return}
   let markdown = `# 周报\n\n`
   const data = reportData.value as any
   markdown += `**时间范围**: ${formatDate(data.startDate)} 至 ${formatDate(data.endDate)}\n\n`
   markdown += `## 项目统计表\n\n| 项目 | 耗时天数 |\n| --- | --- |\n`
-  for (const stat of data.projectStats) markdown += `| ${getProjectName(stat.projectId)} | ${stat.daysActive} |\n`
+  for (const stat of data.projectStats) {markdown += `| ${getProjectName(stat.projectId)} | ${stat.daysActive} |\n`}
   markdown += `\n## 本周工作总结\n\n`
   for (const [projectId, tasks] of Object.entries(data.weeklyWork)) {
     markdown += `### ${getProjectName(projectId)}\n\n`
-    for (const task of tasks as any[]) markdown += `- ${task.text}\n`
+    for (const task of tasks as any[]) {markdown += `- ${task.text}\n`}
     markdown += `\n`
   }
   markdown += `## 下周工作计划\n\n`
   for (const [projectId, tasks] of Object.entries(data.nextWeekPlan)) {
     markdown += `### ${getProjectName(projectId)}\n\n`
-    for (const task of tasks as any[]) markdown += `- ${task.text}\n`
+    for (const task of tasks as any[]) {markdown += `- ${task.text}\n`}
     markdown += `\n`
   }
   const blob = new Blob([markdown], { type: 'text/markdown' })
@@ -302,10 +302,10 @@ const exportMarkdown = () => {
 }
 
 const exportWord = async () => {
-  if (!reportData.value) return
+  if (!reportData.value) {return}
   try {
     const result = await tauri.exportWordReport(reportData.value)
-    if (result) toast.success('Word文档导出成功！')
+    if (result) {toast.success('Word文档导出成功！')}
   } catch (error) {
     handleError(error, { context: '导出Word', showToast: true })
   }
@@ -321,7 +321,7 @@ onMounted(async () => {
 
   try {
     const cb = ({ type }: any) => {
-      if (type === 'todos' || type === 'projects') generateReport()
+      if (type === 'todos' || type === 'projects') {generateReport()}
     }
     unlistenDataChanged = await tauri.onDataChanged(cb)
   } catch {}

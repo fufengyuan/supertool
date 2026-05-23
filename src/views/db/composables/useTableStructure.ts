@@ -125,8 +125,8 @@ const groupedIndexes = computed(() => indexes.value.filter(i => !i._deleted))
 const columnChangeCount = computed(() => {
   let c = 0
   columns.value.forEach(col => {
-    if (col._isNew || col._deleted) c++
-    else if (isColumnModified(col)) c++
+    if (col._isNew || col._deleted) {c++}
+    else if (isColumnModified(col)) {c++}
   })
   return c
 })
@@ -134,8 +134,8 @@ const columnChangeCount = computed(() => {
 const indexChangeCount = computed(() => {
   let c = 0
   indexes.value.forEach(idx => {
-    if (idx._isNew || idx._deleted) c++
-    else if (isIndexModified(idx)) c++
+    if (idx._isNew || idx._deleted) {c++}
+    else if (isIndexModified(idx)) {c++}
   })
   return c
 })
@@ -146,7 +146,7 @@ const changeCount = computed(() => columnChangeCount.value + indexChangeCount.va
 // ============ Data Loading ============
 
 function parseColumnType(raw: string): { baseType: string; length: number | null; decimals: number | null } {
-  if (!raw) return { baseType: 'VARCHAR', length: null, decimals: null }
+  if (!raw) {return { baseType: 'VARCHAR', length: null, decimals: null }}
   // Handle PostgreSQL multi-word types like "character varying(255)", "double precision"
   const pgMultiWord: Record<string, string> = {
     'CHARACTER VARYING': 'VARCHAR',
@@ -201,7 +201,7 @@ function addColumn() {
 }
 
 function deleteSelectedColumn() {
-  if (selectedColumnIndex.value === null) return
+  if (selectedColumnIndex.value === null) {return}
   const col = columns.value[selectedColumnIndex.value]
   if (col._isNew) {
     columns.value.splice(selectedColumnIndex.value, 1)
@@ -215,7 +215,7 @@ function onPrimaryKeyChange(col: ColumnDef) {
   if (col.primaryKey) {
     // Unset other primary keys
     columns.value.forEach(c => {
-      if (c !== col) c.primaryKey = false
+      if (c !== col) {c.primaryKey = false}
     })
   }
 }
@@ -226,9 +226,9 @@ function canAutoIncrement(col: ColumnDef): boolean {
 }
 
 function isColumnModified(col: ColumnDef): boolean {
-  if (col._isNew || col._deleted) return false
+  if (col._isNew || col._deleted) {return false}
   const orig = findOriginalColumn(col)
-  if (!orig) return false
+  if (!orig) {return false}
   const { baseType: origType, length: parsedLen, decimals: parsedDec } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
   const origPk = orig.primaryKey === true || (orig.COLUMN_KEY || orig.key) === 'PRI' || orig.primaryKey === true
   const origAi = orig.autoIncrement === true || (orig.EXTRA || '').includes('auto_increment') || orig.autoIncrement === true
@@ -390,14 +390,14 @@ function onRowMouseDown(index: number, event: MouseEvent) {
   // Only start drag from the drag handle td
   const target = event.target as HTMLElement
   const handleTd = target.closest('.ts-td-drag')
-  if (!handleTd) return
+  if (!handleTd) {return}
 
   dragRowIndex.value = index
   _dragStartY = event.clientY
 
   // Create ghost
   const row = target.closest('tr') as HTMLElement
-  if (!row) return
+  if (!row) {return}
   _dragGhost = document.createElement('div')
   _dragGhost.className = 'ts-drag-ghost'
   _dragGhost.textContent = columns.value[index]?.name || ''
@@ -446,13 +446,13 @@ function onDocMouseMove(event: MouseEvent) {
 function onDocMouseUp(_event: MouseEvent) {
   if (dragRowIndex.value !== null && dropTargetIndex.value !== null) {
     let insertIndex = dropTargetIndex.value
-    if (dropPosition.value === 'after') insertIndex++
+    if (dropPosition.value === 'after') {insertIndex++}
 
     const fromIdx = dragRowIndex.value
     if (fromIdx !== insertIndex && fromIdx !== insertIndex - 1) {
       const item = columns.value.splice(fromIdx, 1)[0]
       // Adjust insert index if source was before target
-      if (fromIdx < insertIndex) insertIndex--
+      if (fromIdx < insertIndex) {insertIndex--}
       columns.value.splice(insertIndex, 0, item)
       if (!item._isNew && !item._deleted) {
         item._orderChanged = true
@@ -503,8 +503,8 @@ function deleteSelectedIndexes() {
 
 function toggleIndexSelection(i: number) {
   const idx = selectedIndexes.value.indexOf(i)
-  if (idx >= 0) selectedIndexes.value.splice(idx, 1)
-  else selectedIndexes.value.push(i)
+  if (idx >= 0) {selectedIndexes.value.splice(idx, 1)}
+  else {selectedIndexes.value.push(i)}
 }
 
 function addIndexColumn(idx: IndexDef) {
@@ -516,9 +516,9 @@ function removeIndexColumn(idx: IndexDef, ci: number) {
 }
 
 function isIndexModified(idx: IndexDef): boolean {
-  if (idx._isNew || idx._deleted) return false
+  if (idx._isNew || idx._deleted) {return false}
   const origData = idx._originalData
-  if (!origData || !origData.length) return false
+  if (!origData || !origData.length) {return false}
   const origCols = origData.map((r: RawIndexRow) => r.Column_name || r.column_name || '')
   const origName = idx._originalName || ''
   const _origType = idx.type
@@ -548,7 +548,7 @@ function generateDdl(): string[] {
   // SQLite requires indexes to be dropped before the columns they reference
   if (db === 'sqlite' && deletedColumnNames.length > 0) {
     for (const idx of indexes.value) {
-      if (idx.type === 'PRIMARY') continue
+      if (idx.type === 'PRIMARY') {continue}
       // Check if this index references any deleted column
       const refsDeleted = idx.columns.some(colName => deletedColumnNames.includes(colName))
       if (refsDeleted && idx._originalName) {
@@ -580,7 +580,7 @@ function generateDdl(): string[] {
   for (let i = 0; i < activeColumns.length; i++) {
     const col = activeColumns[i]
     if (col._isNew) {
-      if (!col.name) continue
+      if (!col.name) {continue}
       const colDef = buildColumnDef(col, db)
       // New column: determine placement
       let afterClause = ''
@@ -597,14 +597,14 @@ function generateDdl(): string[] {
     }
 
     // Existing column — check if anything changed
-    if (!col.name || !col._originalName) continue
+    if (!col.name || !col._originalName) {continue}
     const orig = col._originalData
-    if (!orig && !col._orderChanged) continue
+    if (!orig && !col._orderChanged) {continue}
 
     const isRename = col.name !== (col._originalName || '')
     const attrsChanged = isTypeChangeAttrs(col, orig)
 
-    if (!isRename && !attrsChanged && !col._orderChanged) continue
+    if (!isRename && !attrsChanged && !col._orderChanged) {continue}
 
     // Generate precise ALTER SQL
     if (db === 'mysql') {
@@ -705,7 +705,7 @@ function generateDdl(): string[] {
   // --- AutoIncrement changes (MySQL only — requires MODIFY COLUMN) ---
   if (db === 'mysql') {
     for (const col of activeColumns) {
-      if (col._isNew || col._deleted || !col._originalData) continue
+      if (col._isNew || col._deleted || !col._originalData) {continue}
       const origAi = col._originalData.autoIncrement === true
         || (col._originalData.EXTRA || '').includes('auto_increment')
         || col._originalData.autoIncrement === true
@@ -718,7 +718,7 @@ function generateDdl(): string[] {
 
   // --- Index changes (skip PRIMARY — handled above) ---
   for (const idx of indexes.value) {
-    if (idx.type === 'PRIMARY') continue
+    if (idx.type === 'PRIMARY') {continue}
     if (idx._deleted && idx._originalName) {
       if (idx.type === 'PRIMARY') {
         sqls.push(`ALTER TABLE ${safeDb}${safeTable} DROP PRIMARY KEY;`)
@@ -732,9 +732,9 @@ function generateDdl(): string[] {
     }
     if (idx._isNew) {
       const validCols = idx.columns.filter(c => c && c.trim())
-      if (validCols.length === 0) continue
+      if (validCols.length === 0) {continue}
       const createIdx = buildCreateIndex(idx, safeDb, safeTable, db)
-      if (createIdx) sqls.push(createIdx)
+      if (createIdx) {sqls.push(createIdx)}
       continue
     }
     // Modified index - drop and recreate
@@ -752,7 +752,7 @@ function generateDdl(): string[] {
       const validCols = idx.columns.filter(c => c && c.trim())
       if (validCols.length > 0) {
         const createIdx = buildCreateIndex(idx, safeDb, safeTable, db)
-        if (createIdx) sqls.push(createIdx)
+        if (createIdx) {sqls.push(createIdx)}
       }
     }
   }
@@ -762,7 +762,7 @@ function generateDdl(): string[] {
 
 /** Check if only type-related attributes changed (excluding rename, order, PK, and autoIncrement) */
 function isTypeChangeAttrs(col: ColumnDef, orig: RawColumnData | undefined): boolean {
-  if (!orig) return false
+  if (!orig) {return false}
   const { baseType: origType, length: parsedLen, decimals: parsedDec } = parseColumnType(orig.COLUMN_TYPE || orig.type || '')
   // Use originalData's length/decimals directly instead of re-parsing from type string
   const origLen = orig.length ?? parsedLen ?? null
@@ -781,7 +781,7 @@ function isTypeChangeAttrs(col: ColumnDef, orig: RawColumnData | undefined): boo
 
 /** Normalize default values for comparison — handles null/undefined/empty string equivalence */
 function normalizeDefault(v: string | null | undefined): string | null {
-  if (v == null || v === '') return null
+  if (v == null || v === '') {return null}
   return String(v)
 }
 
@@ -808,7 +808,7 @@ function buildTypeFull(col: ColumnDef, db: string): string {
       typeStr += `(${col.length})`
     }
   }
-  if (db === 'postgresql') typeStr = mapTypeToPg(typeStr)
+  if (db === 'postgresql') {typeStr = mapTypeToPg(typeStr)}
   return typeStr
 }
 
@@ -914,14 +914,14 @@ function buildDefaultValue(val: string, type: string, _db: string): string {
     return val
   }
   if (type.toUpperCase().includes('INT') || type.toUpperCase() === 'BIGINT' || type.toUpperCase() === 'DECIMAL' || type.toUpperCase() === 'FLOAT' || type.toUpperCase() === 'DOUBLE') {
-    if (!isNaN(Number(val))) return val
+    if (!isNaN(Number(val))) {return val}
   }
   return `'${val.replace(/'/g, "''")}'`
 }
 
 function buildCreateIndex(idx: IndexDef, safeDb: string, safeTable: string, db: string): string | null {
   const cols = idx.columns.filter(c => c && c.trim())
-  if (cols.length === 0) return null
+  if (cols.length === 0) {return null}
 
   const idxName = idx.name || 'idx_' + cols.join('_')
 
@@ -950,7 +950,7 @@ function buildCreateIndex(idx: IndexDef, safeDb: string, safeTable: string, db: 
 }
 
 function quoteIdent(name: string, db: string): string {
-  if (db === 'mysql') return '`' + name.replace(/`/g, '``') + '`'
+  if (db === 'mysql') {return '`' + name.replace(/`/g, '``') + '`'}
   return '"' + name.replace(/"/g, '""') + '"'
 }
 

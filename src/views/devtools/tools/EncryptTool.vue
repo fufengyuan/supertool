@@ -180,7 +180,7 @@ function generateRandomHex(length: number): string {
 
 function generateKey() {
   const cfg = keyConfigs[algorithm.value]
-  if (!cfg) return
+  if (!cfg) {return}
   key.value = generateRandomHex(cfg.keyBytes)
   toast.success(`已生成 ${cfg.name} ${cfg.keyBits}bit 随机密钥 (${cfg.keyBytes} 字节)`)
 }

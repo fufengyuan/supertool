@@ -132,7 +132,7 @@ watch(() => props.content, (val) => {
 })
 
 const renderedHtml = computed(() => {
-  if (!localContent.value) return ''
+  if (!localContent.value) {return ''}
   try {
     const html = marked.parse(localContent.value, { async: false }) as string
     return DOMPurify.sanitize(html)
@@ -151,7 +151,7 @@ function onInput(e: Event) {
 
 function autoResize() {
   const ta = textareaRef.value
-  if (!ta) return
+  if (!ta) {return}
   ta.style.height = 'auto'
   ta.style.height = Math.max(180, ta.scrollHeight) + 'px'
 }
@@ -172,7 +172,7 @@ function handleTabKey(e: KeyboardEvent) {
   if (e.key === 'Tab') {
     e.preventDefault()
     const ta = textareaRef.value
-    if (!ta) return
+    if (!ta) {return}
     const start = ta.selectionStart
     const end = ta.selectionEnd
     localContent.value = localContent.value.substring(0, start) + '  ' + localContent.value.substring(end)
@@ -198,7 +198,7 @@ function replaceRange(textarea: HTMLTextAreaElement, start: number, end: number,
 
 function wrap(before: string, after: string) {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   const selected = localContent.value.substring(start, end)
@@ -218,7 +218,7 @@ function wrap(before: string, after: string) {
 function getLineStart(textarea: HTMLTextAreaElement): number {
   const value = localContent.value
   let pos = textarea.selectionStart
-  while (pos > 0 && value[pos - 1] !== '\n') pos--
+  while (pos > 0 && value[pos - 1] !== '\n') {pos--}
   return pos
 }
 
@@ -226,13 +226,13 @@ function getLineEnd(textarea: HTMLTextAreaElement): number {
   const value = localContent.value
   let pos = textarea.selectionEnd
   const len = value.length
-  while (pos < len && value[pos] !== '\n') pos++
+  while (pos < len && value[pos] !== '\n') {pos++}
   return pos
 }
 
 function insertBeforeLines(prefix: string) {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   let selected = localContent.value.substring(start, end)
@@ -266,7 +266,7 @@ function insertBeforeLines(prefix: string) {
 
 function insertHeading() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const lineStart = getLineStart(ta)
   const lineText = localContent.value.substring(lineStart, getLineEnd(ta))
@@ -291,7 +291,7 @@ function insertHeading() {
 
 function insertOrderedList() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   let selected = localContent.value.substring(start, end)
@@ -313,7 +313,7 @@ function insertOrderedList() {
 
 function insertLink() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   const selected = localContent.value.substring(start, end)
@@ -336,7 +336,7 @@ function insertLink() {
 
 function insertImage() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   const selected = localContent.value.substring(start, end)
@@ -351,7 +351,7 @@ function insertImage() {
 
 function insertCodeBlock() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
   const selected = localContent.value.substring(start, end)
@@ -374,7 +374,7 @@ function insertCodeBlock() {
 
 function insertHr() {
   const ta = getTextarea()
-  if (!ta) return
+  if (!ta) {return}
   const start = ta.selectionStart
   const end = ta.selectionEnd
 

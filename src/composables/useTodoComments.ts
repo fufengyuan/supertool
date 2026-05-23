@@ -33,7 +33,7 @@ export function useTodoComments() {
 
   // 格式化评论时间
   const formatCommentTime = (timestamp: string): string => {
-    if (!timestamp) return '';
+    if (!timestamp) {return '';}
     const date = new Date(timestamp);
     return date.toLocaleString('zh-CN', {
       month: 'short',

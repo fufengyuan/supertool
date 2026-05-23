@@ -195,7 +195,7 @@ function computeComplement64(value: number, bits: 64): ComplementResult | string
     complement = original
   } else {
     complement = (bigPow2 - absVal).toString(2)
-    while (complement.length < bits) complement = '0' + complement
+    while (complement.length < bits) {complement = '0' + complement}
     complement = complement.slice(-bits)
   }
 
@@ -222,7 +222,7 @@ function convert() {
   error.value = ''
   result.value = null
 
-  if (input.value === null || input.value === undefined) return
+  if (input.value === null || input.value === undefined) {return}
 
   const value = input.value
   const bits = bitWidth.value
@@ -243,7 +243,7 @@ function convert() {
 }
 
 function copyValue(value: string) {
-  if (!value) return
+  if (!value) {return}
   copyText(value, toast)
 }
 

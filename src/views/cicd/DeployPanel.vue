@@ -428,7 +428,7 @@ const deployStates = ref<Map<string, DeployState>>(new Map());
 
 // 获取当前选中配置的部署状态
 const currentDeployState = computed(() => {
-  if (!selectedConfigId.value) return null;
+  if (!selectedConfigId.value) {return null;}
   return deployStates.value.get(selectedConfigId.value) || null;
 });
 
@@ -537,9 +537,9 @@ const sortedConfigs = computed(() => {
   return [...configs.value].sort((a, b) => {
     const aTime = ((a as CicdConfigEntry).lastDeployedAt as string) || ''
     const bTime = ((b as CicdConfigEntry).lastDeployedAt as string) || ''
-    if (aTime && bTime) return bTime.localeCompare(aTime)
-    if (aTime) return -1
-    if (bTime) return 1
+    if (aTime && bTime) {return bTime.localeCompare(aTime)}
+    if (aTime) {return -1}
+    if (bTime) {return 1}
     return 0
   })
 })
@@ -550,7 +550,7 @@ const groupedDeployConfigs = computed(() => {
   const sorted = sortedConfigs.value;
   for (const cfg of sorted) {
     const group = (cfg as CicdConfigEntry).groupName || '未分组';
-    if (!map.has(group)) map.set(group, []);
+    if (!map.has(group)) {map.set(group, []);}
     map.get(group)!.push(cfg);
   }
   return map;
@@ -568,13 +568,13 @@ function toggleDeployGroup(groupName: string) {
 }
 
 function getGitRepoName(id?: string) {
-  if (!id) return '';
+  if (!id) {return '';}
   const repo = gitRepos.value.find((r: any) => r.id === id);
   return repo ? repo.name : '';
 }
 
 const selectedGitRepoObj = computed(() => {
-  if (!config.value?.gitRepoId) return null;
+  if (!config.value?.gitRepoId) {return null;}
   return gitRepos.value.find((r: any) => r.id === config.value!.gitRepoId) || null;
 });
 
@@ -585,13 +585,13 @@ function getBuildToolName(tool: unknown) {
 
 // Get server names from config's servers JSON
 function getServerNames(cfg: CicdConfigEntry | null): string[] {
-  if (!cfg?.servers) return [];
+  if (!cfg?.servers) {return [];}
   try {
     const parsed = JSON.parse(cfg.servers);
-    if (!Array.isArray(parsed) || parsed.length === 0) return [];
+    if (!Array.isArray(parsed) || parsed.length === 0) {return [];}
     return parsed.map((s: any) => {
       const srv = servers.value.find(sv => sv.id === s.serverId);
-      if (!srv) return s.label || s.serverId;
+      if (!srv) {return s.label || s.serverId;}
       // Find group name
       const group = srv.groupId ? serverGroups.value.find(g => g.id === srv.groupId) : null;
       const groupTag = group ? ` [${group.name}]` : '';
@@ -627,10 +627,10 @@ function goToConfig() {
 const progressHandler = (data: { progress?: number; message?: string; stage?: string; status?: string; configId?: string; deployLogId?: string }) => {
   // 从事件中获取 configId，如果没有则使用当前选中的配置
   const cfgId = data.configId || selectedConfigId.value;
-  if (!cfgId) return;
+  if (!cfgId) {return;}
 
   const state = deployStates.value.get(cfgId);
-  if (!state || !state.deploying) return; // 只处理正在部署的状态
+  if (!state || !state.deploying) {return;} // 只处理正在部署的状态
 
   const pct = data.progress || 0;
   const isUploadProgress = data.stage === 'ssh' && data.status === 'uploading' && pct > 0;
@@ -639,7 +639,7 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
   // 构建更新对象（不直接修改 state，改用 updateDeployState 触发响应式）
   const updates: Partial<DeployState> = { progress: pct };
   if (!shouldThrottle) {
-    if (isUploadProgress) updates.lastLoggedProgress = pct;
+    if (isUploadProgress) {updates.lastLoggedProgress = pct;}
     const now = new Date().toLocaleTimeString('zh-CN');
     updates.realtimeLogs = [...state.realtimeLogs, { time: now, stage: data.stage || 'info', message: data.message || '' }];
   }
@@ -648,7 +648,7 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
     updates.deployLogId = data.deployLogId;
   }
   updateDeployState(cfgId, updates);
-  if (!shouldThrottle) scrollToBottom();
+  if (!shouldThrottle) {scrollToBottom();}
 };
 
 let cleanupDeployProgress: (() => void) | undefined;
@@ -670,9 +670,9 @@ onMounted(() => {
         const sorted = [...configs.value].sort((a, b) => {
           const aTime = ((a as CicdConfigEntry).lastDeployedAt as string) || ''
           const bTime = ((b as CicdConfigEntry).lastDeployedAt as string) || ''
-          if (aTime && bTime) return bTime.localeCompare(aTime)
-          if (aTime) return -1
-          if (bTime) return 1
+          if (aTime && bTime) {return bTime.localeCompare(aTime)}
+          if (aTime) {return -1}
+          if (bTime) {return 1}
           return 0
         })
         selectedConfigId.value = sorted[0].id;
@@ -685,10 +685,10 @@ onMounted(() => {
       cleanupDeployProgress = await getTauriAPI().onDeployProgress?.(progressHandler);
       cleanupDeployNotification = await getTauriAPI().onDeployNotification?.((data) => {
       const cfgId = (data as any).configId;
-      if (!cfgId) return;
+      if (!cfgId) {return;}
       
       const state = deployStates.value.get(cfgId);
-      if (!state) return;
+      if (!state) {return;}
       
       if (data.success) {
         updateDeployState(cfgId, {
@@ -743,7 +743,7 @@ async function loadConfigData(configId: string) {
       const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
       // Enrich logs with project name and per-config info
       const configMap = new Map<string, CicdConfigEntry>()
-      for (const c of configs.value) configMap.set(c.id, c)
+      for (const c of configs.value) {configMap.set(c.id, c)}
       logs.value = rawLogs.map(log => {
         const logConfig = configMap.get(log.configId)
         const repoName = logConfig?.gitRepoId ? getGitRepoName(logConfig.gitRepoId) : '';
@@ -783,20 +783,20 @@ async function runPreflight() {
 }
 
 async function startDeploy() {
-  if (!selectedConfigId.value) return;
+  if (!selectedConfigId.value) {return;}
 
   const currentState = deployStates.value.get(selectedConfigId.value);
-  if (currentState?.deploying) return; // 该配置已经在部署中
+  if (currentState?.deploying) {return;} // 该配置已经在部署中
 
   if (config.value?.requiresApproval) {
     const proceed = await showApprovalConfirm();
-    if (!proceed) return;
+    if (!proceed) {return;}
   }
 
   const preflightOk = await runPreflight();
   if (!preflightOk) {
     const proceed = confirm('预检未通过，是否继续部署？');
-    if (!proceed) return;
+    if (!proceed) {return;}
   }
 
   // 初始化当前配置的部署状态（通过 updateDeployState 保证响应式）
@@ -843,12 +843,12 @@ async function startDeploy() {
 }
 
 async function cancelDeploy() {
-  if (!selectedConfigId.value) return;
+  if (!selectedConfigId.value) {return;}
   const state = deployStates.value.get(selectedConfigId.value);
-  if (!state?.deploying || !state.deployLogId) return;
+  if (!state?.deploying || !state.deployLogId) {return;}
 
   const confirmed = confirm('确定要取消当前部署吗？');
-  if (!confirmed) return;
+  if (!confirmed) {return;}
 
   try {
     const result = await getTauriAPI().cancelDeploy(state.deployLogId);
@@ -867,7 +867,7 @@ async function cancelDeploy() {
 }
 
 async function doRollback(log: DeployLog) {
-  if (!config.value || !selectedConfigId.value) return;
+  if (!config.value || !selectedConfigId.value) {return;}
 
   rollingBack.value = true;
   resetDeployState(selectedConfigId.value);
@@ -912,12 +912,12 @@ async function rollbackDeploy(log: DeployLog) {
     const proceed = confirm(
       `⚠️ 审核确认\\\\n\\\\n配置「${config.value.name || getGitRepoName(config.value.gitRepoId)}」已开启部署审核。\\\\n\\\\n请确认你要回滚到 ${formatDate(log.createdAt)} 的版本，是否继续？`
     );
-    if (!proceed) return;
+    if (!proceed) {return;}
   } else {
     const confirmed = confirm(
       `确定要回滚到 ${formatDate(log.createdAt)} 的部署版本吗？\\n\\n此操作将把服务器恢复到该版本。`
     );
-    if (!confirmed) return;
+    if (!confirmed) {return;}
   }
 
   rollingBackId.value = log.id;
@@ -940,7 +940,7 @@ async function rollbackDeploy(log: DeployLog) {
 }
 
 async function viewFullLog(log: DeployLog) {
-  if (!log.logFilePath) return;
+  if (!log.logFilePath) {return;}
   loadingLogFile.value = true;
   fullLogContent.value = null;
   try {
@@ -967,7 +967,7 @@ async function refreshLogs() {
     const rawResult = await getTauriAPI().getDeployLogs(config.value.id) as any;
     const rawLogs = (Array.isArray(rawResult) ? rawResult : rawResult?.data || []) as DeployLog[];
     const configMap = new Map<string, CicdConfigEntry>()
-    for (const c of configs.value) configMap.set(c.id, c)
+    for (const c of configs.value) {configMap.set(c.id, c)}
     logs.value = rawLogs.map(log => {
       const logConfig = configMap.get(log.configId)
       return {
@@ -994,7 +994,7 @@ async function toggleLogDetails(logId: string) {
 }
 
 async function loadLogContent(log: DeployLog) {
-  if (!log.logFilePath || loadingLogContent.value[log.id]) return;
+  if (!log.logFilePath || loadingLogContent.value[log.id]) {return;}
   loadingLogContent.value[log.id] = true;
   try {
     console.log("[loadLogContent] called")

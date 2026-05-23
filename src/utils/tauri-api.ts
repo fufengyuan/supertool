@@ -28,7 +28,7 @@ const SENSITIVE_KEYS = [
 
 /** 递归脱敏，原地修改并返回 */
 function sanitizeLogValue(val: unknown): unknown {
-  if (val === null || val === undefined) return val
+  if (val === null || val === undefined) {return val}
   if (Array.isArray(val)) {
     return val.map(v => sanitizeLogValue(v))
   }
@@ -64,13 +64,13 @@ function safeJsonLog(val: unknown, maxLen = 300): string {
 
 /** 检测后端返回是否已是标准响应格式 { success, data/error }（避免双层嵌套） */
 function isStandardResponse(obj: unknown): boolean {
-  if (obj === null || typeof obj !== 'object') return false
+  if (obj === null || typeof obj !== 'object') {return false}
   const o = obj as Record<string, unknown>
   return typeof o['success'] === 'boolean' && ('data' in o || 'error' in o)
 }
 
 async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {}, silent = !import.meta.env.DEV): Promise<ApiResponse<T>> {
-  if (!silent) console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)
+  if (!silent) {console.log(`[Tauri IPC] → ${command}  ${safeJsonLog(args, 200)}`)}
   const t0 = performance.now()
   try {
     const raw = await invoke(command, args)
@@ -96,7 +96,7 @@ async function tauriInvoke<T>(command: string, args: Record<string, unknown> = {
 /** tauriCall: like tauriInvoke but auto-unwraps .data */
 async function tauriCall<T>(command: string, args: Record<string, unknown> = {}, silent = !import.meta.env.DEV): Promise<T> {
   const res = await tauriInvoke<T>(command, args, silent)
-  if (!res.success) throw new Error(res.error || `IPC call failed: ${command}`)
+  if (!res.success) {throw new Error(res.error || `IPC call failed: ${command}`)}
   return res.data as T
 }
 
@@ -127,17 +127,17 @@ export function useProjectsAPI() {
         archived: project.archived ?? false,
       }
       const res = await tauriInvoke<Project>('add_project', { project: fullProject })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateProject: async (project: Project): Promise<Project> => {
       const res = await tauriInvoke<Project>('update_project', { project })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteProject: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_project', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getProjectStats: async (projectId: string): Promise<ProjectStats> => {
       const res = await tauriInvoke<ProjectStats>('get_project_stats', { projectId })
@@ -178,17 +178,17 @@ export function useServersAPI() {
         updatedAt: server.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<Server>('add_server', { server: fullServer })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateServer: async (server: Server): Promise<Server> => {
       const res = await tauriInvoke<Server>('update_server', { server })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteServer: async (serverId: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_server', { serverId })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAllServerGroups: async (): Promise<ServerGroup[]> => {
       const res = await tauriInvoke<ServerGroup[]>('get_all_server_groups')
@@ -203,7 +203,7 @@ export function useServersAPI() {
         updatedAt: group.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<ServerGroup>('add_server_group', { group: fullGroup })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateServerGroup: async (groupId: string, updates: { name?: string; description?: string; parentId?: string | null; color?: string }): Promise<ServerGroup> => {
@@ -211,12 +211,12 @@ export function useServersAPI() {
         groupId, name: updates.name ?? '', description: updates.description ?? '',
         parentId: updates.parentId ?? null, color: updates.color ?? '#6c63ff',
       })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteServerGroup: async (groupId: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_server_group', { groupId })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     testConnection: async (server: Partial<Server>): Promise<{ success: boolean; error?: string }> => {
       const res = await tauriInvoke<boolean>('test_connection', {
@@ -237,12 +237,12 @@ export function useDatabaseAPI() {
       // 清理重复字段
       const { database, user, ...normalized } = config as any
       normalized.type = config.type === 'postgresql' ? 'postgres' : config.type
-      if (!normalized.username && user) normalized.username = user
+      if (!normalized.username && user) {normalized.username = user}
       // SQLite 没有 username/host/password，确保必填字段有默认值避免 Rust 反序列化失败
       if (config.type === 'sqlite') {
         normalized.username = normalized.username ?? ''
       }
-      if (!normalized.dbName && database) normalized.dbName = database
+      if (!normalized.dbName && database) {normalized.dbName = database}
       const res = await tauriInvoke<boolean>('db_connect', { config: normalized })
       return { success: res.success, error: res.error }
     },
@@ -568,12 +568,12 @@ export function useLanAPI() {
     },
     lanUploadAvatar: async (filePath: string): Promise<{ path: string; fullPath: string }> => {
       const res = await tauriInvoke<{ path: string; fullPath: string }>('lan_upload_avatar', { filePath })
-      if (res.success && res.data) return res.data
+      if (res.success && res.data) {return res.data}
       throw new Error(res.error || '上传失败')
     },
     lanGetAvatarPath: async (avatar: string): Promise<{ isEmoji: boolean; path: string }> => {
       const res = await tauriInvoke<{ isEmoji: boolean; path: string }>('lan_get_avatar_path', { avatar })
-      if (res.success && res.data) return res.data
+      if (res.success && res.data) {return res.data}
       return { isEmoji: true, path: avatar }
     },
     lanShowOpenDialogForDirs: async (): Promise<{ filePaths: string[]; canceled: boolean }> => {
@@ -582,7 +582,7 @@ export function useLanAPI() {
         multiple: false,
         title: '选择文件保存目录',
       })
-      if (!selected) return { filePaths: [], canceled: true }
+      if (!selected) {return { filePaths: [], canceled: true }}
       const paths = Array.isArray(selected) ? selected : [selected]
       return { filePaths: paths, canceled: false }
     },
@@ -844,17 +844,17 @@ export function useTodosAPI() {
         updatedAt: todo.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<Todo>('add_todo', { todo: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateTodo: async (todo: Todo): Promise<Todo> => {
       const res = await tauriInvoke<Todo>('update_todo', { params: todo })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteTodo: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_todo', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAllTags: async (): Promise<Tag[]> => {
       const res = await tauriInvoke<Tag[]>('get_all_tags')
@@ -862,12 +862,12 @@ export function useTodosAPI() {
     },
     addTag: async (tag: { name: string; color?: string }): Promise<Tag> => {
       const res = await tauriInvoke<Tag>('add_tag', { tag })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteTag: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_tag', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     addSubtask: async (subtask: Partial<Subtask>): Promise<Subtask> => {
       const full = {
@@ -878,17 +878,17 @@ export function useTodosAPI() {
         updatedAt: subtask.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<Subtask>('add_subtask', { subtask: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateSubtask: async (id: string, updates: Partial<Subtask>): Promise<Subtask> => {
       const res = await tauriInvoke<Subtask>('update_subtask', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteSubtask: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_subtask', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getSubtasksForTodo: async (todoId: string): Promise<Subtask[]> => {
       const res = await tauriInvoke<Subtask[]>('get_subtasks_for_todo', { todoId })
@@ -913,17 +913,17 @@ export function useNotesAPI() {
         updatedAt: note.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<Note>('add_note', { note: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateNote: async (id: string, updates: Partial<Note>): Promise<Note> => {
       const res = await tauriInvoke<Note>('update_note', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteNote: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_note', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAllNoteGroups: async (): Promise<NoteGroup[]> => {
       const res = await tauriInvoke<NoteGroup[]>('get_all_note_groups')
@@ -937,17 +937,17 @@ export function useNotesAPI() {
         updatedAt: group.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<NoteGroup>('add_note_group', { group: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateNoteGroup: async (id: string, updates: Partial<NoteGroup>): Promise<NoteGroup> => {
       const res = await tauriInvoke<NoteGroup>('update_note_group', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteNoteGroup: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_note_group', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
   }
 }
@@ -972,7 +972,7 @@ export function useWeeklyAPI() {
         updatedAt: report.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<WeeklyReport>('save_weekly_report', { report: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
   }
@@ -996,17 +996,17 @@ export function useMfaAPI() {
         updatedAt: secret.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<MfaSecret>('add_mfa_secret', { secret: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateMfaSecret: async (id: string, updates: Partial<MfaSecret>): Promise<MfaSecret> => {
       const res = await tauriInvoke<MfaSecret>('update_mfa_secret', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteMfaSecret: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_mfa_secret', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     generateTotp: async (secret: string): Promise<string> => {
       const res = await tauriInvoke<string>('generate_totp', { secret })
@@ -1033,17 +1033,17 @@ export function useAccountingAPI() {
         updatedAt: record.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<AccountingRecord>('add_accounting_record', { record: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateAccountingRecord: async (id: string, updates: Partial<AccountingRecord>): Promise<AccountingRecord> => {
       const res = await tauriInvoke<AccountingRecord>('update_accounting_record', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteAccountingRecord: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_accounting_record', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAccountingCategories: async (): Promise<AccountingCategory[]> => {
       const res = await tauriInvoke<AccountingCategory[]>('get_accounting_categories')
@@ -1058,17 +1058,17 @@ export function useAccountingAPI() {
         updatedAt: cat.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<AccountingCategory>('add_accounting_category', { category: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateAccountingCategory: async (id: string, updates: Partial<AccountingCategory>): Promise<AccountingCategory> => {
       const res = await tauriInvoke<AccountingCategory>('update_accounting_category', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteAccountingCategory: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_accounting_category', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAccountingStats: async (): Promise<any> => {
       const res = await tauriInvoke<any>('get_accounting_stats')
@@ -1091,17 +1091,17 @@ export function useAccountingAPI() {
         updatedAt: budget.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<Budget>('add_budget', { budget: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateBudget: async (id: string, updates: Partial<Budget>): Promise<Budget> => {
       const res = await tauriInvoke<Budget>('update_budget', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteBudget: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_budget', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
   }
 }
@@ -1122,17 +1122,17 @@ export function useLogsAPI() {
         updatedAt: preset.updatedAt ?? new Date().toISOString(),
       }
       const res = await tauriInvoke<LogPreset>('add_log_preset', { preset: full })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     updateLogPreset: async (id: string, updates: Partial<LogPreset>): Promise<LogPreset> => {
       const res = await tauriInvoke<LogPreset>('update_log_preset', { id, updates })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     deleteLogPreset: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_log_preset', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     logSearch: async (params: { preset_id: string; keyword: string; lines?: number }): Promise<any> => {
       const res = await tauriCall<any>('log_search', {
@@ -1272,7 +1272,7 @@ export function useSettingsAPI() {
     },
     setSetting: async (key: string, value: any): Promise<void> => {
       const res = await tauriInvoke<string>('set_setting', { key, value })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getNotificationSettings: async (): Promise<NotificationSettings | null> => {
       const res = await tauriInvoke<NotificationSettings | null>('get_notification_settings')
@@ -1280,7 +1280,7 @@ export function useSettingsAPI() {
     },
     setNotificationSettings: async (settings: NotificationSettings): Promise<void> => {
       const res = await tauriInvoke<string>('set_notification_settings', { settings })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
   }
 }
@@ -1311,7 +1311,7 @@ export function useDataBackupAPI() {
     },
     importAllData: async (data: any): Promise<void> => {
       const res = await tauriInvoke<string>('import_all_data', { data })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getAppPath: async (): Promise<string> => {
       const res = await tauriInvoke<string>('get_app_path')
@@ -1319,7 +1319,7 @@ export function useDataBackupAPI() {
     },
     setAutoBackup: async (settings: Record<string, unknown>): Promise<void> => {
       const res = await tauriInvoke<string>('set_setting', { key: 'autoBackupSettings', value: settings })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     getDataDir: async (): Promise<any> => {
       return await tauriCall<any>('get_data_dir')
@@ -1340,12 +1340,12 @@ export function useOpenVPNAPI() {
     },
     openvpnAdd: async (data: { name: string; filePath: string; content: string }): Promise<any> => {
       const res = await tauriInvoke<any>('openvpn_add', { data })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     openvpnDelete: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('openvpn_delete', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     openvpnConnect: async (configId: string, configName: string, content: string, sudoPassword?: string): Promise<any> => {
       const res = await tauriInvoke<any>('openvpn_connect', { configId, configName, content, sudoPassword })
@@ -1357,7 +1357,7 @@ export function useOpenVPNAPI() {
     },
     openvpnDisconnect: async (): Promise<void> => {
       const res = await tauriInvoke<string>('openvpn_disconnect')
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     openvpnGetStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('openvpn_get_status', {}, true)
@@ -1396,17 +1396,17 @@ export function useWireGuardAPI() {
     },
     wireguardAdd: async (data: object): Promise<any> => {
       const res = await tauriInvoke<any>('wireguard_add', { data })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     wireguardUpdate: async (data: object): Promise<any> => {
       const res = await tauriInvoke<any>('wireguard_update', { data })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
     wireguardDelete: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('wireguard_delete', { id })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     wireguardConnect: async (configId: string, configName: string, privateKey: string, peerPublicKey: string, peerEndpoint: string, presharedKey?: string, address?: string, mtu?: number): Promise<any> => {
       const res = await tauriInvoke<any>('wireguard_connect', { configId, configName, privateKey, peerPublicKey, peerEndpoint, presharedKey, address, mtu })
@@ -1414,7 +1414,7 @@ export function useWireGuardAPI() {
     },
     wireguardDisconnect: async (): Promise<void> => {
       const res = await tauriInvoke<string>('wireguard_disconnect')
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
     },
     wireguardGetStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('wireguard_get_status', {}, true)
@@ -1930,7 +1930,7 @@ export interface TauriAPI {
 let cachedAPI: TauriAPI | null = null
 
 export function getTauriAPI(): TauriAPI {
-  if (cachedAPI) return cachedAPI
+  if (cachedAPI) {return cachedAPI}
 
   const projects = useProjectsAPI()
   const servers = useServersAPI()
@@ -2243,32 +2243,32 @@ export function getTauriAPI(): TauriAPI {
     gitSyncConfigure: async (params: Record<string, unknown>): Promise<any> => {
       // Convert frontend camelCase to Rust snake_case
       const rustParams: Record<string, unknown> = {}
-      if (params.enabled !== undefined) rustParams.enabled = params.enabled === 'true' || params.enabled === true
-      if (params.remote_url) rustParams.remote_url = params.remote_url
-      else if (params.remoteUrl) rustParams.remote_url = params.remoteUrl
-      if (params.branch) rustParams.branch = params.branch
-      if (params.interval !== undefined) rustParams.interval = Number(params.interval) || 30
-      if (params.ssh_key) rustParams.ssh_key = params.ssh_key
-      else if (params.ssh_key_path) rustParams.ssh_key = params.ssh_key_path
-      else if (params.sshKey) rustParams.ssh_key = params.sshKey
+      if (params.enabled !== undefined) {rustParams.enabled = params.enabled === 'true' || params.enabled === true}
+      if (params.remote_url) {rustParams.remote_url = params.remote_url}
+      else if (params.remoteUrl) {rustParams.remote_url = params.remoteUrl}
+      if (params.branch) {rustParams.branch = params.branch}
+      if (params.interval !== undefined) {rustParams.interval = Number(params.interval) || 30}
+      if (params.ssh_key) {rustParams.ssh_key = params.ssh_key}
+      else if (params.ssh_key_path) {rustParams.ssh_key = params.ssh_key_path}
+      else if (params.sshKey) {rustParams.ssh_key = params.sshKey}
       const res = await tauriInvoke<any>('git_sync_configure', { params: rustParams })
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data || res
     },
     gitSyncInit: async (): Promise<any> => {
       const res = await tauriInvoke<any>('git_sync_init')
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res.data
     },
     gitSyncPull: async (): Promise<any> => {
       const res = await tauriInvoke<any>('git_sync_pull')
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       // Rust returns flat { success, output, last_sync }, not { success, data }
       return res
     },
     gitSyncPush: async (): Promise<any> => {
       const res = await tauriInvoke<any>('git_sync_push')
-      if (!res.success) throw new Error(res.error)
+      if (!res.success) {throw new Error(res.error)}
       return res
     },
     // Git Repo Management
@@ -2440,7 +2440,7 @@ export function getTauriAPI(): TauriAPI {
         multiple: false,
         filters: [{ name: 'OpenVPN', extensions: ['ovpn', 'conf'] }],
       })
-      if (!selected) return { canceled: true, filePaths: [] }
+      if (!selected) {return { canceled: true, filePaths: [] }}
       return { canceled: false, filePaths: [selected] }
     },
     // LAN Chat

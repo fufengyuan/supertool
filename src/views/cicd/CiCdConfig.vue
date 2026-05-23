@@ -865,7 +865,7 @@ const cicd = useCicdConfig();
 
 // Git 仓库名称查找函数（供模板使用）
 function getGitRepoName(id?: string) {
-  if (!id) return '';
+  if (!id) {return '';}
   const repo = cicd.gitRepos.value.find((r: any) => r.id === id);
   return repo ? repo.name : '';
 }

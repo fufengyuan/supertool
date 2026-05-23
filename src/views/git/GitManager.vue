@@ -940,9 +940,9 @@ const showGitMenu = ref(false)
 
 // 点击页面空白处关闭所有右键菜单
 function handleDocumentClick() {
-  if (contextMenu.value.show) contextMenu.value.show = false
-  if (logContextMenu.value.show) logContextMenu.value.show = false
-  if (stashContextMenu.value.show) stashContextMenu.value.show = false
+  if (contextMenu.value.show) {contextMenu.value.show = false}
+  if (logContextMenu.value.show) {logContextMenu.value.show = false}
+  if (stashContextMenu.value.show) {stashContextMenu.value.show = false}
 }
 
 onMounted(() => document.addEventListener('click', handleDocumentClick))

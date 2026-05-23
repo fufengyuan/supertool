@@ -271,7 +271,7 @@ const currentCategory = computed(() => categories.find(c => c.key === category.v
 const currentUnits = computed(() => currentCategory.value.units)
 
 const allResults = computed(() => {
-  if (inputValue.value === null || inputValue.value === undefined) return []
+  if (inputValue.value === null || inputValue.value === undefined) {return []}
   const base = toBase(inputValue.value, fromUnit.value)
   return currentUnits.value
     .filter(u => u.key !== fromUnit.value)
@@ -317,7 +317,7 @@ function tempFromC(celsius: number, unit: string): number {
 }
 
 function formatNumber(n: number): string {
-  if (n === 0) return '0'
+  if (n === 0) {return '0'}
   const abs = Math.abs(n)
   if (abs >= 1e15 || (abs < 1e-10 && abs !== 0)) {
     return n.toExponential(6)

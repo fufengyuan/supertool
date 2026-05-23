@@ -114,10 +114,10 @@ const showScrollIndicator = ref(false)
 // 点击标签页 → 激活 + 导航
 function onTabClick(tabId: string) {
   const tab = tabStore.tabs.find(t => t.id === tabId)
-  if (!tab) return
+  if (!tab) {return}
   tabStore.activate(tabId)
   // 如果已经是当前路由，跳过 push 避免不必要的重渲染（主因：侧边栏 20+ 个 router-link 重算 active）
-  if (route.fullPath === tab.currentPath) return
+  if (route.fullPath === tab.currentPath) {return}
   // 先更新 v-show 显示新标签，下一帧再更新路由 → 避免路由变化导致的同步重渲染卡顿
   nextTick(() => {
     router.push(tab.currentPath)
@@ -126,7 +126,7 @@ function onTabClick(tabId: string) {
 
 // 右键标签页 → 关闭
 function onTabContextMenu(tabId: string, _event: MouseEvent) {
-  if (tabStore.tabs.length <= 1) return
+  if (tabStore.tabs.length <= 1) {return}
   tabStore.closeTab(tabId)
   // 关闭后导航到新活跃标签页
   navigateToActiveTab()

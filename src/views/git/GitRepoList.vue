@@ -256,7 +256,7 @@ interface RepoScanResult {
 let validateTimer: ReturnType<typeof setTimeout> | null = null;
 
 const filteredRepos = computed(() => {
-  if (!searchQuery.value.trim()) return repos.value;
+  if (!searchQuery.value.trim()) {return repos.value;}
   const q = searchQuery.value.toLowerCase();
   return repos.value.filter(
     (r) =>
@@ -290,10 +290,10 @@ const formatTime = (dateStr: string): string => {
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
 
-  if (diffMins < 1) return '刚刚';
-  if (diffMins < 60) return `${diffMins} 分钟前`;
-  if (diffHours < 24) return `${diffHours} 小时前`;
-  if (diffDays < 7) return `${diffDays} 天前`;
+  if (diffMins < 1) {return '刚刚';}
+  if (diffMins < 60) {return `${diffMins} 分钟前`;}
+  if (diffHours < 24) {return `${diffHours} 小时前`;}
+  if (diffDays < 7) {return `${diffDays} 天前`;}
   return date.toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
@@ -311,7 +311,7 @@ const validateRepoPath = async (path: string) => {
   }
   try {
     const api = getTauriAPI();
-    if (!api?.validateGitRepoPath) return true;
+    if (!api?.validateGitRepoPath) {return true;}
     validating.value = true;
     const result = await api.validateGitRepoPath(path.trim());
     if (result.valid) {
@@ -334,7 +334,7 @@ const validateRepoPath = async (path: string) => {
 };
 
 const onPathChange = () => {
-  if (validateTimer) clearTimeout(validateTimer);
+  if (validateTimer) {clearTimeout(validateTimer);}
   validationStatus.value = null;
 
   if (formData.value.path.trim()) {
@@ -396,7 +396,7 @@ const resetModal = () => {
   editingRepo.value = null;
   formData.value = { name: '', path: '', remote: '', branch: '' };
   validationStatus.value = null;
-  if (validateTimer) clearTimeout(validateTimer);
+  if (validateTimer) {clearTimeout(validateTimer);}
 };
 
 const saveRepo = async () => {
@@ -532,7 +532,7 @@ const isRepoAlreadyAdded = (path: string): boolean => {
 };
 
 const addScannedRepo = async (repo: RepoScanResult) => {
-  if (isRepoAlreadyAdded(repo.path)) return;
+  if (isRepoAlreadyAdded(repo.path)) {return;}
 
   const api = getTauriAPI();
   await api.addGitRepo({

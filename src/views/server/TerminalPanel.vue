@@ -177,7 +177,7 @@ let lastResizeCols = 0
 
 // Watch for server selection via v-model
 watch(selectedServerId, (newId) => {
-  if (!newId) return
+  if (!newId) {return}
   const srv = props.servers?.find(s => s.id === newId)
   if (srv) {
     addTab(srv)
@@ -189,7 +189,7 @@ watch(selectedServerId, (newId) => {
 // Collect all servers and groups from props and connected servers
 const allServers = computed<Server[]>(() => {
   const result: Server[] = []
-  if (props.servers) result.push(...props.servers)
+  if (props.servers) {result.push(...props.servers)}
   return result
 })
 
@@ -204,7 +204,7 @@ interface GroupNode {
 const groups = ref<GroupNode[]>([])
 
 async function loadGroups() {
-  if (groups.value.length > 0) return
+  if (groups.value.length > 0) {return}
   try {
     groups.value = await getTauriAPI().getServerGroups()
   } catch (e) {
@@ -216,7 +216,7 @@ async function loadGroups() {
 function setupResizeObserver() {
   resizeObserver = new ResizeObserver(() => {
     const tab = tabs.value.find(t => t.id === activeTabId.value)
-    if (!tab || !tab.term || !tab.sessionId || tab.status !== 'connected') return
+    if (!tab || !tab.term || !tab.sessionId || tab.status !== 'connected') {return}
 
     tab.fitAddon?.fit()
     const { rows, cols } = tab.term
@@ -229,7 +229,7 @@ function setupResizeObserver() {
 
   // Observe the terminal-body container
   const body = document.querySelector('.terminal-body')
-  if (body) resizeObserver.observe(body)
+  if (body) {resizeObserver.observe(body)}
 }
 
 // 当前活跃标签的服务器 ID
@@ -536,7 +536,7 @@ async function connectTab(tab: TerminalTab) {
 }
 
 async function reconnectTab(tab: TerminalTab) {
-  if (tab.status === 'connecting') return
+  if (tab.status === 'connecting') {return}
   // 不要操作旧终端，connectTab 会 dispose 并创建新实例
   await connectTab(tab)
   // connectTab 内部已处理 active tab 的 open/fit，无需重复调用
@@ -544,20 +544,20 @@ async function reconnectTab(tab: TerminalTab) {
 
 // 自动重连：最多 MAX_RETRIES 次，间隔 1.5s，失败后给提示
 async function autoReconnectTab(tab: TerminalTab) {
-  if (tab.status === 'connecting') return
+  if (tab.status === 'connecting') {return}
   const MAX_RETRIES = 2
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     logger.info(`[Terminal] autoReconnectTab attempt ${attempt}/${MAX_RETRIES} for tab ${tab.id}`)
     if (attempt > 1) {
-      if (tab.term) tab.term.writeln(`\x1b[1;33m⏳ 自动重试 (${attempt}/${MAX_RETRIES})...\x1b[0m`)
+      if (tab.term) {tab.term.writeln(`\x1b[1;33m⏳ 自动重试 (${attempt}/${MAX_RETRIES})...\x1b[0m`)}
       await new Promise(r => setTimeout(r, 1500))
     }
     try {
       const isConnected = await getTauriAPI().isServerConnected(tab.server.id)
       if (!isConnected) {
         const connResult = await getTauriAPI().connectServer(tab.server.id)
-        if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
+        if (!connResult?.success) {throw new Error(connResult?.error || 'SSH 连接失败')}
       }
 
       // 重新注册监听器（旧的可能已经失效）
@@ -582,7 +582,7 @@ async function autoReconnectTab(tab: TerminalTab) {
       const sid = `term_${tab.id}_${Date.now()}`
       tab.sessionId = sid
       const result = await getTauriAPI().createTerminal(tab.server.id, sid, 24, 80)
-      if (!result?.success) throw new Error(result?.error || '创建终端会话失败')
+      if (!result?.success) {throw new Error(result?.error || '创建终端会话失败')}
 
       tab.status = 'connected'
 
@@ -601,7 +601,7 @@ async function autoReconnectTab(tab: TerminalTab) {
       return
     } catch (error) {
       console.error(`[Terminal] Auto-reconnect attempt ${attempt} failed:`, error)
-      if (tab.term) tab.term.writeln(`\x1b[1;31m✗ 重连尝试 ${attempt} 失败: ${(error as Error).message}\x1b[0m`)
+      if (tab.term) {tab.term.writeln(`\x1b[1;31m✗ 重连尝试 ${attempt} 失败: ${(error as Error).message}\x1b[0m`)}
       if (tab.cleanupData) { tab.cleanupData(); tab.cleanupData = null }
       if (tab.cleanupClose) { tab.cleanupClose(); tab.cleanupClose = null }
       tab.sessionId = null
@@ -610,17 +610,17 @@ async function autoReconnectTab(tab: TerminalTab) {
 
   // 所有重试都失败了
   tab.status = 'error'
-  if (tab.term) tab.term.writeln('\x1b[1;31m✗ 自动重连失败，请手动点击重连按钮\x1b[0m')
+  if (tab.term) {tab.term.writeln('\x1b[1;31m✗ 自动重连失败，请手动点击重连按钮\x1b[0m')}
 }
 
 function switchTab(tabId: string) {
-  if (tabId === activeTabId.value) return
+  if (tabId === activeTabId.value) {return}
   activeTabId.value = tabId
   // With per-tab containers, switching is just CSS show/hide.
   // Just fit and focus the new active tab.
   nextTick(() => {
     const tab = tabs.value.find(t => t.id === tabId)
-    if (!tab || !tab.term) return
+    if (!tab || !tab.term) {return}
     tab.fitAddon?.fit()
     tab.term.focus()
     currentTerm = tab.term
@@ -638,11 +638,11 @@ function switchTab(tabId: string) {
 
 function fitActiveTerminal() {
   const tab = tabs.value.find(t => t.id === activeTabId.value)
-  if (!tab || !tab.term) return
+  if (!tab || !tab.term) {return}
   // With per-tab containers, each tab has its own wrapper.
   // If the terminal isn't open yet, open it to its dedicated container.
   const container = tabContainers.get(tab.id)
-  if (!container) return
+  if (!container) {return}
 
   if (!tab.term.element || tab.term.element.parentNode !== container) {
     try {
@@ -670,7 +670,7 @@ function fitActiveTerminal() {
 
 function closeTab(tabId: string) {
   const idx = tabs.value.findIndex(t => t.id === tabId)
-  if (idx === -1) return
+  if (idx === -1) {return}
 
   cleanupTab(tabs.value[idx])
   tabs.value.splice(idx, 1)
@@ -688,8 +688,8 @@ function closeTab(tabId: string) {
 }
 
 function cleanupTab(tab: TerminalTab) {
-  if (tab.cleanupData) tab.cleanupData()
-  if (tab.cleanupClose) tab.cleanupClose()
+  if (tab.cleanupData) {tab.cleanupData()}
+  if (tab.cleanupClose) {tab.cleanupClose()}
   if (tab.sessionId) {
     try { getTauriAPI().closeTerminal(tab.sessionId) } catch {}
   }
@@ -725,7 +725,7 @@ async function onAddTab() {
 // ===== 快捷打开 SFTP（获取当前终端路径并打开 SFTP 面板） =====
 async function quickOpenSftp() {
   const activeTab = tabs.value.find(t => t.id === activeTabId.value)
-  if (!activeTab || !activeTab.sessionId || activeTab.status !== 'connected') return
+  if (!activeTab || !activeTab.sessionId || activeTab.status !== 'connected') {return}
 
   logger.info('[Terminal] quickOpenSftp: getting pwd via exec')
 
@@ -744,7 +744,7 @@ async function quickOpenSftp() {
 function maximizeToggle() {
   isMaximized.value = !isMaximized.value
   const panel = document.querySelector('.terminal-panel') as HTMLElement
-  if (!panel) return
+  if (!panel) {return}
 
   if (isMaximized.value) {
     panel.style.top = '0'
@@ -771,12 +771,12 @@ let panelStartX = 0
 let panelStartY = 0
 
 function startDrag(e: MouseEvent) {
-  if ((e.target as HTMLElement).closest('button')) return
-  if (isMaximized.value) return
+  if ((e.target as HTMLElement).closest('button')) {return}
+  if (isMaximized.value) {return}
 
   isDragging = true
   const panel = (e.currentTarget as HTMLElement).closest('.terminal-panel') as HTMLElement
-  if (!panel) return
+  if (!panel) {return}
 
   dragStartX = e.clientX
   dragStartY = e.clientY
@@ -789,9 +789,9 @@ function startDrag(e: MouseEvent) {
 }
 
 function onDrag(e: MouseEvent) {
-  if (!isDragging) return
+  if (!isDragging) {return}
   const panel = document.querySelector('.terminal-panel') as HTMLElement
-  if (!panel) return
+  if (!panel) {return}
   panel.style.left = `${panelStartX + (e.clientX - dragStartX)}px`
   panel.style.top = `${panelStartY + (e.clientY - dragStartY)}px`
   panel.style.right = 'auto'

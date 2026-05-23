@@ -89,8 +89,8 @@ const currentWeekLabel = computed(() => {
   const endMonth = range.end.getMonth() + 1;
   const endDay = range.end.getDate();
 
-  if (weekOffset.value === 0) return `本周 (${startMonth}/${startDay} - ${endMonth}/${endDay})`;
-  if (weekOffset.value === -1) return `上周 (${startMonth}/${startDay} - ${endMonth}/${endDay})`;
+  if (weekOffset.value === 0) {return `本周 (${startMonth}/${startDay} - ${endMonth}/${endDay})`;}
+  if (weekOffset.value === -1) {return `上周 (${startMonth}/${startDay} - ${endMonth}/${endDay})`;}
   return `${startMonth}/${startDay} - ${endMonth}/${endDay}`;
 });
 
@@ -98,7 +98,7 @@ const currentWeekLabel = computed(() => {
 const getWeekTasks = (offset) => {
   const range = getWeekRange(offset);
   return todoStore.todos.filter((todo) => {
-    if (!todo.completed) return false;
+    if (!todo.completed) {return false;}
     const completedDate = new Date(todo.completedAt || todo.updatedAt);
     return completedDate >= range.start && completedDate <= range.end;
   });
@@ -137,7 +137,7 @@ const lastWeekStats = computed(() => calculateStats(lastWeekTasks.value));
 
 // 格式化日期
 const formatDate = (dateString) => {
-  if (!dateString) return '';
+  if (!dateString) {return '';}
   const date = new Date(dateString);
   const month = date.getMonth() + 1;
   const day = date.getDate();
@@ -150,6 +150,6 @@ const previousWeek = () => {
 };
 
 const nextWeek = () => {
-  if (weekOffset.value < 1) weekOffset.value++;
+  if (weekOffset.value < 1) {weekOffset.value++;}
 };
 </script>

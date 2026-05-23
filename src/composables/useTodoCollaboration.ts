@@ -29,7 +29,7 @@ export function useTodoCollaboration(todosApi: TodosApi) {
   const addComment = async (todoId: string): Promise<void> => {
     console.log("[useTodoCollaboration.ts] addComment() called")
     const content = commentInputs.value[todoId];
-    if (!content || !content.trim()) return;
+    if (!content || !content.trim()) {return;}
 
     try {
       const userInfo = await todosApi.getUserInfo();

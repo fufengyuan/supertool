@@ -240,7 +240,7 @@ function strategyLabel(strategy: string) {
 }
 
 async function loadUpstreams() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const result = await api.getUpstreamsByPreset(props.presetId)
@@ -338,7 +338,7 @@ function onBatchAddServers() {
 function parseServerLine(line: string): { address: string; port: number; weight?: number; maxFails?: number; failTimeout?: string; maxConns?: number; backup?: boolean; down?: boolean } | null {
   // Remove comments
   line = line.replace(/#.*$/, '').trim()
-  if (!line) return null
+  if (!line) {return null}
 
   let address = ''
   let port = 80
@@ -379,7 +379,7 @@ function parseServerLine(line: string): { address: string; port: number; weight?
     address = parts[0].trim()
   }
 
-  if (!address) return null
+  if (!address) {return null}
   return { address, port, weight, maxFails, failTimeout, maxConns, backup, down }
 }
 
@@ -391,7 +391,7 @@ async function onSave() {
       await api.updateNginxUpstream(updated)
       // 替换列表中的记录
       const idx = upstreams.value.findIndex(u => u.id === updated.id)
-      if (idx !== -1) upstreams.value[idx] = updated
+      if (idx !== -1) {upstreams.value[idx] = updated}
       toast.success('Upstream 已更新')
     } else {
       // 新增

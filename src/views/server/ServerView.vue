@@ -270,9 +270,9 @@ onMounted(async () => {
 
   // Auto-refresh when server data changes elsewhere
   const cleanupDataChanged = await getTauriAPI().onDataChanged?.(({ type }) => {
-    if (type === 'servers') refreshServers();
+    if (type === 'servers') {refreshServers();}
   });
-  if (cleanupDataChanged) _cleanupDataChanged = cleanupDataChanged;
+  if (cleanupDataChanged) {_cleanupDataChanged = cleanupDataChanged;}
 });
 
 let _cleanupDataChanged: (() => void) | undefined;
@@ -332,7 +332,7 @@ function getOnlineCount(groupId: string | null): number {
 }
 
 function getFilteredServers(serverList: Server[]): Server[] {
-  if (!searchQuery.value.trim()) return serverList;
+  if (!searchQuery.value.trim()) {return serverList;}
   const q = searchQuery.value.trim().toLowerCase();
   return serverList.filter(
     (s) =>
@@ -366,7 +366,7 @@ function openTerminal(server: Server) {
   terminalServer.value = server;
 }
 function openSftp(server: Server, initialPath?: string) {
-  if (sftpPanels.value.some(p => p.server.id === server.id)) return;
+  if (sftpPanels.value.some(p => p.server.id === server.id)) {return;}
   const idx = sftpPanels.value.length;
   const id = `sftp-${server.id}-${Date.now()}`;
   sftpPanels.value.push({
@@ -408,7 +408,7 @@ async function deleteServer(serverId: string) {
 
 // 分组管理
 async function saveGroup() {
-  if (!newGroupName.value.trim()) return;
+  if (!newGroupName.value.trim()) {return;}
   try {
     if (editingGroupId.value) {
       await getTauriAPI().updateServerGroup(editingGroupId.value, {
@@ -441,7 +441,7 @@ function addGroupAsChild(parentId: string) {
 
 function editGroup(groupId: string) {
   const group = groups.value.find(g => g.id === groupId);
-  if (!group) return;
+  if (!group) {return;}
   editingGroupId.value = groupId;
   addingChildTo.value = null;
   newGroupParent.value = null;

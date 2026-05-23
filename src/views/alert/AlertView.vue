@@ -526,22 +526,22 @@ function filterServices() {
 
 function serviceStatusClass(svc: any) {
   const status = svc.lastStatus ?? svc.last_status
-  if (status === null || status === undefined) return 'bg-base-200 text-base-content/50'
-  if (status === 1) return 'bg-success/10 text-success'
+  if (status === null || status === undefined) {return 'bg-base-200 text-base-content/50'}
+  if (status === 1) {return 'bg-success/10 text-success'}
   return 'bg-error/10 text-error'
 }
 
 function serviceStatusDot(svc: any) {
   const status = svc.lastStatus ?? svc.last_status
-  if (status === null || status === undefined) return 'bg-base-content/30'
-  if (status === 1) return 'bg-success'
+  if (status === null || status === undefined) {return 'bg-base-content/30'}
+  if (status === 1) {return 'bg-success'}
   return 'bg-error'
 }
 
 function serviceStatusLabel(svc: any) {
   const status = svc.lastStatus ?? svc.last_status
-  if (status === null || status === undefined) return '未检测'
-  if (status === 1) return '正常'
+  if (status === null || status === undefined) {return '未检测'}
+  if (status === 1) {return '正常'}
   return '异常'
 }
 
@@ -621,7 +621,7 @@ const resourceForm = reactive({
 
 const filteredResources = computed(() => {
   const q = resourceSearch.value.toLowerCase().trim()
-  if (!q) return resources.value
+  if (!q) {return resources.value}
   return resources.value.filter((r) =>
     r.name.toLowerCase().includes(q) ||
     (r.category || '').toLowerCase().includes(q) ||
@@ -634,7 +634,7 @@ const groupedResources = computed(() => {
   const groups: Record<string, any[]> = {}
   for (const res of filteredResources.value) {
     const cat = res.category || '未分类'
-    if (!groups[cat]) groups[cat] = []
+    if (!groups[cat]) {groups[cat] = []}
     groups[cat].push(res)
   }
   // 按分类名称排序
@@ -642,20 +642,20 @@ const groupedResources = computed(() => {
 })
 
 function getCategory(form: typeof resourceForm) {
-  if (form.category === '__custom__') return form.categoryCustom || '其他'
+  if (form.category === '__custom__') {return form.categoryCustom || '其他'}
   return form.category || '其他'
 }
 
 function resourceExpireInfo(res: any) {
   const expire = res.expireAt ?? res.expire_at
-  if (!expire) return { days: Infinity, label: '—', status: 'unknown' as const }
+  if (!expire) {return { days: Infinity, label: '—', status: 'unknown' as const }}
   const now = new Date()
   const exp = new Date(expire)
   const diff = exp.getTime() - now.getTime()
   const days = Math.ceil(diff / (1000 * 60 * 60 * 24))
   const advanceMs = (res.alertAdvanceDays ?? res.alert_advance_days ?? 30) * 24 * 60 * 60 * 1000
-  if (diff < 0) return { days, label: '已过期', status: 'expired' as const }
-  if (diff <= advanceMs) return { days, label: `${days}天`, status: 'warning' as const }
+  if (diff < 0) {return { days, label: '已过期', status: 'expired' as const }}
+  if (diff <= advanceMs) {return { days, label: `${days}天`, status: 'warning' as const }}
   return { days, label: `${days}天`, status: 'ok' as const }
 }
 
@@ -666,25 +666,25 @@ function remainingDays(res: any) {
 
 function resourceStatusClass(res: any) {
   const info = resourceExpireInfo(res)
-  if (info.status === 'unknown') return 'bg-base-200 text-base-content/50'
-  if (info.status === 'expired') return 'bg-error/10 text-error'
-  if (info.status === 'warning') return 'bg-warning/10 text-warning'
+  if (info.status === 'unknown') {return 'bg-base-200 text-base-content/50'}
+  if (info.status === 'expired') {return 'bg-error/10 text-error'}
+  if (info.status === 'warning') {return 'bg-warning/10 text-warning'}
   return 'bg-success/10 text-success'
 }
 
 function resourceStatusDot(res: any) {
   const info = resourceExpireInfo(res)
-  if (info.status === 'unknown') return 'bg-base-content/30'
-  if (info.status === 'expired') return 'bg-error'
-  if (info.status === 'warning') return 'bg-warning'
+  if (info.status === 'unknown') {return 'bg-base-content/30'}
+  if (info.status === 'expired') {return 'bg-error'}
+  if (info.status === 'warning') {return 'bg-warning'}
   return 'bg-success'
 }
 
 function resourceStatusLabel(res: any) {
   const info = resourceExpireInfo(res)
-  if (info.status === 'unknown') return '未知'
-  if (info.status === 'expired') return '已过期'
-  if (info.status === 'warning') return '即将到期'
+  if (info.status === 'unknown') {return '未知'}
+  if (info.status === 'expired') {return '已过期'}
+  if (info.status === 'warning') {return '即将到期'}
   return '正常'
 }
 
@@ -713,9 +713,9 @@ function openResourceModal(res?: any) {
 }
 
 function toDateInputValue(dateStr?: string | null): string {
-  if (!dateStr) return ''
+  if (!dateStr) {return ''}
   // Already YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {return dateStr}
   // RFC 3339 or other format → extract date part
   try {
     const d = new Date(dateStr)
@@ -913,7 +913,7 @@ async function executeDelete() {
 
 // ============ 工具函数 ============
 function formatDate(dateStr: string) {
-  if (!dateStr) return '—'
+  if (!dateStr) {return '—'}
   const d = new Date(dateStr)
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -922,14 +922,14 @@ function formatDate(dateStr: string) {
 }
 
 function formatTime(dateStr: string | null | undefined) {
-  if (!dateStr) return '—'
+  if (!dateStr) {return '—'}
   try {
     const d = new Date(dateStr)
     const now = Date.now()
     const diff = now - d.getTime()
-    if (diff < 60_000) return '刚刚'
-    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
+    if (diff < 60_000) {return '刚刚'}
+    if (diff < 3_600_000) {return `${Math.floor(diff / 60_000)} 分钟前`}
+    if (diff < 86_400_000) {return `${Math.floor(diff / 3_600_000)} 小时前`}
     const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')

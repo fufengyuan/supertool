@@ -40,7 +40,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   const logCount = ref(0)
   const hasMoreLog = ref(false)
   const filteredLog = computed(() => {
-    if (!logSearch.value) return logData.value
+    if (!logSearch.value) {return logData.value}
     return logData.value.filter(c => 
       c.message?.toLowerCase().includes(logSearch.value.toLowerCase()) ||
       c.hash?.includes(logSearch.value)
@@ -226,7 +226,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ 核心加载函数 ============
 
   async function loadStatus() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     loading.value = true
     try {
       const res = await api.gitStatus(repoPath.value)
@@ -257,7 +257,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadCurrentBranch() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitCurrentBranch(repoPath.value)
       currentBranch.value = (res as any).branch || ''
@@ -267,7 +267,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadBranches() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitBranches(repoPath.value)
       const branches = (res as any).branches || []
@@ -280,7 +280,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadLog(opts?: { limit?: number }) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     loading.value = true
     try {
       const limit = opts?.limit || 50
@@ -296,7 +296,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadMoreLog() {
-    if (!repoPath.value || !hasMoreLog.value) return
+    if (!repoPath.value || !hasMoreLog.value) {return}
     try {
       const res = await api.gitLog(repoPath.value, logCount.value + 50)
       logData.value = (res as any).commits || []
@@ -312,7 +312,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadCommitDiff() {
-    if (!repoPath.value || !selectedCommit.value) return
+    if (!repoPath.value || !selectedCommit.value) {return}
     loadingDiff.value = true
     try {
       const res = await api.getGitCommitDetail(repoPath.value, selectedCommit.value.hash)
@@ -353,7 +353,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   function selectAllFiles() {
-    if (!statusData.value) return
+    if (!statusData.value) {return}
     const allFiles = [
       ...statusData.value.modified,
       ...statusData.value.added,
@@ -395,7 +395,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ 分支操作 ============
 
   async function checkoutBranch(branch: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitCheckout(repoPath.value, branch)
       toast.success('切换分支成功')
@@ -423,7 +423,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doDeleteBranch(branchName: string, force: boolean = false) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitDeleteBranch(repoPath.value, branchName, force)
       toast.success('删除分支成功')
@@ -434,7 +434,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doMerge() {
-    if (!repoPath.value || !mergeTarget.value) return
+    if (!repoPath.value || !mergeTarget.value) {return}
     merging.value = true
     try {
       await api.gitMerge(repoPath.value, mergeTarget.value)
@@ -451,7 +451,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ Push/Pull 操作 ============
 
   async function doPush(opts?: { force?: boolean }) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     pushing.value = true
     try {
       if (opts?.force) {
@@ -469,7 +469,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doPull(opts?: { rebase?: boolean }) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     pulling.value = true
     try {
       await api.gitPull(repoPath.value)
@@ -483,7 +483,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doFetch() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitFetch(repoPath.value)
       toast.success('获取远程信息成功')
@@ -500,7 +500,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ Stash 操作 ============
 
   async function loadStashList() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitStashList(repoPath.value)
       stashList.value = (res as any).stashes || []
@@ -516,7 +516,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doStashSave() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitStashSave(repoPath.value, stashSaveMessage.value || undefined, stashIncludeUntracked.value, false)
       toast.success('暂存保存成功')
@@ -529,7 +529,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doStashPop(stashRef?: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitStashPop(repoPath.value, stashRef)
       toast.success('暂存弹出成功')
@@ -541,7 +541,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doStashDrop(stashRef?: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitStashDrop(repoPath.value, stashRef)
       toast.success('暂存删除成功')
@@ -554,7 +554,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ Tag 操作 ============
 
   async function loadTags() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitListTags(repoPath.value)
       tagsList.value = (res as any).tags || []
@@ -581,7 +581,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doDeleteTag(tagName: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitDeleteTag(repoPath.value, tagName)
       toast.success('删除标签成功')
@@ -594,7 +594,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   // ============ 高级操作 ============
 
   async function doCherryPick() {
-    if (!repoPath.value || !cherryPickTarget.value) return
+    if (!repoPath.value || !cherryPickTarget.value) {return}
     cherryPicking.value = true
     try {
       await api.gitCherryPick(repoPath.value, cherryPickTarget.value, false)
@@ -609,7 +609,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doRevert() {
-    if (!repoPath.value || !revertTarget.value) return
+    if (!repoPath.value || !revertTarget.value) {return}
     reverting.value = true
     try {
       await api.gitRevert(repoPath.value, revertTarget.value, false)
@@ -624,7 +624,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doRebase() {
-    if (!repoPath.value || !rebaseTarget.value) return
+    if (!repoPath.value || !rebaseTarget.value) {return}
     rebasing.value = true
     try {
       await api.gitRebase(repoPath.value, rebaseTarget.value)
@@ -639,7 +639,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doRebaseAbort() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitRebaseAbort(repoPath.value)
       toast.success('Rebase中止')
@@ -650,7 +650,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doRebaseContinue() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitRebaseContinue(repoPath.value)
       toast.success('Rebase继续')
@@ -661,7 +661,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doAmend() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     amending.value = true
     try {
       await api.gitAmendCommit(repoPath.value, amendMessage.value)
@@ -677,7 +677,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doReset() {
-    if (!repoPath.value || !resetTarget.value) return
+    if (!repoPath.value || !resetTarget.value) {return}
     resetting.value = true
     try {
       await api.gitResetToCommit(repoPath.value, resetTarget.value, resetMode.value)
@@ -692,7 +692,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadRemotes() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitRemotes(repoPath.value)
       const remotes = (res as any).remotes || []
@@ -708,7 +708,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadSubmodules() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     smLoading.value = true
     try {
       const res = await api.gitSubmoduleList(repoPath.value)
@@ -721,7 +721,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doSubmoduleInit(recursive: boolean = true) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitSubmoduleInit(repoPath.value, recursive)
       toast.success('初始化子模块成功')
@@ -732,7 +732,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function showFileHistory(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     fileHistoryFile.value = file
     showFileHistoryDialog.value = true
     try {
@@ -744,7 +744,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function showFileBlame(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     blameFile.value = file
     showBlameDialog.value = true
     try {
@@ -756,7 +756,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function showFileDiff(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     loadingDiff.value = true
     try {
       const res = await api.gitDiff(repoPath.value, file)
@@ -779,7 +779,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function previewCommitFile(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     loadingPreview.value = true
     selectedPreviewFile.value = file
     try {
@@ -800,7 +800,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doAddFile(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitAdd(repoPath.value, [file])
       toast.success('已添加到暂存区')
@@ -811,7 +811,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doResetFile(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitReset(repoPath.value, file)
       toast.success('已从暂存区移除')
@@ -822,7 +822,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function doDiscardChanges(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitDiscardChanges(repoPath.value, file)
       toast.success('丢弃更改成功')
@@ -833,7 +833,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadUnpushedCommits() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       const res = await api.gitUnpushedCommits(repoPath.value)
       pushUnpushedCommits.value = (res as any).commits || []
@@ -848,10 +848,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     const now = new Date()
     const diff = now.getTime() - date.getTime()
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    if (days === 0) return '今天'
-    if (days === 1) return '昨天'
-    if (days < 7) return `${days}天前`
-    if (days < 30) return `${Math.floor(days / 7)}周前`
+    if (days === 0) {return '今天'}
+    if (days === 1) {return '昨天'}
+    if (days < 7) {return `${days}天前`}
+    if (days < 30) {return `${Math.floor(days / 7)}周前`}
     return `${Math.floor(days / 30)}月前`
   }
 
@@ -937,7 +937,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function addToGitignore(file: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     const gitignorePath = `${repoPath.value}/.gitignore`
     try {
       let content = ''
@@ -972,7 +972,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function loadGraphLog() {
-    if (!repoPath.value || graphLoading.value) return
+    if (!repoPath.value || graphLoading.value) {return}
     graphLoading.value = true
     try {
       const res = await api.gitLog(repoPath.value, 100)
@@ -986,10 +986,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   function drawGraph() {
-    if (!graphCanvasRef.value || graphLog.value.length === 0) return
+    if (!graphCanvasRef.value || graphLog.value.length === 0) {return}
     const canvas = graphCanvasRef.value
     const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    if (!ctx) {return}
 
     const width = canvas.width
     const height = canvas.height
@@ -1037,7 +1037,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   function onGraphMouseMove(e: MouseEvent) {
-    if (!graphCanvasRef.value) return
+    if (!graphCanvasRef.value) {return}
     const canvas = graphCanvasRef.value
     const rect = canvas.getBoundingClientRect()
     const x = e.clientX - rect.left
@@ -1059,7 +1059,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   async function execConsoleCommand() {
-    if (!repoPath.value || !consoleInput.value.trim()) return
+    if (!repoPath.value || !consoleInput.value.trim()) {return}
     const cmd = consoleInput.value.trim()
     consoleHistory.value.push(`> ${cmd}`)
     consoleInputHistory.value.unshift(cmd)
@@ -1085,7 +1085,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
 
   function consoleHistoryUp() {
-    if (consoleInputHistory.value.length === 0) return
+    if (consoleInputHistory.value.length === 0) {return}
     if (consoleHistoryIndex.value < consoleInputHistory.value.length - 1) {
       consoleHistoryIndex.value++
       consoleInput.value = consoleInputHistory.value[consoleHistoryIndex.value]
@@ -1103,7 +1103,7 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
   }
   function getAuthorName(commit: any): string { return commit?.authorName || '' }
   function parseRefs(refs: string | string[]): string[] {
-  if (Array.isArray(refs)) return refs
+  if (Array.isArray(refs)) {return refs}
   return refs?.split(',').map(r => r.trim()).filter(Boolean) || []
 }
   function selectStash(stash: any) { selectedStash.value = stash }
@@ -1125,10 +1125,10 @@ export function useGitManager(repo: GitRepo | null, _onClose: () => void) {
     stashIncludeUntracked.value = true
   }
 function confirmDeleteBranch(name: string) {
-    if (confirm(`确定删除分支 ${name}?`)) doDeleteBranch(name, false)
+    if (confirm(`确定删除分支 ${name}?`)) {doDeleteBranch(name, false)}
   }
   async function doCompareBranches() {
-    if (!repoPath.value || !compareBranchTarget.value) return
+    if (!repoPath.value || !compareBranchTarget.value) {return}
     try {
       const res = await api.gitDiffBranches(repoPath.value, compareBranchTarget.value)
       compareResult.value = res
@@ -1137,14 +1137,14 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function doCompareWith() {
-    if (!repoPath.value || !compareWithTarget.value) return
+    if (!repoPath.value || !compareWithTarget.value) {return}
     doCompareBranches()
   }
   function openRebaseDialog() { showRebaseDialog.value = true }
   function openPushDialog() { showPushDialog.value = true }
   function openPullDialog() { showPullDialog.value = true }
   async function doPushWithOptions() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       pushing.value = true
       await api.gitPush(repoPath.value)
@@ -1158,14 +1158,14 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function doFetchRemote(remote: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     doFetch()
   }
   function openAmendDialog() { showAmendDialog.value = true }
   function openResetDialog() { showResetDialog.value = true }
   function openInteractiveRebaseDialog() { showInteractiveRebaseDialog.value = true; loadInteractiveRebaseCommits() }
   function loadInteractiveRebaseCommits() {
-    if (!repoPath.value || !interactiveRebaseBase.value) return
+    if (!repoPath.value || !interactiveRebaseBase.value) {return}
     irLoading.value = true
     api.gitRebaseTodoList(repoPath.value, interactiveRebaseBase.value)
       .then((res: any) => {
@@ -1225,7 +1225,7 @@ function confirmDeleteBranch(name: string) {
   function openRemotesDialog() { showRemotesDialog.value = true; loadRemotes() }
   function openAddRemote() { showAddRemoteForm.value = true }
   async function doAddRemote() {
-    if (!repoPath.value || !newRemoteName.value || !newRemoteUrl.value) return
+    if (!repoPath.value || !newRemoteName.value || !newRemoteUrl.value) {return}
     try {
       await api.gitAddRemote(repoPath.value, newRemoteName.value, newRemoteUrl.value)
       toast.success('添加远程仓库成功')
@@ -1238,10 +1238,10 @@ function confirmDeleteBranch(name: string) {
     }
   }
   function confirmDeleteRemote(name: string) {
-    if (confirm(`确定删除远程仓库 ${name}?`)) doDeleteRemote(name)
+    if (confirm(`确定删除远程仓库 ${name}?`)) {doDeleteRemote(name)}
   }
   async function doDeleteRemote(name: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitDeleteRemote(repoPath.value, name)
       toast.success('删除成功')
@@ -1252,7 +1252,7 @@ function confirmDeleteBranch(name: string) {
   }
   function openBranchRename() { showBranchRenameDialog.value = true }
   function doBranchRename() {
-    if (!repoPath.value || !branchRenameOld.value || !branchRenameNew.value) return
+    if (!repoPath.value || !branchRenameOld.value || !branchRenameNew.value) {return}
     api.gitRenameBranch(repoPath.value, branchRenameOld.value, branchRenameNew.value).then(() => {
       toast.success('重命名成功')
       loadBranches()
@@ -1273,7 +1273,7 @@ function confirmDeleteBranch(name: string) {
     doCommit(commitNoVerify.value)
   }
   async function doUndoLastCommit() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitResetToCommit(repoPath.value, 'HEAD~1', 'soft')
       toast.success('已撤销上次提交')
@@ -1284,7 +1284,7 @@ function confirmDeleteBranch(name: string) {
   }
   function openSubmodulesDialog() { showSubmodulesDialog.value = true; loadSubmodules() }
   function doSubmoduleUpdate(path?: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     if (!path) {
       toast.error('请选择子模块')
       return
@@ -1297,7 +1297,7 @@ function confirmDeleteBranch(name: string) {
     })
   }
   function doSubmoduleInitAll() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     api.gitSubmoduleInit(repoPath.value, true).then(() => {
       toast.success('初始化完成')
       loadSubmodules()
@@ -1306,7 +1306,7 @@ function confirmDeleteBranch(name: string) {
     })
   }
   function doSubmoduleUpdateAll() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     api.gitSubmoduleUpdateAll(repoPath.value, true).then(() => {
       toast.success('批量更新完成')
       loadSubmodules()
@@ -1320,7 +1320,7 @@ function confirmDeleteBranch(name: string) {
     })
   }
   async function doPushTags() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitPushTags(repoPath.value)
       toast.success('推送标签成功')
@@ -1330,7 +1330,7 @@ function confirmDeleteBranch(name: string) {
   }
   function openCompareCommitsDialog() { showCompareCommitsDialog.value = true }
   async function doCompareCommits() {
-    if (!repoPath.value || !compareCommitFrom.value || !compareCommitTo.value) return
+    if (!repoPath.value || !compareCommitFrom.value || !compareCommitTo.value) {return}
     ccLoading.value = true
     try {
       const res = await api.gitCompareCommits(repoPath.value, compareCommitFrom.value, compareCommitTo.value)
@@ -1343,7 +1343,7 @@ function confirmDeleteBranch(name: string) {
   }
   function openGetFileRevisionDialog() { showGetFileRevisionDialog.value = true }
   async function doGetFileAtRevision() {
-    if (!repoPath.value || !getFileCommit.value || !getFilePath.value) return
+    if (!repoPath.value || !getFileCommit.value || !getFilePath.value) {return}
     try {
       const res = await api.gitGetFileAtRevision(repoPath.value, getFileCommit.value, getFilePath.value)
       getFileContent.value = res
@@ -1358,7 +1358,7 @@ function confirmDeleteBranch(name: string) {
     }
   }
   async function doCreatePatch() {
-    if (!repoPath.value || !patchFrom.value || !patchTo.value) return
+    if (!repoPath.value || !patchFrom.value || !patchTo.value) {return}
     try {
       const res = await api.gitCreatePatch(repoPath.value, patchFrom.value, patchTo.value)
       patchContent.value = res.patch || ''
@@ -1374,7 +1374,7 @@ function confirmDeleteBranch(name: string) {
     }
   }
   async function doApplyPatch() {
-    if (!repoPath.value || !applyPatchFile.value) return
+    if (!repoPath.value || !applyPatchFile.value) {return}
     try {
       // 读取补丁文件内容
       const content = await api.readFileContent(applyPatchFile.value)
@@ -1402,7 +1402,7 @@ function confirmDeleteBranch(name: string) {
   function getCommitMessage(commit: any): string { return commit?.message || '' }
   function doCherryPickMulti() {
     const hashes = Array.from(selectedLogCommits.value)
-    if (hashes.length === 0) return
+    if (hashes.length === 0) {return}
     // 逐个 cherry-pick
     hashes.forEach(async (hash) => {
       try {
@@ -1416,7 +1416,7 @@ function confirmDeleteBranch(name: string) {
   }
   function openGitCleanDialog() { showGitCleanDialog.value = true }
 async function doGitCleanDryRun() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       gcLoading.value = true
       const res = await api.gitClean(repoPath.value, true, true, gitCleanIncludeIgnored.value, gitCleanForceDirectories.value)
@@ -1428,7 +1428,7 @@ async function doGitCleanDryRun() {
     }
   }
   async function doGitClean() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitClean(repoPath.value, false, true, gitCleanIncludeIgnored.value, gitCleanForceDirectories.value)
       toast.success('清理完成')
@@ -1445,10 +1445,10 @@ async function doGitCleanDryRun() {
     }
   }
   function confirmDeleteRemoteBranch(name: string) {
-    if (confirm(`确定删除远程分支 ${name}?`)) doDeleteRemoteBranch(name)
+    if (confirm(`确定删除远程分支 ${name}?`)) {doDeleteRemoteBranch(name)}
   }
   async function doDeleteRemoteBranch(name: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     deletingBranch.value = true
     try {
       await api.gitDeleteRemoteBranch(repoPath.value, name)
@@ -1461,7 +1461,7 @@ async function doGitCleanDryRun() {
     }
   }
   async function checkoutRemoteBranch(name: string) {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     try {
       await api.gitCheckout(repoPath.value, name)
       toast.success(`已切换到 ${name}`)
@@ -1473,18 +1473,18 @@ async function doGitCleanDryRun() {
   }
   function startResize(_e: MouseEvent) { isResizing.value = true }
   function doPullWithOptions() {
-    if (!repoPath.value) return
+    if (!repoPath.value) {return}
     doPull()
   }
   function openTagsDialog() { showTagsDialog.value = true; loadTags() }
   function openCreateTag() { showCreateTagDialog.value = true }
   function confirmDeleteTag(name: string) {
-    if (confirm(`确定删除标签 ${name}?`)) doDeleteTag(name)
+    if (confirm(`确定删除标签 ${name}?`)) {doDeleteTag(name)}
   }
 
   // 初始化加载
   watch(repoPath, (path) => {
-    if (path) refreshAll()
+    if (path) {refreshAll()}
   }, { immediate: true })
 
   return {

@@ -71,7 +71,7 @@ function simpleFormat(code: string, type: string): string {
 
   for (const line of lines) {
     const trimmed = line.trim()
-    if (!trimmed) continue
+    if (!trimmed) {continue}
 
     // Decrease indent for closing braces
     if (/^[})\]]/.test(trimmed)) {
@@ -175,7 +175,7 @@ function compressCode() {
 }
 
 async function copyOutput() {
-  if (!output.value) return
+  if (!output.value) {return}
   await copyText(output.value, toast)
 }
 

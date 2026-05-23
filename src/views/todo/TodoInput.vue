@@ -87,7 +87,7 @@ const newRepeatInterval = ref(1);
 
 const addTodo = () => {
   const text = newTodo.value.trim();
-  if (!text) return;
+  if (!text) {return;}
 
   const newTodoObj = {
     id: crypto.randomUUID(),

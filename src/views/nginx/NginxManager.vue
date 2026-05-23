@@ -415,12 +415,12 @@ const decomposeMode = ref(false)
 
 // Files list for SplitDiffViewer
 const diffFiles = computed(() => {
-  if (!diffContent.value) return null
+  if (!diffContent.value) {return null}
   return [{ path: 'nginx.conf', status: 'modified', changes: '' }]
 })
 
 const highlightedConfig = computed(() => {
-  if (!configContent.value) return ''
+  if (!configContent.value) {return ''}
   try {
     return hljs.highlight(configContent.value, { language: 'nginx' }).value
   } catch {
@@ -495,7 +495,7 @@ async function loadTabComponent(tabKey: string) {
       'PasswordPage.vue': () => import('./PasswordPage.vue'),
     }
     const loader = MODULE_MAP[fileName]
-    if (!loader) throw new Error(`Unknown component: ${fileName}`)
+    if (!loader) {throw new Error(`Unknown component: ${fileName}`)}
     const mod = await loader()
     loadedComponents[tabKey] = markRaw(mod.default || mod)
   } catch (err: any) {
@@ -525,7 +525,7 @@ const groupedPresets = computed(() => {
   const groups = new Map<string, any[]>()
   for (const preset of presets.value) {
     const g = preset.groupName || '默认'
-    if (!groups.has(g)) groups.set(g, [])
+    if (!groups.has(g)) {groups.set(g, [])}
     groups.get(g).push(preset)
   }
   return Array.from(groups.entries()).map(([groupName, presets]) => ({
@@ -576,7 +576,7 @@ async function onDeletePreset(id: string) {
 
 async function executeDeletePreset() {
   const id = confirmDeleteId.value
-  if (!id) return
+  if (!id) {return}
   deleting.value = true
   await deletePreset(id)
   showDeleteConfirm.value = false
@@ -599,12 +599,12 @@ async function onSelectPreset(preset: any) {
 }
 
 async function onFetchConfig() {
-  if (!currentPreset.value) return
+  if (!currentPreset.value) {return}
   await fetchConfig(currentPreset.value)
 }
 
 async function onTestConfig() {
-  if (!currentPreset.value) return
+  if (!currentPreset.value) {return}
   try {
     loading.value = true
     // Auto generate config if not already generated
@@ -628,7 +628,7 @@ async function onTestConfig() {
 }
 
 async function onGenerateConfig() {
-  if (!currentPreset.value) return
+  if (!currentPreset.value) {return}
   try {
     loading.value = true
     const result = await getTauriAPI().generateNginxConfig(currentPreset.value.id)
@@ -645,7 +645,7 @@ async function onGenerateConfig() {
 }
 
 async function onImportConfig() {
-  if (!currentPreset.value || !configContent.value) return
+  if (!currentPreset.value || !configContent.value) {return}
 
   // Check for existing data first
   try {
@@ -653,10 +653,10 @@ async function onImportConfig() {
     const data = stats?.data || stats
     if (data?.hasData) {
       const parts: string[] = []
-      if (data.servers > 0) parts.push(`Server ${data.servers} 个`)
-      if (data.upstreams > 0) parts.push(`Upstream ${data.upstreams} 个`)
-      if (data.streams > 0) parts.push(`Stream ${data.streams} 个`)
-      if (!confirm(`该预设已有 ${parts.join('、')}，导入将覆盖现有数据。确定继续？`)) return
+      if (data.servers > 0) {parts.push(`Server ${data.servers} 个`)}
+      if (data.upstreams > 0) {parts.push(`Upstream ${data.upstreams} 个`)}
+      if (data.streams > 0) {parts.push(`Stream ${data.streams} 个`)}
+      if (!confirm(`该预设已有 ${parts.join('、')}，导入将覆盖现有数据。确定继续？`)) {return}
     }
   } catch { /* if stats fails, proceed anyway */ }
 
@@ -788,7 +788,7 @@ function computeUnifiedDiff(oldText: string, newText: string): string {
 }
 
 async function onDeploy() {
-  if (!deployComment.value.trim()) return
+  if (!deployComment.value.trim()) {return}
   // If we generated a new config for diffing and it differs, deploy the new config
   if (generatedNewConfig.value && !diffSame.value) {
     configContent.value = generatedNewConfig.value
@@ -818,7 +818,7 @@ async function onDeploy() {
 }
 
 async function onDecomposeChange() {
-  if (!currentPreset.value) return
+  if (!currentPreset.value) {return}
   diffLoading.value = true
   diffContent.value = ''
   diffSame.value = false
@@ -835,8 +835,8 @@ async function onRollback(versionId: string) {
 
 async function executeRollback() {
   const versionId = confirmRollbackId.value
-  if (!versionId) return
-  if (!confirm('确定回滚到此版本？当前配置将被替换。')) return
+  if (!versionId) {return}
+  if (!confirm('确定回滚到此版本？当前配置将被替换。')) {return}
   deleting.value = true
   await rollbackToVersion(versionId)
   showRollbackConfirm.value = false
@@ -845,7 +845,7 @@ async function executeRollback() {
 }
 
 function formatDate(dateStr: string) {
-  if (!dateStr) return ''
+  if (!dateStr) {return ''}
   try {
     const d = new Date(dateStr)
     return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })

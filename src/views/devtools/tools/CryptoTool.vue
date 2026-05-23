@@ -143,7 +143,7 @@ function clearBatch() {
 async function handleFileHash(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file) return
+  if (!file) {return}
 
   fileHashing.value = true
   fileHashResults.value = null

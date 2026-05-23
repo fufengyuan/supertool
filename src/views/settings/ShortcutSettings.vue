@@ -71,30 +71,30 @@ const defaultShortcuts: ShortcutItem[] = [
 
 function formatKeyCombo(e: KeyboardEvent): string {
   const parts: string[] = []
-  if (e.ctrlKey || e.metaKey) parts.push('CmdOrCtrl')
-  if (e.shiftKey) parts.push('Shift')
-  if (e.altKey) parts.push('Alt')
+  if (e.ctrlKey || e.metaKey) {parts.push('CmdOrCtrl')}
+  if (e.shiftKey) {parts.push('Shift')}
+  if (e.altKey) {parts.push('Alt')}
   const key = e.key
-  if (key === 'Control' || key === 'Meta' || key === 'Shift' || key === 'Alt') return ''
-  if (key === ' ') return 'Space'
-  if (key === 'Escape') return 'Esc'
-  if (key === 'Backspace') return 'Backspace'
-  if (key === 'Delete') return 'Delete'
-  if (key === 'Tab') return 'Tab'
-  if (key === 'ArrowUp') return '↑'
-  if (key === 'ArrowDown') return '↓'
-  if (key === 'ArrowLeft') return '←'
-  if (key === 'ArrowRight') return '→'
-  if (key.length === 1) parts.push(key.toUpperCase())
-  else parts.push(key)
+  if (key === 'Control' || key === 'Meta' || key === 'Shift' || key === 'Alt') {return ''}
+  if (key === ' ') {return 'Space'}
+  if (key === 'Escape') {return 'Esc'}
+  if (key === 'Backspace') {return 'Backspace'}
+  if (key === 'Delete') {return 'Delete'}
+  if (key === 'Tab') {return 'Tab'}
+  if (key === 'ArrowUp') {return '↑'}
+  if (key === 'ArrowDown') {return '↓'}
+  if (key === 'ArrowLeft') {return '←'}
+  if (key === 'ArrowRight') {return '→'}
+  if (key.length === 1) {parts.push(key.toUpperCase())}
+  else {parts.push(key)}
   return parts.join('+')
 }
 
 function handleKeyDown(e: KeyboardEvent): void {
-  if (editingKey.value === null) return
+  if (editingKey.value === null) {return}
   e.preventDefault()
   const combo = formatKeyCombo(e)
-  if (!combo) return
+  if (!combo) {return}
   tempKeys.value = combo
   if (e.key === 'Enter') {
     saveShortcut(editingKey.value, combo)
@@ -115,12 +115,12 @@ function startEdit(key: string): void {
 async function saveShortcut(key: string, shortcut: string): Promise<void> {
   const conflict = shortcutItems.value.find(i => i.shortcut === shortcut && i.key !== key)
   if (conflict) {
-    if (!confirm(`"${conflict.label}" 正在使用此快捷键，是否覆盖？`)) return
+    if (!confirm(`"${conflict.label}" 正在使用此快捷键，是否覆盖？`)) {return}
     conflict.shortcut = ''
     await tauri.setSetting(`shortcut_${conflict.key}`, '')
   }
   const item = shortcutItems.value.find(i => i.key === key)
-  if (item) item.shortcut = shortcut
+  if (item) {item.shortcut = shortcut}
   savedShortcuts.value[key] = shortcut
   try {
     await tauri.setSetting(`shortcut_${key}`, shortcut)
@@ -133,7 +133,7 @@ async function saveShortcut(key: string, shortcut: string): Promise<void> {
 
 function resetShortcut(key: string): void {
   const item = shortcutItems.value.find(i => i.key === key)
-  if (!item) return
+  if (!item) {return}
   item.shortcut = item.defaultShortcut
   savedShortcuts.value[key] = item.defaultShortcut
   tauri.setSetting(`shortcut_${key}`, item.defaultShortcut)
@@ -141,7 +141,7 @@ function resetShortcut(key: string): void {
 }
 
 async function resetAll(): Promise<void> {
-  if (!confirm('确定恢复所有快捷键为默认设置？')) return
+  if (!confirm('确定恢复所有快捷键为默认设置？')) {return}
   for (const item of shortcutItems.value) {
     item.shortcut = item.defaultShortcut
     savedShortcuts.value[item.key] = item.defaultShortcut

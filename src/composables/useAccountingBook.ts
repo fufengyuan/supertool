@@ -182,10 +182,10 @@ async function loadTrend() {
       const map = new Map<string, { income: number; expense: number; count: number }>()
       for (const row of result) {
         const month = row.month as string
-        if (!map.has(month)) map.set(month, { income: 0, expense: 0, count: 0 })
+        if (!map.has(month)) {map.set(month, { income: 0, expense: 0, count: 0 })}
         const entry = map.get(month)!
-        if (row.type === 'income') entry.income = row.total as number
-        else if (row.type === 'expense') entry.expense = row.total as number
+        if (row.type === 'income') {entry.income = row.total as number}
+        else if (row.type === 'expense') {entry.expense = row.total as number}
         entry.count++
       }
       // Convert Map to sorted array (ascending by month)
@@ -199,11 +199,11 @@ async function loadTrend() {
   finally { trendLoading.value = false }
 }
 function initTrendResizeObserver() {
-  if (!trendChartRef.value) return
+  if (!trendChartRef.value) {return}
   trendResizeObserver = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const w = entry.contentRect.width
-      if (w > 0) trendChartWidth.value = Math.max(w, 500)
+      if (w > 0) {trendChartWidth.value = Math.max(w, 500)}
     }
   })
   trendResizeObserver.observe(trendChartRef.value)
@@ -219,7 +219,7 @@ const formCategories = computed(() => {
 })
 
 const filteredCategories = computed(() => {
-  if (typeFilter.value === 'all') return categories.value.length ? categories.value : getEnterpriseCategories()
+  if (typeFilter.value === 'all') {return categories.value.length ? categories.value : getEnterpriseCategories()}
   const all = categories.value.length ? categories.value : getEnterpriseCategories()
   return all.filter(c => c.type === typeFilter.value)
 })
@@ -235,7 +235,7 @@ const expenseCategories = computed(() => {
 })
 
 const topCategories = computed(() => {
-  if (stats.value.totalExpense === 0) return []
+  if (stats.value.totalExpense === 0) {return []}
   return stats.value.byCategory
     .filter(c => c.amount > 0)
     .sort((a, b) => b.amount - a.amount)
@@ -349,14 +349,14 @@ async function loadData() {
     if (typeFilter.value !== 'all') {
       params.type = typeFilter.value
       const cat = categories.value.find(c => c.name === categoryFilter.value)
-      if (cat && cat.type !== typeFilter.value) categoryFilter.value = 'all'
+      if (cat && cat.type !== typeFilter.value) {categoryFilter.value = 'all'}
     }
-    if (categoryFilter.value !== 'all') params.category = categoryFilter.value
-    if (statusFilter.value !== 'all') params.status = statusFilter.value
-    if (paymentFilter.value !== 'all') params.payment_method = paymentFilter.value
-    if (entityFilter.value) params.entity = entityFilter.value
-    if (projectFilter.value) params.project = projectFilter.value
-    if (searchQuery.value) params.search = searchQuery.value
+    if (categoryFilter.value !== 'all') {params.category = categoryFilter.value}
+    if (statusFilter.value !== 'all') {params.status = statusFilter.value}
+    if (paymentFilter.value !== 'all') {params.payment_method = paymentFilter.value}
+    if (entityFilter.value) {params.entity = entityFilter.value}
+    if (projectFilter.value) {params.project = projectFilter.value}
+    if (searchQuery.value) {params.search = searchQuery.value}
 
     const result = await getTauriAPI().getAccountingRecords(params)
     if (result) {
@@ -445,7 +445,7 @@ function getPreviousPeriodRange(): { startDate: string; endDate: string } | null
 async function loadCategories() {
   try {
     const result = await getTauriAPI().getAccountingCategories()
-    if (result) categories.value = result
+    if (result) {categories.value = result}
   } catch (e: unknown) {
     console.error('加载分类失败:', e)
   }
@@ -492,19 +492,19 @@ const trendGridLines = computed(() => {
 async function loadBudgets() {
   try {
     const result = await getTauriAPI().getBudgets()
-    if (result) budgets.value = result
+    if (result) {budgets.value = result}
   } catch (_e) { console.error('加载预算失败:', _e) }
 }
 
 async function loadBudgetAlerts() {
   try {
     const result = await getTauriAPI().checkBudgetAlerts()
-    if (result) budgetAlerts.value = result
+    if (result) {budgetAlerts.value = result}
   } catch (_e) { console.error('加载预算预警失败:', _e) }
 }
 
 async function addNewBudget() {
-  if (!newBudget.value.category || newBudget.value.amount <= 0) return
+  if (!newBudget.value.category || newBudget.value.amount <= 0) {return}
   try {
     await getTauriAPI().addBudget({ category: newBudget.value.category, amount: newBudget.value.amount })
     toast.success('预算已添加')
@@ -528,7 +528,7 @@ async function deleteBudgetConfirm(b: { id: string; category: string }) {
 async function loadTemplates() {
   try {
     const result = await getTauriAPI().getTemplates()
-    if (result) templates.value = result
+    if (result) {templates.value = result}
   } catch (_e) { console.error('加载模板失败:', _e) }
 }
 
@@ -588,7 +588,7 @@ async function saveTemplate() {
 }
 
 function saveAsTemplate() {
-  if (!formValid.value) return
+  if (!formValid.value) {return}
   editingTemplate.value = null
   templateForm.value = {
     name: `${form.value.category}`, type: form.value.type, category: form.value.category,
@@ -675,7 +675,7 @@ function closeRecordForm() {
 }
 
 async function saveRecord() {
-  if (!formValid.value) return
+  if (!formValid.value) {return}
   if (form.value.amount <= 0 || isNaN(form.value.amount)) {
     toast.warning('金额必须大于 0')
     return
@@ -755,7 +755,7 @@ function triggerFileInput() {
 
 async function handleFileSelect(event: Event) {
   const input = event.target as HTMLInputElement
-  if (!input.files) return
+  if (!input.files) {return}
   await processFiles(Array.from(input.files))
   input.value = '' // Reset for re-selection
 }
@@ -763,7 +763,7 @@ async function handleFileSelect(event: Event) {
 function handleDrop(event: DragEvent) {
   isDragOver.value = false
   const files = event.dataTransfer?.files
-  if (!files) return
+  if (!files) {return}
   processFiles(Array.from(files))
 }
 
@@ -804,8 +804,8 @@ function removeAttachment(idx: number) {
 }
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024) {return bytes + ' B'}
+  if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB'}
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
@@ -818,12 +818,12 @@ function isImage(name: string): boolean {
 function getFileUrl(filePath: string): string {
   // In Tauri, convert local file path to asset protocol URL
   // convertFileSrc handles the tauri://asset/ protocol
-  if (filePath.startsWith('file://')) return filePath
-  if (filePath.startsWith('tauri://') || filePath.startsWith('https://asset.localhost')) return filePath
+  if (filePath.startsWith('file://')) {return filePath}
+  if (filePath.startsWith('tauri://') || filePath.startsWith('https://asset.localhost')) {return filePath}
   try {
     // @ts-ignore - convertFileSrc from @tauri-apps/api/core
     const { convertFileSrc } = window.__TAURI__?.core || {}
-    if (convertFileSrc) return convertFileSrc(filePath)
+    if (convertFileSrc) {return convertFileSrc(filePath)}
   } catch {}
   // Fallback: try asset protocol URL directly
   return `https://asset.localhost/${encodeURIComponent(filePath)}`
@@ -868,13 +868,13 @@ async function exportCSV() {
   try {
     const range = getDateRange()
     const params: AccountingRecordsQuery = { startDate: range.startDate, endDate: range.endDate, page: 1, pageSize: 99999 }
-    if (typeFilter.value !== 'all') params.type = typeFilter.value
-    if (categoryFilter.value !== 'all') params.category = categoryFilter.value
-    if (statusFilter.value !== 'all') params.status = statusFilter.value
-    if (paymentFilter.value !== 'all') params.payment_method = paymentFilter.value
-    if (entityFilter.value) params.entity = entityFilter.value
-    if (projectFilter.value) params.project = projectFilter.value
-    if (searchQuery.value) params.search = searchQuery.value
+    if (typeFilter.value !== 'all') {params.type = typeFilter.value}
+    if (categoryFilter.value !== 'all') {params.category = categoryFilter.value}
+    if (statusFilter.value !== 'all') {params.status = statusFilter.value}
+    if (paymentFilter.value !== 'all') {params.payment_method = paymentFilter.value}
+    if (entityFilter.value) {params.entity = entityFilter.value}
+    if (projectFilter.value) {params.project = projectFilter.value}
+    if (searchQuery.value) {params.search = searchQuery.value}
 
     const csvContent = await getTauriAPI().exportAccountingCSV(params)
     if (!csvContent) {
@@ -897,7 +897,7 @@ async function exportCSV() {
 
 // Category management
 async function addNewCategory() {
-  if (!newCategory.value.name.trim()) return
+  if (!newCategory.value.name.trim()) {return}
   try {
     await getTauriAPI().addAccountingCategory({
       name: newCategory.value.name.trim(),
@@ -931,7 +931,7 @@ async function deleteCategory(id: string) {
 
 // Utils
 function formatMoney(amount: number | null | undefined): string {
-  if (amount == null) return '0.00'
+  if (amount == null) {return '0.00'}
   return amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
@@ -955,8 +955,8 @@ watch(trendData, async (data) => {
 
 // Cleanup
 onBeforeUnmount(() => {
-  if (searchTimer) clearTimeout(searchTimer)
-  if (trendResizeObserver) trendResizeObserver.disconnect()
+  if (searchTimer) {clearTimeout(searchTimer)}
+  if (trendResizeObserver) {trendResizeObserver.disconnect()}
 })
 
   return {

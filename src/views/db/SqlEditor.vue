@@ -138,12 +138,12 @@ const charCount = computed(() => sql.value.length)
 const lineCount = computed(() => sql.value.split('\n').length)
 const hasSelection = computed(() => {
   const ta = textareaRef.value
-  if (!ta) return false
+  if (!ta) {return false}
   return ta.selectionStart !== ta.selectionEnd
 })
 const selectionLength = computed(() => {
   const ta = textareaRef.value
-  if (!ta) return 0
+  if (!ta) {return 0}
   return ta.selectionEnd - ta.selectionStart
 })
 
@@ -187,7 +187,7 @@ function escapeHtml(text: string): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/\"/g, '&quot;')
+    .replace(/"/g, '&quot;')
 }
 
 function syncScroll() {
@@ -202,7 +202,7 @@ function syncScroll() {
 // Execute: use selected text if any, otherwise full query
 function handleExecute() {
   const ta = textareaRef.value
-  if (!ta || !sql.value.trim()) return
+  if (!ta || !sql.value.trim()) {return}
 
   let queryText: string
   if (ta.selectionStart !== ta.selectionEnd) {
@@ -211,13 +211,13 @@ function handleExecute() {
     queryText = sql.value.trim()
   }
 
-  if (!queryText) return
+  if (!queryText) {return}
   executedSql.value = queryText
   emit('execute', queryText)
 }
 
 function handleFormat() {
-  if (!sql.value.trim()) return
+  if (!sql.value.trim()) {return}
   try {
     sql.value = format(sql.value, {
       language: 'sql',
@@ -247,7 +247,7 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Tab') {
     e.preventDefault()
     const ta = textareaRef.value
-    if (!ta) return
+    if (!ta) {return}
     const start = ta.selectionStart
     const end = ta.selectionEnd
     sql.value = sql.value.substring(0, start) + '  ' + sql.value.substring(end)

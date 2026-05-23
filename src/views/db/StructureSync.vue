@@ -314,7 +314,7 @@ interface StructureSyncResult {
 
 // Computed: affected tables from diffs
 const affectedTablesList = computed(() => {
-  if (!result.value) return []
+  if (!result.value) {return []}
   return [...new Set(result.value.diffs.map(d => d.tableName))]
 })
 
@@ -347,14 +347,14 @@ const targetOnlyTables = computed(() => {
 const selectedSqlArray = computed(() => Array.from(selectedSqls.value))
 
 const filteredDiffs = computed(() => {
-  if (!result.value) return []
-  if (filterTables.value.length === 0) return result.value.diffs
+  if (!result.value) {return []}
+  if (filterTables.value.length === 0) {return result.value.diffs}
   return result.value.diffs.filter(d => filterTables.value.includes(d.tableName))
 })
 
 const diffTypeCounts = computed(() => {
   const counts: Record<string, number> = {}
-  if (!result.value) return counts
+  if (!result.value) {return counts}
   for (const diff of result.value.diffs) {
     counts[diff.diffType] = (counts[diff.diffType] || 0) + 1
   }
@@ -398,7 +398,7 @@ watch(targetId, () => {
 })
 
 async function onSourceChange() {
-  if (!sourceId.value) return
+  if (!sourceId.value) {return}
   loadingSourceDb.value = true
   try {
     console.log("[onSourceChange] called")
@@ -420,7 +420,7 @@ async function onSourceChange() {
 }
 
 async function onTargetChange() {
-  if (!targetId.value) return
+  if (!targetId.value) {return}
   loadingTargetDb.value = true
   try {
     console.log("[onTargetChange] called")
@@ -442,7 +442,7 @@ async function onTargetChange() {
 }
 
 async function loadSourceTables() {
-  if (!sourceId.value || !sourceDb.value) return
+  if (!sourceId.value || !sourceDb.value) {return}
   try {
     console.log("[loadSourceTables] called")
     const res = await getTauriAPI().dbGetTables(sourceId.value, sourceDb.value)
@@ -455,7 +455,7 @@ async function loadSourceTables() {
 }
 
 async function loadTargetTables() {
-  if (!targetId.value || !targetDb.value) return
+  if (!targetId.value || !targetDb.value) {return}
   try {
     console.log("[loadTargetTables] called")
     const res = await getTauriAPI().dbGetTables(targetId.value, targetDb.value)
@@ -538,7 +538,7 @@ async function startCompare() {
     toast.error('对比失败: ' + (e?.message || '未知错误'))
   } finally {
     comparing.value = false
-    if (unlisten) unlisten()
+    if (unlisten) {unlisten()}
   }
 }
 
@@ -645,8 +645,8 @@ function getDiffRowClass(type: string): string {
 
 // Navicat-style: compact value display (no full JSON dumps)
 function getCompactValue(value: any): string {
-  if (value == null) return '—'
-  if (typeof value === 'string') return value
+  if (value == null) {return '—'}
+  if (typeof value === 'string') {return value}
   if (typeof value === 'object') {
     // Column-like object: show name, type, nullable, default
     // Support both Electron format (name/type) and information_schema format (COLUMN_NAME/COLUMN_TYPE)
@@ -656,12 +656,12 @@ function getCompactValue(value: any): string {
     const nullable = value.nullable !== undefined ? value.nullable : (value.IS_NULLABLE === 'YES')
     const defaultVal = value.default !== undefined ? value.default : value.COLUMN_DEFAULT
     const comment = value.comment || value.COLUMN_COMMENT
-    if (colName) parts.push(colName)
-    if (colType) parts.push(colType)
-    if (!nullable) parts.push('NOT NULL')
-    if (defaultVal != null) parts.push(`DEFAULT ${defaultVal}`)
-    if (comment) parts.push(`COMMENT '${comment}'`)
-    if (parts.length > 0) return parts.join(' ')
+    if (colName) {parts.push(colName)}
+    if (colType) {parts.push(colType)}
+    if (!nullable) {parts.push('NOT NULL')}
+    if (defaultVal != null) {parts.push(`DEFAULT ${defaultVal}`)}
+    if (comment) {parts.push(`COMMENT '${comment}'`)}
+    if (parts.length > 0) {return parts.join(' ')}
     // Fallback: short JSON
     const json = JSON.stringify(value)
     return json.length > 80 ? json.slice(0, 80) + '…' : json

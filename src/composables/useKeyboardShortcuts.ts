@@ -40,10 +40,10 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}): vo
   function shouldIgnoreInInput(_key: string): boolean {
     const target = (event as KeyboardEvent)?.target;
     const tag = (target as HTMLElement)?.tagName;
-    if (!tag) return false;
+    if (!tag) {return false;}
     const isInput = tag === 'INPUT' || tag === 'TEXTAREA' || (target as HTMLElement)?.isContentEditable;
     // 在输入框内仍然允许 Escape 和 Ctrl+F
-    if (!isInput) return false;
+    if (!isInput) {return false;}
     // 在输入框内时，只允许 Escape
     return true;
   }
@@ -52,7 +52,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}): vo
     const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
     const mod = isMac ? e.metaKey : e.ctrlKey;
 
-    if (!mod && e.key !== 'Escape') return;
+    if (!mod && e.key !== 'Escape') {return;}
 
     const key = e.key;
 
@@ -65,7 +65,7 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}): vo
         const closeBtn = modalOverlay.querySelector(
           '.form-modal-close, .close-btn, [class*="close"]'
         ) as HTMLElement;
-        if (closeBtn) closeBtn.click();
+        if (closeBtn) {closeBtn.click();}
         return;
       }
       // 也尝试关闭聊天面板、右侧面板等
@@ -78,10 +78,10 @@ export function useKeyboardShortcuts(options: KeyboardShortcutsOptions = {}): vo
       return;
     }
 
-    if (!mod) return;
+    if (!mod) {return;}
 
     // === 在输入框内时忽略大部分快捷键 ===
-    if (shouldIgnoreInInput(key)) return;
+    if (shouldIgnoreInInput(key)) {return;}
 
     switch (key) {
       // Ctrl/Cmd+N: 聚焦新建任务输入

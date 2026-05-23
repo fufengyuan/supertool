@@ -281,7 +281,7 @@ const filteredStreams = computed(() => {
     // DANGER first, then WARN, then HEALTHY
     const healthA = a.pendingCount > 10 ? 0 : a.pendingCount > 0 ? 1 : 2
     const healthB = b.pendingCount > 10 ? 0 : b.pendingCount > 0 ? 1 : 2
-    if (healthA !== healthB) return healthA - healthB
+    if (healthA !== healthB) {return healthA - healthB}
     return b.pendingCount - a.pendingCount
   })
 })
@@ -291,7 +291,7 @@ const totalPending = computed(() => {
 })
 
 const filteredMessages = computed(() => {
-  if (!messageSearchQuery.value) return messages.value
+  if (!messageSearchQuery.value) {return messages.value}
   const q = messageSearchQuery.value.toLowerCase()
   return messages.value.filter((msg: StreamMessage) => {
     if (msg.envelope) {
@@ -314,8 +314,8 @@ const totalConsumers = computed(() => {
 
 // Classify consumers by idle time
 function classifyConsumer(pending: number, idle: number): 'healthy' | 'idle' | 'stale' {
-  if (idle > 86400000) return 'stale'    // > 24h = stale/lost
-  if (idle > 3600000) return 'idle'       // > 1h = idle
+  if (idle > 86400000) {return 'stale'}    // > 24h = stale/lost
+  if (idle > 3600000) {return 'idle'}       // > 1h = idle
   return 'healthy'                         // < 1h = healthy
 }
 
@@ -324,9 +324,9 @@ const consumerStats = computed(() => {
   for (const g of groupStats.value) {
     for (const c of (g.consumers || [])) {
       const cls = classifyConsumer((c.pending as number) || 0, (c.idle as number) || 0)
-      if (cls === 'healthy') healthy++
-      else if (cls === 'idle') idle++
-      else stale++
+      if (cls === 'healthy') {healthy++}
+      else if (cls === 'idle') {idle++}
+      else {stale++}
     }
   }
   return { healthy, idle, stale }
@@ -334,7 +334,7 @@ const consumerStats = computed(() => {
 
 const healthPercentages = computed(() => {
   const total = totalConsumers.value
-  if (total === 0) return { healthy: 0, idle: 0, stale: 0 }
+  if (total === 0) {return { healthy: 0, idle: 0, stale: 0 }}
   return {
     healthy: Math.round((consumerStats.value.healthy / total) * 100),
     idle: Math.round((consumerStats.value.idle / total) * 100),
@@ -464,7 +464,7 @@ async function loadStreamInfo() {
 // ==================== Messages ====================
 
 async function loadMessages() {
-  if (!selectedStream.value) return
+  if (!selectedStream.value) {return}
   msgLoading.value = true
   logger.info(`[RedisQueueManager] loadMessages for: ${selectedStream.value}, range: ${msgStart.value}-${msgEnd.value}`)
   try {
@@ -520,7 +520,7 @@ async function loadMessages() {
 }
 
 async function addMessage() {
-  if (!addKey.value || !addFieldsText.value) return
+  if (!addKey.value || !addFieldsText.value) {return}
   pushing.value = true
   try {
     let fields: Record<string, string>
@@ -561,13 +561,13 @@ async function addMessage() {
 }
 
 function openAddMessage() {
-  if (selectedStream.value) addKey.value = selectedStream.value
+  if (selectedStream.value) {addKey.value = selectedStream.value}
   showAddModal.value = true
 }
 
 async function deleteMessage(messageId: string) {
-  if (!selectedStream.value) return
-  if (!confirm(`确定删除消息 ${messageId} 吗？`)) return
+  if (!selectedStream.value) {return}
+  if (!confirm(`确定删除消息 ${messageId} 吗？`)) {return}
   try {
     await withReconnect(() =>
       getTauriAPI().dbRedisStreamDel(props.connectionId, props.redisDbIndex ?? 0, selectedStream.value, messageId)
@@ -580,8 +580,8 @@ async function deleteMessage(messageId: string) {
 }
 
 async function deleteStream() {
-  if (!selectedStream.value) return
-  if (!confirm(`确定删除整个 Stream "${selectedStream.value}" 吗？此操作不可恢复！`)) return
+  if (!selectedStream.value) {return}
+  if (!confirm(`确定删除整个 Stream "${selectedStream.value}" 吗？此操作不可恢复！`)) {return}
   try {
     await withReconnect(() =>
       getTauriAPI().dbRedisStreamDelete(props.connectionId, props.redisDbIndex ?? 0, selectedStream.value)
@@ -600,7 +600,7 @@ async function deleteStream() {
 // ==================== Groups ====================
 
 async function loadGroups() {
-  if (!selectedStream.value) return
+  if (!selectedStream.value) {return}
   groupLoading.value = true
   try {
     const result = await withReconnect(() =>
@@ -617,7 +617,7 @@ async function loadGroups() {
 }
 
 async function createGroup() {
-  if (!selectedStream.value || !newGroupName.value) return
+  if (!selectedStream.value || !newGroupName.value) {return}
   try {
     const result = await withReconnect(() =>
       getTauriAPI().dbRedisStreamGroupCreate(
@@ -635,7 +635,7 @@ async function createGroup() {
       toast.success('消费组创建成功')
       await loadGroups()
       // Refresh consumption status since new group changes the baseline
-      if (messages.value.length > 0) await enrichMessageConsumptionStatus()
+      if (messages.value.length > 0) {await enrichMessageConsumptionStatus()}
     }
   } catch (e: unknown) {
     toast.error('创建消费组失败: ' + getErrorMessage(e))
@@ -643,13 +643,13 @@ async function createGroup() {
 }
 
 async function destroyGroup(groupName: string) {
-  if (!selectedStream.value) return
-  if (!confirm(`确定删除消费组 "${groupName}" 吗？`)) return
+  if (!selectedStream.value) {return}
+  if (!confirm(`确定删除消费组 "${groupName}" 吗？`)) {return}
   try {
     await withReconnect(() =>
       getTauriAPI().dbRedisStreamGroupDestroy(props.connectionId, props.redisDbIndex ?? 0, selectedStream.value, groupName)
     )
-    if (selectedGroup.value === groupName) selectedGroup.value = ''
+    if (selectedGroup.value === groupName) {selectedGroup.value = ''}
     toast.success('消费组已删除')
     await loadGroups()
   } catch (e: unknown) {
@@ -666,7 +666,7 @@ async function selectGroup(groupName: string) {
 }
 
 async function loadConsumers(groupName: string) {
-  if (!selectedStream.value) return
+  if (!selectedStream.value) {return}
   consumersLoading.value = true
   try {
     const result = await withReconnect(() =>
@@ -688,7 +688,7 @@ async function loadConsumers(groupName: string) {
 }
 
 async function loadPending(groupName: string) {
-  if (!selectedStream.value) return
+  if (!selectedStream.value) {return}
   pendingLoading.value = true
   try {
     const result = await withReconnect(() =>
@@ -723,7 +723,7 @@ async function loadPending(groupName: string) {
 }
 
 async function claimPending(messageId: string) {
-  if (!selectedStream.value || !selectedGroup.value) return
+  if (!selectedStream.value || !selectedGroup.value) {return}
   try {
     await withReconnect(() =>
       getTauriAPI().dbRedisStreamClaim(
@@ -743,7 +743,7 @@ async function claimPending(messageId: string) {
 }
 
 async function ackPending(messageId: string) {
-  if (!selectedStream.value || !selectedGroup.value) return
+  if (!selectedStream.value || !selectedGroup.value) {return}
   try {
     await withReconnect(() =>
       getTauriAPI().dbRedisStreamAck(
@@ -762,8 +762,8 @@ async function ackPending(messageId: string) {
 }
 
 async function retryPending(messageId: string) {
-  if (!selectedStream.value || !selectedGroup.value) return
-  if (!confirm(`确定重试消息 ${formatStreamId(messageId)} 吗？将 ACK 旧消息并重新投递。`)) return
+  if (!selectedStream.value || !selectedGroup.value) {return}
+  if (!confirm(`确定重试消息 ${formatStreamId(messageId)} 吗？将 ACK 旧消息并重新投递。`)) {return}
   try {
     const result = await withReconnect(() =>
       getTauriAPI().dbRedisStreamRetry(
@@ -787,7 +787,7 @@ async function retryPending(messageId: string) {
 // ==================== Stats ====================
 
 async function loadStats() {
-  if (!selectedStream.value) return
+  if (!selectedStream.value) {return}
   statsLoading.value = true
   try {
     groupStats.value = []
@@ -799,15 +799,15 @@ async function loadStats() {
         const res = await withReconnect(() =>
           getTauriAPI().dbRedisStreamConsumers(props.connectionId, props.redisDbIndex ?? 0, selectedStream.value, groupName)
         ) as RedisStreamConsumersResponse
-        if (res.success) consumerList = res.consumers || []
+        if (res.success) {consumerList = res.consumers || []}
       } catch {}
       // Per-group health breakdown
       let healthyConsumers = 0, idleConsumers = 0, staleConsumers = 0
       for (const c of consumerList) {
         const cls = classifyConsumer(c.pending, c.idle)
-        if (cls === 'healthy') healthyConsumers++
-        else if (cls === 'idle') idleConsumers++
-        else staleConsumers++
+        if (cls === 'healthy') {healthyConsumers++}
+        else if (cls === 'idle') {idleConsumers++}
+        else {staleConsumers++}
       }
       groupStats.value.push({
         name: groupName, pendingCount, consumers: consumerList,
@@ -824,8 +824,8 @@ async function loadStats() {
 // ==================== Trim ====================
 
 async function trimQueue() {
-  if (!selectedStream.value || !trimKeepN.value || trimKeepN.value < 10) return
-  if (!confirm(`确定清理队列，仅保留最近 ${trimKeepN.value} 条消息？`)) return
+  if (!selectedStream.value || !trimKeepN.value || trimKeepN.value < 10) {return}
+  if (!confirm(`确定清理队列，仅保留最近 ${trimKeepN.value} 条消息？`)) {return}
   try {
     const result = await withReconnect(() =>
       getTauriAPI().dbRedisStreamTrim(props.connectionId, props.redisDbIndex ?? 0, selectedStream.value, trimKeepN.value)
@@ -872,7 +872,7 @@ async function selectDelayQueue(name: string) {
 }
 
 async function refreshDelayQueue() {
-  if (!selectedDelayQueue.value) return
+  if (!selectedDelayQueue.value) {return}
   delayLoading.value = true
   try {
     const now = Date.now()
@@ -902,7 +902,7 @@ async function refreshDelayQueue() {
 }
 
 async function fireDelayMessage(dm: DelayMessage) {
-  if (!selectedDelayQueue.value) return
+  if (!selectedDelayQueue.value) {return}
   // Remove from ZSet
   const removeResult = await withReconnect(() =>
     getTauriAPI().dbRedisZSetRemove(props.connectionId, props.redisDbIndex ?? 0, selectedDelayQueue.value, dm.value)
@@ -929,8 +929,8 @@ async function fireDelayMessage(dm: DelayMessage) {
 }
 
 async function deleteDelayMessage(dm: DelayMessage) {
-  if (!selectedDelayQueue.value) return
-  if (!confirm('确定删除此延迟消息？')) return
+  if (!selectedDelayQueue.value) {return}
+  if (!confirm('确定删除此延迟消息？')) {return}
   try {
     const result = await withReconnect(() =>
       getTauriAPI().dbRedisZSetRemove(props.connectionId, props.redisDbIndex ?? 0, selectedDelayQueue.value, dm.value)
@@ -978,7 +978,7 @@ function stopAutoRefresh() {
 }
 
 function restartAutoRefresh() {
-  if (autoRefreshEnabled.value) startAutoRefresh()
+  if (autoRefreshEnabled.value) {startAutoRefresh()}
 }
 
 // ==================== Utilities ====================
@@ -1001,23 +1001,23 @@ function formatValue(val: string): string {
 }
 
 function formatStreamId(id: string): string {
-  if (id.length > 20) return '...' + id.slice(-18)
+  if (id.length > 20) {return '...' + id.slice(-18)}
   return id
 }
 
 // Compare two Redis Stream IDs: returns -1, 0, or 1
 function compareStreamIds(a: string, b: string): number {
-  if (a === b) return 0
+  if (a === b) {return 0}
   const [aTs = '0', aSeq = '0'] = a.split('-').map(Number)
   const [bTs = '0', bSeq = '0'] = b.split('-').map(Number)
-  if (aTs !== bTs) return aTs < bTs ? -1 : 1
+  if (aTs !== bTs) {return aTs < bTs ? -1 : 1}
   return aSeq < bSeq ? -1 : 1
 }
 
 // Load pending messages for all groups and build a Set of pending message IDs
 async function loadAllPendingIds(): Promise<Set<string>> {
   const pendingSet = new Set<string>()
-  if (!selectedStream.value || groups.value.length === 0) return pendingSet
+  if (!selectedStream.value || groups.value.length === 0) {return pendingSet}
   
   for (const g of groups.value) {
     try {
@@ -1036,9 +1036,9 @@ async function loadAllPendingIds(): Promise<Set<string>> {
           for (const p of pending) {
             if (typeof p === 'object' && p !== null && 'id' in p) {
               const id = (p as Record<string, unknown>).id
-              if (typeof id === 'string') pendingSet.add(id)
+              if (typeof id === 'string') {pendingSet.add(id)}
             }
-            else if (typeof p === 'string') pendingSet.add(p)
+            else if (typeof p === 'string') {pendingSet.add(p)}
           }
         }
       }
@@ -1089,9 +1089,9 @@ async function enrichMessageConsumptionStatus() {
     
     // Overall status
     let overall: 'consumed' | 'pending' | 'new'
-    if (hasNew) overall = 'new'
-    else if (hasPending) overall = 'pending'
-    else overall = 'consumed'
+    if (hasNew) {overall = 'new'}
+    else if (hasPending) {overall = 'pending'}
+    else {overall = 'consumed'}
     
     statusMap.set(msgId, { status: overall, groupStatuses })
   }
@@ -1100,30 +1100,30 @@ async function enrichMessageConsumptionStatus() {
 }
 
 function getConsumptionBadgeClass(status: string): string {
-  if (status === 'consumed') return 'badge-consumed'
-  if (status === 'pending') return 'badge-pending'
+  if (status === 'consumed') {return 'badge-consumed'}
+  if (status === 'pending') {return 'badge-pending'}
   return 'badge-new'
 }
 
 function getConsumptionLabel(status: string): string {
-  if (status === 'consumed') return '已消费'
-  if (status === 'pending') return '处理中'
+  if (status === 'consumed') {return '已消费'}
+  if (status === 'pending') {return '处理中'}
   return '未消费'
 }
 
 function getConsumptionIcon(status: string): string {
-  if (status === 'consumed') return '✅'
-  if (status === 'pending') return '⏳'
+  if (status === 'consumed') {return '✅'}
+  if (status === 'pending') {return '⏳'}
   return '📭'
 }
 
 function shortId(id: string): string {
-  if (!id) return ''
+  if (!id) {return ''}
   return id.length > 12 ? id.slice(0, 6) + '...' + id.slice(-6) : id
 }
 
 function formatTime(isoStr: string): string {
-  if (!isoStr) return ''
+  if (!isoStr) {return ''}
   try {
     const d = new Date(isoStr)
     return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
@@ -1137,14 +1137,14 @@ function formatTimestamp(ts: number): string {
 }
 
 function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60000) return `${Math.floor(ms / 1000)}s`
-  if (ms < 3600000) return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+  if (ms < 1000) {return `${ms}ms`}
+  if (ms < 60000) {return `${Math.floor(ms / 1000)}s`}
+  if (ms < 3600000) {return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`}
   return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`
 }
 
 function formatJsonPreview(jsonStr: string): string {
-  if (!jsonStr) return ''
+  if (!jsonStr) {return ''}
   try {
     const parsed = JSON.parse(jsonStr)
     const str = JSON.stringify(parsed, null, 2)
@@ -1155,7 +1155,7 @@ function formatJsonPreview(jsonStr: string): string {
 }
 
 function formatJsonDisplay(jsonStr: string): string {
-  if (!jsonStr) return ''
+  if (!jsonStr) {return ''}
   try {
     return JSON.stringify(JSON.parse(jsonStr), null, 2)
   } catch {
@@ -1168,8 +1168,8 @@ function generateUUID(): string {
 }
 
 function getHealthClass(pending: number, idle: number): string {
-  if (pending > 10 || idle > 600000) return 'dot-danger'
-  if (pending > 0 || idle > 60000) return 'dot-warn'
+  if (pending > 10 || idle > 600000) {return 'dot-danger'}
+  if (pending > 0 || idle > 60000) {return 'dot-warn'}
   return 'dot-healthy'
 }
 
@@ -1189,16 +1189,16 @@ function isRetrier(name: string): boolean {
 
 // Card-level health class
 function getConsumerHealthClass(pending: number, idle: number): string {
-  if (idle > 86400000) return 'card-stale'
-  if (idle > 3600000) return 'card-idle'
+  if (idle > 86400000) {return 'card-stale'}
+  if (idle > 3600000) {return 'card-idle'}
   return 'card-healthy'
 }
 
 // Health indicator dot
 function getConsumerHealthDot(pending: number, idle: number): string {
-  if (pending > 10) return 'dot-danger'
-  if (pending > 0 || idle > 86400000) return 'dot-stale'
-  if (idle > 3600000) return 'dot-idle'
+  if (pending > 10) {return 'dot-danger'}
+  if (pending > 0 || idle > 86400000) {return 'dot-stale'}
+  if (idle > 3600000) {return 'dot-idle'}
   return 'dot-healthy'
 }
 
@@ -1214,17 +1214,17 @@ async function copyText(text: string) {
 async function refreshAll() {
   await refreshStreams()
   await refreshDelayQueues()
-  if (selectedStream.value) await selectStream(selectedStream.value)
-  if (selectedDelayQueue.value) await refreshDelayQueue()
+  if (selectedStream.value) {await selectStream(selectedStream.value)}
+  if (selectedDelayQueue.value) {await refreshDelayQueue()}
 }
 
 watch(detailTab, () => {
-  if (detailTab.value === 'groups') loadGroups()
+  if (detailTab.value === 'groups') {loadGroups()}
 })
 
 watch(groupDetailTab, (newTab) => {
-  if (newTab === 'consumers' && selectedGroup.value) loadConsumers(selectedGroup.value)
-  else if (newTab === 'pending' && selectedGroup.value) loadPending(selectedGroup.value)
+  if (newTab === 'consumers' && selectedGroup.value) {loadConsumers(selectedGroup.value)}
+  else if (newTab === 'pending' && selectedGroup.value) {loadPending(selectedGroup.value)}
 })
 
 onMounted(async () => {
