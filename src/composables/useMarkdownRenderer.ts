@@ -88,8 +88,29 @@ export function renderMarkdown(text: string | null): string {
     
     // 消毒
     const result = DOMPurify.sanitize(html, {
-      ADD_ATTR: ['target', 'onclick', 'id', 'title'],
-      ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col'],
+      ADD_ATTR: ['target', 'onclick', 'id', 'title', 'align', 'colspan', 'rowspan', 'width', 'height', 'href', 'src', 'alt', 'class', 'style'],
+      ADD_TAGS: [
+        // 基础结构
+        'div', 'span', 'p', 'br', 'hr',
+        // 标题
+        'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        // 列表
+        'ul', 'ol', 'li', 'dl', 'dt', 'dd',
+        // 表格
+        'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'colgroup', 'col', 'caption',
+        // 链接和图片
+        'a', 'img',
+        // 引用和代码
+        'blockquote', 'pre', 'code', 'kbd', 'samp', 'var',
+        // 强调
+        'strong', 'em', 'b', 'i', 'u', 's', 'del', 'ins', 'mark', 'sub', 'sup',
+        // 按钮
+        'button', 'svg', 'rect', 'path', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'text',
+        // 任务列表
+        'input',
+        // 定义
+        'abbr', 'cite', 'dfn', 'time',
+      ],
     });
 
     // LRU 缓存淘汰
