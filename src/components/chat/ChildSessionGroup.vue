@@ -70,6 +70,25 @@
               </div>
             </div>
           </div>
+          <!-- 继续对话输入框 -->
+          <div class="mt-2 pl-1 border-l-2 border-info/20">
+            <div class="flex gap-1.5 items-center">
+              <input
+                v-model="continueInput"
+                type="text"
+                class="input input-xs input-bordered w-full bg-base-100 text-xs"
+                placeholder="继续对话..."
+                @keyup.enter="sendContinueMessage"
+              />
+              <button
+                class="btn btn-xs btn-info gap-1"
+                :disabled="!continueInput.trim()"
+                @click="sendContinueMessage"
+              >
+                <SvgIcon name="send" size="10" />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -114,9 +133,20 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'toggle', sessionId: string): void;
+  (e: 'continue', sessionId: string, message: string): void;
 }>();
 
 const expanded = computed(() => props.isExpanded || false);
+
+// 继续对话输入
+const continueInput = ref('');
+
+const sendContinueMessage = () => {
+  if (continueInput.value.trim()) {
+    emit('continue', props.group.sessionId, continueInput.value.trim());
+    continueInput.value = '';
+  }
+};
 
 // 工具调用展开状态 (key: `${msgIdx}-${tcIdx}`)
 const expandedTools = ref(new Set<string>());

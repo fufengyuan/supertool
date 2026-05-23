@@ -145,6 +145,7 @@
               :formatTime="formatMessageTime"
               :renderMarkdown="renderMarkdown"
               @toggle="toggleChildSessionExpand"
+              @continue="handleChildSessionContinue"
             />
             
 <!-- 普通消息 -->
@@ -577,6 +578,66 @@ const toggleChildSessionExpand = (sessionId: string) => {
 // 检查子会话是否展开
 const isChildSessionExpanded = (sessionId: string): boolean => {
   return expandedChildSessions.value.has(sessionId);
+};
+
+// 处理子会话继续对话
+const handleChildSessionContinue = async (sessionId: string, message: string) => {
+  try {
+    // 调用 agent_chat 发送消息到子会话
+    await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
+      message,
+      sessionId,  // 使用子会话的 sessionId
+      model: null,
+    });
+    // 刷新当前会话的消息（子会话消息会合并显示）
+    if (currentSessionId.value) {
+      const msgs = await invoke<any[]>('agent_list_messages', { sessionId: currentSessionId.value });
+      // 处理消息
+      const processedMessages: Message[] = [];
+      const toolResultsMap = new Map<string, string>();
+      for (const m of msgs) {
+        if (m.role === 'tool' && m.toolCallId) {
+          toolResultsMap.set(m.toolCallId, m.content || '');
+        }
+      }
+      for (const m of msgs) {
+        if (m.role === 'tool') continue;
+        const msg: Message = {
+          role: m.role,
+          content: m.content,
+          timestamp: m.timestamp,
+          toolName: m.toolName,
+          toolCalls: [],
+          isChild: m.isChild,
+          sessionId: m.sessionId,
+        };
+        if (m.role === 'assistant' && m.toolCalls) {
+          try {
+            const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
+            for (const tc of toolCallsParsed) {
+              const toolName = tc.function?.name || 'unknown';
+              const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+              msg.toolCalls!.push({
+                name: toolName,
+                args: toolArgs,
+                result: toolResultsMap.get(tc.id) || '',
+                durationMs: 0,
+                isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
+                status: 'completed',
+              });
+            }
+          } catch (e) {
+            console.warn('Failed to parse tool_calls:', e);
+          }
+        }
+        processedMessages.push(msg);
+      }
+      messages.value = processedMessages;
+      scrollToBottom();
+    }
+  } catch (e) {
+    console.error('子会话继续对话失败:', e);
+  }
 };
 
 // 将消息列表转换为显示列表（子会话消息分组折叠，插入到调用位置）
