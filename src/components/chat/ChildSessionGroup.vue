@@ -75,7 +75,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import SvgIcon from '../SvgIcon.vue';
+import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
 
 interface ToolCall {
