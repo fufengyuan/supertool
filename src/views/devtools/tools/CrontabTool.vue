@@ -90,13 +90,13 @@ const nextTimes = ref<string[]>([])
 
 function getNextExecutionTimes(expression: string, count = 10): string[] {
   const parts = expression.trim().split(/\s+/)
-  if (parts.length !== 5) return []
+  if (parts.length !== 5) {return []}
 
   const [minute, hour, dom, month, dow] = parts
 
   function matchesField(value: number, field: string, max: number): boolean {
-    if (field === '*') return true
-    if (field === '?') return true
+    if (field === '*') {return true}
+    if (field === '?') {return true}
 
     const segments = field.split(',')
     for (const seg of segments) {
@@ -105,13 +105,13 @@ function getNextExecutionTimes(expression: string, count = 10): string[] {
         const stepNum = parseInt(step)
         const start = range === '*' ? 0 : parseInt(range)
         for (let i = start; i <= max; i += stepNum) {
-          if (i === value) return true
+          if (i === value) {return true}
         }
       } else if (seg.includes('-')) {
         const [start, end] = seg.split('-').map(Number)
-        if (value >= start && value <= end) return true
+        if (value >= start && value <= end) {return true}
       } else {
-        if (parseInt(seg) === value) return true
+        if (parseInt(seg) === value) {return true}
       }
     }
     return false
@@ -154,7 +154,7 @@ function validateCron() {
   cronError.value = ''
   nextTimes.value = []
 
-  if (!cronInput.value.trim()) return
+  if (!cronInput.value.trim()) {return}
 
   try {
     const desc = cronstrue.toString(cronInput.value.trim(), { locale: 'zh_CN' })

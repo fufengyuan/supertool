@@ -112,7 +112,7 @@ function convertTsToDate() {
   if (!timestampInput.value) { dateOutput.value = ''; return }
   let ts = timestampInput.value
   // Auto-detect: if < 1e12, treat as seconds
-  if (ts < 1e12) ts *= 1000
+  if (ts < 1e12) {ts *= 1000}
   try {
     const d = new Date(ts)
     if (isNaN(d.getTime())) { dateOutput.value = '错误: 无效的时间戳'; return }
@@ -167,6 +167,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  if (timer) {clearInterval(timer)}
 })
 </script>

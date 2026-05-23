@@ -77,7 +77,7 @@ function appendOp(op: string) {
 }
 
 function appendDot() {
-  const parts = expression.value.split(/[\s\+\-\*\/]+/)
+  const parts = expression.value.split(/[\s+\-*/]+/)
   const last = parts[parts.length - 1]
   if (!last.includes('.')) {
     expression.value += last ? '.' : '0.'
@@ -109,7 +109,7 @@ function percent() {
 }
 
 async function calculate() {
-  if (!expression.value) return
+  if (!expression.value) {return}
   try {
     // 安全计算，替换显示符号
     const expr = expression.value.replace(/×/g, '*').replace(/÷/g, '/').replace(/−/g, '-')

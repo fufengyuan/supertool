@@ -20,7 +20,7 @@ const props = defineProps({
 });
 
 const getTagPercentage = (tag) => {
-  if (props.stats.total === 0) return 0;
+  if (props.stats.total === 0) {return 0;}
   return (props.stats.byTag[tag] / props.stats.total) * 100;
 };
 </script>

@@ -219,7 +219,7 @@ function handleChange(value: string) {
 
 // 加载文件内容
 async function loadFile() {
-  if (!props.repoPath || !props.filePath) return
+  if (!props.repoPath || !props.filePath) {return}
   loading.value = true
   try {
     const fileContent = await tauriCall<string>('read_file_content', { repoPath: props.repoPath, filePath: props.filePath })
@@ -236,7 +236,7 @@ async function loadFile() {
 
 // 保存文件
 async function saveFile() {
-  if (!isModified.value || saving.value) return
+  if (!isModified.value || saving.value) {return}
   saving.value = true
   try {
     await tauriCall<void>('save_file_content', { repoPath: props.repoPath, filePath: props.filePath, content: content.value })

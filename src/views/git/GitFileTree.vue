@@ -68,7 +68,7 @@ provide('expandedPaths', expandedPaths)
 
 // 过滤文件树
 const filteredTree = computed(() => {
-  if (!searchQuery.value) return fileTree.value
+  if (!searchQuery.value) {return fileTree.value}
   return filterTree(fileTree.value, searchQuery.value.toLowerCase())
 })
 
@@ -91,7 +91,7 @@ function filterTree(entries: FileTreeEntry[], query: string): FileTreeEntry[] {
 
 // 加载文件树
 async function loadFileTree() {
-  if (!props.repoPath) return
+  if (!props.repoPath) {return}
   loading.value = true
   try {
     const tree = await tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath: props.repoPath })

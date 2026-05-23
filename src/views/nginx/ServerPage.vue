@@ -603,14 +603,14 @@ const api = getTauriAPI()
 const HEADER_HOST_OPTIONS = ['$host', '$http_host', '$proxy_host', '$server_name']
 
 function getHeaderHostSelectValue(loc: any): string {
-  if (!loc.headerHost || HEADER_HOST_OPTIONS.includes(loc.headerHost)) return loc.headerHost || '$host'
+  if (!loc.headerHost || HEADER_HOST_OPTIONS.includes(loc.headerHost)) {return loc.headerHost || '$host'}
   return '__custom__'
 }
 function isCustomHeaderHost(val: string): boolean {
   return !!val && !HEADER_HOST_OPTIONS.includes(val)
 }
 function onHeaderHostSelect(loc: any, val: string) {
-  if (val !== '__custom__') loc.headerHost = val
+  if (val !== '__custom__') {loc.headerHost = val}
 }
 
 // 主数据
@@ -695,7 +695,7 @@ const listPreviewContent = ref('')
 const listPreviewLoading = ref(false)
 
 const highlightedPreview = computed(() => {
-  if (!previewContent.value) return ''
+  if (!previewContent.value) {return ''}
   try {
     return hljs.highlight(previewContent.value, { language: 'nginx' }).value
   } catch {
@@ -709,7 +709,7 @@ function escapeHtml(text: string) {
 
 // 搜索过滤
 const filteredServers = computed(() => {
-  if (!searchText.value) return servers.value
+  if (!searchText.value) {return servers.value}
   const q = searchText.value.toLowerCase()
   return servers.value.filter(
     (s) =>
@@ -722,14 +722,14 @@ const filteredServers = computed(() => {
 // 工具
 function formatListen(svr: any) {
   let result = svr.ip || ''
-  if (svr.listen) result += (result ? ':' : '') + (typeof svr.listen === 'number' ? svr.listen : svr.listen)
-  if (!result) result = svr.listen || svr.ip || '-'
+  if (svr.listen) {result += (result ? ':' : '') + (typeof svr.listen === 'number' ? svr.listen : svr.listen)}
+  if (!result) {result = svr.listen || svr.ip || '-'}
   return result
 }
 
 // 加载数据
 async function loadData() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const [svrResult, upResult, pwResult, daResult, certResult] = await Promise.all([
@@ -864,7 +864,7 @@ async function onSave() {
     if (editingServer.value) {
       await api.updateNginxServer(serverData)
       const idx = servers.value.findIndex((s) => s.id === serverData.id)
-      if (idx !== -1) servers.value[idx] = serverData
+      if (idx !== -1) {servers.value[idx] = serverData}
       toast.success('Server 已更新')
     } else {
       const result = await api.addNginxServer(serverData)
@@ -966,12 +966,12 @@ async function toggleEnabled(svr: any) {
 
 // 排序
 async function moveUp(index: number) {
-  if (index <= 0) return
+  if (index <= 0) {return}
   swapServers(index, index - 1)
 }
 
 async function moveDown(index: number) {
-  if (index >= filteredServers.value.length - 1) return
+  if (index >= filteredServers.value.length - 1) {return}
   swapServers(index, index + 1)
 }
 
@@ -1154,14 +1154,14 @@ async function onPreview() {
 }
 
 function copyPreview() {
-  if (!previewContent.value) return
+  if (!previewContent.value) {return}
   navigator.clipboard.writeText(previewContent.value)
     .then(() => toast.success('已复制到剪贴板'))
     .catch(() => toast.error('复制失败'))
 }
 
 const listHighlightedPreview = computed(() => {
-  if (!listPreviewContent.value) return ''
+  if (!listPreviewContent.value) {return ''}
   try {
     return hljs.highlight(listPreviewContent.value, { language: 'nginx' }).value
   } catch {
@@ -1189,7 +1189,7 @@ async function onRowPreview(svr: any) {
 }
 
 function copyListPreview() {
-  if (!listPreviewContent.value) return
+  if (!listPreviewContent.value) {return}
   navigator.clipboard.writeText(listPreviewContent.value)
     .then(() => toast.success('已复制到剪贴板'))
     .catch(() => toast.error('复制失败'))
@@ -1221,7 +1221,7 @@ function moveLocationUp(idx: number) {
 }
 
 function moveLocationDown(idx: number) {
-  if (idx >= locations.value.length - 1) return
+  if (idx >= locations.value.length - 1) {return}
   const arr = locations.value
   const temp = arr[idx].sort
   arr[idx].sort = arr[idx + 1].sort

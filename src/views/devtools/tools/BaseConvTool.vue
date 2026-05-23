@@ -64,7 +64,7 @@ const targetBases = [
 ]
 
 const results = computed(() => {
-  if (!input.value.trim()) return targetBases.map(b => ({ ...b, value: '' }))
+  if (!input.value.trim()) {return targetBases.map(b => ({ ...b, value: '' }))}
   return targetBases.map(b => ({
     ...b,
     value: baseConvert(input.value, inputBase.value, b.base),

@@ -102,7 +102,7 @@ function addRow() {
 }
 
 async function load() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const data = await api.getPasswordsByPreset(props.presetId)

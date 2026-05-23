@@ -134,7 +134,7 @@ function formatDate(dateStr: string) {
 }
 
 async function loadCerts() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const result = await api.getCertsByPreset(props.presetId)
@@ -188,7 +188,7 @@ async function onSave() {
     if (editingCert.value) {
       await api.updateNginxCert(data)
       const idx = certs.value.findIndex((c) => c.id === data.id)
-      if (idx !== -1) certs.value[idx] = data
+      if (idx !== -1) {certs.value[idx] = data}
       toast.success('证书已更新')
     } else {
       const result = await api.addNginxCert(data)

@@ -93,7 +93,7 @@ export const error = (message: string, context?: string): LogEntry => log(messag
 // ========== 日志查询 ==========
 export function getLogs(minLevel: LogLevelValue = LogLevel.DEBUG): LogEntry[] {
   const entries = buffer.filter(Boolean) as LogEntry[];
-  if (entries.length === 0) return [];
+  if (entries.length === 0) {return [];}
 
   // 按写入顺序排列
   if (entries.length < MAX_LOG_ENTRIES) {

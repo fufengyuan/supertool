@@ -91,10 +91,10 @@ function onMultiToggle(serverId: string, event: Event) {
   const checked = (event.target as HTMLInputElement).checked
   const current = Array.isArray(props.modelValue) ? [...props.modelValue] : []
   if (checked) {
-    if (!current.includes(serverId)) current.push(serverId)
+    if (!current.includes(serverId)) {current.push(serverId)}
   } else {
     const idx = current.indexOf(serverId)
-    if (idx >= 0) current.splice(idx, 1)
+    if (idx >= 0) {current.splice(idx, 1)}
   }
   emit('update:modelValue', current)
 }

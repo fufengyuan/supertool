@@ -77,7 +77,7 @@ const titleText = computed(() => props.title || (props.tool.isSubAgent ? '子 Ag
 
 // 摘要：优先使用传入的 summary，否则自动生成
 const summaryText = computed(() => {
-  if (props.summary) return props.summary;
+  if (props.summary) {return props.summary;}
   if (props.tool.isSubAgent) {
     const args = props.tool.args as Record<string, unknown> | undefined;
     const goal = args?.goal || args?.task || args?.prompt;
@@ -100,7 +100,7 @@ const showPreview = computed(() => props.tool.result && !props.expanded);
 
 // 格式化预览
 const formattedPreview = computed(() => {
-  if (!props.tool.result) return '';
+  if (!props.tool.result) {return '';}
   if (props.formatPreview) {
     return props.formatPreview(props.tool.result, props.tool);
   }
@@ -109,7 +109,7 @@ const formattedPreview = computed(() => {
 
 // 格式化结果
 const formattedResult = computed(() => {
-  if (!props.tool.result) return '';
+  if (!props.tool.result) {return '';}
   if (props.formatResult) {
     return props.formatResult(props.tool.result, props.tool);
   }

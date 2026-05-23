@@ -119,7 +119,7 @@ function formatDate(dateStr: string) {
 }
 
 async function loadTemplates() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const result = await api.getTemplatesByPreset(props.presetId)
@@ -171,7 +171,7 @@ async function onSave() {
     if (editingTemplate.value) {
       await api.updateNginxTemplate(data)
       const idx = templates.value.findIndex((t) => t.id === data.id)
-      if (idx !== -1) templates.value[idx] = data
+      if (idx !== -1) {templates.value[idx] = data}
       toast.success('模板已更新')
     } else {
       const result = await api.addNginxTemplate(data)

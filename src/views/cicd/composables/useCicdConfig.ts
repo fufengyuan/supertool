@@ -155,9 +155,9 @@ export function useCicdConfig() {
   function makeDefaultServer(): DeployServerEntry { return { serverId: '', label: '', deployDir: '' }; }
 
   function getServerName(id: string): string {
-    if (!id) return '';
+    if (!id) {return '';}
     const s = servers.value.find(srv => srv.id === id);
-    if (!s) return '';
+    if (!s) {return '';}
     const group = s.groupId ? serverGroups.value.find(g => g.id === s.groupId) : null;
     return group ? `${s.name} [${group.name}]` : s.name;
   }
@@ -177,13 +177,13 @@ export function useCicdConfig() {
   }
 
   function removeServer(idx: number) {
-    if (deployServers.value.length <= 1) return;
+    if (deployServers.value.length <= 1) {return;}
     deployServers.value.splice(idx, 1);
-    if (activeServerIdx.value >= deployServers.value.length) activeServerIdx.value = deployServers.value.length - 1;
+    if (activeServerIdx.value >= deployServers.value.length) {activeServerIdx.value = deployServers.value.length - 1;}
   }
 
   async function testServerById(srv: DeployServerEntry) {
-    if (!srv.serverId) return;
+    if (!srv.serverId) {return;}
     const srvObj = servers.value.find(s => s.id === srv.serverId);
     if (!srvObj) { srv.testResult = { success: false, error: '服务器未找到' }; return; }
     try {
@@ -232,8 +232,8 @@ export function useCicdConfig() {
   const platform = ref<'mac' | 'linux' | 'win'>('linux');
   if (typeof navigator !== 'undefined') {
     const ua = navigator.userAgent.toLowerCase();
-    if (ua.includes('mac')) platform.value = 'mac';
-    else if (ua.includes('win')) platform.value = 'win';
+    if (ua.includes('mac')) {platform.value = 'mac';}
+    else if (ua.includes('win')) {platform.value = 'win';}
   }
   const sdkmanInstallGuide = computed(() => ({
     show: sdkVersions.value.sdkman?.java?.length === 0,
@@ -266,12 +266,12 @@ export function useCicdConfig() {
         Object.assign(defaultPaths.value, pathsResult as typeof defaultPaths.value);
         // Always fill current config with detected paths — overwrite whatever was there
         const c = config.value;
-        if (c.buildTool === 'maven' && defaultPaths.value.mavenHome) c.mavenHome = defaultPaths.value.mavenHome;
-        if (c.buildTool === 'maven' && defaultPaths.value.javaHome) c.javaHome = defaultPaths.value.javaHome;
-        if ((c.buildTool === 'npm' || c.buildTool === 'pnpm' || c.buildTool === 'yarn') && defaultPaths.value.nodeHome) c.nodeHome = defaultPaths.value.nodeHome;
-        if (c.buildTool === 'npm' && defaultPaths.value.npmHome) c.npmHome = defaultPaths.value.npmHome;
-        if (c.buildTool === 'pnpm' && defaultPaths.value.pnpmHome) c.pnpmHome = defaultPaths.value.pnpmHome;
-        if (c.buildTool === 'yarn' && defaultPaths.value.yarnHome) c.yarnHome = defaultPaths.value.yarnHome;
+        if (c.buildTool === 'maven' && defaultPaths.value.mavenHome) {c.mavenHome = defaultPaths.value.mavenHome;}
+        if (c.buildTool === 'maven' && defaultPaths.value.javaHome) {c.javaHome = defaultPaths.value.javaHome;}
+        if ((c.buildTool === 'npm' || c.buildTool === 'pnpm' || c.buildTool === 'yarn') && defaultPaths.value.nodeHome) {c.nodeHome = defaultPaths.value.nodeHome;}
+        if (c.buildTool === 'npm' && defaultPaths.value.npmHome) {c.npmHome = defaultPaths.value.npmHome;}
+        if (c.buildTool === 'pnpm' && defaultPaths.value.pnpmHome) {c.pnpmHome = defaultPaths.value.pnpmHome;}
+        if (c.buildTool === 'yarn' && defaultPaths.value.yarnHome) {c.yarnHome = defaultPaths.value.yarnHome;}
       }
       
       // 更新 SDK 版本列表
@@ -280,8 +280,8 @@ export function useCicdConfig() {
           sdkman: { java: [], maven: [], gradle: [] },
           nvm: { node: [] },
           ...sdkResult,
-          sdkman: { java: [], maven: [], gradle: [], ...((sdkResult as any)?.sdkman || {}) },
-          nvm: { node: [], ...((sdkResult as any)?.nvm || {}) },
+          sdkman: { java: [], maven: [], gradle: [], ...(sdkResult as any)?.sdkman },
+          nvm: { node: [], ...(sdkResult as any)?.nvm },
         };
       }
       
@@ -290,7 +290,7 @@ export function useCicdConfig() {
     finally { detectingPaths.value = false; }
   }
 
-  function onJavaVersionSelected() { if (selectedJavaVersion.value) config.value.javaHome = selectedJavaVersion.value; }
+  function onJavaVersionSelected() { if (selectedJavaVersion.value) {config.value.javaHome = selectedJavaVersion.value;} }
   function onNodeVersionSelected() {
     if (selectedNodeVersion.value) {
       const nodeEntry = sdkVersions.value.nvm.node.find(
@@ -298,9 +298,9 @@ export function useCicdConfig() {
       );
       if (nodeEntry) {
         config.value.nodeHome = nodeEntry.path;
-        if (nodeEntry.npm) config.value.npmHome = nodeEntry.npm;
-        if (nodeEntry.pnpm) config.value.pnpmHome = nodeEntry.pnpm;
-        if (nodeEntry.yarn) config.value.yarnHome = nodeEntry.yarn;
+        if (nodeEntry.npm) {config.value.npmHome = nodeEntry.npm;}
+        if (nodeEntry.pnpm) {config.value.pnpmHome = nodeEntry.pnpm;}
+        if (nodeEntry.yarn) {config.value.yarnHome = nodeEntry.yarn;}
       }
     }
   }
@@ -317,8 +317,8 @@ export function useCicdConfig() {
     return [...result].sort((a, b) => {
       const aTime = (a as Record<string, string>).lastDeployedAt || '';
       const bTime = (b as Record<string, string>).lastDeployedAt || '';
-      if (aTime && bTime) return bTime.localeCompare(aTime);
-      if (aTime) return -1; if (bTime) return 1; return 0;
+      if (aTime && bTime) {return bTime.localeCompare(aTime);}
+      if (aTime) {return -1;} if (bTime) {return 1;} return 0;
     });
   });
 
@@ -327,7 +327,7 @@ export function useCicdConfig() {
     const map = new Map<string, CicdConfigEntry[]>();
     for (const cfg of filtered) {
       const group = cfg.groupName || '未分组';
-      if (!map.has(group)) map.set(group, []);
+      if (!map.has(group)) {map.set(group, []);}
       map.get(group)!.push(cfg);
     }
     return map;
@@ -335,12 +335,12 @@ export function useCicdConfig() {
 
   const hasAnyGitSource = computed(() => selectedGitRepo.value && (selectedGitRepo.value.gitUrl1 || selectedGitRepo.value.gitUrl2 || selectedGitRepo.value.repoPath || selectedGitRepo.value.repoPath2));
   const gitSources = computed(() => {
-    const p = selectedGitRepo.value; if (!p) return [];
+    const p = selectedGitRepo.value; if (!p) {return [];}
     const sources: { key: string; label: string; icon: string; url: string; path: string }[] = [];
-    if (p.gitUrl1) sources.push({ key: 'remote1', label: '远程仓库 1', icon: '🌐', url: p.gitUrl1, path: p.gitUrl1.split('/').pop() || p.gitUrl1 });
-    if (p.gitUrl2) sources.push({ key: 'remote2', label: '远程仓库 2', icon: '🌐', url: p.gitUrl2, path: p.gitUrl2.split('/').pop() || p.gitUrl2 });
-    if (p.repoPath) sources.push({ key: 'local1', label: '本地仓库 1', icon: '📂', url: p.repoPath, path: p.repoPath.split('/').pop() || p.repoPath });
-    if (p.repoPath2) sources.push({ key: 'local2', label: '本地仓库 2', icon: '📂', url: p.repoPath2, path: p.repoPath2.split('/').pop() || p.repoPath2 });
+    if (p.gitUrl1) {sources.push({ key: 'remote1', label: '远程仓库 1', icon: '🌐', url: p.gitUrl1, path: p.gitUrl1.split('/').pop() || p.gitUrl1 });}
+    if (p.gitUrl2) {sources.push({ key: 'remote2', label: '远程仓库 2', icon: '🌐', url: p.gitUrl2, path: p.gitUrl2.split('/').pop() || p.gitUrl2 });}
+    if (p.repoPath) {sources.push({ key: 'local1', label: '本地仓库 1', icon: '📂', url: p.repoPath, path: p.repoPath.split('/').pop() || p.repoPath });}
+    if (p.repoPath2) {sources.push({ key: 'local2', label: '本地仓库 2', icon: '📂', url: p.repoPath2, path: p.repoPath2.split('/').pop() || p.repoPath2 });}
     return sources;
   });
   const projectShortName = computed(() => selectedGitRepo.value?.name?.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').slice(0, 30) || 'app');
@@ -375,7 +375,7 @@ export function useCicdConfig() {
 
   // ─── UI Helpers ───
   function getGitRepoName(id?: string) {
-    if (!id) return '';
+    if (!id) {return '';}
     const repo = gitRepos.value.find((r: any) => r.id === id);
     return repo ? repo.name : '';
   }
@@ -384,19 +384,19 @@ export function useCicdConfig() {
   function getBuildToolIcon(tool?: string) { const icons: Record<string, string> = { maven: '🔶', npm: '🔴', pnpm: '🟢', yarn: '🔵', gradle: '🟠', cargo: '🦀' }; return icons[tool || ''] || '🛠️'; }
   function getBuildToolName(tool?: string) { const names: Record<string, string> = { maven: 'Maven', npm: 'npm', pnpm: 'pnpm', yarn: 'Yarn', gradle: 'Gradle', cargo: 'Cargo' }; return names[tool || ''] || ''; }
   function formatTime(iso?: string) {
-    if (!iso) return ''; const d = new Date(iso); const now = new Date(); const diff = now.getTime() - d.getTime();
-    if (diff < 60000) return '刚刚'; if (diff < 3600000) return Math.floor(diff / 60000) + '分钟前';
-    if (diff < 86400000) return Math.floor(diff / 3600000) + '小时前'; return d.toLocaleDateString('zh-CN');
+    if (!iso) {return '';} const d = new Date(iso); const now = new Date(); const diff = now.getTime() - d.getTime();
+    if (diff < 60000) {return '刚刚';} if (diff < 3600000) {return Math.floor(diff / 60000) + '分钟前';}
+    if (diff < 86400000) {return Math.floor(diff / 3600000) + '小时前';} return d.toLocaleDateString('zh-CN');
   }
 
   // ─── Group Management ───
-  function toggleGroup(name: string) { if (expandedGroups.value.has(name)) expandedGroups.value.delete(name); else expandedGroups.value.add(name); }
+  function toggleGroup(name: string) { if (expandedGroups.value.has(name)) {expandedGroups.value.delete(name);} else {expandedGroups.value.add(name);} }
 
   async function renameGroup(oldName: string) {
     const newName = await openGroupDialog('rename', oldName);
-    if (!newName || newName === oldName) return;
+    if (!newName || newName === oldName) {return;}
     const updated = configs.value.filter(c => c.groupName === oldName);
-    for (const cfg of updated) cfg.groupName = newName;
+    for (const cfg of updated) {cfg.groupName = newName;}
     Promise.all(updated.map(cfg => getTauriAPI().updateCicdConfig({ ...cfg, updatedAt: new Date().toISOString() })))
       .then(() => { loadConfigs(); toast.success(`分组已重命名为 "${newName}"`); })
       .catch(err => handleError(err, { context: '重命名分组' }));
@@ -404,7 +404,7 @@ export function useCicdConfig() {
 
   async function addGroup() {
     const name = await openGroupDialog('add');
-    if (!name) return;
+    if (!name) {return;}
     if (groups.value.includes(name)) { toast.error('分组已存在'); return; }
     groups.value.push(name); config.value.groupName = name; expandedGroups.value.add(name);
     toast.success(`分组 "${name}" 已创建，保存配置后生效`);
@@ -416,7 +416,7 @@ export function useCicdConfig() {
         const parsed = JSON.parse(cfg.servers);
         if (Array.isArray(parsed) && parsed.length > 0) {
           const names = parsed.map((s: { serverId?: string; label?: string }) => getServerName(s.serverId || '') || s.label).filter(Boolean);
-          if (names.length > 0) return names.join(', ');
+          if (names.length > 0) {return names.join(', ');}
         }
       } catch {}
     }
@@ -456,9 +456,9 @@ export function useCicdConfig() {
       detectedTools.value = toolsResult as Record<string, { available: boolean; version?: string }>;
       // 自动选择构建工具
       if (!config.value.buildTool) {
-        if (detectedTools.value.maven?.available) config.value.buildTool = 'maven';
-        else if (detectedTools.value.npm?.available) config.value.buildTool = 'npm';
-        else if (detectedTools.value.pnpm?.available) config.value.buildTool = 'pnpm';
+        if (detectedTools.value.maven?.available) {config.value.buildTool = 'maven';}
+        else if (detectedTools.value.npm?.available) {config.value.buildTool = 'npm';}
+        else if (detectedTools.value.pnpm?.available) {config.value.buildTool = 'pnpm';}
       }
     }
 
@@ -478,8 +478,8 @@ export function useCicdConfig() {
         sdkman: { java: [], maven: [], gradle: [] },
         nvm: { node: [] },
         ...sdkResult,
-        sdkman: { java: [], maven: [], gradle: [], ...((sdkResult as any)?.sdkman || {}) },
-        nvm: { node: [], ...((sdkResult as any)?.nvm || {}) },
+        sdkman: { java: [], maven: [], gradle: [], ...(sdkResult as any)?.sdkman },
+        nvm: { node: [], ...(sdkResult as any)?.nvm },
       };
       // 选择当前 SDK 版本
       const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { isCurrent?: boolean }) => v.isCurrent);
@@ -491,15 +491,15 @@ export function useCicdConfig() {
       if (currentNode && !config.value.nodeHome) {
         config.value.nodeHome = currentNode.path;
         selectedNodeVersion.value = currentNode.path;
-        if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
-        if (!config.value.pnpmHome && currentNode.pnpm) config.value.pnpmHome = currentNode.pnpm;
-        if (!config.value.yarnHome && currentNode.yarn) config.value.yarnHome = currentNode.yarn;
+        if (!config.value.npmHome && currentNode.npm) {config.value.npmHome = currentNode.npm;}
+        if (!config.value.pnpmHome && currentNode.pnpm) {config.value.pnpmHome = currentNode.pnpm;}
+        if (!config.value.yarnHome && currentNode.yarn) {config.value.yarnHome = currentNode.yarn;}
       }
     }
 
     // 设置默认部署路径
-    if (config.value.buildTool === 'maven') config.value.deployPath = '~/apphome';
-    else if (['npm', 'pnpm', 'yarn'].includes(config.value.buildTool)) config.value.deployPath = '/home/nginxWebUI/ui';
+    if (config.value.buildTool === 'maven') {config.value.deployPath = '~/apphome';}
+    else if (['npm', 'pnpm', 'yarn'].includes(config.value.buildTool)) {config.value.deployPath = '/home/nginxWebUI/ui';}
   }
 
   function selectConfig(id: string) { isNewConfig.value = false; selectedConfigId.value = id; loadConfig(id); }
@@ -507,19 +507,19 @@ export function useCicdConfig() {
   function onProjectChange() {
     availableBranches.value = []; scannedModules.value = []; showModuleTree.value = false; expandedTreeNodes.value = [];
     const repo = selectedGitRepo.value;
-    if (repo?.path && !config.value.localPath) config.value.localPath = repo.path;
-    if (repo?.branch && !config.value.deployBranch) config.value.deployBranch = repo.branch;
+    if (repo?.path && !config.value.localPath) {config.value.localPath = repo.path;}
+    if (repo?.branch && !config.value.deployBranch) {config.value.deployBranch = repo.branch;}
     const localPath = config.value.localPath || repo?.path;
-    if (localPath) scanLocalProject(localPath);
-    if (config.value.repoUrl || config.value.localPath) loadBranches();
+    if (localPath) {scanLocalProject(localPath);}
+    if (config.value.repoUrl || config.value.localPath) {loadBranches();}
   }
 
   function onGitRepoChange() {
     // 用户切换 Git 仓库后，自动补填本地路径
     const repo = gitRepos.value.find((r: any) => r.id === config.value.gitRepoId);
     if (repo) {
-      if (repo.path) config.value.localPath = repo.path;
-      if (repo.branch && !config.value.deployBranch) config.value.deployBranch = repo.branch;
+      if (repo.path) {config.value.localPath = repo.path;}
+      if (repo.branch && !config.value.deployBranch) {config.value.deployBranch = repo.branch;}
       const path = repo.path || config.value.localPath;
       if (path) {
         scanLocalProject(path);
@@ -540,16 +540,16 @@ export function useCicdConfig() {
 
   // 智能扫描本地项目，自动填充所有可识别字段
   async function scanLocalProject(localPath: string) {
-    if (!localPath) return;
+    if (!localPath) {return;}
     try {
       const scan = await getTauriAPI().scanProject(localPath);
-      if (!scan || Object.keys(scan).length === 0) return;
+      if (!scan || Object.keys(scan).length === 0) {return;}
 
       // 配置名称（从项目名推导）
-      if (scan.projectName && !config.value.name) config.value.name = scan.projectName;
+      if (scan.projectName && !config.value.name) {config.value.name = scan.projectName;}
 
       // Git 远程仓库
-      if (scan.gitRemoteUrl && !config.value.repoUrl) config.value.repoUrl = scan.gitRemoteUrl;
+      if (scan.gitRemoteUrl && !config.value.repoUrl) {config.value.repoUrl = scan.gitRemoteUrl;}
 
       // 构建工具
       if (scan.buildTool) {
@@ -557,10 +557,10 @@ export function useCicdConfig() {
       }
 
       // 部署分支
-      if (scan.currentBranch && !config.value.deployBranch) config.value.deployBranch = scan.currentBranch;
+      if (scan.currentBranch && !config.value.deployBranch) {config.value.deployBranch = scan.currentBranch;}
 
       // npm 脚本
-      if (scan.recommendedScript && !config.value.npmScript) config.value.npmScript = scan.recommendedScript;
+      if (scan.recommendedScript && !config.value.npmScript) {config.value.npmScript = scan.recommendedScript;}
 
       // 包管理器
       if (scan.packageManager && config.value.buildTool === 'npm') {
@@ -568,7 +568,7 @@ export function useCicdConfig() {
       }
 
       // Maven Profile
-      if (scan.recommendedProfile && !config.value.mavenProfile) config.value.mavenProfile = scan.recommendedProfile;
+      if (scan.recommendedProfile && !config.value.mavenProfile) {config.value.mavenProfile = scan.recommendedProfile;}
 
       // 部署路径
       if (scan.suggestedDeployPath && (!config.value.deployPath || ['~/apphome', '/home/nginxWebUI/ui'].includes(config.value.deployPath))) {
@@ -599,14 +599,14 @@ export function useCicdConfig() {
   async function loadBranches() {
     const repoPath = config.value.localPath || selectedGitRepo.value?.path;
     const gitUrl = config.value.repoUrl;
-    if (!repoPath && !gitUrl) return;
+    if (!repoPath && !gitUrl) {return;}
     loadingBranches.value = true;
     try {
       const path = repoPath || gitUrl;
       const branches = await getTauriAPI().getGitBranches(path);
       availableBranches.value = (branches?.branches || branches || []).map((b: any) => typeof b === 'string' ? b : b.name);
       if (config.value.deployBranch && !availableBranches.value.includes(config.value.deployBranch)) {
-        if (selectedGitRepo.value?.branch) availableBranches.value.push(selectedGitRepo.value.branch);
+        if (selectedGitRepo.value?.branch) {availableBranches.value.push(selectedGitRepo.value.branch);}
       }
     } catch (error) { console.error('Failed to load branches:', error); availableBranches.value = []; }
     finally { loadingBranches.value = false; }
@@ -620,7 +620,7 @@ export function useCicdConfig() {
         : null;
       const plainConfig = { ...JSON.parse(JSON.stringify(config.value)), servers: serversJson };
       testResult.value = await getTauriAPI().testSsh(plainConfig);
-      if (testResult.value.success) toast.success('SSH 连接测试成功'); else toast.error('连接失败: ' + testResult.value.error);
+      if (testResult.value.success) {toast.success('SSH 连接测试成功');} else {toast.error('连接失败: ' + testResult.value.error);}
     } catch (error: unknown) { testResult.value = { success: false, error: error instanceof Error ? error.message : String(error) }; }
   }
 
@@ -636,7 +636,7 @@ export function useCicdConfig() {
 
   function toggleModuleExpand(idx: number) {
     const pos = expandedModules.value.indexOf(idx);
-    if (pos >= 0) expandedModules.value.splice(pos, 1); else expandedModules.value.push(idx);
+    if (pos >= 0) {expandedModules.value.splice(pos, 1);} else {expandedModules.value.push(idx);}
   }
 
   async function scanModules() {
@@ -650,7 +650,7 @@ export function useCicdConfig() {
         if (scannedModules.value.length > 0) {
           toast.success(`识别到 ${scannedModules.value.length} 个模块`);
           autoDetectParentBuild();
-        } else toast.info('未发现可识别的模块');
+        } else {toast.info('未发现可识别的模块');}
       } else { toast.error(result?.error || '扫描失败'); }
     } catch (error) { handleError(error, { context: '扫描项目模块' }); }
     finally { scanningModules.value = false; }
@@ -658,13 +658,13 @@ export function useCicdConfig() {
 
   function toggleTreeNode(nodePath: string) {
     const pos = expandedTreeNodes.value.indexOf(nodePath);
-    if (pos >= 0) expandedTreeNodes.value.splice(pos, 1); else expandedTreeNodes.value.push(nodePath);
+    if (pos >= 0) {expandedTreeNodes.value.splice(pos, 1);} else {expandedTreeNodes.value.push(nodePath);}
   }
 
   function isModuleAlreadyAdded(modPath: string): boolean { return modules.value.some(m => m.modulePath === modPath || m.buildPath === modPath); }
 
   function addModuleFromScan(mod: ScannedModule) {
-    if (isModuleAlreadyAdded(mod.path)) return;
+    if (isModuleAlreadyAdded(mod.path)) {return;}
     const isParentBuild = config.value.parentBuildMode;
     modules.value.push({
       id: null, configId: config.value.id, moduleName: mod.name || mod.path, modulePath: mod.path || '',
@@ -691,17 +691,17 @@ export function useCicdConfig() {
         }); addedCount++;
       }
     }
-    if (addedCount > 0) toast.success(`已添加 ${addedCount} 个模块`); else toast.info('所有模块已添加');
+    if (addedCount > 0) {toast.success(`已添加 ${addedCount} 个模块`);} else {toast.info('所有模块已添加');}
   }
 
   function flattenModuleTree(mods: ScannedModule[]): ScannedModule[] {
-    const result: ScannedModule[] = []; for (const mod of mods) { result.push(mod); if (mod.children) result.push(...flattenModuleTree(mod.children)); } return result;
+    const result: ScannedModule[] = []; for (const mod of mods) { result.push(mod); if (mod.children) {result.push(...flattenModuleTree(mod.children));} } return result;
   }
 
   // Check if scanned modules have a parent-child (multi-module Maven) structure
   function hasParentChildStructure(): boolean {
     for (const mod of scannedModules.value) {
-      if (mod.children && mod.children.length > 0) return true;
+      if (mod.children && mod.children.length > 0) {return true;}
     }
     return false;
   }
@@ -747,7 +747,7 @@ export function useCicdConfig() {
       } else { config.value.updatedAt = now; plainConfig.updatedAt = now; await getTauriAPI().updateCicdConfig(plainConfig); }
       const currentIds = new Set(modules.value.filter(m => m.id).map(m => m.id));
       const existingMods = await getTauriAPI().getDeployModules(config.value.id as string);
-      for (const existing of (existingMods as DeployModule[] || [])) { if (existing.id && !currentIds.has(existing.id)) await getTauriAPI().deleteDeployModule(existing.id); }
+      for (const existing of (existingMods as DeployModule[] || [])) { if (existing.id && !currentIds.has(existing.id)) {await getTauriAPI().deleteDeployModule(existing.id);} }
       for (const mod of modules.value) {
         if (!mod.id) {
           mod.id = Date.now().toString() + Math.random().toString(36).substr(2, 9); mod.configId = config.value.id;
@@ -759,17 +759,17 @@ export function useCicdConfig() {
   }
 
   async function deleteConfig(id: string) {
-    if (!confirm('确定删除此 CI/CD 配置吗？')) return;
+    if (!confirm('确定删除此 CI/CD 配置吗？')) {return;}
     try {
       await getTauriAPI().deleteCicdConfig(id); await loadConfigs();
-      if (selectedConfigId.value === id) createNewConfig();
+      if (selectedConfigId.value === id) {createNewConfig();}
       toast.success('配置已删除');
     } catch (error) { handleError(error, { context: '删除配置' }); }
   }
 
   // Normalize old saved /bin/java or /bin/node paths to home directories
   function normalizeHomeDir(p: string): string {
-    if (!p) return '';
+    if (!p) {return '';}
     const binIdx = p.lastIndexOf('/bin/');
     return binIdx > 0 ? p.slice(0, binIdx) : p;
   }
@@ -798,41 +798,41 @@ export function useCicdConfig() {
           (v: { name: string; path: string }) => v.path === config.value.nodeHome
         );
         if (matchedNode) {
-          if (!config.value.npmHome && matchedNode.npm) config.value.npmHome = matchedNode.npm;
-          if (!config.value.pnpmHome && matchedNode.pnpm) config.value.pnpmHome = matchedNode.pnpm;
-          if (!config.value.yarnHome && matchedNode.yarn) config.value.yarnHome = matchedNode.yarn;
+          if (!config.value.npmHome && matchedNode.npm) {config.value.npmHome = matchedNode.npm;}
+          if (!config.value.pnpmHome && matchedNode.pnpm) {config.value.pnpmHome = matchedNode.pnpm;}
+          if (!config.value.yarnHome && matchedNode.yarn) {config.value.yarnHome = matchedNode.yarn;}
         }
         if (existing.servers && typeof existing.servers === 'string') {
           try {
             const parsed = JSON.parse(existing.servers);
             deployServers.value = parsed.map((s: { serverId?: string; label?: string; deployDir?: string }) => ({ serverId: s.serverId || '', label: s.label || getServerName(s.serverId || '') || '', deployDir: s.deployDir || '', testResult: null }));
-            if (deployServers.value.length === 0) deployServers.value = [makeDefaultServer()];
+            if (deployServers.value.length === 0) {deployServers.value = [makeDefaultServer()];}
           } catch { deployServers.value = [makeDefaultServer()]; }
         } else { deployServers.value = [makeDefaultServer()]; }
         activeServerIdx.value = 0;
         const mods = await getTauriAPI().getDeployModules(existing.id as string);
         modules.value = (mods as DeployModule[]) || [];
         if (!config.value.deployPath && config.value.buildTool) {
-          if (config.value.buildTool === 'maven') config.value.deployPath = '~/apphome';
-          else if (['npm', 'pnpm', 'yarn'].includes(config.value.buildTool)) config.value.deployPath = '/home/nginxWebUI/ui';
+          if (config.value.buildTool === 'maven') {config.value.deployPath = '~/apphome';}
+          else if (['npm', 'pnpm', 'yarn'].includes(config.value.buildTool)) {config.value.deployPath = '/home/nginxWebUI/ui';}
         }
         const dp = defaultPaths.value;
-        if (!config.value.mavenHome && dp.mavenHome) config.value.mavenHome = dp.mavenHome;
-        if (!config.value.javaHome && dp.javaHome) config.value.javaHome = dp.javaHome;
-        if (!config.value.npmHome && dp.npmHome) config.value.npmHome = dp.npmHome;
-        if (!config.value.pnpmHome && dp.pnpmHome) config.value.pnpmHome = dp.pnpmHome;
-        if (!config.value.yarnHome && dp.yarnHome) config.value.yarnHome = dp.yarnHome;
-        if (!config.value.nodeHome && dp.nodeHome) config.value.nodeHome = dp.nodeHome;
+        if (!config.value.mavenHome && dp.mavenHome) {config.value.mavenHome = dp.mavenHome;}
+        if (!config.value.javaHome && dp.javaHome) {config.value.javaHome = dp.javaHome;}
+        if (!config.value.npmHome && dp.npmHome) {config.value.npmHome = dp.npmHome;}
+        if (!config.value.pnpmHome && dp.pnpmHome) {config.value.pnpmHome = dp.pnpmHome;}
+        if (!config.value.yarnHome && dp.yarnHome) {config.value.yarnHome = dp.yarnHome;}
+        if (!config.value.nodeHome && dp.nodeHome) {config.value.nodeHome = dp.nodeHome;}
         const currentJava = sdkVersions.value.sdkman?.java?.find?.((v: { name: string; path: string; isCurrent?: boolean }) => v.isCurrent);
         if (currentJava && !config.value.javaHome) { config.value.javaHome = currentJava.path; selectedJavaVersion.value = currentJava.path; }
         const currentNode = sdkVersions.value.nvm?.node?.find?.((v: { name: string; path: string; isCurrent?: boolean; npm?: string; pnpm?: string; yarn?: string }) => v.isCurrent);
         if (currentNode && !config.value.nodeHome) { config.value.nodeHome = currentNode.path; selectedNodeVersion.value = currentNode.path; }
         if (currentNode) {
-          if (!config.value.npmHome && currentNode.npm) config.value.npmHome = currentNode.npm;
-          if (!config.value.pnpmHome && currentNode.pnpm) config.value.pnpmHome = currentNode.pnpm;
-          if (!config.value.yarnHome && currentNode.yarn) config.value.yarnHome = currentNode.yarn;
+          if (!config.value.npmHome && currentNode.npm) {config.value.npmHome = currentNode.npm;}
+          if (!config.value.pnpmHome && currentNode.pnpm) {config.value.pnpmHome = currentNode.pnpm;}
+          if (!config.value.yarnHome && currentNode.yarn) {config.value.yarnHome = currentNode.yarn;}
         }
-        if (config.value.localPath) loadBranches();
+        if (config.value.localPath) {loadBranches();}
       }
     } catch (error) { handleError(error, { context: '加载配置' }); }
   }
@@ -840,14 +840,14 @@ export function useCicdConfig() {
   // ─── Watch localPath changes — auto-scan project ───
   let _scanDebounce: ReturnType<typeof setTimeout> | undefined;
   watch(() => config.value.localPath, (newPath) => {
-    if (!newPath) return;
+    if (!newPath) {return;}
     clearTimeout(_scanDebounce);
     _scanDebounce = setTimeout(() => scanLocalProject(newPath), 300);
   });
 
   // ─── Watch build tool changes ───
   watch(() => config.value.buildTool, async (newTool, oldTool) => {
-    if (newTool === oldTool || !newTool) return;
+    if (newTool === oldTool || !newTool) {return;}
     const c = config.value;
     const dp = defaultPaths.value;
 
@@ -865,14 +865,14 @@ export function useCicdConfig() {
     if (!dp.mavenHome && !dp.npmHome && !dp.nodeHome) {
       try {
         const paths = await getTauriAPI().detectToolPaths() as typeof dp;
-        if (paths) Object.assign(dp, paths);
+        if (paths) {Object.assign(dp, paths);}
       } catch {}
     }
 
     // Auto-fill new tool paths
     if (newTool === 'maven') {
-      if (!c.mavenHome && dp.mavenHome) c.mavenHome = dp.mavenHome;
-      if (!c.javaHome && dp.javaHome) c.javaHome = dp.javaHome;
+      if (!c.mavenHome && dp.mavenHome) {c.mavenHome = dp.mavenHome;}
+      if (!c.javaHome && dp.javaHome) {c.javaHome = dp.javaHome;}
       // Try SDKMAN for Java
       if (!c.javaHome) {
         const cur = sdkVersions.value.sdkman?.java?.find?.((v: { isCurrent?: boolean }) => v.isCurrent);
@@ -880,18 +880,18 @@ export function useCicdConfig() {
       }
     }
     if (['npm', 'pnpm', 'yarn'].includes(newTool)) {
-      if (!c.nodeHome && dp.nodeHome) c.nodeHome = dp.nodeHome;
-      if (newTool === 'npm' && !c.npmHome && dp.npmHome) c.npmHome = dp.npmHome;
-      if (newTool === 'pnpm' && !c.pnpmHome && dp.pnpmHome) c.pnpmHome = dp.pnpmHome;
-      if (newTool === 'yarn' && !c.yarnHome && dp.yarnHome) c.yarnHome = dp.yarnHome;
+      if (!c.nodeHome && dp.nodeHome) {c.nodeHome = dp.nodeHome;}
+      if (newTool === 'npm' && !c.npmHome && dp.npmHome) {c.npmHome = dp.npmHome;}
+      if (newTool === 'pnpm' && !c.pnpmHome && dp.pnpmHome) {c.pnpmHome = dp.pnpmHome;}
+      if (newTool === 'yarn' && !c.yarnHome && dp.yarnHome) {c.yarnHome = dp.yarnHome;}
       // Try NVM for Node
       if (!c.nodeHome) {
         const cur = sdkVersions.value.nvm.node.find((v: { isCurrent?: boolean }) => v.isCurrent);
         if (cur) {
           c.nodeHome = cur.path; selectedNodeVersion.value = cur.path;
-          if (!c.npmHome && cur.npm) c.npmHome = cur.npm;
-          if (!c.pnpmHome && cur.pnpm) c.pnpmHome = cur.pnpm;
-          if (!c.yarnHome && cur.yarn) c.yarnHome = cur.yarn;
+          if (!c.npmHome && cur.npm) {c.npmHome = cur.npm;}
+          if (!c.pnpmHome && cur.pnpm) {c.pnpmHome = cur.pnpm;}
+          if (!c.yarnHome && cur.yarn) {c.yarnHome = cur.yarn;}
         }
       }
     }

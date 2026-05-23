@@ -166,13 +166,13 @@ function normalizeMessage(msg: any): any {
 
 // 加载与当前好友的聊天消息
 async function loadMessageHistory(reset = false) {
-  if (!props.peer) return;
+  if (!props.peer) {return;}
   if (reset) {
     currentPage.value = 0;
     messages.value = [];
     noMoreMessages.value = false;
   }
-  if (isLoadingMore.value) return;
+  if (isLoadingMore.value) {return;}
 
   isLoadingMore.value = true;
   try {
@@ -211,7 +211,7 @@ async function loadMessageHistory(reset = false) {
 // 滚动处理
 function handleScroll() {
   const container = messagesContainerRef.value;
-  if (!container || isLoadingMore.value || noMoreMessages.value) return;
+  if (!container || isLoadingMore.value || noMoreMessages.value) {return;}
   if (container.scrollTop < 50) {
     previousScrollHeight = container.scrollHeight;
     loadMessageHistory();
@@ -234,8 +234,8 @@ function formatTimeSeparator(ts: number): string {
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const yesterdayStart = todayStart - 86400000;
   const timeStr = d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-  if (ts >= todayStart) return timeStr;
-  if (ts >= yesterdayStart) return `昨天 ${timeStr}`;
+  if (ts >= todayStart) {return timeStr;}
+  if (ts >= yesterdayStart) {return `昨天 ${timeStr}`;}
   return `${d.getMonth() + 1}月${d.getDate()}日 ${timeStr}`;
 }
 
@@ -282,7 +282,7 @@ const displayMessages = computed<DisplayItem[]>(() => {
 // 监听消息加载完成后调整滚动（仅在分页变化时触发，避免每次消息更新都滚动）
 let scrollWatchBypass = false;
 watch(() => messages.value.length, (newLen, oldLen) => {
-  if (scrollWatchBypass) return;
+  if (scrollWatchBypass) {return;}
   // 只在批量加载新消息时滚动（增量超过 1 条 = 批量加载）
   if (newLen - oldLen > 1 || currentPage.value > 1) {
     if (currentPage.value > 1) {
@@ -298,14 +298,14 @@ function toggleMaximize() {
 }
 
 function formatDate(timestamp: string | number) {
-  if (!timestamp) return '';
+  if (!timestamp) {return '';}
   const date = new Date(timestamp);
   return date.toLocaleString('zh-CN');
 }
 
 function formatFileSize(bytes: number) {
-  if (!bytes) return '0 Bytes';
-  if (bytes === 0) return '0 Bytes';
+  if (!bytes) {return '0 Bytes';}
+  if (bytes === 0) {return '0 Bytes';}
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -358,7 +358,7 @@ async function onDrop(event: DragEvent) {
 
 // 拖拽文件处理（通过 preload 的 electron-file-drop 自定义事件获取真实路径）
 async function handleDroppedFiles(paths: string[]) {
-  if (!props.peer) return;
+  if (!props.peer) {return;}
   for (const filePath of paths) {
     const name = filePath.split('/').pop() || filePath.split('\\\\').pop() || 'file';
     // size=0 — 主进程 sendFile 会用 fs.statSync 获取真实大小
@@ -373,13 +373,13 @@ const onFileDrop = (e: Event) => {
 // 粘贴处理（支持粘贴图片发送）
 async function onPaste(e: ClipboardEvent) {
   const items = e.clipboardData?.items;
-  if (!items) return;
+  if (!items) {return;}
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (item.type.indexOf('image') !== -1) {
       const file = item.getAsFile();
-      if (!file || !props.peer) return;
+      if (!file || !props.peer) {return;}
 
       // Convert clipboard image to base64 and save via IPC
       try {
@@ -494,7 +494,7 @@ async function pickFileAndSend() {
     directory: false,
     title: '选择文件发送'
   });
-  if (!result.filePaths?.length) return;
+  if (!result.filePaths?.length) {return;}
   const filePath = result.filePaths[0];
   const name = filePath.split('/').pop() || filePath.split('\\').pop() || 'file';
   logger.info(`[ChatPanel][pickFileAndSend] Selected: path=${filePath}, name=${name}`);
@@ -572,7 +572,7 @@ async function sendFile(file: any, resumeOffset = 0) {
 
 // 重试文件传输
 async function retryFileTransfer(message: any) {
-  if (!message || !props.peer) return;
+  if (!message || !props.peer) {return;}
 
   const filePath = selectedFiles.value.get(message.id) || message.filePath;
   logger.info(`[ChatPanel][retryFileTransfer] Retrying: messageId=${message.id}, fileName=${message.fileName}, progress=${message.progress}%, fileSize=${message.fileSize}, filePath(from selectedFiles)=${!!selectedFiles.value.get(message.id)}, filePath(from message)=${message.filePath}, resolvedPath=${filePath}`);
@@ -620,7 +620,7 @@ async function retryFileTransfer(message: any) {
 function scrollToBottom() {
   nextTick(() => {
     const container = messagesContainerRef.value;
-    if (container) container.scrollTop = container.scrollHeight;
+    if (container) {container.scrollTop = container.scrollHeight;}
   });
 }
 
@@ -643,7 +643,7 @@ onMounted(async () => {
   cleanupFns.push(await getTauriAPI().lanOnMessage((data: any) => {
       if (data.from === props.peer?.id) {
         const msgId = data.messageId || data.id
-        if (msgId && messages.value.some(m => m.id === msgId)) return;
+        if (msgId && messages.value.some(m => m.id === msgId)) {return;}
         const newMsg = {
           id: msgId || crypto.randomUUID(),
           fromUserId: data.from,
@@ -659,7 +659,7 @@ onMounted(async () => {
       }
     }));
   cleanupFns.push(await getTauriAPI().lanOnFileTransferStarted((data: any) => {
-      if (data.fromUserId !== props.peer?.id && data.toUserId !== props.peer?.id) return;
+      if (data.fromUserId !== props.peer?.id && data.toUserId !== props.peer?.id) {return;}
       const exists = messages.value.some(m => m.id === data.fileId);
       if (!exists) {
         const newMsg = {
@@ -711,7 +711,7 @@ onMounted(async () => {
     }));
   // 收到文件时刷新消息列表（确保 DB 记录已加载）
   cleanupFns.push(await getTauriAPI().lanOnFileReceived((data: any) => {
-      if (data.fromUserId !== props.peer?.id) return;
+      if (data.fromUserId !== props.peer?.id) {return;}
       const exists = messages.value.some(m => m.id === data.fileId);
       if (!exists) {
         const newMsg = {
@@ -736,8 +736,8 @@ onMounted(async () => {
   // 收到任务分配消息时添加到聊天列表
   cleanupFns.push(await getTauriAPI().lanOnTaskAssigned((data: any) => {
       const msgId = data.messageId || data.id;
-      if (!msgId) return;
-      if (data.from !== props.peer?.id && data.to !== props.peer?.id) return;
+      if (!msgId) {return;}
+      if (data.from !== props.peer?.id && data.to !== props.peer?.id) {return;}
       const exists = messages.value.some(m => m.id === msgId);
       if (!exists) {
         const taskContent = JSON.stringify({

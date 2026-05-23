@@ -273,7 +273,7 @@ function removeListenValue(idx: number) {
   const listenDirs = block.directives.filter(d => d.name === 'listen')
   if (idx >= 0 && idx < listenDirs.length) {
     const found = block.directives.indexOf(listenDirs[idx])
-    if (found >= 0) block.directives.splice(found, 1)
+    if (found >= 0) {block.directives.splice(found, 1)}
     emitUpdate()
   }
 }
@@ -336,7 +336,7 @@ function updateServerIndex(e: Event) {
 function updateLocationModifier(li: number, e: Event) {
   const val = (e.target as HTMLSelectElement).value
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   const block = loc.block
   const oldModifier = loc.modifier
   const path = loc.path
@@ -355,7 +355,7 @@ function updateLocationModifier(li: number, e: Event) {
 function updateLocationPath(li: number, e: Event) {
   const val = (e.target as HTMLInputElement).value
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   const block = loc.block
   if (loc.modifier) {
     block.params = [loc.modifier, ...val.split(/\s+/)].filter(Boolean)
@@ -369,7 +369,7 @@ function updateLocationPath(li: number, e: Event) {
 function updateLocationProxyPass(li: number, e: Event) {
   const val = (e.target as HTMLInputElement).value
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   const block = loc.block
   const existing = block.directives.find(d => d.name === 'proxy_pass')
   if (existing) {
@@ -384,7 +384,7 @@ function updateLocationProxyPass(li: number, e: Event) {
 function updateLocationRoot(li: number, e: Event) {
   const val = (e.target as HTMLInputElement).value
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   const block = loc.block
   const existing = block.directives.find(d => d.name === 'root')
   if (existing) {
@@ -399,7 +399,7 @@ function updateLocationRoot(li: number, e: Event) {
 function updateLocationTryFiles(li: number, e: Event) {
   const val = (e.target as HTMLInputElement).value
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   const block = loc.block
   const parts = val.split(/\s+/).filter(Boolean)
   const existing = block.directives.find(d => d.name === 'try_files')
@@ -414,7 +414,7 @@ function updateLocationTryFiles(li: number, e: Event) {
 
 function addDirectiveToLocation(li: number) {
   const loc = props.server.locations[li]
-  if (!loc) return
+  if (!loc) {return}
   loc.block.directives.push(createDirective('new_directive', ['value']))
   emitUpdate()
 }
@@ -426,7 +426,7 @@ function emitUpdate() {
 
 function removeDirectiveFromBlock(block: any, dir: NginxDirective) {
   const idx = block.directives.indexOf(dir)
-  if (idx >= 0) block.directives.splice(idx, 1)
+  if (idx >= 0) {block.directives.splice(idx, 1)}
   emitUpdate()
 }
 

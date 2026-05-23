@@ -342,38 +342,38 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (ovpnPolling) clearInterval(ovpnPolling)
-  if (ovpnDurationTimer) clearInterval(ovpnDurationTimer)
-  if (ovpnTrafficTimer) clearInterval(ovpnTrafficTimer)
-  if (wgPolling) clearInterval(wgPolling)
-  if (wgDurationTimer) clearInterval(wgDurationTimer)
+  if (ovpnPolling) {clearInterval(ovpnPolling)}
+  if (ovpnDurationTimer) {clearInterval(ovpnDurationTimer)}
+  if (ovpnTrafficTimer) {clearInterval(ovpnTrafficTimer)}
+  if (wgPolling) {clearInterval(wgPolling)}
+  if (wgDurationTimer) {clearInterval(wgDurationTimer)}
 })
 
-watch(ovpnLogs, () => { nextTick(() => { if (ovpnLogRef.value) ovpnLogRef.value.scrollTop = ovpnLogRef.value.scrollHeight }) })
-watch(wgLogs, () => { nextTick(() => { if (wgLogRef.value) wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight }) })
+watch(ovpnLogs, () => { nextTick(() => { if (ovpnLogRef.value) {ovpnLogRef.value.scrollTop = ovpnLogRef.value.scrollHeight} }) })
+watch(wgLogs, () => { nextTick(() => { if (wgLogRef.value) {wgLogRef.value.scrollTop = wgLogRef.value.scrollHeight} }) })
 
 // ============ OpenVPN Methods ============
 async function loadOvpnAll() { try { ovpnConfigs.value = await getTauriAPI().openvpnGetAll() } catch(e:any) { console.error(e) } }
-async function loadOvpnStatus() { try { const s = await getTauriAPI().openvpnGetStatus(); if (s) { ovpnStatus.value = s; if (s.log?.length) ovpnLogs.value = s.log } } catch {} }
+async function loadOvpnStatus() { try { const s = await getTauriAPI().openvpnGetStatus(); if (s) { ovpnStatus.value = s; if (s.log?.length) {ovpnLogs.value = s.log} } } catch {} }
 async function loadOvpnTraffic() { if (!ovpnStatus.value.connected) { ovpnTraffic.value = null; return }; try { ovpnTraffic.value = await getTauriAPI().openvpnGetTrafficStats() } catch {} }
-async function checkOpenVPN() { checking.value = true; try { const r = await getTauriAPI().openvpnCheckAvailable(); openvpnAvailable.value = r.available; if (!r.available) console.warn('OpenVPN not available:', r.error) } catch { openvpnAvailable.value = false } finally { checking.value = false } }
+async function checkOpenVPN() { checking.value = true; try { const r = await getTauriAPI().openvpnCheckAvailable(); openvpnAvailable.value = r.available; if (!r.available) {console.warn('OpenVPN not available:', r.error)} } catch { openvpnAvailable.value = false } finally { checking.value = false } }
 function updateOvpnDuration() { if (!ovpnStatus.value.connected || !ovpnStatus.value.connectedSince) { ovpnDuration.value = ''; return }; const s = (Date.now() - new Date(ovpnStatus.value.connectedSince).getTime()) / 1000; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60); ovpnDuration.value = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}` }
 
-async function importOvpn() { try { const r: any = await getTauriAPI().importOvpnFile(); if (r.canceled || !r.filePaths?.length) return; const fp = r.filePaths[0]; const fn = fp.split('/').pop() || fp.split('\\\\').pop() || 'config'; const name = fn.replace(/\\.(ovpn|conf)$/i, ''); if (ovpnConfigs.value.find(c => c.filePath === fp)) { toast.warning('该配置文件已存在'); return }; const content = await getTauriAPI().readFileContent(fp); const v = await getTauriAPI().openvpnValidateConfig(content); if (!v.valid) { toast.error('配置文件无效: ' + (v.error || '请检查文件格式')); return }; await getTauriAPI().openvpnAdd({ name, filePath: fp, content }); await loadOvpnAll(); toast.success(`已导入: ${name}`) } catch(e:any) { toast.error('导入失败: ' + e.message) } }
+async function importOvpn() { try { const r: any = await getTauriAPI().importOvpnFile(); if (r.canceled || !r.filePaths?.length) {return;} const fp = r.filePaths[0]; const fn = fp.split('/').pop() || fp.split('\\\\').pop() || 'config'; const name = fn.replace(/\\.(ovpn|conf)$/i, ''); if (ovpnConfigs.value.find(c => c.filePath === fp)) { toast.warning('该配置文件已存在'); return }; const content = await getTauriAPI().readFileContent(fp); const v = await getTauriAPI().openvpnValidateConfig(content); if (!v.valid) { toast.error('配置文件无效: ' + (v.error || '请检查文件格式')); return }; await getTauriAPI().openvpnAdd({ name, filePath: fp, content }); await loadOvpnAll(); toast.success(`已导入: ${name}`) } catch(e:any) { toast.error('导入失败: ' + e.message) } }
 
 async function ovpnConnect(cfg: OvpnConfig, password?: string) { if (ovpnStatus.value.connected) { await ovpnDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r: any = await getTauriAPI().openvpnConnect(cfg.id, cfg.name, cfg.content, password); if (!r?.success) { if (r?.needsPassword) { pendingOvpnConfig = cfg; showPasswordDialog.value = true; await nextTick(); passwordInputRef.value?.focus() } else { toast.error('连接失败: ' + (r?.error || '未知错误')) } }; await loadOvpnStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
 
 function cancelPasswordDialog() { showPasswordDialog.value = false; pendingOvpnConfig = null; sudoPassword.value = '' }
-async function submitPassword() { if (!sudoPassword.value || !pendingOvpnConfig) return; showPasswordDialog.value = false; const pwd = sudoPassword.value; sudoPassword.value = ''; try { const r: any = await getTauriAPI().openvpnRetryWithPassword(pwd); if (!r?.success) toast.error('连接失败: ' + (r?.error || '密码错误或超时')); await loadOvpnStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
+async function submitPassword() { if (!sudoPassword.value || !pendingOvpnConfig) {return;} showPasswordDialog.value = false; const pwd = sudoPassword.value; sudoPassword.value = ''; try { const r: any = await getTauriAPI().openvpnRetryWithPassword(pwd); if (!r?.success) {toast.error('连接失败: ' + (r?.error || '密码错误或超时'));} await loadOvpnStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
 
 async function ovpnDisconnect() { try { await getTauriAPI().openvpnDisconnect(); await loadOvpnStatus(); toast.info('已断开连接') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
-async function ovpnReconnect() { if (ovpnStatus.value.configId) { const cfg = ovpnConfigs.value.find(c => c.id === ovpnStatus.value.configId); if (cfg) await ovpnConnect(cfg) } }
+async function ovpnReconnect() { if (ovpnStatus.value.configId) { const cfg = ovpnConfigs.value.find(c => c.id === ovpnStatus.value.configId); if (cfg) {await ovpnConnect(cfg)} } }
 function selectOvpnConfig(_cfg: OvpnConfig) {}
-async function ovpnDelete(cfg: OvpnConfig) { if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) return; try { await getTauriAPI().openvpnDelete(cfg.id); await loadOvpnAll(); toast.success('已删除') } catch(e:any) { toast.error('删除失败: ' + e.message) } }
+async function ovpnDelete(cfg: OvpnConfig) { if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) {return;} try { await getTauriAPI().openvpnDelete(cfg.id); await loadOvpnAll(); toast.success('已删除') } catch(e:any) { toast.error('删除失败: ' + e.message) } }
 
 // ============ WireGuard Methods ============
 async function loadWgAll() { try { wgConfigs.value = await getTauriAPI().wireguardGetAll() } catch(e:any) { console.error(e) } }
-async function loadWgStatus() { try { const s = await getTauriAPI().wireguardGetStatus(); if (s) { wgStatus.value = s; if (s.log?.length) wgLogs.value = s.log } } catch {} }
+async function loadWgStatus() { try { const s = await getTauriAPI().wireguardGetStatus(); if (s) { wgStatus.value = s; if (s.log?.length) {wgLogs.value = s.log} } } catch {} }
 function updateWgDuration() { if (!wgStatus.value.connected || !wgStatus.value.connectedSince) { wgDuration.value = ''; return }; const s = (Date.now() - new Date(wgStatus.value.connectedSince).getTime()) / 1000; const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = Math.floor(s % 60); wgDuration.value = h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}` : `${m}:${String(sec).padStart(2, '0')}` }
 
 async function generateKeypair() { generatingKeys.value = true; try { const r = await getTauriAPI().wireguardGenerateKeypair(); if (r) { wgForm.value.privateKey = r.privateKey; wgForm.value.publicKey = r.publicKey; toast.success('密钥对已生成') } } catch(e:any) { toast.error('生成失败: ' + e.message) } finally { generatingKeys.value = false } }
@@ -382,19 +382,19 @@ function editWgConfig(cfg: WgConfig) { editingWg.value = cfg; wgForm.value = { n
 
 async function saveWgConfig() { try { const data = { ...wgForm.value, mtu: wgForm.value.mtu !== '' && wgForm.value.mtu != null ? Number(wgForm.value.mtu) : null, peerPersistentKeepalive: wgForm.value.peerPersistentKeepalive !== '' && wgForm.value.peerPersistentKeepalive != null ? Number(wgForm.value.peerPersistentKeepalive) : null }; if (editingWg.value) { await getTauriAPI().wireguardUpdate({ ...data, id: editingWg.value.id }) } else { await getTauriAPI().wireguardAdd(data)    }; const wasEditing = !!editingWg.value; showWgForm.value = false; editingWg.value = null; await loadWgAll(); toast.success(wasEditing ? '已更新' : '已添加')} catch(e:any) { toast.error('保存失败: ' + e.message) } }
 
-async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu); if (!r?.success) toast.error('连接失败: ' + (r?.error || '未知错误')); await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
+async function wgConnect(cfg: WgConfig) { if (wgStatus.value.connected) { await wgDisconnect(); await new Promise(r => setTimeout(r, 500)) }; try { const r = await getTauriAPI().wireguardConnect(cfg.id, cfg.name, cfg.privateKey, cfg.peerPublicKey, cfg.peerEndpoint, cfg.presharedKey || undefined, cfg.address, cfg.mtu); if (!r?.success) {toast.error('连接失败: ' + (r?.error || '未知错误'));} await loadWgStatus() } catch(e:any) { toast.error('连接失败: ' + e.message) } }
 
 async function wgDisconnect() { try { await getTauriAPI().wireguardDisconnect(); await loadWgStatus(); toast.info('已断开') } catch(e:any) { toast.error('断开失败: ' + e.message) } }
 function selectWgConfig(_cfg: WgConfig) {}
 
-async function wgDelete(cfg: WgConfig) { if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) return; try { await getTauriAPI().wireguardDelete(cfg.id); await loadWgAll(); toast.success('已删除') } catch(e:any) { toast.error('删除失败: ' + e.message) } }
+async function wgDelete(cfg: WgConfig) { if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) {return;} try { await getTauriAPI().wireguardDelete(cfg.id); await loadWgAll(); toast.success('已删除') } catch(e:any) { toast.error('删除失败: ' + e.message) } }
 
-function formatBytes(bytes: number): string { if (bytes < 1024) return bytes + ' B'; if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB'; return (bytes / 1048576).toFixed(1) + ' MB' }
+function formatBytes(bytes: number): string { if (bytes < 1024) {return bytes + ' B';} if (bytes < 1048576) {return (bytes / 1024).toFixed(1) + ' KB';} return (bytes / 1048576).toFixed(1) + ' MB' }
 
 function getLogClass(line: string): string {
-  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) {return 'text-[#a6e3a1]'}
+  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) {return 'text-[#f38ba8]'}
+  if (line.includes('⏳') || line.includes('连接中')) {return 'text-[#f9e2af]'}
   return ''
 }
 </script>

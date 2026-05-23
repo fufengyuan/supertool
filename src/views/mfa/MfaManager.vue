@@ -245,7 +245,7 @@ const previewCode = ref('');
 // 统计信息
 const activeCodes = computed(() => secrets.value.length);
 const nextRefresh = computed(() => {
-  if (secrets.value.length === 0) return 0;
+  if (secrets.value.length === 0) {return 0;}
   const minRemaining = Math.min(...secrets.value.map(e => remainingFor(e)));
   return Math.max(0, minRemaining);
 });
@@ -319,12 +319,12 @@ async function refreshCodes() {
 // 复制到剪贴板
 async function copyCode(entry: MfaEntry) {
   const code = codes.value[entry.id];
-  if (!code) return;
+  if (!code) {return;}
   const raw = code.replace(/\s/g, '');
   try {
     await navigator.clipboard.writeText(raw);
     showCopyToast.value = true;
-    if (copyTimer) clearTimeout(copyTimer);
+    if (copyTimer) {clearTimeout(copyTimer);}
     copyTimer = setTimeout(() => { showCopyToast.value = false }, 1500);
   } catch {
     toast.error('复制失败');
@@ -336,7 +336,7 @@ async function onUriInput() {
   formError.value = '';
   previewCode.value = '';
   const val = uriInput.value.trim();
-  if (!val) return;
+  if (!val) {return;}
 
   // 尝试解析 otpauth:// URI
   if (val.startsWith('otpauth://')) {
@@ -458,7 +458,7 @@ function confirmDelete(entry: MfaEntry) {
 }
 
 async function executeDelete() {
-  if (!deleteTarget.value) return;
+  if (!deleteTarget.value) {return;}
   try {
     await getTauriAPI().deleteMfaSecret(deleteTarget.value.id);
     secrets.value = secrets.value.filter(s => s.id !== deleteTarget.value!.id);
@@ -480,8 +480,8 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
-  if (copyTimer) clearTimeout(copyTimer);
+  if (timer) {clearInterval(timer);}
+  if (copyTimer) {clearTimeout(copyTimer);}
 });
 </script>
 

@@ -224,7 +224,7 @@ const isImageFile = computed(() => {
 const showImageLightbox = ref(false);
 
 const handleFileNameClick = () => {
-  if (!props.message.filePath || props.message.status !== 'completed') return;
+  if (!props.message.filePath || props.message.status !== 'completed') {return;}
   if (isImageFile.value) {
     // 图片：打开灯箱查看
     showImageLightbox.value = true;

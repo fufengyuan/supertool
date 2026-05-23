@@ -207,14 +207,14 @@ function emitSaveEdit() {
 }
 
 const isOverdue = computed(() => {
-  if (!props.todo?.dueDate || props.todo.completed) return false
+  if (!props.todo?.dueDate || props.todo.completed) {return false}
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const due = new Date(props.todo.dueDate); due.setHours(0, 0, 0, 0)
   return due < today
 })
 
 const highlightedText = computed(() => {
-  if (!props.searchQuery) return DOMPurify.sanitize(props.todo.text)
+  if (!props.searchQuery) {return DOMPurify.sanitize(props.todo.text)}
   const q = props.searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return DOMPurify.sanitize(props.todo.text.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>'))
 })
@@ -222,7 +222,7 @@ const highlightedText = computed(() => {
 // 只读渲染 Markdown 详情（展开视图使用）
 const renderedMarkdown = computed(() => {
   const md = props.todo.markdownDescription
-  if (!md) return ''
+  if (!md) {return ''}
   try {
     const html = marked.parse(md, { async: false, breaks: true, gfm: true }) as string
     return DOMPurify.sanitize(html)
@@ -245,9 +245,9 @@ const formatDue = (d: string) => {
   const now = new Date(); now.setHours(0, 0, 0, 0)
   const due = new Date(d); due.setHours(0, 0, 0, 0)
   const diff = Math.round((due.getTime() - now.getTime()) / 86400000)
-  if (diff === 0) return '今天'
-  if (diff === 1) return '明天'
-  if (diff === -1) return '昨天'
+  if (diff === 0) {return '今天'}
+  if (diff === 1) {return '明天'}
+  if (diff === -1) {return '昨天'}
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
 

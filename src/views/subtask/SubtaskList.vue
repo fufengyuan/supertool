@@ -66,7 +66,7 @@ const loadSubtasks = async () => {
 
 const toggleExpanded = () => {
   expanded.value = !expanded.value;
-  if (expanded.value) loadSubtasks();
+  if (expanded.value) {loadSubtasks();}
 };
 
 const handleAdd = async (text: string) => {
@@ -133,7 +133,7 @@ const deleteSubtask = async (subtask: any) => {
     console.log("[components/subtask/SubtaskList.vue] deleteSubtask() called");
     await api.deleteSubtask(subtask.id);
     const idx = subtasks.value.findIndex((s: any) => s.id === subtask.id);
-    if (idx !== -1) subtasks.value.splice(idx, 1);
+    if (idx !== -1) {subtasks.value.splice(idx, 1);}
     await updateTodoCompletion();
   } catch (error) { handleError(error, { context: '删除子任务', showToast: true }); }
 };
@@ -146,5 +146,5 @@ const updateTodoCompletion = async () => {
   } catch (error) { handleError(error, { context: '更新任务完成状态', showToast: true }); }
 };
 
-onMounted(() => { if (expanded.value) loadSubtasks(); });
+onMounted(() => { if (expanded.value) {loadSubtasks();} });
 </script>

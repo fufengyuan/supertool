@@ -117,18 +117,18 @@ const loadingDetail = ref(false)
 // 仅本地仓库支持拉取 Git 记录
 const localRepos = computed(() => {
   const r: { key: string; label: string; path: string; branch?: string }[] = []
-  if (props.project.repoPath) r.push({ key: 'repo1', label: '本地仓库 1', path: props.project.repoPath, branch: props.project.branch })
-  if (props.project.repoPath2) r.push({ key: 'repo2', label: '本地仓库 2', path: props.project.repoPath2, branch: props.project.branch2 })
+  if (props.project.repoPath) {r.push({ key: 'repo1', label: '本地仓库 1', path: props.project.repoPath, branch: props.project.branch })}
+  if (props.project.repoPath2) {r.push({ key: 'repo2', label: '本地仓库 2', path: props.project.repoPath2, branch: props.project.branch2 })}
   return r
 })
 
 const filteredCommits = computed(() => {
-  if (repoFilter.value === 'all' || localRepos.value.length <= 1) return commits.value
+  if (repoFilter.value === 'all' || localRepos.value.length <= 1) {return commits.value}
   return commits.value.filter(c => c.repoKey === repoFilter.value)
 })
 
 const formatDate = (dateString: string) => {
-  if (!dateString) return ''
+  if (!dateString) {return ''}
   return new Date(dateString).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
@@ -139,7 +139,7 @@ const toggleCommitDetail = async (commit: any) => {
     return
   }
   expandedCommit.value = key
-  if (commitDetails.value[key]) return // already loaded
+  if (commitDetails.value[key]) {return} // already loaded
   loadingDetail.value = true
   try {
     const result = await getTauriAPI().getGitCommitDetail(commit.repoPath || commit.repo, commit.hash)

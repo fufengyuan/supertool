@@ -306,10 +306,10 @@ function generateClassFromJson(obj: any, className: string, lang: 'java' | 'csha
 
 function getGoType(value: any): string {
   if (Array.isArray(value)) {
-    if (value.length > 0) return `[]${getGoType(value[0])}`
+    if (value.length > 0) {return `[]${getGoType(value[0])}`}
     return '[]interface{}'
   }
-  if (value === null || value === undefined) return 'interface{}'
+  if (value === null || value === undefined) {return 'interface{}'}
   switch (typeof value) {
     case 'string': return 'string'
     case 'number': return Number.isInteger(value) ? 'int' : 'float64'
@@ -361,7 +361,7 @@ function toJsonDart() {
 
 // Simple JsonPath implementation
 function queryJsonPath() {
-  if (!input.value.trim() || !jsonPath.value.trim()) return
+  if (!input.value.trim() || !jsonPath.value.trim()) {return}
 
   let obj: any
   try {
@@ -383,13 +383,13 @@ function queryJsonPath() {
 
 function evaluateJsonPath(obj: any, path: string): any {
   // Simple jsonpath evaluator supporting: $, $.key, $.arr[0], $.arr[*].key
-  if (path === '$') return obj
+  if (path === '$') {return obj}
 
   let current: any = obj
   const parts = path.replace(/^\$\./, '').split('.')
 
   for (const part of parts) {
-    if (current === null || current === undefined) return undefined
+    if (current === null || current === undefined) {return undefined}
 
     // Handle array index: key[0] or key[*]
     const match = part.match(/^([^[]+)\[(\*|\d+)\]$/)
@@ -397,7 +397,7 @@ function evaluateJsonPath(obj: any, path: string): any {
       const key = match[1]
       const index = match[2]
       current = current[key]
-      if (!Array.isArray(current)) return undefined
+      if (!Array.isArray(current)) {return undefined}
 
       if (index === '*') {
         // Return all items (if more parts follow, map them)
@@ -415,9 +415,9 @@ function evaluateJsonPath(obj: any, path: string): any {
     // Handle bare array index: [0]
     const bareIndex = part.match(/^\[(\*|\d+)\]$/)
     if (bareIndex) {
-      if (!Array.isArray(current)) return undefined
+      if (!Array.isArray(current)) {return undefined}
       const idx = bareIndex[1]
-      if (idx === '*') return current
+      if (idx === '*') {return current}
       current = current[parseInt(idx)]
       continue
     }
@@ -432,7 +432,7 @@ function evaluateJsonPath(obj: any, path: string): any {
 }
 
 async function copyOutput() {
-  if (!output.value) return
+  if (!output.value) {return}
   await copyText(output.value, toast)
 }
 </script>

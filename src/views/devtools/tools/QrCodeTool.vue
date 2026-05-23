@@ -135,7 +135,7 @@ function generateQR() {
 }
 
 function downloadQR() {
-  if (!qrDataUrl.value) return
+  if (!qrDataUrl.value) {return}
   const a = document.createElement('a')
   a.href = qrDataUrl.value
   a.download = 'qrcode.png'
@@ -159,7 +159,7 @@ async function handleFileUpload(event: Event) {
 
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
-  if (!file) return
+  if (!file) {return}
 
   parseLoading.value = true
   try {

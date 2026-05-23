@@ -193,7 +193,7 @@ const priorityLabel = (p: string) => ({ low: '低', medium: '中', high: '高' }
 const formatDate = (d: string) => d ? new Date(d).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''
 
 const loadProjectData = async () => {
-  if (!project.value) return
+  if (!project.value) {return}
   try {
     console.log("[loadProjectData] called");
     projectStats.value = await projectsApi.getProjectStats(project.value.id)
@@ -239,7 +239,7 @@ const resetEditModal = () => {
   projectFormRef.value?.reset()
 }
 const saveProject = async (formData: any) => {
-  if (!project.value) return
+  if (!project.value) {return}
   try {
     const updated = { ...project.value, ...formData, updatedAt: new Date().toISOString() }
     await projectsApi.updateProject(updated as unknown as Project)
@@ -249,7 +249,7 @@ const saveProject = async (formData: any) => {
 }
 
 const toggleArchive = async () => {
-  if (!project.value) return
+  if (!project.value) {return}
   try {
     console.log("[toggleArchive] called");
     const updated = { ...project.value, archived: !project.value.archived, updatedAt: new Date().toISOString() }
@@ -267,7 +267,7 @@ const resolveProject = () => {
 
 // 当 projects 加载完成后自动解析
 watch(() => projectStore.projects, () => {
-  if (!project.value) resolveProject()
+  if (!project.value) {resolveProject()}
 }, { immediate: true })
 
 onMounted(async () => {

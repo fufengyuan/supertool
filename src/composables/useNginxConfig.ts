@@ -122,7 +122,7 @@ export function useNginxConfig() {
 
   // Deploy config to remote
   const deployConfig = async (comment: string) => {
-    if (!currentPreset.value || !configContent.value) return
+    if (!currentPreset.value || !configContent.value) {return}
     try {
       loading.value = true
       const p = currentPreset.value
@@ -155,7 +155,7 @@ export function useNginxConfig() {
 
   // Rollback to a specific version
   const rollbackToVersion = async (versionId: string) => {
-    if (!currentPreset.value) return
+    if (!currentPreset.value) {return}
     try {
       loading.value = true
       const version = versions.value.find(v => v.id === versionId)

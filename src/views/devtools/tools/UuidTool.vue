@@ -43,7 +43,7 @@ const uuidOutput = ref('')
 
 function generateUUIDs() {
   let count = uuidCount.value
-  if (count < 1) count = 1
+  if (count < 1) {count = 1}
   if (count > 100) {
     count = 100
     toast.warning('最多生成 100 个')

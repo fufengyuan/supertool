@@ -61,7 +61,7 @@ export function useToast() {
     const index = toasts.value.findIndex((t) => t.id === id);
     if (index !== -1) {
       const toast = toasts.value[index];
-      if (toast._timer) clearInterval(toast._timer);
+      if (toast._timer) {clearInterval(toast._timer);}
       toasts.value.splice(index, 1);
     }
   };
@@ -79,7 +79,7 @@ export function useToast() {
    */
   const clearToasts = (): void => {
     toasts.value.forEach((t) => {
-      if (t._timer) clearInterval(t._timer);
+      if (t._timer) {clearInterval(t._timer);}
     });
     toasts.value = [];
     nextId = 1;

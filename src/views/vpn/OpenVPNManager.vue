@@ -249,9 +249,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  if (pollingTimer) clearInterval(pollingTimer)
-  if (durationTimer) clearInterval(durationTimer)
-  if (trafficTimer) clearInterval(trafficTimer)
+  if (pollingTimer) {clearInterval(pollingTimer)}
+  if (durationTimer) {clearInterval(durationTimer)}
+  if (trafficTimer) {clearInterval(trafficTimer)}
 })
 
 function updateDuration() {
@@ -306,7 +306,7 @@ async function loadStatus() {
   try {
     console.log("[loadStatus] called")
     const s = await getTauriAPI().openvpnGetStatus()
-    if (!s) return
+    if (!s) {return}
     const prevConnected = status.value.connected
     status.value = s
     // Update logs
@@ -338,7 +338,7 @@ async function importConfig() {
   try {
     console.log("[importConfig] called")
     const result: any = await getTauriAPI().importOvpnFile()
-    if (result.canceled || !result.filePaths?.length) return
+    if (result.canceled || !result.filePaths?.length) {return}
 
     const filePath = result.filePaths[0]
     const fileName = filePath.split('/').pop() || filePath.split('\\\\').pop() || 'config'
@@ -403,7 +403,7 @@ function cancelPasswordDialog() {
 
 async function submitPassword() {
     console.log("[cancelPasswordDialog] called")
-  if (!sudoPassword.value || !pendingConfig) return
+  if (!sudoPassword.value || !pendingConfig) {return}
   showPasswordDialog.value = false
   const pwd = sudoPassword.value
   sudoPassword.value = '' // Clear from memory ASAP
@@ -445,7 +445,7 @@ function selectConfig(cfg: Config) {
 }
 
 async function deleteConfig(cfg: Config) {
-  if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) return
+  if (!confirm(`确定要删除 "${cfg.name}" 吗？`)) {return}
   try {
     await getTauriAPI().openvpnDelete(cfg.id)
     await loadConfigs()
@@ -456,9 +456,9 @@ async function deleteConfig(cfg: Config) {
 }
 
 function getLogClass(line: string): string {
-  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) return 'text-[#a6e3a1]'
-  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) return 'text-[#f38ba8]'
-  if (line.includes('⏳') || line.includes('连接中')) return 'text-[#f9e2af]'
+  if (line.includes('✅') || line.includes('成功') || line.includes('Completed')) {return 'text-[#a6e3a1]'}
+  if (line.includes('❌') || line.includes('⚠️') || line.includes('错误') || line.includes('Error') || line.includes('FAILED')) {return 'text-[#f38ba8]'}
+  if (line.includes('⏳') || line.includes('连接中')) {return 'text-[#f9e2af]'}
   return ''
 }
 </script>

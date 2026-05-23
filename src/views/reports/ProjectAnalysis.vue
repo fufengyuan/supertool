@@ -35,8 +35,8 @@ const changeValue = computed(() => props.currentStats.total - props.previousStat
 
 const changeText = computed(() => {
   const change = changeValue.value;
-  if (change > 0) return `+${change}`;
-  if (change < 0) return `${change}`;
+  if (change > 0) {return `+${change}`;}
+  if (change < 0) {return `${change}`;}
   return '0';
 });
 </script>

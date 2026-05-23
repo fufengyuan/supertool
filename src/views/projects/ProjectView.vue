@@ -274,7 +274,7 @@ const toggleArchive = async (project: Project) => {
 };
 
 const handleDelete = async (id: string) => {
-  if (!confirm('确定删除此项目？所有关联任务也将被删除。')) return;
+  if (!confirm('确定删除此项目？所有关联任务也将被删除。')) {return;}
   try {
     await projectsApi.deleteProject(id);
     await loadProjects();

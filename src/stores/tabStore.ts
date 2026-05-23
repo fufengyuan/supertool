@@ -69,7 +69,7 @@ const KNOWN_BASE_PATHS = Object.keys(KNOWN_ROUTES)
  * 例如：/agent/chat → /agent,  /project/5 → /projects
  */
 function resolveBasePath(path: string): string | null {
-  if (path === '/') return '/'
+  if (path === '/') {return '/'}
 
   const segments = path.split('/').filter(Boolean)
   for (let len = segments.length; len > 0; len--) {
@@ -148,7 +148,7 @@ export const useTabStore = defineStore('tabs', () => {
    */
   function closeTab(id: string) {
     const idx = tabs.value.findIndex(t => t.id === id)
-    if (idx === -1) return
+    if (idx === -1) {return}
 
     tabs.value.splice(idx, 1)
 
@@ -176,7 +176,7 @@ export const useTabStore = defineStore('tabs', () => {
    */
   function syncRoute(path: string) {
     const basePath = resolveBasePath(path)
-    if (!basePath) return
+    if (!basePath) {return}
 
     // 确保标签页存在
     const tab = openOrActivate(basePath)

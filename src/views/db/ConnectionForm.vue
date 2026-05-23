@@ -132,14 +132,14 @@ watch(() => props.form, (newVal) => {
 // Emit changes to parent — 用 nextTick 防抖，避免每个字符触发一次 emit
 let emitTimer: ReturnType<typeof setTimeout> | null = null
 watch(localForm, (newVal) => {
-  if (emitTimer) clearTimeout(emitTimer)
+  if (emitTimer) {clearTimeout(emitTimer)}
   emitTimer = setTimeout(() => {
     emit('update:form', { ...newVal })
   }, 16) // ~1 frame, batches rapid input events
 }, { deep: true })
 
 onUnmounted(() => {
-  if (emitTimer) clearTimeout(emitTimer)
+  if (emitTimer) {clearTimeout(emitTimer)}
 })
 
 async function pickSqliteFile() {

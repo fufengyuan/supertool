@@ -340,7 +340,7 @@ const newKey = ref({
 })
 
 const keyData = computed(() => {
-  if (!keyInfo.value.type || keyInfo.value.type === 'none') return null
+  if (!keyInfo.value.type || keyInfo.value.type === 'none') {return null}
   return true
 })
 
@@ -356,10 +356,10 @@ function typeLabel(type: string): string {
 }
 
 function formatTTL(ttl: number): string {
-  if (ttl === -1) return '∞'
-  if (ttl === -2) return '已过期'
-  if (ttl < 60) return `${ttl}s`
-  if (ttl < 3600) return `${Math.floor(ttl / 60)}m ${ttl % 60}s`
+  if (ttl === -1) {return '∞'}
+  if (ttl === -2) {return '已过期'}
+  if (ttl < 60) {return `${ttl}s`}
+  if (ttl < 3600) {return `${Math.floor(ttl / 60)}m ${ttl % 60}s`}
   return `${Math.floor(ttl / 3600)}h ${Math.floor((ttl % 3600) / 60)}m`
 }
 
@@ -459,7 +459,7 @@ async function selectKey(key: string) {
 
 // Save key
 async function saveKey() {
-  if (!selectedKey.value) return
+  if (!selectedKey.value) {return}
   saving.value = true
   try {
     let value: any
@@ -470,7 +470,7 @@ async function saveKey() {
       case 'hash':
         value = {}
         for (const item of hashValue.value) {
-          if (item.field) value[item.field] = item.value
+          if (item.field) {value[item.field] = item.value}
         }
         break
       case 'list':
@@ -503,8 +503,8 @@ async function saveKey() {
 
 // Delete selected key
 async function deleteSelectedKey() {
-  if (!selectedKey.value) return
-  if (!confirm(`确定要删除键 "${selectedKey.value}" 吗？`)) return
+  if (!selectedKey.value) {return}
+  if (!confirm(`确定要删除键 "${selectedKey.value}" 吗？`)) {return}
 
   deleting.value = true
   try {
@@ -605,7 +605,7 @@ async function addNewKey() {
 
 // Console
 async function executeConsole() {
-  if (!consoleCommand.value.trim()) return
+  if (!consoleCommand.value.trim()) {return}
 
   const cmd = consoleCommand.value.trim()
   consoleMessages.value.push({ type: 'input', prefix: '> ', content: cmd })

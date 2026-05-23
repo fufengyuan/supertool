@@ -270,12 +270,12 @@ const updateTime = () => {
 
 const greeting = computed(() => {
   const hour = new Date().getHours();
-  if (hour < 6) return '夜深了，注意休息';
-  if (hour < 9) return '早上好，新的一天开始了';
-  if (hour < 12) return '上午好';
-  if (hour < 14) return '中午好';
-  if (hour < 18) return '下午好';
-  if (hour < 22) return '晚上好';
+  if (hour < 6) {return '夜深了，注意休息';}
+  if (hour < 9) {return '早上好，新的一天开始了';}
+  if (hour < 12) {return '上午好';}
+  if (hour < 14) {return '中午好';}
+  if (hour < 18) {return '下午好';}
+  if (hour < 22) {return '晚上好';}
   return '夜深了，注意休息';
 });
 
@@ -309,7 +309,7 @@ const recentTodos = computed(() => {
       const priorityOrder = { high: 0, medium: 1, low: 2 };
       const pa = priorityOrder[a.priority as keyof typeof priorityOrder] ?? 2;
       const pb = priorityOrder[b.priority as keyof typeof priorityOrder] ?? 2;
-      if (pa !== pb) return pa - pb;
+      if (pa !== pb) {return pa - pb;}
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })
     .slice(0, 10);
@@ -383,7 +383,7 @@ const quickTodoProjectId = ref('');
 const quickTodoInputRef = ref<HTMLInputElement | null>(null);
 
 const submitQuickTodo = async () => {
-  if (!quickTodoText.value.trim()) return;
+  if (!quickTodoText.value.trim()) {return;}
   try {
     await todoStore.addTodo({
       text: quickTodoText.value.trim(),
@@ -406,9 +406,9 @@ const formatDueDate = (date: string) => {
   const d = new Date(date);
   const today = new Date();
   const diffDays = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-  if (diffDays === 0) return '今天';
-  if (diffDays === 1) return '明天';
-  if (diffDays < 0) return '已过期';
+  if (diffDays === 0) {return '今天';}
+  if (diffDays === 1) {return '明天';}
+  if (diffDays < 0) {return '已过期';}
   return `${diffDays}天后`;
 };
 
@@ -420,10 +420,10 @@ const formatTime = (dateStr: string) => {
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
-  if (diffMinutes < 1) return '刚刚';
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays < 7) return `${diffDays}天前`;
+  if (diffMinutes < 1) {return '刚刚';}
+  if (diffMinutes < 60) {return `${diffMinutes}分钟前`;}
+  if (diffHours < 24) {return `${diffHours}小时前`;}
+  if (diffDays < 7) {return `${diffDays}天前`;}
   return d.toLocaleDateString('zh-CN');
 };
 

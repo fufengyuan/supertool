@@ -131,8 +131,8 @@ function highlightWords(line: DiffLine): string {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-  if (line.added) return `<span class="diff-added-word">${escaped}</span>`
-  if (line.removed) return `<span class="diff-removed-word">${escaped}</span>`
+  if (line.added) {return `<span class="diff-added-word">${escaped}</span>`}
+  if (line.removed) {return `<span class="diff-removed-word">${escaped}</span>`}
   return escaped
 }
 

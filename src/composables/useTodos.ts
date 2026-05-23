@@ -265,7 +265,7 @@ export function useTodos() {
     clearTimeout(searchTimer!);
     searchTimer = setTimeout(() => {
       debouncedSearchQuery.value = query;
-      if (callback) callback(query);
+      if (callback) {callback(query);}
     }, delay);
   };
 
@@ -339,8 +339,8 @@ export function useTodos() {
       result.sort((a, b) => {
         const aHasDate = !!a.dueDate;
         const bHasDate = !!b.dueDate;
-        if (aHasDate && !bHasDate) return -1;
-        if (!aHasDate && bHasDate) return 1;
+        if (aHasDate && !bHasDate) {return -1;}
+        if (!aHasDate && bHasDate) {return 1;}
         if (aHasDate && bHasDate) {
           return new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime();
         }

@@ -274,11 +274,11 @@ const sortedPeers = computed(() => {
   return [...peers.value].sort((a, b) => {
     const aUnread = unreadCounts.value[a.id] || 0;
     const bUnread = unreadCounts.value[b.id] || 0;
-    if (aUnread > 0 && bUnread === 0) return -1;
-    if (aUnread === 0 && bUnread > 0) return 1;
+    if (aUnread > 0 && bUnread === 0) {return -1;}
+    if (aUnread === 0 && bUnread > 0) {return 1;}
     const aOnline = getStatusClass(a) === 'online' ? 1 : 0;
     const bOnline = getStatusClass(b) === 'online' ? 1 : 0;
-    if (bOnline !== aOnline) return bOnline - aOnline;
+    if (bOnline !== aOnline) {return bOnline - aOnline;}
     // Fallback: alphabetical by name
     return a.name.localeCompare(b.name);
   });
@@ -286,13 +286,13 @@ const sortedPeers = computed(() => {
 
 // 状态相关
 const getStatusClass = (peer: LanPeer): string => {
-  if (peer.status === 'busy') return 'busy';
-  if (peer.status === 'away') return 'away';
-  if (peer.online === false) return 'offline';
+  if (peer.status === 'busy') {return 'busy';}
+  if (peer.status === 'away') {return 'away';}
+  if (peer.online === false) {return 'offline';}
   const lastSeen = peer.lastSeen || lastSeenTimes.value[peer.id];
   if (lastSeen) {
     const diff = Date.now() - lastSeen;
-    if (diff > 5 * 60 * 1000) return 'away';
+    if (diff > 5 * 60 * 1000) {return 'away';}
   }
   return 'online';
 };
@@ -427,11 +427,11 @@ onMounted(async () => {
       // 更新已知 peer 的状态（心跳刷新）
       exists.lastSeen = peer.lastSeen;
       exists.online = peer.online;
-      if (peer.avatar) exists.avatar = peer.avatar;
-      if (peer.avatarPath) exists.avatarPath = peer.avatarPath;
-      if (peer.status) exists.status = peer.status;
-      if (peer.version) exists.version = peer.version;
-      if (peer.messagePort) exists.messagePort = peer.messagePort;
+      if (peer.avatar) {exists.avatar = peer.avatar;}
+      if (peer.avatarPath) {exists.avatarPath = peer.avatarPath;}
+      if (peer.status) {exists.status = peer.status;}
+      if (peer.version) {exists.version = peer.version;}
+      if (peer.messagePort) {exists.messagePort = peer.messagePort;}
     }
   }));
 
@@ -509,7 +509,7 @@ async function uploadAvatar() {
       filters: [{ name: '图片', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp'] }],
       title: '选择头像图片',
     });
-    if (!selected) return;
+    if (!selected) {return;}
     const filePath = typeof selected === 'string' ? selected : selected.path;
     uploadingAvatar.value = true;
     const result = await getTauriAPI().lanUploadAvatar(filePath);

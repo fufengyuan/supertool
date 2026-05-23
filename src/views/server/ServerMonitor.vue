@@ -185,8 +185,8 @@ let timer: ReturnType<typeof setInterval> | null = null
 let prevNetTotal: { rx: number; tx: number } | null = null
 
 function formatSpeed(bytesPerSec: number): string {
-  if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s'
-  if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s'
+  if (bytesPerSec < 1024) {return bytesPerSec.toFixed(0) + ' B/s'}
+  if (bytesPerSec < 1024 * 1024) {return (bytesPerSec / 1024).toFixed(1) + ' KB/s'}
   return (bytesPerSec / 1024 / 1024).toFixed(1) + ' MB/s'
 }
 
@@ -217,7 +217,7 @@ async function refresh() {
     const cpuRaw = r(commands[0])
     let cpu = 0
     const cpuMatch = cpuRaw.match(/(\d+\.?\d*)\s*id/)
-    if (cpuMatch) cpu = Math.round(100 - parseFloat(cpuMatch[1]))
+    if (cpuMatch) {cpu = Math.round(100 - parseFloat(cpuMatch[1]))}
 
     // Memory
     const memParts = r(commands[1]).split(/\s+/)
@@ -252,9 +252,9 @@ async function refresh() {
     }
 
     cpuHistory.value.push(cpu)
-    if (cpuHistory.value.length > MAX_HISTORY) cpuHistory.value.shift()
+    if (cpuHistory.value.length > MAX_HISTORY) {cpuHistory.value.shift()}
     netHistory.value.push({ up: netUp, down: netDown })
-    if (netHistory.value.length > MAX_HISTORY) netHistory.value.shift()
+    if (netHistory.value.length > MAX_HISTORY) {netHistory.value.shift()}
 
     drawSparklines()
 
@@ -298,9 +298,9 @@ function drawSparklines() {
 }
 
 function drawLine(canvas: HTMLCanvasElement | null, data: number[], color: string) {
-  if (!canvas || data.length < 2) return
+  if (!canvas || data.length < 2) {return}
   const ctx = canvas.getContext('2d')
-  if (!ctx) return
+  if (!ctx) {return}
   const w = canvas.width, h = canvas.height
   ctx.clearRect(0, 0, w, h)
 
@@ -347,6 +347,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer)
+  if (timer) {clearInterval(timer)}
 })
 </script>

@@ -188,9 +188,9 @@ async function query() {
     for (const api of apis) {
       try {
         const response = await fetch(api.url, { signal: AbortSignal.timeout(10000) })
-        if (!response.ok) throw new Error(`请求失败: ${response.status}`)
+        if (!response.ok) {throw new Error(`请求失败: ${response.status}`)}
         const data = await response.json()
-        if (api.checkFail(data)) throw new Error(api.failMsg(data))
+        if (api.checkFail(data)) {throw new Error(api.failMsg(data))}
 
         const parsed = api.parse(data)
         result.value = parsed

@@ -157,7 +157,7 @@ function longToBinary(long: number): string {
 
 function isValidIp(ip: string): boolean {
   const parts = ip.split('.')
-  if (parts.length !== 4) return false
+  if (parts.length !== 4) {return false}
   return parts.every(p => {
     const n = parseInt(p, 10)
     return n >= 0 && n <= 255 && String(n) === p
@@ -166,11 +166,11 @@ function isValidIp(ip: string): boolean {
 
 function getIpClass(ip: string): string {
   const first = parseInt(ip.split('.')[0], 10)
-  if (first >= 1 && first <= 126) return 'A 类'
-  if (first >= 128 && first <= 191) return 'B 类'
-  if (first >= 192 && first <= 223) return 'C 类'
-  if (first >= 224 && first <= 239) return 'D 类 (组播)'
-  if (first >= 240 && first <= 255) return 'E 类 (保留)'
+  if (first >= 1 && first <= 126) {return 'A 类'}
+  if (first >= 128 && first <= 191) {return 'B 类'}
+  if (first >= 192 && first <= 223) {return 'C 类'}
+  if (first >= 224 && first <= 239) {return 'D 类 (组播)'}
+  if (first >= 240 && first <= 255) {return 'E 类 (保留)'}
   return '未知'
 }
 
@@ -203,10 +203,10 @@ function calculate() {
   } else {
     // Guess CIDR based on IP class
     const first = parseInt(ip.split('.')[0], 10)
-    if (first >= 1 && first <= 126) cidr = 8
-    else if (first >= 128 && first <= 191) cidr = 16
-    else if (first >= 192 && first <= 223) cidr = 24
-    else cidr = 24
+    if (first >= 1 && first <= 126) {cidr = 8}
+    else if (first >= 128 && first <= 191) {cidr = 16}
+    else if (first >= 192 && first <= 223) {cidr = 24}
+    else {cidr = 24}
   }
 
   const ipLong = ipToLong(ip)

@@ -71,16 +71,16 @@ const barcodeCanvas = ref<HTMLCanvasElement | null>(null)
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
 function debouncedGenerate() {
-  if (debounceTimer) clearTimeout(debounceTimer)
+  if (debounceTimer) {clearTimeout(debounceTimer)}
   debounceTimer = setTimeout(() => generateBarcode(), 300)
 }
 
 function generateBarcode() {
   barcodeError.value = ''
-  if (!barcodeInput.value.trim()) return
+  if (!barcodeInput.value.trim()) {return}
 
   nextTick(() => {
-    if (!barcodeCanvas.value) return
+    if (!barcodeCanvas.value) {return}
     try {
       JsBarcode(barcodeCanvas.value, barcodeInput.value.trim(), {
         format: barcodeFormat.value,

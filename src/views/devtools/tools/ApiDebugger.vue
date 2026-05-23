@@ -293,7 +293,7 @@ const parsedHeaders = computed({
   get: (): HeaderEntry[] => {
     try {
       const arr = JSON.parse(request.value.headers)
-      if (!Array.isArray(arr)) return []
+      if (!Array.isArray(arr)) {return []}
       // 显示所有行（包括空行），不在此处过滤
       return arr as HeaderEntry[]
     } catch { return [] }
@@ -305,7 +305,7 @@ const parsedHeaders = computed({
 })
 
 const filteredRequests = computed(() => {
-  if (!searchQuery.value) return savedRequests.value
+  if (!searchQuery.value) {return savedRequests.value}
   const q = searchQuery.value.toLowerCase()
   return savedRequests.value.filter(r =>
     r.name.toLowerCase().includes(q) ||
@@ -346,23 +346,23 @@ const responseTabs = [
 ]
 
 const responseStatusClass = computed(() => {
-  if (!response.value) return ''
+  if (!response.value) {return ''}
   const s = response.value.status
-  if (s >= 200 && s < 300) return 'badge-success'
-  if (s >= 300 && s < 400) return 'badge-warning'
-  if (s >= 400 && s < 500) return 'badge-error'
-  if (s >= 500) return 'badge-error'
+  if (s >= 200 && s < 300) {return 'badge-success'}
+  if (s >= 300 && s < 400) {return 'badge-warning'}
+  if (s >= 400 && s < 500) {return 'badge-error'}
+  if (s >= 500) {return 'badge-error'}
   return ''
 })
 
 const isJsonResponse = computed(() => {
-  if (!response.value) return false
+  if (!response.value) {return false}
   const ct = (response.value.headers['content-type'] || '').toLowerCase()
   return ct.includes('json') || ct.includes('application/hal+json')
 })
 
 const formatResponseBody = computed(() => {
-  if (!response.value) return ''
+  if (!response.value) {return ''}
   try {
     return JSON.stringify(JSON.parse(response.value.body), null, 2)
   } catch {
@@ -371,7 +371,7 @@ const formatResponseBody = computed(() => {
 })
 
 const formatResponseHeaders = computed(() => {
-  if (!response.value) return ''
+  if (!response.value) {return ''}
   return JSON.stringify(response.value.headers, null, 2)
 })
 
@@ -389,7 +389,7 @@ function addHeader() {
   let headers: HeaderEntry[] = []
   try {
     headers = JSON.parse(request.value.headers)
-    if (!Array.isArray(headers)) headers = []
+    if (!Array.isArray(headers)) {headers = []}
   } catch { headers = [] }
   headers.push({ key: '', value: '' })
   request.value.headers = JSON.stringify(headers)
@@ -418,7 +418,7 @@ function toggleQuickHeader(qh: typeof quickHeaders[0]) {
   let headers: HeaderEntry[] = []
   try {
     headers = JSON.parse(request.value.headers)
-    if (!Array.isArray(headers)) headers = []
+    if (!Array.isArray(headers)) {headers = []}
   } catch { headers = [] }
 
   if (hasHeader(qh.key)) {
@@ -446,8 +446,8 @@ function compressJsonBody() {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B'
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024) {return bytes + ' B'}
+  if (bytes < 1024 * 1024) {return (bytes / 1024).toFixed(1) + ' KB'}
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
@@ -513,7 +513,7 @@ async function saveCurrentRequest() {
         // fallback: 重新加载并匹配
         await loadRequests()
         const newReq = savedRequests.value.find(r => r.url === request.value.url && r.method === request.value.method)
-        if (newReq) currentRequestId.value = newReq.id
+        if (newReq) {currentRequestId.value = newReq.id}
       }
       showSaveFeedback('✓ 已保存为新接口')
     }
@@ -528,7 +528,7 @@ async function saveCurrentRequest() {
 function showSaveFeedback(text: string, type: 'success' | 'warn' | 'error' = 'success') {
   saveFeedbackText.value = text
   saveFeedbackVisible.value = true
-  if (saveFeedbackTimer) clearTimeout(saveFeedbackTimer)
+  if (saveFeedbackTimer) {clearTimeout(saveFeedbackTimer)}
   saveFeedbackTimer = setTimeout(() => {
     saveFeedbackVisible.value = false
   }, 2500)
@@ -545,9 +545,9 @@ function extractUrlName(url: string): string {
 }
 
 async function deleteRequest(id: string) {
-  if (!confirm('确定删除此接口？')) return
+  if (!confirm('确定删除此接口？')) {return}
   await getTauriAPI().apiRequestsDelete(id)
-  if (currentRequestId.value === id) createNewRequest()
+  if (currentRequestId.value === id) {createNewRequest()}
   await loadRequests()
 }
 
@@ -561,14 +561,14 @@ async function loadRequests() {
 }
 
 async function sendRequest() {
-  if (!request.value.url || isSending.value) return
+  if (!request.value.url || isSending.value) {return}
   isSending.value = true
   response.value = null
 
   try {
     const headers: Record<string, string> = {}
     for (const h of parsedHeaders.value) {
-      if (h.key && h.value) headers[h.key] = h.value
+      if (h.key && h.value) {headers[h.key] = h.value}
     }
 
     if (request.value.contentType === 'json' && request.value.body && !hasHeader('Content-Type')) {
@@ -626,7 +626,7 @@ async function sendRequest() {
 
 // ─── Smart Paste Parser ───
 function parseSmartPaste() {
-  if (!pasteText.value.trim()) return
+  if (!pasteText.value.trim()) {return}
 
   const text = pasteText.value.trim()
   let parsed: { method: string; url: string; headers: HeaderEntry[]; body: string | null; contentType: string } | null = null
@@ -675,10 +675,10 @@ function parseCurl(curl: string): { method: string; url: string; headers: Header
   }
 
   const methodMatch = curl.match(/-X\s+(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)/i)
-  if (methodMatch) result.method = methodMatch[1].toUpperCase()
+  if (methodMatch) {result.method = methodMatch[1].toUpperCase()}
 
   const urlMatch = curl.match(/(?:curl\s+)?['"]?(https?:\/\/[^'"\s]+)['"]?/)
-  if (urlMatch) result.url = urlMatch[1]
+  if (urlMatch) {result.url = urlMatch[1]}
 
   const headerRegex = /-H\s+['"]([^'"]+)['"]/g
   let hMatch: RegExpExecArray | null
@@ -734,7 +734,7 @@ function parseHttpRequest(text: string): { method: string; url: string; headers:
 
   if (i < lines.length) {
     result.body = lines.slice(i + 1).join('\n').trim()
-    if (!result.body) result.body = null
+    if (!result.body) {result.body = null}
   }
 
   if (result.url && !result.url.startsWith('http')) {
@@ -746,11 +746,11 @@ function parseHttpRequest(text: string): { method: string; url: string; headers:
 
 function classifyContentType(value: string): string {
   const v = value.toLowerCase()
-  if (v.includes('json')) return 'json'
-  if (v.includes('xml')) return 'xml'
-  if (v.includes('multipart')) return 'form-data'
-  if (v.includes('x-www-form-urlencoded')) return 'x-www-form-urlencoded'
-  if (v.includes('text')) return 'text'
+  if (v.includes('json')) {return 'json'}
+  if (v.includes('xml')) {return 'xml'}
+  if (v.includes('multipart')) {return 'form-data'}
+  if (v.includes('x-www-form-urlencoded')) {return 'x-www-form-urlencoded'}
+  if (v.includes('text')) {return 'text'}
   return 'none'
 }
 

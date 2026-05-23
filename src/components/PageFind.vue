@@ -85,7 +85,7 @@ function highlightMatches() {
   const textNodes: Text[] = []
   while (walker.nextNode()) {
     const node = walker.currentNode as Text
-    if (node.parentElement?.closest('.page-find, .sidebar, script, style')) continue
+    if (node.parentElement?.closest('.page-find, .sidebar, script, style')) {continue}
     if (node.textContent && node.textContent.toLowerCase().includes(query.value.toLowerCase())) {
       textNodes.push(node)
     }
@@ -128,7 +128,7 @@ function highlightMatches() {
 
 // Scroll to a specific highlight
 function scrollToHighlight(index: number) {
-  if (index < 0 || index >= highlightedElements.length) return
+  if (index < 0 || index >= highlightedElements.length) {return}
   
   // Remove previous active highlight
   if (currentHighlightIndex >= 0 && highlightedElements[currentHighlightIndex]) {
@@ -147,14 +147,14 @@ function scrollToHighlight(index: number) {
 
 // Find next match
 function findNext() {
-  if (matches.value === 0) return
+  if (matches.value === 0) {return}
   const next = (currentHighlightIndex + 1) % matches.value
   scrollToHighlight(next)
 }
 
 // Find previous match
 function findPrev() {
-  if (matches.value === 0) return
+  if (matches.value === 0) {return}
   const prev = (currentHighlightIndex - 1 + matches.value) % matches.value
   scrollToHighlight(prev)
 }

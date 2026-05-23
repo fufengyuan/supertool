@@ -306,14 +306,14 @@ const deleteDialog = ref<HTMLDialogElement | null>(null)
 const pendingDelete = ref<{ paths: string[]; name: string } | null>(null)
 
 const breadcrumbParts = computed(() => {
-  if (!currentPath.value) return []
+  if (!currentPath.value) {return []}
   const parts = currentPath.value.split('/').filter(Boolean)
   return ['/', ...parts]
 })
 
 // 目录过滤结果
 const filteredDirEntries = computed(() => {
-  if (!filterQuery.value) return dirEntries.value
+  if (!filterQuery.value) {return dirEntries.value}
   const q = filterQuery.value.toLowerCase()
   return dirEntries.value.filter(e => e.name.toLowerCase().includes(q))
 })
@@ -322,15 +322,15 @@ const cacheSafeCount = computed(() => cachePaths.value.filter(c => c.safeToClean
 const cacheSafeTotal = computed(() => cachePaths.value.filter(c => c.safeToClean).reduce((s, c) => s + c.size, 0))
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
+  if (bytes === 0) {return '0 B'}
   const units = ['B', 'KB', 'MB', 'GB', 'TB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return (bytes / Math.pow(1024, i)).toFixed(i > 1 ? 1 : 0) + ' ' + units[i]
 }
 
 function usageColor(percent: number): string {
-  if (percent > 90) return 'bg-error'
-  if (percent > 70) return 'bg-warning'
+  if (percent > 90) {return 'bg-error'}
+  if (percent > 70) {return 'bg-warning'}
   return 'bg-success'
 }
 
@@ -435,7 +435,7 @@ function onEntryDblClick(entry: DirEntry) {
 }
 
 function goUp() {
-  if (!currentPath.value || currentPath.value === '/') return
+  if (!currentPath.value || currentPath.value === '/') {return}
   const parts = currentPath.value.split('/').filter(Boolean)
   parts.pop()
   currentPath.value = '/' + parts.join('/')
@@ -499,7 +499,7 @@ function showDeleteDialog(paths: string[], name?: string) {
 }
 
 async function confirmDelete() {
-  if (!pendingDelete.value) return
+  if (!pendingDelete.value) {return}
   const { paths } = pendingDelete.value
   deleting.value = true
   try {
@@ -549,10 +549,10 @@ async function cleanAllSafe() {
 }
 
 function refreshCurrentView() {
-  if (activeTab.value === 'directory') scanCurrentDir()
-  else if (activeTab.value === 'cache') loadCachePaths()
-  else if (activeTab.value === 'category') scanCategories()
-  else if (activeTab.value === 'duplicate') scanDuplicates()
+  if (activeTab.value === 'directory') {scanCurrentDir()}
+  else if (activeTab.value === 'cache') {loadCachePaths()}
+  else if (activeTab.value === 'category') {scanCategories()}
+  else if (activeTab.value === 'duplicate') {scanDuplicates()}
 }
 
 onMounted(async () => {

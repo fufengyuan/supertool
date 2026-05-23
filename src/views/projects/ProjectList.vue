@@ -223,7 +223,7 @@ const toggleArchive = async (project: Project) => {
 };
 
 const deleteProject = async (project: Project) => {
-  if (!confirm(`确定要删除项目「${project.name}」吗？此操作不可撤销。`)) return;
+  if (!confirm(`确定要删除项目「${project.name}」吗？此操作不可撤销。`)) {return;}
   try {
     await getTauriAPI().deleteProject(project.id);
     await loadProjects();

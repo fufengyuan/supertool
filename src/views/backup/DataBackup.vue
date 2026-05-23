@@ -427,9 +427,9 @@ onMounted(async () => {
     const path = await getTauriAPI().getSetting('auto_backup_path');
 
     autoBackup.value.enabled = enabled === 'true';
-    if (frequency) autoBackup.value.frequency = frequency;
-    if (time) autoBackup.value.time = time;
-    if (path) autoBackup.value.path = path;
+    if (frequency) {autoBackup.value.frequency = frequency;}
+    if (time) {autoBackup.value.time = time;}
+    if (path) {autoBackup.value.path = path;}
   } catch (error) {
     console.error('Failed to load auto backup settings:', error);
   }
@@ -636,10 +636,10 @@ function formatGitSyncTime(iso: string): string {
   const now = new Date();
   const diff = now.getTime() - d.getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
+  if (mins < 1) {return '刚刚';}
+  if (mins < 60) {return `${mins} 分钟前`;}
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
+  if (hours < 24) {return `${hours} 小时前`;}
   return d.toLocaleDateString('zh-CN');
 }
 </script>

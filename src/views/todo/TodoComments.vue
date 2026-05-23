@@ -35,7 +35,7 @@ defineProps({
 defineEmits(['update:input', 'add']);
 
 const formatTime = (timestamp) => {
-  if (!timestamp) return '';
+  if (!timestamp) {return '';}
   return new Date(timestamp).toLocaleString(i18nLocale.value, {
     month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
   });

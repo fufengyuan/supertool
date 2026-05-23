@@ -86,7 +86,7 @@ function handleClose() {
 }
 
 async function assign() {
-  if (!task.value.text.trim() || !props.peer) return;
+  if (!task.value.text.trim() || !props.peer) {return;}
 
   // 发送任务 - 使用 lanAssignTask 方法，参数是 (peerId, taskJsonString)
   const taskJson = JSON.stringify({

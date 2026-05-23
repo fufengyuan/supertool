@@ -214,7 +214,7 @@ const selectedFile = ref<SftpFile | null>(null);
 
 // 搜索过滤后的文件列表
 const filteredFiles = computed(() => {
-  if (!searchQuery.value.trim()) return files.value;
+  if (!searchQuery.value.trim()) {return files.value;}
   const query = searchQuery.value.toLowerCase();
   return files.value.filter(file => file.name.toLowerCase().includes(query));
 });
@@ -251,7 +251,7 @@ function showCreateFolderDialog() {
 }
 
 async function createFolder() {
-  if (!newFolderName.value.trim()) return;
+  if (!newFolderName.value.trim()) {return;}
   const folderPath = currentPath.value === '/' ? '/' + newFolderName.value : currentPath.value + '/' + newFolderName.value;
 
   try {
@@ -294,8 +294,8 @@ let panelStartX = 0;
 let panelStartY = 0;
 
 function startDrag(e: MouseEvent) {
-  if ((e.target as HTMLElement).closest('button, input, select')) return;
-  if (isMaximized.value) return;
+  if ((e.target as HTMLElement).closest('button, input, select')) {return;}
+  if (isMaximized.value) {return;}
 
   isDragging = true;
   dragStartX = e.clientX;
@@ -308,7 +308,7 @@ function startDrag(e: MouseEvent) {
 }
 
 function onDrag(e: MouseEvent) {
-  if (!isDragging) return;
+  if (!isDragging) {return;}
   panelPos.value.x = panelStartX + (e.clientX - dragStartX);
   panelPos.value.y = panelStartY + (e.clientY - dragStartY);
 }
@@ -424,8 +424,8 @@ async function loadDir() {
     const result = await getTauriAPI().listSftpDir(props.server.id, currentPath.value);
     if (result.success) {
       files.value = result.files.sort((a, b) => {
-        if (a.type === 'directory' && b.type !== 'directory') return -1;
-        if (a.type !== 'directory' && b.type === 'directory') return 1;
+        if (a.type === 'directory' && b.type !== 'directory') {return -1;}
+        if (a.type !== 'directory' && b.type === 'directory') {return 1;}
         return a.name.localeCompare(b.name);
       });
       connectionStatus.value = 'online';
@@ -446,12 +446,12 @@ async function loadDir() {
 async function autoReconnectSftp() {
   const MAX_RETRIES = 2
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 1) await new Promise(r => setTimeout(r, 1500))
+    if (attempt > 1) {await new Promise(r => setTimeout(r, 1500))}
     try {
       const isConnected = await getTauriAPI().isServerConnected(props.server.id)
       if (!isConnected) {
         const connResult = await getTauriAPI().connectServer(props.server.id)
-        if (!connResult?.success) throw new Error(connResult?.error || 'SSH 连接失败')
+        if (!connResult?.success) {throw new Error(connResult?.error || 'SSH 连接失败')}
       }
       // 重连成功，刷新目录
       await loadDir()
@@ -467,7 +467,7 @@ async function autoReconnectSftp() {
 }
 
 function goUp() {
-  if (currentPath.value === '/') return;
+  if (currentPath.value === '/') {return;}
   const parts = currentPath.value.split('/').filter(Boolean);
   parts.pop();
   currentPath.value = '/' + parts.join('/');
@@ -534,7 +534,7 @@ async function downloadFile(file) {
 
 async function uploadFolder() {
   const result = await getTauriAPI().showOpenDialogForDirs()
-  if (result.canceled || !result.filePaths?.length) return
+  if (result.canceled || !result.filePaths?.length) {return}
 
   const localDirPath = result.filePaths[0]
   const folderName = localDirPath.split('/').pop() || localDirPath.split('\\').pop() || 'unknown'
@@ -564,12 +564,12 @@ async function uploadFolder() {
 
 async function uploadFile() {
   const result = await getTauriAPI().showOpenDialog()
-  if (result.canceled || !result.filePaths?.length) return
+  if (result.canceled || !result.filePaths?.length) {return}
   await doUpload(result.filePaths)
 }
 
 async function doUpload(filePaths: string[]) {
-  if (isUploading.value || filePaths.length === 0) return
+  if (isUploading.value || filePaths.length === 0) {return}
   isUploading.value = true
 
   try {
@@ -598,7 +598,7 @@ async function doUpload(filePaths: string[]) {
     }
 
     uploadProgress.value = null
-    if (successCount > 0) toast.success(`成功上传 ${successCount} 个文件`)
+    if (successCount > 0) {toast.success(`成功上传 ${successCount} 个文件`)}
     await loadDir()
   } catch (error) {
     uploadProgress.value = null
@@ -619,21 +619,21 @@ function onDragLeave(event: DragEvent) {
 async function onDrop(event: DragEvent) {
   isDragOver.value = false
   const dt = event.dataTransfer
-  if (!dt || !dt.items) return
+  if (!dt || !dt.items) {return}
 
   // 收集所有拖拽条目
   const entries = []
   for (let i = 0; i < dt.items.length; i++) {
     const entry = dt.items[i].webkitGetAsEntry?.()
-    if (entry) entries.push(entry)
+    if (entry) {entries.push(entry)}
   }
-  if (entries.length === 0) return
+  if (entries.length === 0) {return}
 
   await doDragUpload(entries)
 }
 
 async function doDragUpload(entries) {
-  if (!entries || entries.length === 0) return
+  if (!entries || entries.length === 0) {return}
 
   isUploading.value = true
   uploadFailed.value = false
@@ -698,7 +698,7 @@ async function doDragUpload(entries) {
     }
 
     uploadProgress.value = null
-    if (successCount > 0) toast.success(`成功上传 ${successCount} 个文件`)
+    if (successCount > 0) {toast.success(`成功上传 ${successCount} 个文件`)}
     await loadDir()
   } catch (error: any) {
     uploadProgress.value = null
@@ -730,7 +730,7 @@ async function retryUpload() {
 let currentPaths: string[] = []
 
 async function doDragUploadFromPaths(paths: string[]) {
-  if (!paths?.length) return
+  if (!paths?.length) {return}
   currentPaths = paths
 
   isUploading.value = true
@@ -769,7 +769,7 @@ async function doDragUploadFromPaths(paths: string[]) {
     }
 
     uploadProgress.value = null
-    if (successCount > 0) toast.success(`成功上传 ${successCount} 个文件`)
+    if (successCount > 0) {toast.success(`成功上传 ${successCount} 个文件`)}
     await loadDir()
   } catch (error: any) {
     uploadProgress.value = null
@@ -818,7 +818,7 @@ async function deleteFile(file) {
 }
 
 async function confirmDelete() {
-  if (!deleteTarget.value) return;
+  if (!deleteTarget.value) {return;}
   const file = deleteTarget.value;
   showDeleteConfirm.value = false;
   deleteTarget.value = null;
@@ -835,16 +835,16 @@ async function confirmDelete() {
 }
 
 function formatSize(size) {
-  if (size === undefined || size === null) return '-';
-  if (size === 0) return '0 B';
-  if (size < 1024) return size + ' B';
-  if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KB';
-  if (size < 1024 * 1024 * 1024) return (size / 1024 / 1024).toFixed(1) + ' MB';
+  if (size === undefined || size === null) {return '-';}
+  if (size === 0) {return '0 B';}
+  if (size < 1024) {return size + ' B';}
+  if (size < 1024 * 1024) {return (size / 1024).toFixed(1) + ' KB';}
+  if (size < 1024 * 1024 * 1024) {return (size / 1024 / 1024).toFixed(1) + ' MB';}
   return (size / 1024 / 1024 / 1024).toFixed(1) + ' GB';
 }
 
 function formatDate(dateStr) {
-  if (!dateStr) return '-';
+  if (!dateStr) {return '-';}
   try {
     return new Date(dateStr).toLocaleString('zh-CN', {
       year: 'numeric',

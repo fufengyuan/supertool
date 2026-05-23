@@ -87,11 +87,11 @@ const similarChars = '0O1lI|'
 
 const charset = computed(() => {
   let chars = ''
-  if (uppercase.value) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  if (lowercase.value) chars += 'abcdefghijklmnopqrstuvwxyz'
-  if (digits.value) chars += '0123456789'
-  if (symbols.value) chars += '!@#$%^&*()_+-=[]{}|;:,.<>?/~`'
-  if (spaces.value) chars += ' '
+  if (uppercase.value) {chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'}
+  if (lowercase.value) {chars += 'abcdefghijklmnopqrstuvwxyz'}
+  if (digits.value) {chars += '0123456789'}
+  if (symbols.value) {chars += '!@#$%^&*()_+-=[]{}|;:,.<>?/~`'}
+  if (spaces.value) {chars += ' '}
 
   if (excludeSimilar.value) {
     for (const c of similarChars) {
@@ -105,12 +105,12 @@ const charset = computed(() => {
 const hasCharset = computed(() => charset.value.length > 0)
 
 const resultCount = computed(() => {
-  if (!results.value) return 0
+  if (!results.value) {return 0}
   return results.value.split(getSeparator()).length
 })
 
 const totalChars = computed(() => {
-  if (!results.value) return 0
+  if (!results.value) {return 0}
   return results.value.replace(/\n/g, '').length
 })
 
@@ -153,7 +153,7 @@ function generate() {
 }
 
 async function copyResults() {
-  if (!results.value) return
+  if (!results.value) {return}
   await copyText(results.value, toast)
 }
 

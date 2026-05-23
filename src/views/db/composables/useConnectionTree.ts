@@ -87,13 +87,13 @@ function getTableTooltip(connId: string, table: string): string {
 }
 
 async function loadTableComments(connId: string, dbName: string, tables: string[]) {
-  if (!tables || tables.length === 0) return
+  if (!tables || tables.length === 0) {return}
   const conn = props.sortedConnections.find(c => c.id === connId)
-  if (!conn || conn.type === 'redis') return
+  if (!conn || conn.type === 'redis') {return}
 
   // Skip if already loaded for this db
   const loadKey = `${connId}:${dbName}`
-  if (loadingTableComments.value[loadKey]) return
+  if (loadingTableComments.value[loadKey]) {return}
   loadingTableComments.value[loadKey] = true
 
   try {
@@ -143,39 +143,39 @@ function hasMatchingTables(connId: string, dbName: string): boolean {
 
 function getFilteredDatabases(connId: string): string[] {
   const dbs = databases.value[connId] || []
-  if (!searchQuery.value.trim()) return dbs
+  if (!searchQuery.value.trim()) {return dbs}
   return dbs.filter(db => matchesSearch(db) || hasMatchingTables(connId, db))
 }
 
 function getFilteredTables(connId: string, dbName: string): string[] {
   const key = dbKey(connId, dbName)
   const tables = dbTables.value[key] || []
-  if (!searchQuery.value.trim()) return tables
+  if (!searchQuery.value.trim()) {return tables}
   return tables.filter(t => matchesSearch(t))
 }
 
 function getFilteredViews(connId: string, dbName: string): string[] {
   const key = dbKey(connId, dbName)
   const views = dbViews.value[key] || []
-  if (!searchQuery.value.trim()) return views
+  if (!searchQuery.value.trim()) {return views}
   return views.filter(v => matchesSearch(v))
 }
 
 function getFilteredRedisDatabases(connId: string): Array<{ db: number; keys: number }> {
   const dbs = redisDatabases.value[connId] || []
-  if (!searchQuery.value.trim()) return dbs
+  if (!searchQuery.value.trim()) {return dbs}
   return dbs.filter(redisDb => {
     const rk = redisDbKey(connId, redisDb.db)
     const tree = redisKeyTrees.value[rk]
-    if (!tree) return false
+    if (!tree) {return false}
     return treeHasMatchingKey(tree)
   })
 }
 
 function treeHasMatchingKey(node: RedisTreeNode): boolean {
-  if (node.isLeaf && node.key) return matchesSearch(node.key)
+  if (node.isLeaf && node.key) {return matchesSearch(node.key)}
   for (const child of node.children.values()) {
-    if (treeHasMatchingKey(child)) return true
+    if (treeHasMatchingKey(child)) {return true}
   }
   return false
 }
@@ -187,9 +187,9 @@ function filterTreeNode(node: RedisTreeNode): RedisTreeNode | null {
   const filteredChildren = new Map<string, RedisTreeNode>()
   for (const [seg, child] of node.children.entries()) {
     const filtered = filterTreeNode(child)
-    if (filtered) filteredChildren.set(seg, filtered)
+    if (filtered) {filteredChildren.set(seg, filtered)}
   }
-  if (filteredChildren.size === 0) return null
+  if (filteredChildren.size === 0) {return null}
   return {
     ...node,
     children: filteredChildren,
@@ -208,7 +208,7 @@ function countLeaves(children: Map<string, RedisTreeNode>): number {
 // ============ Search Helpers ============
 
 function matchesSearch(text: string): boolean {
-  if (!searchQuery.value.trim()) return true
+  if (!searchQuery.value.trim()) {return true}
   return text.toLowerCase().includes(searchQuery.value.toLowerCase())
 }
 
@@ -344,11 +344,11 @@ function onToggleRedisDatabase(connId: string, dbIndex: number) {
 }
 
 async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: string, isExpanded: boolean) {
-  if (!isExpanded) return // Only load on expand
+  if (!isExpanded) {return} // Only load on expand
   
   const key = redisDbKey(connId, dbIndex)
   const root = redisKeyTrees.value[key]
-  if (!root) return
+  if (!root) {return}
   
   // Find the target node
   const parts = folderPath.split(':')
@@ -362,7 +362,7 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
   }
   
   // Check if already loaded (children exist or isLeaf)
-  if (targetNode.children.size > 0) return
+  if (targetNode.children.size > 0) {return}
   
   // Load children
   const loadingKey = `loading:${key}:${folderPath}`
@@ -370,7 +370,7 @@ async function onToggleRedisFolder(connId: string, dbIndex: number, folderPath: 
   
   try {
     const conn = props.sortedConnections.find(c => c.id === connId)
-    if (conn) await ensureConnected(conn)
+    if (conn) {await ensureConnected(conn)}
     
     const prefix = folderPath + ':'
     const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, prefix)
@@ -438,7 +438,7 @@ function mergeKeysIntoTree(
     // Folders first, then leaves; alphabetical within groups
     const aIsFolder = !a[1].isLeaf
     const bIsFolder = !b[1].isLeaf
-    if (aIsFolder !== bIsFolder) return aIsFolder ? -1 : 1
+    if (aIsFolder !== bIsFolder) {return aIsFolder ? -1 : 1}
     return a[0].localeCompare(b[0])
   })
   tree.children = new Map(sortedEntries)
@@ -447,13 +447,13 @@ function mergeKeysIntoTree(
 function getRedisRootNodes(connId: string, dbIndex: number): RedisTreeNode[] {
   const rk = redisDbKey(connId, dbIndex)
   const tree = redisKeyTrees.value[rk]
-  if (!tree) return []
+  if (!tree) {return []}
 
   const node = searchQuery.value.trim() ? filterTreeNode(tree) : tree
-  if (!node) return []
+  if (!node) {return []}
 
   // If search narrowed down to a single leaf, show it
-  if (node.isLeaf) return [node]
+  if (node.isLeaf) {return [node]}
 
   return Array.from(node.children.values())
 }
@@ -698,7 +698,7 @@ watch(
     for (const item of items) {
       if (item.expanded && !databases.value[item.id] && !loadingDatabases.value[item.id]) {
         const conn = props.sortedConnections.find(c => c.id === item.id)
-        if (!conn) continue
+        if (!conn) {continue}
 
         // Redis doesn't have databases
         if (conn.type === 'redis') {
@@ -746,7 +746,7 @@ watch(
 // Load tables when database Tables folder expands
 watch(
   () => props.sortedConnections.flatMap(conn => {
-    if (conn.type === 'redis') return []
+    if (conn.type === 'redis') {return []}
     const dbList = databases.value[conn.id] || []
     return dbList.map(dbName => ({
       connId: conn.id,
@@ -785,7 +785,7 @@ watch(
 // Load views when database Views folder expands
 watch(
   () => props.sortedConnections.flatMap(conn => {
-    if (conn.type === 'redis') return []
+    if (conn.type === 'redis') {return []}
     const dbList = databases.value[conn.id] || []
     return dbList.map(dbName => ({
       connId: conn.id,
@@ -825,7 +825,7 @@ watch(
   async (items) => {
     for (const item of items) {
       const conn = props.sortedConnections.find(c => c.id === item.id)
-      if (!conn || conn.type !== 'redis') continue
+      if (!conn || conn.type !== 'redis') {continue}
 
       if (item.expanded && !redisDatabases.value[item.id] && !loadingRedisDatabases.value[item.id]) {
         loadingRedisDatabases.value[item.id] = true
@@ -940,12 +940,12 @@ watch(redisDbExpansionState, async (items) => {
 
 async function loadMoreRedisKeys(connId: string, dbIndex: number) {
   const key = redisDbKey(connId, dbIndex)
-  if (loadingRedisKeyTrees.value[key] || !redisDbHasMore.value[key]) return
+  if (loadingRedisKeyTrees.value[key] || !redisDbHasMore.value[key]) {return}
   
   loadingRedisKeyTrees.value[key] = true
   try {
     const conn = props.sortedConnections.find(c => c.id === connId)
-    if (conn) await ensureConnected(conn)
+    if (conn) {await ensureConnected(conn)}
     
     // Incremental load: loadMore = true
     const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, '')
@@ -994,16 +994,16 @@ async function refreshTables(connId: string) {
 
     try {
       const conn = props.sortedConnections.find(c => c.id === connId)
-      if (!conn) return
+      if (!conn) {return}
 
       if (conn.type === 'redis') {
         // Clear all Redis caches for this connection
         delete redisDatabases.value[connId]
         delete loadingRedisDatabases.value[connId]
         const dbList = Object.keys(redisKeyTrees.value).filter(k => k.startsWith(`${connId}:`))
-        for (const key of dbList) delete redisKeyTrees.value[key]
+        for (const key of dbList) {delete redisKeyTrees.value[key]}
         const loadingKeys = Object.keys(loadingRedisKeyTrees.value).filter(k => k.startsWith(`${connId}:`))
-        for (const key of loadingKeys) delete loadingRedisKeyTrees.value[key]
+        for (const key of loadingKeys) {delete loadingRedisKeyTrees.value[key]}
 
         // Re-load Redis databases
         try {

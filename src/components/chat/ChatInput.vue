@@ -372,7 +372,7 @@ function parseModelName(fullName: string): { provider: string | null; name: stri
 
 // 获取供应商显示名
 function providerLabel(provider: string | null): string {
-  if (!provider) return '其他';
+  if (!provider) {return '其他';}
   return PROVIDER_LABELS[provider] || provider;
 }
 
@@ -392,7 +392,7 @@ const modelGroups = computed<ModelGroup[]>(() => {
   for (const m of allModels) {
     const { provider } = parseModelName(m);
     const key = provider || '__other__';
-    if (!groups.has(key)) groups.set(key, []);
+    if (!groups.has(key)) {groups.set(key, []);}
     groups.get(key)!.push(m);
   }
   const result: ModelGroup[] = [];
@@ -410,7 +410,7 @@ const modelGroups = computed<ModelGroup[]>(() => {
 
 // 当前选中模型的供应商标签
 const currentProviderLabel = computed(() => {
-  if (!selectedModel.value && !defaultModel.value) return '';
+  if (!selectedModel.value && !defaultModel.value) {return '';}
   const modelName = selectedModel.value || defaultModel.value || '';
   const { provider } = parseModelName(modelName);
   return providerLabel(provider);
@@ -421,7 +421,7 @@ const filteredModelGroups = computed<ModelGroup[]>(() => {
   const query = modelSearchQuery.value.toLowerCase();
   const groups = modelGroups.value;
   
-  if (!query) return groups;
+  if (!query) {return groups;}
   
   return groups.map(group => {
     const matchingModels = group.models.filter(m =>
@@ -470,7 +470,7 @@ const setModel = async (modelName: string) => {
 
 // 添加模型
 const addModel = async () => {
-  if (!newModelName.value.trim()) return;
+  if (!newModelName.value.trim()) {return;}
   try {
     const result = await invoke<{ success: boolean; customModels: string[] }>('agent_add_model', {
       model: newModelName.value.trim(),
@@ -577,7 +577,7 @@ const selectFromFavorite = (folder: string, type: 'file' | 'folder') => {
 // 移除已选择的路径
 const removeAttachedPath = (idx: number) => {
   const item = attachedPaths.value[idx];
-  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  if (item?.previewUrl) {URL.revokeObjectURL(item.previewUrl);}
   attachedPaths.value.splice(idx, 1);
   emit('pathsChanged', [...attachedPaths.value]);
   nextTick(() => adjustTextareaHeight());
@@ -585,7 +585,7 @@ const removeAttachedPath = (idx: number) => {
 
 // 发送消息
 const handleSend = () => {
-  if (!inputText.value.trim()) return;
+  if (!inputText.value.trim()) {return;}
   
   const text = inputText.value.trim();
   const paths = [...attachedPaths.value];
@@ -596,7 +596,7 @@ const handleSend = () => {
   
   // 释放图片预览的 object URL
   for (const item of attachedPaths.value) {
-    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    if (item.previewUrl) {URL.revokeObjectURL(item.previewUrl);}
   }
   attachedPaths.value = [];
   emit('pathsChanged', []);

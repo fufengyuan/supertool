@@ -28,8 +28,8 @@ const props = withDefaults(defineProps<{
 })
 
 const className = computed(() => {
-  if (typeof props.class === 'string') return [props.class, 'shrink-0']
-  if (Array.isArray(props.class)) return [...props.class, 'shrink-0']
+  if (typeof props.class === 'string') {return [props.class, 'shrink-0']}
+  if (Array.isArray(props.class)) {return [...props.class, 'shrink-0']}
   return { ...props.class, 'shrink-0': true }
 })
 const iconSize = computed(() => Number(props.size))

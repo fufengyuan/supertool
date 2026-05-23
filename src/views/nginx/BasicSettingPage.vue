@@ -142,7 +142,7 @@ function removeRow(index: number) {
 }
 
 function moveUp(index: number) {
-  if (index <= 0) return
+  if (index <= 0) {return}
   const arr = settings.value
   const temp = arr[index]
   arr[index] = arr[index - 1]
@@ -152,7 +152,7 @@ function moveUp(index: number) {
 }
 
 function moveDown(index: number) {
-  if (index >= settings.value.length - 1) return
+  if (index >= settings.value.length - 1) {return}
   const arr = settings.value
   const temp = arr[index]
   arr[index] = arr[index + 1]
@@ -172,7 +172,7 @@ function markDirty() {
 }
 
 async function loadSettings() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const data = await api.getBasicSettings(props.presetId)

@@ -130,7 +130,7 @@ const scanDirsText = ref('');
 const loadScanDirs = async () => {
   try {
     const saved = await getTauriAPI().getSetting('git_scan_directories');
-    if (saved) scanDirsText.value = saved;
+    if (saved) {scanDirsText.value = saved;}
   } catch {}
 };
 loadScanDirs();
@@ -148,7 +148,7 @@ const manualPathValid = ref(false);
 const manualPathInvalid = ref('');
 
 const filteredRepos = computed(() => {
-  if (!searchQuery.value) return repos.value;
+  if (!searchQuery.value) {return repos.value;}
   const q = searchQuery.value.toLowerCase();
   return repos.value.filter(
     (r) => r.name.toLowerCase().includes(q) || r.relativePath.toLowerCase().includes(q) || r.url.toLowerCase().includes(q)
@@ -156,7 +156,7 @@ const filteredRepos = computed(() => {
 });
 
 const loadRepos = async () => {
-  if (repos.value.length > 0 || loading.value) return;
+  if (repos.value.length > 0 || loading.value) {return;}
   loading.value = true;
   try {
     console.log("[GitRepoSelector.vue] loadRepos() called")

@@ -14,10 +14,10 @@ import en from "./locales/en";
 function getDefaultLocale(): "zh-CN" | "en" {
   try {
     const saved = localStorage.getItem("locale");
-    if (saved && ["zh-CN", "en"].includes(saved)) return saved as "zh-CN" | "en";
+    if (saved && ["zh-CN", "en"].includes(saved)) {return saved as "zh-CN" | "en";}
   } catch {}
   const lang = navigator.language;
-  if (lang.startsWith("zh")) return "zh-CN";
+  if (lang.startsWith("zh")) {return "zh-CN";}
   return "en";
 }
 
@@ -53,7 +53,7 @@ const logQueue: Array<{ level: string; prefix: string; message: string }> = [];
 let flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 const flushLogs = async () => {
-  if (logQueue.length === 0) return;
+  if (logQueue.length === 0) {return;}
   const batch = logQueue.splice(0);
   try {
     const { invoke } = await import("@tauri-apps/api/core");
@@ -70,7 +70,7 @@ const flushLogs = async () => {
 };
 
 const scheduleFlush = () => {
-  if (flushTimer) return;
+  if (flushTimer) {return;}
   flushTimer = setTimeout(() => {
     flushTimer = null;
     flushLogs();
@@ -80,7 +80,7 @@ const scheduleFlush = () => {
 const queueLog = (level: string, args: any[]) => {
   const message = args
     .map((a) => {
-      if (typeof a === "string") return a;
+      if (typeof a === "string") {return a;}
       try { return JSON.stringify(a); } catch { return String(a); }
     })
     .join(" ");
@@ -110,7 +110,7 @@ console.error = function (...args: any[]) {
 };
 
 window.addEventListener("beforeunload", () => {
-  if (logQueue.length > 0) flushLogs();
+  if (logQueue.length > 0) {flushLogs();}
 });
 
 // Mount

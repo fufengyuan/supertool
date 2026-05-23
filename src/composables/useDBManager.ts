@@ -98,7 +98,7 @@ export function useDBManager() {
   // Load connections from Tauri settings
   const loadConnections = async () => {
     console.log("[useDBManager.ts] loadConnections() called")
-    if (isLoaded.value) return
+    if (isLoaded.value) {return}
     try {
       const raw = await getTauriAPI().getSetting('db_connections')
       if (raw) {
@@ -133,7 +133,7 @@ export function useDBManager() {
   // Auto-save on changes — debounce 避免频繁 IPC 写磁盘
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   watch(connections, () => {
-    if (saveTimer) clearTimeout(saveTimer)
+    if (saveTimer) {clearTimeout(saveTimer)}
     saveTimer = setTimeout(saveConnections, 300)
   }, { deep: true })
 
@@ -215,14 +215,14 @@ export function useDBManager() {
 
   const toggleConnection = (id: string) => {
     const s = expandedState.value.connections
-    if (s.has(id)) s.delete(id)
-    else s.add(id)
+    if (s.has(id)) {s.delete(id)}
+    else {s.add(id)}
   }
 
   const toggleTables = (connId: string) => {
     const s = expandedState.value.tables
-    if (s.has(connId)) s.delete(connId)
-    else s.add(connId)
+    if (s.has(connId)) {s.delete(connId)}
+    else {s.add(connId)}
   }
 
   const isConnectionExpanded = (id: string) => expandedState.value.connections.has(id)
@@ -233,8 +233,8 @@ export function useDBManager() {
   const toggleDatabase = (connId: string, dbName: string) => {
     const key = dbKey(connId, dbName)
     const s = expandedState.value.databases
-    if (s.has(key)) s.delete(key)
-    else s.add(key)
+    if (s.has(key)) {s.delete(key)}
+    else {s.add(key)}
   }
   const isDatabaseExpanded = (connId: string, dbName: string) =>
     expandedState.value.databases.has(dbKey(connId, dbName))
@@ -242,8 +242,8 @@ export function useDBManager() {
   const toggleDbTables = (connId: string, dbName: string) => {
     const key = dbKey(connId, dbName)
     const s = expandedState.value.dbTables
-    if (s.has(key)) s.delete(key)
-    else s.add(key)
+    if (s.has(key)) {s.delete(key)}
+    else {s.add(key)}
   }
   const areDbTablesExpanded = (connId: string, dbName: string) =>
     expandedState.value.dbTables.has(dbKey(connId, dbName))
@@ -251,8 +251,8 @@ export function useDBManager() {
   const toggleDbViews = (connId: string, dbName: string) => {
     const key = dbKey(connId, dbName)
     const s = expandedState.value.dbViews
-    if (s.has(key)) s.delete(key)
-    else s.add(key)
+    if (s.has(key)) {s.delete(key)}
+    else {s.add(key)}
   }
   const areDbViewsExpanded = (connId: string, dbName: string) =>
     expandedState.value.dbViews.has(dbKey(connId, dbName))
@@ -262,8 +262,8 @@ export function useDBManager() {
   const toggleRedisDatabase = (connId: string, dbIndex: number) => {
     const key = redisDbKey(connId, dbIndex)
     const s = expandedState.value.redisDatabases
-    if (s.has(key)) s.delete(key)
-    else s.add(key)
+    if (s.has(key)) {s.delete(key)}
+    else {s.add(key)}
   }
   const isRedisDatabaseExpanded = (connId: string, dbIndex: number) =>
     expandedState.value.redisDatabases.has(redisDbKey(connId, dbIndex))
@@ -272,8 +272,8 @@ export function useDBManager() {
   const toggleRedisFolder = (connId: string, dbIndex: number, folderPath: string) => {
     const key = redisFolderKey(connId, dbIndex, folderPath)
     const s = expandedState.value.redisFolders
-    if (s.has(key)) s.delete(key)
-    else s.add(key)
+    if (s.has(key)) {s.delete(key)}
+    else {s.add(key)}
   }
   const isRedisFolderExpanded = (connId: string, dbIndex: number, folderPath: string) =>
     expandedState.value.redisFolders.has(redisFolderKey(connId, dbIndex, folderPath))
@@ -328,7 +328,7 @@ export function useDBManager() {
 
   const closeTab = (tabId: string) => {
     const idx = tabs.value.findIndex(t => t.id === tabId)
-    if (idx === -1) return
+    if (idx === -1) {return}
 
     tabs.value.splice(idx, 1)
 

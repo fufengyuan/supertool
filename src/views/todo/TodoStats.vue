@@ -68,7 +68,7 @@ const getYesterdayStr = (): string => {
 const completedToday = computed(() => {
   const todayStr = getTodayStr();
   return todoStore.todos.filter((todo) => {
-    if (!todo.completed || !todo.updatedAt) return false;
+    if (!todo.completed || !todo.updatedAt) {return false;}
     const updatedDate = new Date(todo.updatedAt);
     updatedDate.setHours(0, 0, 0, 0);
     return updatedDate.toISOString() === todayStr;
@@ -79,7 +79,7 @@ const completedToday = computed(() => {
 const completedYesterday = computed(() => {
   const yesterdayStr = getYesterdayStr();
   return todoStore.todos.filter((todo) => {
-    if (!todo.completed || !todo.updatedAt) return false;
+    if (!todo.completed || !todo.updatedAt) {return false;}
     const updatedDate = new Date(todo.updatedAt);
     updatedDate.setHours(0, 0, 0, 0);
     return updatedDate.toISOString() === yesterdayStr;
@@ -97,7 +97,7 @@ const completedThisWeek = computed(() => {
   firstDayOfWeek.setHours(0, 0, 0, 0);
 
   return todoStore.todos.filter((todo) => {
-    if (!todo.completed || !todo.updatedAt) return false;
+    if (!todo.completed || !todo.updatedAt) {return false;}
     const updatedDate = new Date(todo.updatedAt);
     updatedDate.setHours(0, 0, 0, 0);
     return updatedDate >= firstDayOfWeek;
@@ -120,13 +120,13 @@ const totalThisWeek = computed(() => {
 
 // 本周完成率
 const weeklyCompletionRate = computed(() => {
-  if (totalThisWeek.value === 0) return 0;
+  if (totalThisWeek.value === 0) {return 0;}
   return Math.round((completedThisWeek.value / totalThisWeek.value) * 100);
 });
 
 // 计算完成率
 const completionRate = computed(() => {
-  if (todoStore.todos.length === 0) return 0;
+  if (todoStore.todos.length === 0) {return 0;}
   const completed = todoStore.todos.filter((todo) => todo.completed).length;
   return Math.round((completed / todoStore.todos.length) * 100);
 });
@@ -158,7 +158,7 @@ const streak = computed(() => {
       count++;
     } else {
       // If today has no completions, skip and start counting from yesterday
-      if (i === 0) continue;
+      if (i === 0) {continue;}
       break;
     }
   }
@@ -181,17 +181,17 @@ const lowPriorityCount = computed(
 
 // 计算各优先级占比
 const highPriorityPercent = computed(() => {
-  if (todoStore.todos.length === 0) return 0;
+  if (todoStore.todos.length === 0) {return 0;}
   return (highPriorityCount.value / todoStore.todos.length) * 100;
 });
 
 const mediumPriorityPercent = computed(() => {
-  if (todoStore.todos.length === 0) return 0;
+  if (todoStore.todos.length === 0) {return 0;}
   return (mediumPriorityCount.value / todoStore.todos.length) * 100;
 });
 
 const lowPriorityPercent = computed(() => {
-  if (todoStore.todos.length === 0) return 0;
+  if (todoStore.todos.length === 0) {return 0;}
   return (lowPriorityCount.value / todoStore.todos.length) * 100;
 });
 
@@ -217,7 +217,7 @@ const topTags = computed<TagCloudItem[]>(() => {
 
   todoStore.todos.forEach((todo) => {
     const tag = todo.tag;
-    if (!tag || tag === 'custom') return;
+    if (!tag || tag === 'custom') {return;}
     if (!tagMap[tag]) {
       tagMap[tag] = 0;
     }
@@ -228,7 +228,7 @@ const topTags = computed<TagCloudItem[]>(() => {
     .sort(([, a], [, b]) => b - a)
     .slice(0, 5);
 
-  if (sorted.length === 0) return [];
+  if (sorted.length === 0) {return [];}
 
   const maxCount = sorted[0][1];
   const minCount = sorted[sorted.length - 1][1];

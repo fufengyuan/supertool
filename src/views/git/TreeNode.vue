@@ -85,13 +85,13 @@ const hasChildren = computed(() => {
 })
 
 const iconClass = computed(() => {
-  if (props.entry.isDir) return 'directory'
+  if (props.entry.isDir) {return 'directory'}
   const ext = props.entry.name.split('.').pop()?.toLowerCase() || ''
   return `file-${ext}`
 })
 
 function getFileIconName(name: string, isDir: boolean): string {
-  if (isDir) return 'folder'
+  if (isDir) {return 'folder'}
   const ext = name.split('.').pop()?.toLowerCase() || ''
   const iconMap: Record<string, string> = {
     'ts': 'file',
@@ -128,7 +128,7 @@ function handleClick() {
 
 async function toggleExpand() {
   const expandedPaths = expandedPathsRef?.value
-  if (!expandedPaths) return
+  if (!expandedPaths) {return}
   
   const path = props.entry.path
   
@@ -149,7 +149,7 @@ async function toggleExpand() {
 }
 
 async function loadChildren() {
-  if (!props.entry.isDir || isLoadingChildren.value) return
+  if (!props.entry.isDir || isLoadingChildren.value) {return}
   
   isLoadingChildren.value = true
   try {

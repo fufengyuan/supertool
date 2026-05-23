@@ -195,12 +195,12 @@ function resolveComponent(path: string): Component {
   const cleanPath = path.split('?')[0].split('#')[0]
   const tryPath = (p: string) => tabComponents[p]
   // 精确路径
-  if (tryPath(cleanPath)) return tabComponents[cleanPath]
+  if (tryPath(cleanPath)) {return tabComponents[cleanPath]}
   // 逐级回退（/agent/chat → /agent → /）
   const segs = cleanPath.split('/').filter(Boolean)
   for (let len = segs.length - 1; len >= 0; len--) {
     const p = '/' + segs.slice(0, len).join('/')
-    if (tryPath(p)) return tabComponents[p]
+    if (tryPath(p)) {return tabComponents[p]}
   }
   return tabComponents['/']
 }
@@ -293,7 +293,7 @@ async function toggleLan() {
     }
   }
   showLan.value = !showLan.value
-  if (!showLan.value) chatPeer.value = null
+  if (!showLan.value) {chatPeer.value = null}
 }
 
 function onOpenChat(peer: { id: string; name: string; avatar?: string; version?: string }) {

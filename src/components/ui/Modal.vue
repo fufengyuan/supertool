@@ -53,7 +53,7 @@ const dialogRef = ref<HTMLDialogElement | null>(null)
 
 watch(() => props.modelValue, (val) => {
   const el = dialogRef.value
-  if (!el) return
+  if (!el) {return}
   if (val) {
     el.showModal()
   } else {
@@ -68,6 +68,6 @@ function handleClose() {
 
 function close() {
   const el = dialogRef.value
-  if (el) el.close()
+  if (el) {el.close()}
 }
 </script>

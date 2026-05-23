@@ -37,13 +37,13 @@ const toast = useToast()
 const input = ref('')
 
 function parseWords(name: string): string[] {
-  if (!name.trim()) return []
+  if (!name.trim()) {return []}
   // Try to split by common separators first
   let s = name.trim()
   
   // If contains underscores, hyphens, spaces, or dots
   if (s.includes('_') || s.includes('-') || s.includes(' ') || s.includes('.')) {
-    return s.split(/[\s_\-\.]+/).filter(Boolean).map(w => w.toLowerCase())
+    return s.split(/[\s_\-.]+/).filter(Boolean).map(w => w.toLowerCase())
   }
   
   // Otherwise, try to split by camelCase/PascalCase boundaries
@@ -58,14 +58,14 @@ function parseWords(name: string): string[] {
       current += ch
     }
   }
-  if (current) words.push(current.toLowerCase())
+  if (current) {words.push(current.toLowerCase())}
   
   // Filter out empty strings
   return words.filter(Boolean)
 }
 
 function toCamelCase(words: string[]): string {
-  if (words.length === 0) return ''
+  if (words.length === 0) {return ''}
   return words[0] + words.slice(1).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('')
 }
 

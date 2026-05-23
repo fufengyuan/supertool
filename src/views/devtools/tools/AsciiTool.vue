@@ -78,7 +78,7 @@ interface CharInfo {
 }
 
 const results = computed<CharInfo[]>(() => {
-  if (!input.value) return []
+  if (!input.value) {return []}
   return Array.from(input.value).map(ch => {
     const code = ch.charCodeAt(0)
     return {

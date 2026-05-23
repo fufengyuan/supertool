@@ -184,7 +184,7 @@ const form = ref({
 })
 
 async function loadStreams() {
-  if (!props.presetId) return
+  if (!props.presetId) {return}
   loading.value = true
   try {
     const [strResult, upResult] = await Promise.all([
@@ -247,7 +247,7 @@ async function onSave() {
     if (editingStream.value) {
       await api.updateNginxStream(data)
       const idx = streams.value.findIndex((s) => s.id === data.id)
-      if (idx !== -1) streams.value[idx] = data
+      if (idx !== -1) {streams.value[idx] = data}
       toast.success('Stream 已更新')
     } else {
       const result = await api.addNginxStream(data)

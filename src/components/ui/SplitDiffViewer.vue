@@ -109,20 +109,20 @@ const copiedNew = ref(false)
 
 // 从 diff 中解析文件名（需要跳过 commit header）
 const oldFileName = computed(() => {
-  if (!props.diff) return ''
+  if (!props.diff) {return ''}
   // 找到 diff 开始的位置
   const diffStart = props.diff.indexOf('diff --git')
-  if (diffStart === -1) return '旧文件'
+  if (diffStart === -1) {return '旧文件'}
   const diffPart = props.diff.slice(diffStart)
   const match = diffPart.match(/^--- (.+)/m)
   return match ? match[1].replace('a/', '') : '旧文件'
 })
 
 const newFileName = computed(() => {
-  if (!props.diff) return ''
+  if (!props.diff) {return ''}
   // 找到 diff 开始的位置
   const diffStart = props.diff.indexOf('diff --git')
-  if (diffStart === -1) return '新文件'
+  if (diffStart === -1) {return '新文件'}
   const diffPart = props.diff.slice(diffStart)
   const match = diffPart.match(/^\+\+\+ (.+)/m)
   return match ? match[1].replace('b/', '') : '新文件'
@@ -132,24 +132,24 @@ const newFileName = computed(() => {
 // 策略：将删除行放左边，新增行放右边，上下文行两边都放
 // 优化：仅缩进变化的行对标记为 whitespace 类型，不显示为删除/新增
 const oldLines = computed(() => {
-  if (!props.diff) return []
+  if (!props.diff) {return []}
   return parseDiffLines(props.diff, 'old')
 })
 
 const newLines = computed(() => {
-  if (!props.diff) return []
+  if (!props.diff) {return []}
   return parseDiffLines(props.diff, 'new')
 })
 
 // 从 diff 中提取旧版本的完整内容（用于复制）
 const oldContent = computed(() => {
-  if (!props.diff) return ''
+  if (!props.diff) {return ''}
   return extractContentFromDiff(props.diff, 'old')
 })
 
 // 从 diff 中提取新版本的完整内容（用于复制）
 const newContent = computed(() => {
-  if (!props.diff) return ''
+  if (!props.diff) {return ''}
   return extractContentFromDiff(props.diff, 'new')
 })
 
@@ -232,7 +232,7 @@ function parseDiffLines(diff: string, side: 'old' | 'new') {
       const oldContent = pendingRemoves[i].content
       // 找第一个未被匹配的、内容相同的新行
       for (let j = 0; j < pendingAdds.length; j++) {
-        if (usedNewIdx.has(j)) continue
+        if (usedNewIdx.has(j)) {continue}
         const newContent = pendingAdds[j].content
         // 去除空白后比较内容
         if (oldContent.trim() === newContent.trim()) {

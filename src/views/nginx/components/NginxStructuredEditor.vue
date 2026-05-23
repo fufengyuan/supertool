@@ -309,16 +309,16 @@ const searchQuery = ref('')
 
 // Auto-expand matching blocks when searching
 watch(searchQuery, (q) => {
-  if (!q) return
+  if (!q) {return}
   const query = q.toLowerCase().trim()
-  if (!query) return
+  if (!query) {return}
 
   // Expand http blocks with matching servers
   const newExpandedHttp = new Set(expandedHttp.value)
   for (let hi = 0; hi < httpBlocks.value.length; hi++) {
     const servers = getServersFromHttp(hi)
     const hasMatch = servers.some(s => serverMatchesSearch(s, query))
-    if (hasMatch) newExpandedHttp.add(hi)
+    if (hasMatch) {newExpandedHttp.add(hi)}
   }
   expandedHttp.value = newExpandedHttp
 
@@ -335,11 +335,11 @@ watch(searchQuery, (q) => {
 // ===== Search Matching =====
 
 function serverMatchesSearch(server: ServerBlockSummary, q: string): boolean {
-  if (!q) return true
-  if (server.serverName.some(n => n.toLowerCase().includes(q))) return true
-  if (server.listen.some(l => l.toLowerCase().includes(q))) return true
-  if (server.root.toLowerCase().includes(q)) return true
-  if (server.locations.some(loc => loc.path.toLowerCase().includes(q))) return true
+  if (!q) {return true}
+  if (server.serverName.some(n => n.toLowerCase().includes(q))) {return true}
+  if (server.listen.some(l => l.toLowerCase().includes(q))) {return true}
+  if (server.root.toLowerCase().includes(q)) {return true}
+  if (server.locations.some(loc => loc.path.toLowerCase().includes(q))) {return true}
   return false
 }
 
@@ -348,16 +348,16 @@ function serverListMatchesSearch(servers: ServerBlockSummary[], q: string): bool
 }
 
 function upstreamMatchesSearch(up: UpstreamSummary, q: string): boolean {
-  if (!q) return true
-  if (up.name.toLowerCase().includes(q)) return true
-  if (up.servers.some(s => s.address.toLowerCase().includes(q))) return true
+  if (!q) {return true}
+  if (up.name.toLowerCase().includes(q)) {return true}
+  if (up.servers.some(s => s.address.toLowerCase().includes(q))) {return true}
   return false
 }
 
 function blockMatchesSearch(block: NginxBlock, q: string): boolean {
-  if (!q) return true
-  if (block.name.toLowerCase().includes(q)) return true
-  if (block.directives.some(d => d.name.toLowerCase().includes(q) || d.params.some(p => p.toLowerCase().includes(q)))) return true
+  if (!q) {return true}
+  if (block.name.toLowerCase().includes(q)) {return true}
+  if (block.directives.some(d => d.name.toLowerCase().includes(q) || d.params.some(p => p.toLowerCase().includes(q)))) {return true}
   return false
 }
 
@@ -367,7 +367,7 @@ const totalDisplayBlocks = computed(() => {
 
 const matchCount = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return totalDisplayBlocks.value
+  if (!q) {return totalDisplayBlocks.value}
   let count = 0
   count += topServerBlocks.value.filter(s => serverMatchesSearch(s, q)).length
   count += upstreamBlocks.value.filter(u => upstreamMatchesSearch(u, q)).length
@@ -441,9 +441,9 @@ const totalUpstreamCount = computed(() => upstreamBlocks.value.length)
 
 const summaryText = computed(() => {
   const parts: string[] = []
-  if (totalServerCount.value > 0) parts.push(`${totalServerCount.value} server`)
-  if (totalUpstreamCount.value > 0) parts.push(`${totalUpstreamCount.value} upstream`)
-  if (blocks.value.length > 0) parts.push(`${blocks.value.length} 区块`)
+  if (totalServerCount.value > 0) {parts.push(`${totalServerCount.value} server`)}
+  if (totalUpstreamCount.value > 0) {parts.push(`${totalUpstreamCount.value} upstream`)}
+  if (blocks.value.length > 0) {parts.push(`${blocks.value.length} 区块`)}
   return parts.join(' · ') || '无配置'
 })
 
@@ -451,7 +451,7 @@ const summaryText = computed(() => {
 
 function getServersFromHttp(httpIdx: number): ServerBlockSummary[] {
   const httpBlock = httpBlocks.value[httpIdx]
-  if (!httpBlock) return []
+  if (!httpBlock) {return []}
   return httpBlock.blocks
     .filter(b => b.type === 'server' && b.isParsed)
     .map(b => summarizeServerBlock(b))
@@ -459,7 +459,7 @@ function getServersFromHttp(httpIdx: number): ServerBlockSummary[] {
 
 function getOtherBlocksFromHttp(httpIdx: number): NginxBlock[] {
   const httpBlock = httpBlocks.value[httpIdx]
-  if (!httpBlock) return []
+  if (!httpBlock) {return []}
   return httpBlock.blocks.filter(b => b.type !== 'server')
 }
 
@@ -487,7 +487,7 @@ function emitUpdate() {
 
 /** Returns CSS classes: dim block when search is active and block doesn't match */
 function searchDimClass(matches: boolean): Record<string, boolean> {
-  if (!searchQuery.value) return {}
+  if (!searchQuery.value) {return {}}
   return {
     'opacity-30 pointer-events-none': !matches,
     'transition-opacity duration-200': true,
@@ -498,19 +498,19 @@ function searchDimClass(matches: boolean): Record<string, boolean> {
 
 function toggleHttp(idx: number) {
   const s = new Set(expandedHttp.value)
-  if (s.has(idx)) s.delete(idx); else s.add(idx)
+  if (s.has(idx)) {s.delete(idx);} else {s.add(idx)}
   expandedHttp.value = s
 }
 
 function toggleUpstream(idx: number) {
   const s = new Set(expandedUpstream.value)
-  if (s.has(idx)) s.delete(idx); else s.add(idx)
+  if (s.has(idx)) {s.delete(idx);} else {s.add(idx)}
   expandedUpstream.value = s
 }
 
 function toggleOtherBlock(idx: number) {
   const s = new Set(collapsedOther.value)
-  if (s.has(idx)) s.delete(idx); else s.add(idx)
+  if (s.has(idx)) {s.delete(idx);} else {s.add(idx)}
   collapsedOther.value = s
 }
 
@@ -551,26 +551,26 @@ function addDirectiveToHttp(hi: number) {
 
 function removeServerFromHttp(hi: number, si: number) {
   const httpBlock = httpBlocks.value[hi]
-  if (!httpBlock) return
+  if (!httpBlock) {return}
   const serverBlocks = httpBlock.blocks.filter(b => b.type === 'server')
   if (si >= 0 && si < serverBlocks.length) {
     const idx = httpBlock.blocks.indexOf(serverBlocks[si])
-    if (idx >= 0) httpBlock.blocks.splice(idx, 1)
+    if (idx >= 0) {httpBlock.blocks.splice(idx, 1)}
     emitUpdate()
   }
 }
 
 function addLocationToServerFromHttp(hi: number, si: number) {
   const block = getServersFromHttp(hi)[si]?.block
-  if (!block) return
+  if (!block) {return}
   const locBlock = parseNginxConfig(`location / {\n    try_files $uri $uri/ =404;\n}\n`).blocks[0]
-  if (locBlock) block.blocks.push(locBlock)
+  if (locBlock) {block.blocks.push(locBlock)}
   emitUpdate()
 }
 
 function addOtherDirectiveToServerFromHttp(hi: number, si: number) {
   const block = getServersFromHttp(hi)[si]?.block
-  if (!block) return
+  if (!block) {return}
   block.directives.push(createDirective('new_directive', ['value']))
   emitUpdate()
 }
@@ -581,32 +581,32 @@ function removeTopServer(si: number) {
   const serverBlocksArr = blocks.value.filter(b => b.type === 'server')
   if (si >= 0 && si < serverBlocksArr.length) {
     const idx = blocks.value.indexOf(serverBlocksArr[si])
-    if (idx >= 0) blocks.value.splice(idx, 1)
+    if (idx >= 0) {blocks.value.splice(idx, 1)}
     emitUpdate()
   }
 }
 
 function addLocationToTopServer(si: number) {
   const block = topServerBlocks.value[si]?.block
-  if (!block) return
+  if (!block) {return}
   const locBlock = parseNginxConfig(`location / {\n    try_files $uri $uri/ =404;\n}\n`).blocks[0]
-  if (locBlock) block.blocks.push(locBlock)
+  if (locBlock) {block.blocks.push(locBlock)}
   emitUpdate()
 }
 
 function addOtherDirectiveToTopServer(si: number) {
   const block = topServerBlocks.value[si]?.block
-  if (!block) return
+  if (!block) {return}
   block.directives.push(createDirective('new_directive', ['value']))
   emitUpdate()
 }
 
 function removeLocationFromServerBlock(block: NginxBlock, li: number) {
-  if (!block) return
+  if (!block) {return}
   const locBlocks = block.blocks.filter(b => b.type === 'location')
   if (li >= 0 && li < locBlocks.length) {
     const idx = block.blocks.indexOf(locBlocks[li])
-    if (idx >= 0) block.blocks.splice(idx, 1)
+    if (idx >= 0) {block.blocks.splice(idx, 1)}
     emitUpdate()
   }
 }
@@ -615,18 +615,18 @@ function removeLocationFromServerBlock(block: NginxBlock, li: number) {
 
 function addUpstreamServer(ui: number) {
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   block.directives.push(createDirective('server', ['127.0.0.1:8080']))
   emitUpdate()
 }
 
 function removeUpstreamServer(ui: number, si: number) {
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   const serverDirs = block.directives.filter(d => d.name === 'server')
   if (si >= 0 && si < serverDirs.length) {
     const idx = block.directives.indexOf(serverDirs[si])
-    if (idx >= 0) block.directives.splice(idx, 1)
+    if (idx >= 0) {block.directives.splice(idx, 1)}
     emitUpdate()
   }
 }
@@ -634,7 +634,7 @@ function removeUpstreamServer(ui: number, si: number) {
 function updateUpstreamServer(ui: number, si: number, field: string, e: Event) {
   const val = (e.target as HTMLInputElement).value
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   const serverDirs = block.directives.filter(d => d.name === 'server')
   if (si >= 0 && si < serverDirs.length) {
     const dir = serverDirs[si]
@@ -644,10 +644,10 @@ function updateUpstreamServer(ui: number, si: number, field: string, e: Event) {
       const weightIdx = dir.params.findIndex(p => p.startsWith('weight='))
       if (val) {
         const weightVal = `weight=${val}`
-        if (weightIdx >= 0) dir.params[weightIdx] = weightVal
-        else dir.params.push(weightVal)
+        if (weightIdx >= 0) {dir.params[weightIdx] = weightVal}
+        else {dir.params.push(weightVal)}
       } else {
-        if (weightIdx >= 0) dir.params.splice(weightIdx, 1)
+        if (weightIdx >= 0) {dir.params.splice(weightIdx, 1)}
       }
     }
     dir.raw = 'server ' + dir.params.join(' ') + ';'
@@ -658,7 +658,7 @@ function updateUpstreamServer(ui: number, si: number, field: string, e: Event) {
 function updateUpstreamServerBackup(ui: number, si: number, e: Event) {
   const checked = (e.target as HTMLInputElement).checked
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   const serverDirs = block.directives.filter(d => d.name === 'server')
   if (si >= 0 && si < serverDirs.length) {
     const dir = serverDirs[si]
@@ -677,7 +677,7 @@ function updateUpstreamServerBackup(ui: number, si: number, e: Event) {
 function updateUpstreamServerDown(ui: number, si: number, e: Event) {
   const checked = (e.target as HTMLInputElement).checked
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   const serverDirs = block.directives.filter(d => d.name === 'server')
   if (si >= 0 && si < serverDirs.length) {
     const dir = serverDirs[si]
@@ -694,7 +694,7 @@ function updateUpstreamServerDown(ui: number, si: number, e: Event) {
 
 function addOtherUpstreamDirective(ui: number) {
   const block = upstreamBlocks.value[ui]?.block
-  if (!block) return
+  if (!block) {return}
   block.directives.push(createDirective('new_directive', ['value']))
   emitUpdate()
 }
@@ -703,7 +703,7 @@ function removeUpstream(ui: number) {
   const upBlocksArr = blocks.value.filter(b => b.type === 'upstream')
   if (ui >= 0 && ui < upBlocksArr.length) {
     const idx = blocks.value.indexOf(upBlocksArr[ui])
-    if (idx >= 0) blocks.value.splice(idx, 1)
+    if (idx >= 0) {blocks.value.splice(idx, 1)}
     emitUpdate()
   }
 }
@@ -712,14 +712,14 @@ function removeOtherBlock(bi: number) {
   const otherBlocks = blocks.value.filter(b => b.type !== 'server' && b.type !== 'upstream' && b.type !== 'http')
   if (bi >= 0 && bi < otherBlocks.length) {
     const idx = blocks.value.indexOf(otherBlocks[bi])
-    if (idx >= 0) blocks.value.splice(idx, 1)
+    if (idx >= 0) {blocks.value.splice(idx, 1)}
     emitUpdate()
   }
 }
 
 function removeBlockByRef(block: NginxBlock) {
   const idx = blocks.value.indexOf(block)
-  if (idx >= 0) blocks.value.splice(idx, 1)
+  if (idx >= 0) {blocks.value.splice(idx, 1)}
   emitUpdate()
 }
 
@@ -732,7 +732,7 @@ function addOtherDirective(block: NginxBlock) {
 
 function removeDirectiveFromBlock(block: NginxBlock, dir: NginxDirective) {
   const idx = block.directives.indexOf(dir)
-  if (idx >= 0) block.directives.splice(idx, 1)
+  if (idx >= 0) {block.directives.splice(idx, 1)}
   emitUpdate()
 }
 

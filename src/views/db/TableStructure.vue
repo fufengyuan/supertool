@@ -441,7 +441,7 @@ watch(() => columns.value.length, async (len) => {
   if (len > 0) {
     await nextTick()
     const el = document.querySelector('.table-structure tbody') as HTMLElement
-    if (el) initDragTable(el)
+    if (el) {initDragTable(el)}
   }
 }, { immediate: true })
 </script>
