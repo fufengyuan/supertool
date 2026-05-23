@@ -9,6 +9,7 @@
 #   - cli/Cargo.toml
 #   - core/Cargo.toml
 #   - tauri/Cargo.toml
+#   - tauri/tauri.conf.json
 #   - Cargo.lock（通过 cargo generate-lockfile 同步）
 
 set -e
@@ -56,6 +57,7 @@ VERSION_FILES=(
     "$PROJECT_DIR/cli/Cargo.toml"
     "$PROJECT_DIR/core/Cargo.toml"
     "$PROJECT_DIR/tauri/Cargo.toml"
+    "$PROJECT_DIR/tauri/tauri.conf.json"
 )
 
 CARGO_LOCK="$PROJECT_DIR/Cargo.lock"
@@ -104,7 +106,9 @@ fi
 cd "$PROJECT_DIR"
 
 for file in "${VERSION_FILES[@]}"; do
-    if [[ "$file" == *"package.json"* ]]; then
+    # JSON 文件用 "version": "x.y.z" 格式
+    # Cargo.toml 用 version = "x.y.z" 格式
+    if [[ "$file" == *"package.json"* ]] || [[ "$file" == *"tauri.conf.json"* ]]; then
         sed "${SED_INPLACE[@]}" 's/"version": *"[^"]+"/"version": "'"$NEW_VERSION"'"/' "$file"
     else
         sed "${SED_INPLACE[@]}" 's/^version = "[^"]+"/version = "'"$NEW_VERSION"'"/' "$file"
