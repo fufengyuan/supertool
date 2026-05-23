@@ -582,13 +582,15 @@ const isChildSessionExpanded = (sessionId: string): boolean => {
 
 // 处理子会话继续对话
 const handleChildSessionContinue = async (sessionId: string, message: string) => {
+  console.log('handleChildSessionContinue', sessionId, message);
   try {
     // 调用 agent_chat 发送消息到子会话
-    await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
+    const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message,
       sessionId,  // 使用子会话的 sessionId
       model: null,
     });
+    console.log('agent_chat result:', result);
     // 刷新当前会话的消息（子会话消息会合并显示）
     if (currentSessionId.value) {
       const msgs = await invoke<any[]>('agent_list_messages', { sessionId: currentSessionId.value });
