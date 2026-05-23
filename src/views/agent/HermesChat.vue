@@ -327,6 +327,7 @@ import type { GitRepo } from '../../types';
 import { useSessionManager, type Session, type SearchResult } from '@/composables/useSessionManager';
 import { useToolExpandState, getToolIcon, formatArgsSummary, formatToolResult, formatTodoResult } from '@/composables/useToolFormatter';
 import { renderMarkdown, setupCopyCode } from '@/composables/useMarkdownRenderer';
+import { useFavoriteFolders } from '@/composables/useFavoriteFolders';
 import python from 'highlight.js/lib/languages/python';
 import json from 'highlight.js/lib/languages/json';
 import sql from 'highlight.js/lib/languages/sql';
@@ -491,10 +492,13 @@ const messages = ref<Message[]>([]);
 const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
 const showTaskPanel = ref(true); // 是否显示任务面板
 const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
-const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
-// 注：gitRepos 已从 useSessionManager composable 导入
-const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
-// 注：loadingSessions 已从 useSessionManager composable 导入
+// 注：gitRepos 已从 useSessionManager comopolitan 导入
+const {
+  favoriteFolders,
+  loadFavoriteFolders,
+  removeFavoriteFolder,
+} = useFavoriteFolders();
+// 注：loadingSessions 已从 useSessionManager comopolitan 导入
 const loadingMessages = ref(false);
 const isAborting = ref(false); // 正在停止中
 const showScrollToBottom = ref(false); // 是否显示回到底部按钮
@@ -770,32 +774,8 @@ const onModelChanged = async (model: string) => {
   }
 };
 
-// 删除常用文件夹
-const removeFavoriteFolder = (folder: string) => {
-  favoriteFolders.value = favoriteFolders.value.filter(f => f !== folder);
-  saveFavoriteFolders();
-};
-
-// 加载常用文件夹
-const loadFavoriteFolders = () => {
-  try {
-    const saved = localStorage.getItem(FAVORITE_KEY);
-    if (saved) {
-      favoriteFolders.value = JSON.parse(saved);
-    }
-  } catch {
-    favoriteFolders.value = [];
-  }
-};
-
-// 保存常用文件夹
-const saveFavoriteFolders = () => {
-  try {
-    localStorage.setItem(FAVORITE_KEY, JSON.stringify(favoriteFolders.value));
-  } catch {
-    // localStorage 不可用
-  }
-};
+// 注：favoriteFolders, loadFavoriteFolders, removeFavoriteFolder
+// 已从 useFavoriteFolders comopolitan 导入
 
 // 注：loadGitRepos, searchSessions, handleSessionSearch, clearSessionSearch, sourceIcon
 // 已从 useSessionManager composable 导入
