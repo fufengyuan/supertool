@@ -21,9 +21,12 @@
             <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
           </div>
         </div>
-        <!-- 搜索时高亮显示 -->
-        <p v-if="searchQuery" class="text-sm text-base-content whitespace-pre-wrap" v-html="highlightedContent"></p>
-        <p v-else class="text-sm text-base-content whitespace-pre-wrap">{{ displayContent }}</p>
+        <!-- Markdown 渲染用户消息 -->
+        <VueMarkdown
+          :source="displayContent"
+          :options="mdOptions"
+          class="text-sm text-base-content user-message-markdown"
+        />
       </div>
       <!-- 时间戳 -->
       <div v-if="message.timestamp" class="mt-1 text-xs text-base-content/40">
@@ -35,6 +38,8 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import VueMarkdown from 'vue-markdown-render';
+import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 interface FilePath {
@@ -61,7 +66,43 @@ const props = defineProps<{
 
 const displayContent = computed(() => props.getDisplayContent(props.message));
 
-const highlightedContent = computed(() => 
-  props.searchQuery ? props.highlightText(displayContent.value, props.searchQuery) : displayContent.value
-);
+// Markdown 渲染配置（与 AssistantMessage 一致）
+const mdOptions = {
+  html: true,
+  linkify: true,
+  typographer: true,
+  breaks: true,
+  highlight: (str: string, lang: string) => {
+    if (lang && hljs.getLanguage(lang)) {
+      return hljs.highlight(str, { language: lang }).value;
+    }
+    return hljs.highlightAuto(str).value;
+  },
+};
 </script>
+
+<style scoped>
+.user-message-markdown {
+  line-height: 1.5;
+}
+.user-message-markdown p {
+  margin: 0;
+}
+.user-message-markdown code {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+.user-message-markdown pre {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.5em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.user-message-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+</style>
