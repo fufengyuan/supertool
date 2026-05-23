@@ -583,62 +583,36 @@ const isChildSessionExpanded = (sessionId: string): boolean => {
 // 处理子会话继续对话
 const handleChildSessionContinue = async (sessionId: string, message: string) => {
   console.log('handleChildSessionContinue', sessionId, message);
+  
+  // 先在 UI 上显示用户发送的消息
+  const userMsg: Message = {
+    role: 'user',
+    content: message,
+    timestamp: Date.now() / 1000,
+    toolName: null,
+    toolCalls: [],
+    isChild: true,  // 标记为子会话消息
+    sessionId,      // 子会话 ID
+  };
+  messages.value.push(userMsg);
+  scrollToBottom();
+  
+  // 设置流式状态（让流式事件处理器知道这个子会话正在响应）
+  streamingSessions[sessionId] = true;
+  sessionRoundEnded[sessionId] = false;
+  
   try {
     // 调用 agent_chat 发送消息到子会话
+    // 流式事件会自动更新 UI
     const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
       message,
       sessionId,  // 使用子会话的 sessionId
       model: null,
     });
     console.log('agent_chat result:', result);
-    // 刷新当前会话的消息（子会话消息会合并显示）
-    if (currentSessionId.value) {
-      const msgs = await invoke<any[]>('agent_list_messages', { sessionId: currentSessionId.value });
-      // 处理消息
-      const processedMessages: Message[] = [];
-      const toolResultsMap = new Map<string, string>();
-      for (const m of msgs) {
-        if (m.role === 'tool' && m.toolCallId) {
-          toolResultsMap.set(m.toolCallId, m.content || '');
-        }
-      }
-      for (const m of msgs) {
-        if (m.role === 'tool') continue;
-        const msg: Message = {
-          role: m.role,
-          content: m.content,
-          timestamp: m.timestamp,
-          toolName: m.toolName,
-          toolCalls: [],
-          isChild: m.isChild,
-          sessionId: m.sessionId,
-        };
-        if (m.role === 'assistant' && m.toolCalls) {
-          try {
-            const toolCallsParsed = JSON.parse(m.toolCalls) as RawToolCall[];
-            for (const tc of toolCallsParsed) {
-              const toolName = tc.function?.name || 'unknown';
-              const toolArgs = tc.function?.arguments ? JSON.parse(tc.function.arguments) : {};
-              msg.toolCalls!.push({
-                name: toolName,
-                args: toolArgs,
-                result: toolResultsMap.get(tc.id) || '',
-                durationMs: 0,
-                isSubAgent: toolName === 'delegate_task' || toolName === 'subagent',
-                status: 'completed',
-              });
-            }
-          } catch (e) {
-            console.warn('Failed to parse tool_calls:', e);
-          }
-        }
-        processedMessages.push(msg);
-      }
-      messages.value = processedMessages;
-      scrollToBottom();
-    }
   } catch (e) {
     console.error('子会话继续对话失败:', e);
+    streamingSessions[sessionId] = false;
   }
 };
 
