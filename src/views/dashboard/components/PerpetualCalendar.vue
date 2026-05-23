@@ -289,7 +289,7 @@ function buildMonthData(y: number, m: number): (DayInfo | null)[] {
       const timeYi: { type: string; value: string }[] = [];
       for (const t of times) {
         timeYi.push({
-          type: t.getZhiInChinese() as string,
+          type: t.getZhi() as string + '时',
           value: t.getTianShenLuck() as string,
         });
       }
