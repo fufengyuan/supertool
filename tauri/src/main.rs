@@ -868,6 +868,7 @@ fn main() {
             commands::agent::agent_delete_session,
             commands::agent::agent_rename_session,
             commands::agent::agent_search_sessions,
+            commands::agent::agent_get_compression_tip,
             commands::agent::save_temp_file,
             commands::agent::clean_temp_dir,
             // Agent Chat Bridge commands (chat/abort still use HTTP bridge)

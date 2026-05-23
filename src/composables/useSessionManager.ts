@@ -82,13 +82,31 @@ export function useSessionManager() {
   /**
    * 选择会话（只设置状态，消息加载由回调处理）
    * @param session 要选择的会话
-   * @param onLoadMessages 消息加载回调（可选）
-   */
+* @param onLoadMessages 消息加载回调（可选）
+  */
   const selectSession = async (
     session: Session,
     onLoadMessages?: (params: MessageLoadParams) => Promise<void> | void
   ) => {
-    currentSessionId.value = session.id;
+    // CRITICAL: Resolve compression tip first
+    // If the session has been compressed, use the latest continuation session_id
+    let effectiveSessionId = session.id;
+    try {
+      const tipResult = await invoke<{ success: boolean; tipSessionId: string; originalSessionId: string }>(
+        'agent_get_compression_tip',
+        { sessionId: session.id }
+      );
+      if (tipResult.success && tipResult.tipSessionId !== session.id) {
+        console.log(`[SessionManager] Compression tip resolved: ${session.id} -> ${tipResult.tipSessionId}`);
+        effectiveSessionId = tipResult.tipSessionId;
+        // Update session id to effective id (compression tip)
+        session = { ...session, id: effectiveSessionId };
+      }
+    } catch (e) {
+      console.warn('[SessionManager] Failed to resolve compression tip:', e);
+    }
+
+    currentSessionId.value = effectiveSessionId;
     currentSession.value = session;
 
     // 如果提供了消息加载回调，调用它
@@ -96,10 +114,10 @@ export function useSessionManager() {
       try {
         const result = await invoke<{ success: boolean; messages: any[]; sessionId: string }>(
           'agent_list_messages',
-          { sessionId: session.id }
+          { sessionId: effectiveSessionId }
         );
         if (result.success && result.messages) {
-          await onLoadMessages({ sessionId: session.id, messages: result.messages });
+          await onLoadMessages({ sessionId: effectiveSessionId, messages: result.messages });
         }
       } catch (e) {
         console.error('Failed to load messages:', e);

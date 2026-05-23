@@ -10,8 +10,9 @@
 use serde_json::json;
 
 use supertool_core::db::agent::{
-    count_hermes_sessions, delete_hermes_session, get_hermes_stats, hermes_is_installed,
-    list_hermes_messages, list_hermes_sessions, rename_hermes_session, search_hermes_sessions,
+    count_hermes_sessions, delete_hermes_session, get_compression_tip, get_hermes_stats,
+    hermes_is_installed, list_hermes_messages, list_hermes_sessions, rename_hermes_session,
+    search_hermes_sessions,
 };
 
 /// Check if Agent is installed
@@ -21,6 +22,18 @@ pub fn agent_installed() -> Result<serde_json::Value, String> {
     Ok(json!({
         "success": true,
         "installed": installed
+    }))
+}
+
+/// Get the compression tip (latest continuation session) for a session
+/// This resolves the correct session_id to use for chat after compression splits
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_get_compression_tip(session_id: String) -> Result<serde_json::Value, String> {
+    let tip_id = get_compression_tip(&session_id)?;
+    Ok(json!({
+        "success": true,
+        "tipSessionId": tip_id,
+        "originalSessionId": session_id
     }))
 }
 
