@@ -155,6 +155,54 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
     Ok(sessions)
 }
 
+/// Get the compression tip (latest continuation session) for a given session_id
+/// Walks forward through the compression chain: parent -> child where end_reason='compression'
+pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
+    let db_path = get_hermes_state_db_path();
+    if !db_path.exists() {
+        return Ok(session_id.to_string()); // Return original if DB doesn't exist
+    }
+
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+
+    let mut current = session_id.to_string();
+
+    // Walk forward through compression chain (max 100 iterations to prevent infinite loop)
+    for _ in 0..100 {
+        // Find child session where:
+        // 1. parent_session_id = current
+        // 2. parent's end_reason = 'compression'
+        // 3. child started_at >= parent ended_at
+        let tip_result: Result<String, rusqlite::Error> = conn.query_row(
+            r#"
+            SELECT s2.id FROM sessions s2
+            JOIN sessions s1 ON s2.parent_session_id = s1.id
+            WHERE s1.id = ? 
+              AND s1.end_reason = 'compression'
+              AND s2.started_at >= s1.ended_at
+            ORDER BY s2.started_at DESC LIMIT 1
+            "#,
+            [&current],
+            |row| row.get::<_, String>(0),
+        );
+
+        match tip_result.optional() {
+            Ok(Some(tip_id)) => {
+                current = tip_id;
+            }
+            Ok(None) => {
+                // No more continuation, return current
+                return Ok(current);
+            }
+            Err(e) => {
+                return Err(format!("查询压缩链失败: {}", e));
+            }
+        }
+    }
+    Ok(current) // Return after max iterations (shouldn't happen in practice)
+}
+
 /// Count total Hermes sessions (excluding child sessions)
 pub fn count_hermes_sessions() -> Result<i64, String> {
     let db_path = get_hermes_state_db_path();
@@ -261,17 +309,21 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
+    // CRITICAL: Resolve compression tip first!
+    // If the session has been compressed, we need the latest continuation session_id
+    let effective_session_id = get_compression_tip(session_id)?;
+    
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
     // First, collect all related session_ids:
-    // 1. The current session
-    // 2. Child sessions (subagent runs): WHERE parent_session_id = current_session_id
+    // 1. The effective session (compression tip or original)
+    // 2. Child sessions (subagent runs): WHERE parent_session_id = effective_session_id
     // 3. Compression ancestors: walk up parent_session_id chain
 
     // Collect compression ancestors (walk up the chain)
     let mut ancestor_ids: Vec<String> = Vec::new();
-    let mut current_ancestor: Option<String> = Some(session_id.to_string());
+    let mut current_ancestor: Option<String> = Some(effective_session_id.clone());
 
     // Walk up the compression chain: find sessions where current session is their child
     // i.e., find the parent of current session, then parent's parent, etc.
@@ -295,9 +347,9 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     }
 
     // Build the list of all session_ids to query
-    // Include: current session + ancestors + children of current session + children of ancestors
+    // Include: effective session + ancestors + children of effective session + children of ancestors
     let base_ids: Vec<String> = {
-        let mut ids = vec![session_id.to_string()];
+        let mut ids = vec![effective_session_id.clone()];
         ids.extend(ancestor_ids.clone());
         ids
     };
