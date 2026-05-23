@@ -71,6 +71,8 @@
     "jsbarcode": "^3.12.3",
     "jsencrypt": "^3.5.4",
     "jsqr": "^1.4.0",
+    "lunar-javascript": "^1.7.7",
+    "markdown-it": "^14.1.1",
     "marked": "^18.0.2",
     "marked-highlight": "^2.2.4",
     "pinia": "^3.0.4",
