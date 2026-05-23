@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-base-100 rounded-xl border border-primary/20 p-4 lg:p-5 w-full overflow-hidden shadow-sm">
+  <div class="bg-base-100 rounded-xl border border-sky-300/30 dark:border-sky-600/20 p-4 lg:p-5 w-full overflow-hidden shadow-sm">
     <!-- 头部 -->
     <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
       <div class="flex items-center gap-2">
@@ -35,7 +35,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div v-for="m in 12" :key="m" class="min-w-0">
         <!-- 月份标题 -->
-        <div class="text-xs font-bold text-base-content mb-2 text-center bg-gradient-to-r from-primary/10 via-transparent to-primary/10 rounded-full py-1">
+        <div class="text-xs font-bold text-base-content mb-2 text-center bg-gradient-to-r from-sky-400/10 via-transparent to-sky-400/10 rounded-full py-1">
           {{ m }} 月
         </div>
         <!-- 星期头 -->
@@ -49,9 +49,9 @@
               v-if="day"
               class="aspect-square p-0.5 cursor-pointer rounded-sm transition-all relative flex flex-col items-center justify-center text-center"
               :class="{
-                'bg-red-500 text-white font-bold ring-2 ring-red-400 scale-[1.08] shadow-sm z-10': day.isToday,
-                'hover:bg-primary/15 hover:scale-105': !day.isToday,
-                'bg-red-50 dark:bg-red-900/20': day.isHoliday && !day.isToday && !isWeekendOrToday(day),
+                'bg-sky-500 text-white font-bold ring-2 ring-sky-400 scale-[1.08] shadow-sm z-10': day.isToday,
+                'hover:bg-sky-500/15 hover:scale-105': !day.isToday,
+                'bg-emerald-50 dark:bg-emerald-900/20': day.isHoliday && !day.isToday && !isWeekendOrToday(day),
               }"
               @click="selectDay(day)"
             >
@@ -61,7 +61,7 @@
                   'text-red-500 dark:text-red-400 font-semibold': (day.isSunday || day.isSaturday) && !day.isToday,
                   'text-base-content': !day.isSunday && !day.isSaturday && !day.isToday,
                   'text-white': day.isToday,
-                  'text-amber-600 dark:text-amber-400': day.festivals.length > 0 && !day.isToday,
+                  'text-emerald-600 dark:text-emerald-500': day.festivals.length > 0 && !day.isToday,
                 }"
               >{{ day.day }}</span>
               <span
@@ -71,7 +71,7 @@
               >{{ day.lunarMonth }}</span>
               <span
                 v-else-if="day.festivals.length > 0"
-                class="text-[7px] font-semibold text-white bg-red-500 dark:bg-red-600 rounded-sm px-0.5 leading-tight mt-[1px] truncate max-w-full"
+                class="text-[7px] font-semibold text-white bg-emerald-500 dark:bg-emerald-600 rounded-sm px-0.5 leading-tight mt-[1px] truncate max-w-full"
               >{{ day.festivals[0] }}</span>
               <span
                 v-else-if="day.jieQi"
@@ -116,10 +116,10 @@
 
         <!-- 节气 + 节日 -->
         <div class="flex flex-wrap gap-2">
-          <div v-if="selectedDay.jieQi" class="bg-info/10 text-info rounded-lg px-3 py-2 text-sm flex-1 min-w-[120px]">
+          <div v-if="selectedDay.jieQi" class="bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-lg px-3 py-2 text-sm flex-1 min-w-[120px]">
             📌 节气：{{ selectedDay.jieQi }}
           </div>
-          <div v-if="selectedDay.festivals.length > 0" class="bg-error/10 text-error rounded-lg px-3 py-2 text-sm flex-1 min-w-[120px]">
+          <div v-if="selectedDay.festivals.length > 0" class="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg px-3 py-2 text-sm flex-1 min-w-[120px]">
             🎉 节日：{{ selectedDay.festivals.join('、') }}
           </div>
         </div>
