@@ -25,7 +25,7 @@
         <VueMarkdown
           :source="displayContent"
           :options="mdOptions"
-          class="text-sm text-base-content user-message-markdown"
+          class="prose prose-sm max-w-none"
         />
       </div>
       <!-- 时间戳 -->
@@ -80,50 +80,3 @@ const mdOptions = {
   },
 };
 </script>
-
-<style scoped>
-.user-message-markdown {
-  line-height: 1.5;
-}
-.user-message-markdown p {
-  margin: 0;
-}
-.user-message-markdown code {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.1em 0.3em;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-.user-message-markdown pre {
-  background: rgba(0, 0, 0, 0.05);
-  padding: 0.5em;
-  border-radius: 6px;
-  overflow-x: auto;
-  margin: 0.5em 0;
-}
-.user-message-markdown pre code {
-  background: transparent;
-  padding: 0;
-}
-
-/* 表格样式 */
-.user-message-markdown :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 0.5em 0;
-  border: 1px solid rgba(128, 128, 128, 0.3);
-}
-.user-message-markdown :deep(th),
-.user-message-markdown :deep(td) {
-  border: 1px solid rgba(128, 128, 128, 0.3);
-  padding: 0.3em 0.6em;
-  text-align: left;
-}
-.user-message-markdown :deep(th) {
-  background: rgba(128, 128, 128, 0.1);
-  font-weight: bold;
-}
-.user-message-markdown :deep(thead) {
-  border-bottom: 2px solid rgba(128, 128, 128, 0.4);
-}
-</style>
