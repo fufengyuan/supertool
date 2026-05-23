@@ -184,9 +184,21 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
         currentMsg.content = (currentMsg.content || '') + event.payload.text;
       }
       
-      // 如果是当前会话，同步更新 messages.value
+      // 同步到 messages.value
+      // 如果是当前会话，直接同步；如果是子会话，需要标记 isChild 和 sessionId
       if (eventSid === currentSessionId.value) {
         messages.value = [...sessionMsgs];
+        scroll();
+      } else {
+        // 子会话消息需要标记 isChild 和 sessionId
+        const syncedMsgs = sessionMsgs.map(m => ({
+          ...m,
+          isChild: true,
+          sessionId: eventSid,
+        }));
+        // 合并到 messages.value：保留主会话消息 + 更新该子会话的消息
+        const mainMsgs = messages.value.filter(m => !m.isChild || m.sessionId !== eventSid);
+        messages.value = [...mainMsgs, ...syncedMsgs];
         scroll();
       }
     }
@@ -281,6 +293,16 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
         thinkingText.value = `🔧 调用工具: ${toolName}...`;
       }
       scroll();
+    } else {
+      // 子会话消息需要标记 isChild 和 sessionId
+      const syncedMsgs = sessionMsgs.map(m => ({
+        ...m,
+        isChild: true,
+        sessionId: eventSid,
+      }));
+      const mainMsgs = messages.value.filter(m => !m.isChild || m.sessionId !== eventSid);
+      messages.value = [...mainMsgs, ...syncedMsgs];
+      scroll();
     }
   };
   
@@ -336,9 +358,18 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     sessionRoundEnded[eventSid] = true;
     void log('[agent-tool-complete] 设置 sessionRoundEnded = true');
     
-    // 如果是当前会话，同步更新 messages.value
+    // 同步到 messages.value
     if (eventSid === currentSessionId.value) {
       messages.value = [...sessionMsgs];
+    } else {
+      // 子会话消息需要标记 isChild 和 sessionId
+      const syncedMsgs = sessionMsgs.map(m => ({
+        ...m,
+        isChild: true,
+        sessionId: eventSid,
+      }));
+      const mainMsgs = messages.value.filter(m => !m.isChild || m.sessionId !== eventSid);
+      messages.value = [...mainMsgs, ...syncedMsgs];
     }
     
     // 如果是 todo 工具，更新任务列表（仅当前会话）
@@ -429,6 +460,15 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     if (eventSid === currentSessionId.value) {
       messages.value = [...sessionMsgs];
       thinkingText.value = '';
+    } else {
+      // 子会话消息需要标记 isChild 和 sessionId
+      const syncedMsgs = sessionMsgs.map(m => ({
+        ...m,
+        isChild: true,
+        sessionId: eventSid,
+      }));
+      const mainMsgs = messages.value.filter(m => !m.isChild || m.sessionId !== eventSid);
+      messages.value = [...mainMsgs, ...syncedMsgs];
     }
   };
   
