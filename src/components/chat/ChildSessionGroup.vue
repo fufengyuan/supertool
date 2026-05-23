@@ -56,11 +56,14 @@
                       v-for="(tc, tcIdx) in msg.toolCalls"
                       :key="tcIdx"
                       :tool="tc"
-                      :expanded="false"
+                      :expanded="isToolExpanded(idx, tcIdx)"
                       :icon="tc.isSubAgent ? 'bot' : 'tool'"
-                      :title="tc.name"
-                      :summary="tc.isSubAgent ? '执行任务' : ''"
+                      :title="tc.isSubAgent ? '子 Agent' : tc.name"
+                      :summary="tc.isSubAgent 
+                        ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 100) + '...' : '执行任务')
+                        : formatArgsSummary(tc.args || {})"
                       :formatResult="(r: string) => renderMarkdown(r)"
+                      @toggle="toggleToolCall(`${idx}-${tcIdx}`)"
                     />
                   </div>
                 </div>
@@ -74,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
 
@@ -114,6 +117,33 @@ const emit = defineEmits<{
 }>();
 
 const expanded = computed(() => props.isExpanded || false);
+
+// 工具调用展开状态 (key: `${msgIdx}-${tcIdx}`)
+const expandedTools = ref(new Set<string>());
+
+const toggleToolCall = (key: string) => {
+  if (expandedTools.value.has(key)) {
+    expandedTools.value.delete(key);
+  } else {
+    expandedTools.value.add(key);
+  }
+};
+
+const isToolExpanded = (msgIdx: number, tcIdx: number): boolean => {
+  return expandedTools.value.has(`${msgIdx}-${tcIdx}`);
+};
+
+// 工具摘要生成
+const formatArgsSummary = (args: Record<string, unknown>): string => {
+  const keys = Object.keys(args);
+  if (keys.length === 0) return '';
+  const firstKey = keys[0];
+  const value = args[firstKey];
+  if (typeof value === 'string') {
+    return value.length > 50 ? value.slice(0, 50) + '...' : value;
+  }
+  return `${firstKey}: ${JSON.stringify(value).slice(0, 30)}`;
+};
 
 const previewText = computed(() => {
   const text = props.group.preview;
