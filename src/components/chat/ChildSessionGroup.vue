@@ -46,7 +46,7 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div v-if="msg.role === 'user'" class="bg-info/5 border border-info/10 rounded-md px-2 py-1">
-                  <p class="text-xs text-base-content/80 whitespace-pre-wrap break-words">{{ msg.content }}</p>
+                  <div v-if="msg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(msg.content || '')"></div>
                 </div>
                 <div v-else class="bg-success/5 border border-success/10 rounded-md px-2 py-1">
                   <div v-if="msg.content" class="markdown-content text-xs text-base-content/80" v-html="renderMarkdown(msg.content)"></div>
