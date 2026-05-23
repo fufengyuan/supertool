@@ -60,7 +60,7 @@
                       :icon="tc.isSubAgent ? 'bot' : 'tool'"
                       :title="tc.name"
                       :summary="tc.isSubAgent ? '执行任务' : ''"
-                      :formatPreview="() => ''"
+                      :formatResult="(r: string) => renderMarkdown(r)"
                     />
                   </div>
                 </div>
