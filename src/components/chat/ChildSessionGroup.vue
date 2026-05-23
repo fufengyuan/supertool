@@ -232,21 +232,22 @@ const toggle = () => emit('toggle', props.group.sessionId);
   border-collapse: collapse;
   width: 100%;
   margin: 0.5em 0;
+  border: 1px solid rgba(128, 128, 128, 0.3);
 }
 
 .markdown-content :deep(th),
 .markdown-content :deep(td) {
-  border: 1px solid base-content/20;
-  padding: 0.25em 0.5em;
+  border: 1px solid rgba(128, 128, 128, 0.3);
+  padding: 0.3em 0.6em;
   text-align: left;
 }
 
 .markdown-content :deep(th) {
-  background: base-200;
+  background: rgba(128, 128, 128, 0.1);
   font-weight: bold;
 }
 
 .markdown-content :deep(thead) {
-  border-bottom: 2px solid base-content/30;
+  border-bottom: 2px solid rgba(128, 128, 128, 0.4);
 }
 </style>
