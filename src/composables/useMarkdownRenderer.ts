@@ -89,7 +89,7 @@ export function renderMarkdown(text: string | null): string {
     // 消毒
     const result = DOMPurify.sanitize(html, {
       ADD_ATTR: ['target', 'onclick', 'id', 'title'],
-      ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div'],
+      ADD_TAGS: ['button', 'svg', 'rect', 'path', 'div', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'colgroup', 'col'],
     });
 
     // LRU 缓存淘汰
