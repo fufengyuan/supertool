@@ -1,109 +1,23 @@
 <template>
   <div class="flex h-full">
     <!-- 左侧会话列表 -->
-    <div class="w-64 border-r border-base-content/10 flex flex-col bg-base-100">
-      <!-- 会话列表头部 -->
-      <div class="flex items-center justify-between px-3 py-2 border-b border-base-content/10">
-        <span class="text-sm font-semibold text-base-content">会话</span>
-        <button class="btn btn-ghost btn-xs" @click="refreshSessions" :disabled="loadingSessions">
-          <SvgIcon name="refresh" size="12" :class="{ 'animate-spin': loadingSessions }" />
-        </button>
-      </div>
-
-      <!-- 新会话按钮 -->
-      <div class="px-2 py-2">
-        <button class="btn btn-primary btn-sm w-full gap-1.5" @click="startNewChat" title="快捷键: Cmd+K">
-          <SvgIcon name="plus" size="14" />
-          新对话
-        </button>
-      </div>
-
-      <!-- 会话搜索框 -->
-      <div class="px-2 py-1">
-        <div class="relative">
-          <input
-            v-model="sessionSearchQuery"
-            type="text"
-            class="input input-sm input-bordered w-full pl-7 text-xs"
-            placeholder="搜索会话..."
-          />
-          <SvgIcon name="search" size="12" class="absolute left-2.5 top-1/2 -translate-y-1/2 text-base-content/40" />
-          <button
-            v-if="sessionSearchQuery"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content"
-            @click="sessionSearchQuery = ''"
-          >
-            <SvgIcon name="close" size="12" />
-          </button>
-        </div>
-      </div>
-
-      <!-- 会话列表/搜索结果 -->
-      <div class="flex-1 overflow-y-auto">
-        <!-- 搜索结果 -->
-        <template v-if="isSearchMode">
-          <div v-if="isSearching" class="flex items-center justify-center py-8">
-            <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
-          </div>
-          <div v-else-if="searchResults.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
-            <SvgIcon name="search" size="24" class="text-base-content/30" />
-            <p class="mt-2 text-xs text-base-content/50">未找到匹配的内容</p>
-          </div>
-          <div v-else class="flex flex-col gap-1 px-2 py-1">
-            <div
-              v-for="result in searchResults"
-              :key="result.messageId"
-              class="group flex flex-col gap-1 px-2 py-1.5 rounded-lg cursor-pointer transition-colors hover:bg-base-200"
-              @click="jumpToSearchResult(result)"
-            >
-              <div class="flex items-center gap-2">
-                <SvgIcon :name="sourceIcon(result.source)" size="12" class="shrink-0 text-base-content/50" />
-                <span class="text-xs text-base-content/60">{{ result.sessionTitle || '新会话' }}</span>
-                <span class="text-xs text-base-content/40">•</span>
-                <span class="text-xs text-base-content/50">{{ result.role }}</span>
-              </div>
-              <div class="text-xs text-base-content line-clamp-2" v-html="highlightSnippet(result.snippet, sessionSearchQuery)"></div>
-            </div>
-          </div>
-        </template>
-        
-        <!-- 正常会话列表 -->
-        <template v-else>
-          <div v-if="loadingSessions" class="flex items-center justify-center py-8">
-            <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
-          </div>
-          <div v-else-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
-            <SvgIcon name="chat" size="24" class="text-base-content/30" />
-            <p class="mt-2 text-xs text-base-content/50">暂无会话</p>
-          </div>
-          <div v-else class="flex flex-col gap-1 px-2 py-1">
-            <div
-              v-for="session in sessions"
-              :key="session.id"
-              class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
-              :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
-              @click="selectSession(session)"
-            >
-              <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
-              <SvgIcon v-if="session.parentSessionId" name="gitBranch" size="12" class="shrink-0 text-warning" title="Subagent 会话" />
-              <div class="flex flex-col min-w-0 flex-1">
-                <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
-                <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
-              </div>
-              <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
-              <!-- hover 显示删除按钮 -->
-              <button 
-                class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                @click.stop="deleteSession(session.id)"
-                title="删除会话"
-              >
-                <SvgIcon name="trash" size="10" class="text-error" />
-              </button>
-            </div>
-          </div>
-        </template>
-      </div>
-    </div>
+    <SessionSidebar
+      :sessions="sessions"
+      :currentSessionId="currentSessionId"
+      :loadingSessions="loadingSessions"
+      :isSearching="isSearching"
+      :searchResults="searchResults"
+      :formatTime="formatTime"
+      :sourceIcon="sourceIcon"
+      :highlightSnippet="highlightSnippet"
+      @refresh="refreshSessions"
+      @newChat="startNewChat"
+      @select="selectSession"
+      @delete="deleteSession"
+      @search="handleSessionSearch"
+      @jumpToResult="jumpToSearchResult"
+      @clearSearch="clearSessionSearch"
+    />
 
     <!-- 右侧聊天区域 -->
     <div class="flex-1 flex flex-col">
@@ -318,19 +232,19 @@
           <div class="mt-4 flex flex-wrap gap-2 justify-center">
             <button 
               class="btn btn-ghost btn-xs text-xs"
-              @click="inputText = '帮我分析一下当前项目的结构'"
+              @click="chatInputRef?.setInputText('帮我分析一下当前项目的结构')"
             >
               分析项目
             </button>
             <button 
               class="btn btn-ghost btn-xs text-xs"
-              @click="inputText = '帮我写一个测试用例'"
+              @click="chatInputRef?.setInputText('帮我写一个测试用例')"
             >
               写测试
             </button>
             <button 
               class="btn btn-ghost btn-xs text-xs"
-              @click="inputText = '帮我重构这段代码'"
+              @click="chatInputRef?.setInputText('帮我重构这段代码')"
             >
               重构代码
             </button>
@@ -349,242 +263,19 @@
       </div>
 
       <!-- 输入区域 -->
-      <div class="border-t border-base-content/10 px-4 py-3 bg-base-100">
-        <!-- Hermes 未安装提示 -->
-        <div v-if="!hermesAvailable" class="flex items-center justify-center gap-2 py-2">
-          <SvgIcon name="warning" size="14" class="text-warning" />
-          <span class="text-xs text-base-content/60">Hermes 未安装或不可用</span>
-          <button class="btn btn-ghost btn-xs" @click="checkHermes">检测</button>
-        </div>
-
-        <!-- 正常输入 -->
-        <div v-else class="space-y-2">
-          <!-- 模型选择、工具集和引用消息显示 -->
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <!-- 附件按钮 -->
-              <div class="relative">
-                <button
-                  class="btn btn-ghost btn-xs btn-square"
-                  @click="showAttachMenu = !showAttachMenu"
-                  title="添加文件/文件夹/Git仓库路径"
-                  :disabled="isStreaming"
-                >
-                  <SvgIcon name="paperclip" size="14" />
-                </button>
-                <!-- 下拉菜单 -->
-                <div 
-                  v-if="showAttachMenu" 
-                  class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 min-w-[200px]"
-                >
-                  <!-- 常用文件夹 -->
-                  <div v-if="favoriteFolders.length > 0" class="border-b border-base-content/10">
-                    <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium flex items-center justify-between">
-                      <span>常用文件夹</span>
-                    </div>
-                    <div 
-                      v-for="folder in favoriteFolders" 
-                      :key="folder"
-                      class="flex items-center gap-1 px-2 py-1 text-xs hover:bg-base-200 group"
-                    >
-                      <span class="truncate flex-1 text-base-content/70" :title="folder">{{ folder.split('/').pop() || folder }}</span>
-                      <button 
-                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
-                        @click.stop="selectFromFavorite(folder, 'file')"
-                        title="从此文件夹选择文件"
-                      >
-                        <SvgIcon name="file" size="10" class="text-base-content/60" />
-                      </button>
-                      <button 
-                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100" 
-                        @click.stop="selectFromFavorite(folder, 'folder')"
-                        title="从此文件夹选择子文件夹"
-                      >
-                        <SvgIcon name="folder" size="10" class="text-base-content/60" />
-                      </button>
-                      <button 
-                        class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 hover:text-error" 
-                        @click.stop="removeFavoriteFolder(folder)"
-                        title="移除"
-                      >
-                        <SvgIcon name="close" size="10" />
-                      </button>
-                    </div>
-                  </div>
-                  <!-- 文件/文件夹选择 -->
-                  <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFile()">
-                    <SvgIcon name="file" size="14" class="text-base-content/60" />
-                    <span>选择文件</span>
-                  </button>
-                  <button class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200" @click="selectFolder()">
-                    <SvgIcon name="folder" size="14" class="text-base-content/60" />
-                    <span>选择文件夹</span>
-                  </button>
-                  <!-- Git 仓库列表 -->
-                  <div v-if="gitRepos.length > 0" class="border-t border-base-content/10">
-                    <div class="px-3 py-1.5 text-xs text-base-content/50 font-medium">Git 仓库</div>
-                    <button 
-                      v-for="repo in gitRepos" 
-                      :key="repo.id" 
-                      class="flex items-center gap-2 w-full px-3 py-1.5 text-xs hover:bg-base-200 rounded-b-lg"
-                      @click="selectGitRepo(repo)"
-                    >
-                      <SvgIcon name="github" size="12" class="text-base-content/60" />
-                      <span class="truncate">{{ repo.name }}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <!-- 模型选择 -->
-              <div class="relative flex items-center gap-1.5 model-dropdown-container">
-                <!-- 模型选择按钮 -->
-                <button
-                  class="select select-bordered select-xs max-w-[240px] flex items-center justify-between"
-                  :disabled="isStreaming"
-                  @click="showModelDropdown = !showModelDropdown"
-                >
-                  <span class="truncate">
-                    {{ selectedModel ? parseModelName(selectedModel).name : (defaultModel ? parseModelName(defaultModel).name || defaultModel : '默认模型') }}
-                  </span>
-                  <SvgIcon name="chevronDown" size="12" class="ml-1 shrink-0" />
-                </button>
-                <!-- 下拉菜单 -->
-                <div
-                  v-if="showModelDropdown"
-                  class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-lg z-50 w-[320px] max-h-[400px] overflow-hidden"
-                  @click.stop
-                >
-                  <!-- 搜索框 -->
-                  <div class="p-2 border-b border-base-content/10">
-                    <input
-                      ref="modelSearchRef"
-                      v-model="modelSearchQuery"
-                      type="text"
-                      class="input input-bordered input-xs w-full"
-                      placeholder="搜索模型..."
-                      @keydown.esc="showModelDropdown = false"
-                    />
-                  </div>
-                  <!-- 模型列表 -->
-                  <div class="overflow-y-auto max-h-[340px]">
-                    <!-- 默认模型 -->
-                    <button
-                      class="flex items-center gap-2 w-full px-3 py-2 text-xs hover:bg-base-200"
-                      :class="{ 'bg-primary/10': !selectedModel }"
-                      @click="setModel(''); showModelDropdown = false"
-                    >
-                      <span class="text-base-content/60">默认</span>
-                      <span class="truncate">{{ defaultModel ? parseModelName(defaultModel).name || defaultModel : '系统默认' }}</span>
-                    </button>
-                    <!-- 分组（可折叠） -->
-                    <template v-for="group in filteredModelGroups" :key="group.provider">
-                      <div
-                        class="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-base-content/60 cursor-pointer hover:bg-base-200"
-                        @click="toggleModelGroup(group.provider)"
-                      >
-                        <SvgIcon :name="expandedModelGroups[group.provider] ? 'chevronDown' : 'chevronRight'" size="10" />
-                        <span>{{ group.label }}</span>
-                        <span class="text-base-content/40">({{ group.models.length }})</span>
-                      </div>
-                      <template v-if="expandedModelGroups[group.provider]">
-                        <button
-                          v-for="m in group.models.slice(0, 20)" :key="m"
-                          class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
-                          :class="{ 'bg-primary/10': selectedModel === m }"
-                          @click="setModel(m); showModelDropdown = false"
-                        >
-                          <span class="truncate">{{ parseModelName(m).name }}</span>
-                        </button>
-                        <button
-                          v-if="group.models.length > 20"
-                          class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs text-base-content/60 hover:bg-base-200"
-                          @click="toggleModelGroupFull(group.provider)"
-                        >
-                          <span>{{ expandedModelGroupsFull[group.provider] ? '收起' : `展开全部 ${group.models.length} 个` }}</span>
-                        </button>
-                        <template v-if="expandedModelGroupsFull[group.provider]">
-                          <button
-                            v-for="m in group.models.slice(20)" :key="m"
-                            class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
-                            :class="{ 'bg-primary/10': selectedModel === m }"
-                            @click="setModel(m); showModelDropdown = false"
-                          >
-                            <span class="truncate">{{ parseModelName(m).name }}</span>
-                          </button>
-                        </template>
-                      </template>
-                    </template>
-                  </div>
-                </div>
-                <!-- 供应商标签 -->
-                <span v-if="currentProviderLabel"
-                  class="badge badge-ghost badge-xs text-[10px] text-base-content/50 shrink-0 max-w-[80px] truncate"
-                  :title="currentProviderLabel"
-                >{{ currentProviderLabel }}</span>
-              </div>
-              <!-- 添加模型按钮 -->
-              <button
-                class="btn btn-ghost btn-xs btn-square"
-                @click="showAddModelDialog = true"
-                :disabled="isStreaming"
-                title="添加模型"
-              >
-                <SvgIcon name="plus" size="14" />
-              </button>
-            </div>
-          </div>
-          <!-- 已选择路径徽章 -->
-          <div v-if="attachedPaths.length > 0" class="flex flex-wrap gap-1.5 px-1">
-            <div
-              v-for="(item, idx) in attachedPaths"
-              :key="idx"
-              class="group flex items-center gap-1 px-2 py-1 rounded-md text-xs border cursor-default transition-all"
-              :class="item.type === 'folder'
-                ? 'bg-warning/5 border-warning/20 text-warning/80'
-                : 'bg-info/5 border-info/20 text-info/80'"
-              :title="item.path"
-            >
-              <img v-if="item.previewUrl" :src="item.previewUrl" class="w-6 h-6 rounded object-cover shrink-0" />
-              <SvgIcon v-else :name="item.type === 'folder' ? 'folder' : 'file'" size="12" />
-              <span class="max-w-[160px] truncate">{{ item.name }}</span>
-              <button
-                class="ml-0.5 opacity-40 group-hover:opacity-100 hover:!opacity-100 transition-opacity rounded-full hover:bg-base-content/10 p-0.5"
-                :class="item.type === 'folder' ? 'hover:text-warning' : 'hover:text-info'"
-                @click.stop="removeAttachedPath(idx)"
-                title="移除"
-              >
-                <SvgIcon name="close" size="10" />
-              </button>
-            </div>
-          </div>
-          <!-- 输入框 -->
-          <div class="flex gap-2">
-            <textarea
-              ref="inputRef"
-              v-model="inputText"
-              class="textarea w-full resize-none text-sm transition-colors"
-              :class="isStreaming ? 'textarea-warning border-warning/30 bg-warning/5' : 'textarea-bordered'"
-              style="min-height: 52px; max-height: 200px;"
-              :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
-              @keydown.enter.exact.prevent="sendMessage"
-              @paste="onPaste"
-              autocapitalize="off"
-              autocomplete="off"
-            ></textarea>
-            <!-- 发送按钮 -->
-            <button
-              class="btn self-end transition-colors"
-              :class="isStreaming ? 'btn-warning' : 'btn-primary'"
-              :disabled="!inputText.trim() && !isStreaming"
-              @click="sendMessage"
-              :title="isStreaming ? '发送新消息将打断当前处理' : '发送'"
-            >
-              <SvgIcon v-if="isStreaming" name="send" size="14" class="animate-pulse" />
-              <SvgIcon v-else name="send" size="14" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChatInput
+        ref="chatInputRef"
+        :isStreaming="isStreaming"
+        :currentSession="currentSession"
+        :favoriteFolders="favoriteFolders"
+        :gitRepos="gitRepos"
+        :hermesAvailable="hermesAvailable"
+        @send="handleSend"
+        @paste="onPaste"
+        @checkHermes="checkHermes"
+        @removeFavoriteFolder="removeFavoriteFolder"
+        @modelChanged="onModelChanged"
+      />
     </div>
 
     <!-- 右侧任务专栏 -->
@@ -617,24 +308,6 @@
       </div>
     </div>
   </div>
-
-  <!-- 添加模型对话框 -->
-  <div v-if="showAddModelDialog" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-    <div class="bg-base-100 rounded-lg p-4 w-80 shadow-xl">
-      <h3 class="text-sm font-medium mb-3">添加模型</h3>
-      <input
-        v-model="newModelName"
-        type="text"
-        class="input input-bordered input-sm w-full"
-        placeholder="输入模型名称"
-        @keyup.enter="addModel"
-      />
-      <div class="flex justify-end gap-2 mt-3">
-        <button class="btn btn-ghost btn-sm" @click="showAddModelDialog = false; newModelName = ''">取消</button>
-        <button class="btn btn-primary btn-sm" @click="addModel" :disabled="!newModelName.trim()">添加</button>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -659,7 +332,7 @@ import bash from 'highlight.js/lib/languages/bash';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
-import { UserMessage, AssistantMessage, ChildSessionGroup, ToolCallCard } from '@/components/chat';
+import { UserMessage, AssistantMessage, ChildSessionGroup, ToolCallCard, ChatInput, SessionSidebar } from '@/components/chat';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -688,6 +361,15 @@ marked.setOptions({
   breaks: true, // 支持 GFM 换行
   gfm: true, // GitHub Flavored Markdown
 });
+
+// 解析模型名（提取供应商和名称）
+function parseModelName(fullName: string): { provider: string | null; name: string } {
+  const slashIdx = fullName.indexOf('/');
+  if (slashIdx > 0) {
+    return { provider: fullName.substring(0, slashIdx), name: fullName.substring(slashIdx + 1) };
+  }
+  return { provider: null, name: fullName };
+}
 
 const route = useRoute();
 const router = useRouter();
@@ -792,7 +474,6 @@ interface TaskItem {
 
 // State
 const sessions = ref<Session[]>([]);
-const sessionSearchQuery = ref(''); // 会话搜索关键词
 const searchResults = ref<SearchResult[]>([]); // 搜索结果
 const isSearching = ref(false); // 搜索中状态
 const currentSessionId = ref<string | null>(null);
@@ -800,17 +481,9 @@ const currentSession = ref<Session | null>(null);
 const messages = ref<Message[]>([]);
 const currentTasks = ref<TaskItem[]>([]); // 当前任务列表
 const showTaskPanel = ref(true); // 是否显示任务面板
-const inputText = ref('');
-interface PathItem {
-  path: string;
-  type: 'file' | 'folder';
-  name: string;
-  previewUrl?: string; // 图片预览（object URL，需在移除时 revoke）
-}
-const attachedPaths = ref<PathItem[]>([]);
-const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
-const showAttachMenu = ref(false); // 显示附件菜单
+const chatInputRef = ref<InstanceType<typeof ChatInput> | null>(null);
 const favoriteFolders = ref<string[]>([]); // 常用文件夹列表
+const gitRepos = ref<GitRepo[]>([]); // Git 仓库列表
 const FAVORITE_KEY = 'hermes-favorite-folders'; // localStorage key
 const loadingSessions = ref(false);
 const loadingMessages = ref(false);
@@ -843,219 +516,6 @@ const displayMessages = computed(() => {
   // 实时气泡仅用于显示工具调用状态和进度文本
   return messages.value;
 });
-
-// 模型选择
-const selectedModel = ref('');
-const availableModels = ref<string[]>([]); // 从 Hermes 配置读取
-const defaultModel = ref<string>(''); // 默认模型
-const activeProvider = ref<string>(''); // 当前活跃供应商
-
-// 模型选择器下拉状态
-const showModelDropdown = ref(false);
-const modelSearchQuery = ref('');
-const modelSearchRef = ref<HTMLInputElement | null>(null);
-const expandedModelGroups = reactive<Record<string, boolean>>({}); // 分组展开状态
-const expandedModelGroupsFull = reactive<Record<string, boolean>>({}); // 分组完全展开状态
-
-// 切换分组展开
-function toggleModelGroup(provider: string) {
-  expandedModelGroups[provider] = !expandedModelGroups[provider];
-  if (!expandedModelGroups[provider]) {
-    expandedModelGroupsFull[provider] = false;
-  }
-}
-
-// 切换分组完全展开（显示超过20个的模型）
-function toggleModelGroupFull(provider: string) {
-  expandedModelGroupsFull[provider] = !expandedModelGroupsFull[provider];
-}
-
-// 供应商展示名称映射
-const PROVIDER_LABELS: Record<string, string> = {
-  'openai': 'OpenAI',
-  'anthropic': 'Anthropic',
-  'google': 'Google Gemini',
-  'gemini': 'Google Gemini',
-  'deepseek': 'DeepSeek',
-  'meta': 'Meta',
-  'mistral': 'Mistral AI',
-  'cohere': 'Cohere',
-  'x-ai': 'xAI (Grok)',
-  'xai': 'xAI (Grok)',
-  'zai': 'Z.AI / GLM',
-  'z-ai': 'Z.AI / GLM',
-  'stepfun': 'StepFun',
-  'minimax': 'MiniMax',
-  'alibaba': 'Alibaba Cloud',
-  'qwen': 'Qwen',
-  'nous': 'Nous Portal',
-  'openrouter': 'OpenRouter',
-  'copilot': 'GitHub Copilot',
-  'huggingface': 'Hugging Face',
-  'nvidia': 'NVIDIA NIM',
-  'ai-gateway': 'Vercel AI Gateway',
-  'opencode-go': 'OpenCode Go',
-  'opencode-zen': 'OpenCode Zen',
-  'tencent': 'Tencent',
-  'moonshot': 'Moonshot / Kimi',
-  'kimi': 'Kimi',
-  'kimi-coding': 'Kimi',
-  'xiaomi': 'Xiaomi MiMo',
-  'inclusionai': 'Inclusion AI',
-  'minimax-oauth': 'MiniMax (OAuth)',
-  'minimax-cn': 'MiniMax (China)',
-};
-
-// 解析模型名中的供应商前缀（如 anthropic/claude-sonnet-4 → { provider: 'anthropic', model: 'claude-sonnet-4' }）
-function parseModelName(fullName: string): { provider: string | null; name: string } {
-  const slashIdx = fullName.indexOf('/')
-  if (slashIdx > 0) {
-    return { provider: fullName.substring(0, slashIdx), name: fullName.substring(slashIdx + 1) }
-  }
-  return { provider: null, name: fullName }
-}
-
-// 获取供应商显示名
-function providerLabel(provider: string | null): string {
-  if (!provider) return '其他'
-  return PROVIDER_LABELS[provider] || provider
-}
-
-// 按供应商分组的模型列表
-interface ModelGroup {
-  provider: string
-  label: string
-  models: string[]
-}
-
-const modelGroups = computed<ModelGroup[]>(() => {
-  const groups = new Map<string, string[]>()
-  // 添加当前默认模型（可能不在列表中）
-  const allModels = [...availableModels.value]
-  if (defaultModel.value && !allModels.includes(defaultModel.value)) {
-    allModels.unshift(defaultModel.value)
-  }
-  for (const m of allModels) {
-    const { provider } = parseModelName(m)
-    // 显示所有已配置密钥的供应商的模型（不再只显示活跃供应商）
-    const key = provider || '__other__'
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(m)
-  }
-  // 排序：供应商按名称，模型按名称
-  const result: ModelGroup[] = []
-  for (const [provider, models] of groups) {
-    models.sort()
-    result.push({
-      provider: provider === '__other__' ? '' : provider,
-      label: providerLabel(provider === '__other__' ? null : provider),
-      models,
-    })
-  }
-  result.sort((a, b) => a.label.localeCompare(b.label, 'zh-CN'))
-  return result
-})
-
-// 获取当前选中模型的供应商标签
-const currentProviderLabel = computed(() => {
-  if (!selectedModel.value && !defaultModel.value) return ''
-  const modelName = selectedModel.value || defaultModel.value || ''
-  const { provider } = parseModelName(modelName)
-  return providerLabel(provider)
-})
-
-// 搜索过滤后的模型分组
-const filteredModelGroups = computed<ModelGroup[]>(() => {
-  const query = modelSearchQuery.value.toLowerCase();
-  const groups = modelGroups.value;
-  
-  if (!query) return groups;
-  
-  // 搜索时自动展开所有匹配的分组
-  return groups.map(group => {
-    const matchingModels = group.models.filter(m => 
-      m.toLowerCase().includes(query) || 
-      parseModelName(m).name.toLowerCase().includes(query)
-    );
-    if (matchingModels.length > 0) {
-      expandedModelGroups[group.provider] = true;
-    }
-    return { ...group, models: matchingModels };
-  }).filter(group => group.models.length > 0);
-});
-
-// 加载模型列表
-const loadModels = async () => {
-  try {
-    const result = await invoke<{ customModels: string[]; defaultModel: string | null; activeProvider: string | null; providerModels: string[] }>('agent_get_models');
-    // 合合用户自定义模型和供应商预定义模型（去重）
-    const customModels = result.customModels || [];
-    const predefinedModels = result.providerModels || [];
-    const mergedModels = [...new Set([...predefinedModels, ...customModels])];
-    availableModels.value = mergedModels;
-    defaultModel.value = result.defaultModel || '';
-    activeProvider.value = result.activeProvider || '';
-    // 如果当前未选择模型，使用默认模型
-    if (!selectedModel.value && defaultModel.value) {
-      selectedModel.value = defaultModel.value
-    }
-  } catch (e) {
-    console.error('Failed to load models:', e);
-    availableModels.value = [];
-  }
-};
-
-// 切换模型并持久化到 Hermes 配置
-const setModel = async (modelName: string) => {
-  selectedModel.value = modelName
-  try {
-    await invoke('agent_set_model', { model: modelName })
-    // 清除当前 session 的 agent 缓存，确保下次对话使用新模型
-    if (currentSessionId.value) {
-      await invoke('agent_clear_cache', { sessionId: currentSessionId.value })
-    }
-  } catch (e) {
-    console.error('Failed to persist model:', e)
-  }
-}
-
-// 添加模型
-const showAddModelDialog = ref(false);
-const newModelName = ref('');
-
-const addModel = async () => {
-  if (!newModelName.value.trim()) return;
-  try {
-    const result = await invoke<{ success: boolean; customModels: string[] }>('agent_add_model', {
-      model: newModelName.value.trim(),
-    });
-    if (result.success) {
-      availableModels.value = result.customModels;
-      newModelName.value = '';
-      showAddModelDialog.value = false;
-    }
-  } catch (e) {
-    console.error('Failed to add model:', e);
-  }
-};
-
-// 删除模型
-const removeModel = async (model: string) => {
-  try {
-    const result = await invoke<{ success: boolean; customModels: string[] }>('agent_remove_model', {
-      model,
-    });
-    if (result.success) {
-      availableModels.value = result.customModels;
-      // 如果删除的是当前选中的模型，重置选择
-      if (selectedModel.value === model) {
-        selectedModel.value = '';
-      }
-    }
-  } catch (e) {
-    console.error('Failed to remove model:', e);
-  }
-};
 
 // 搜索状态
 const searchQuery = ref('');
@@ -1186,7 +646,6 @@ const isThinkingExpanded = (msgIdx: number): boolean => {
 
 // Refs
 const messagesContainer = ref<HTMLElement | null>(null);
-const inputRef = ref<HTMLTextAreaElement | null>(null);
 const titleInputRef = ref<HTMLInputElement | null>(null);
 
 // 标题编辑状态
@@ -1232,242 +691,116 @@ const agentLog = async (message: string) => {
   }
 };
 
-// 自动调整输入框高度
-const adjustTextareaHeight = () => {
-  if (inputRef.value) {
-    inputRef.value.style.height = 'auto';
-    // 限制最大高度为 200px（约 8 行）
-    const maxHeight = 200;
-    const newHeight = Math.min(inputRef.value.scrollHeight, maxHeight);
-    inputRef.value.style.height = `${newHeight}px`;
-  }
-};
-
-// 选择文件并追加路径到输入框
-const selectFile = async (defaultPath?: string) => {
-  try {
-    const selected = await open({
-      multiple: false,
-      title: '选择文件',
-      defaultPath: defaultPath || undefined,
-    });
-    if (selected) {
-      const path = Array.isArray(selected) ? selected[0] : selected;
-      const name = path.split('/').pop() || path;
-      attachedPaths.value.push({ path, type: 'file', name });
-      // 记住选择的目录作为常用文件夹
-      const dir = path.split('/').slice(0, -1).join('/') || path;
-      addFavoriteFolder(dir);
-      nextTick(() => adjustTextareaHeight());
-    }
-  } catch (e) {
-    console.error('选择文件失败:', e);
-  }
-  showAttachMenu.value = false;
-};
-
-// 选择文件夹并追加路径到输入框
-const selectFolder = async (defaultPath?: string) => {
-  try {
-    const selected = await open({
-      directory: true,
-      multiple: false,
-      title: '选择文件夹',
-      defaultPath: defaultPath || undefined,
-    });
-    if (selected) {
-      const path = Array.isArray(selected) ? selected[0] : selected;
-      const name = path.split('/').pop() || path;
-      attachedPaths.value.push({ path, type: 'folder', name });
-      // 记住选择的目录作为常用文件夹
-      addFavoriteFolder(path);
-      nextTick(() => adjustTextareaHeight());
-    }
-  } catch (e) {
-    console.error('选择文件夹失败:', e);
-  }
-  showAttachMenu.value = false;
-};
-
-// 选择 Git 仓库并追加路径到输入框
-const selectGitRepo = (repo: GitRepo) => {
-  const name = repo.path.split('/').pop() || repo.name || repo.path;
-  attachedPaths.value.push({ path: repo.path, type: 'folder', name });
-  showAttachMenu.value = false;
-  nextTick(() => adjustTextareaHeight());
-};
-
-// 从常用文件夹打开文件选择
-const selectFromFavorite = (folder: string, type: 'file' | 'folder') => {
-  if (type === 'file') {
-    selectFile(folder);
-  } else {
-    selectFolder(folder);
-  }
-};
-
-// 移除已选择的路径（同时释放图片预览的 object URL）
-const removeAttachedPath = (idx: number) => {
-  const item = attachedPaths.value[idx];
-  if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
-  attachedPaths.value.splice(idx, 1);
-  nextTick(() => adjustTextareaHeight());
-};
-
-// 粘贴处理（支持粘贴图片/文件到输入框，保存为临时文件后追加路径到已选路径列表）
-async function onPaste(e: ClipboardEvent) {
-  const dt = e.clipboardData;
-  if (!dt) return;
-
-  const files = dt.files;
-  const items = dt.items;
-  const savedPaths: SavedFile[] = [];
-
-  // === 先做同步检测，再决定是否阻止默认粘贴 ===
-  // WKWebView 在 await 期间可能已经执行了默认行为，
-  // 所以 preventDefault() 必须在任意 await 之前同步调用
-
-  const hasFiles = files.length > 0;
-  const hasImageItems = items && Array.from(items).some(item => item.type.startsWith('image/'));
-  const uriText = dt.getData('text/uri-list')?.trim();
-  const hasFileUrls = !!uriText && uriText.includes('file://');
-  const rawText = dt.getData('text/plain')?.trim();
-  const hasPathText = !!rawText && rawText.split('\n').every(l => {
-    const t = l.trim();
-    return t.length > 0 && t.startsWith('/') && t.lastIndexOf('/') > 0 && t.indexOf(' ') === -1;
-  });
-
-  // 有文件/图片/路径 → 同步阻止默认粘贴
-  if (hasFiles || hasImageItems || hasFileUrls || hasPathText) {
-    e.preventDefault();
-  } else {
-    return; // 纯文本，让浏览器默认行为处理
-  }
-
-  // 辅助：将 File 保存为临时文件，返回路径和图片预览
-  type SavedFile = { path: string; previewUrl?: string };
-  const saveFile = async (file: File, isImage: boolean): Promise<SavedFile | null> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const blob = new Blob([arrayBuffer]);
-      // 图片文件创建 object URL 用于预览（非图片不创建）
-      let previewUrl: string | undefined;
-      if (isImage) {
-        previewUrl = URL.createObjectURL(blob);
-      }
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      });
-      const base64 = dataUrl.split(',')[1];
-      const fileName = file.name ? `pasted_${Date.now()}_${file.name}` : `pasted_${Date.now()}`;
-      const result = await getTauriAPI().saveTempFile(base64, fileName);
-      if (result) {
-        return { path: result, previewUrl };
-      }
-      // 保存失败时释放 object URL
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      return null;
-    } catch (err) {
-      console.error('[HermesChat] paste save error:', err);
-      return null;
-    }
-  };
-
-  // 1. 从 clipboardData.files 检测粘贴的文件/图片（Finder 粘贴文件、截图等）
-  if (files.length > 0) {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (!file) continue;
-      const isImage = !!file.type?.startsWith('image/');
-      const saved = await saveFile(file, isImage);
-      if (saved) savedPaths.push(saved);
-    }
-  }
-
-  // 2. 备用：从 clipboardData.items 检测图片（部分场景 files 为空但 items 有）
-  if (savedPaths.length === 0 && items) {
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.startsWith('image/')) {
-        const file = item.getAsFile();
-        if (file) {
-          const saved = await saveFile(file, true);
-          if (saved) savedPaths.push(saved);
-        }
-        break;
-      }
-    }
-  }
-
-  // 3. 从 text/uri-list 检测文件路径（macOS Finder 粘贴）
-  if (savedPaths.length === 0) {
-    const uriText = dt.getData('text/uri-list')?.trim();
-    if (uriText) {
-      const urls = uriText.split('\n').map(l => l.trim()).filter(l => l.startsWith('file://'));
-      if (urls.length > 0) {
-        for (const url of urls) {
-          const path = decodeURIComponent(url.replace(/^file:\/\//, ''));
-          savedPaths.push({ path });
-        }
-      }
-    }
-  }
-
-  // 3b. 备选：从 text/plain 检测绝对路径
-  if (savedPaths.length === 0) {
-    const rawText = dt.getData('text/plain')?.trim();
-    if (rawText) {
-      const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const allArePaths = lines.length > 0 && lines.every(l =>
-        l.startsWith('/') && l.lastIndexOf('/') > 0 && l.indexOf(' ') === -1
-      );
-      if (allArePaths) {
-        for (const path of lines) {
-          savedPaths.push({ path });
-        }
-      }
-    }
-  }
-
-  // 4. 追加到已选路径徽章
-  if (savedPaths.length > 0) {
-    for (const { path, previewUrl } of savedPaths) {
-      const name = path.split('/').pop() || path;
-      const type: 'file' | 'folder' = (!name.includes('.') || path.endsWith('/')) ? 'folder' : 'file';
-      attachedPaths.value.push({ path, type, name, previewUrl });
-    }
-    nextTick(() => adjustTextareaHeight());
-  }
+// 处理 ChatInput 发送事件
+interface PathItem {
+  path: string;
+  type: 'file' | 'folder';
+  name: string;
+  previewUrl?: string;
 }
-// 追加路径到输入框（保留用于兼容外部调用）
-const appendPathToInput = (path: string) => {
-  if (inputText.value.trim()) {
-    inputText.value += '\n' + path;
-  } else {
-    inputText.value = path;
+
+const handleSend = async (text: string, paths: PathItem[], model: string) => {
+  if (!text.trim()) return;
+
+  // 如果正在处理，先打断当前处理
+  if (isStreaming.value) {
+    await abortChat();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    if (isStreaming.value) {
+      void agentLog('[handleSend] abort 后状态仍为 streaming，强制重置');
+      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+    }
   }
-  // 调整输入框高度
-  nextTick(() => adjustTextareaHeight());
+
+  // 将已选择路径拼入消息头部
+  let pathPrefix = '';
+  let msgFilePaths: PathItem[] | undefined;
+  if (paths.length > 0) {
+    pathPrefix = paths.map(p => p.path).join('\n') + '\n';
+    msgFilePaths = [...paths];
+  }
+  const fullText = pathPrefix + text.trim();
+
+  // 添加用户消息
+  messages.value.push({
+    role: 'user',
+    content: fullText,
+    timestamp: Date.now() / 1000,
+    toolName: null,
+    filePaths: msgFilePaths,
+  });
+  scrollToBottom();
+
+  // 开始流式输出
+  const sid = currentSessionId.value || '';
+  if (sid) streamingSessions[sid] = true;
+  if (sid) thinkingTexts[sid] = '';
+  if (sid) sessionRoundEnded[sid] = false;
+
+  try {
+    const modelToUse = model || null;
+    
+    const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
+      message: fullText,
+      sessionId: currentSessionId.value,
+      model: modelToUse,
+    });
+
+    if (result.session_id && !currentSessionId.value) {
+      currentSessionId.value = result.session_id;
+      const autoTitle = generateSessionTitle(fullText);
+      try {
+        await invoke('agent_rename_session', {
+          sessionId: result.session_id,
+          newTitle: autoTitle,
+        });
+        currentSession.value = {
+          id: result.session_id,
+          title: autoTitle,
+          model: modelToUse || 'unknown',
+          source: 'unknown',
+          startedAt: Date.now() / 1000,
+          endedAt: null,
+          messageCount: 1,
+          preview: fullText.slice(0, 50),
+          lastActive: Date.now() / 1000,
+        };
+      } catch (e) {
+        console.warn('Auto-title failed:', e);
+      }
+      refreshSessions();
+    }
+
+    thinkingText.value = '';
+    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
+  } catch (e) {
+    console.error('Chat error:', e);
+    messages.value.push({
+      role: 'assistant',
+      content: `错误: ${e}`,
+      timestamp: Date.now() / 1000,
+      toolName: null,
+      isError: true,
+      retryContent: fullText,
+    });
+  }
+
+  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
+  scrollToBottom();
+  chatInputRef.value?.focus();
 };
 
-// 添加常用文件夹（最多保留3个，按最近使用排序）
-const addFavoriteFolder = (folder: string) => {
-  if (!folder) {
-    return;
+// 处理粘贴事件（委托给 ChatInput）
+const onPaste = async (e: ClipboardEvent) => {
+  // ChatInput 内部处理粘贴，这里只是接收事件
+};
+
+// 处理模型变更
+const onModelChanged = async (model: string) => {
+  // ChatInput 已处理模型切换，这里可以更新当前会话信息
+  if (currentSession.value && model) {
+    currentSession.value.model = model;
   }
-  // 如果已存在，移到第一位（最近使用）
-  if (favoriteFolders.value.includes(folder)) {
-    favoriteFolders.value = [folder, ...favoriteFolders.value.filter(f => f !== folder)];
-    saveFavoriteFolders(); // 持久化顺序更新
-    return;
-  }
-  // 添加新文件夹到第一位，最多保留3个
-  favoriteFolders.value = [folder, ...favoriteFolders.value].slice(0, 3);
-  // 持久化到 localStorage
-  saveFavoriteFolders();
 };
 
 // 删除常用文件夹
@@ -1509,14 +842,10 @@ const loadGitRepos = async () => {
   }
 };
 
-// Computed
-// 是否处于搜索模式
-const isSearchMode = computed(() => sessionSearchQuery.value.trim().length > 0);
-
-// 搜索会话内容
-const searchSessions = async () => {
-  const query = sessionSearchQuery.value.trim();
-  if (!query) {
+// Event listeners
+const searchSessions = async (query: string) => {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
     searchResults.value = [];
     return;
   }
@@ -1524,7 +853,7 @@ const searchSessions = async () => {
   isSearching.value = true;
   try {
     const result = await invoke<{ results: SearchResult[]; total: number; query: string }>('agent_search_sessions', {
-      query,
+      query: trimmedQuery,
       limit: 20,
     });
     searchResults.value = result.results;
@@ -1538,23 +867,25 @@ const searchSessions = async () => {
 
 // 搜索防抖
 let searchDebounceTimer: number | null = null;
-const debouncedSearch = () => {
+
+// 处理 SessionSidebar 的搜索事件
+const handleSessionSearch = (query: string) => {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-  searchDebounceTimer = window.setTimeout(() => {
-    searchSessions();
-  }, 300);
-};
-
-// 监听搜索输入变化
-watch(sessionSearchQuery, () => {
-  if (sessionSearchQuery.value.trim()) {
-    debouncedSearch();
+  if (query.trim()) {
+    searchDebounceTimer = window.setTimeout(() => {
+      searchSessions(query);
+    }, 300);
   } else {
     searchResults.value = [];
   }
-});
+};
+
+// 清空搜索
+const clearSessionSearch = () => {
+  searchResults.value = [];
+};
 
 const sourceIcon = (source: string) => {
   const icons: Record<string, string> = {
@@ -1947,7 +1278,7 @@ const highlightSnippet = (snippet: string, query: string) => {
 // 点击搜索结果，跳转到对应会话和消息
 const jumpToSearchResult = async (result: SearchResult) => {
   // 清空搜索，回到正常模式
-  sessionSearchQuery.value = '';
+  clearSessionSearch();
   
   // 查找会话是否在列表中
   const session = sessions.value.find(s => s.id === result.sessionId);
@@ -2076,7 +1407,7 @@ const startNewChat = () => {
   currentSessionId.value = null;
   currentSession.value = null;
   messages.value = [];
-  inputText.value = '';
+  chatInputRef.value?.clear();
   thinkingText.value = '';
   if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
 };
@@ -2090,117 +1421,6 @@ const generateSessionTitle = (firstMessage: string): string => {
     title += '...';
   }
   return title;
-};
-
-const sendMessage = async () => {
-  if (!inputText.value.trim()) return;
-
-  // 如果正在处理，先打断当前处理
-  if (isStreaming.value) {
-    await abortChat();
-    // 等待足够时间让 abort 完成（Python 进程被 kill）
-    await new Promise(resolve => setTimeout(resolve, 200));
-    // 确认状态已恢复
-    if (isStreaming.value) {
-      void agentLog('[sendMessage] abort 后状态仍为 streaming，强制重置');
-      if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
-    }
-  }
-
-  // 构建消息
-  let text = inputText.value.trim();
-  inputText.value = '';
-  // 将已选择路径拼入消息头部（Agent 接收文本路径），同时保存结构化数据用于 UI 显示
-  let pathPrefix = '';
-  let msgFilePaths: PathItem[] | undefined;
-  if (attachedPaths.value.length > 0) {
-    pathPrefix = attachedPaths.value.map(p => p.path).join('\n') + '\n';
-    msgFilePaths = [...attachedPaths.value];
-    // 释放所有图片预览的 object URL
-    for (const item of attachedPaths.value) {
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
-    }
-    attachedPaths.value = [];
-  }
-  text = pathPrefix + text;
-
-  // 添加用户消息
-  messages.value.push({
-    role: 'user',
-    content: text,
-    timestamp: Date.now() / 1000,
-    toolName: null,
-    filePaths: msgFilePaths,
-  });
-  scrollToBottom();
-
-  // 开始流式输出 — 使用 per-session 状态
-  const sid = currentSessionId.value || '';
-  if (sid) streamingSessions[sid] = true;
-  if (sid) thinkingTexts[sid] = '';
-  if (sid) sessionRoundEnded[sid] = false;
-
-  try {
-    // 使用选择的模型（如果有）
-    const modelToUse = selectedModel.value || null;
-    
-    const result = await invoke<{ response: string; session_id: string; message_count: number }>('agent_chat', {
-      message: text,
-      sessionId: currentSessionId.value,
-      model: modelToUse,
-    });
-
-    // 更新 session ID
-    if (result.session_id && !currentSessionId.value) {
-      currentSessionId.value = result.session_id;
-      // 自动生成标题（如果是第一条消息）
-      const autoTitle = generateSessionTitle(text);
-      // 尝试重命名会话
-      try {
-        await invoke('agent_rename_session', {
-          sessionId: result.session_id,
-          newTitle: autoTitle,
-        });
-        // 更新本地 session 信息
-        currentSession.value = {
-          id: result.session_id,
-          title: autoTitle,
-          model: modelToUse || 'unknown',
-          source: 'unknown',
-          startedAt: Date.now() / 1000,
-          endedAt: null,
-          messageCount: 1,
-          preview: text.slice(0, 50),
-          lastActive: Date.now() / 1000,
-        };
-      } catch (e) {
-        console.warn('Auto-title failed:', e);
-      }
-      // 刷新会话列表
-      refreshSessions();
-    }
-
-    // invoke 返回后，消息已通过事件处理添加到 messages 数组
-    // 清空流式状态
-    thinkingText.value = '';
-    if (currentSessionId.value) sessionRoundEnded[currentSessionId.value] = false;
-  } catch (e) {
-    console.error('Chat error:', e);
-    // 添加错误消息，保存原始内容以便重试
-    messages.value.push({
-      role: 'assistant',
-      content: `错误: ${e}`,
-      timestamp: Date.now() / 1000,
-      toolName: null,
-      isError: true,
-      retryContent: text, // 保存原始消息用于重试
-    });
-  }
-
-  if (currentSessionId.value) streamingSessions[currentSessionId.value] = false;
-  scrollToBottom();
-  // 自动聚焦输入框，方便继续输入
-  inputRef.value?.focus();
 };
 
 // 重试发送消息
@@ -2218,9 +1438,8 @@ const retryMessage = async (retryContent: string) => {
     messages.value.pop();
   }
 
-  // 设置输入文本并重新发送
-  inputText.value = retryContent;
-  await sendMessage();
+  // 使用 handleSend 发送
+  await handleSend(retryContent, [], currentSession.value?.model || '');
 };
 
 // 取消当前处理
@@ -2322,14 +1541,8 @@ const clearSearch = () => {
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   // ESC: 关闭附件菜单或模型下拉菜单
   if (e.key === 'Escape') {
-    if (showAttachMenu.value) {
-      showAttachMenu.value = false;
-      return;
-    }
-    if (showModelDropdown.value) {
-      showModelDropdown.value = false;
-      return;
-    }
+    chatInputRef.value?.closeDropdowns();
+    return;
   }
   
   // Cmd/Ctrl + K: 新对话
@@ -2547,9 +1760,8 @@ onMounted(async () => {
   // 全局点击监听 - 关闭下拉菜单
   document.addEventListener('click', (e) => {
     const target = e.target as Element | null;
-    if (showModelDropdown.value && !target?.closest('.model-dropdown-container')) {
-      showModelDropdown.value = false;
-    }
+    // 通过 ChatInput 的方法关闭下拉菜单
+    chatInputRef.value?.closeDropdownsOnOutsideClick(target);
   });
   
   // 滚动监听 - 检测是否需要显示"回到底部"按钮
@@ -2891,7 +2103,7 @@ onMounted(async () => {
   });
 
   // 初始化
-  await loadModels(); // 加载模型列表
+  await chatInputRef.value?.loadModels(); // 加载模型列表
   await checkHermes();
   await refreshSessions();
   await loadGitRepos(); // 加载 Git 仓库列表
@@ -2929,7 +2141,7 @@ onMounted(async () => {
   }
 
   // 自动聚焦输入框，方便立即开始对话
-  inputRef.value?.focus();
+  chatInputRef.value?.focus();
 });
 
 onUnmounted(() => {
@@ -2947,14 +2159,12 @@ onUnmounted(() => {
     messagesContainer.value.removeEventListener('scroll', checkScrollPosition);
   }
   // 释放残存的图片预览 object URL
-  for (const item of attachedPaths.value) {
-    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  const paths = chatInputRef.value?.attachedPaths;
+  if (paths) {
+    for (const item of paths) {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    }
   }
-});
-
-// Watch inputText to auto-adjust textarea height
-watch(inputText, () => {
-  adjustTextareaHeight();
 });
 
 // Watch messages to update filteredMessages
