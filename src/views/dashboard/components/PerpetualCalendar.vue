@@ -130,14 +130,10 @@
             <div class="text-xs text-success font-medium mb-1.5">✅ 宜</div>
             <div class="flex flex-wrap gap-1">
               <span
-                v-for="item in selectedDay.almanac.yi.slice(0, 15)"
+                v-for="item in selectedDay.almanac.yi"
                 :key="item"
                 class="text-xs bg-success/10 text-success rounded px-1.5 py-0.5"
               >{{ item }}</span>
-              <span
-                v-if="selectedDay.almanac.yi.length > 15"
-                class="text-xs text-base-content/40"
-              >+{{ selectedDay.almanac.yi.length - 15 }}项</span>
               <span v-if="selectedDay.almanac.yi.length === 0" class="text-xs text-base-content/40">诸事不宜</span>
             </div>
           </div>
