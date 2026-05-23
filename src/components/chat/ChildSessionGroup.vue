@@ -207,4 +207,26 @@ const toggle = () => emit('toggle', props.group.sessionId);
 .markdown-content :deep(p) {
   margin: 0.3em 0;
 }
+
+.markdown-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid base-content/20;
+  padding: 0.25em 0.5em;
+  text-align: left;
+}
+
+.markdown-content :deep(th) {
+  background: base-200;
+  font-weight: bold;
+}
+
+.markdown-content :deep(thead) {
+  border-bottom: 2px solid base-content/30;
+}
 </style>

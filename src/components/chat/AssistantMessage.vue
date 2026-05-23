@@ -162,4 +162,26 @@ const retryMessage = (content: string) => props.onRetry(content);
   margin: 0.4em 0;
   padding-left: 1.5em;
 }
+
+.markdown-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+}
+
+.markdown-content :deep(th),
+.markdown-content :deep(td) {
+  border: 1px solid var(--fallback-bc, oklch(var(--bc) / 0.2));
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+
+.markdown-content :deep(th) {
+  background: var(--fallback-b2, oklch(var(--b2) / 1));
+  font-weight: bold;
+}
+
+.markdown-content :deep(thead) {
+  border-bottom: 2px solid var(--fallback-bc, oklch(var(--bc) / 0.3));
+}
 </style>
