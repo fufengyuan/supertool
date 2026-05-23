@@ -1,5 +1,5 @@
 <template>
-  <div class="bg-base-100 rounded-xl border border-base-content/10 p-4 lg:p-5 w-full overflow-hidden">
+  <div class="bg-base-100 rounded-xl border border-primary/20 p-4 lg:p-5 w-full overflow-hidden shadow-sm">
     <!-- 头部 -->
     <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
       <div class="flex items-center gap-2">
@@ -35,50 +35,52 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div v-for="m in 12" :key="m" class="min-w-0">
         <!-- 月份标题 -->
-        <div class="text-xs font-medium text-base-content/60 mb-2 text-center">
+        <div class="text-xs font-bold text-base-content mb-2 text-center bg-gradient-to-r from-primary/10 via-transparent to-primary/10 rounded-full py-1">
           {{ m }} 月
         </div>
         <!-- 星期头 -->
-        <div class="grid grid-cols-7 mb-0.5 text-center text-[10px] text-base-content/40">
-          <div v-for="w in weekDays" :key="w" class="py-0.5" :class="w === '六' || w === '日' ? 'text-error/50' : ''">{{ w }}</div>
+        <div class="grid grid-cols-7 mb-0.5 text-center text-[10px] font-medium">
+          <div v-for="w in weekDays" :key="w" class="py-0.5" :class="w === '六' || w === '日' ? 'text-red-500 dark:text-red-400' : 'text-base-content/60'">{{ w }}</div>
         </div>
         <!-- 日期网格 -->
         <div class="grid grid-cols-7 gap-[1px]">
           <template v-for="(day, idx) in monthGrid(m)" :key="idx">
             <div
               v-if="day"
-              class="aspect-square p-0.5 cursor-pointer rounded-sm transition-colors relative flex flex-col items-center justify-center text-center"
+              class="aspect-square p-0.5 cursor-pointer rounded-sm transition-all relative flex flex-col items-center justify-center text-center"
               :class="{
-                'bg-primary/10 ring-1 ring-primary/30': day.isToday,
-                'hover:bg-primary/5': !day.isToday,
-                'bg-error/5': day.isHoliday && !day.isToday,
+                'bg-red-500 text-white font-bold ring-2 ring-red-400 scale-[1.08] shadow-sm z-10': day.isToday,
+                'hover:bg-primary/15 hover:scale-105': !day.isToday,
+                'bg-red-50 dark:bg-red-900/20': day.isHoliday && !day.isToday && !isWeekendOrToday(day),
               }"
               @click="selectDay(day)"
             >
               <span
-                class="text-[11px] leading-tight"
+                class="text-[11px] leading-tight font-medium"
                 :class="{
-                  'text-error': day.isSunday || day.isSaturday,
-                  'text-base-content': !day.isSunday && !day.isSaturday,
-                  'text-primary font-bold': day.isToday,
-                  'text-base-content/70': day.festivals.length > 0 && !day.isToday,
+                  'text-red-500 dark:text-red-400 font-semibold': (day.isSunday || day.isSaturday) && !day.isToday,
+                  'text-base-content': !day.isSunday && !day.isSaturday && !day.isToday,
+                  'text-white': day.isToday,
+                  'text-amber-600 dark:text-amber-400': day.festivals.length > 0 && !day.isToday,
                 }"
               >{{ day.day }}</span>
               <span
                 v-if="day.lunarDay === '初一'"
-                class="text-[8px] text-primary/60 leading-tight mt-[1px]"
+                class="text-[8px] font-medium leading-tight mt-[1px]"
+                :class="day.isToday ? 'text-white/80' : 'text-primary dark:text-primary/80'"
               >{{ day.lunarMonth }}</span>
               <span
                 v-else-if="day.festivals.length > 0"
-                class="text-[7px] text-error leading-tight mt-[1px] truncate max-w-full px-0.5"
+                class="text-[7px] font-semibold text-white bg-red-500 dark:bg-red-600 rounded-sm px-0.5 leading-tight mt-[1px] truncate max-w-full"
               >{{ day.festivals[0] }}</span>
               <span
                 v-else-if="day.jieQi"
-                class="text-[7px] text-info leading-tight mt-[1px]"
+                class="text-[7px] font-semibold text-emerald-600 dark:text-emerald-400 leading-tight mt-[1px]"
               >{{ day.jieQi }}</span>
               <span
                 v-else
-                class="text-[7px] text-base-content/30 leading-tight mt-[1px]"
+                class="text-[7px] leading-tight mt-[1px]"
+                :class="day.isToday ? 'text-white/70' : 'text-base-content/50'"
               >{{ day.lunarDay }}</span>
             </div>
             <div v-else class="aspect-square"></div>
@@ -359,6 +361,9 @@ function buildMonthData(y: number, m: number): (DayInfo | null)[] {
 const monthGrid = (m: number) => {
   return buildMonthData(year.value, m);
 };
+
+// ===== 工具 =====
+const isWeekendOrToday = (day: DayInfo) => day.isToday || day.isSunday || day.isSaturday;
 
 // ===== 导航 =====
 const prevYear = () => { year.value--; showYearPicker.value = false; };
