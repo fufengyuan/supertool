@@ -23,9 +23,7 @@
         />
       </div>
     </div>
-    <!-- 预览：折叠时展示格式化结果 -->
-    <div v-if="showPreview" class="px-2.5 pb-1.5 text-xs" v-html="formattedPreview"></div>
-    <!-- 折叠内容：详细结果 -->
+    <!-- 折叠内容：参数和详细结果 -->
     <div v-if="expanded" class="px-2.5 py-1.5 bg-base-200/20 text-xs">
       <!-- 参数 -->
       <div v-if="hasArgs" class="mb-1">
@@ -61,7 +59,6 @@ const props = defineProps<{
   title?: string;
   summary?: string;
   resultLabel?: string;
-  formatPreview?: (result: string, tool: ToolCall) => string;
   formatResult?: (result: string, tool: ToolCall) => string;
 }>();
 
@@ -94,18 +91,6 @@ const hasArgs = computed(() => props.tool.args && Object.keys(props.tool.args).l
 
 // 参数 JSON
 const argsJson = computed(() => JSON.stringify(props.tool.args, null, 2));
-
-// 是否显示预览（有结果且未展开）
-const showPreview = computed(() => props.tool.result && !props.expanded);
-
-// 格式化预览
-const formattedPreview = computed(() => {
-  if (!props.tool.result) {return '';}
-  if (props.formatPreview) {
-    return props.formatPreview(props.tool.result, props.tool);
-  }
-  return props.tool.result.slice(0, 200) + (props.tool.result.length > 200 ? '...' : '');
-});
 
 // 格式化结果
 const formattedResult = computed(() => {

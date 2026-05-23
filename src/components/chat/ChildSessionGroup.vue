@@ -113,20 +113,14 @@ const emit = defineEmits<{
   (e: 'toggle', sessionId: string): void;
 }>();
 
-const expanded = computed({
-  get: () => props.isExpanded || false,
-  set: () => emit('toggle', props.group.sessionId)
-});
+const expanded = computed(() => props.isExpanded || false);
 
 const previewText = computed(() => {
   const text = props.group.preview;
   return text.length > 50 ? text.slice(0, 50) + '...' : text;
 });
 
-const toggle = () => {
-  expanded.value = !expanded.value;
-  emit('toggle', props.group.sessionId);
-};
+const toggle = () => emit('toggle', props.group.sessionId);
 </script>
 
 <style scoped>

@@ -47,8 +47,7 @@
               ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 100) + '...' : '执行任务')
               : (tool.name === 'todo' ? '待办任务' : formatArgsSummary(tool.args || {}))"
             :resultLabel="tool.isSubAgent ? '原始结果' : (tool.name === 'todo' ? '原始结果' : '结果')"
-            :formatPreview="(result) => tool.isSubAgent || tool.name !== 'todo' ? formatToolResult(tool.name, result) : formatTodoResult(result)"
-            :formatResult="(result) => tool.name === 'todo' ? `<pre class='whitespace-pre-wrap font-mono'>${result}</pre>` : formatToolResult(tool.name, result)"
+            :formatResult="(result: string) => tool.name === 'todo' ? `<pre class='whitespace-pre-wrap font-mono'>${result}</pre>` : formatToolResult(tool.name, result)"
             @toggle="toggleToolCall(tIdx)"
           />
         </div>
