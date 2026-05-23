@@ -88,7 +88,7 @@ export function useSessionManager() {
     session: Session,
     onLoadMessages?: (params: MessageLoadParams) => Promise<void> | void
   ) => {
-    // CRITICAL: Resolve compression tip first
+    // CRITICAL: Resolve compression tip transparently
     // If the session has been compressed, use the latest continuation session_id
     let effectiveSessionId = session.id;
     try {
@@ -97,13 +97,12 @@ export function useSessionManager() {
         { sessionId: session.id }
       );
       if (tipResult.success && tipResult.tipSessionId !== session.id) {
-        console.log(`[SessionManager] Compression tip resolved: ${session.id} -> ${tipResult.tipSessionId}`);
         effectiveSessionId = tipResult.tipSessionId;
-        // Update session id to effective id (compression tip)
+        // Update session id to effective id (compression tip) - transparent to user
         session = { ...session, id: effectiveSessionId };
       }
     } catch (e) {
-      console.warn('[SessionManager] Failed to resolve compression tip:', e);
+      // Silently ignore - list_hermes_messages already handles compression tip
     }
 
     currentSessionId.value = effectiveSessionId;

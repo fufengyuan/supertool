@@ -77,6 +77,7 @@ pub fn hermes_is_installed() -> bool {
 /// - Include preview (first 60 chars of first user message)
 /// - Include last_active (timestamp of last message)
 /// - Order by started_at DESC
+/// - **Compression tip projection**: show tip's info for compressed sessions
 pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession>, String> {
     let db_path = get_hermes_state_db_path();
     if !db_path.exists() {
@@ -86,9 +87,106 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
-    // Query sessions with preview and last_active
-    // Only show parent sessions (parent_session_id IS NULL), child sessions are embedded in parent's dialog
-    // Similar to hermes_state.py list_sessions_rich with include_children=False
+    // Query sessions with preview, last_active, and end_reason for compression detection
+    let query = r#"
+        SELECT 
+            s.id,
+            s.source,
+            s.model,
+            s.title,
+            s.started_at,
+            s.ended_at,
+            s.message_count,
+            COALESCE(
+                (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
+                 FROM messages m
+                 WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
+                 ORDER BY m.timestamp, m.id LIMIT 1),
+                ''
+            ) AS preview_raw,
+            COALESCE(
+                (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
+                s.started_at
+            ) AS last_active,
+            s.parent_session_id,
+            s.end_reason
+        FROM sessions s
+        WHERE s.parent_session_id IS NULL
+        ORDER BY s.started_at DESC
+        LIMIT ? OFFSET ?
+    "#;
+
+    let mut stmt = conn
+        .prepare(query)
+        .map_err(|e| format!("查询会话失败: {}", e))?;
+
+    let raw_sessions = stmt
+        .query_map([limit, offset], |row| {
+            let raw_preview: String = row.get(7)?;
+            let preview = if raw_preview.is_empty() {
+                String::new()
+            } else {
+                let text = raw_preview.trim();
+                if text.chars().count() > 60 {
+                    format!("{}...", text.chars().take(60).collect::<String>())
+                } else {
+                    text.to_string()
+                }
+            };
+
+            Ok((
+                HermesSession {
+                    id: row.get(0)?,
+                    source: row.get(1)?,
+                    model: row.get(2)?,
+                    title: row.get::<_, Option<String>>(3)?,
+                    started_at: row.get(4)?,
+                    ended_at: row.get::<_, Option<f64>>(5)?,
+                    message_count: row.get(6)?,
+                    preview,
+                    last_active: row.get(8)?,
+                    parent_session_id: row.get::<_, Option<String>>(9)?,
+                },
+                row.get::<_, Option<String>>(10)?, // end_reason
+            ))
+        })
+        .map_err(|e| format!("读取会话失败: {}", e))?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| format!("解析会话失败: {}", e))?;
+
+    // Compression tip projection: replace session info with tip's info if compressed
+    let sessions: Vec<HermesSession> = raw_sessions
+        .into_iter()
+        .map(|(mut session, end_reason)| {
+            if end_reason.as_deref() == Some("compression") {
+                // Find compression tip
+                if let Ok(tip_id) = get_compression_tip(&session.id) {
+                    if tip_id != session.id {
+                        // Query tip's details
+                        let tip_info = get_session_details(&conn, &tip_id);
+                        if let Ok(tip) = tip_info {
+                            // Replace session info with tip's info, but keep original id
+                            session.source = tip.source;
+                            session.model = tip.model;
+                            session.title = tip.title;
+                            session.ended_at = tip.ended_at;
+                            session.message_count = tip.message_count;
+                            session.preview = tip.preview;
+                            session.last_active = tip.last_active;
+                            // Keep original id, started_at, parent_session_id
+                        }
+                    }
+                }
+            }
+            session
+        })
+        .collect();
+
+    Ok(sessions)
+}
+
+/// Helper to get session details by id (for compression tip projection)
+fn get_session_details(conn: &rusqlite::Connection, session_id: &str) -> Result<HermesSession, String> {
     let query = r#"
         SELECT 
             s.id,
@@ -111,23 +209,16 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
             ) AS last_active,
             s.parent_session_id
         FROM sessions s
-        WHERE s.parent_session_id IS NULL
-        ORDER BY s.started_at DESC
-        LIMIT ? OFFSET ?
+        WHERE s.id = ?
     "#;
 
-    let mut stmt = conn
-        .prepare(query)
-        .map_err(|e| format!("查询会话失败: {}", e))?;
-
-    let sessions = stmt
-        .query_map([limit, offset], |row| {
+    let session = conn
+        .query_row(query, [session_id], |row| {
             let raw_preview: String = row.get(7)?;
             let preview = if raw_preview.is_empty() {
                 String::new()
             } else {
                 let text = raw_preview.trim();
-                // Use chars() to properly handle UTF-8 characters
                 if text.chars().count() > 60 {
                     format!("{}...", text.chars().take(60).collect::<String>())
                 } else {
@@ -148,11 +239,9 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
                 parent_session_id: row.get::<_, Option<String>>(9)?,
             })
         })
-        .map_err(|e| format!("读取会话失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("解析会话失败: {}", e))?;
+        .map_err(|e| format!("查询 tip 会话失败: {}", e))?;
 
-    Ok(sessions)
+    Ok(session)
 }
 
 /// Get the compression tip (latest continuation session) for a given session_id
