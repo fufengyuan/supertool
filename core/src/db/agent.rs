@@ -4,6 +4,7 @@
 //! Sessions table: id, source, model, title, started_at, ended_at, message_count, ...
 //! Messages table: id, session_id, role, content, timestamp, tool_name, ...
 
+use rusqlite::OptionalExtension;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -249,10 +250,11 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
     }
 }
 
-/// List Hermes messages for a session (including child sessions)
+/// List Hermes messages for a session (including child sessions and compression ancestors)
 ///
 /// Order by timestamp, include all roles: user, assistant, tool, system
 /// For parent sessions, also include messages from all child sessions (subagent)
+/// For compression continuation sessions, also include messages from ancestor sessions
 pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, String> {
     let db_path = get_hermes_state_db_path();
     if !db_path.exists() {
@@ -262,9 +264,81 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
-    // Unified query: include messages from this session and any child sessions
-    // is_child is 1 if message belongs to a child session, 0 otherwise
-    let query = r#"
+    // First, collect all related session_ids:
+    // 1. The current session
+    // 2. Child sessions (subagent runs): WHERE parent_session_id = current_session_id
+    // 3. Compression ancestors: walk up parent_session_id chain
+
+    // Collect compression ancestors (walk up the chain)
+    let mut ancestor_ids: Vec<String> = Vec::new();
+    let mut current_ancestor: Option<String> = Some(session_id.to_string());
+
+    // Walk up the compression chain: find sessions where current session is their child
+    // i.e., find the parent of current session, then parent's parent, etc.
+    while let Some(sid) = current_ancestor {
+        let parent_id_result: Result<String, rusqlite::Error> = conn.query_row(
+            "SELECT parent_session_id FROM sessions WHERE id = ? AND parent_session_id IS NOT NULL",
+            [&sid],
+            |row| row.get::<_, String>(0),
+        );
+
+        let parent_id = parent_id_result
+            .optional()
+            .map_err(|e| format!("查询压缩链失败: {}", e))?;
+
+        if let Some(pid) = parent_id {
+            ancestor_ids.push(pid.clone());
+            current_ancestor = Some(pid);
+        } else {
+            current_ancestor = None;
+        }
+    }
+
+    // Build the list of all session_ids to query
+    // Include: current session + ancestors + children of current session + children of ancestors
+    let base_ids: Vec<String> = {
+        let mut ids = vec![session_id.to_string()];
+        ids.extend(ancestor_ids.clone());
+        ids
+    };
+
+    // Add children (subagent runs) of current session and ancestors
+    // Use a separate statement to avoid borrow conflicts
+    let mut all_children: Vec<String> = Vec::new();
+    {
+        let mut stmt = conn
+            .prepare("SELECT id FROM sessions WHERE parent_session_id = ?")
+            .map_err(|e| format!("查询子会话失败: {}", e))?;
+        for sid in &base_ids {
+            let child_ids: Vec<String> = stmt
+                .query_map([sid], |row| row.get::<_, String>(0))
+                .map_err(|e| format!("读取子会话失败: {}", e))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("解析子会话失败: {}", e))?;
+            all_children.extend(child_ids);
+        }
+    }
+
+    let all_session_ids: Vec<String> = {
+        let mut ids = base_ids;
+        ids.extend(all_children);
+        ids
+    };
+
+    // Unified query: include messages from all related sessions
+    // is_child is 1 if message belongs to a child session (subagent), 0 otherwise
+    // Compression ancestor messages are NOT marked as is_child (they are part of the main conversation)
+
+    // Use a parameterized query with dynamic session list
+    // SQLite doesn't support array parameters, so we build the IN clause dynamically
+    let in_clause = all_session_ids
+        .iter()
+        .map(|s| format!("'{}'", s.replace("'", "''")))
+        .collect::<Vec<_>>()
+        .join(",");
+
+    let query = format!(
+        r#"
         SELECT 
             m.id,
             m.session_id,
@@ -277,20 +351,21 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             m.finish_reason,
             m.reasoning,
             m.reasoning_content,
-            CASE WHEN m.session_id != ? THEN 1 ELSE 0 END as is_child
+            CASE WHEN m.session_id != ? AND sessions.parent_session_id = ? THEN 1 ELSE 0 END as is_child
         FROM messages m
-        WHERE m.session_id = ? OR m.session_id IN (
-            SELECT id FROM sessions WHERE parent_session_id = ?
-        )
+        LEFT JOIN sessions ON sessions.id = m.session_id
+        WHERE m.session_id IN ({})
         ORDER BY m.timestamp, m.id
-    "#;
+        "#,
+        in_clause
+    );
 
     let mut stmt = conn
-        .prepare(query)
+        .prepare(&query)
         .map_err(|e| format!("查询消息失败: {}", e))?;
 
     let messages = stmt
-        .query_map([session_id, session_id, session_id], |row| {
+        .query_map([session_id, session_id], |row| {
             Ok(HermesMessage {
                 id: row.get(0)?,
                 session_id: row.get(1)?,
