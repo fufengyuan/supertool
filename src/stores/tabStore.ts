@@ -49,6 +49,8 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/nginx':     { label: 'Nginx',   viewId: 'nginx',            componentNames: ['NginxManager'] },
   '/database':  { label: '数据库',  viewId: 'database',         componentNames: ['DBManager'] },
   '/agent':     { label: 'Agent',   viewId: 'agent',            componentNames: ['AgentManager', 'HermesChat'] },
+  '/agent/profiles': { label: 'Profiles', viewId: 'agent-profiles', componentNames: ['AgentProfiles'] },
+  '/kanban':    { label: '看板',    viewId: 'kanban',           componentNames: ['KanbanBoard'] },
   '/alert':     { label: '告警',    viewId: 'alert',            componentNames: ['AlertView'] },
   '/devtools':  { label: '开发工具',viewId: 'devtools',         componentNames: ['DevTools'] },
   '/notes':     { label: '笔记',    viewId: 'notes',            componentNames: ['NoteManager'] },
