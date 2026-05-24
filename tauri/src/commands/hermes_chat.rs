@@ -10,7 +10,7 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-use crate::commands::hermes_config::check_api_server_config;
+use crate::commands::hermes_config::{check_api_server_config, ensure_api_server_config};
 
 /// Hermes HTTP API server URL
 const HERMES_API_URL: &str = "http://localhost:8642";
@@ -30,13 +30,16 @@ fn local_client() -> reqwest::Client {
         .expect("Failed to build reqwest client")
 }
 
-/// Get the API key from Hermes config
+/// Get the API key from Hermes config, auto-configure if not set
 fn get_api_key() -> Result<String, String> {
     let (enabled, has_key, key) = check_api_server_config();
     if enabled && has_key && !key.is_empty() {
         return Ok(key);
     }
-    Err("Hermes API server not configured. Run 'hermes gateway restart' after setting API_SERVER_KEY in ~/.hermes/.env".to_string())
+    
+    // Auto-configure if not set
+    let new_key = ensure_api_server_config()?;
+    Ok(new_key)
 }
 
 /// Check if Hermes API server is running
