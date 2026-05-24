@@ -8,26 +8,42 @@ fn get_hermes_path() -> String {
     // Try common locations in order
     let candidates = [
         "/usr/local/bin/hermes",
-        "~/.local/bin/hermes",
-        "~/.hermes/hermes-agent/.venv/bin/hermes",
+        "/home/fufengyuan/.local/bin/hermes", // 直接使用绝对路径
+        "/home/fufengyuan/.hermes/hermes-agent/.venv/bin/hermes",
     ];
 
     for candidate in candidates {
-        let path = if candidate.starts_with('~') {
-            dirs::home_dir()
-                .map(|h| h.join(candidate.replace('~', "")))
-                .unwrap_or_else(|| std::path::PathBuf::from(candidate))
-        } else {
-            std::path::PathBuf::from(candidate)
-        };
-
+        let path = std::path::PathBuf::from(candidate);
         if path.exists() {
-            return path.to_string_lossy().to_string();
+            return candidate.to_string();
         }
     }
 
-    // Fallback to just "hermes" (will use PATH)
+    // Fallback to just "hermes" (will use PATH via shell)
     "hermes".to_string()
+}
+
+/// Run command through user's login shell to inherit full environment (PATH, etc.)
+fn run_hermes_with_user_env(subcommand: &str, args: &[&str]) -> Result<String, String> {
+    // Build the full command string
+    let full_cmd = if args.is_empty() {
+        format!("hermes {}", subcommand)
+    } else {
+        format!("hermes {} {}", subcommand, args.join(" "))
+    };
+
+    // Use login shell (-l) to load user's full environment including PATH
+    let output = Command::new("/bin/bash")
+        .args(["-l", "-c", &full_cmd])
+        .output()
+        .map_err(|e| format!("Failed to run hermes via shell: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Command failed: {}", stderr));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
 /// Software development team profile configuration
@@ -162,7 +178,7 @@ fn get_bundled_profiles_path() -> Option<PathBuf> {
 }
 
 /// Install Hermes profiles from bundled configuration
-/// Uses hermes CLI to create profiles with descriptions
+/// Uses hermes CLI through login shell to create profiles with descriptions
 pub fn install_hermes_profiles() -> Result<u32, String> {
     let profiles_dir = get_bundled_profiles_path()
         .ok_or_else(|| "profiles directory not found in resources".to_string())?;
@@ -181,43 +197,45 @@ pub fn install_hermes_profiles() -> Result<u32, String> {
     let mut installed = 0u32;
 
     for profile in profiles {
-        // Check if profile already exists
-        let check_output = Command::new(&get_hermes_path())
-            .args(["profile", "list"])
-            .output()
-            .map_err(|e| format!("Failed to check profiles: {}", e))?;
-
-        let list_output = String::from_utf8_lossy(&check_output.stdout);
+        // Check if profile already exists via shell
+        let list_output = run_hermes_with_user_env("profile", &["list"])
+            .unwrap_or_default();
+        
         if list_output.contains(&profile.name) {
-            // Profile exists, just update description
-            let _ = Command::new(&get_hermes_path())
-                .args(["profile", "describe", &profile.name, "--set", &profile.description])
-                .output();
+            // Profile exists, just update description via shell
+            let _ = run_hermes_with_user_env("profile", &[
+                "describe",
+                &profile.name,
+                "--set",
+                &profile.description
+            ]);
             installed += 1;
             continue;
         }
 
-        // Create new profile
-        let create_result = Command::new(&get_hermes_path())
-            .args(["profile", "create", &profile.name])
-            .output()
-            .map_err(|e| format!("Failed to create profile {}: {}", profile.name, e))?;
-
-        if !create_result.status.success() {
-            log::warn!("Failed to create profile {}: {}", profile.name, String::from_utf8_lossy(&create_result.stderr));
+        // Create new profile via shell
+        let create_result = run_hermes_with_user_env("profile", &["create", &profile.name]);
+        if create_result.is_err() {
+            log::warn!("Failed to create profile {}: {:?}", profile.name, create_result);
             continue;
         }
 
-        // Set description
-        let _ = Command::new(&get_hermes_path())
-            .args(["profile", "describe", &profile.name, "--set", &profile.description])
-            .output();
+        // Set description via shell
+        let _ = run_hermes_with_user_env("profile", &[
+            "describe",
+            &profile.name,
+            "--set",
+            &profile.description
+        ]);
 
-        // Set model if specified
+        // Set model if specified via shell
         if let Some(model) = &profile.model {
-            let _ = Command::new(&get_hermes_path())
-                .args(["profile", "model", &profile.name, "--set", model])
-                .output();
+            let _ = run_hermes_with_user_env("profile", &[
+                "model",
+                &profile.name,
+                "--set",
+                model
+            ]);
         }
 
         installed += 1;
@@ -344,12 +362,9 @@ pub fn check_cli_installed() -> InstallResult {
         .unwrap_or_default()
     };
 
-    // Check profiles installed by counting software dev team profiles
-    let profiles_installed = Command::new(&get_hermes_path())
-        .args(["profile", "list"])
-        .output()
-        .map(|o| {
-            let output = String::from_utf8_lossy(&o.stdout);
+    // Check profiles installed by counting software dev team profiles via shell
+    let profiles_installed = run_hermes_with_user_env("profile", &["list"])
+        .map(|output| {
             let dev_profiles = ["coder", "reviewer", "tester", "researcher", "writer", "devops", "debugger"];
             dev_profiles.iter().filter(|p| output.contains(*p)).count() as u32
         })

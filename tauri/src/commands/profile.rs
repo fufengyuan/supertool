@@ -3,31 +3,39 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
-/// Get hermes CLI path (supports pipx install and direct install)
-fn get_hermes_path() -> String {
-    // Try common locations in order
-    let candidates = [
-        "/usr/local/bin/hermes",
-        "~/.local/bin/hermes",
-        "~/.hermes/hermes-agent/.venv/bin/hermes",
-    ];
-    
-    for candidate in candidates {
-        let path = if candidate.starts_with('~') {
-            dirs::home_dir()
-                .map(|h| h.join(candidate.replace('~', "")))
-                .unwrap_or_else(|| std::path::PathBuf::from(candidate))
-        } else {
-            std::path::PathBuf::from(candidate)
-        };
-        
-        if path.exists() {
-            return path.to_string_lossy().to_string();
-        }
+/// Run command through user's login shell to inherit full environment (PATH, etc.)
+fn run_with_user_env(cmd: &str, args: &[&str]) -> Result<String, String> {
+    // Build the full command string
+    let full_cmd = if args.is_empty() {
+        cmd.to_string()
+    } else {
+        format!("{} {}", cmd, args.join(" "))
+    };
+
+    // Use login shell (-l) to load user's full environment including PATH
+    let output = Command::new("/bin/bash")
+        .args(["-l", "-c", &full_cmd])
+        .output()
+        .map_err(|e| format!("Failed to run command via shell: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Command failed: {}", stderr));
     }
-    
-    // Fallback to just "hermes" (will use PATH)
-    "hermes".to_string()
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Run hermes profile CLI through user's shell environment
+fn run_profile_cmd(args: &[String]) -> Result<String, String> {
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_with_user_env("hermes profile", &args_str)
+}
+
+/// Run hermes kanban CLI through user's shell environment
+fn run_kanban_cmd(args: &[String]) -> Result<String, String> {
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    run_with_user_env("hermes kanban", &args_str)
 }
 
 /// Profile info
@@ -42,55 +50,38 @@ pub struct HermesProfile {
     pub is_default: bool,
 }
 
-/// Run hermes profile CLI and parse output
-fn run_profile_cmd(args: &[String]) -> Result<String, String> {
-    let hermes = get_hermes_path();
-    let output = Command::new(&hermes)
-        .args(["profile"])
-        .args(args)
-        .output()
-        .map_err(|e| format!("Failed to run hermes profile ({}): {}", hermes, e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Profile command failed: {}", stderr));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
-/// Run hermes kanban CLI and parse output
-fn run_kanban_cmd(args: &[String]) -> Result<String, String> {
-    let hermes = get_hermes_path();
-    let output = Command::new(&hermes)
-        .args(["kanban"])
-        .args(args)
-        .output()
-        .map_err(|e| format!("Failed to run hermes kanban ({}): {}", hermes, e))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Kanban command failed: {}", stderr));
-    }
-
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-}
-
 /// Parse profile list output into structured data
 fn parse_profile_list(output: String) -> Vec<HermesProfile> {
     let mut profiles: Vec<HermesProfile> = vec![];
-    
+
     // Parse tabular output
-    for line in output.lines().skip(2) { // Skip header
+    for line in output.lines().skip(2) {
+        // Skip header
         let parts: Vec<&str> = line.split_whitespace().collect();
         if parts.len() >= 2 {
             let name = parts[0].replace('◆', "").trim().to_string();
             let is_default = parts[0].contains('◆');
-            let model = if parts.len() > 1 { Some(parts[1].to_string()) } else { None };
-            let gateway_status = if parts.len() > 2 { Some(parts[2].to_string()) } else { None };
-            let alias = if parts.len() > 3 && parts[3] != "—" { Some(parts[3].to_string()) } else { None };
-            let distribution = if parts.len() > 4 && parts[4] != "—" { Some(parts[4].to_string()) } else { None };
-            
+            let model = if parts.len() > 1 {
+                Some(parts[1].to_string())
+            } else {
+                None
+            };
+            let gateway_status = if parts.len() > 2 {
+                Some(parts[2].to_string())
+            } else {
+                None
+            };
+            let alias = if parts.len() > 3 && parts[3] != "—" {
+                Some(parts[3].to_string())
+            } else {
+                None
+            };
+            let distribution = if parts.len() > 4 && parts[4] != "—" {
+                Some(parts[4].to_string())
+            } else {
+                None
+            };
+
             profiles.push(HermesProfile {
                 name,
                 model,
@@ -102,7 +93,7 @@ fn parse_profile_list(output: String) -> Vec<HermesProfile> {
             });
         }
     }
-    
+
     profiles
 }
 
@@ -118,12 +109,15 @@ pub fn profile_list() -> Result<Vec<HermesProfile>, String> {
 pub fn profile_show(name: String) -> Result<serde_json::Value, String> {
     // Run profile show and parse the output
     let output = run_profile_cmd(&["show".into(), name.clone()])?;
-    
+
     // Parse into structured format
     let mut result = serde_json::Map::new();
     result.insert("name".into(), serde_json::Value::String(name));
-    result.insert("raw_output".into(), serde_json::Value::String(output.clone()));
-    
+    result.insert(
+        "raw_output".into(),
+        serde_json::Value::String(output.clone()),
+    );
+
     // Parse key-value pairs from output
     for line in output.lines() {
         if let Some((key, value)) = line.split_once(':') {
@@ -132,7 +126,7 @@ pub fn profile_show(name: String) -> Result<serde_json::Value, String> {
             result.insert(key, serde_json::Value::String(value.to_string()));
         }
     }
-    
+
     Ok(serde_json::Value::Object(result))
 }
 
@@ -191,7 +185,10 @@ pub fn profile_update(name: String) -> Result<(), String> {
 
 /// Trigger a dispatch pass (reclaim stale, promote ready, spawn workers)
 #[tauri::command(rename_all = "camelCase")]
-pub fn kanban_dispatch(dry_run: Option<bool>, max_spawns: Option<u32>) -> Result<serde_json::Value, String> {
+pub fn kanban_dispatch(
+    dry_run: Option<bool>,
+    max_spawns: Option<u32>,
+) -> Result<serde_json::Value, String> {
     let mut args: Vec<String> = vec!["dispatch".into(), "--json".into()];
     if dry_run == Some(true) {
         args.push("--dry-run".into());
@@ -200,32 +197,24 @@ pub fn kanban_dispatch(dry_run: Option<bool>, max_spawns: Option<u32>) -> Result
         args.push("--max".into());
         args.push(m.to_string());
     }
-    
+
     let stdout = run_kanban_cmd(&args)?;
     if stdout.trim().is_empty() {
         return Ok(serde_json::Value::Null);
     }
-    
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse dispatch output: {}", e))
+
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse dispatch output: {}", e))
 }
 
 /// Check dispatcher status (running in gateway or daemon)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_dispatcher_status() -> Result<serde_json::Value, String> {
-    let hermes = get_hermes_path();
-    let output = Command::new(&hermes)
-        .args(["gateway", "status", "--json"])
-        .output()
-        .map_err(|e| format!("Failed to check gateway ({}): {}", hermes, e))?;
-    
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_with_user_env("hermes gateway status --json", &[])?;
     if stdout.trim().is_empty() {
         return Ok(serde_json::json!({"running": false}));
     }
-    
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse gateway status: {}", e))
+
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse gateway status: {}", e))
 }
 
 /// Get current assignee workload (tasks per profile)
@@ -235,7 +224,6 @@ pub fn kanban_workload() -> Result<Vec<serde_json::Value>, String> {
     if stdout.trim().is_empty() {
         return Ok(vec![]);
     }
-    
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse assignees: {}", e))
+
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse assignees: {}", e))
 }
