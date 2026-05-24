@@ -3,6 +3,33 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
+/// Get hermes CLI path (supports pipx install and direct install)
+fn get_hermes_path() -> String {
+    // Try common locations in order
+    let candidates = [
+        "/usr/local/bin/hermes",
+        "~/.local/bin/hermes",
+        "~/.hermes/hermes-agent/.venv/bin/hermes",
+    ];
+    
+    for candidate in candidates {
+        let path = if candidate.starts_with('~') {
+            dirs::home_dir()
+                .map(|h| h.join(candidate.replace('~', "")))
+                .unwrap_or_else(|| std::path::PathBuf::from(candidate))
+        } else {
+            std::path::PathBuf::from(candidate)
+        };
+        
+        if path.exists() {
+            return path.to_string_lossy().to_string();
+        }
+    }
+    
+    // Fallback to just "hermes" (will use PATH)
+    "hermes".to_string()
+}
+
 /// Profile info
 #[derive(Debug, Serialize, Deserialize)]
 pub struct HermesProfile {
@@ -17,15 +44,33 @@ pub struct HermesProfile {
 
 /// Run hermes profile CLI and parse output
 fn run_profile_cmd(args: &[String]) -> Result<String, String> {
-    let output = Command::new("hermes")
+    let hermes = get_hermes_path();
+    let output = Command::new(&hermes)
         .args(["profile"])
         .args(args)
         .output()
-        .map_err(|e| format!("Failed to run hermes profile: {}", e))?;
+        .map_err(|e| format!("Failed to run hermes profile ({}): {}", hermes, e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!("Profile command failed: {}", stderr));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+/// Run hermes kanban CLI and parse output
+fn run_kanban_cmd(args: &[String]) -> Result<String, String> {
+    let hermes = get_hermes_path();
+    let output = Command::new(&hermes)
+        .args(["kanban"])
+        .args(args)
+        .output()
+        .map_err(|e| format!("Failed to run hermes kanban ({}): {}", hermes, e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Kanban command failed: {}", stderr));
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
@@ -156,13 +201,7 @@ pub fn kanban_dispatch(dry_run: Option<bool>, max_spawns: Option<u32>) -> Result
         args.push(m.to_string());
     }
     
-    let output = Command::new("hermes")
-        .args(["kanban"])
-        .args(&args)
-        .output()
-        .map_err(|e| format!("Failed to dispatch: {}", e))?;
-    
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_kanban_cmd(&args)?;
     if stdout.trim().is_empty() {
         return Ok(serde_json::Value::Null);
     }
@@ -174,11 +213,11 @@ pub fn kanban_dispatch(dry_run: Option<bool>, max_spawns: Option<u32>) -> Result
 /// Check dispatcher status (running in gateway or daemon)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_dispatcher_status() -> Result<serde_json::Value, String> {
-    // Dispatcher now runs in the gateway
-    let output = Command::new("hermes")
+    let hermes = get_hermes_path();
+    let output = Command::new(&hermes)
         .args(["gateway", "status", "--json"])
         .output()
-        .map_err(|e| format!("Failed to check gateway: {}", e))?;
+        .map_err(|e| format!("Failed to check gateway ({}): {}", hermes, e))?;
     
     let stdout = String::from_utf8_lossy(&output.stdout);
     if stdout.trim().is_empty() {
@@ -192,12 +231,7 @@ pub fn kanban_dispatcher_status() -> Result<serde_json::Value, String> {
 /// Get current assignee workload (tasks per profile)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_workload() -> Result<Vec<serde_json::Value>, String> {
-    let output = Command::new("hermes")
-        .args(["kanban", "assignees", "--json"])
-        .output()
-        .map_err(|e| format!("Failed to get workload: {}", e))?;
-    
-    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stdout = run_kanban_cmd(&["assignees".into(), "--json".into()])?;
     if stdout.trim().is_empty() {
         return Ok(vec![]);
     }
