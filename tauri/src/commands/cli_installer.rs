@@ -1,6 +1,20 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
+
+/// Software development team profile configuration
+#[derive(Debug, Deserialize)]
+pub struct ProfileConfig {
+    pub name: String,
+    pub description: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub skills: Vec<String>,
+}
 
 #[derive(Debug, Serialize)]
 pub struct InstallResult {
@@ -8,6 +22,8 @@ pub struct InstallResult {
     pub cli_path: String,
     pub skills_installed: bool,
     pub skills_path: String,
+    pub profiles_installed: bool,
+    pub profiles_count: u32,
 }
 
 /// Get the bundled stool binary path from Tauri resources
@@ -101,6 +117,88 @@ pub fn install_stool_cli() -> Result<String, String> {
     Err("Failed to install stool CLI".to_string())
 }
 
+/// Get the bundled profiles directory path from Tauri resources
+fn get_bundled_profiles_path() -> Option<PathBuf> {
+    let exe_path = std::env::current_exe().ok()?;
+    let exe_dir = exe_path.parent()?.parent()?;
+    let profiles = exe_dir.join("profiles");
+    if profiles.exists() {
+        Some(profiles)
+    } else {
+        let resources = exe_dir.join("resources").join("profiles");
+        if resources.exists() {
+            Some(resources)
+        } else {
+            None
+        }
+    }
+}
+
+/// Install Hermes profiles from bundled configuration
+/// Uses hermes CLI to create profiles with descriptions
+pub fn install_hermes_profiles() -> Result<u32, String> {
+    let profiles_dir = get_bundled_profiles_path()
+        .ok_or_else(|| "profiles directory not found in resources".to_string())?;
+
+    let config_file = profiles_dir.join("software-dev-team.json");
+    if !config_file.exists() {
+        return Ok(0);
+    }
+
+    let content = fs::read_to_string(&config_file)
+        .map_err(|e| format!("Failed to read profiles config: {}", e))?;
+
+    let profiles: Vec<ProfileConfig> = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse profiles config: {}", e))?;
+
+    let mut installed = 0u32;
+
+    for profile in profiles {
+        // Check if profile already exists
+        let check_output = Command::new("hermes")
+            .args(["profile", "list"])
+            .output()
+            .map_err(|e| format!("Failed to check profiles: {}", e))?;
+
+        let list_output = String::from_utf8_lossy(&check_output.stdout);
+        if list_output.contains(&profile.name) {
+            // Profile exists, just update description
+            let _ = Command::new("hermes")
+                .args(["profile", "describe", &profile.name, "--set", &profile.description])
+                .output();
+            installed += 1;
+            continue;
+        }
+
+        // Create new profile
+        let create_result = Command::new("hermes")
+            .args(["profile", "create", &profile.name])
+            .output()
+            .map_err(|e| format!("Failed to create profile {}: {}", profile.name, e))?;
+
+        if !create_result.status.success() {
+            log::warn!("Failed to create profile {}: {}", profile.name, String::from_utf8_lossy(&create_result.stderr));
+            continue;
+        }
+
+        // Set description
+        let _ = Command::new("hermes")
+            .args(["profile", "describe", &profile.name, "--set", &profile.description])
+            .output();
+
+        // Set model if specified
+        if let Some(model) = &profile.model {
+            let _ = Command::new("hermes")
+                .args(["profile", "model", &profile.name, "--set", model])
+                .output();
+        }
+
+        installed += 1;
+    }
+
+    Ok(installed)
+}
+
 /// Install Hermes skills from bundled resources to ~/.hermes/skills/
 pub fn install_hermes_skills() -> Result<String, String> {
     let source_dir = get_bundled_skills_path()
@@ -174,12 +272,15 @@ pub fn install_hermes_skills() -> Result<String, String> {
 pub fn install_cli_and_skills() -> InstallResult {
     let cli_result = install_stool_cli();
     let skills_result = install_hermes_skills();
+    let profiles_result = install_hermes_profiles();
 
     InstallResult {
         cli_installed: cli_result.is_ok(),
         cli_path: cli_result.unwrap_or_default(),
         skills_installed: skills_result.is_ok(),
         skills_path: skills_result.unwrap_or_default(),
+        profiles_installed: profiles_result.is_ok(),
+        profiles_count: profiles_result.unwrap_or(0),
     }
 }
 
@@ -216,10 +317,23 @@ pub fn check_cli_installed() -> InstallResult {
         .unwrap_or_default()
     };
 
+    // Check profiles installed by counting software dev team profiles
+    let profiles_installed = Command::new("hermes")
+        .args(["profile", "list"])
+        .output()
+        .map(|o| {
+            let output = String::from_utf8_lossy(&o.stdout);
+            let dev_profiles = ["coder", "reviewer", "tester", "researcher", "writer", "devops", "debugger"];
+            dev_profiles.iter().filter(|p| output.contains(*p)).count() as u32
+        })
+        .unwrap_or(0);
+
     InstallResult {
         cli_installed,
         cli_path: cli_path_str,
         skills_installed,
         skills_path: skills_path.to_string_lossy().to_string(),
+        profiles_installed: profiles_installed > 0,
+        profiles_count: profiles_installed,
     }
 }
