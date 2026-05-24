@@ -362,13 +362,82 @@ pub fn agent_api_server_status() -> Result<serde_json::Value, String> {
 }
 
 /// Auto-configure Hermes API server and return the API key
+/// If custom_key is provided, use it instead of auto-generating
 #[tauri::command(rename_all = "camelCase")]
-pub fn agent_configure_api_server() -> Result<serde_json::Value, String> {
-    let key = ensure_api_server_config()?;
+pub fn agent_configure_api_server(custom_key: Option<String>) -> Result<serde_json::Value, String> {
+    let key = if let Some(custom) = custom_key {
+        // User provided a custom key, use it
+        set_api_server_key(&custom)?;
+        custom
+    } else {
+        // Auto-configure
+        ensure_api_server_config()?
+    };
     
     Ok(serde_json::json!({
         "success": true,
         "apiKey": key,
-        "message": "Hermes API server configured. Please restart gateway: hermes gateway restart",
+        "message": "Hermes API server configured. Gateway will be restarted.",
     }))
+}
+
+/// Set a specific API key for Hermes API server
+fn set_api_server_key(key: &str) -> Result<(), String> {
+    let env_path = hermes_env_path();
+    
+    // Read existing content (if file exists)
+    let existing_content = if env_path.exists() {
+        std::fs::read_to_string(&env_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+    
+    // Build new content - remove existing API_SERVER_* lines and add new ones
+    let mut lines: Vec<String> = existing_content
+        .lines()
+        .filter(|line| {
+            let l = line.trim();
+            !l.starts_with("API_SERVER_ENABLED=") && !l.starts_with("API_SERVER_KEY=")
+        })
+        .map(|s| s.to_string())
+        .collect();
+    
+    lines.push("API_SERVER_ENABLED=true".to_string());
+    lines.push(format!("API_SERVER_KEY={}", key));
+    
+    // Ensure .hermes directory exists
+    let hermes_dir = env_path.parent().unwrap();
+    std::fs::create_dir_all(hermes_dir)
+        .map_err(|e| format!("Failed to create .hermes directory: {}", e))?;
+    
+    // Write new content
+    let mut new_content = lines.join("\n");
+    if !new_content.ends_with("\n") {
+        new_content.push('\n');
+    }
+    std::fs::write(&env_path, &new_content).map_err(|e| format!("Failed to write .env: {}", e))?;
+    
+    log::info!("[set_api_server_key] Set API_SERVER_KEY={}", key);
+    
+    // Restart gateway to apply new config
+    let restart_result = std::process::Command::new("/bin/bash")
+        .args(["-l", "-c", "hermes gateway restart"])
+        .output();
+    
+    match restart_result {
+        Ok(output) if output.status.success() => {
+            log::info!("[set_api_server_key] Gateway restarted successfully");
+        }
+        Ok(output) => {
+            log::warn!(
+                "[set_api_server_key] Gateway restart failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        Err(e) => {
+            log::warn!("[set_api_server_key] Failed to restart gateway: {}", e);
+        }
+    }
+    
+    Ok(())
 }
