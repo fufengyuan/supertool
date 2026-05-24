@@ -118,6 +118,11 @@ const routes = [
         component: () => import('../views/agent/HermesChat.vue'),
       },
       {
+        path: 'kanban',
+        name: 'Kanban',
+        component: () => import('../components/kanban/KanbanBoard.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),

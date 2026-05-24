@@ -884,6 +884,23 @@ fn main() {
             // Hermes API server configuration
             commands::hermes_config::agent_api_server_status,
             commands::hermes_config::agent_configure_api_server,
+            // Hermes Kanban board
+            commands::kanban::kanban_list_boards,
+            commands::kanban::kanban_get_current_board,
+            commands::kanban::kanban_list_tasks,
+            commands::kanban::kanban_show_task,
+            commands::kanban::kanban_create_task,
+            commands::kanban::kanban_assign_task,
+            commands::kanban::kanban_reclaim_task,
+            commands::kanban::kanban_complete_task,
+            commands::kanban::kanban_block_task,
+            commands::kanban::kanban_unblock_task,
+            commands::kanban::kanban_archive_task,
+            commands::kanban::kanban_add_comment,
+            commands::kanban::kanban_list_assignees,
+            commands::kanban::kanban_get_stats,
+            commands::kanban::kanban_create_board,
+            commands::kanban::kanban_switch_board,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
