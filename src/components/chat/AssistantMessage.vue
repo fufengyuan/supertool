@@ -99,6 +99,8 @@ interface ToolCall {
   status?: string;
   durationMs?: number;
   isSubAgent?: boolean;
+  label?: string; // Hermes API 返回的友好标签
+  emoji?: string; // Hermes API 返回的 emoji
 }
 
 interface Message {
