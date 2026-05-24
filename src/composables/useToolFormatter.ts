@@ -112,17 +112,17 @@ export function formatTodoResult(result: string): string {
       const lines = parsed.todos.map((t: { id: string; content: string; status: string }) => {
         const icon = t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⏳';
         const textClass = t.status === 'completed' ? 'text-base-content/50 line-through' : 
-                          t.status === 'in_progress' ? 'text-primary font-medium' : 'text-base-content/70';
+                      t.status === 'in_progress' ? 'text-primary font-medium' : 'text-base-content/70';
         return `<div class="flex items-start gap-1.5 py-0.5">
           <span class="shrink-0">${icon}</span>
           <span class="${textClass}">${escapeHtml(t.content)}</span>
         </div>`;
       });
-      return `<div class="space-y-0.5">${lines.join('')}</div>`;
+      return `<div class="space-y-1">${lines.join('<br>')}</div>`;
     }
-    return escapeHtml(result);
+    return `<div>${escapeHtml(result.replace(/\n/g, '<br>'))}</div>`;
   } catch {
-    return escapeHtml(result);
+    return `<div>${escapeHtml(result.replace(/\n/g, '<br>'))}</div>`;
   }
 }
 
