@@ -39,6 +39,52 @@
       </div>
     </div>
 
+    <!-- API 配置区域 -->
+    <div v-if="installed && !loading" class="flex items-center justify-between px-4 py-3 bg-base-100 border border-base-content/10 rounded-xl">
+      <div class="flex items-center gap-2">
+        <SvgIcon name="key" size="16" class="text-base-content/50" />
+        <span class="text-xs text-base-content/70">API Key:</span>
+        <span class="text-xs font-mono text-base-content/80">{{ apiKeyDisplay }}</span>
+        <span v-if="apiRunning" class="badge badge-success badge-xs">运行中</span>
+        <span v-else class="badge badge-ghost badge-xs">未运行</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-ghost btn-xs text-xs" @click="showApiKeyModal = true">
+          <SvgIcon name="edit" size="12" />
+          配置
+        </button>
+        <button class="btn btn-ghost btn-xs text-xs" @click="loadApiStatus">
+          <SvgIcon name="refresh" size="12" />
+        </button>
+      </div>
+    </div>
+
+    <!-- API Key 配置弹窗 -->
+    <div v-if="showApiKeyModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl p-5 max-w-sm w-full shadow-xl">
+        <h3 class="text-lg font-bold mb-3">配置 Hermes API Key</h3>
+        <p class="text-xs text-base-content/60 mb-3">
+          API Key 用于 SuperTool 与 Hermes Gateway 之间的通信认证。
+        </p>
+        <div class="mb-4">
+          <label class="text-xs text-base-content/70 mb-1 block">API Key</label>
+          <input
+            v-model="newApiKey"
+            type="text"
+            class="input input-bordered input-sm w-full font-mono text-xs"
+            placeholder="输入自定义 API Key（留空自动生成）"
+          />
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button class="btn btn-ghost btn-sm" @click="showApiKeyModal = false">取消</button>
+          <button class="btn btn-primary btn-sm" @click="saveApiKey" :disabled="savingApiKey">
+            <SvgIcon v-if="savingApiKey" name="refresh" size="12" class="animate-spin" />
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 未安装提示 -->
     <div v-if="!installed && !loading" class="flex flex-col items-center justify-center gap-4 py-16 text-center">
       <div class="flex h-16 w-16 items-center justify-center rounded-full bg-base-200">
@@ -242,6 +288,14 @@ const showDetail = ref(false);
 const currentSession = ref<HermesSession | null>(null);
 const messages = ref<HermesMessage[]>([]);
 
+// API Key State
+const showApiKeyModal = ref(false);
+const newApiKey = ref('');
+const savingApiKey = ref(false);
+const currentApiKey = ref('');
+const apiRunning = ref(false);
+const apiKeyDisplay = ref('');
+
 // Methods
 async function checkInstalled() {
   try {
@@ -250,6 +304,48 @@ async function checkInstalled() {
   } catch {
     installed.value = false;
   }
+}
+
+async function loadApiStatus() {
+  try {
+    const result = await invoke<{ installed: boolean; configured: boolean; running: boolean; api_key: string }>('agent_api_server_status');
+    apiRunning.value = result.running;
+    currentApiKey.value = result.api_key || '';
+    // 显示部分 key（隐藏中间部分）
+    if (currentApiKey.value && currentApiKey.value.length > 8) {
+      apiKeyDisplay.value = currentApiKey.value.slice(0, 4) + '...' + currentApiKey.value.slice(-4);
+    } else {
+      apiKeyDisplay.value = currentApiKey.value || '未配置';
+    }
+  } catch (e) {
+    console.error('Failed to load API status:', e);
+    apiRunning.value = false;
+    apiKeyDisplay.value = '未配置';
+  }
+}
+
+async function saveApiKey() {
+  savingApiKey.value = true;
+  try {
+    const result = await invoke<{ success: boolean; apiKey: string }>('agent_configure_api_server', {
+      customKey: newApiKey.value || null,
+    });
+    if (result.success) {
+      currentApiKey.value = result.apiKey;
+      if (result.apiKey.length > 8) {
+        apiKeyDisplay.value = result.apiKey.slice(0, 4) + '...' + result.apiKey.slice(-4);
+      } else {
+        apiKeyDisplay.value = result.apiKey;
+      }
+      showApiKeyModal.value = false;
+      newApiKey.value = '';
+      // 重新加载状态
+      await loadApiStatus();
+    }
+  } catch (e) {
+    console.error('Failed to save API key:', e);
+  }
+  savingApiKey.value = false;
 }
 
 async function loadSessions() {
@@ -282,7 +378,7 @@ async function loadStats() {
 async function refreshSessions() {
   await checkInstalled();
   if (installed.value) {
-    await Promise.all([loadSessions(), loadStats()]);
+    await Promise.all([loadSessions(), loadStats(), loadApiStatus()]);
   }
   loading.value = false;
 }
