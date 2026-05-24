@@ -293,10 +293,10 @@ const profileDetail = ref<Record<string, string> | null>(null);
 // Methods
 async function refreshProfiles() {
   try {
-    profiles.value = await invoke('profileList');
+    profiles.value = await invoke('profile_list');
     
     // Get workload
-    const wl = await invoke<Array<{ name: string; counts: Record<string, number> }>>('kanbanWorkload');
+    const wl = await invoke<Array<{ name: string; counts: Record<string, number> }>>('kanban_workload');
     workload.value = {};
     for (const w of wl) {
       const total = Object.values(w.counts || {}).reduce((a, b) => a + b, 0);
@@ -304,7 +304,7 @@ async function refreshProfiles() {
     }
     
     // Get dispatcher status
-    const status = await invoke<Record<string, unknown>>('kanbanDispatcherStatus');
+    const status = await invoke<Record<string, unknown>>('kanban_dispatcher_status');
     dispatcherRunning.value = status?.['running'] === true;
   } catch (e) {
     console.error('Failed to refresh profiles:', e);
@@ -323,7 +323,7 @@ function gatewayClass(status?: string): string {
 
 async function setDefault(name: string) {
   try {
-    await invoke('profileUse', { name });
+    await invoke('profile_use', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to set default:', e);
@@ -333,7 +333,7 @@ async function setDefault(name: string) {
 async function deleteProfile(name: string) {
   if (!confirm(`确定删除 Profile "${name}"？`)) return;
   try {
-    await invoke('profileDelete', { name });
+    await invoke('profile_delete', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to delete profile:', e);
@@ -343,7 +343,7 @@ async function deleteProfile(name: string) {
 async function createProfile() {
   if (!newProfile.value.name.trim()) return;
   try {
-    await invoke('profileCreate', {
+    await invoke('profile_create', {
       name: newProfile.value.name.trim(),
       description: newProfile.value.description.trim() || null,
     });
@@ -358,7 +358,7 @@ async function createProfile() {
 async function editDescription(name: string) {
   // Fetch current description first
   try {
-    const d = await invoke<string>('profileGetDescription', { name });
+    const d = await invoke<string>('profile_get_description', { name });
     editDescriptionText.value = d || '';
   } catch {
     editDescriptionText.value = '';
@@ -369,7 +369,7 @@ async function editDescription(name: string) {
 async function saveDescription() {
   if (!editingProfile.value) return;
   try {
-    await invoke('profileDescribe', {
+    await invoke('profile_describe', {
       name: editingProfile.value,
       description: editDescriptionText.value.trim(),
     });
@@ -388,7 +388,7 @@ function openSetModel(name: string, currentModel?: string) {
 async function saveModel() {
   if (!settingModelProfile.value) return;
   try {
-    await invoke('profileSetModel', {
+    await invoke('profile_set_model', {
       name: settingModelProfile.value,
       model: settingModelValue.value.trim(),
     });
@@ -401,7 +401,7 @@ async function saveModel() {
 
 async function showProfileDetail(name: string) {
   try {
-    const detail = await invoke('profileShow', { name });
+    const detail = await invoke('profile_show', { name });
     profileDetail.value = detail as Record<string, string>;
   } catch (e) {
     console.error('Failed to show profile:', e);
@@ -410,7 +410,7 @@ async function showProfileDetail(name: string) {
 
 async function updateProfile(name: string) {
   try {
-    await invoke('profileUpdate', { name });
+    await invoke('profile_update', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to update profile:', e);
@@ -420,7 +420,7 @@ async function updateProfile(name: string) {
 async function manualDispatch() {
   dispatching.value = true;
   try {
-    const result = await invoke('kanbanDispatch', { dryRun: false, maxSpawns: null });
+    const result = await invoke('kanban_dispatch', { dryRun: false, maxSpawns: null });
     console.log('Dispatch result:', result);
     await refreshProfiles();
   } catch (e) {
@@ -431,7 +431,7 @@ async function manualDispatch() {
 
 async function dryRunDispatch() {
   try {
-    const result = await invoke('kanbanDispatch', { dryRun: true, maxSpawns: null });
+    const result = await invoke('kanban_dispatch', { dryRun: true, maxSpawns: null });
     console.log('Dry run result:', result);
     alert(JSON.stringify(result, null, 2));
   } catch (e) {
