@@ -40,7 +40,7 @@
         </div>
         <!-- 星期头 -->
         <div class="grid grid-cols-7 mb-0.5 text-center text-[10px] font-medium">
-          <div v-for="w in weekDays" :key="w" class="py-0.5" :class="w === '六' || w === '日' ? 'text-red-500 dark:text-red-400' : 'text-base-content/60'">{{ w }}</div>
+          <div v-for="w in weekDays" :key="w" class="py-0.5" :class="w === '六' || w === '日' ? 'text-rose-400 dark:text-rose-400/60' : 'text-base-content/60'">{{ w }}</div>
         </div>
         <!-- 日期网格 -->
         <div class="grid grid-cols-7 gap-[1px]">
@@ -51,17 +51,17 @@
               :class="{
                 'bg-sky-500 text-white font-bold ring-2 ring-sky-400 scale-[1.08] shadow-sm z-10': day.isToday,
                 'hover:bg-sky-500/15 hover:scale-105': !day.isToday,
-                'bg-emerald-50 dark:bg-emerald-900/20': day.isHoliday && !day.isToday && !isWeekendOrToday(day),
+                'bg-emerald-50 dark:bg-emerald-900/20': day.isOfficialHoliday && !day.isToday,
               }"
               @click="selectDay(day)"
             >
               <span
                 class="text-[11px] leading-tight font-medium"
                 :class="{
-                  'text-red-500 dark:text-red-400 font-semibold': (day.isSunday || day.isSaturday) && !day.isToday,
+                  'text-rose-400 dark:text-rose-400/70 font-medium': (day.isSunday || day.isSaturday) && !day.isToday,
                   'text-base-content': !day.isSunday && !day.isSaturday && !day.isToday,
                   'text-white': day.isToday,
-                  'text-emerald-600 dark:text-emerald-500': day.festivals.length > 0 && !day.isToday,
+                  'text-emerald-600 dark:text-emerald-500': day.isOfficialHoliday && !day.isToday,
                 }"
               >{{ day.day }}</span>
               <span
@@ -70,7 +70,7 @@
                 :class="day.isToday ? 'text-white/80' : 'text-primary dark:text-primary/80'"
               >{{ day.lunarMonth }}</span>
               <span
-                v-else-if="day.festivals.length > 0"
+                v-else-if="day.isOfficialHoliday"
                 class="text-[7px] font-semibold text-white bg-emerald-500 dark:bg-emerald-600 rounded-sm px-0.5 leading-tight mt-[1px] truncate max-w-full"
               >{{ day.festivals[0] }}</span>
               <span
@@ -229,6 +229,7 @@ interface DayInfo {
   isToday: boolean;
   isSunday: boolean;
   isSaturday: boolean;
+  isOfficialHoliday: boolean;
   isHoliday: boolean;
   lunarDay: string;
   lunarMonth: string;
@@ -239,7 +240,24 @@ interface DayInfo {
   almanac: AlmanacInfo | null;
 }
 
-// 构建单月数据（缓存提升性能）
+// 中国法定节假日名称
+const OFFICIAL_HOLIDAY_NAMES = new Set([
+  '元旦节', '春节', '清明节', '劳动节', '端午节', '中秋节', '国庆节',
+]);
+
+// 判断是否为法定放假日
+function checkOfficialHoliday(y: number, m: number, d: number, festivals: string[]): boolean {
+  // 优先用 HolidayUtil（区分调班/放假）
+  try {
+    const h = (LunarJS.HolidayUtil as any).getHoliday(y, m, d);
+    if (h && !h.isWork()) return true;
+  } catch {
+    // HolidayUtil 可能没有某年数据，降级到名称匹配
+  }
+  // 降级：匹配节日名称
+  return festivals.some(f => OFFICIAL_HOLIDAY_NAMES.has(f));
+}
+
 const monthCache = new Map<string, (DayInfo | null)[]>();
 
 function buildMonthData(y: number, m: number): (DayInfo | null)[] {
@@ -323,6 +341,7 @@ function buildMonthData(y: number, m: number): (DayInfo | null)[] {
 
     const date = new Date(y, m - 1, d);
     const isHoliday = festivals.length > 0 || date.getDay() === 0 || date.getDay() === 6;
+    const officialHoliday = checkOfficialHoliday(y, m, d, festivals);
 
     days.push({
       date,
@@ -332,6 +351,7 @@ function buildMonthData(y: number, m: number): (DayInfo | null)[] {
       isToday: date.toDateString() === todayStr,
       isSunday: date.getDay() === 0,
       isSaturday: date.getDay() === 6,
+      isOfficialHoliday: officialHoliday,
       isHoliday,
       lunarDay,
       lunarMonth: lunar.getMonth() === 1 ? '正月' : lunarMonthStr,
