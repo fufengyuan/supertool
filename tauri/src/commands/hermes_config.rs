@@ -229,15 +229,12 @@ fn hermes_env_path() -> PathBuf {
         .join(".env")
 }
 
-/// Generate a random API key (32 chars hex)
+/// Generate a fixed API key for SuperTool local use
+/// Uses a predictable key so Gateway and SuperTool stay in sync
 fn generate_api_key() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    // Simple hash-like key generation (not cryptographically secure, but sufficient for local use)
-    format!("{:x}", timestamp % 0xFFFFFFFFFFFFFFFF)
+    // Fixed key for local development - must match what Gateway expects
+    // This ensures SuperTool and Gateway always use the same key
+    "supertool-local-key".to_string()
 }
 
 /// Check if Hermes API server is configured
