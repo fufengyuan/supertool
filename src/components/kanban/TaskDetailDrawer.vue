@@ -77,8 +77,29 @@
                 {{ run.summary.slice(0, 50) }}...
               </span>
             </div>
+            <!-- Session link -->
+            <button 
+              v-if="run.sessionId"
+              class="btn btn-xs btn-ghost mt-2 text-primary"
+              @click="goToSession(run.sessionId)"
+            >
+              <SvgIcon name="chat" size="12" class="mr-1" />
+              查看对话
+            </button>
           </div>
         </div>
+      </div>
+
+      <!-- Current session (if task has sessionId) -->
+      <div v-if="task.task.sessionId">
+        <span class="text-xs text-base-content/50 block mb-1">当前会话</span>
+        <button 
+          class="btn btn-sm btn-primary w-full"
+          @click="goToSession(task.task.sessionId)"
+        >
+          <SvgIcon name="chat" size="14" class="mr-1" />
+          进入对话
+        </button>
       </div>
 
       <!-- Comments -->
@@ -167,9 +188,10 @@ interface KanbanTaskDetail {
     priority?: number;
     body?: string;
     parents: string[];
+    sessionId?: string;
   };
   comments: Array<{ id: number; author: string; body: string; createdAt: string }>;
-  runs: Array<{ runId: number; profile: string; outcome?: string; summary?: string; startedAt: string }>;
+  runs: Array<{ runId: number; profile: string; outcome?: string; summary?: string; startedAt: string; sessionId?: string }>;
 }
 
 const props = defineProps<{
@@ -181,9 +203,14 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'refresh'): void;
   (e: 'action', action: string, taskId: string, ...args: unknown[]): void;
+  (e: 'go-to-session', sessionId: string): void;
 }>();
 
 const newComment = ref('');
+
+function goToSession(sessionId: string) {
+  emit('go-to-session', sessionId);
+}
 
 const statusColorClass = computed(() => {
   switch (props.task.task.status) {
