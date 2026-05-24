@@ -209,12 +209,16 @@ pub fn kanban_dispatch(
 /// Check dispatcher status (running in gateway or daemon)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_dispatcher_status() -> Result<serde_json::Value, String> {
-    let stdout = run_with_user_env("hermes gateway status --json", &[])?;
-    if stdout.trim().is_empty() {
-        return Ok(serde_json::json!({"running": false}));
-    }
-
-    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse gateway status: {}", e))
+    let stdout = run_with_user_env("hermes gateway status", &[])?;
+    
+    // Parse plain text output - check for "running" indicators
+    let running = stdout.contains("Active: active (running)") 
+        || stdout.contains("✓ User gateway service is running");
+    
+    Ok(serde_json::json!({
+        "running": running,
+        "raw_output": stdout.lines().take(5).collect::<Vec<_>>().join("\n")
+    }))
 }
 
 /// Get current assignee workload (tasks per profile)
