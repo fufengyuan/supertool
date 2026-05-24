@@ -61,12 +61,12 @@ fn parse_profile_list(output: String) -> Vec<HermesProfile> {
         if parts.len() >= 2 {
             let name = parts[0].replace('◆', "").trim().to_string();
             let is_default = parts[0].contains('◆');
-            let model = if parts.len() > 1 {
+            let model = if parts.len() > 1 && parts[1] != "—" {
                 Some(parts[1].to_string())
             } else {
                 None
             };
-            let gateway_status = if parts.len() > 2 {
+            let gateway_status = if parts.len() > 2 && parts[2] != "—" {
                 Some(parts[2].to_string())
             } else {
                 None

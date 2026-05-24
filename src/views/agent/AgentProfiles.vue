@@ -251,10 +251,10 @@ const profileDetail = ref<Record<string, string> | null>(null);
 // Methods
 async function refreshProfiles() {
   try {
-    profiles.value = await invoke('profile_list');
+    profiles.value = await invoke('profileList');
     
     // Get workload
-    const wl = await invoke<Array<{ name: string; counts: Record<string, number> }>>('kanban_workload');
+    const wl = await invoke<Array<{ name: string; counts: Record<string, number> }>>('kanbanWorkload');
     workload.value = {};
     for (const w of wl) {
       const total = Object.values(w.counts || {}).reduce((a, b) => a + b, 0);
@@ -262,7 +262,7 @@ async function refreshProfiles() {
     }
     
     // Get dispatcher status
-    const status = await invoke<Record<string, unknown>>('kanban_dispatcher_status');
+    const status = await invoke<Record<string, unknown>>('kanbanDispatcherStatus');
     dispatcherRunning.value = status?.['running'] === true;
   } catch (e) {
     console.error('Failed to refresh profiles:', e);
@@ -281,7 +281,7 @@ function gatewayClass(status?: string): string {
 
 async function setDefault(name: string) {
   try {
-    await invoke('profile_use', { name });
+    await invoke('profileUse', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to set default:', e);
@@ -291,7 +291,7 @@ async function setDefault(name: string) {
 async function deleteProfile(name: string) {
   if (!confirm(`确定删除 Profile "${name}"？`)) return;
   try {
-    await invoke('profile_delete', { name });
+    await invoke('profileDelete', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to delete profile:', e);
@@ -301,7 +301,7 @@ async function deleteProfile(name: string) {
 async function createProfile() {
   if (!newProfile.value.name.trim()) return;
   try {
-    await invoke('profile_create', {
+    await invoke('profileCreate', {
       name: newProfile.value.name.trim(),
       description: newProfile.value.description.trim() || null,
     });
@@ -316,7 +316,7 @@ async function createProfile() {
 async function editDescription(name: string) {
   // Fetch current description first
   try {
-    const d = await invoke<string>('profile_get_description', { name });
+    const d = await invoke<string>('profileGetDescription', { name });
     editDescriptionText.value = d || '';
   } catch {
     editDescriptionText.value = '';
@@ -327,7 +327,7 @@ async function editDescription(name: string) {
 async function saveDescription() {
   if (!editingProfile.value) return;
   try {
-    await invoke('profile_describe', {
+    await invoke('profileDescribe', {
       name: editingProfile.value,
       description: editDescriptionText.value.trim(),
     });
@@ -340,7 +340,7 @@ async function saveDescription() {
 
 async function showProfileDetail(name: string) {
   try {
-    const detail = await invoke('profile_show', { name });
+    const detail = await invoke('profileShow', { name });
     profileDetail.value = detail as Record<string, string>;
   } catch (e) {
     console.error('Failed to show profile:', e);
@@ -349,7 +349,7 @@ async function showProfileDetail(name: string) {
 
 async function updateProfile(name: string) {
   try {
-    await invoke('profile_update', { name });
+    await invoke('profileUpdate', { name });
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to update profile:', e);
@@ -359,7 +359,7 @@ async function updateProfile(name: string) {
 async function manualDispatch() {
   dispatching.value = true;
   try {
-    const result = await invoke('kanban_dispatch', { dryRun: false, maxSpawns: null });
+    const result = await invoke('kanbanDispatch', { dryRun: false, maxSpawns: null });
     console.log('Dispatch result:', result);
     await refreshProfiles();
   } catch (e) {
@@ -370,7 +370,7 @@ async function manualDispatch() {
 
 async function dryRunDispatch() {
   try {
-    const result = await invoke('kanban_dispatch', { dryRun: true, maxSpawns: null });
+    const result = await invoke('kanbanDispatch', { dryRun: true, maxSpawns: null });
     console.log('Dry run result:', result);
     alert(JSON.stringify(result, null, 2));
   } catch (e) {
