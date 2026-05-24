@@ -170,7 +170,7 @@ const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done'));
 // Methods
 async function loadBoards() {
   try {
-    boards.value = await invoke('kanban_list_boards');
+    boards.value = await invoke('kanbanListBoards');
     currentBoard.value = boards.value.find(b => b.isCurrent) || boards.value[0];
     selectedBoardSlug.value = currentBoard.value?.slug || '';
   } catch (e) {
@@ -180,7 +180,7 @@ async function loadBoards() {
 
 async function loadTasks() {
   try {
-    tasks.value = await invoke('kanban_list_tasks', { board: null, status: null, assignee: null });
+    tasks.value = await invoke('kanbanListTasks', { board: null, status: null, assignee: null });
   } catch (e) {
     console.error('Failed to load tasks:', e);
   }
@@ -188,7 +188,7 @@ async function loadTasks() {
 
 async function loadStats() {
   try {
-    const result = await invoke<Record<string, unknown>>('kanban_get_stats', { board: null });
+    const result = await invoke<Record<string, unknown>>('kanbanGetStats', { board: null });
     stats.value = (result?.counts as Record<string, number>) || result || {};
   } catch (e) {
     console.error('Failed to load stats:', e);
@@ -197,7 +197,7 @@ async function loadStats() {
 
 async function loadAssignees() {
   try {
-    assignees.value = await invoke('kanban_list_assignees');
+    assignees.value = await invoke('kanbanListAssignees');
   } catch (e) {
     console.error('Failed to load assignees:', e);
   }
@@ -210,7 +210,7 @@ async function refreshTasks() {
 async function switchBoard() {
   if (selectedBoardSlug.value) {
     try {
-      await invoke('kanban_switch_board', { slug: selectedBoardSlug.value });
+      await invoke('kanbanSwitchBoard', { slug: selectedBoardSlug.value });
       await loadBoards();
       await refreshTasks();
     } catch (e) {
@@ -221,7 +221,7 @@ async function switchBoard() {
 
 async function showTaskDetail(task: KanbanTask) {
   try {
-    selectedTask.value = await invoke('kanban_show_task', { taskId: task.id });
+    selectedTask.value = await invoke('kanbanShowTask', { taskId: task.id });
   } catch (e) {
     console.error('Failed to load task detail:', e);
   }
@@ -231,30 +231,30 @@ async function handleTaskAction(action: string, taskId: string, ...args: unknown
   try {
     switch (action) {
       case 'assign':
-        await invoke('kanban_assign_task', { taskId, assignee: args[0] });
+        await invoke('kanbanAssignTask', { taskId, assignee: args[0] });
         break;
       case 'reclaim':
-        await invoke('kanban_reclaim_task', { taskId });
+        await invoke('kanbanReclaimTask', { taskId });
         break;
       case 'complete':
-        await invoke('kanban_complete_task', { taskId, summary: args[0] || null });
+        await invoke('kanbanCompleteTask', { taskId, summary: args[0] || null });
         break;
       case 'block':
-        await invoke('kanban_block_task', { taskId, reason: args[0] || '需要人工介入' });
+        await invoke('kanbanBlockTask', { taskId, reason: args[0] || '需要人工介入' });
         break;
       case 'unblock':
-        await invoke('kanban_unblock_task', { taskId });
+        await invoke('kanbanUnblockTask', { taskId });
         break;
       case 'archive':
-        await invoke('kanban_archive_task', { taskId });
+        await invoke('kanbanArchiveTask', { taskId });
         break;
       case 'comment':
-        await invoke('kanban_add_comment', { taskId, body: args[0] });
+        await invoke('kanbanAddComment', { taskId, body: args[0] });
         break;
     }
     await refreshTasks();
     if (selectedTask.value?.task.id === taskId) {
-      selectedTask.value = await invoke('kanban_show_task', { taskId });
+      selectedTask.value = await invoke('kanbanShowTask', { taskId });
     }
   } catch (e) {
     console.error(`Failed to ${action} task:`, e);
@@ -263,7 +263,7 @@ async function handleTaskAction(action: string, taskId: string, ...args: unknown
 
 async function createTask(data: { title: string; body?: string; assignee?: string; parents?: string[] }) {
   try {
-    await invoke('kanban_create_task', {
+    await invoke('kanbanCreateTask', {
       title: data.title,
       body: data.body,
       assignee: data.assignee,
