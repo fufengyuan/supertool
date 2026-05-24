@@ -164,17 +164,35 @@ pub fn install_stool_cli() -> Result<String, String> {
 fn get_bundled_profiles_path() -> Option<PathBuf> {
     let exe_path = std::env::current_exe().ok()?;
     let exe_dir = exe_path.parent()?.parent()?;
+    
+    // Try production paths first
     let profiles = exe_dir.join("profiles");
     if profiles.exists() {
-        Some(profiles)
-    } else {
-        let resources = exe_dir.join("resources").join("profiles");
-        if resources.exists() {
-            Some(resources)
-        } else {
-            None
+        return Some(profiles);
+    }
+    
+    let resources_profiles = exe_dir.join("resources").join("profiles");
+    if resources_profiles.exists() {
+        return Some(resources_profiles);
+    }
+    
+    // Development mode: try project root's .hermes/profiles
+    // exe is at target/debug/supertool, exe_dir is target/debug
+    // project root is exe_dir.parent().parent() (target -> project root)
+    if let Some(project_root) = exe_dir.parent().and_then(|p| p.parent()) {
+        let dev_profiles = project_root.join(".hermes").join("profiles");
+        if dev_profiles.exists() {
+            return Some(dev_profiles);
+        }
+        
+        // Also try skills directory structure
+        let dev_skills_profiles = project_root.join("skills");
+        if dev_skills_profiles.exists() {
+            // For skills we don't return profiles, but check for existence
         }
     }
+    
+    None
 }
 
 /// Install Hermes profiles from bundled configuration
