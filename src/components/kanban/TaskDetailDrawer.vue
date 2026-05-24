@@ -77,29 +77,27 @@
                 {{ run.summary.slice(0, 50) }}...
               </span>
             </div>
-            <!-- Session link -->
-            <button 
-              v-if="run.sessionId"
-              class="btn btn-xs btn-ghost mt-2 text-primary"
-              @click="goToSession(run.sessionId)"
-            >
-              <SvgIcon name="chat" size="12" class="mr-1" />
-              查看对话
-            </button>
           </div>
         </div>
+        
+        <!-- Load log button -->
+        <button 
+          class="btn btn-sm btn-ghost mt-3 w-full"
+          @click="loadTaskLog"
+          :disabled="loadingLog"
+        >
+          <SvgIcon v-if="loadingLog" name="refresh" size="12" class="animate-spin mr-1" />
+          <SvgIcon v-else name="terminal" size="12" class="mr-1" />
+          {{ loadingLog ? '加载中...' : '查看执行日志' }}
+        </button>
       </div>
 
-      <!-- Current session (if task has sessionId) -->
-      <div v-if="task.task.sessionId">
-        <span class="text-xs text-base-content/50 block mb-1">当前会话</span>
-        <button 
-          class="btn btn-sm btn-primary w-full"
-          @click="goToSession(task.task.sessionId)"
-        >
-          <SvgIcon name="chat" size="14" class="mr-1" />
-          进入对话
-        </button>
+      <!-- Execution log -->
+      <div v-if="taskLog">
+        <span class="text-xs text-base-content/50 block mb-1">执行日志</span>
+        <div class="bg-base-300 rounded-lg p-3 text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-80 overflow-y-auto leading-relaxed">
+          <LogContent :content="taskLog" />
+        </div>
       </div>
 
       <!-- Comments -->
@@ -177,7 +175,9 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { invoke } from '@tauri-apps/api/core';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import LogContent from './LogContent.vue';
 
 interface KanbanTaskDetail {
   task: {
@@ -203,13 +203,23 @@ const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'refresh'): void;
   (e: 'action', action: string, taskId: string, ...args: unknown[]): void;
-  (e: 'go-to-session', sessionId: string): void;
 }>();
 
 const newComment = ref('');
+const taskLog = ref('');
+const loadingLog = ref(false);
 
-function goToSession(sessionId: string) {
-  emit('go-to-session', sessionId);
+async function loadTaskLog() {
+  loadingLog.value = true;
+  try {
+    const log = await invoke<string>('kanban_get_task_log', { taskId: props.task.task.taskId });
+    taskLog.value = log;
+  } catch (e) {
+    console.error('Failed to load task log:', e);
+    taskLog.value = `加载日志失败: ${e}`;
+  } finally {
+    loadingLog.value = false;
+  }
 }
 
 const statusColorClass = computed(() => {

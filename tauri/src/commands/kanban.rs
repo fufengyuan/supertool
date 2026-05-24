@@ -107,8 +107,26 @@ fn run_kanban_cmd(args: &[String]) -> Result<serde_json::Value, String> {
         return Ok(serde_json::Value::Null);
     }
 
-    serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse kanban output: {} - {}", e, stdout))
+    // Parse JSON output
+    serde_json::from_str(&stdout).map_err(|e| format!("Failed to parse kanban output: {} - Raw: {}", e, stdout))
+}
+
+/// Run kanban command without JSON parsing (returns raw text)
+fn run_kanban_cmd_raw(args: &[String]) -> Result<String, String> {
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let full_cmd = format!("hermes kanban {}", args_str.join(" "));
+
+    let output = Command::new("/bin/bash")
+        .args(["-l", "-c", &full_cmd])
+        .output()
+        .map_err(|e| format!("Failed to run hermes kanban: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Kanban command failed: {}", stderr));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
 /// List all kanban boards
@@ -351,4 +369,10 @@ pub fn kanban_create_board(
 pub fn kanban_switch_board(slug: String) -> Result<(), String> {
     run_kanban_cmd(&["boards".into(), "switch".into(), slug])?;
     Ok(())
+}
+
+/// Get task execution log
+#[tauri::command(rename_all = "camelCase")]
+pub fn kanban_get_task_log(task_id: String) -> Result<String, String> {
+    run_kanban_cmd_raw(&["log".into(), task_id])
 }
