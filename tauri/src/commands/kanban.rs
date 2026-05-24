@@ -84,10 +84,13 @@ pub struct KanbanRun {
 
 /// Run hermes kanban CLI and parse JSON output
 fn run_kanban_cmd(args: &[String]) -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
-        .args(["kanban"])
-        .args(args)
-        .args(["--json"])
+    // Build the full command string
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+    let full_cmd = format!("hermes kanban {} --json", args_str.join(" "));
+
+    // Use login shell (-l) to load user's full environment including PATH
+    let output = Command::new("/bin/bash")
+        .args(["-l", "-c", &full_cmd])
         .output()
         .map_err(|e| format!("Failed to run hermes kanban: {}", e))?;
 
