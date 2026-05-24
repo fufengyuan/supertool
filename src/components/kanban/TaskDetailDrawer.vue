@@ -64,15 +64,16 @@
       <div v-if="task.runs.length > 0">
         <span class="text-xs text-base-content/50 block mb-2">执行历史</span>
         <div class="space-y-2">
-          <div v-for="run in task.runs" :key="run.runId" class="bg-base-200/50 rounded p-2">
+          <div v-for="run in task.runs" :key="run.id" class="bg-base-200/50 rounded p-2">
             <div class="flex items-center justify-between">
               <span class="text-xs text-base-content/60">{{ run.profile }}</span>
               <span class="text-xs text-base-content/50">{{ formatTime(run.startedAt) }}</span>
             </div>
             <div class="text-xs mt-1">
-              <span v-if="run.outcome" :class="outcomeClass(run.outcome)">
-                {{ run.outcome }}
+              <span v-if="run.status || run.outcome" :class="outcomeClass(run.status || run.outcome)">
+                {{ run.status || run.outcome }}
               </span>
+              <span v-if="run.error" class="text-error ml-2">{{ run.error.slice(0, 30) }}...</span>
               <span v-if="run.summary" class="text-base-content/60 ml-2">
                 {{ run.summary.slice(0, 50) }}...
               </span>
@@ -188,10 +189,9 @@ interface KanbanTaskDetail {
     priority?: number;
     body?: string;
     parents: string[];
-    sessionId?: string;
   };
   comments: Array<{ id: number; author: string; body: string; createdAt: string }>;
-  runs: Array<{ runId: number; profile: string; outcome?: string; summary?: string; startedAt: string; sessionId?: string }>;
+  runs: Array<{ id: number; profile: string; status?: string; outcome?: string; summary?: string; error?: string; startedAt: number; endedAt?: number }>;
 }
 
 const props = defineProps<{
@@ -246,8 +246,9 @@ function formatStatus(status: string): string {
   return map[status] || status;
 }
 
-function formatTime(time: string): string {
-  return new Date(time).toLocaleString('zh-CN', {
+function formatTime(time: number | string): string {
+  const timestamp = typeof time === 'number' ? time * 1000 : new Date(time).getTime();
+  return new Date(timestamp).toLocaleString('zh-CN', {
     month: 'numeric',
     day: 'numeric',
     hour: '2-digit',
