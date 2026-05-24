@@ -74,15 +74,17 @@ pub struct KanbanEvent {
 /// Kanban run (worker attempt)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KanbanRun {
-    pub run_id: u64,
-    pub task_id: String,
+    pub id: u64,
     pub profile: String,
+    pub status: Option<String>,
     pub outcome: Option<String>,
     pub summary: Option<String>,
     pub error: Option<String>,
-    pub started_at: String,
-    pub ended_at: Option<String>,
-    pub elapsed_seconds: Option<u64>,
+    pub started_at: u64,
+    pub ended_at: Option<u64>,
+    pub metadata: Option<serde_json::Value>,
+    pub worker_pid: Option<u64>,
+    pub step_key: Option<String>,
 }
 
 /// Run hermes kanban CLI and parse JSON output
