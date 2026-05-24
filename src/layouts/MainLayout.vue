@@ -172,6 +172,8 @@ import {
   IconNetwork,
   IconBell,
   IconRobot,
+  IconUsers,
+  IconLayoutColumns,
 } from '@tabler/icons-vue'
 
 import { defineAsyncComponent, type Component } from 'vue'
@@ -240,6 +242,8 @@ const iconMap: Record<string, any> = {
   'data-backup': IconCloudDownload,
   'disk-cleaner': IconTrash,
   'agent': IconRobot,
+  'agent-profiles': IconUsers,
+  'kanban': IconLayoutColumns,
 }
 
 const router = useRouter()

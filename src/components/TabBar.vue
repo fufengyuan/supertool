@@ -80,6 +80,8 @@ import {
   IconTrash,
   IconBell,
   IconRobot,
+  IconUsers,
+  IconLayoutColumns,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<string, any> = {
@@ -102,6 +104,8 @@ const iconMap: Record<string, any> = {
   'data-backup': IconCloudDownload,
   'disk-cleaner': IconTrash,
   'agent': IconRobot,
+  'agent-profiles': IconUsers,
+  'kanban': IconLayoutColumns,
 }
 
 const tabStore = useTabStore()
