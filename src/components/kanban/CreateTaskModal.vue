@@ -38,8 +38,8 @@
           <label class="text-xs text-base-content/50 block mb-1">分配给</label>
           <select v-model="form.assignee" class="select select-sm select-bordered w-full">
             <option value="">未分配（手动分配）</option>
-            <option v-for="a in assignees" :key="a.profile" :value="a.profile">
-              {{ a.profile }} ({{ a.count }} 个任务)
+            <option v-for="a in assignees" :key="a.name" :value="a.name">
+              {{ a.name }} ({{ getAssigneeCount(a) }} 个任务)
             </option>
           </select>
         </div>
@@ -76,7 +76,7 @@ import { ref, computed } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const props = defineProps<{
-  assignees: Array<{ profile: string; count: number }>;
+  assignees: Array<{ name: string; counts: Record<string, number> }>;
 }>();
 
 const emit = defineEmits<{
@@ -96,6 +96,10 @@ const parents = computed(() => {
   if (!parentsInput.value.trim()) return [];
   return parentsInput.value.split(',').map(s => s.trim()).filter(Boolean);
 });
+
+function getAssigneeCount(a: { counts: Record<string, number> }): number {
+  return Object.values(a.counts || {}).reduce((sum, c) => sum + c, 0);
+}
 
 function handleCreate() {
   if (!form.value.title.trim()) return;
