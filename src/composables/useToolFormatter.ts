@@ -91,38 +91,65 @@ export function formatArgsSummary(args: Record<string, unknown>): string {
 }
 
 /**
- * 格式化 todo 工具返回结果
+ * HTML 转义，防止 XSS
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/**
+ * 格式化 todo 工具返回结果 - HTML 格式用于 v-html 渲染
  */
 export function formatTodoResult(result: string): string {
   try {
     const parsed = JSON.parse(result);
     if (parsed.todos && Array.isArray(parsed.todos)) {
-      return parsed.todos
-        .map((t: { id: string; content: string; status: string }) => 
-          `• ${t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⏳'} ${t.content}`)
-        .join('\n');
+      const lines = parsed.todos.map((t: { id: string; content: string; status: string }) => {
+        const icon = t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⏳';
+        const textClass = t.status === 'completed' ? 'text-base-content/50 line-through' : 
+                          t.status === 'in_progress' ? 'text-primary font-medium' : 'text-base-content/70';
+        return `<div class="flex items-start gap-1.5 py-0.5">
+          <span class="shrink-0">${icon}</span>
+          <span class="${textClass}">${escapeHtml(t.content)}</span>
+        </div>`;
+      });
+      return `<div class="space-y-0.5">${lines.join('')}</div>`;
     }
-    return result;
+    return escapeHtml(result);
   } catch {
-    return result;
+    return escapeHtml(result);
   }
 }
 
 /**
- * 格式化 delegate_task 工具返回结果
+ * 格式化 delegate_task 工具返回结果 - HTML 格式用于 v-html 渲染
  */
 export function formatDelegateResult(result: string): string {
   try {
     const parsed = JSON.parse(result);
     if (parsed.results && Array.isArray(parsed.results)) {
-      return parsed.results
-        .map((r: { task_index: number; status: string; summary: string }, i: number) => 
-          `**Task ${i + 1}** (${r.status}): ${r.summary || 'No summary'}`)
-        .join('\n\n');
+      const lines = parsed.results.map((r: { task_index: number; status: string; summary: string }, i: number) => {
+        const statusClass = r.status === 'completed' ? 'text-success' : r.status === 'error' ? 'text-error' : 'text-warning';
+        const icon = r.status === 'completed' ? '✓' : r.status === 'error' ? '✕' : '○';
+        return `<div class="py-1">
+          <div class="flex items-center gap-1.5">
+            <span class="${statusClass}">${icon}</span>
+            <span class="font-semibold">Task ${i + 1}</span>
+            <span class="text-base-content/50 text-xs">(${r.status})</span>
+          </div>
+          <div class="text-base-content/80 text-xs pl-4">${escapeHtml(r.summary || 'No summary')}</div>
+        </div>`;
+      });
+      return `<div class="space-y-1">${lines.join('')}</div>`;
     }
-    return result;
+    return escapeHtml(result);
   } catch {
-    return result;
+    return escapeHtml(result);
   }
 }
 
