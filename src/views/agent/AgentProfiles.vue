@@ -82,7 +82,7 @@
                   class="btn btn-xs btn-ghost btn-circle"
                   @click="openSetModel(profile.name, profile.model)"
                 >
-                  <SvgIcon name="edit" size="12" />
+                  <SvgIcon name="pencil" size="12" />
                 </button>
               </span>
             </div>
