@@ -1,8 +1,7 @@
 <template>
   <div class="flex items-center gap-2 px-2 py-1 bg-base-200/40 rounded-lg border border-base-content/10">
-    <!-- 工具 emoji（优先，Hermes API 返回时使用） -->
-    <span v-if="tool.emoji && tool.emoji.trim()" class="text-sm">{{ tool.emoji }}</span>
-    <!-- 无 emoji 时才显示图标 -->
+    <!-- 工具 emoji（Hermes API 返回） -->
+    <span v-if="tool.emoji" class="text-sm">{{ tool.emoji }}</span>
     <SvgIcon v-else :name="iconName" size="12" class="text-base-content/50" />
     
     <!-- 工具名称 -->
