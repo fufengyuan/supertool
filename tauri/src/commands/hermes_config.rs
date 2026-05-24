@@ -305,7 +305,7 @@ pub fn ensure_api_server_config() -> Result<String, String> {
     std::fs::create_dir_all(hermes_dir)
         .map_err(|e| format!("Failed to create .hermes directory: {}", e))?;
     
-// Write new content
+    // Write new content
     let mut new_content = lines.join("\n");
     if !new_content.ends_with("\n") {
         new_content.push('\n');
@@ -313,6 +313,25 @@ pub fn ensure_api_server_config() -> Result<String, String> {
     std::fs::write(&env_path, &new_content).map_err(|e| format!("Failed to write .env: {}", e))?;
     
     log::info!("[ensure_api_server_config] Auto-configured Hermes API server with new key");
+    
+    // Restart gateway to apply new config
+    let restart_result = std::process::Command::new("/bin/bash")
+        .args(["-l", "-c", "hermes gateway restart"])
+        .output();
+    
+    match restart_result {
+        Ok(output) if output.status.success() => {
+            log::info!("[ensure_api_server_config] Gateway restarted successfully");
+        }
+        Ok(output) => {
+            log::warn!("[ensure_api_server_config] Gateway restart failed: {}", 
+                String::from_utf8_lossy(&output.stderr));
+        }
+        Err(e) => {
+            log::warn!("[ensure_api_server_config] Failed to restart gateway: {}", e);
+        }
+    }
+    
     Ok(new_key)
 }
 
