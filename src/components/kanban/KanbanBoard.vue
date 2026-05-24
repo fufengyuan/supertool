@@ -97,7 +97,6 @@
       @close="selectedTask = null"
       @refresh="refreshTasks"
       @action="handleTaskAction"
-      @go-to-session="goToAgentSession"
     />
 
     <!-- Create task modal -->
@@ -113,13 +112,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
-import { useRouter } from 'vue-router';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import KanbanColumn from './KanbanColumn.vue';
 import TaskDetailDrawer from './TaskDetailDrawer.vue';
 import CreateTaskModal from './CreateTaskModal.vue';
-
-const router = useRouter();
 
 // Types
 interface KanbanBoard {
@@ -284,12 +280,6 @@ async function createTask(data: { title: string; body?: string; assignee?: strin
   } catch (e) {
     console.error('Failed to create task:', e);
   }
-}
-
-function goToAgentSession(sessionId: string) {
-  // Close drawer and navigate to Agent chat page with session
-  selectedTask.value = null;
-  router.push({ path: '/agent/chat', query: { sessionId } });
 }
 
 onMounted(async () => {

@@ -901,6 +901,7 @@ fn main() {
             commands::kanban::kanban_get_stats,
             commands::kanban::kanban_create_board,
             commands::kanban::kanban_switch_board,
+            commands::kanban::kanban_get_task_log,
             // Hermes Profile management (multi-agent)
             commands::profile::profile_list,
             commands::profile::profile_show,
