@@ -41,6 +41,19 @@
             <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
           </router-link>
 
+          <!-- Agent -->
+          <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
+            <span class="text-xs font-bold text-base-content uppercase tracking-wider">Agent</span>
+          </div>
+          <router-link v-for="item in navGroups.agent" :key="item.path"
+            :to="item.path"
+            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
+            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
+            @click="onNavClick(item.viewId, item.path)">
+            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
+            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
+          </router-link>
+
           <!-- 开发 -->
           <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
             <span class="text-xs font-bold text-base-content uppercase tracking-wider">开发</span>
@@ -253,10 +266,12 @@ const navGroups = {
     { path: '/logs', icon: '📋', label: '日志聚合', viewId: 'log-aggregator' },
     { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
   ],
-  dev: [
-    { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
+  agent: [
     { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
     { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
+  ],
+  dev: [
+    { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
     { path: '/alert', icon: '🔔', label: '告警', viewId: 'alert' },
     { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
