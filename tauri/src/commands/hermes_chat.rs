@@ -346,13 +346,13 @@ pub async fn agent_check_available() -> Result<serde_json::Value, String> {
         "api_running": api_running,
         "ready": installed && api_enabled && has_key && api_running,
         "error": if !installed {
-            "Hermes Agent not installed"
+            serde_json::Value::String("Hermes Agent not installed".to_string())
         } else if !api_enabled {
-            "API server not enabled. Add API_SERVER_ENABLED=true to ~/.hermes/.env"
+            serde_json::Value::String("API server not enabled. Add API_SERVER_ENABLED=true to ~/.hermes/.env".to_string())
         } else if !has_key {
-            "API key not configured. Add API_SERVER_KEY=xxx to ~/.hermes/.env"
+            serde_json::Value::String("API key not configured. Add API_SERVER_KEY=xxx to ~/.hermes/.env".to_string())
         } else if !api_running {
-            "API server not running. Run 'hermes gateway restart'"
+            serde_json::Value::String("API server not running. Run 'hermes gateway restart'".to_string())
         } else {
             serde_json::Value::Null
         },
