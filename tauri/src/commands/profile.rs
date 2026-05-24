@@ -159,7 +159,7 @@ pub fn profile_use(name: String) -> Result<(), String> {
 /// Set profile description (used by kanban orchestrator for routing)
 #[tauri::command(rename_all = "camelCase")]
 pub fn profile_describe(name: String, description: String) -> Result<(), String> {
-    run_profile_cmd(&["describe".into(), name, "--set".into(), description])?;
+    run_profile_cmd(&["describe".into(), name, "--text".into(), description])?;
     Ok(())
 }
 
