@@ -127,7 +127,7 @@
 
     <!-- Create profile modal -->
     <div v-if="showCreateProfile" class="fixed inset-0 bg-base-content/20 z-50 flex items-center justify-center">
-      <div class="bg-base-100 rounded-lg shadow-xl w-80">
+      <div class="bg-base-100 rounded-lg shadow-xl w-[480px]">
         <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
           <span class="text-sm font-medium">新建 Profile</span>
           <button class="btn btn-sm btn-ghost btn-circle" @click="showCreateProfile = false">
@@ -169,7 +169,7 @@
 
     <!-- Edit description modal -->
     <div v-if="editingProfile" class="fixed inset-0 bg-base-content/20 z-50 flex items-center justify-center">
-      <div class="bg-base-100 rounded-lg shadow-xl w-80">
+      <div class="bg-base-100 rounded-lg shadow-xl w-[480px]">
         <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
           <span class="text-sm font-medium">编辑 Profile 描述</span>
           <button class="btn btn-sm btn-ghost btn-circle" @click="editingProfile = null">
@@ -313,14 +313,15 @@ async function createProfile() {
   }
 }
 
-function editDescription(name: string) {
-  editingProfile.value = name;
-  // Fetch current description
-  invoke<string>('profile_get_description', { name }).then(d => {
+async function editDescription(name: string) {
+  // Fetch current description first
+  try {
+    const d = await invoke<string>('profile_get_description', { name });
     editDescriptionText.value = d || '';
-  }).catch(() => {
+  } catch {
     editDescriptionText.value = '';
-  });
+  }
+  editingProfile.value = name;
 }
 
 async function saveDescription() {
