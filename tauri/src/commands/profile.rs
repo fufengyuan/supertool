@@ -169,6 +169,14 @@ pub fn profile_get_description(name: String) -> Result<String, String> {
     run_profile_cmd(&["describe".into(), name])
 }
 
+/// Set profile model
+#[tauri::command(rename_all = "camelCase")]
+pub fn profile_set_model(name: String, model: String) -> Result<(), String> {
+    let cmd = format!("hermes --profile {} config set model {}", name, model);
+    run_with_user_env(&cmd, &[])?;
+    Ok(())
+}
+
 /// Install a profile distribution from git URL
 #[tauri::command(rename_all = "camelCase")]
 pub fn profile_install(name: String, source: String) -> Result<(), String> {
