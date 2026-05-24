@@ -358,9 +358,12 @@ async function createProfile() {
 async function editDescription(name: string) {
   // Fetch current description first
   try {
+    console.log('Fetching description for:', name);
     const d = await invoke<string>('profile_get_description', { name });
+    console.log('Got description:', d);
     editDescriptionText.value = d || '';
-  } catch {
+  } catch (e) {
+    console.error('Failed to get description:', e);
     editDescriptionText.value = '';
   }
   editingProfile.value = name;
