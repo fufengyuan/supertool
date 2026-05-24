@@ -35,7 +35,7 @@
         <span class="px-2 py-0.5 rounded-full bg-error/20 text-error">阻塞 {{ stats.blocked || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-success/20 text-success">完成 {{ stats.done || 0 }}</span>
       </div>
-      <span class="ml-auto text-base-content/50">共 {{ stats.total || 0 }} 项</span>
+      <span class="ml-auto text-base-content/50">共 {{ totalTasks }} 项</span>
     </div>
 
     <!-- Kanban columns -->
@@ -169,6 +169,7 @@ const readyTasks = computed(() => tasks.value.filter(t => t.status === 'ready'))
 const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'in_progress'));
 const blockedTasks = computed(() => tasks.value.filter(t => t.status === 'blocked'));
 const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done'));
+const totalTasks = computed(() => tasks.value.length);
 
 // Methods
 async function loadBoards() {
@@ -191,8 +192,8 @@ async function loadTasks() {
 
 async function loadStats() {
   try {
-    const result = await invoke<Record<string, unknown>>('kanban_get_stats', { board: null });
-    stats.value = (result?.counts as Record<string, number>) || result || {};
+    const result = await invoke<{ by_status: Record<string, number>; by_assignee: Record<string, number> }>('kanban_get_stats', { board: null });
+    stats.value = result?.by_status || {};
   } catch (e) {
     console.error('Failed to load stats:', e);
   }
