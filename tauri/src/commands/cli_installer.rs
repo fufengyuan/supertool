@@ -3,6 +3,33 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Get hermes CLI path (supports pipx install and direct install)
+fn get_hermes_path() -> String {
+    // Try common locations in order
+    let candidates = [
+        "/usr/local/bin/hermes",
+        "~/.local/bin/hermes",
+        "~/.hermes/hermes-agent/.venv/bin/hermes",
+    ];
+
+    for candidate in candidates {
+        let path = if candidate.starts_with('~') {
+            dirs::home_dir()
+                .map(|h| h.join(candidate.replace('~', "")))
+                .unwrap_or_else(|| std::path::PathBuf::from(candidate))
+        } else {
+            std::path::PathBuf::from(candidate)
+        };
+
+        if path.exists() {
+            return path.to_string_lossy().to_string();
+        }
+    }
+
+    // Fallback to just "hermes" (will use PATH)
+    "hermes".to_string()
+}
+
 /// Software development team profile configuration
 #[derive(Debug, Deserialize)]
 pub struct ProfileConfig {
@@ -155,7 +182,7 @@ pub fn install_hermes_profiles() -> Result<u32, String> {
 
     for profile in profiles {
         // Check if profile already exists
-        let check_output = Command::new("hermes")
+        let check_output = Command::new(&get_hermes_path())
             .args(["profile", "list"])
             .output()
             .map_err(|e| format!("Failed to check profiles: {}", e))?;
@@ -163,7 +190,7 @@ pub fn install_hermes_profiles() -> Result<u32, String> {
         let list_output = String::from_utf8_lossy(&check_output.stdout);
         if list_output.contains(&profile.name) {
             // Profile exists, just update description
-            let _ = Command::new("hermes")
+            let _ = Command::new(&get_hermes_path())
                 .args(["profile", "describe", &profile.name, "--set", &profile.description])
                 .output();
             installed += 1;
@@ -171,7 +198,7 @@ pub fn install_hermes_profiles() -> Result<u32, String> {
         }
 
         // Create new profile
-        let create_result = Command::new("hermes")
+        let create_result = Command::new(&get_hermes_path())
             .args(["profile", "create", &profile.name])
             .output()
             .map_err(|e| format!("Failed to create profile {}: {}", profile.name, e))?;
@@ -182,13 +209,13 @@ pub fn install_hermes_profiles() -> Result<u32, String> {
         }
 
         // Set description
-        let _ = Command::new("hermes")
+        let _ = Command::new(&get_hermes_path())
             .args(["profile", "describe", &profile.name, "--set", &profile.description])
             .output();
 
         // Set model if specified
         if let Some(model) = &profile.model {
-            let _ = Command::new("hermes")
+            let _ = Command::new(&get_hermes_path())
                 .args(["profile", "model", &profile.name, "--set", model])
                 .output();
         }
@@ -318,7 +345,7 @@ pub fn check_cli_installed() -> InstallResult {
     };
 
     // Check profiles installed by counting software dev team profiles
-    let profiles_installed = Command::new("hermes")
+    let profiles_installed = Command::new(&get_hermes_path())
         .args(["profile", "list"])
         .output()
         .map(|o| {

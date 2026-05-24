@@ -1,6 +1,6 @@
 [package]
 name = "supertool-core"
-version = "4.32.6"
+version = "4.32.7"
 edition = "2024"
 
 [dependencies]
