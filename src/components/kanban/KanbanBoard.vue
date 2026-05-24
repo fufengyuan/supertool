@@ -125,17 +125,22 @@ interface KanbanBoard {
 }
 
 interface KanbanTask {
-  taskId: string;
+  id: string;
   title: string;
   body?: string;
   status: string;
   assignee?: string;
   priority?: number;
-  parents: string[];
-  createdAt?: string;
-  updatedAt?: string;
-  claimedAt?: string;
-  claimedBy?: string;
+  skills?: string[];
+  createdBy?: string;
+  createdAt?: number;
+  startedAt?: number;
+  completedAt?: number;
+  workspaceKind?: string;
+  workspacePath?: string;
+  branchName?: string;
+  result?: string;
+  sessionId?: string;
 }
 
 interface KanbanTaskDetail {
@@ -216,7 +221,7 @@ async function switchBoard() {
 
 async function showTaskDetail(task: KanbanTask) {
   try {
-    selectedTask.value = await invoke('kanban_show_task', { taskId: task.taskId });
+    selectedTask.value = await invoke('kanban_show_task', { taskId: task.id });
   } catch (e) {
     console.error('Failed to load task detail:', e);
   }
@@ -248,7 +253,7 @@ async function handleTaskAction(action: string, taskId: string, ...args: unknown
         break;
     }
     await refreshTasks();
-    if (selectedTask.value?.task.taskId === taskId) {
+    if (selectedTask.value?.task.id === taskId) {
       selectedTask.value = await invoke('kanban_show_task', { taskId });
     }
   } catch (e) {

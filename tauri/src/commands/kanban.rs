@@ -24,19 +24,22 @@ pub struct KanbanBoard {
 /// Kanban task info
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KanbanTask {
-    pub task_id: String,
+    pub id: String,
     pub title: String,
     pub body: Option<String>,
     pub status: String,
     pub assignee: Option<String>,
     pub priority: Option<u32>,
-    pub parents: Vec<String>,
-    pub created_at: Option<String>,
-    pub updated_at: Option<String>,
-    pub claimed_at: Option<String>,
-    pub claimed_by: Option<String>,
-    pub workspace: Option<String>,
-    pub tenant: Option<String>,
+    pub skills: Option<Vec<String>>,
+    pub created_by: Option<String>,
+    pub created_at: Option<u64>,
+    pub started_at: Option<u64>,
+    pub completed_at: Option<u64>,
+    pub workspace_kind: Option<String>,
+    pub workspace_path: Option<String>,
+    pub branch_name: Option<String>,
+    pub result: Option<String>,
+    pub session_id: Option<String>,
 }
 
 /// Kanban task detail (with comments and events)

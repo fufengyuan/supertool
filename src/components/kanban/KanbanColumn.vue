@@ -13,7 +13,7 @@
     <div class="flex-1 overflow-y-auto p-2 space-y-2">
       <div 
         v-for="task in tasks" 
-        :key="task.taskId"
+        :key="task.id"
         class="bg-base-100 rounded-lg p-2.5 cursor-pointer hover:ring-1 hover:ring-primary/30 transition-shadow"
         @click="$emit('task-click', task)"
       >
@@ -31,16 +31,10 @@
           <span class="text-xs text-base-content/60">{{ task.assignee }}</span>
         </div>
 
-        <!-- Parents (dependencies) -->
-        <div v-if="task.parents.length > 0" class="mt-1.5 flex items-center gap-1.5">
-          <SvgIcon name="link" size="12" class="text-base-content/40" />
-          <span class="text-xs text-base-content/50">依赖 {{ task.parents.length }} 个任务</span>
-        </div>
-
-        <!-- Claimed info (for in_progress tasks) -->
-        <div v-if="status === 'in_progress' && task.claimedBy" class="mt-1.5 flex items-center gap-1.5">
-          <span class="text-xs text-primary animate-pulse">● 运行中</span>
-          <span class="text-xs text-base-content/50">{{ task.claimedBy }}</span>
+        <!-- Skills -->
+        <div v-if="task.skills && task.skills.length > 0" class="mt-1.5 flex items-center gap-1.5">
+          <SvgIcon name="skill" size="12" class="text-base-content/40" />
+          <span class="text-xs text-base-content/50">{{ task.skills.join(', ') }}</span>
         </div>
 
         <!-- Actions -->
@@ -48,7 +42,7 @@
           <button 
             v-if="status === 'in_progress'"
             class="btn btn-xs btn-ghost text-error"
-            @click.stop="$emit('task-action', 'reclaim', task.taskId)"
+            @click.stop="$emit('task-action', 'reclaim', task.id)"
             title="回收任务"
           >
             回收
@@ -56,7 +50,7 @@
           <button 
             v-if="status === 'ready' || status === 'in_progress'"
             class="btn btn-xs btn-ghost text-success"
-            @click.stop="$emit('task-action', 'complete', task.taskId)"
+            @click.stop="$emit('task-action', 'complete', task.id)"
             title="完成任务"
           >
             完成
@@ -64,7 +58,7 @@
           <button 
             v-if="status === 'ready' || status === 'in_progress'"
             class="btn btn-xs btn-ghost text-error"
-            @click.stop="$emit('task-action', 'block', task.taskId, '需要人工介入')"
+            @click.stop="$emit('task-action', 'block', task.id, '需要人工介入')"
             title="阻塞任务"
           >
             阻塞
@@ -72,7 +66,7 @@
           <button 
             v-if="status === 'blocked'"
             class="btn btn-xs btn-ghost text-success"
-            @click.stop="$emit('task-action', 'unblock', task.taskId)"
+            @click.stop="$emit('task-action', 'unblock', task.id)"
             title="解除阻塞"
           >
             解除
@@ -80,7 +74,7 @@
           <button 
             v-if="status === 'done'"
             class="btn btn-xs btn-ghost text-base-content/50"
-            @click.stop="$emit('task-action', 'archive', task.taskId)"
+            @click.stop="$emit('task-action', 'archive', task.id)"
             title="归档任务"
           >
             归档
@@ -101,13 +95,13 @@ import { computed } from 'vue';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 interface KanbanTask {
-  taskId: string;
+  id: string;
   title: string;
   status: string;
   assignee?: string;
   priority?: number;
-  parents: string[];
-  claimedBy?: string;
+  skills?: string[];
+  createdBy?: string;
 }
 
 const props = defineProps<{
