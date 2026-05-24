@@ -40,15 +40,11 @@
             v-for="(tool, tIdx) in message.toolCalls"
             :key="`${tool.name}-${tIdx}`"
             :tool="tool"
-            :expanded="isToolExpanded(tIdx)"
             :icon="tool.isSubAgent ? 'bot' : getToolIcon(tool.name).icon"
             :title="tool.isSubAgent ? '子 Agent' : tool.name"
             :summary="tool.isSubAgent 
-              ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 100) + '...' : '执行任务')
+              ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 80) + '...' : '')
               : (tool.name === 'todo' ? '待办任务' : formatArgsSummary(tool.args || {}))"
-            :resultLabel="tool.isSubAgent ? '原始结果' : (tool.name === 'todo' ? '原始结果' : '结果')"
-            :formatResult="(result: string) => formatToolResult(tool.name, result)"
-            @toggle="toggleToolCall(tIdx)"
           />
         </div>
       </div>
@@ -126,12 +122,8 @@ const props = defineProps<{
   formatTime: (ts: number) => string;
   getToolIcon: (name: string) => ToolIconInfo;
   formatArgsSummary: (args: Record<string, unknown>) => string;
-  formatToolResult: (name: string, result: string) => string;
-  formatTodoResult: (result: string) => string;
   isThinkingExpanded: (idx: number) => boolean;
-  isToolCallExpanded: (key: string) => boolean;
   onToggleThinking: (idx: number) => void;
-  onToggleToolCall: (key: string) => void;
   onRetry: (content: string) => void;
 }>();
 
@@ -143,9 +135,6 @@ const hasContent = computed(() =>
   props.message.isStopped
 );
 
-const isToolExpanded = (tIdx: number) => props.isToolCallExpanded(`${props.messageIndex}-${tIdx}`);
-
 const toggleThinking = () => props.onToggleThinking(props.messageIndex);
-const toggleToolCall = (tIdx: number) => props.onToggleToolCall(`${props.messageIndex}-${tIdx}`);
 const retryMessage = (content: string) => props.onRetry(content);
 </script>
