@@ -167,12 +167,8 @@
                 :formatTime="formatMessageTime"
                 :getToolIcon="getToolIcon"
                 :formatArgsSummary="formatArgsSummary"
-                :formatToolResult="formatToolResult"
-                :formatTodoResult="formatTodoResult"
                 :isThinkingExpanded="isThinkingExpanded"
-                :isToolCallExpanded="isToolCallExpanded"
                 :onToggleThinking="toggleThinkingExpand"
-                :onToggleToolCall="toggleToolCallExpand"
                 :onRetry="retryMessage"
               />
             </template>
@@ -324,7 +320,7 @@ import javascript from 'highlight.js/lib/languages/javascript';
 import { getTauriAPI } from '../../utils/tauri-api';
 import type { GitRepo } from '../../types';
 import { useSessionManager, type Session, type SearchResult } from '@/composables/useSessionManager';
-import { useToolExpandState, getToolIcon, formatArgsSummary, formatToolResult, formatTodoResult } from '@/composables/useToolFormatter';
+import { useToolExpandState, getToolIcon, formatArgsSummary } from '@/composables/useToolFormatter';
 import { setupCopyCode } from '@/composables/useMarkdownRenderer';
 import { useFavoriteFolders } from '@/composables/useFavoriteFolders';
 import python from 'highlight.js/lib/languages/python';
@@ -400,12 +396,9 @@ const {
   generateSessionTitle,
 } = useSessionManager();
 
-// 工具展开状态
+// 思考展开状态
 const {
-  expandedToolCalls,
   expandedThinking,
-  toggleToolCallExpand,
-  isToolCallExpanded,
   toggleThinkingExpand,
   isThinkingExpanded,
 } = useToolExpandState();

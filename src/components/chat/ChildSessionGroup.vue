@@ -56,14 +56,11 @@
                       v-for="(tc, tcIdx) in msg.toolCalls"
                       :key="tcIdx"
                       :tool="tc"
-                      :expanded="isToolExpanded(idx, tcIdx)"
                       :icon="tc.isSubAgent ? 'bot' : 'tool'"
                       :title="tc.isSubAgent ? '子 Agent' : tc.name"
                       :summary="tc.isSubAgent 
-                        ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 100) + '...' : '执行任务')
+                        ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 80) + '...' : '')
                         : formatArgsSummary(tc.args || {})"
-                      :formatResult="(r: string) => renderMarkdownSimple(r)"
-                      @toggle="toggleToolCall(`${idx}-${tcIdx}`)"
                     />
                   </div>
                 </div>
@@ -98,7 +95,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import VueMarkdown from 'vue-markdown-render';
-import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
 
@@ -108,18 +104,7 @@ const mdOptions = {
   linkify: true,
   typographer: true,
   breaks: true,
-  highlight: (str: string, lang: string) => {
-    if (lang && hljs.getLanguage(lang)) {
-      return hljs.highlight(str, { language: lang }).value;
-    }
-    return hljs.highlightAuto(str).value;
-  },
 };
-
-// 简单的 markdown 渲染函数（用于 ToolCallCard）
-import MarkdownIt from 'markdown-it';
-const md = new MarkdownIt(mdOptions);
-const renderMarkdownSimple = (text: string): string => md.render(text);
 
 interface ToolCall {
   name: string;
@@ -166,21 +151,6 @@ const sendContinueMessage = () => {
     emit('continue', props.group.sessionId, continueInput.value.trim());
     continueInput.value = '';
   }
-};
-
-// 工具调用展开状态 (key: `${msgIdx}-${tcIdx}`)
-const expandedTools = ref(new Set<string>());
-
-const toggleToolCall = (key: string) => {
-  if (expandedTools.value.has(key)) {
-    expandedTools.value.delete(key);
-  } else {
-    expandedTools.value.add(key);
-  }
-};
-
-const isToolExpanded = (msgIdx: number, tcIdx: number): boolean => {
-  return expandedTools.value.has(`${msgIdx}-${tcIdx}`);
 };
 
 // 工具摘要生成
