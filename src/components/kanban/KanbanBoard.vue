@@ -156,7 +156,7 @@ const currentBoard = ref<KanbanBoard | null>(null);
 const selectedBoardSlug = ref('');
 const tasks = ref<KanbanTask[]>([]);
 const stats = ref<Record<string, number> | null>(null);
-const assignees = ref<Array<{ profile: string; count: number }>>([]);
+const assignees = ref<Array<{ name: string; counts: Record<string, number> }>>([]);
 const selectedTask = ref<KanbanTaskDetail | null>(null);
 const showCreateTask = ref(false);
 
