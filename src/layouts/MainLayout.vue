@@ -190,6 +190,7 @@ const tabComponents: Record<string, Component> = {
   '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
   '/agent': defineAsyncComponent(() => import('@/views/agent/AgentManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/HermesChat.vue')),
+  '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
   '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
   '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
@@ -268,6 +269,7 @@ const navGroups = {
   ],
   agent: [
     { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
+    { path: '/agent/profiles', icon: '👥', label: 'Profiles', viewId: 'agent-profiles' },
     { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
   ],
   dev: [

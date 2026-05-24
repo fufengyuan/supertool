@@ -901,6 +901,19 @@ fn main() {
             commands::kanban::kanban_get_stats,
             commands::kanban::kanban_create_board,
             commands::kanban::kanban_switch_board,
+            // Hermes Profile management (multi-agent)
+            commands::profile::profile_list,
+            commands::profile::profile_show,
+            commands::profile::profile_create,
+            commands::profile::profile_delete,
+            commands::profile::profile_use,
+            commands::profile::profile_describe,
+            commands::profile::profile_get_description,
+            commands::profile::profile_install,
+            commands::profile::profile_update,
+            commands::profile::kanban_dispatch,
+            commands::profile::kanban_dispatcher_status,
+            commands::profile::kanban_workload,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");
