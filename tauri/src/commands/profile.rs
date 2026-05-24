@@ -26,16 +26,41 @@ fn run_with_user_env(cmd: &str, args: &[&str]) -> Result<String, String> {
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
+/// Get hermes CLI path (prefer ~/.local/bin/hermes for consistency)
+fn get_hermes_path() -> String {
+    // Try user's local bin first (most likely location)
+    let local_hermes = dirs::home_dir()
+        .map(|h| h.join(".local/bin/hermes"))
+        .map(|p| p.to_string_lossy().to_string());
+    
+    if let Some(path) = local_hermes {
+        // Check if exists via shell (more reliable)
+        let check = Command::new("/bin/bash")
+            .args(["-l", "-c", &format!("test -x {} && echo exists", path)])
+            .output();
+        if let Ok(output) = check {
+            if String::from_utf8_lossy(&output.stdout).contains("exists") {
+                return path;
+            }
+        }
+    }
+    
+    // Fall back to just "hermes" (will use PATH)
+    "hermes".to_string()
+}
+
 /// Run hermes profile CLI through user's shell environment
 fn run_profile_cmd(args: &[String]) -> Result<String, String> {
+    let hermes = get_hermes_path();
     let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    run_with_user_env("hermes profile", &args_str)
+    run_with_user_env(&format!("{} profile", hermes), &args_str)
 }
 
 /// Run hermes kanban CLI through user's shell environment
 fn run_kanban_cmd(args: &[String]) -> Result<String, String> {
+    let hermes = get_hermes_path();
     let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-    run_with_user_env("hermes kanban", &args_str)
+    run_with_user_env(&format!("{} kanban", hermes), &args_str)
 }
 
 /// Profile info
