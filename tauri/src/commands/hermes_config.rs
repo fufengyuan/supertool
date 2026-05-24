@@ -305,13 +305,12 @@ pub fn ensure_api_server_config() -> Result<String, String> {
     std::fs::create_dir_all(hermes_dir)
         .map_err(|e| format!("Failed to create .hermes directory: {}", e))?;
     
-    // Write new content
-    let new_content = lines.join("\n");
+// Write new content
+    let mut new_content = lines.join("\n");
     if !new_content.ends_with("\n") {
         new_content.push('\n');
     }
-    std::fs::write(&env_path, &new_content)
-        .map_err(|e| format!("Failed to write .env: {}", e))?;
+    std::fs::write(&env_path, &new_content).map_err(|e| format!("Failed to write .env: {}", e))?;
     
     log::info!("[ensure_api_server_config] Auto-configured Hermes API server with new key");
     Ok(new_key)
