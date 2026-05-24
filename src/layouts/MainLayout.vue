@@ -177,6 +177,7 @@ const tabComponents: Record<string, Component> = {
   '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
   '/agent': defineAsyncComponent(() => import('@/views/agent/AgentManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/HermesChat.vue')),
+  '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
   '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
   '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
   '/notes': defineAsyncComponent(() => import('@/views/notes/NoteManager.vue')),
@@ -255,6 +256,7 @@ const navGroups = {
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
     { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
+    { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
     { path: '/alert', icon: '🔔', label: '告警', viewId: 'alert' },
     { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
