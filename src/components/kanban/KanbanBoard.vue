@@ -26,13 +26,16 @@
     </div>
 
     <!-- Stats bar -->
-    <div v-if="stats" class="flex items-center gap-4 px-4 py-1.5 bg-base-200/50 text-xs">
-      <span class="text-base-content/60">总计: {{ stats.total || 0 }}</span>
-      <span class="text-warning">Todo: {{ stats.todo || 0 }}</span>
-      <span class="text-info">Ready: {{ stats.ready || 0 }}</span>
-      <span class="text-primary">进行中: {{ stats.in_progress || 0 }}</span>
-      <span class="text-error">阻塞: {{ stats.blocked || 0 }}</span>
-      <span class="text-success">完成: {{ stats.done || 0 }}</span>
+    <div v-if="stats" class="flex items-center gap-3 px-4 py-2 bg-base-200/50 text-xs border-b border-base-content/10">
+      <span class="font-medium">统计</span>
+      <div class="flex items-center gap-2 ml-2">
+        <span class="px-2 py-0.5 rounded-full bg-warning/20 text-warning">Todo {{ stats.todo || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-info/20 text-info">Ready {{ stats.ready || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-primary/20 text-primary">进行 {{ stats.in_progress || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-error/20 text-error">阻塞 {{ stats.blocked || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-success/20 text-success">完成 {{ stats.done || 0 }}</span>
+      </div>
+      <span class="ml-auto text-base-content/50">共 {{ stats.total || 0 }} 项</span>
     </div>
 
     <!-- Kanban columns -->
