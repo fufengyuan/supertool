@@ -76,7 +76,15 @@
           <div class="space-y-1 text-xs">
             <div class="flex items-center justify-between">
               <span class="text-base-content/50">模型</span>
-              <span>{{ profile.model || '未设置' }}</span>
+              <span class="flex items-center gap-1">
+                {{ profile.model || '未设置' }}
+                <button 
+                  class="btn btn-xs btn-ghost btn-circle"
+                  @click="openSetModel(profile.name, profile.model)"
+                >
+                  <SvgIcon name="edit" size="12" />
+                </button>
+              </span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-base-content/50">Gateway</span>
@@ -200,6 +208,38 @@
       </div>
     </div>
 
+    <!-- Set model modal -->
+    <div v-if="settingModelProfile" class="fixed inset-0 bg-base-content/20 z-50 flex items-center justify-center">
+      <div class="bg-base-100 rounded-lg shadow-xl w-[480px]">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
+          <span class="text-sm font-medium">设置 Profile 模型</span>
+          <button class="btn btn-sm btn-ghost btn-circle" @click="settingModelProfile = null">
+            <SvgIcon name="close" size="14" />
+          </button>
+        </div>
+        <div class="p-4">
+          <div class="text-xs text-base-content/50 mb-2">{{ settingModelProfile }}</div>
+          <input 
+            v-model="settingModelValue"
+            class="input input-sm input-bordered w-full"
+            placeholder="模型名称 (如 glm-5, claude-sonnet-4)"
+          />
+          <div class="text-xs text-base-content/40 mt-2">
+            模型名称需与 Hermes 配置中的 provider 支持的模型匹配
+          </div>
+        </div>
+        <div class="px-4 py-3 border-t border-base-content/10 flex items-center justify-end gap-2">
+          <button class="btn btn-sm btn-ghost" @click="settingModelProfile = null">取消</button>
+          <button 
+            class="btn btn-sm btn-primary"
+            @click="saveModel"
+          >
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile detail modal -->
     <div v-if="profileDetail" class="fixed inset-0 bg-base-content/20 z-50 flex items-center justify-center">
       <div class="bg-base-100 rounded-lg shadow-xl w-96 max-h-[80vh] overflow-hidden flex flex-col">
@@ -246,6 +286,8 @@ const showCreateProfile = ref(false);
 const newProfile = ref({ name: '', description: '' });
 const editingProfile = ref<string | null>(null);
 const editDescriptionText = ref('');
+const settingModelProfile = ref<string | null>(null);
+const settingModelValue = ref('');
 const profileDetail = ref<Record<string, string> | null>(null);
 
 // Methods
@@ -335,6 +377,25 @@ async function saveDescription() {
     await refreshProfiles();
   } catch (e) {
     console.error('Failed to save description:', e);
+  }
+}
+
+function openSetModel(name: string, currentModel?: string) {
+  settingModelProfile.value = name;
+  settingModelValue.value = currentModel || '';
+}
+
+async function saveModel() {
+  if (!settingModelProfile.value) return;
+  try {
+    await invoke('profileSetModel', {
+      name: settingModelProfile.value,
+      model: settingModelValue.value.trim(),
+    });
+    settingModelProfile.value = null;
+    await refreshProfiles();
+  } catch (e) {
+    console.error('Failed to set model:', e);
   }
 }
 

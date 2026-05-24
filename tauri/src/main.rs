@@ -909,6 +909,7 @@ fn main() {
             commands::profile::profile_use,
             commands::profile::profile_describe,
             commands::profile::profile_get_description,
+            commands::profile::profile_set_model,
             commands::profile::profile_install,
             commands::profile::profile_update,
             commands::profile::kanban_dispatch,
