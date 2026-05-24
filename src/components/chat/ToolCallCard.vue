@@ -50,6 +50,8 @@ interface ToolCall {
   status?: string;
   durationMs?: number;
   isSubAgent?: boolean;
+  label?: string; // Hermes API 返回的友好标签
+  emoji?: string; // Hermes API 返回的 emoji
 }
 
 const props = defineProps<{
@@ -66,11 +68,26 @@ const emit = defineEmits<{
   (e: 'toggle'): void;
 }>();
 
-// 图标：优先使用传入的 icon，否则根据类型自动选择
-const iconName = computed(() => props.icon || (props.tool.isSubAgent ? 'bot' : 'tool'));
+// 图标：优先使用 Hermes emoji，其次传入的 icon，最后根据类型自动选择
+const iconName = computed(() => {
+  // 如果有 emoji，直接显示 emoji（不用 SvgIcon）
+  if (props.tool.emoji) {return '' as unknown as string;} // 空字符串表示用 emoji
+  return props.icon || (props.tool.isSubAgent ? 'bot' : 'tool');
+});
 
-// 标题：优先使用传入的 title，否则根据类型自动选择
-const titleText = computed(() => props.title || (props.tool.isSubAgent ? '子 Agent' : props.tool.name));
+// 标题：优先使用 Hermes label，其次传入的 title，最后根据类型自动选择
+const titleText = computed(() => {
+  // 有 emoji 和 label 时显示完整友好文本
+  if (props.tool.emoji && props.tool.label) {
+    return `${props.tool.emoji} ${props.tool.label}`;
+  }
+  // 只有 label 时显示 label
+  if (props.tool.label) {
+    return props.tool.label;
+  }
+  // 使用传入的 title 或自动生成
+  return props.title || (props.tool.isSubAgent ? '🤖 子 Agent' : props.tool.name);
+});
 
 // 摘要：优先使用传入的 summary，否则自动生成
 const summaryText = computed(() => {

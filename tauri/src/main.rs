@@ -881,6 +881,9 @@ fn main() {
             commands::hermes_chat::agent_add_model,
             commands::hermes_chat::agent_remove_model,
             commands::hermes_chat::agent_set_model,
+            // Hermes API server configuration
+            commands::hermes_config::agent_api_server_status,
+            commands::hermes_config::agent_configure_api_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

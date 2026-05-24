@@ -10,6 +10,9 @@ export interface ToolCall {
   durationMs: number;
   isSubAgent?: boolean; // 是否是子 agent
   status?: 'running' | 'completed' | 'error'; // 状态
+  // Hermes API 返回的友好显示字段
+  label?: string; // 工具调用友好标签（如 "读取文件"）
+  emoji?: string; // 工具调用图标 emoji
 }
 
 // 消息类型
@@ -207,7 +210,7 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
   /**
    * 处理 agent-tool-start 事件（工具调用开始）
    */
-  const handleToolStart = async (event: { payload: { id?: string; name: string; args: unknown; session_id: string | null } }) => {
+  const handleToolStart = async (event: { payload: { id?: string; name: string; args: unknown; session_id: string | null; label?: string; emoji?: string } }) => {
     const eventSid = event.payload?.session_id;
     void log('[agent-tool-start] 收到事件: ' + JSON.stringify(event.payload) + ' session_id: ' + eventSid);
     
@@ -238,6 +241,13 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     const toolName = event.payload.name;
     const isSubAgent = toolName === 'delegate_task';
     
+    // 使用 Hermes 返回的友好标签（如果有）
+    const displayLabel = event.payload.label || toolName;
+    const displayEmoji = event.payload.emoji || (isSubAgent ? '🤖' : '🔧');
+    
+    // 更新思考状态文本（使用友好标签）
+    thinkingTexts[eventSid] = `${displayEmoji} ${displayLabel}...`;
+    
     // 获取当前消息（如果没有 assistant 消息，创建一个）
     const messagesCopy = [...sessionMsgs].reverse();
     let currentMsg: Message | undefined = messagesCopy.find((m: Message) => m.role === 'assistant');
@@ -249,7 +259,8 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     void log('[agent-tool-start] session: ' + eventSid +
       ' 当前 assistant 消息: ' + (currentMsg ? '存在' : '不存在') +
       ' 最后一条: ' + (lastMsg?.role || 'none') +
-      ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none'));
+      ' needsNewMsg: ' + needsNewMsg + ' toolId: ' + (toolId || 'none') +
+      ' label: ' + displayLabel + ' emoji: ' + displayEmoji);
     
     // 重置轮结束标志（新的工具调用开始）
     sessionRoundEnded[eventSid] = false;
@@ -280,6 +291,9 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
       durationMs: 0,
       isSubAgent,
       status: 'running',
+      // 新增：友好显示标签
+      label: displayLabel,
+      emoji: displayEmoji,
     });
     void log('[agent-tool-start] 添加工具调用: ' + toolName + ' id: ' + (toolId || 'none') + ' toolCalls.length: ' + currentMsg.toolCalls.length);
     

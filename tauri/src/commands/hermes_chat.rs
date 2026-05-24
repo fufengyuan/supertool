@@ -1,10 +1,8 @@
-//! Agent Chat Bridge - communicate with AI Agent via HTTP chat server
+//! Agent Chat via Hermes HTTP API
 //!
-//! Uses persistent FastAPI HTTP server at port 18686 with NDJSON streaming.
-//! Replaced the old stdin/stdout Python subprocess approach.
+//! Uses Hermes Gateway's built-in HTTP API server (port 8642).
+//! Replaces the Python bridge for simpler architecture.
 
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -12,19 +10,19 @@ use futures::StreamExt;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
-/// Hermes Chat HTTP server URL and port
-const HERMES_CHAT_SERVER_URL: &str = "http://127.0.0.1:18686";
-const HERMES_CHAT_SERVER_PORT: &str = "18686";
+use crate::commands::hermes_config::check_api_server_config;
 
-// Global state for HTTP server mode
+/// Hermes HTTP API server URL
+const HERMES_API_URL: &str = "http://localhost:8642";
+
+// Global state
 lazy_static::lazy_static! {
-    static ref SERVER_PROCESS: Mutex<Option<std::process::Child>> = Mutex::new(None);
     static ref ABORT_FLAG: Arc<AtomicBool> = Arc::new(AtomicBool::new(false));
     static ref CURRENT_SESSION_ID: Mutex<Option<String>> = Mutex::new(None);
+    static ref CURRENT_RUN_ID: Mutex<Option<String>> = Mutex::new(None);
 }
 
 /// Create a reqwest client that bypasses system proxy for localhost requests.
-/// Prevents VPN/proxy tools (ClashX, V2Ray, etc.) from buffering NDJSON streams.
 fn local_client() -> reqwest::Client {
     reqwest::Client::builder()
         .no_proxy()
@@ -32,209 +30,81 @@ fn local_client() -> reqwest::Client {
         .expect("Failed to build reqwest client")
 }
 
-/// Kill any process listening on the given port.
-/// Uses lsof (macOS/Linux) to find the PID, then kills it.
-fn kill_process_on_port(port: &str) {
-    let output = std::process::Command::new("lsof")
-        .args(["-ti", &format!(":{}", port)])
-        .output();
-    if let Ok(output) = output {
-        if output.status.success() {
-            let pid_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
-            if !pid_str.is_empty() {
-                // Kill PIDs using kill command (safe, no unsafe code)
-                for pid in pid_str.lines() {
-                    let pid = pid.trim();
-                    if pid.is_empty() { continue; }
-                    let _ = std::process::Command::new("kill")
-                        .args([pid])
-                        .output();
-                }
-                // Give processes a moment to die
-                std::thread::sleep(std::time::Duration::from_millis(200));
-            }
-        }
+/// Get the API key from Hermes config
+fn get_api_key() -> Result<String, String> {
+    let (enabled, has_key, key) = check_api_server_config();
+    if enabled && has_key && !key.is_empty() {
+        return Ok(key);
     }
+    Err("Hermes API server not configured. Run 'hermes gateway restart' after setting API_SERVER_KEY in ~/.hermes/.env".to_string())
 }
 
-/// Find hermes_chat_server.py script location
-fn find_chat_server_script() -> Option<PathBuf> {
-    let exe = std::env::current_exe().ok()?;
-    let exe_parent = exe.parent()?;
-    
-    // Check if running inside macOS .app bundle
-    if exe_parent.ends_with("MacOS") {
-        let contents_dir = exe_parent.parent()?;
-        let resources_dir = contents_dir.join("Resources");
-        
-        // Tauri 2.x: resources from "../scripts/..." are stored under _up_/
-        let script_path = resources_dir.join("_up_").join("scripts").join("hermes_chat_server.py");
-        if script_path.exists() {
-            return Some(script_path);
-        }
-        
-        let flat_path = resources_dir.join("scripts").join("hermes_chat_server.py");
-        if flat_path.exists() {
-            return Some(flat_path);
-        }
-        
-        let direct_path = resources_dir.join("hermes_chat_server.py");
-        if direct_path.exists() {
-            return Some(direct_path);
-        }
-    }
-    
-    // Generic bundled location: exe_parent/scripts/
-    let bundled = exe_parent.join("scripts").join("hermes_chat_server.py");
-    if bundled.exists() {
-        return Some(bundled);
-    }
-    
-    // Linux/Windows: try exe_parent/../resources/scripts/ or _up_/scripts/
-    if let Some(parent) = exe_parent.parent() {
-        let up_path = parent.join("_up_").join("scripts").join("hermes_chat_server.py");
-        if up_path.exists() {
-            return Some(up_path);
-        }
-        let resources_path = parent.join("resources").join("scripts").join("hermes_chat_server.py");
-        if resources_path.exists() {
-            return Some(resources_path);
-        }
-    }
-
-    // Try development location
-    let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .and_then(|p| Some(p.join("scripts").join("hermes_chat_server.py")));
-
-    if dev.as_ref().map(|p| p.exists()).unwrap_or(false) {
-        return dev;
-    }
-
-    // Fallback: try relative to working directory
-    std::env::current_dir()
-        .ok()
-        .map(|cwd| cwd.join("scripts").join("hermes_chat_server.py"))
-        .filter(|p| p.exists())
-}
-
-/// Output message from Hermes Chat HTTP server (NDJSON streaming)
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(tag = "type")]
-#[serde(rename_all = "snake_case")]
-pub enum BridgeMessage {
-    Delta {
-        text: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        session_id: Option<String>,
-    },
-    ToolStart {
-        id: Option<String>,
-        name: String,
-        args: serde_json::Value,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        session_id: Option<String>,
-    },
-    ToolComplete {
-        id: Option<String>,
-        name: String,
-        result: Option<String>,
-        duration_ms: u64,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        session_id: Option<String>,
-    },
-    Thinking {
-        text: Option<String>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        session_id: Option<String>,
-    },
-    Done {
-        response: Option<String>,
-        session_id: String,
-        message_count: usize,
-    },
-    Error {
-        message: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        session_id: Option<String>,
-    },
-    Aborted {
-        session_id: Option<String>,
-    },
-}
-
-/// Find Python executable
-fn find_python() -> String {
-    // 优先使用 Hermes Agent venv 的 Python（因为依赖都在 venv 里）
-    let hermes_venv_python = dirs::home_dir()
-        .map(|h| {
-            h.join(".hermes")
-                .join("hermes-agent")
-                .join("venv")
-                .join("bin")
-                .join("python3")
-        })
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "~/.hermes/hermes-agent/venv/bin/python3".to_string());
-
-    // 检查 venv Python 是否存在且可执行
-    if Path::new(&hermes_venv_python).exists() {
-        if Command::new(&hermes_venv_python)
-            .arg("--version")
-            .output()
-            .is_ok()
-        {
-            return hermes_venv_python;
-        }
-    }
-
-    // Fallback 到系统 Python
-    if Command::new("python3").arg("--version").output().is_ok() {
-        return "python3".to_string();
-    }
-    if Command::new("python").arg("--version").output().is_ok() {
-        return "python".to_string();
-    }
-    "python3".to_string()
-}
-
-/// Ensure the Hermes Chat HTTP server is running (async version)
-async fn ensure_server_running() -> Result<(), String> {
-    {
-        let mut server = SERVER_PROCESS.lock().unwrap();
-        if let Some(ref mut child) = *server {
-            match child.try_wait() {
-                Ok(Some(_)) => { *server = None; }
-                Ok(None) => { return Ok(()); }
-                Err(_) => { *server = None; }
-            }
-        }
-    }
-    // Kill any existing process on the port to ensure we get a fresh server with latest code
-    kill_process_on_port(HERMES_CHAT_SERVER_PORT);
-    
-    let script = find_chat_server_script()
-        .ok_or_else(|| "Agent chat server script not found.".to_string())?;
-    let python = find_python();
-    let child = Command::new(&python).arg(&script)
-        .env("HERMES_CHAT_PORT", HERMES_CHAT_SERVER_PORT)
-        .env("HERMES_CHAT_HOST", "127.0.0.1")
-        .stdout(Stdio::null()).stderr(Stdio::null())
-        .spawn()
-        .map_err(|e| format!("Failed to start server: {}", e))?;
-    { let mut s = SERVER_PROCESS.lock().unwrap(); *s = Some(child); }
+/// Check if Hermes API server is running
+async fn check_api_server_health() -> bool {
     let client = local_client();
-    let start = std::time::Instant::now();
-    while start.elapsed() < std::time::Duration::from_secs(15) {
-        if let Ok(r) = client.get(format!("{}/v1/health", HERMES_CHAT_SERVER_URL))
-            .timeout(std::time::Duration::from_secs(2)).send().await
-        { if r.status().is_success() { return Ok(()); } }
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    }
-    Err("Server failed to start".to_string())
+    client
+        .get(format!("{}/health", HERMES_API_URL))
+        .timeout(std::time::Duration::from_secs(2))
+        .send()
+        .await
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
 }
 
-/// Send chat message with streaming events via HTTP server
+/// SSE event types from Hermes API
+#[derive(Debug, Deserialize)]
+struct ToolProgressEvent {
+    tool: String,
+    #[serde(default)]
+    emoji: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
+    #[serde(default)]
+    #[serde(rename = "toolCallId")]
+    tool_call_id: Option<String>,
+    status: String, // "running" or "completed"
+}
+
+#[derive(Debug, Deserialize)]
+struct ChatCompletionChunk {
+    #[serde(default)]
+    id: Option<String>,
+    #[serde(default)]
+    object: Option<String>,
+    choices: Vec<ChoiceDelta>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ChoiceDelta {
+    index: u32,
+    delta: DeltaContent,
+    #[serde(default)]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct DeltaContent {
+    #[serde(default)]
+    content: Option<String>,
+}
+
+/// Parse SSE line and extract event type and data
+fn parse_sse_line(line: &str) -> Option<(Option<String>, String)> {
+    let line = line.trim();
+    if line.is_empty() || line.starts_with(':') {
+        return None; // Comment or empty line
+    }
+    
+    if let Some(data) = line.strip_prefix("data: ") {
+        return Some((None, data.to_string()));
+    }
+    if let Some(event) = line.strip_prefix("event: ") {
+        return Some((Some(event.to_string()), String::new()));
+    }
+    None
+}
+
+/// Send chat message via Hermes HTTP API with SSE streaming
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_chat(
     app: AppHandle,
@@ -243,28 +113,42 @@ pub async fn agent_chat(
     model: Option<String>,
     toolsets: Option<Vec<String>>,
 ) -> Result<serde_json::Value, String> {
-    // 1. 确保 HTTP 服务器已启动
-    ensure_server_running().await?;
+    // 1. Check API server health
+    if !check_api_server_health().await {
+        return Err("Hermes API server not running. Make sure gateway is started with API_SERVER_ENABLED=true".to_string());
+    }
 
-    // 2. 重置 abort flag 并记录 session_id
+    // 2. Get API key
+    let api_key = get_api_key()?;
+
+    // 3. Reset abort flag and record session_id
     ABORT_FLAG.store(false, Ordering::SeqCst);
     {
         let mut current = CURRENT_SESSION_ID.lock().unwrap();
         *current = session_id.clone();
     }
 
-    // 3. 发送 HTTP 请求到聊天服务器
+    // 4. Build OpenAI-compatible request
     let client = local_client();
-    let body = serde_json::json!({
-        "message": message,
-        "session_id": session_id,
-        "model": model,
-        "toolsets": toolsets,
+    let request_body = serde_json::json!({
+        "model": model.unwrap_or_else(|| "hermes-agent".to_string()),
+        "messages": [{"role": "user", "content": message}],
+        "stream": true,
     });
 
-    let resp = client
-        .post(format!("{}/v1/chat", HERMES_CHAT_SERVER_URL))
-        .json(&body)
+    // 5. Send request with headers
+    let mut req = client
+        .post(format!("{}/v1/chat/completions", HERMES_API_URL))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&request_body);
+
+    // Add session_id header if provided (for session continuity)
+    if let Some(ref sid) = session_id {
+        req = req.header("X-Hermes-Session-Id", sid);
+    }
+
+    let resp = req
         .send()
         .await
         .map_err(|e| format!("Chat request failed: {}", e))?;
@@ -272,40 +156,40 @@ pub async fn agent_chat(
     if !resp.status().is_success() {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
-        return Err(format!("Chat server error ({}): {}", status, text));
+        return Err(format!("API error ({}): {}", status, text));
     }
 
-    // 4. 从响应头获取 session_id（服务端可能创建了新的）
-    let server_session_id = resp.headers()
-        .get("X-Session-Id")
+    // 6. Extract session_id from response header
+    let response_session_id = resp.headers()
+        .get("X-Hermes-Session-Id")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
 
-    let mut captured_session_id: Option<String> = session_id.or(server_session_id);
-    let mut final_response: Option<String> = None;
-    let mut final_session_id: Option<String> = None;
-    let mut message_count: usize = 0;
-    let mut accumulated_text = String::new();
-
-    // 更新 CURRENT_SESSION_ID
+    let captured_session_id = session_id.or(response_session_id);
     if let Some(ref sid) = captured_session_id {
         let mut current = CURRENT_SESSION_ID.lock().unwrap();
         *current = Some(sid.clone());
     }
 
-    // 5. 流式读取 NDJSON 响应
+    // 7. Stream SSE response
     let mut stream = resp.bytes_stream();
-    let mut buffer = Vec::new();
+    let mut buffer = String::new();
+    let mut accumulated_text = String::new();
+    let mut final_response: Option<String> = None;
+    let mut current_event_type: Option<String> = None;
+
+    // Track tool calls for status updates
+    let mut running_tools: std::collections::HashMap<String, (String, Option<serde_json::Value>)> = std::collections::HashMap::new();
 
     while let Some(chunk_result) = stream.next().await {
-        // 检查 abort flag
+        // Check abort flag
         if ABORT_FLAG.load(Ordering::SeqCst) {
-            // 通知服务端中断（clone 避免 MutexGuard 跨 await）
-            let abort_sid = CURRENT_SESSION_ID.lock().unwrap().clone();
-            if let Some(ref sid) = abort_sid {
+            // Try to stop the run if we have a run_id
+            let run_id = CURRENT_RUN_ID.lock().unwrap().clone();
+            if let Some(ref rid) = run_id {
                 let _ = client
-                    .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
-                    .json(&serde_json::json!({"session_id": sid}))
+                    .post(format!("{}/v1/runs/{}/stop", HERMES_API_URL, rid))
+                    .header("Authorization", format!("Bearer {}", api_key))
                     .send()
                     .await;
             }
@@ -313,122 +197,93 @@ pub async fn agent_chat(
         }
 
         let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
-        buffer.extend_from_slice(&chunk);
+        let chunk_str = String::from_utf8_lossy(&chunk);
+        buffer.push_str(&chunk_str);
 
-        // 按行处理完整的 JSON
-        while let Some(nl_pos) = buffer.iter().position(|&b| b == b'\n') {
-            let line_bytes = buffer[..nl_pos].to_vec();
-            buffer = buffer[nl_pos + 1..].to_vec();
+        // Process complete SSE events (ended by \n\n)
+        while let Some(end_pos) = buffer.find("\n\n") {
+            let event_block = buffer[..end_pos].to_string();
+            buffer = buffer[end_pos + 2..].to_string();
 
-            if line_bytes.is_empty() {
-                continue;
-            }
+            // Parse event block
+            let mut event_type: Option<String> = None;
+            let mut event_data: Option<String> = None;
 
-            let line_str = String::from_utf8_lossy(&line_bytes);
-            if !line_str.trim_start().starts_with('{') {
-                eprintln!("[bridge] log: {}", line_str);
-                continue;
-            }
-
-            let msg: BridgeMessage = match serde_json::from_str(&line_str) {
-                Ok(m) => m,
-                Err(e) => {
-                    eprintln!("[bridge] parse error: {} - {}", e, line_str);
-                    app.emit("agent-error", serde_json::json!({
-                        "type": "parse_error",
-                        "message": format!("JSON parse error: {}", e),
-                        "raw": line_str.chars().take(100).collect::<String>(),
-                    })).ok();
-                    continue;
+            for line in event_block.lines() {
+                if let Some((etype, data)) = parse_sse_line(line) {
+                    if etype.is_some() {
+                        event_type = etype;
+                    } else if !data.is_empty() {
+                        event_data = Some(data);
+                    }
                 }
-            };
+            }
 
-            match msg {
-                BridgeMessage::Delta { text, session_id } => {
-                    if let Some(t) = &text {
-                        accumulated_text.push_str(t);
-                        if captured_session_id.is_none() {
-                            captured_session_id = session_id.clone();
+            // Handle event
+            if let Some(data) = event_data {
+                match event_type.as_deref() {
+                    Some("hermes.tool.progress") => {
+                        // Tool progress event
+                        if let Ok(progress) = serde_json::from_str::<ToolProgressEvent>(&data) {
+                            let tool_name = progress.tool.clone();
+                            let tool_id = progress.tool_call_id.clone().unwrap_or_else(|| format!("tool-{}", running_tools.len()));
+                            
+                            if progress.status == "running" {
+                                // Tool started
+                                running_tools.insert(tool_id.clone(), (tool_name.clone(), None));
+                                app.emit("agent-tool-start", serde_json::json!({
+                                    "id": tool_id,
+                                    "name": tool_name,
+                                    "args": serde_json::Value::Null, // Hermes API doesn't send args
+                                    "session_id": captured_session_id,
+                                    "label": progress.label,
+                                    "emoji": progress.emoji,
+                                })).ok();
+                            } else if progress.status == "completed" {
+                                // Tool completed
+                                if let Some((name, _)) = running_tools.remove(&tool_id) {
+                                    app.emit("agent-tool-complete", serde_json::json!({
+                                        "id": tool_id,
+                                        "name": name,
+                                        "result": Option::<String>::None, // Hermes API doesn't send result
+                                        "duration_ms": 0,
+                                        "session_id": captured_session_id,
+                                    })).ok();
+                                }
+                            }
                         }
-                        app.emit("agent-delta", serde_json::json!({
-                            "text": t, "session_id": session_id,
-                        })).ok();
                     }
-                }
-                BridgeMessage::ToolStart { id, name, args, session_id } => {
-                    app.emit("agent-tool-start", serde_json::json!({
-                        "id": id, "name": name, "args": args, "session_id": session_id,
-                    })).ok();
-                }
-                BridgeMessage::ToolComplete { id, name, result, duration_ms, session_id } => {
-                    app.emit("agent-tool-complete", serde_json::json!({
-                        "id": id, "name": name, "result": result,
-                        "duration_ms": duration_ms, "session_id": session_id,
-                    })).ok();
-                }
-                BridgeMessage::Thinking { text, session_id } => {
-                    app.emit("agent-thinking", serde_json::json!({
-                        "text": text, "session_id": session_id,
-                    })).ok();
-                }
-                BridgeMessage::Done { response, session_id, message_count: mc } => {
-                    app.emit("agent-done", serde_json::json!({
-                        "response": response, "session_id": session_id,
-                        "message_count": mc,
-                    })).ok();
-                    final_response = response;
-                    final_session_id = Some(session_id.clone());
-                    message_count = mc;
-                    if captured_session_id.is_none() {
-                        captured_session_id = Some(session_id);
+                    _ => {
+                        // Default: chat completion chunk
+                        if data == "[DONE]" {
+                            // Stream finished
+                            final_response = Some(accumulated_text.clone());
+                            app.emit("agent-done", serde_json::json!({
+                                "response": accumulated_text.clone(),
+                                "session_id": captured_session_id,
+                                "message_count": 0,
+                            })).ok();
+                        } else if let Ok(chunk) = serde_json::from_str::<ChatCompletionChunk>(&data) {
+                            // Extract content from delta
+                            for choice in &chunk.choices {
+                                if let Some(content) = &choice.delta.content {
+                                    accumulated_text.push_str(content);
+                                    app.emit("agent-delta", serde_json::json!({
+                                        "text": content,
+                                        "session_id": captured_session_id,
+                                    })).ok();
+                                }
+                                if choice.finish_reason.as_deref() == Some("stop") {
+                                    final_response = Some(accumulated_text.clone());
+                                    app.emit("agent-done", serde_json::json!({
+                                        "response": accumulated_text.clone(),
+                                        "session_id": captured_session_id,
+                                        "message_count": 0,
+                                    })).ok();
+                                }
+                            }
+                        }
                     }
-                }
-                BridgeMessage::Error { message, session_id } => {
-                    app.emit("agent-error", serde_json::json!({
-                        "message": message, "session_id": session_id,
-                    })).ok();
-                    return Err(message);
-                }
-                BridgeMessage::Aborted { session_id } => {
-                    if captured_session_id.is_none() {
-                        captured_session_id = session_id.clone();
-                    }
-                    let sid = captured_session_id.clone();
-                    if let Some(ref s) = sid {
-                        app.emit("agent-done", serde_json::json!({
-                            "response": Option::<String>::None,
-                            "session_id": s,
-                            "message_count": message_count,
-                            "aborted": true,
-                        })).ok();
-                    }
-                    return Ok(serde_json::json!({
-                        "response": Option::<String>::None,
-                        "session_id": sid,
-                        "message_count": message_count,
-                        "aborted": true,
-                    }));
-                }
-                _ => {
-                    eprintln!("[bridge] unhandled event type");
-                }
-            }
-        }
-    }
-
-    // 处理 buffer 中可能残留的最后一个行（无换行结尾的情况）
-    if !buffer.is_empty() {
-        let line_str = String::from_utf8_lossy(&buffer);
-        if line_str.trim_start().starts_with('{') {
-            if let Ok(msg) = serde_json::from_str::<BridgeMessage>(&line_str) {
-                match msg {
-                    BridgeMessage::Done { response, session_id, message_count: mc } => {
-                        final_response = response;
-                        final_session_id = Some(session_id);
-                        message_count = mc;
-                    }
-                    BridgeMessage::Error { message, .. } => return Err(message),
-                    _ => {}
                 }
             }
         }
@@ -436,38 +291,30 @@ pub async fn agent_chat(
 
     Ok(serde_json::json!({
         "response": final_response.unwrap_or(accumulated_text),
-        "session_id": captured_session_id.or(final_session_id),
-        "message_count": message_count,
+        "session_id": captured_session_id,
+        "message_count": 0,
     }))
 }
 
-/// Abort current chat via HTTP server
+/// Abort current chat
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
-    // 设置 abort flag 打断 HTTP 流读取循环
     ABORT_FLAG.store(true, Ordering::SeqCst);
 
-    // 通知 HTTP 服务端中断正在运行的 agent
-    let session_id = {
-        let current = CURRENT_SESSION_ID.lock().unwrap();
-        current.clone()
-    };
+    let session_id = CURRENT_SESSION_ID.lock().unwrap().clone();
+    let run_id = CURRENT_RUN_ID.lock().unwrap().clone();
 
-    if let Some(ref sid) = session_id {
-        let client = local_client();
-        match client
-            .post(format!("{}/v1/abort", HERMES_CHAT_SERVER_URL))
-            .json(&serde_json::json!({"session_id": sid}))
-            .timeout(std::time::Duration::from_secs(5))
-            .send()
-            .await
-        {
-            Ok(resp) => {
-                eprintln!("[INFO] Abort sent to server for session {}: {}", sid, resp.status());
-            }
-            Err(e) => {
-                eprintln!("[WARN] Failed to send abort to server: {}", e);
-            }
+    // Try to stop via Hermes API if we have a run_id
+    if let Some(ref rid) = run_id {
+        let api_key = get_api_key().ok();
+        if let Some(key) = api_key {
+            let client = local_client();
+            let _ = client
+                .post(format!("{}/v1/runs/{}/stop", HERMES_API_URL, rid))
+                .header("Authorization", format!("Bearer {}", key))
+                .timeout(std::time::Duration::from_secs(5))
+                .send()
+                .await;
         }
     }
 
@@ -477,40 +324,37 @@ pub async fn agent_abort_chat() -> Result<serde_json::Value, String> {
     }))
 }
 
-/// Clear cached agent for a session (called when switching models)
+/// Clear cache - no longer needed with Hermes HTTP API (agent cache is per-request)
 #[tauri::command(rename_all = "camelCase")]
-pub async fn agent_clear_cache(session_id: String) -> Result<serde_json::Value, String> {
-    ensure_server_running().await?;
-
-    let client = local_client();
-    let resp = client
-        .post(format!("{}/v1/clear_cache", HERMES_CHAT_SERVER_URL))
-        .json(&serde_json::json!({"session_id": session_id}))
-        .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await
-        .map_err(|e| format!("Clear cache request failed: {}", e))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(format!("Clear cache server error ({}): {}", status, text));
-    }
-
-    Ok(serde_json::json!({"ok": true, "session_id": session_id}))
+pub async fn agent_clear_cache(_session_id: String) -> Result<serde_json::Value, String> {
+    // With Hermes HTTP API, there's no persistent agent cache to clear
+    // Each request creates a fresh agent context (session continuity via X-Hermes-Session-Id)
+    Ok(serde_json::json!({"ok": true, "session_id": _session_id}))
 }
 
 /// Check Agent availability (pure Rust, no Python bridge)
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {
-    let available = crate::commands::hermes_config::hermes_is_installed();
-    let script_found = find_chat_server_script().is_some();
+    let installed = crate::commands::hermes_config::hermes_is_installed();
+    let (api_enabled, has_key, _) = check_api_server_config();
+    let api_running = check_api_server_health().await;
+
     Ok(serde_json::json!({
-        "available": available,
-        "script_found": script_found,
-        "python": "rust-native",
-        "error": if available { serde_json::Value::Null } else {
-            serde_json::Value::String("Hermes Agent not installed. Please install Hermes first.".to_string())
+        "available": installed,
+        "api_enabled": api_enabled,
+        "api_key_configured": has_key,
+        "api_running": api_running,
+        "ready": installed && api_enabled && has_key && api_running,
+        "error": if !installed {
+            "Hermes Agent not installed"
+        } else if !api_enabled {
+            "API server not enabled. Add API_SERVER_ENABLED=true to ~/.hermes/.env"
+        } else if !has_key {
+            "API key not configured. Add API_SERVER_KEY=xxx to ~/.hermes/.env"
+        } else if !api_running {
+            "API server not running. Run 'hermes gateway restart'"
+        } else {
+            serde_json::Value::Null
         },
     }))
 }
