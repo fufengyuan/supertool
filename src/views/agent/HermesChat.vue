@@ -752,29 +752,37 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
       model: modelToUse,
     });
 
-    if (result.session_id && !currentSessionId.value) {
-      currentSessionId.value = result.session_id;
-      const autoTitle = generateSessionTitle(fullText);
-      try {
-        await invoke('agent_rename_session', {
-          sessionId: result.session_id,
-          newTitle: autoTitle,
-        });
-        currentSession.value = {
-          id: result.session_id,
-          title: autoTitle,
-          model: modelToUse || 'unknown',
-          source: 'unknown',
-          startedAt: Date.now() / 1000,
-          endedAt: null,
-          messageCount: 1,
-          preview: fullText.slice(0, 50),
-          lastActive: Date.now() / 1000,
-        };
-      } catch (e) {
-        console.warn('Auto-title failed:', e);
+    // Always update session_id from API response (it may change on continuation)
+    if (result.session_id) {
+      // Update currentSessionId if it's different (continuation creates new session)
+      if (currentSessionId.value !== result.session_id) {
+        currentSessionId.value = result.session_id;
       }
-      refreshSessions();
+      
+      // Auto-title for new sessions
+      if (!currentSession.value) {
+        const autoTitle = generateSessionTitle(fullText);
+        try {
+          await invoke('agent_rename_session', {
+            sessionId: result.session_id,
+            newTitle: autoTitle,
+          });
+          currentSession.value = {
+            id: result.session_id,
+            title: autoTitle,
+            model: modelToUse || 'unknown',
+            source: 'unknown',
+            startedAt: Date.now() / 1000,
+            endedAt: null,
+            messageCount: 1,
+            preview: fullText.slice(0, 50),
+            lastActive: Date.now() / 1000,
+          };
+        } catch (e) {
+          console.warn('Auto-title failed:', e);
+        }
+        refreshSessions();
+      }
     }
 
     thinkingText.value = '';
