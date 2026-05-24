@@ -14,11 +14,12 @@ pub struct KanbanBoard {
     pub icon: Option<String>,
     pub color: Option<String>,
     pub default_workdir: Option<String>,
+    pub created_at: Option<u64>,
     pub archived: bool,
     pub db_path: String,
+    #[serde(rename = "is_current")]
     pub is_current: bool,
     pub counts: serde_json::Value,
-    pub total: u32,
 }
 
 /// Kanban task info
@@ -30,6 +31,7 @@ pub struct KanbanTask {
     pub status: String,
     pub assignee: Option<String>,
     pub priority: Option<u32>,
+    pub tenant: Option<String>,
     pub skills: Option<Vec<String>>,
     pub created_by: Option<String>,
     pub created_at: Option<u64>,
@@ -40,12 +42,18 @@ pub struct KanbanTask {
     pub branch_name: Option<String>,
     pub result: Option<String>,
     pub session_id: Option<String>,
+    pub max_retries: Option<u32>,
+    pub workflow_template_id: Option<String>,
+    pub current_step_key: Option<String>,
 }
 
 /// Kanban task detail (with comments and events)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KanbanTaskDetail {
     pub task: KanbanTask,
+    pub latest_summary: Option<String>,
+    pub parents: Vec<String>,
+    pub children: Vec<String>,
     pub comments: Vec<KanbanComment>,
     pub events: Vec<KanbanEvent>,
     pub runs: Vec<KanbanRun>,
@@ -58,17 +66,16 @@ pub struct KanbanComment {
     pub task_id: String,
     pub author: String,
     pub body: String,
-    pub created_at: String,
+    pub created_at: u64,
 }
 
 /// Kanban event
 #[derive(Debug, Serialize, Deserialize)]
 pub struct KanbanEvent {
-    pub id: u64,
-    pub task_id: String,
-    pub event_type: String,
+    pub kind: String,
     pub payload: serde_json::Value,
-    pub created_at: String,
+    pub created_at: u64,
+    pub run_id: Option<u64>,
 }
 
 /// Kanban run (worker attempt)
@@ -76,15 +83,15 @@ pub struct KanbanEvent {
 pub struct KanbanRun {
     pub id: u64,
     pub profile: String,
+    pub step_key: Option<String>,
     pub status: Option<String>,
     pub outcome: Option<String>,
     pub summary: Option<String>,
     pub error: Option<String>,
-    pub started_at: u64,
-    pub ended_at: Option<u64>,
     pub metadata: Option<serde_json::Value>,
     pub worker_pid: Option<u64>,
-    pub step_key: Option<String>,
+    pub started_at: u64,
+    pub ended_at: Option<u64>,
 }
 
 /// Run hermes kanban CLI and parse JSON output
@@ -181,44 +188,11 @@ pub fn kanban_list_tasks(
 /// Get task detail (with comments, events, runs)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_show_task(task_id: String) -> Result<KanbanTaskDetail, String> {
-    // First get task info
-    let task_value = run_kanban_cmd(&["show".into(), task_id.clone()])?;
-    let task: KanbanTask = serde_json::from_value(task_value.clone())
-        .map_err(|e| format!("Failed to parse task: {}", e))?;
-
-    // Get comments
-    let comments_value = run_kanban_cmd(&["comment".into(), "--list".into(), task_id.clone()])?;
-    let comments: Vec<KanbanComment> = if comments_value.is_array() {
-        serde_json::from_value(comments_value)
-            .map_err(|e| format!("Failed to parse comments: {}", e))?
-    } else {
-        vec![]
-    };
-
-    // Get events
-    let events_value = run_kanban_cmd(&["log".into(), task_id.clone()])?;
-    let events: Vec<KanbanEvent> = if events_value.is_array() {
-        serde_json::from_value(events_value)
-            .map_err(|e| format!("Failed to parse events: {}", e))?
-    } else {
-        vec![]
-    };
-
-    // Get runs
-    let runs_value = run_kanban_cmd(&["runs".into(), task_id])?;
-    let runs: Vec<KanbanRun> = if runs_value.is_array() {
-        serde_json::from_value(runs_value)
-            .map_err(|e| format!("Failed to parse runs: {}", e))?
-    } else {
-        vec![]
-    };
-
-    Ok(KanbanTaskDetail {
-        task,
-        comments,
-        events,
-        runs,
-    })
+    // kanban show returns the full detail structure
+    let value = run_kanban_cmd(&["show".into(), task_id])?;
+    let detail: KanbanTaskDetail = serde_json::from_value(value)
+        .map_err(|e| format!("Failed to parse task detail: {}", e))?;
+    Ok(detail)
 }
 
 /// Create a new task

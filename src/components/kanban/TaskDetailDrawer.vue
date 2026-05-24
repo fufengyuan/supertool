@@ -54,8 +54,8 @@
           @change="handleAssign"
         >
           <option value="">未分配</option>
-          <option v-for="a in assignees" :key="a.profile" :value="a.profile">
-            {{ a.profile }} ({{ a.count }} 个任务)
+          <option v-for="a in assignees" :key="a.name" :value="a.name">
+            {{ a.name }} ({{ Object.values(a.counts).reduce((sum, c) => sum + c, 0) }} 个任务)
           </option>
         </select>
       </div>
@@ -138,35 +138,35 @@
       <button 
         v-if="task.task.status === 'ready' || task.task.status === 'in_progress'"
         class="btn btn-sm btn-success flex-1"
-        @click="$emit('action', 'complete', task.task.taskId)"
+        @click="$emit('action', 'complete', task.task.id)"
       >
         完成
       </button>
       <button 
         v-if="task.task.status === 'in_progress'"
         class="btn btn-sm btn-error flex-1"
-        @click="$emit('action', 'reclaim', task.task.taskId)"
+        @click="$emit('action', 'reclaim', task.task.id)"
       >
         回收
       </button>
       <button 
         v-if="task.task.status === 'ready' || task.task.status === 'in_progress'"
         class="btn btn-sm btn-warning flex-1"
-        @click="$emit('action', 'block', task.task.taskId, '需要人工介入')"
+        @click="$emit('action', 'block', task.task.id, '需要人工介入')"
       >
         阻塞
       </button>
       <button 
         v-if="task.task.status === 'blocked'"
         class="btn btn-sm btn-success flex-1"
-        @click="$emit('action', 'unblock', task.task.taskId)"
+        @click="$emit('action', 'unblock', task.task.id)"
       >
         解除阻塞
       </button>
       <button 
         v-if="task.task.status === 'done'"
         class="btn btn-sm btn-ghost flex-1"
-        @click="$emit('action', 'archive', task.task.taskId)"
+        @click="$emit('action', 'archive', task.task.id)"
       >
         归档
       </button>
@@ -182,21 +182,41 @@ import LogContent from './LogContent.vue';
 
 interface KanbanTaskDetail {
   task: {
-    taskId: string;
+    id: string;
     title: string;
     status: string;
     assignee?: string;
     priority?: number;
     body?: string;
-    parents: string[];
+    tenant?: string;
+    skills?: string[];
+    createdBy?: string;
+    createdAt?: number;
+    startedAt?: number;
+    completedAt?: number;
+    result?: string;
   };
-  comments: Array<{ id: number; author: string; body: string; createdAt: string }>;
-  runs: Array<{ id: number; profile: string; status?: string; outcome?: string; summary?: string; error?: string; startedAt: number; endedAt?: number }>;
+  latestSummary?: string;
+  parents: string[];
+  children: string[];
+  comments: Array<{ id: number; author: string; body: string; createdAt: number }>;
+  events: Array<{ kind: string; payload: Record<string, unknown>; createdAt: number; runId?: number }>;
+  runs: Array<{
+    id: number;
+    profile: string;
+    stepKey?: string;
+    status?: string;
+    outcome?: string;
+    summary?: string;
+    error?: string;
+    startedAt: number;
+    endedAt?: number;
+  }>;
 }
 
 const props = defineProps<{
   task: KanbanTaskDetail;
-  assignees: Array<{ profile: string; count: number }>;
+  assignees: Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>;
 }>();
 
 const emit = defineEmits<{
@@ -212,7 +232,7 @@ const loadingLog = ref(false);
 async function loadTaskLog() {
   loadingLog.value = true;
   try {
-    const log = await invoke<string>('kanban_get_task_log', { taskId: props.task.task.taskId });
+    const log = await invoke<string>('kanban_get_task_log', { taskId: props.task.task.id });
     taskLog.value = log;
   } catch (e) {
     console.error('Failed to load task log:', e);
@@ -267,13 +287,13 @@ function handleAssign(e: Event) {
   const target = e.target as HTMLSelectElement;
   const assignee = target.value;
   if (assignee !== props.task.task.assignee) {
-    emit('action', 'assign', props.task.task.taskId, assignee);
+    emit('action', 'assign', props.task.task.id, assignee);
   }
 }
 
 function handleAddComment() {
   if (newComment.value.trim()) {
-    emit('action', 'comment', props.task.task.taskId, newComment.value.trim());
+    emit('action', 'comment', props.task.task.id, newComment.value.trim());
     newComment.value = '';
   }
 }
