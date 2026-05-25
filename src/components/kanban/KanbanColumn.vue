@@ -37,6 +37,16 @@
 
         <!-- Actions (shown on hover) -->
         <div class="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <!-- Triage: assign button -->
+          <button 
+            v-if="status === 'triage'"
+            class="btn btn-xs btn-ghost px-2 text-info hover:bg-info/10"
+            @click.stop="$emit('task-action', 'assign', task.id)"
+            title="分配任务"
+          >
+            分配
+          </button>
+          <!-- Running/In Progress: reclaim button -->
           <button 
             v-if="status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-warning hover:bg-warning/10"
@@ -45,6 +55,7 @@
           >
             回收
           </button>
+          <!-- Ready/Running: complete button -->
           <button 
             v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-success hover:bg-success/10"
@@ -53,6 +64,7 @@
           >
             完成
           </button>
+          <!-- Ready/Running: block button -->
           <button 
             v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-error hover:bg-error/10"
@@ -61,6 +73,7 @@
           >
             阻塞
           </button>
+          <!-- Blocked: unblock button -->
           <button 
             v-if="status === 'blocked'"
             class="btn btn-xs btn-ghost px-2 text-success hover:bg-success/10"
@@ -69,6 +82,7 @@
           >
             解除
           </button>
+          <!-- Done: archive button -->
           <button 
             v-if="status === 'done'"
             class="btn btn-xs btn-ghost px-2 text-base-content/50 hover:bg-base-content/5"
