@@ -38,7 +38,7 @@
         <!-- Actions (shown on hover) -->
         <div class="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button 
-            v-if="status === 'in_progress'"
+            v-if="status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-warning hover:bg-warning/10"
             @click.stop="$emit('task-action', 'reclaim', task.id)"
             title="回收任务"
@@ -46,7 +46,7 @@
             回收
           </button>
           <button 
-            v-if="status === 'ready' || status === 'in_progress'"
+            v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-success hover:bg-success/10"
             @click.stop="$emit('task-action', 'complete', task.id)"
             title="完成任务"
@@ -54,7 +54,7 @@
             完成
           </button>
           <button 
-            v-if="status === 'ready' || status === 'in_progress'"
+            v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
             class="btn btn-xs btn-ghost px-2 text-error hover:bg-error/10"
             @click.stop="$emit('task-action', 'block', task.id, '需要人工介入')"
             title="阻塞任务"
