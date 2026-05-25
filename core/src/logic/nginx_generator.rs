@@ -24,7 +24,23 @@ fn needs_quoting(value: &str) -> bool {
 
 /// Escape single quotes for nginx config output
 fn escape_quotes(value: &str) -> String {
-    value.replace('\'', "\\'")
+    value.replace('\\', "\\\\")
+}
+
+/// Quote return_url if it contains spaces, newlines, or special chars
+/// Used for `return` directive output
+fn quote_return_url(return_url: &str) -> String {
+    if return_url.contains(' ')
+        || return_url.contains('\n')
+        || return_url.contains('\t')
+        || return_url.contains('"')
+        || return_url.contains(';')
+    {
+        // Escape internal backslashes and quotes, then wrap in quotes
+        format!("\"{}\"", return_url.replace('\\', "\\\\").replace('"', "\\\""))
+    } else {
+        return_url.to_string()
+    }
 }
 
 /// Handle path like nginxWebUI's ToolUtils.handlePath
@@ -984,19 +1000,20 @@ fn append_location_block(
                 out.push_str("            proxy_redirect http:// https://;\n");
             }
         }
-        1 => {
+1 => {
             // Root / static
             // Skip if root_path is empty (no actual root directive to output)
             if loc.root_path.is_empty() {
                 if !loc.return_url.is_empty() {
+                    let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "            return {} {};\n",
+                        "            return {} {};\\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
                             &loc.value
                         },
-                        loc.return_url
+                        return_url_quoted
                     ));
                 }
             } else {
@@ -1007,11 +1024,11 @@ fn append_location_block(
                 };
                 if loc.root_path.contains('$') {
                     // Dynamic path — use as-is
-                    out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
+                    out.push_str(&format!("            {} {};\\n", root_type, loc.root_path));
                 } else {
                     let path = handle_path(loc.root_path.trim_end_matches('/'));
                     out.push_str(&format!(
-                        "            {} {};\n",
+                        "            {} {};\\n",
                         root_type,
                         if root_type == "alias" {
                             format!("{}/", path)
@@ -1020,25 +1037,26 @@ fn append_location_block(
                         }
                     ));
                     if !loc.root_page.is_empty() {
-                        out.push_str(&format!("            index {};\n", loc.root_page));
+                        out.push_str(&format!("            index {};\\n", loc.root_page));
                     }
                 }
                 // Also output return/redirect if present (e.g. "return" directive before "root" in config)
                 if !loc.return_url.is_empty() {
+                    let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "            return {} {};\n",
+                        "            return {} {};\\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
                             &loc.value
                         },
-                        loc.return_url
+                        return_url_quoted
                     ));
                 }
             }
         }
         3 => {} // blank — placeholder
-        4 => {
+4 => {
             // Return/redirect — also output root if present (nginx still serves root when return isn't hit)
             if !loc.root_path.is_empty() {
                 let root_type = if loc.root_type == "alias" {
@@ -1047,7 +1065,7 @@ fn append_location_block(
                     "root"
                 };
                 out.push_str(&format!(
-                    "            {} {};\n",
+                    "            {} {};\\n",
                     root_type,
                     loc.root_path.trim_end_matches('/')
                 ));
@@ -1057,14 +1075,15 @@ fn append_location_block(
             } else {
                 loc.return_url.clone()
             };
+            let ret_url_quoted = quote_return_url(&ret_url);
             out.push_str(&format!(
-                "            return {} {};\n",
+                "            return {} {};\\n",
                 if loc.value.is_empty() {
                     "302"
                 } else {
                     &loc.value
                 },
-                ret_url
+                ret_url_quoted
             ));
         }
         _ => {}
