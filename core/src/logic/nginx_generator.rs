@@ -755,8 +755,17 @@ fn append_server_block_inner(
         }
 
         // HTTP→HTTPS redirect (inside the same server block, like nginxWebUI)
+        // nginxWebUI supports separate rewriteListen port; if not set, uses listen port
         if s.ssl && s.rewrite {
-            let port = s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string();
+            let port = if !s.rewrite_listen.is_empty() {
+                s.rewrite_listen
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(&s.rewrite_listen)
+                    .to_string()
+            } else {
+                s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string()
+            };
             out.push_str(&format!(
                 "        if ($scheme = http) {{\n            return 301 https://$host:{}$request_uri;\n        }}\n",
                 port
