@@ -894,14 +894,7 @@ fn append_location_block(
                 ));
             }
 
-            // Websocket support
-            if loc.websocket {
-                out.push_str("            proxy_http_version 1.1;\n");
-                out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
-                out.push_str("            proxy_set_header Connection \"upgrade\";\n");
-            }
-
-            // Header settings with configurable headerHost
+            // Header settings (before websocket, matching nginxWebUI order)
             if loc.header {
                 out.push_str(&format!(
                     "            proxy_set_header Host {};\n",
@@ -918,6 +911,13 @@ fn append_location_block(
                 out.push_str("            proxy_set_header X-Forwarded-Proto $scheme;\n");
                 out.push_str("            proxy_set_header X-Forwarded-Host $http_host;\n");
                 out.push_str("            proxy_set_header X-Forwarded-Port $server_port;\n");
+            }
+
+            // Websocket support (after header, matching nginxWebUI order)
+            if loc.websocket {
+                out.push_str("            proxy_http_version 1.1;\n");
+                out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
+                out.push_str("            proxy_set_header Connection \"upgrade\";\n");
             }
 
             // CORS support
