@@ -148,9 +148,12 @@ interface KanbanTask {
 
 interface KanbanTaskDetail {
   task: KanbanTask;
-  comments: Array<{ id: number; author: string; body: string; createdAt: string }>;
-  events: Array<{ id: number; eventType: string; payload: unknown; createdAt: string }>;
-  runs: Array<{ runId: number; profile: string; outcome?: string; summary?: string; startedAt: string }>;
+  latestSummary?: string;
+  parents: string[];
+  children: string[];
+  comments: Array<{ id: number; author: string; body: string; createdAt: number }>;
+  events: Array<{ kind: string; payload: unknown; createdAt: number; runId?: number }>;
+  runs: Array<{ id: number; profile: string; stepKey?: string; status?: string; outcome?: string; summary?: string; error?: string; startedAt: number; endedAt?: number }>;
 }
 
 // State
@@ -159,7 +162,7 @@ const currentBoard = ref<KanbanBoard | null>(null);
 const selectedBoardSlug = ref('');
 const tasks = ref<KanbanTask[]>([]);
 const stats = ref<Record<string, number> | null>(null);
-const assignees = ref<Array<{ name: string; counts: Record<string, number> }>>([]);
+const assignees = ref<Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>>([]);
 const selectedTask = ref<KanbanTaskDetail | null>(null);
 const showCreateTask = ref(false);
 
