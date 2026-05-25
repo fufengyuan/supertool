@@ -27,6 +27,30 @@ fn escape_quotes(value: &str) -> String {
     value.replace('\'', "\\'")
 }
 
+/// Handle path like nginxWebUI's ToolUtils.handlePath
+fn handle_path(path: &str) -> String {
+    if path.is_empty() {
+        return path.to_string();
+    }
+    let mut result = path.replace('\\', "/");
+    while result.contains("//") {
+        result = result.replace("//", "/");
+    }
+    // Remove special characters
+    result
+        .replace(' ', "")
+        .replace('?', "")
+        .replace('<', "")
+        .replace('>', "")
+        .replace('|', "")
+        .replace('"', "")
+        .replace('#', "")
+        .replace('&', "")
+        .replace(';', "")
+        .replace('\'', "")
+        .replace('`', "")
+}
+
 /// Parse a listen string into a list of port numbers.
 /// Supports: "80", "80,443", "8080-8090", "127.0.0.1:80", "127.0.0.1:8080-8090"
 fn parse_ports(listen: &str) -> Vec<String> {
