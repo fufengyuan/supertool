@@ -523,6 +523,9 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
       sessionRoundEnded[eventSid] = true; // 标记这一轮已结束，下一轮新消息需要创建新 assistant 消息
       // 流式结束后清除缓存（下次切换会话会从数据库加载）
       delete sessionMessagesCache[eventSid];
+      
+      // 播放提醒音（对话完毕）
+      playNotificationSound();
     }
     // 当前会话时同步到视图
     // 处理首次对话：currentSessionId.value 可能是 null，需要更新
@@ -538,6 +541,36 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     // 恢复 UI 状态（仅当该会话是当前会话时）
     if (!eventSid || (currentSessionId.value && eventSid === currentSessionId.value)) {
       scroll();
+    }
+  };
+  
+  /**
+   * 播放提醒音（对话完毕时）
+   */
+  const playNotificationSound = () => {
+    try {
+      // 使用 Web Audio API 播放短促提示音
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // 设置音调（800Hz，柔和的提示音）
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.type = 'sine';
+      
+      // 设置音量（渐弱效果）
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      // 播放 0.3 秒
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+      // 静默失败（某些浏览器可能不支持 Web Audio API）
+      console.log('[notification] 无法播放提醒音:', e);
     }
   };
   
