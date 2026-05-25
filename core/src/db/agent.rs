@@ -96,6 +96,27 @@ pub fn get_hermes_state_db_path() -> PathBuf {
     get_hermes_home().join("state.db")
 }
 
+/// Find the state.db path that contains a given session
+/// Returns (profile_name, db_path) if found, None otherwise
+pub fn find_db_path_for_session(session_id: &str) -> Option<(String, PathBuf)> {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    for (profile_name, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)",
+                    [session_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
+            if exists {
+                return Some((profile_name, db_path));
+            }
+        }
+    }
+    None
+}
+
 /// Check if Hermes is installed (state.db exists)
 pub fn hermes_is_installed() -> bool {
     get_hermes_state_db_path().exists()
@@ -334,10 +355,11 @@ fn get_session_details_with_profile(
 }
 /// Walks forward through the compression chain: parent -> child where end_reason='compression'
 pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
-        return Ok(session_id.to_string()); // Return original if DB doesn't exist
-    }
+    // Find the profile that contains this session
+    let db_path = match find_db_path_for_session(session_id) {
+        Some((_, path)) => path,
+        None => return Ok(session_id.to_string()), // Session not found, return original
+    };
 
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
@@ -487,10 +509,11 @@ pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, Str
 /// For parent sessions, also include messages from all child sessions (subagent)
 /// For compression continuation sessions, also include messages from ancestor sessions
 pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
-        return Err("Hermes 未安装或 state.db 不存在".to_string());
-    }
+    // Find the profile that contains this session
+    let db_path = match find_db_path_for_session(session_id) {
+        Some((_, path)) => path,
+        None => return Err(format!("会话 {} 不存在", session_id)),
+    };
 
     // CRITICAL: Resolve compression tip first!
     // If the session has been compressed, we need the latest continuation session_id
