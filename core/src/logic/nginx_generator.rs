@@ -740,7 +740,7 @@ fn append_server_block_inner(
         if s.ssl && s.rewrite {
             let port = s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string();
             out.push_str(&format!(
-                "        if ($scheme = http) {{\n            return 301 https://$host:{};\n        }}\n",
+                "        if ($scheme = http) {{\n            return 301 https://$host:{}$request_uri;\n        }}\n",
                 port
             ));
         }
