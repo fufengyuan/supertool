@@ -770,6 +770,7 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
             messageCount: 1,
             preview: fullText.slice(0, 50),
             lastActive: Date.now() / 1000,
+            profile: 'default',
           };
         } catch (e) {
           console.warn('Auto-title failed:', e);
@@ -1371,6 +1372,7 @@ onMounted(async () => {
           endedAt: null,
           messageCount: result.messages.length,
           preview: '',
+          profile: 'default',
         };
         messages.value = result.messages;
         scrollToBottom();

@@ -57,6 +57,7 @@
             <div class="flex items-center gap-2">
               <SvgIcon :name="sourceIcon(result.source)" size="12" class="shrink-0 text-base-content/50" />
               <span class="text-xs text-base-content/60">{{ result.sessionTitle || '新会话' }}</span>
+              <span v-if="result.profile !== 'default'" class="badge badge-xs badge-info shrink-0">{{ result.profile }}</span>
               <span class="text-xs text-base-content/40">•</span>
               <span class="text-xs text-base-content/50">{{ result.role }}</span>
             </div>
@@ -85,7 +86,10 @@
             <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
             <SvgIcon v-if="session.parentSessionId" name="gitBranch" size="12" class="shrink-0 text-warning" title="Subagent 会话" />
             <div class="flex flex-col min-w-0 flex-1">
-              <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
+              <div class="flex items-center gap-1">
+                <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
+                <span v-if="session.profile !== 'default'" class="badge badge-xs badge-info shrink-0">{{ session.profile }}</span>
+              </div>
               <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
             </div>
             <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
@@ -120,6 +124,7 @@ export interface Session {
   preview: string;
   lastActive?: number;
   parentSessionId?: string | null;
+  profile: string;
 }
 
 export interface SearchResult {
@@ -132,6 +137,7 @@ export interface SearchResult {
   timestamp: number | null;
   source: string;
   model: string;
+  profile: string;
 }
 
 // Props
