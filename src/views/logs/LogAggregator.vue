@@ -150,7 +150,7 @@
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed" ref="logContainer" @scroll="onScroll">
+        <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed allow-select" ref="logContainer" @scroll="onScroll">
           <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched" class="flex items-center justify-center h-full text-base-content/60">
             <p v-if="queryMode === 'stream'">选择左侧预设开始查询日志</p>
             <p v-else>输入关键字后点击搜索</p>
