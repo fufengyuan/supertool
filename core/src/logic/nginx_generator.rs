@@ -692,7 +692,10 @@ fn append_server_block_inner(
                     out.push_str(&format!("        auth_basic           \"{}\";\n", pw.descr));
                 }
                 if !pw.path.is_empty() {
-                    out.push_str(&format!("        auth_basic_user_file {};\n", pw.path));
+                    out.push_str(&format!(
+                        "        auth_basic_user_file {};\\n",
+                        handle_path(&pw.path)
+                    ));
                 }
             }
         }
@@ -700,8 +703,14 @@ fn append_server_block_inner(
         // SSL certs
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
-                out.push_str(&format!("        ssl_certificate      {};\n", cert.pem));
-                out.push_str(&format!("        ssl_certificate_key  {};\n", cert.key));
+                out.push_str(&format!(
+                    "        ssl_certificate      {};\\n",
+                    handle_path(&cert.pem)
+                ));
+                out.push_str(&format!(
+                    "        ssl_certificate_key  {};\\n",
+                    handle_path(&cert.key)
+                ));
             }
             if !s.protocols.is_empty() {
                 out.push_str(&format!(
@@ -826,8 +835,14 @@ fn append_server_block_inner(
         // SSL certs
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
-                out.push_str(&format!("        ssl_certificate      {};\n", cert.pem));
-                out.push_str(&format!("        ssl_certificate_key  {};\n", cert.key));
+                out.push_str(&format!(
+                    "        ssl_certificate      {};\\n",
+                    handle_path(&cert.pem)
+                ));
+                out.push_str(&format!(
+                    "        ssl_certificate_key  {};\\n",
+                    handle_path(&cert.key)
+                ));
             }
         }
 
@@ -971,16 +986,16 @@ fn append_location_block(
                 };
                 if loc.root_path.contains('$') {
                     // Dynamic path — use as-is
-                    out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
+                    out.push_str(&format!("            {} {};\\n", root_type, loc.root_path));
                 } else {
-                    let path = loc.root_path.trim_end_matches('/');
+                    let path = handle_path(loc.root_path.trim_end_matches('/'));
                     out.push_str(&format!(
-                        "            {} {};\n",
+                        "            {} {};\\n",
                         root_type,
                         if root_type == "alias" {
                             format!("{}/", path)
                         } else {
-                            path.to_string()
+                            path
                         }
                     ));
                     if !loc.root_page.is_empty() {
@@ -1191,13 +1206,19 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
                 if !pem.is_empty() {
-                    out.push_str(&format!("        ssl_certificate {};\n", pem));
+                    out.push_str(&format!(
+                        "        ssl_certificate {};\\n",
+                        handle_path(&pem)
+                    ));
                 }
                 if !key.is_empty() {
-                    out.push_str(&format!("        ssl_certificate_key {};\n", key));
+                    out.push_str(&format!(
+                        "        ssl_certificate_key {};\\n",
+                        handle_path(&key)
+                    ));
                 }
             }
-            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
+            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\\n");
         }
         if !s.protocol.is_empty() {
             out.push_str(&format!("        protocol {};\n", s.protocol));
@@ -1258,13 +1279,19 @@ fn append_stream_block_decomposed(
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
                 if !pem.is_empty() {
-                    sub.push_str(&format!("        ssl_certificate {};\n", pem));
+                    out.push_str(&format!(
+                        "        ssl_certificate {};\\n",
+                        handle_path(&pem)
+                    ));
                 }
                 if !key.is_empty() {
-                    sub.push_str(&format!("        ssl_certificate_key {};\n", key));
+                    out.push_str(&format!(
+                        "        ssl_certificate_key {};\\n",
+                        handle_path(&key)
+                    ));
                 }
             }
-            sub.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
+            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\\n");
         }
         if !s.proxy_upstream_id.is_empty() {
             let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);
