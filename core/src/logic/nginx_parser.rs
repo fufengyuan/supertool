@@ -740,7 +740,26 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                     let inner: Vec<String> = child
                         .block
                         .iter()
-                        .map(|c| format!("        {} {};", c.name, c.args.join(" ")))
+                        .map(|c| {
+                            // Special handling: for 'set' directive, if value is a plain string (not a variable), quote it
+                            if c.name == "set" && c.args.len() >= 2 {
+                                let var_name = &c.args[0];
+                                let val = &c.args[1];
+                                // Check if value looks like a variable (starts with $) or is already quoted
+                                let needs_quotes = !val.starts_with('$')
+                                    && !val.starts_with('"')
+                                    && !val.starts_with("'")
+                                    && !val.contains('{') // skip complex values
+                                    && val.chars().all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.');
+                                if needs_quotes {
+                                    format!("        {} {} \"{}\";", c.name, var_name, val)
+                                } else {
+                                    format!("        {} {};", c.name, c.args.join(" "))
+                                }
+                            } else {
+                                format!("        {} {};", c.name, c.args.join(" "))
+                            }
+                        })
                         .collect();
                     format!("{} {{\n{}\n    }}", child.args.join(" "), inner.join("\n"))
                 } else {
