@@ -83,6 +83,11 @@ pub fn generate_nginx_config(conn: &Connection, preset_id: &str) -> Result<Strin
     // 3. Stream block
     append_stream_block(conn, preset_id, &mut output)?;
 
+    // Clean up double semicolons (like nginxWebUI)
+    while output.contains(";;") {
+        output = output.replace(";;", ";");
+    }
+
     Ok(output)
 }
 
@@ -115,6 +120,16 @@ pub fn generate_nginx_config_decomposed(
 
     // 3. Stream block — decomposed
     append_stream_block_decomposed(conn, preset_id, &mut main, &mut sub_files)?;
+
+    // Clean up double semicolons (like nginxWebUI)
+    while main.contains(";;") {
+        main = main.replace(";;", ";");
+    }
+    for file in &mut sub_files {
+        while file.content.contains(";;") {
+            file.content = file.content.replace(";;", ";");
+        }
+    }
 
     Ok(NginxConfigResult {
         main_config: main,
@@ -701,22 +716,30 @@ fn append_server_block_inner(
             }
         }
 
-        // Custom params with position=1 (prepend, before locations, e.g., if blocks)
+        // Custom params (all before locations, matching nginxWebUI behavior)
+        // nginxWebUI outputs ALL server-level params before locations, regardless of position
         if !s.param_json.is_empty() {
             if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
                 for extra in &extras {
-                    let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
-                    if pos == 1 {
-                        let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                        if !name.is_empty() {
-                            // For block directives (like "if"), the value already contains the full block:
-                            // e.g., "($http_user_agent ~* ...) {\n        set $site_dir mobile;\n    }"
-                            if name == "if" {
-                                out.push_str(&format!("        if {}\n", value));
-                            } else {
-                                out.push_str(&format!("        {} {};\n", name, value));
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("        {}\n", line));
+                                }
+                                continue;
                             }
+                        }
+                    }
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        // For block directives (like "if"), the value already contains the full block
+                        if name == "if" || value.contains('{') {
+                            out.push_str(&format!("        if {}\n", value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
                         }
                     }
                 }
@@ -729,33 +752,6 @@ fn append_server_block_inner(
                 continue;
             }
             append_location_block(conn, loc, s, out)?;
-        }
-
-        // Custom params - append mode from paramJson
-        if !s.param_json.is_empty() {
-            if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
-                for extra in &extras {
-                    let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
-                    if pos == 0 {
-                        // Check if this entry references a template
-                        if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
-                            if !tid.is_empty() {
-                                if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
-                                    for line in tpl.content.lines() {
-                                        out.push_str(&format!("        {}\n", line));
-                                    }
-                                    continue;
-                                }
-                            }
-                        }
-                        let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                        if !name.is_empty() {
-                            out.push_str(&format!("        {} {};\n", name, value));
-                        }
-                    }
-                }
-            }
         }
 
         // HTTP→HTTPS redirect (inside the same server block, like nginxWebUI)
