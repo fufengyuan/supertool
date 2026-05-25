@@ -379,25 +379,29 @@ pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
     Ok(current) // Return after max iterations (shouldn't happen in practice)
 }
 
-/// Count total Hermes sessions (excluding child sessions)
+/// Count total Hermes sessions (excluding child sessions, from all profiles)
 pub fn count_hermes_sessions() -> Result<i64, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Ok(0);
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    let mut total_count: i64 = 0;
 
-    let count: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
+    for (_, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let count: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+            total_count += count;
+        }
+    }
 
-    Ok(count)
+    Ok(total_count)
 }
 
 /// Get Hermes session by ID (searches all profiles)
@@ -619,38 +623,52 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     Ok(messages)
 }
 
-/// Get Hermes session statistics
+/// Get Hermes session statistics (from all profiles)
 pub fn get_hermes_stats() -> Result<HermesStats, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    let mut total_sessions: i64 = 0;
+    let mut total_messages: i64 = 0;
+    let mut sources_map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
 
-    // Total sessions (excluding children)
-    let total_sessions: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL",
-            [],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("统计会话失败: {}", e))?;
+    for (_, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            // Total sessions (excluding children)
+            let sessions: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+            total_sessions += sessions;
 
-    // Total messages
-    let total_messages: i64 = conn
-        .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
-        .map_err(|e| format!("统计消息失败: {}", e))?;
+            // Total messages
+            let messages: i64 = conn
+                .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
+                .unwrap_or(0);
+            total_messages += messages;
 
-    // Sources breakdown
-    let sources: Vec<(String, i64)> = conn
-        .prepare("SELECT source, COUNT(*) FROM sessions WHERE parent_session_id IS NULL GROUP BY source ORDER BY COUNT(*) DESC")
-        .map_err(|e| format!("统计来源失败: {}", e))?
-        .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?)))
-        .map_err(|e| format!("读取来源失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("解析来源失败: {}", e))?;
+            // Sources breakdown
+            if let Ok(mut stmt) = conn.prepare(
+                "SELECT source, COUNT(*) FROM sessions WHERE parent_session_id IS NULL GROUP BY source ORDER BY COUNT(*) DESC"
+            ) {
+                if let Ok(iter) = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))) {
+                    for result in iter.filter_map(|r| r.ok()) {
+                        let (source, count) = result;
+                        *sources_map.entry(source).or_insert(0) += count;
+                    }
+                }
+            }
+        }
+    }
+
+    // Convert sources map to sorted vec
+    let mut sources: Vec<(String, i64)> = sources_map.into_iter().collect();
+    sources.sort_by(|a, b| b.1.cmp(&a.1));
 
     Ok(HermesStats {
         total_sessions,
@@ -667,44 +685,74 @@ pub struct HermesStats {
     pub sources: Vec<(String, i64)>,
 }
 
-/// Delete a Hermes session
+/// Delete a Hermes session (searches all profiles)
 pub fn delete_hermes_session(session_id: &str) -> Result<(), String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    // Find the profile that contains this session
+    for (_, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            // Check if session exists in this DB
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)",
+                    [session_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
 
-    // Delete messages first
-    conn.execute("DELETE FROM messages WHERE session_id = ?", [session_id])
-        .map_err(|e| format!("删除消息失败: {}", e))?;
+            if exists {
+                // Delete messages first
+                conn.execute("DELETE FROM messages WHERE session_id = ?", [session_id])
+                    .map_err(|e| format!("删除消息失败: {}", e))?;
 
-    // Delete session
-    conn.execute("DELETE FROM sessions WHERE id = ?", [session_id])
-        .map_err(|e| format!("删除会话失败: {}", e))?;
+                // Delete session
+                conn.execute("DELETE FROM sessions WHERE id = ?", [session_id])
+                    .map_err(|e| format!("删除会话失败: {}", e))?;
 
-    Ok(())
+                return Ok(());
+            }
+        }
+    }
+
+    Err(format!("会话 {} 不存在", session_id))
 }
 
-/// Rename a Hermes session (update title)
+/// Rename a Hermes session (searches all profiles)
 pub fn rename_hermes_session(session_id: &str, new_title: &str) -> Result<(), String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    // Find the profile that contains this session
+    for (_, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            // Check if session exists in this DB
+            let exists: bool = conn
+                .query_row(
+                    "SELECT EXISTS(SELECT 1 FROM sessions WHERE id = ?)",
+                    [session_id],
+                    |row| row.get(0),
+                )
+                .unwrap_or(false);
 
-    conn.execute(
-        "UPDATE sessions SET title = ? WHERE id = ?",
-        [new_title, session_id],
-    )
-    .map_err(|e| format!("重命名会话失败: {}", e))?;
+            if exists {
+                conn.execute(
+                    "UPDATE sessions SET title = ? WHERE id = ?",
+                    [new_title, session_id],
+                )
+                .map_err(|e| format!("重命名会话失败: {}", e))?;
 
-    Ok(())
+                return Ok(());
+            }
+        }
+    }
+
+    Err(format!("会话 {} 不存在", session_id))
 }
 
 /// Search Hermes sessions by keyword (title or preview, from all profiles)

@@ -16,6 +16,7 @@ export interface Session {
   preview: string;
   lastActive?: number;
   parentSessionId?: string | null;
+  profile: string;
 }
 
 /**
@@ -31,6 +32,7 @@ export interface SearchResult {
   timestamp: number | null;
   source: string;
   model: string;
+  profile: string;
 }
 
 /**
@@ -273,6 +275,7 @@ export function useSessionManager() {
           messageCount: sessionResult.messages.length,
           preview: '',
           lastActive: result.timestamp || Date.now() / 1000,
+          profile: result.profile,
         };
         sessions.value.unshift(tempSession);
         await selectSession(tempSession, onLoadMessages);
