@@ -2465,6 +2465,7 @@ export function getTauriAPI(): TauriAPI {
     parseOtpAuthUri: async (uri: string): Promise<any> => { return tauriCall('mfa_parse_uri', { uri }); },
     // Notification
     notificationTest: async (): Promise<any> => { return tauriCall('notification_test'); },
+    playSound: async (): Promise<any> => { return tauriCall('play_sound'); },
     // Log
     readLogFile: async (filePath: string): Promise<any> => { return tauriCall('read_log_file', { filePath }); },
     // LAN Chat

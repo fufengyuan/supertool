@@ -157,6 +157,13 @@ impl NotificationManager {
     }
 }
 
+/// 播放系统提示音（公开接口，供 IPC 命令调用）
+#[tauri::command(rename_all = "camelCase")]
+pub fn play_sound() -> Result<serde_json::Value, String> {
+    play_notification_sound();
+    Ok(serde_json::json!({ "success": true }))
+}
+
 /// 播放系统提示音
 pub fn play_notification_sound() {
     log::info!("[Notification] play_notification_sound() called");
