@@ -605,6 +605,15 @@ fn append_server_block_inner(
     if s.proxy_type == 0 {
         // HTTP proxy
 
+        // Description as comments (at the very beginning, matching nginxWebUI)
+        if !s.descr.is_empty() {
+            for line in s.descr.lines() {
+                if !line.trim().is_empty() {
+                    out.push_str(&format!("        # {}\n", line.trim()));
+                }
+            }
+        }
+
         // server_name
         if !s.server_name.is_empty() {
             out.push_str(&format!("        server_name  {};\n", s.server_name));
@@ -644,9 +653,18 @@ fn append_server_block_inner(
             }
         }
 
-        // Rewrite listen (HTTP→HTTPS redirect second port)
+        // Rewrite listen (HTTP→HTTPS redirect second port, matching nginxWebUI)
         if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
             out.push_str(&format!("        listen {};\n", s.rewrite_listen));
+            // IPv6 for rewrite_listen (nginxWebUI line 830-835)
+            if s.ipv6 {
+                let rewrite_port = s
+                    .rewrite_listen
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(&s.rewrite_listen);
+                out.push_str(&format!("        listen [::]:{};\n", rewrite_port));
+            }
         }
 
         // HTTP2 new-style (http2 on;)
@@ -681,10 +699,7 @@ fn append_server_block_inner(
             }
         }
 
-        // Custom params - prepend mode
-        append_param_json_prepend(conn, s, out);
-
-        // IP blacklist/whitelist
+        // IP blacklist/whitelist (before custom params, matching nginxWebUI order)
         if s.deny_allow > 0 {
             if !s.deny_id.is_empty() || s.deny_allow == 2 || s.deny_allow == 3 {
                 if let Ok(Some(da)) = get_deny_allow_by_id(
