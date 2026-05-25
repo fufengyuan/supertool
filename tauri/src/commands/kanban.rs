@@ -283,7 +283,9 @@ pub fn kanban_archive_task(task_id: String) -> Result<(), String> {
 /// Add comment to a task
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_add_comment(task_id: String, body: String) -> Result<(), String> {
-    run_kanban_cmd_raw(&["comment".into(), task_id, body])?;
+    // Quote the body to handle spaces and special characters
+    let quoted_body = format!("\"{}\"", body.replace("\"", "\\\""));
+    run_kanban_cmd_raw(&["comment".into(), task_id, quoted_body])?;
     Ok(())
 }
 
