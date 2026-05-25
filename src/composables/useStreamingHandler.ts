@@ -131,11 +131,12 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     let sessionMsgs = sessionMessagesCache[eventSid];
     if (!sessionMsgs) {
       // 如果当前会话没有缓存，从 messages.value 复制（当前视图）
-      if (eventSid === currentSessionId.value) {
+      // 处理首次对话：currentSessionId.value 是 null，eventSid 是新创建的 session_id
+      if (currentSessionId.value === null || eventSid === currentSessionId.value) {
         sessionMessagesCache[eventSid] = [...messages.value];
         sessionMsgs = sessionMessagesCache[eventSid];
       } else {
-        // 非当前会话，初始化空数组
+        // 非当前会话（子会话），初始化空数组
         sessionMessagesCache[eventSid] = [];
         sessionMsgs = sessionMessagesCache[eventSid];
       }
@@ -188,8 +189,14 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
       }
       
       // 同步到 messages.value
-      // 如果是当前会话，直接同步；如果是子会话，需要标记 isChild 和 sessionId
-      if (eventSid === currentSessionId.value) {
+      // 处理首次对话的情况：currentSessionId.value 是 null，但 eventSid 是新创建的 session_id
+      // 此时应该立即更新 currentSessionId，并按主会话处理
+      if (currentSessionId.value === null) {
+        // 首次对话，立即更新 currentSessionId
+        currentSessionId.value = eventSid;
+        messages.value = [...sessionMsgs];
+        scroll();
+      } else if (eventSid === currentSessionId.value) {
         messages.value = [...sessionMsgs];
         scroll();
       } else {
@@ -227,7 +234,8 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     // 获取该会话的消息缓存
     let sessionMsgs = sessionMessagesCache[eventSid];
     if (!sessionMsgs) {
-      if (eventSid === currentSessionId.value) {
+      // 处理首次对话：currentSessionId.value 是 null，eventSid 是新创建的 session_id
+      if (currentSessionId.value === null || eventSid === currentSessionId.value) {
         sessionMessagesCache[eventSid] = [...messages.value];
         sessionMsgs = sessionMessagesCache[eventSid];
       } else {
@@ -298,7 +306,13 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     void log('[agent-tool-start] 添加工具调用: ' + toolName + ' id: ' + (toolId || 'none') + ' toolCalls.length: ' + currentMsg.toolCalls.length);
     
     // 如果是当前会话，同步更新 messages.value
-    if (eventSid === currentSessionId.value) {
+    // 处理首次对话：currentSessionId.value 是 null，立即更新并按主会话处理
+    if (currentSessionId.value === null) {
+      currentSessionId.value = eventSid;
+      messages.value = [...sessionMsgs];
+      thinkingText.value = isSubAgent ? '🤖 启动子 Agent 处理任务...' : `🔧 调用工具: ${toolName}...`;
+      scroll();
+    } else if (eventSid === currentSessionId.value) {
       messages.value = [...sessionMsgs];
       // 显示提示
       if (isSubAgent) {
@@ -373,7 +387,11 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     void log('[agent-tool-complete] 设置 sessionRoundEnded = true');
     
     // 同步到 messages.value
-    if (eventSid === currentSessionId.value) {
+    // 处理首次对话：currentSessionId.value 是 null，立即更新并按主会话处理
+    if (currentSessionId.value === null) {
+      currentSessionId.value = eventSid;
+      messages.value = [...sessionMsgs];
+    } else if (eventSid === currentSessionId.value) {
       messages.value = [...sessionMsgs];
     } else {
       // 子会话消息需要标记 isChild 和 sessionId
@@ -387,7 +405,7 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     }
     
     // 如果是 todo 工具，更新任务列表（仅当前会话）
-    if (currentTasks && eventSid === currentSessionId.value && event.payload.name === 'todo' && event.payload.result) {
+    if (currentTasks && (currentSessionId.value === null || eventSid === currentSessionId.value) && event.payload.name === 'todo' && event.payload.result) {
       try {
         const parsed = JSON.parse(event.payload.result);
         // 支持两种格式：直接数组 或 {todos: [...], summary: {...}}
@@ -454,7 +472,8 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     // 获取该会话的消息缓存
     let sessionMsgs = sessionMessagesCache[eventSid];
     if (!sessionMsgs) {
-      if (eventSid === currentSessionId.value) {
+      // 处理首次对话：currentSessionId.value 是 null，eventSid 是新创建的 session_id
+      if (currentSessionId.value === null || eventSid === currentSessionId.value) {
         sessionMessagesCache[eventSid] = [...messages.value];
         sessionMsgs = sessionMessagesCache[eventSid];
       } else {
@@ -471,7 +490,12 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     }
     
     // 如果是当前会话，同步更新 messages.value
-    if (eventSid === currentSessionId.value) {
+    // 处理首次对话：currentSessionId.value 是 null，立即更新并按主会话处理
+    if (currentSessionId.value === null) {
+      currentSessionId.value = eventSid;
+      messages.value = [...sessionMsgs];
+      thinkingText.value = '';
+    } else if (eventSid === currentSessionId.value) {
       messages.value = [...sessionMsgs];
       thinkingText.value = '';
     } else {
@@ -501,7 +525,11 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
       delete sessionMessagesCache[eventSid];
     }
     // 当前会话时同步到视图
-    if (eventSid && currentSessionId.value && eventSid === currentSessionId.value) {
+    // 处理首次对话：currentSessionId.value 可能是 null，需要更新
+    if (eventSid && (currentSessionId.value === null || eventSid === currentSessionId.value)) {
+      if (currentSessionId.value === null) {
+        currentSessionId.value = eventSid;
+      }
       thinkingText.value = '';
       if (currentSessionId.value) {sessionRoundEnded[currentSessionId.value] = true;}
       void log('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
