@@ -110,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import KanbanColumn from './KanbanColumn.vue';
@@ -165,6 +165,9 @@ const stats = ref<Record<string, number> | null>(null);
 const assignees = ref<Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>>([]);
 const selectedTask = ref<KanbanTaskDetail | null>(null);
 const showCreateTask = ref(false);
+
+// Polling timer for auto-refresh (every 5 seconds)
+let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 // Computed
 const todoTasks = computed(() => tasks.value.filter(t => t.status === 'todo'));
@@ -287,5 +290,16 @@ async function createTask(data: { title: string; body?: string; assignee?: strin
 
 onMounted(async () => {
   await Promise.all([loadBoards(), loadTasks(), loadStats(), loadAssignees()]);
+  // Start auto-refresh polling (every 5 seconds)
+  pollTimer = setInterval(() => {
+    refreshTasks();
+  }, 5000);
+});
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
 });
 </script>
