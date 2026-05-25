@@ -36,10 +36,10 @@
       </div>
 
       <!-- Dependencies -->
-      <div v-if="task.task.parents.length > 0">
+      <div v-if="task.parents.length > 0">
         <span class="text-xs text-base-content/50 block mb-1">依赖任务</span>
         <div class="flex flex-wrap gap-1">
-          <span v-for="p in task.task.parents" :key="p" class="badge badge-sm badge-ghost">
+          <span v-for="p in task.parents" :key="p" class="badge badge-sm badge-ghost">
             {{ p }}
           </span>
         </div>
