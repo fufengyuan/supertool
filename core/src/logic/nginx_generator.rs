@@ -562,7 +562,7 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         out.push_str(";\n");
     }
 
-    out.push_str("    }\n\n");
+    out.push_str("  }\n\n");
     Ok(())
 }
 
@@ -814,7 +814,7 @@ fn append_server_block_inner(
         }
     }
 
-    out.push_str("    }\n\n");
+    out.push_str("  }\n\n");
     Ok(())
 }
 
@@ -1013,7 +1013,7 @@ fn append_location_block(
     // Custom params - append mode
     append_location_param_json_append(conn, loc, out);
 
-    out.push_str("        }\n\n");
+    out.push_str("    }\n\n");
     Ok(())
 }
 
@@ -1186,7 +1186,7 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
         }
         // Custom params - prepend mode
         append_stream_param_json_prepend(conn, s, out);
-        out.push_str("    }\n\n");
+        out.push_str("  }\n\n");
     }
     out.push_str("}\n\n");
     Ok(())
