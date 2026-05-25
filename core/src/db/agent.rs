@@ -61,8 +61,37 @@ pub fn get_hermes_home() -> PathBuf {
 }
 
 /// Get Hermes state.db path
+///
+/// Priority:
+/// 1. `$HERMES_HOME/state.db` if `HERMES_HOME` env var is set
+/// 2. Active profile's state.db (`~/.hermes/profiles/<active_profile>/state.db`)
+/// 3. Default `~/.hermes/state.db`
 pub fn get_hermes_state_db_path() -> PathBuf {
-    get_hermes_home().join("state.db")
+    let hermes_home = get_hermes_home();
+
+    // If HERMES_HOME is explicitly set, use it directly
+    if std::env::var("HERMES_HOME").is_ok() {
+        return hermes_home.join("state.db");
+    }
+
+    // Check if a Hermes profile is active
+    let active_profile_path = hermes_home.join("active_profile");
+    if active_profile_path.exists() {
+        if let Ok(profile_name) = std::fs::read_to_string(&active_profile_path) {
+            let profile_name = profile_name.trim().to_string();
+            if !profile_name.is_empty() {
+                let profile_state_db = hermes_home
+                    .join("profiles")
+                    .join(&profile_name)
+                    .join("state.db");
+                if profile_state_db.exists() {
+                    return profile_state_db;
+                }
+            }
+        }
+    }
+
+    hermes_home.join("state.db")
 }
 
 /// Check if Hermes is installed (state.db exists)
