@@ -152,7 +152,7 @@ interface KanbanTaskDetail {
   parents: string[];
   children: string[];
   comments: Array<{ id: number; author: string; body: string; createdAt: number }>;
-  events: Array<{ kind: string; payload: unknown; createdAt: number; runId?: number }>;
+  events: Array<{ kind: string; payload: Record<string, unknown>; createdAt: number; runId?: number }>;
   runs: Array<{ id: number; profile: string; stepKey?: string; status?: string; outcome?: string; summary?: string; error?: string; startedAt: number; endedAt?: number }>;
 }
 
