@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between px-4 py-3 border-b border-base-content/10">
       <div class="flex items-center gap-2">
         <span :class="statusColorClass" class="w-2.5 h-2.5 rounded-full"></span>
-        <span class="text-sm font-medium">{{ task.task.title }}</span>
+        <span class="text-sm font-medium">{{ taskInfo.title }}</span>
       </div>
       <button class="btn btn-sm btn-ghost btn-circle" @click="$emit('close')">
         <SvgIcon name="close" size="14" />
@@ -17,29 +17,29 @@
       <div class="flex items-center gap-4">
         <div>
           <span class="text-xs text-base-content/50">状态</span>
-          <div class="text-sm capitalize">{{ formatStatus(task.task.status) }}</div>
+          <div class="text-sm capitalize">{{ formatStatus(taskInfo.status) }}</div>
         </div>
         <div>
           <span class="text-xs text-base-content/50">执行者</span>
-          <div class="text-sm">{{ task.task.assignee || '未分配' }}</div>
+          <div class="text-sm">{{ taskInfo.assignee || '未分配' }}</div>
         </div>
         <div>
           <span class="text-xs text-base-content/50">优先级</span>
-          <div class="text-sm">{{ task.task.priority ? `P${task.task.priority}` : '默认' }}</div>
+          <div class="text-sm">{{ taskInfo.priority ? `P${taskInfo.priority}` : '默认' }}</div>
         </div>
       </div>
 
       <!-- Body -->
-      <div v-if="task.task.body">
+      <div v-if="taskInfo.body">
         <span class="text-xs text-base-content/50 block mb-1">描述</span>
-        <div class="text-sm bg-base-200/50 rounded p-2 whitespace-pre-wrap">{{ task.task.body }}</div>
+        <div class="text-sm bg-base-200/50 rounded p-2 whitespace-pre-wrap">{{ taskInfo.body }}</div>
       </div>
 
       <!-- Dependencies -->
-      <div v-if="task.parents.length > 0">
+      <div v-if="parents.length > 0">
         <span class="text-xs text-base-content/50 block mb-1">依赖任务</span>
         <div class="flex flex-wrap gap-1">
-          <span v-for="p in task.parents" :key="p" class="badge badge-sm badge-ghost">
+          <span v-for="p in parents" :key="p" class="badge badge-sm badge-ghost">
             {{ p }}
           </span>
         </div>
@@ -50,7 +50,7 @@
         <span class="text-xs text-base-content/50 block mb-1">分配给</span>
         <select 
           class="select select-sm select-bordered w-full"
-          :value="task.task.assignee || ''"
+          :value="taskInfo.assignee || ''"
           @change="handleAssign"
         >
           <option value="">未分配</option>
@@ -61,10 +61,10 @@
       </div>
 
       <!-- Runs history -->
-      <div v-if="task.runs.length > 0">
+      <div v-if="runs.length > 0">
         <span class="text-xs text-base-content/50 block mb-2">执行历史</span>
         <div class="space-y-2">
-          <div v-for="run in task.runs" :key="run.id" class="bg-base-200/50 rounded p-2">
+          <div v-for="run in runs" :key="run.id" class="bg-base-200/50 rounded p-2">
             <div class="flex items-center justify-between">
               <span class="text-xs text-base-content/60">{{ run.profile }}</span>
               <span class="text-xs text-base-content/50">{{ formatTime(run.startedAt) }}</span>
@@ -136,37 +136,37 @@
     <!-- Actions footer -->
     <div class="px-4 py-3 border-t border-base-content/10 flex items-center gap-2">
       <button 
-        v-if="task.task.status === 'ready' || task.task.status === 'running' || task.task.status === 'in_progress'"
+        v-if="taskInfo.status === 'ready' || taskInfo.status === 'running' || taskInfo.status === 'in_progress'"
         class="btn btn-sm btn-success flex-1"
-        @click="$emit('action', 'complete', task.task.id)"
+        @click="$emit('action', 'complete', taskInfo.id)"
       >
         完成
       </button>
       <button 
-        v-if="task.task.status === 'running' || task.task.status === 'in_progress'"
+        v-if="taskInfo.status === 'running' || taskInfo.status === 'in_progress'"
         class="btn btn-sm btn-error flex-1"
-        @click="$emit('action', 'reclaim', task.task.id)"
+        @click="$emit('action', 'reclaim', taskInfo.id)"
       >
         回收
       </button>
       <button 
-        v-if="task.task.status === 'ready' || task.task.status === 'running' || task.task.status === 'in_progress'"
+        v-if="taskInfo.status === 'ready' || taskInfo.status === 'running' || taskInfo.status === 'in_progress'"
         class="btn btn-sm btn-warning flex-1"
-        @click="$emit('action', 'block', task.task.id, '需要人工介入')"
+        @click="$emit('action', 'block', taskInfo.id, '需要人工介入')"
       >
         阻塞
       </button>
       <button 
-        v-if="task.task.status === 'blocked'"
+        v-if="taskInfo.status === 'blocked'"
         class="btn btn-sm btn-success flex-1"
-        @click="$emit('action', 'unblock', task.task.id)"
+        @click="$emit('action', 'unblock', taskInfo.id)"
       >
         解除阻塞
       </button>
       <button 
-        v-if="task.task.status === 'done'"
+        v-if="taskInfo.status === 'done'"
         class="btn btn-sm btn-ghost flex-1"
-        @click="$emit('action', 'archive', task.task.id)"
+        @click="$emit('action', 'archive', taskInfo.id)"
       >
         归档
       </button>
@@ -219,6 +219,14 @@ const props = defineProps<{
   assignees: Array<{ name: string; on_disk: boolean; counts: Record<string, number> }>;
 }>();
 
+// 解构 props 以避免模板中的嵌套访问问题
+const taskInfo = computed(() => props.task.task);
+const parents = computed(() => props.task.parents);
+const children = computed(() => props.task.children);
+const runs = computed(() => props.task.runs);
+const events = computed(() => props.task.events);
+const comments = computed(() => props.task.comments);
+
 const emit = defineEmits<{
   (e: 'close'): void;
   (e: 'refresh'): void;
@@ -232,7 +240,7 @@ const loadingLog = ref(false);
 async function loadTaskLog() {
   loadingLog.value = true;
   try {
-    const log = await invoke<string>('kanban_get_task_log', { taskId: props.task.task.id });
+    const log = await invoke<string>('kanban_get_task_log', { taskId: taskInfo.value.id });
     taskLog.value = log;
   } catch (e) {
     console.error('Failed to load task log:', e);
@@ -243,7 +251,7 @@ async function loadTaskLog() {
 }
 
 const statusColorClass = computed(() => {
-  switch (props.task.task.status) {
+  switch (taskInfo.value.status) {
     case 'triage': return 'bg-secondary';
     case 'todo': return 'bg-warning';
     case 'scheduled': return 'bg-neutral';
@@ -292,14 +300,14 @@ function outcomeClass(outcome: string | undefined): string {
 function handleAssign(e: Event) {
   const target = e.target as HTMLSelectElement;
   const assignee = target.value;
-  if (assignee !== props.task.task.assignee) {
-    emit('action', 'assign', props.task.task.id, assignee);
+  if (assignee !== taskInfo.value.assignee) {
+    emit('action', 'assign', taskInfo.value.id, assignee);
   }
 }
 
 function handleAddComment() {
   if (newComment.value.trim()) {
-    emit('action', 'comment', props.task.task.id, newComment.value.trim());
+    emit('action', 'comment', taskInfo.value.id, newComment.value.trim());
     newComment.value = '';
   }
 }
