@@ -236,14 +236,14 @@ pub fn kanban_create_task(
 /// Assign a task to a profile
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_assign_task(task_id: String, assignee: String) -> Result<(), String> {
-    run_kanban_cmd(&["assign".into(), task_id, assignee])?;
+    run_kanban_cmd_raw(&["assign".into(), task_id, assignee])?;
     Ok(())
 }
 
 /// Reclaim a running task (release worker claim)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_reclaim_task(task_id: String) -> Result<(), String> {
-    run_kanban_cmd(&["reclaim".into(), task_id])?;
+    run_kanban_cmd_raw(&["reclaim".into(), task_id])?;
     Ok(())
 }
 
@@ -255,35 +255,35 @@ pub fn kanban_complete_task(task_id: String, summary: Option<String>) -> Result<
         args.push("--summary".into());
         args.push(s);
     }
-    run_kanban_cmd(&args)?;
+    run_kanban_cmd_raw(&args)?;
     Ok(())
 }
 
 /// Block a task
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_block_task(task_id: String, reason: String) -> Result<(), String> {
-    run_kanban_cmd(&["block".into(), task_id, reason])?;
+    run_kanban_cmd_raw(&["block".into(), task_id, reason])?;
     Ok(())
 }
 
 /// Unblock a task (return to ready)
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_unblock_task(task_id: String) -> Result<(), String> {
-    run_kanban_cmd(&["unblock".into(), task_id])?;
+    run_kanban_cmd_raw(&["unblock".into(), task_id])?;
     Ok(())
 }
 
 /// Archive a task
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_archive_task(task_id: String) -> Result<(), String> {
-    run_kanban_cmd(&["archive".into(), task_id])?;
+    run_kanban_cmd_raw(&["archive".into(), task_id])?;
     Ok(())
 }
 
 /// Add comment to a task
 #[tauri::command(rename_all = "camelCase")]
 pub fn kanban_add_comment(task_id: String, body: String) -> Result<(), String> {
-    run_kanban_cmd(&["comment".into(), task_id, body])?;
+    run_kanban_cmd_raw(&["comment".into(), task_id, body])?;
     Ok(())
 }
 
