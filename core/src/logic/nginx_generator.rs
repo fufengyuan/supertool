@@ -701,6 +701,28 @@ fn append_server_block_inner(
             }
         }
 
+        // Custom params with position=1 (prepend, before locations, e.g., if blocks)
+        if !s.param_json.is_empty() {
+            if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+                for extra in &extras {
+                    let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                    if pos == 1 {
+                        let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                        let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                        if !name.is_empty() {
+                            // For block directives (like "if"), the value already contains the full block:
+                            // e.g., "($http_user_agent ~* ...) {\n        set $site_dir mobile;\n    }"
+                            if name == "if" {
+                                out.push_str(&format!("        if {}\n", value));
+                            } else {
+                                out.push_str(&format!("        {} {};\n", name, value));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // Locations (passed in for preview support)
         for loc in locations {
             if !loc.enabled {
