@@ -1025,6 +1025,8 @@ mod tests {
             message_count: 5,
             preview: "Hello world...".to_string(),
             last_active: 1700003600.0,
+            parent_session_id: None,
+            profile: "default".to_string(),
         };
 
         assert_eq!(session.id, "test-session-123");
@@ -1048,6 +1050,7 @@ mod tests {
             finish_reason: None,
             reasoning: None,
             reasoning_content: None,
+            is_child: false,
         };
 
         assert_eq!(message.id, 1);
@@ -1183,6 +1186,8 @@ mod tests {
                     message_count: row.get(6)?,
                     preview,
                     last_active: row.get(8)?,
+                    parent_session_id: None,
+                    profile: "default".to_string(),
                 })
             })
             .expect("Failed to query sessions")
@@ -1261,6 +1266,8 @@ mod tests {
                 message_count: row.get(6)?,
                 preview: raw_preview.trim().to_string(),
                 last_active: row.get(8)?,
+                parent_session_id: None,
+                profile: "default".to_string(),
             })
         });
 
@@ -1328,6 +1335,7 @@ mod tests {
                     finish_reason: row.get::<_, Option<String>>(8)?,
                     reasoning: row.get::<_, Option<String>>(9)?,
                     reasoning_content: row.get::<_, Option<String>>(10)?,
+                    is_child: false,
                 })
             })
             .expect("Failed to query messages")
