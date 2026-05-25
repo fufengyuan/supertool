@@ -276,7 +276,8 @@ function formatTime(time: number | string): string {
   });
 }
 
-function outcomeClass(outcome: string): string {
+function outcomeClass(outcome: string | undefined): string {
+  if (!outcome) return 'text-base-content/60';
   if (outcome === 'completed') return 'text-success';
   if (outcome === 'crashed' || outcome === 'timed_out') return 'text-error';
   if (outcome === 'blocked') return 'text-warning';
