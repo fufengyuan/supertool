@@ -29,7 +29,9 @@
     <div v-if="stats" class="flex items-center gap-3 px-4 py-2 bg-base-200/50 text-xs border-b border-base-content/10">
       <span class="font-medium">统计</span>
       <div class="flex items-center gap-2 ml-2">
+        <span class="px-2 py-0.5 rounded-full bg-secondary/20 text-secondary">分类 {{ stats.triage || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-warning/20 text-warning">Todo {{ stats.todo || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-neutral/20 text-neutral">等待 {{ stats.scheduled || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-info/20 text-info">Ready {{ stats.ready || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-primary/20 text-primary">进行 {{ stats.running || stats.in_progress || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-error/20 text-error">阻塞 {{ stats.blocked || 0 }}</span>
@@ -41,12 +43,30 @@
     <!-- Kanban columns -->
     <div class="flex-1 overflow-hidden">
       <div class="h-full flex gap-3 p-3 overflow-x-auto">
+        <!-- Triage column -->
+        <KanbanColumn
+          title="分类"
+          status="triage"
+          :tasks="triageTasks"
+          color="secondary"
+          @task-click="showTaskDetail"
+          @task-action="handleTaskAction"
+        />
         <!-- Todo column -->
         <KanbanColumn
           title="待办"
           status="todo"
           :tasks="todoTasks"
           color="warning"
+          @task-click="showTaskDetail"
+          @task-action="handleTaskAction"
+        />
+        <!-- Scheduled column -->
+        <KanbanColumn
+          title="等待"
+          status="scheduled"
+          :tasks="scheduledTasks"
+          color="neutral"
           @task-click="showTaskDetail"
           @task-action="handleTaskAction"
         />
@@ -170,7 +190,9 @@ const showCreateTask = ref(false);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 // Computed
+const triageTasks = computed(() => tasks.value.filter(t => t.status === 'triage'));
 const todoTasks = computed(() => tasks.value.filter(t => t.status === 'todo'));
+const scheduledTasks = computed(() => tasks.value.filter(t => t.status === 'scheduled'));
 const readyTasks = computed(() => tasks.value.filter(t => t.status === 'ready'));
 const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'running' || t.status === 'in_progress'));
 const blockedTasks = computed(() => tasks.value.filter(t => t.status === 'blocked'));

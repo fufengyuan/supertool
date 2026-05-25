@@ -244,7 +244,9 @@ async function loadTaskLog() {
 
 const statusColorClass = computed(() => {
   switch (props.task.task.status) {
+    case 'triage': return 'bg-secondary';
     case 'todo': return 'bg-warning';
+    case 'scheduled': return 'bg-neutral';
     case 'ready': return 'bg-info';
     case 'running': return 'bg-primary animate-pulse';
     case 'in_progress': return 'bg-primary animate-pulse';
@@ -256,12 +258,13 @@ const statusColorClass = computed(() => {
 
 function formatStatus(status: string): string {
   const map: Record<string, string> = {
+    triage: '分类',
     todo: '待办',
+    scheduled: '等待',
     ready: '就绪',
     running: '进行中',
     in_progress: '进行中',
     blocked: '阻塞',
-    scheduled: '等待',
     done: '完成',
     archived: '归档',
   };
