@@ -23,6 +23,8 @@ pub struct HermesSession {
     pub last_active: f64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parent_session_id: Option<String>,
+    /// Profile name this session belongs to
+    pub profile: String,
 }
 
 /// Hermes message detail for conversation display
@@ -60,38 +62,38 @@ pub fn get_hermes_home() -> PathBuf {
     }
 }
 
-/// Get Hermes state.db path
-///
-/// Priority:
-/// 1. `$HERMES_HOME/state.db` if `HERMES_HOME` env var is set
-/// 2. Active profile's state.db (`~/.hermes/profiles/<active_profile>/state.db`)
-/// 3. Default `~/.hermes/state.db`
-pub fn get_hermes_state_db_path() -> PathBuf {
+/// Get all Hermes state.db paths (root + all profiles)
+/// Returns list of (profile_name, state.db_path)
+pub fn get_all_hermes_state_db_paths() -> Vec<(String, PathBuf)> {
     let hermes_home = get_hermes_home();
+    let mut paths = Vec::new();
 
-    // If HERMES_HOME is explicitly set, use it directly
-    if std::env::var("HERMES_HOME").is_ok() {
-        return hermes_home.join("state.db");
+    // 1. Root state.db
+    let root_db = hermes_home.join("state.db");
+    if root_db.exists() {
+        paths.push(("default".to_string(), root_db));
     }
 
-    // Check if a Hermes profile is active
-    let active_profile_path = hermes_home.join("active_profile");
-    if active_profile_path.exists() {
-        if let Ok(profile_name) = std::fs::read_to_string(&active_profile_path) {
-            let profile_name = profile_name.trim().to_string();
-            if !profile_name.is_empty() {
-                let profile_state_db = hermes_home
-                    .join("profiles")
-                    .join(&profile_name)
-                    .join("state.db");
-                if profile_state_db.exists() {
-                    return profile_state_db;
+    // 2. All profiles' state.db
+    let profiles_dir = hermes_home.join("profiles");
+    if profiles_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(&profiles_dir) {
+            for entry in entries.flatten() {
+                let profile_name = entry.file_name().to_string_lossy().to_string();
+                let profile_db = entry.path().join("state.db");
+                if profile_db.exists() {
+                    paths.push((profile_name, profile_db));
                 }
             }
         }
     }
 
-    hermes_home.join("state.db")
+    paths
+}
+
+/// Get Hermes state.db path (legacy, for single-db queries)
+pub fn get_hermes_state_db_path() -> PathBuf {
+    get_hermes_home().join("state.db")
 }
 
 /// Check if Hermes is installed (state.db exists)
@@ -99,123 +101,176 @@ pub fn hermes_is_installed() -> bool {
     get_hermes_state_db_path().exists()
 }
 
-/// List Hermes sessions with preview
+/// List Hermes sessions with preview (from all profiles)
 ///
 /// Query similar to Hermes's `list_sessions_rich`:
 /// - Exclude child sessions (parent_session_id IS NULL)
 /// - Include preview (first 60 chars of first user message)
 /// - Include last_active (timestamp of last message)
-/// - Order by started_at DESC
+/// - Order by last_active DESC
 /// - **Compression tip projection**: show tip's info for compressed sessions
+/// - **Multi-profile**: merge sessions from all profiles
 pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession>, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    let mut all_sessions: Vec<HermesSession> = Vec::new();
 
-    // Query sessions with preview, last_active, and end_reason for compression detection
-    let query = r#"
-        SELECT 
-            s.id,
-            s.source,
-            s.model,
-            s.title,
-            s.started_at,
-            s.ended_at,
-            s.message_count,
-            COALESCE(
-                (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
-                 FROM messages m
-                 WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
-                 ORDER BY m.timestamp, m.id LIMIT 1),
-                ''
-            ) AS preview_raw,
-            COALESCE(
-                (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
-                s.started_at
-            ) AS last_active,
-            s.parent_session_id,
-            s.end_reason
-        FROM sessions s
-        WHERE s.parent_session_id IS NULL
-        ORDER BY s.started_at DESC
-        LIMIT ? OFFSET ?
-    "#;
+    for (profile_name, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            // Query sessions with preview, last_active, and end_reason for compression detection
+            let query = r#"
+                SELECT 
+                    s.id,
+                    s.source,
+                    s.model,
+                    s.title,
+                    s.started_at,
+                    s.ended_at,
+                    s.message_count,
+                    COALESCE(
+                        (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
+                         FROM messages m
+                         WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
+                         ORDER BY m.timestamp, m.id LIMIT 1),
+                        ''
+                    ) AS preview_raw,
+                    COALESCE(
+                        (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
+                        s.started_at
+                    ) AS last_active,
+                    s.parent_session_id,
+                    s.end_reason
+                FROM sessions s
+                WHERE s.parent_session_id IS NULL
+                ORDER BY s.started_at DESC
+            "#;
 
-    let mut stmt = conn
-        .prepare(query)
-        .map_err(|e| format!("查询会话失败: {}", e))?;
+            if let Ok(mut stmt) = conn.prepare(query) {
+                let raw_sessions_iter = stmt
+                    .query_map([], |row| {
+                        let raw_preview: String = row.get(7)?;
+                        let preview = if raw_preview.is_empty() {
+                            String::new()
+                        } else {
+                            let text = raw_preview.trim();
+                            if text.chars().count() > 60 {
+                                format!("{}...", text.chars().take(60).collect::<String>())
+                            } else {
+                                text.to_string()
+                            }
+                        };
 
-    let raw_sessions = stmt
-        .query_map([limit, offset], |row| {
-            let raw_preview: String = row.get(7)?;
-            let preview = if raw_preview.is_empty() {
-                String::new()
-            } else {
-                let text = raw_preview.trim();
-                if text.chars().count() > 60 {
-                    format!("{}...", text.chars().take(60).collect::<String>())
-                } else {
-                    text.to_string()
-                }
-            };
+                        Ok((
+                            HermesSession {
+                                id: row.get(0)?,
+                                source: row.get(1)?,
+                                model: row.get(2)?,
+                                title: row.get::<_, Option<String>>(3)?,
+                                started_at: row.get(4)?,
+                                ended_at: row.get::<_, Option<f64>>(5)?,
+                                message_count: row.get(6)?,
+                                preview,
+                                last_active: row.get(8)?,
+                                parent_session_id: row.get::<_, Option<String>>(9)?,
+                                profile: profile_name.clone(),
+                            },
+                            row.get::<_, Option<String>>(10)?, // end_reason
+                        ))
+                    })
+                    .ok();
 
-            Ok((
-                HermesSession {
-                    id: row.get(0)?,
-                    source: row.get(1)?,
-                    model: row.get(2)?,
-                    title: row.get::<_, Option<String>>(3)?,
-                    started_at: row.get(4)?,
-                    ended_at: row.get::<_, Option<f64>>(5)?,
-                    message_count: row.get(6)?,
-                    preview,
-                    last_active: row.get(8)?,
-                    parent_session_id: row.get::<_, Option<String>>(9)?,
-                },
-                row.get::<_, Option<String>>(10)?, // end_reason
-            ))
-        })
-        .map_err(|e| format!("读取会话失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("解析会话失败: {}", e))?;
+                if let Some(iter) = raw_sessions_iter {
+                    let raw_sessions: Vec<(HermesSession, Option<String>)> =
+                        iter.filter_map(|r| r.ok()).collect();
 
-    // Compression tip projection: replace session info with tip's info if compressed
-    let sessions: Vec<HermesSession> = raw_sessions
-        .into_iter()
-        .map(|(mut session, end_reason)| {
-            if end_reason.as_deref() == Some("compression") {
-                // Find compression tip
-                if let Ok(tip_id) = get_compression_tip(&session.id) {
-                    if tip_id != session.id {
-                        // Query tip's details
-                        let tip_info = get_session_details(&conn, &tip_id);
-                        if let Ok(tip) = tip_info {
-                            // Replace session info with tip's info, but keep original id
-                            session.source = tip.source;
-                            session.model = tip.model;
-                            session.title = tip.title;
-                            session.ended_at = tip.ended_at;
-                            session.message_count = tip.message_count;
-                            session.preview = tip.preview;
-                            session.last_active = tip.last_active;
-                            // Keep original id, started_at, parent_session_id
+                    // Compression tip projection for this profile
+                    for (mut session, end_reason) in raw_sessions.into_iter() {
+                        if end_reason.as_deref() == Some("compression") {
+                            if let Ok(tip_id) = get_compression_tip_with_conn(&conn, &session.id) {
+                                if tip_id != session.id {
+                                    if let Ok(tip) = get_session_details_with_profile(
+                                        &conn,
+                                        &tip_id,
+                                        &profile_name,
+                                    ) {
+                                        session.source = tip.source;
+                                        session.model = tip.model;
+                                        session.title = tip.title;
+                                        session.ended_at = tip.ended_at;
+                                        session.message_count = tip.message_count;
+                                        session.preview = tip.preview;
+                                        session.last_active = tip.last_active;
+                                    }
+                                }
+                            }
                         }
+                        all_sessions.push(session);
                     }
                 }
             }
-            session
-        })
-        .collect();
+        }
+    }
 
-    Ok(sessions)
+    // Sort by last_active DESC, then apply limit/offset
+    all_sessions.sort_by(|a, b| {
+        let a_time = a.last_active;
+        let b_time = b.last_active;
+        b_time
+            .partial_cmp(&a_time)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    // Apply offset and limit
+    let start = offset as usize;
+    let end = std::cmp::min(start + limit as usize, all_sessions.len());
+    let result = if start < all_sessions.len() {
+        all_sessions[start..end].to_vec()
+    } else {
+        Vec::new()
+    };
+
+    Ok(result)
+}
+
+/// Get compression tip using an existing connection
+fn get_compression_tip_with_conn(
+    conn: &rusqlite::Connection,
+    session_id: &str,
+) -> Result<String, String> {
+    let mut current = session_id.to_string();
+
+    for _ in 0..100 {
+        let tip_result: Result<String, rusqlite::Error> = conn.query_row(
+            r#"
+            SELECT s2.id FROM sessions s2
+            JOIN sessions s1 ON s2.parent_session_id = s1.id
+            WHERE s1.id = ? 
+              AND s1.end_reason = 'compression'
+              AND s2.started_at >= s1.ended_at
+            ORDER BY s2.started_at DESC LIMIT 1
+            "#,
+            [&current],
+            |row| row.get::<_, String>(0),
+        );
+
+        match tip_result.optional() {
+            Ok(Some(tip_id)) => current = tip_id,
+            Ok(None) => return Ok(current),
+            Err(e) => return Err(format!("查询压缩链失败: {}", e)),
+        }
+    }
+    Ok(current)
 }
 
 /// Helper to get session details by id (for compression tip projection)
-fn get_session_details(conn: &rusqlite::Connection, session_id: &str) -> Result<HermesSession, String> {
+fn get_session_details_with_profile(
+    conn: &rusqlite::Connection,
+    session_id: &str,
+    profile: &str,
+) -> Result<HermesSession, String> {
     let query = r#"
         SELECT 
             s.id,
@@ -241,8 +296,12 @@ fn get_session_details(conn: &rusqlite::Connection, session_id: &str) -> Result<
         WHERE s.id = ?
     "#;
 
-    let session = conn
-        .query_row(query, [session_id], |row| {
+    let mut stmt = conn
+        .prepare(query)
+        .map_err(|e| format!("查询 tip 会话失败: {}", e))?;
+
+    let session = stmt
+        .query_row([session_id], |row| {
             let raw_preview: String = row.get(7)?;
             let preview = if raw_preview.is_empty() {
                 String::new()
@@ -266,14 +325,13 @@ fn get_session_details(conn: &rusqlite::Connection, session_id: &str) -> Result<
                 preview,
                 last_active: row.get(8)?,
                 parent_session_id: row.get::<_, Option<String>>(9)?,
+                profile: profile.to_string(),
             })
         })
         .map_err(|e| format!("查询 tip 会话失败: {}", e))?;
 
     Ok(session)
 }
-
-/// Get the compression tip (latest continuation session) for a given session_id
 /// Walks forward through the compression chain: parent -> child where end_reason='compression'
 pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
     let db_path = get_hermes_state_db_path();
@@ -342,78 +400,81 @@ pub fn count_hermes_sessions() -> Result<i64, String> {
     Ok(count)
 }
 
-/// Get Hermes session by ID
+/// Get Hermes session by ID (searches all profiles)
 pub fn get_hermes_session(session_id: &str) -> Result<Option<HermesSession>, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
+    for (profile_name, db_path) in all_db_paths {
+        let conn = rusqlite::Connection::open(&db_path)
+            .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
-    let query = r#"
-        SELECT 
-            s.id,
-            s.source,
-            s.model,
-            s.title,
-            s.started_at,
-            s.ended_at,
-            s.message_count,
-            s.parent_session_id,
-            COALESCE(
-                (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
-                 FROM messages m
-                 WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
-                 ORDER BY m.timestamp, m.id LIMIT 1),
-                ''
-            ) AS preview_raw,
-            COALESCE(
-                (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
-                s.started_at
-            ) AS last_active
-        FROM sessions s
-        WHERE s.id = ?
-    "#;
+        let query = r#"
+            SELECT 
+                s.id,
+                s.source,
+                s.model,
+                s.title,
+                s.started_at,
+                s.ended_at,
+                s.message_count,
+                s.parent_session_id,
+                COALESCE(
+                    (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
+                     FROM messages m
+                     WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
+                     ORDER BY m.timestamp, m.id LIMIT 1),
+                    ''
+                ) AS preview_raw,
+                COALESCE(
+                    (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
+                    s.started_at
+                ) AS last_active
+            FROM sessions s
+            WHERE s.id = ?
+        "#;
 
-    let mut stmt = conn
-        .prepare(query)
-        .map_err(|e| format!("查询会话失败: {}", e))?;
+        let mut stmt = conn
+            .prepare(query)
+            .map_err(|e| format!("查询会话失败: {}", e))?;
 
-    let result = stmt.query_row([session_id], |row| {
-        let raw_preview: String = row.get(8)?;
-        let preview = if raw_preview.is_empty() {
-            String::new()
-        } else {
-            let text = raw_preview.trim();
-            // Use chars() to properly handle UTF-8 characters
-            if text.chars().count() > 60 {
-                format!("{}...", text.chars().take(60).collect::<String>())
+        let result: Result<HermesSession, rusqlite::Error> = stmt.query_row([session_id], |row| {
+            let raw_preview: String = row.get(8)?;
+            let preview = if raw_preview.is_empty() {
+                String::new()
             } else {
-                text.to_string()
-            }
-        };
+                let text = raw_preview.trim();
+                if text.chars().count() > 60 {
+                    format!("{}...", text.chars().take(60).collect::<String>())
+                } else {
+                    text.to_string()
+                }
+            };
 
-        Ok(HermesSession {
-            id: row.get(0)?,
-            source: row.get(1)?,
-            model: row.get(2)?,
-            title: row.get::<_, Option<String>>(3)?,
-            started_at: row.get(4)?,
-            ended_at: row.get::<_, Option<f64>>(5)?,
-            message_count: row.get(6)?,
-            parent_session_id: row.get::<_, Option<String>>(7)?,
-            preview,
-            last_active: row.get(9)?,
-        })
-    });
+            Ok(HermesSession {
+                id: row.get(0)?,
+                source: row.get(1)?,
+                model: row.get(2)?,
+                title: row.get::<_, Option<String>>(3)?,
+                started_at: row.get(4)?,
+                ended_at: row.get::<_, Option<f64>>(5)?,
+                message_count: row.get(6)?,
+                parent_session_id: row.get::<_, Option<String>>(7)?,
+                preview,
+                last_active: row.get(9)?,
+                profile: profile_name.clone(),
+            })
+        });
 
-    match result {
-        Ok(session) => Ok(Some(session)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(format!("读取会话失败: {}", e)),
+        if let Ok(session) = result {
+            return Ok(Some(session));
+        }
+        // Continue searching in other profiles if not found in this one
     }
+
+    Ok(None)
 }
 
 /// List Hermes messages for a session (including child sessions and compression ancestors)
@@ -430,7 +491,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     // CRITICAL: Resolve compression tip first!
     // If the session has been compressed, we need the latest continuation session_id
     let effective_session_id = get_compression_tip(session_id)?;
-    
+
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
@@ -646,85 +707,98 @@ pub fn rename_hermes_session(session_id: &str, new_title: &str) -> Result<(), St
     Ok(())
 }
 
-/// Search Hermes sessions by keyword (title or preview)
+/// Search Hermes sessions by keyword (title or preview, from all profiles)
 pub fn search_hermes_sessions(keyword: &str, limit: i32) -> Result<Vec<HermesSession>, String> {
-    let db_path = get_hermes_state_db_path();
-    if !db_path.exists() {
+    let all_db_paths = get_all_hermes_state_db_paths();
+    if all_db_paths.is_empty() {
         return Err("Hermes 未安装或 state.db 不存在".to_string());
     }
 
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
-
+    let mut all_sessions: Vec<HermesSession> = Vec::new();
     let pattern = format!("%{}%", keyword);
-    // Only search parent sessions, child sessions are embedded in parent's dialog
-    let query = r#"
-        SELECT 
-            s.id,
-            s.source,
-            s.model,
-            s.title,
-            s.started_at,
-            s.ended_at,
-            s.message_count,
-            COALESCE(
-                (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
-                 FROM messages m
-                 WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
-                 ORDER BY m.timestamp, m.id LIMIT 1),
-                ''
-            ) AS preview_raw,
-            COALESCE(
-                (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
-                s.started_at
-            ) AS last_active,
-            s.parent_session_id
-        FROM sessions s
-        WHERE s.parent_session_id IS NULL
-          AND (s.title LIKE ?1 OR s.id IN (
-            SELECT DISTINCT session_id FROM messages 
-            WHERE content LIKE ?1
-        ))
-        ORDER BY s.started_at DESC
-        LIMIT ?2
-    "#;
 
-    let mut stmt = conn
-        .prepare(query)
-        .map_err(|e| format!("查询会话失败: {}", e))?;
+    for (profile_name, db_path) in all_db_paths {
+        if let Ok(conn) = rusqlite::Connection::open(&db_path) {
+            let query = r#"
+                SELECT 
+                    s.id,
+                    s.source,
+                    s.model,
+                    s.title,
+                    s.started_at,
+                    s.ended_at,
+                    s.message_count,
+                    COALESCE(
+                        (SELECT SUBSTR(REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' '), 1, 63)
+                         FROM messages m
+                         WHERE m.session_id = s.id AND m.role = 'user' AND m.content IS NOT NULL
+                         ORDER BY m.timestamp, m.id LIMIT 1),
+                        ''
+                    ) AS preview_raw,
+                    COALESCE(
+                        (SELECT MAX(m2.timestamp) FROM messages m2 WHERE m2.session_id = s.id),
+                        s.started_at
+                    ) AS last_active,
+                    s.parent_session_id
+                FROM sessions s
+                WHERE s.parent_session_id IS NULL
+                  AND (s.title LIKE ?1 OR s.id IN (
+                    SELECT DISTINCT session_id FROM messages 
+                    WHERE content LIKE ?1
+                ))
+                ORDER BY s.started_at DESC
+            "#;
 
-    let sessions = stmt
-        .query_map([&pattern, &limit.to_string()], |row| {
-            let raw_preview: String = row.get(7)?;
-            let preview = if raw_preview.is_empty() {
-                String::new()
-            } else {
-                let text = raw_preview.trim();
-                if text.chars().count() > 60 {
-                    format!("{}...", text.chars().take(60).collect::<String>())
-                } else {
-                    text.to_string()
+            if let Ok(mut stmt) = conn.prepare(query) {
+                if let Ok(iter) = stmt.query_map([&pattern], |row| {
+                    let raw_preview: String = row.get(7)?;
+                    let preview = if raw_preview.is_empty() {
+                        String::new()
+                    } else {
+                        let text = raw_preview.trim();
+                        if text.chars().count() > 60 {
+                            format!("{}...", text.chars().take(60).collect::<String>())
+                        } else {
+                            text.to_string()
+                        }
+                    };
+
+                    Ok(HermesSession {
+                        id: row.get(0)?,
+                        source: row.get(1)?,
+                        model: row.get(2)?,
+                        title: row.get::<_, Option<String>>(3)?,
+                        started_at: row.get(4)?,
+                        ended_at: row.get::<_, Option<f64>>(5)?,
+                        message_count: row.get(6)?,
+                        preview,
+                        last_active: row.get(8)?,
+                        parent_session_id: row.get::<_, Option<String>>(9)?,
+                        profile: profile_name.clone(),
+                    })
+                }) {
+                    let sessions: Vec<HermesSession> = iter.filter_map(|r| r.ok()).collect();
+                    all_sessions.extend(sessions);
                 }
-            };
+            }
+        }
+    }
 
-            Ok(HermesSession {
-                id: row.get(0)?,
-                source: row.get(1)?,
-                model: row.get(2)?,
-                title: row.get::<_, Option<String>>(3)?,
-                started_at: row.get(4)?,
-                ended_at: row.get::<_, Option<f64>>(5)?,
-                message_count: row.get(6)?,
-                preview,
-                last_active: row.get(8)?,
-                parent_session_id: row.get::<_, Option<String>>(9)?,
-            })
-        })
-        .map_err(|e| format!("读取会话失败: {}", e))?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|e| format!("解析会话失败: {}", e))?;
+    // Sort by last_active DESC, then apply limit
+    all_sessions.sort_by(|a, b| {
+        b.last_active
+            .partial_cmp(&a.last_active)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
-    Ok(sessions)
+    // Apply limit
+    let result = if all_sessions.len() > limit as usize {
+        all_sessions[..limit as usize].to_vec()
+    } else {
+        all_sessions
+    };
+
+    Ok(result)
 }
 
 /// Format timestamp (Unix epoch float) to human-readable string

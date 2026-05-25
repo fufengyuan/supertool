@@ -479,7 +479,11 @@ pub fn get_file_transfers_for_user(
     rows.collect()
 }
 
-pub fn update_user_online_status(conn: &Connection, user_id: &str, is_online: bool) -> Result<(), rusqlite::Error> {
+pub fn update_user_online_status(
+    conn: &Connection,
+    user_id: &str,
+    is_online: bool,
+) -> Result<(), rusqlite::Error> {
     conn.execute(
         "UPDATE users SET isOnline = ?1 WHERE id = ?2",
         params![if is_online { 1 } else { 0 }, user_id],

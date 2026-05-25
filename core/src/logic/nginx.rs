@@ -99,7 +99,10 @@ impl CoreService {
         let stp1 = safe_test_path.clone();
         let write_result = self
             .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(&sid1, &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, stp1))
+                ssh.exec_command(
+                    &sid1,
+                    &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, stp1),
+                )
             })
             .await?;
 
