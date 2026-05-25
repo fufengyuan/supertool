@@ -1657,7 +1657,7 @@ mod tests {
              header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
             rusqlite::params![
-                "loc-2", server_id, 1, "/static", 0, "",
+                "loc-2", server_id, 1, "/static", 1, "",
                 1, "", "", "/var/www/static", "index.html", "",
                 0, 0, 0, "", "", 0, "", 1, "static files", now
             ],
@@ -1670,7 +1670,7 @@ mod tests {
              header, websocket, cros, headerHost, returnUrl, returnPath, paramJson, sort, descr, createdAt)
              VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
             rusqlite::params![
-                "loc-3", server_id, 1, "/old", 0, "301",
+                "loc-3", server_id, 1, "/old", 1, "301",
                 4, "", "", "", "", "",
                 0, 0, 0, "", "https://new.example.com", 1, "", 2, "redirect", now
             ],

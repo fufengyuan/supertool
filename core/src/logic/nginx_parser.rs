@@ -180,11 +180,10 @@ fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Quoted string — preserve the quotes for round-trip fidelity
+        // Quoted string
         if c == '\'' || c == '"' {
             let quote = c;
             let mut s = String::new();
-            s.push(quote); // preserve opening quote
             i += 1; // skip opening quote
             while i < len {
                 if chars[i] == '\\' && i + 1 < len {
@@ -192,7 +191,6 @@ fn tokenize(input: &str) -> Vec<Token> {
                     s.push(chars[i + 1]);
                     i += 2;
                 } else if chars[i] == quote {
-                    s.push(quote); // preserve closing quote
                     i += 1; // skip closing quote
                     break;
                 } else {
@@ -1309,7 +1307,8 @@ http {
             .find(|l| l.path == "/redirect")
             .unwrap();
         assert_eq!(redirect_loc.loc_type, "return");
-        assert!(redirect_loc.return_url.contains("301"));
+        // 301 is stored in value, not return_url
+        assert_eq!(redirect_loc.value, "301");
     }
 
     #[test]
@@ -1537,7 +1536,8 @@ http {
         let config = parse_nginx_config(text).unwrap();
         let loc = &config.servers[0].locations[0];
         assert_eq!(loc.loc_type, "return");
-        assert!(loc.return_url.contains("301"));
+        // 301 is stored in value, not return_url
+        assert_eq!(loc.value, "301");
         assert!(loc.return_url.contains("new.example.com"));
     }
 
