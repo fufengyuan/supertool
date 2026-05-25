@@ -180,16 +180,19 @@ fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Quoted string
+        // Quoted string — preserve the quotes for round-trip fidelity
         if c == '\'' || c == '"' {
             let quote = c;
             let mut s = String::new();
+            s.push(quote); // preserve opening quote
             i += 1; // skip opening quote
             while i < len {
                 if chars[i] == '\\' && i + 1 < len {
+                    s.push(chars[i]);
                     s.push(chars[i + 1]);
                     i += 2;
                 } else if chars[i] == quote {
+                    s.push(quote); // preserve closing quote
                     i += 1; // skip closing quote
                     break;
                 } else {
