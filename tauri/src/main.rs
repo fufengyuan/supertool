@@ -472,6 +472,7 @@ fn main() {
             commands::settings::set_notification_settings,
             commands::settings::get_app_version,
             commands::settings::notification_test,
+            tray_notification::play_sound,
             // Notes commands
             commands::notes::get_all_notes,
             commands::notes::add_note,

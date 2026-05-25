@@ -547,29 +547,13 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
   /**
    * 播放提醒音（对话完毕时）
    */
-  const playNotificationSound = () => {
+  const playNotificationSound = async () => {
     try {
-      // 使用 Web Audio API 播放短促提示音
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
-      
-      oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
-      
-      // 设置音调（800Hz，柔和的提示音）
-      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-      oscillator.type = 'sine';
-      
-      // 设置音量（渐弱效果）
-      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-      
-      // 播放 0.3 秒
-      oscillator.start(audioContext.currentTime);
-      oscillator.stop(audioContext.currentTime + 0.3);
+      // 直接调用 Tauri IPC 命令播放系统提示音（与 CI/CD 部署完成相同）
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('play_sound');
     } catch (e) {
-      // 静默失败（某些浏览器可能不支持 Web Audio API）
+      // 静默失败
       console.log('[notification] 无法播放提醒音:', e);
     }
   };
