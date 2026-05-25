@@ -524,30 +524,31 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         out.push_str("        least_time;\n");
     }
 
-    // Custom params (ALL before upstream servers, matching nginxWebUI behavior)
-    // nginxWebUI outputs ALL upstream params before servers, regardless of position
+    // Custom params - prepend mode (position=1, matching nginxWebUI HTTP upstream)
     if !u.param_json.is_empty() {
         if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&u.param_json) {
             for extra in &extras {
-                // Check if this entry references a template
-                if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
-                    if !tid.is_empty() {
-                        if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
-                            for line in tpl.content.lines() {
-                                out.push_str(&format!("        {}\n", line));
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 1 {
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("        {}\n", line));
+                                }
+                                continue;
                             }
-                            continue;
                         }
                     }
-                }
-                let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                if !name.is_empty() {
-                    // Block directives (if { ... }) contain { in their value → no trailing semicolon
-                    if name == "if" || value.contains('{') {
-                        out.push_str(&format!("        if {}\n", value));
-                    } else {
-                        out.push_str(&format!("        {} {};\n", name, value));
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        if name == "if" || value.contains('{') {
+                            out.push_str(&format!("        if {}\n", value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
                     }
                 }
             }
@@ -584,6 +585,26 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
             out.push_str(&format!(" {}", srv.param));
         }
         out.push_str(";\n");
+    }
+
+    // Custom params - append mode (position=0 or null, matching nginxWebUI HTTP upstream)
+    if !u.param_json.is_empty() {
+        if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&u.param_json) {
+            for extra in &extras {
+                let pos = extra.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+                if pos == 0 {
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        if name == "if" || value.contains('{') {
+                            out.push_str(&format!("        if {}\n", value));
+                        } else {
+                            out.push_str(&format!("        {} {};\n", name, value));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     out.push_str("  }\n\n");
@@ -693,7 +714,7 @@ fn append_server_block_inner(
                 }
                 if !pw.path.is_empty() {
                     out.push_str(&format!(
-                        "        auth_basic_user_file {};\\n",
+                        "        auth_basic_user_file {};\n",
                         handle_path(&pw.path)
                     ));
                 }
@@ -704,11 +725,11 @@ fn append_server_block_inner(
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!(
-                    "        ssl_certificate      {};\\n",
+                    "        ssl_certificate      {};\n",
                     handle_path(&cert.pem)
                 ));
                 out.push_str(&format!(
-                    "        ssl_certificate_key  {};\\n",
+                    "        ssl_certificate_key  {};\n",
                     handle_path(&cert.key)
                 ));
             }
@@ -836,11 +857,11 @@ fn append_server_block_inner(
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!(
-                    "        ssl_certificate      {};\\n",
+                    "        ssl_certificate      {};\n",
                     handle_path(&cert.pem)
                 ));
                 out.push_str(&format!(
-                    "        ssl_certificate_key  {};\\n",
+                    "        ssl_certificate_key  {};\n",
                     handle_path(&cert.key)
                 ));
             }
@@ -986,11 +1007,11 @@ fn append_location_block(
                 };
                 if loc.root_path.contains('$') {
                     // Dynamic path — use as-is
-                    out.push_str(&format!("            {} {};\\n", root_type, loc.root_path));
+                    out.push_str(&format!("            {} {};\n", root_type, loc.root_path));
                 } else {
                     let path = handle_path(loc.root_path.trim_end_matches('/'));
                     out.push_str(&format!(
-                        "            {} {};\\n",
+                        "            {} {};\n",
                         root_type,
                         if root_type == "alias" {
                             format!("{}/", path)
@@ -1206,19 +1227,16 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
                 if !pem.is_empty() {
-                    out.push_str(&format!(
-                        "        ssl_certificate {};\\n",
-                        handle_path(&pem)
-                    ));
+                    out.push_str(&format!("        ssl_certificate {};\n", handle_path(&pem)));
                 }
                 if !key.is_empty() {
                     out.push_str(&format!(
-                        "        ssl_certificate_key {};\\n",
+                        "        ssl_certificate_key {};\n",
                         handle_path(&key)
                     ));
                 }
             }
-            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\\n");
+            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
         }
         if !s.protocol.is_empty() {
             out.push_str(&format!("        protocol {};\n", s.protocol));
@@ -1279,19 +1297,16 @@ fn append_stream_block_decomposed(
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
                 if !pem.is_empty() {
-                    out.push_str(&format!(
-                        "        ssl_certificate {};\\n",
-                        handle_path(&pem)
-                    ));
+                    out.push_str(&format!("        ssl_certificate {};\n", handle_path(&pem)));
                 }
                 if !key.is_empty() {
                     out.push_str(&format!(
-                        "        ssl_certificate_key {};\\n",
+                        "        ssl_certificate_key {};\n",
                         handle_path(&key)
                     ));
                 }
             }
-            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\\n");
+            out.push_str("        ssl_protocols TLSv1.2 TLSv1.3;\n");
         }
         if !s.proxy_upstream_id.is_empty() {
             let upstream_name = get_upstream_name(conn, &s.proxy_upstream_id);
