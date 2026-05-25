@@ -136,21 +136,21 @@
     <!-- Actions footer -->
     <div class="px-4 py-3 border-t border-base-content/10 flex items-center gap-2">
       <button 
-        v-if="task.task.status === 'ready' || task.task.status === 'in_progress'"
+        v-if="task.task.status === 'ready' || task.task.status === 'running' || task.task.status === 'in_progress'"
         class="btn btn-sm btn-success flex-1"
         @click="$emit('action', 'complete', task.task.id)"
       >
         完成
       </button>
       <button 
-        v-if="task.task.status === 'in_progress'"
+        v-if="task.task.status === 'running' || task.task.status === 'in_progress'"
         class="btn btn-sm btn-error flex-1"
         @click="$emit('action', 'reclaim', task.task.id)"
       >
         回收
       </button>
       <button 
-        v-if="task.task.status === 'ready' || task.task.status === 'in_progress'"
+        v-if="task.task.status === 'ready' || task.task.status === 'running' || task.task.status === 'in_progress'"
         class="btn btn-sm btn-warning flex-1"
         @click="$emit('action', 'block', task.task.id, '需要人工介入')"
       >
@@ -246,6 +246,7 @@ const statusColorClass = computed(() => {
   switch (props.task.task.status) {
     case 'todo': return 'bg-warning';
     case 'ready': return 'bg-info';
+    case 'running': return 'bg-primary animate-pulse';
     case 'in_progress': return 'bg-primary animate-pulse';
     case 'blocked': return 'bg-error';
     case 'done': return 'bg-success';
@@ -257,6 +258,7 @@ function formatStatus(status: string): string {
   const map: Record<string, string> = {
     todo: '待办',
     ready: '就绪',
+    running: '进行中',
     in_progress: '进行中',
     blocked: '阻塞',
     scheduled: '等待',

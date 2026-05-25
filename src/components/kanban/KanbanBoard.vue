@@ -31,7 +31,7 @@
       <div class="flex items-center gap-2 ml-2">
         <span class="px-2 py-0.5 rounded-full bg-warning/20 text-warning">Todo {{ stats.todo || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-info/20 text-info">Ready {{ stats.ready || 0 }}</span>
-        <span class="px-2 py-0.5 rounded-full bg-primary/20 text-primary">进行 {{ stats.in_progress || 0 }}</span>
+        <span class="px-2 py-0.5 rounded-full bg-primary/20 text-primary">进行 {{ stats.running || stats.in_progress || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-error/20 text-error">阻塞 {{ stats.blocked || 0 }}</span>
         <span class="px-2 py-0.5 rounded-full bg-success/20 text-success">完成 {{ stats.done || 0 }}</span>
       </div>
@@ -62,7 +62,7 @@
         <!-- In Progress column -->
         <KanbanColumn
           title="进行中"
-          status="in_progress"
+          status="running"
           :tasks="inProgressTasks"
           color="primary"
           @task-click="showTaskDetail"
@@ -172,7 +172,7 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 // Computed
 const todoTasks = computed(() => tasks.value.filter(t => t.status === 'todo'));
 const readyTasks = computed(() => tasks.value.filter(t => t.status === 'ready'));
-const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'in_progress'));
+const inProgressTasks = computed(() => tasks.value.filter(t => t.status === 'running' || t.status === 'in_progress'));
 const blockedTasks = computed(() => tasks.value.filter(t => t.status === 'blocked'));
 const doneTasks = computed(() => tasks.value.filter(t => t.status === 'done'));
 const totalTasks = computed(() => tasks.value.length);
