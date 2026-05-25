@@ -785,8 +785,12 @@ async fn do_git_sync(
 
         if !pull_output.status.success() {
             let err = String::from_utf8_lossy(&pull_output.stderr);
-            emit("git", "warning", &format!("rebase 失败，尝试硬重置: {}", err.trim()));
-            
+            emit(
+                "git",
+                "warning",
+                &format!("rebase 失败，尝试硬重置: {}", err.trim()),
+            );
+
             // 尝试硬重置到远程分支（丢弃本地改动）
             let reset_output = user_shell_cmd(&crate::logic::git::find_git())
                 .args(["reset", "--hard", &format!("origin/{}", branch)])
@@ -794,13 +798,20 @@ async fn do_git_sync(
                 .output()
                 .await
                 .map_err(|e| format!("git reset 失败: {}", e))?;
-            
+
             if !reset_output.status.success() {
                 let err2 = String::from_utf8_lossy(&reset_output.stderr);
-                return Err(format!("git reset --hard 失败: {}（请检查分支是否存在）", err2.trim()));
+                return Err(format!(
+                    "git reset --hard 失败: {}（请检查分支是否存在）",
+                    err2.trim()
+                ));
             }
-            
-            emit("git", "success", &format!("代码已强制同步 (分支: {})", branch));
+
+            emit(
+                "git",
+                "success",
+                &format!("代码已强制同步 (分支: {})", branch),
+            );
         } else {
             emit("git", "success", &format!("代码已更新 (分支: {})", branch));
         }
@@ -1582,7 +1593,11 @@ async fn run_cargo_build(
         "cargo build --release".to_string()
     };
 
-    emit("cargo", "starting", &format!("开始 Cargo 构建 ({})", cargo_cmd));
+    emit(
+        "cargo",
+        "starting",
+        &format!("开始 Cargo 构建 ({})", cargo_cmd),
+    );
 
     let mut cmd = user_shell_cmd("sh");
     cmd.arg("-c").arg(&cargo_cmd);
@@ -1900,7 +1915,8 @@ fn collect_cargo_binaries(
             || name.ends_with(".dylib")
             || name.ends_with(".dll")
             || name.ends_with(".pdb")
-            || name == "build" || name.starts_with(".")
+            || name == "build"
+            || name.starts_with(".")
         {
             continue;
         }
@@ -2067,7 +2083,10 @@ async fn deploy_to_server(
 
     let deploy_dir = if srv.deploy_dir.is_empty() {
         if config.deploy_dir.is_empty() {
-            return Err("部署路径未配置：请在配置中设置「部署路径」或在服务器节点设置「部署路径」".to_string());
+            return Err(
+                "部署路径未配置：请在配置中设置「部署路径」或在服务器节点设置「部署路径」"
+                    .to_string(),
+            );
         }
         &config.deploy_dir
     } else {

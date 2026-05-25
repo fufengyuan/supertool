@@ -1266,7 +1266,7 @@ fn insert_parsed_to_db(
 
         for (li, loc) in srv.locations.iter().enumerate() {
             let loc_id = format!("srv-{}-loc-{}", si, li);
-            
+
             // Extract modifier from path (e.g., "^~ /prefix" -> modifier="^~", path="/prefix")
             let (modifier, loc_path) = if loc.path.starts_with("^~ ") {
                 ("^~", loc.path[3..].to_string())
@@ -1279,7 +1279,7 @@ fn insert_parsed_to_db(
             } else {
                 ("", loc.path.clone())
             };
-            
+
             // locType in DB = modifier type: 0=none, 1=^~, 2==, 3=~, 4=~*
             let db_loc_type = match modifier {
                 "^~" => 1,
@@ -1288,21 +1288,21 @@ fn insert_parsed_to_db(
                 "~*" => 4,
                 _ => 0,
             };
-            
+
             // Determine upstreamType from loc_type (instruction type): 0=proxy, 1=root/static, 4=return/redirect
             let upstream_type = match loc.loc_type.as_str() {
                 "root" => 1,
                 "return" => 4,
                 _ => 0, // proxy_pass or default
             };
-            
+
             // Convert extra_params to paramJson
             let param_json = if loc.extra_params.is_empty() {
                 String::new()
             } else {
                 serde_json::to_string(&loc.extra_params).unwrap_or_default()
             };
-            
+
             conn.execute(
                 "INSERT OR IGNORE INTO nginx_locations \
                  (id, serverId, enabled, path, locType, value, upstreamType, upstreamId, upstreamPath, \
@@ -1697,17 +1697,22 @@ fn test_prod3_round_trip_generate() {
     let db_locs: Vec<(String, String, String, String)> = conn
         .prepare("SELECT path, locType, upstreamType, rootPath FROM nginx_locations LIMIT 10")
         .unwrap()
-        .query_map([], |row| Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, i64>(1)?.to_string(),
-            row.get::<_, i64>(2)?.to_string(),
-            row.get::<_, String>(3)?,
-        )))
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?.to_string(),
+                row.get::<_, i64>(2)?.to_string(),
+                row.get::<_, String>(3)?,
+            ))
+        })
         .unwrap()
         .map(|r| r.unwrap())
         .collect();
     for (path, loc_type, upstream_type, root_path) in db_locs {
-        eprintln!("  DB: path='{}' locType={} upstreamType={} rootPath='{}'", path, loc_type, upstream_type, root_path);
+        eprintln!(
+            "  DB: path='{}' locType={} upstreamType={} rootPath='{}'",
+            path, loc_type, upstream_type, root_path
+        );
     }
 
     // Step 3: Generate
@@ -1781,14 +1786,26 @@ fn test_prod3_round_trip_generate() {
     // Detailed location count comparison
     eprintln!("\n--- Server Location Counts ---");
     for srv in &parsed.servers {
-        eprintln!("  Server: {} ({} locations)", srv.server_name, srv.locations.len());
+        eprintln!(
+            "  Server: {} ({} locations)",
+            srv.server_name,
+            srv.locations.len()
+        );
         for loc in &srv.locations {
             eprintln!(
                 "    [{}] path='{}' loc_type='{}' root_path='{}' upstream_id='{}' extra_params={}",
-                srv.server_name, loc.path, loc.loc_type, loc.root_path, loc.upstream_id, loc.extra_params.len()
+                srv.server_name,
+                loc.path,
+                loc.loc_type,
+                loc.root_path,
+                loc.upstream_id,
+                loc.extra_params.len()
             );
         }
-        let gen_srv = parsed_gen.servers.iter().find(|g| g.server_name == srv.server_name);
+        let gen_srv = parsed_gen
+            .servers
+            .iter()
+            .find(|g| g.server_name == srv.server_name);
         match gen_srv {
             Some(g) => {
                 if g.locations.len() != srv.locations.len() {
@@ -1819,7 +1836,9 @@ fn test_prod3_round_trip_generate() {
                             if loc.extra_params.len() != gl.extra_params.len() {
                                 eprintln!(
                                     "    ⚠️  {} extra_params count: orig={} gen={}",
-                                    loc.path, loc.extra_params.len(), gl.extra_params.len()
+                                    loc.path,
+                                    loc.extra_params.len(),
+                                    gl.extra_params.len()
                                 );
                                 // Show original extra_params
                                 for ep in &loc.extra_params {
@@ -1861,12 +1880,12 @@ fn round_trip_test_config(filename: &str) {
         .unwrap()
         .join("testdata");
     let path = test_dir.join(filename);
-    
+
     if !path.exists() {
         eprintln!("⚠️  File not found: {}", filename);
         return;
     }
-    
+
     let original = std::fs::read_to_string(&path).unwrap_or_default();
     if original.is_empty() {
         eprintln!("⚠️  Empty file: {}", filename);
@@ -1874,7 +1893,11 @@ fn round_trip_test_config(filename: &str) {
     }
 
     eprintln!("\n========== Testing {} ==========", filename);
-    eprintln!("Size: {} bytes, {} lines", original.len(), original.lines().count());
+    eprintln!(
+        "Size: {} bytes, {} lines",
+        original.len(),
+        original.lines().count()
+    );
 
     // Skip generated files
     if filename.contains("_generated") {
@@ -1898,7 +1921,11 @@ fn round_trip_test_config(filename: &str) {
         parsed.http_params.len(),
         parsed.basic_settings.len(),
         parsed.streams.len(),
-        parsed.servers.iter().map(|s| s.locations.len()).sum::<usize>()
+        parsed
+            .servers
+            .iter()
+            .map(|s| s.locations.len())
+            .sum::<usize>()
     );
 
     // Step 2: Insert into DB
@@ -1906,13 +1933,14 @@ fn round_trip_test_config(filename: &str) {
     insert_parsed_to_db(&conn, &preset_id, &parsed);
 
     // Step 3: Generate
-    let generated = match supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id) {
-        Ok(g) => g,
-        Err(e) => {
-            eprintln!("❌ Generate failed: {}", e);
-            panic!("{} failed to generate: {}", filename, e);
-        }
-    };
+    let generated =
+        match supertool_core::logic::nginx_generator::generate_nginx_config(&conn, &preset_id) {
+            Ok(g) => g,
+            Err(e) => {
+                eprintln!("❌ Generate failed: {}", e);
+                panic!("{} failed to generate: {}", filename, e);
+            }
+        };
 
     // Step 4: Parse generated
     let parsed_gen = match supertool_core::logic::nginx_parser::parse_nginx_config(&generated) {
@@ -1928,10 +1956,18 @@ fn round_trip_test_config(filename: &str) {
     let stream_match = parsed_gen.streams.len() == parsed.streams.len();
     let http_param_match = parsed_gen.http_params.len() == parsed.http_params.len();
     let basic_match = parsed_gen.basic_settings.len() == parsed.basic_settings.len();
-    
+
     // Count total locations
-    let orig_locs = parsed.servers.iter().map(|s| s.locations.len()).sum::<usize>();
-    let gen_locs = parsed_gen.servers.iter().map(|s| s.locations.len()).sum::<usize>();
+    let orig_locs = parsed
+        .servers
+        .iter()
+        .map(|s| s.locations.len())
+        .sum::<usize>();
+    let gen_locs = parsed_gen
+        .servers
+        .iter()
+        .map(|s| s.locations.len())
+        .sum::<usize>();
     let loc_match = orig_locs == gen_locs;
 
     eprintln!(
@@ -1945,22 +1981,42 @@ fn round_trip_test_config(filename: &str) {
     );
 
     if !upstream_match {
-        eprintln!("  Upstreams: orig={}, gen={}", parsed.upstreams.len(), parsed_gen.upstreams.len());
+        eprintln!(
+            "  Upstreams: orig={}, gen={}",
+            parsed.upstreams.len(),
+            parsed_gen.upstreams.len()
+        );
     }
     if !server_match {
-        eprintln!("  Servers: orig={}, gen={}", parsed.servers.len(), parsed_gen.servers.len());
+        eprintln!(
+            "  Servers: orig={}, gen={}",
+            parsed.servers.len(),
+            parsed_gen.servers.len()
+        );
     }
     if !stream_match {
-        eprintln!("  Streams: orig={}, gen={}", parsed.streams.len(), parsed_gen.streams.len());
+        eprintln!(
+            "  Streams: orig={}, gen={}",
+            parsed.streams.len(),
+            parsed_gen.streams.len()
+        );
     }
     if !loc_match {
         eprintln!("  Locations: orig={}, gen={}", orig_locs, gen_locs);
         // Show per-server breakdown
         for srv in &parsed.servers {
-            let gen_srv = parsed_gen.servers.iter().find(|g| g.server_name == srv.server_name);
+            let gen_srv = parsed_gen
+                .servers
+                .iter()
+                .find(|g| g.server_name == srv.server_name);
             let gen_count = gen_srv.map(|g| g.locations.len()).unwrap_or(0);
             if srv.locations.len() != gen_count {
-                eprintln!("    Server '{}': orig={} locs, gen={} locs", srv.server_name, srv.locations.len(), gen_count);
+                eprintln!(
+                    "    Server '{}': orig={} locs, gen={} locs",
+                    srv.server_name,
+                    srv.locations.len(),
+                    gen_count
+                );
             }
         }
     }
@@ -1992,10 +2048,10 @@ fn test_all_nginx_configs() {
         "nginx_port_forward.conf",
         "nginx_complex_app.conf",
     ];
-    
+
     for config in &configs {
         round_trip_test_config(config);
     }
-    
+
     eprintln!("\n========== All configs tested ==========");
 }

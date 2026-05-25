@@ -136,6 +136,7 @@
               {{ session.title || session.preview || '新会话' }}
             </span>
             <span class="badge badge-ghost badge-xs shrink-0">{{ session.source }}</span>
+            <span v-if="session.profile !== 'default'" class="badge badge-primary badge-xs shrink-0">{{ session.profile }}</span>
           </div>
           <div class="flex items-center gap-2 text-xs text-base-content/60">
             <span>{{ formatTime(session.lastActive) }}</span>
@@ -257,6 +258,7 @@ interface HermesSession {
   messageCount: number;
   preview: string;
   lastActive: number;
+  profile: string;
 }
 
 interface HermesMessage {

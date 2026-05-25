@@ -178,7 +178,11 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
-                        out.push_str(&format!("    {} '{}';\n", format!("{} {}", p.name, fmt_name), rest));
+                        out.push_str(&format!(
+                            "    {} '{}';\n",
+                            format!("{} {}", p.name, fmt_name),
+                            rest
+                        ));
                     } else {
                         out.push_str(&format!("    {} {};\n", p.name, p.value));
                     }
@@ -363,7 +367,11 @@ fn append_http_block_decomposed(
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
-                        out.push_str(&format!("    {} '{}';\n", format!("{} {}", p.name, fmt_name), rest));
+                        out.push_str(&format!(
+                            "    {} '{}';\n",
+                            format!("{} {}", p.name, fmt_name),
+                            rest
+                        ));
                     } else {
                         out.push_str(&format!("    {} {};\n", p.name, p.value));
                     }
@@ -893,7 +901,11 @@ fn append_location_block(
                 if !loc.return_url.is_empty() {
                     out.push_str(&format!(
                         "            return {} {};\n",
-                        if loc.value.is_empty() { "302" } else { &loc.value },
+                        if loc.value.is_empty() {
+                            "302"
+                        } else {
+                            &loc.value
+                        },
                         loc.return_url
                     ));
                 }
@@ -925,7 +937,11 @@ fn append_location_block(
                 if !loc.return_url.is_empty() {
                     out.push_str(&format!(
                         "            return {} {};\n",
-                        if loc.value.is_empty() { "302" } else { &loc.value },
+                        if loc.value.is_empty() {
+                            "302"
+                        } else {
+                            &loc.value
+                        },
                         loc.return_url
                     ));
                 }
