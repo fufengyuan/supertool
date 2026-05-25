@@ -134,19 +134,21 @@ fn import_config_to_db(
             let loc_param_json = serde_json::to_string(&loc.extra_params).unwrap_or_default();
 
             conn.execute(
-                "INSERT INTO nginx_locations (id, serverId, path, locType, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, websocket, cros, returnUrl, returnPath, paramJson, sort) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+                "INSERT INTO nginx_locations (id, serverId, path, locType, value, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, websocket, cros, returnUrl, returnPath, paramJson, sort) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
                 rusqlite::params![
                     &format!("loc-{}-{}", i, j),
                     &server_id,
                     &loc.path,
                     match loc.loc_type.as_str() {
                         "proxy" => 0,
+                        "proxy_pass" => 0,
                         "root" => 1,
                         "redirect" => 2,
                         "alias" => 3,
                         "return" => 4,
                         _ => 0,
                     },
+                    &loc.value, // Save status code for return directive (e.g., "200", "301")
                     &loc.upstream_id,
                     &loc.upstream_path,
                     &loc.root_path,
@@ -205,6 +207,21 @@ fn test_config_md5(config_path: &str) -> Result<(), String> {
         parsed.http_params.len(),
         parsed.basic_settings.len()
     );
+
+    // Debug: find robots.txt location
+    for srv in &parsed.servers {
+        for loc in &srv.locations {
+            if loc.path == "= /robots.txt" || loc.path == "/robots.txt" {
+                println!("DEBUG robots.txt location (config: {}):", config_path);
+                println!("  path: {}", loc.path);
+                println!("  loc_type: {}", loc.loc_type);
+                println!("  value: {}", loc.value);
+                println!("  return_url: {}", loc.return_url);
+                println!("  root_path: {}", loc.root_path);
+                println!("  extra_params: {:?}", loc.extra_params);
+            }
+        }
+    }
 
     // Create in-memory DB
     let conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
