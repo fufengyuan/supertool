@@ -1290,6 +1290,13 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
     }
 
     out.push_str("stream {\n");
+    // Stream upstreams (proxy_type=1) - output BEFORE stream servers
+    let all_upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for u in &all_upstreams {
+        if u.proxy_type == 1 { // Stream upstream
+            append_upstream(conn, u, out)?;
+        }
+    }
     // Global stream-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
@@ -1365,6 +1372,13 @@ fn append_stream_block_decomposed(
     }
 
     out.push_str("stream {\n");
+    // Stream upstreams (proxy_type=1) - output BEFORE stream servers
+    let all_upstreams = get_upstreams_by_preset(conn, preset_id).map_err(|e| e.to_string())?;
+    for u in &all_upstreams {
+        if u.proxy_type == 1 { // Stream upstream
+            append_upstream(conn, u, out)?;
+        }
+    }
     // Global stream-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "stream", out)?;
     for s in &streams {
