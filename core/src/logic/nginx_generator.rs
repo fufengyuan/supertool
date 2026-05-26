@@ -1036,11 +1036,11 @@ fn append_location_block(
                 };
                 if loc.root_path.contains('$') {
                     // Dynamic path — use as-is
-                    out.push_str(&format!("            {} {};\\n", root_type, loc.root_path));
+                    out.push_str(&format!("      {} {};\n", root_type, loc.root_path));
                 } else {
                     let path = handle_path(loc.root_path.trim_end_matches('/'));
                     out.push_str(&format!(
-                        "            {} {};\\n",
+                        "      {} {};\n",
                         root_type,
                         if root_type == "alias" {
                             format!("{}/", path)
@@ -1049,14 +1049,14 @@ fn append_location_block(
                         }
                     ));
                     if !loc.root_page.is_empty() {
-                        out.push_str(&format!("            index {};\\n", loc.root_page));
+                        out.push_str(&format!("      index {};\n", loc.root_page));
                     }
                 }
                 // Also output return/redirect if present (e.g. "return" directive before "root" in config)
                 if !loc.return_url.is_empty() {
                     let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "        return {} {};\\n",
+                        "      return {} {};\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
@@ -1245,21 +1245,18 @@ fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out
                             for line in value.lines() {
                                 out.push_str(&format!("      {}\n", line));
                             }
-                        } else if value.contains("\\n") {
-                            // Value contains literal \n (escaped newline from JSON storage)
-                            // Split on \n and output each directive
-                            let parts: Vec<&str> = value.split("\\n").collect();
-                            for part in parts {
+                        } else if value.contains('\n') {
+                            // Multi-line simple directive or literal \n from JSON
+                            // Split on actual newline and output each directive separately
+                            for part in value.split('\n') {
                                 let trimmed = part.trim();
                                 if !trimmed.is_empty() {
-                                    out.push_str(&format!("      {};\n", trimmed));
-                                }
-                            }
-                        } else if value.contains('\n') {
-                            // Multi-line simple directive - split and output each line
-                            for line in value.lines() {
-                                if !line.trim().is_empty() {
-                                    out.push_str(&format!("      {};\n", line.trim()));
+                                    // Add semicolon if not already present
+                                    if trimmed.ends_with(';') {
+                                        out.push_str(&format!("      {}\n", trimmed));
+                                    } else {
+                                        out.push_str(&format!("      {};\n", trimmed));
+                                    }
                                 }
                             }
                         } else {
