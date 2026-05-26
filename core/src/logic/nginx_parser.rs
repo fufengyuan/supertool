@@ -129,6 +129,7 @@ enum Token {
     RightBrace,
     Eof,
     Comment(String), // # comment line
+    Space(String),   // whitespace between tokens (for preserving alignment)
 }
 
 fn tokenize(input: &str) -> Vec<Token> {
@@ -146,9 +147,23 @@ fn tokenize(input: &str) -> Vec<Token> {
     while i < len {
         let c = chars[i];
 
-        // Whitespace
+        // Whitespace - capture for preserving alignment
         if c.is_whitespace() {
-            i += 1;
+            let mut space = String::new();
+            // Collect whitespace but stop at newline
+            while i < len && chars[i].is_whitespace() && chars[i] != '\n' {
+                space.push(chars[i]);
+                i += 1;
+            }
+            // Handle newline separately
+            if i < len && chars[i] == '\n' {
+                i += 1;
+                at_directive_start = true;
+            }
+            // Only emit Space token if not at directive start (between words)
+            if !at_directive_start && !space.is_empty() {
+                tokens.push(Token::Space(space));
+            }
             continue;
         }
 
@@ -237,11 +252,12 @@ fn tokenize(input: &str) -> Vec<Token> {
 #[derive(Debug, Clone)]
 struct Directive {
     name: String,
-    args: Vec<String>,     // arguments before ; or {
-    block: Vec<Directive>, // nested directives (empty for simple directives)
-    is_block: bool,        // true if this directive has { ... }
-    descr: String,         // comment lines preceding this directive
-    inline_comment: String, // comment on the same line after ; (e.g. "default ...;  # comment")
+    args: Vec<String>,         // arguments before ; or {
+    args_spacing: Vec<String>, // spacing BEFORE each arg (for preserving alignment)
+    block: Vec<Directive>,     // nested directives (empty for simple directives)
+    is_block: bool,            // true if this directive has { ... }
+    descr: String,             // comment lines preceding this directive
+    inline_comment: String,    // comment on the same line after ; (e.g. "default ...;  # comment")
 }
 
 /// Parse tokens into a list of top-level directives.
@@ -268,6 +284,7 @@ fn parse_directives(tokens: &[Token], pos: &mut usize) -> Result<Vec<Directive>,
                 directives.push(Directive {
                     name: dir.name,
                     args: dir.args,
+                    args_spacing: dir.args_spacing,
                     block: dir.block,
                     is_block: dir.is_block,
                     descr,
@@ -295,9 +312,18 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
         }
     };
 
-    // Collect arguments until we hit ';' or '{'
+    // Collect arguments and spacing until we hit ';' or '{'
     let mut args = Vec::new();
-    let is_block = false;
+    let mut args_spacing = Vec::new();
+
+    // Check for Space token after directive name (spacing before first arg)
+    let mut pending_spacing = String::new();
+    if *pos < tokens.len() {
+        if let Token::Space(s) = &tokens[*pos] {
+            pending_spacing = s.clone();
+            *pos += 1;
+        }
+    }
 
     loop {
         if *pos >= tokens.len() {
@@ -320,16 +346,16 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
                 return Ok(Directive {
                     name,
                     args,
+                    args_spacing,
                     block: Vec::new(),
                     is_block: false,
-                    descr: String::new(), // descr is set by parse_directives
+                    descr: String::new(),
                     inline_comment,
                 });
             }
             Token::LeftBrace => {
                 *pos += 1;
                 let block = parse_directives(tokens, pos)?;
-                // Expect RightBrace
                 if *pos >= tokens.len() || tokens[*pos] != Token::RightBrace {
                     return Err(format!("Expected '}}' after block for '{}'", name));
                 }
@@ -337,15 +363,28 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
                 return Ok(Directive {
                     name,
                     args,
+                    args_spacing,
                     block,
                     is_block: true,
-                    descr: String::new(), // descr is set by parse_directives
-                    inline_comment: String::new(), // block directives don't have inline comments
+                    descr: String::new(),
+                    inline_comment: String::new(),
                 });
             }
             Token::Word(w) => {
                 args.push(w.clone());
+                args_spacing.push(pending_spacing.clone());
+                pending_spacing.clear();
                 *pos += 1;
+                // Check for Space token after this word
+                if *pos < tokens.len() {
+                    if let Token::Space(s) = &tokens[*pos] {
+                        pending_spacing = s.clone();
+                        *pos += 1;
+                    }
+                }
+            }
+            Token::Space(_) => {
+                *pos += 1; // skip stray Space
             }
             t => {
                 return Err(format!("Unexpected token {:?} in '{}' directive", t, name));
@@ -353,12 +392,12 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
         }
     }
 
-    // This branch is unreachable because Semicolon returns early above
     Ok(Directive {
         name,
         args,
+        args_spacing,
         block: Vec::new(),
-        is_block,
+        is_block: false,
         descr: String::new(),
         inline_comment: String::new(),
     })
@@ -441,27 +480,28 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
                 config.servers.push(srv);
             }
         } else if d.name == "include" || d.name == "default_type" {
+            let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
             config.http_params.push(ParsedHttpParam {
                 name: d.name.clone(),
-                value: d.args.join(" "),
+                value: args_str,
             });
         } else if d.is_block {
-            // Block directive (like geo, map) — render value as "args {\n  body\n}"
-            // NOTE: nginxWebUI uses 8-space indent inside geo/map blocks, 4-space closing brace
-            let args = d.args.join(" ");
+            // Block directive (like geo, map) - use args_spacing for alignment
+            let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
             let body: Vec<String> = d
                 .block
                 .iter()
                 .map(|child| {
+                    let child_args_str = join_args_with_spacing(&child.args, &child.args_spacing);
                     let inline = if child.inline_comment.is_empty() {
                         String::new()
                     } else {
                         format!("  # {}", child.inline_comment)
                     };
-                    format!("        {} {};{}", child.name, child.args.join(" "), inline)
+                    format!("        {}{};{}", child.name, child_args_str, inline)
                 })
                 .collect();
-            let block_value = format!("{} {{\n{}\n    }}", args, body.join("\n"));
+            let block_value = format!("{} {{\n{}\n    }}", args_str, body.join("\n"));
             if !block_value.trim().is_empty() {
                 config.http_params.push(ParsedHttpParam {
                     name: d.name.clone(),
@@ -469,15 +509,33 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
                 });
             }
         } else {
-            let value = d.args.join(" ");
-            if !value.is_empty() {
+            let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
+            if !args_str.is_empty() {
                 config.http_params.push(ParsedHttpParam {
                     name: d.name.clone(),
-                    value,
+                    value: args_str,
                 });
             }
         }
     }
+}
+
+/// Helper: join args with their preceding spacing
+/// spacing[i] is the spacing BEFORE args[i] (from directive name or previous arg)
+/// If spacing is empty, default to single space for readability
+fn join_args_with_spacing(args: &[String], args_spacing: &[String]) -> String {
+    args.iter()
+        .zip(args_spacing.iter())
+        .map(|(arg, spacing)| {
+            if spacing.is_empty() {
+                format!(" {}", arg)
+            } else {
+                // spacing already contains the exact spacing, don't add extra space
+                format!("{}{}", spacing, arg)
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("")
 }
 
 /// Analyze stream block directives.
@@ -1084,17 +1142,19 @@ fn split_addr_port(s: &str) -> (String, i64) {
 fn directives_to_text(dirs: &[Directive], indent: usize) -> String {
     let mut out = String::new();
     let ind = "    ".repeat(indent);
-    for d in dirs {
+for d in dirs {
+        let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
         if d.is_block {
-            out.push_str(&format!("{}{} {};\n", ind, d.name, d.args.join(" ")));
+            out.push_str(&format!("{}{}{};", ind, d.name, args_str));
         } else {
             let inline = if d.inline_comment.is_empty() {
                 String::new()
             } else {
                 format!("  # {}", d.inline_comment)
             };
-            out.push_str(&format!("{}{} {};{}\n", ind, d.name, d.args.join(" "), inline));
+            out.push_str(&format!("{}{}{};{}", ind, d.name, args_str, inline));
         }
+        out.push('\n');
     }
     out
 }
