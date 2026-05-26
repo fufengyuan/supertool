@@ -164,7 +164,7 @@ fn import_config_to_db(
             let loc_param_json = serde_json::to_string(&loc.extra_params).unwrap_or_default();
 
             conn.execute(
-                "INSERT INTO nginx_locations (id, serverId, path, locType, value, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, websocket, cros, returnUrl, returnPath, paramJson, sort) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+                "INSERT INTO nginx_locations (id, serverId, path, locType, value, upstreamId, upstreamPath, rootPath, rootPage, rootType, header, headerHost, websocket, cros, returnUrl, returnPath, paramJson, sort) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
                 rusqlite::params![
                     &format!("loc-{}-{}", i, j),
                     &server_id,
@@ -185,6 +185,7 @@ fn import_config_to_db(
                     "", // rootPage
                     "", // rootType
                     loc.header,
+                    &loc.header_host,
                     loc.websocket,
                     loc.cros,
                     &loc.return_url,

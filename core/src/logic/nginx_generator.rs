@@ -788,36 +788,6 @@ fn append_server_block_inner(
             }
         }
 
-        // Custom params (param_json) - output BEFORE listen, matching nginxWebUI
-        // nginxWebUI outputs ALL server-level params before locations
-        if !s.param_json.is_empty() {
-            if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
-                for extra in &extras {
-                    // Check if this entry references a template
-                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
-                        if !tid.is_empty() {
-                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
-                                for line in tpl.content.lines() {
-                                    out.push_str(&format!("        {}\n", line));
-                                }
-                                continue;
-                            }
-                        }
-                    }
-                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                    if !name.is_empty() {
-                        // For block directives (like "if"), the value already contains the full block
-                        if name == "if" || value.contains('{') {
-                            out.push_str(&format!("    if {}\n", value));
-                        } else {
-                            out.push_str(&format!("        {} {};\n", name, value));
-                        }
-                    }
-                }
-            }
-        }
-
         // Rewrite listen (HTTP→HTTPS redirect second port) - output listen 80 AFTER SSL directives
         if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
             out.push_str(&format!("    listen {};\n", s.rewrite_listen));
@@ -835,13 +805,43 @@ fn append_server_block_inner(
         // HTTP→HTTPS redirect if block (BEFORE locations, matching nginxWebUI)
         // nginxWebUI outputs if block before locations
         // return 301 should redirect to SSL listen port (443), not rewrite_listen port (80)
+// Rewrite HTTP->HTTPS redirect if block
         if s.ssl && s.rewrite {
-            // Use SSL listen port as the redirect target
             let port = s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string();
             out.push_str(&format!(
                 "    if ($scheme = http) {{\n      return 301 https://$host:{}$request_uri;\n    }}\n",
                 port
             ));
+        }
+
+        // Custom params (param_json) - output AFTER if block, BEFORE locations, matching nginxWebUI
+        // nginxWebUI outputs server-level params like client_max_body_size after the if block
+        if !s.param_json.is_empty() {
+            if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
+                for extra in &extras {
+                    // Check if this entry references a template
+                    if let Some(tid) = extra.get("templateId").and_then(|v| v.as_str()) {
+                        if !tid.is_empty() {
+                            if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
+                                for line in tpl.content.lines() {
+                                    out.push_str(&format!("    {}\n", line));
+                                }
+                                continue;
+                            }
+                        }
+                    }
+                    let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    if !name.is_empty() {
+                        // For block directives (like "if"), the value already contains the full block
+                        if name == "if" || value.contains('{') {
+                            out.push_str(&format!("    if {}\n", value));
+                        } else {
+                            out.push_str(&format!("    {} {};\n", name, value));
+                        }
+                    }
+                }
+            }
         }
 
         // Locations (at the end, after all server-level directives)
