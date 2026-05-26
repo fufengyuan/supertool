@@ -1107,7 +1107,7 @@ fn append_location_block(
     // Custom params - append mode
     append_location_param_json_append(conn, loc, out);
 
-    out.push_str("    }\n\n");
+    out.push_str("    }\n");
     Ok(())
 }
 
