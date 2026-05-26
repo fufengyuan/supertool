@@ -99,6 +99,7 @@ pub struct ParsedLocation {
     pub upstream_id: String,
     pub upstream_path: String,
     pub header: bool,
+    pub header_host: String,
     pub websocket: bool,
     pub cros: bool,
     pub return_url: String,
@@ -900,6 +901,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
         upstream_id: String::new(),
         upstream_path: String::new(),
         header: false,
+        header_host: String::new(),
         websocket: false,
         cros: false,
         return_url: String::new(),
@@ -953,16 +955,47 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 }
             }
             "proxy_set_header" => {
-                if child.args.first().map(|s| s == "Host").unwrap_or(false) {
-                    loc.header = true;
-                } else if child.args.first().map(|s| s == "Upgrade").unwrap_or(false)
-                    || child
-                        .args
-                        .first()
-                        .map(|s| s == "Connection")
-                        .unwrap_or(false)
-                {
-                    // WebSocket headers
+                let first_arg = child.args.first().map(|s| s.as_str()).unwrap_or("");
+                if first_arg == "Host" {
+                    // Only set header=true if this location has proxy_pass (loc.loc_type indicates proxy_pass type)
+                    // Non-proxy locations should save Host header as extra_param instead
+                    if !loc.value.is_empty() {
+                        loc.header = true;
+                        // Also save header_host value if present
+                        if child.args.len() > 1 {
+                            loc.header_host = child.args[1].clone();
+                        }
+                    } else {
+                        // No proxy_pass — save Host header as extra_param
+                        let value = join_args_with_spacing(&child.args, &child.args_spacing);
+                        if !value.is_empty() {
+                            loc.extra_params.push(ParsedParamEntry {
+                                name: child.name.clone(),
+                                value,
+                                position: 0,
+                            });
+                        }
+                    }
+                } else if first_arg == "Upgrade" || first_arg == "Connection" {
+                    // WebSocket headers - skip, handled by generator
+                } else if [
+                    "X-Real-IP",
+                    "X-Forwarded-For",
+                    "X-Forwarded-Host",
+                    "X-Forwarded-Port",
+                    "X-Forwarded-Proto",
+                ].contains(&first_arg) {
+                    // Standard headers - skip, handled by generator hardcoded logic
+                } else {
+                    // Save ALL OTHER proxy_set_header directives (like Data-Source, X-Enterprise-Id, system, etc.)
+                    let value = join_args_with_spacing(&child.args, &child.args_spacing);
+                    if !value.is_empty() {
+                        loc.extra_params.push(ParsedParamEntry {
+                            name: child.name.clone(),
+                            value,
+                            position: 0,
+                        });
+                    }
                 }
             }
             "proxy_http_version" => {
@@ -989,9 +1022,16 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 }
             }
             "proxy_redirect" => {
-                // proxy_redirect is handled by the generator's hardcoded logic
-                // (server.ssl && server.rewrite → output proxy_redirect http:// https://;)
-                // Don't capture as extra_param to avoid duplication in round-trip.
+                // proxy_redirect http:// https://; is handled by generator (SSL+rewrite)
+                // Other proxy_redirect values (off, default, etc.) should be saved as extra_params
+                let value = join_args_with_spacing(&child.args, &child.args_spacing);
+                if value.trim() != "http:// https://" {
+                    loc.extra_params.push(ParsedParamEntry {
+                        name: child.name.clone(),
+                        value,
+                        position: 0,
+                    });
+                }
             }
             _ => {
                 // Block directives like if (...) { ... } need special handling
@@ -1017,7 +1057,9 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                     continue;
                 }
                 let value = join_args_with_spacing(&child.args, &child.args_spacing);
-                if !value.is_empty() {
+                // Save directives even if value is empty (like "break;")
+                // Only skip if the directive name itself is empty (shouldn't happen)
+                if !child.name.is_empty() {
                     loc.extra_params.push(ParsedParamEntry {
                         name: child.name.clone(),
                         value,

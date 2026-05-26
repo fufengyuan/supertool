@@ -965,8 +965,10 @@ fn append_location_block(
                 ));
             }
 
-            // Header settings (before websocket, matching nginxWebUI order)
-            if loc.header {
+// Header settings (before websocket, matching nginxWebUI order)
+            // Only output hardcoded headers if this location has actual proxy_pass (value non-empty)
+            // Non-proxy locations (rewrite/return/root) shouldn't output hardcoded headers even if loc.header=true
+            if loc.header && !loc.value.is_empty() {
                 out.push_str(&format!(
                     "      proxy_set_header Host {};\n",
                     if loc.header_host.is_empty() {
@@ -1002,8 +1004,9 @@ fn append_location_block(
                 out.push_str("      }\n");
             }
 
-            // proxy_redirect for SSL
-            if server.ssl && server.rewrite {
+            // proxy_redirect for SSL — only if this location has actual proxy_pass (value non-empty)
+            // Rewrite/return-only locations (value empty) don't need proxy_redirect
+            if server.ssl && server.rewrite && !loc.value.is_empty() {
                 out.push_str("      proxy_redirect http:// https://;\n");
             }
         }
