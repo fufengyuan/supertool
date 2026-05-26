@@ -578,13 +578,13 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
     }
 
     // Upstream servers
-    // Upstream servers
+    // Upstream servers - nginxWebUI uses 4-space indent inside upstream
     let servers = crate::db::nginx::get_upstream_servers(conn, &u.id).map_err(|e| e.to_string())?;
     for srv in &servers {
         if !srv.enabled {
             continue;
         }
-        out.push_str(&format!("        server {}:{}", srv.address, srv.port));
+        out.push_str(&format!("    server {}:{}", srv.address, srv.port));
         if srv.weight > 1 {
             out.push_str(&format!(" weight={}", srv.weight));
         }
