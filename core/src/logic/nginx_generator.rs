@@ -523,15 +523,16 @@ fn sanitize_filename(name: &str) -> String {
 
 fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Result<(), String> {
     // Description as comments - BEFORE the block starts (matching nginxWebUI)
+    // nginxWebUI uses 2-space indent for http block first level
     if !u.descr.is_empty() {
         for line in u.descr.lines() {
             if !line.trim().is_empty() {
-                out.push_str(&format!("    # {}\n", line.trim()));
+                out.push_str(&format!("  # {}\n", line.trim()));
             }
         }
     }
 
-    out.push_str(&format!("    upstream {} {{\n", u.name));
+    out.push_str(&format!("  upstream {} {{\n", u.name));
 
     // Strategy
     if u.strategy == "ip_hash" {
@@ -656,7 +657,7 @@ fn append_server_block_inner(
         }
     }
 
-    out.push_str("    server {\n");
+    out.push_str("  server {\n");
 
     if s.proxy_type == 0 {
         // HTTP proxy
