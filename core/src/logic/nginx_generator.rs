@@ -1087,16 +1087,28 @@ fn append_location_block(
             } else {
                 loc.return_url.clone()
             };
-            let ret_url_quoted = quote_return_url(&ret_url);
-            out.push_str(&format!(
-                "        return {} {};\n",
-                if loc.value.is_empty() {
-                    "302"
-                } else {
-                    &loc.value
-                },
-                ret_url_quoted
-            ));
+let ret_url_quoted = quote_return_url(&ret_url);
+            if ret_url_quoted.is_empty() {
+                // return 404; — no URL, just status code
+                out.push_str(&format!(
+                    "      return {};\n",
+                    if loc.value.is_empty() {
+                        "302"
+                    } else {
+                        &loc.value
+                    }
+                ));
+            } else {
+                out.push_str(&format!(
+                    "      return {} {};\n",
+                    if loc.value.is_empty() {
+                        "302"
+                    } else {
+                        &loc.value
+                    },
+                    ret_url_quoted
+                ));
+            }
         }
         _ => {}
     }
@@ -1209,7 +1221,8 @@ fn append_location_param_json_prepend(conn: &Connection, loc: &NginxLocation, ou
                                 }
                             }
                         } else {
-                            out.push_str(&format!("      {} {};\n", name, value));
+                            // Single-line directive - trim leading space from value (args_spacing artifact)
+                            out.push_str(&format!("      {} {};\n", name, value.trim_start()));
                         }
                     }
                 }
@@ -1257,7 +1270,8 @@ fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out
                                 out.push_str(&format!("      {}{};\n", name, value));
                             }
                         } else {
-                            out.push_str(&format!("      {} {};\n", name, value));
+                            // Single-line directive - trim leading space from value (args_spacing artifact)
+                            out.push_str(&format!("      {} {};\n", name, value.trim_start()));
                         }
                     }
                 }
