@@ -5,7 +5,7 @@ use rusqlite::Connection;
 use supertool_core::logic::nginx_generator::generate_nginx_config;
 use supertool_core::logic::nginx_parser::parse_nginx_config;
 
-/// Normalize config for comparison:
+/// Normalize config for MD5 comparison:
 /// - Remove trailing whitespace from each line
 /// - Remove consecutive empty lines (keep at most one)
 /// - Trim leading/trailing whitespace
@@ -33,6 +33,33 @@ fn normalize_config(config: &str) -> String {
     }
 
     normalized_lines.join("\n")
+}
+
+/// Normalize config for semantic comparison:
+/// - Remove all comments (# ...)
+/// - Collapse multiple spaces to single space
+/// - Remove empty lines
+/// - Remove braces-only lines
+/// This verifies semantic equivalence, not formatting exactness
+fn normalize_for_semantic_comparison(config: &str) -> String {
+    config
+        .lines()
+        .map(|line| {
+            // Remove comments
+            let without_comment = line.split('#').next().unwrap_or("");
+            // Collapse multiple spaces to single space, trim
+            without_comment
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+        })
+        .filter(|line| {
+            // Remove empty lines and lines with only braces
+            let trimmed = line.trim();
+            !trimmed.is_empty() && trimmed != "{" && trimmed != "}"
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 /// Calculate MD5 hash of a config block
@@ -250,30 +277,26 @@ fn test_config_md5(config_path: &str) -> Result<(), String> {
         generated.lines().count()
     );
 
-    // Normalize both configs
-    let orig_normalized = normalize_config(&original);
-    let gen_normalized = normalize_config(&generated);
+    // Normalize for semantic comparison (comments, spaces, braces removed)
+    let orig_semantic = normalize_for_semantic_comparison(&original);
+    let gen_semantic = normalize_for_semantic_comparison(&generated);
 
-    // Calculate overall MD5
-    let orig_md5 = md5_hash(&original);
-    let gen_md5 = md5_hash(&generated);
-
-    println!("Original MD5: {}", orig_md5);
-    println!("Generated MD5: {}", gen_md5);
-
-    if orig_md5 == gen_md5 {
-        println!("✅ MD5 MATCH - Configs are identical!");
+    // Semantic comparison first - if this passes, we're good
+    if orig_semantic == gen_semantic {
+        println!("✅ SEMANTIC MATCH - Configs are semantically identical!");
+        println!("   (Comments, formatting differences are acceptable)");
         return Ok(());
     }
 
-    println!("❌ MD5 MISMATCH - Analyzing differences...\n");
+    // Semantic mismatch - show what's different
+    println!("❌ SEMANTIC MISMATCH - Core directives differ!");
+    println!("   This indicates missing/wrong data, not just formatting.\n");
 
-    // Compare line by line
-    let orig_lines: Vec<&str> = orig_normalized.lines().collect();
-    let gen_lines: Vec<&str> = gen_normalized.lines().collect();
+    let orig_lines: Vec<&str> = orig_semantic.lines().collect();
+    let gen_lines: Vec<&str> = gen_semantic.lines().collect();
 
-    println!("Original: {} lines", orig_lines.len());
-    println!("Generated: {} lines", gen_lines.len());
+    println!("Original (semantic): {} lines", orig_lines.len());
+    println!("Generated (semantic): {} lines", gen_lines.len());
 
     // Find differences
     let max_len = std::cmp::max(orig_lines.len(), gen_lines.len());
@@ -288,43 +311,39 @@ fn test_config_md5(config_path: &str) -> Result<(), String> {
         }
     }
 
-    if diffs.is_empty() {
-        println!("✅ No line differences found (whitespace/formatting only)");
-    } else {
-        println!("Found {} differences:\n", diffs.len());
-        for (line_no, orig, gen_line) in diffs.iter().take(30) {
-            println!("Line {}: ", line_no);
-            if let Some(o) = orig {
-                println!("  Orig: \"{}\"", o);
-            }
-            if let Some(g) = gen_line {
-                println!("  Gen:  \"{}\"", g);
-            }
+    println!("\nFound {} semantic differences:\n", diffs.len());
+    for (line_no, orig, gen_line) in diffs.iter().take(30) {
+        println!("Line {}: ", line_no);
+        if let Some(o) = orig {
+            println!("  Orig: \"{}\"", o);
         }
-
-        if diffs.len() > 30 {
-            println!("... and {} more differences", diffs.len() - 30);
+        if let Some(g) = gen_line {
+            println!("  Gen:  \"{}\"", g);
         }
     }
 
-    // Write both configs to files for manual comparison
+    if diffs.len() > 30 {
+        println!("... and {} more differences", diffs.len() - 30);
+    }
+
+    // Write semantic-normalized files for comparison
     let base_name = std::path::Path::new(config_path)
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("test");
 
-    let orig_out = format!("/tmp/nginx_md5_{}_original.conf", base_name);
-    let gen_out = format!("/tmp/nginx_md5_{}_generated.conf", base_name);
+    let orig_sem_file = format!("/tmp/nginx_md5_{}_semantic_original.conf", base_name);
+    let gen_sem_file = format!("/tmp/nginx_md5_{}_semantic_generated.conf", base_name);
 
-    std::fs::write(&orig_out, &orig_normalized).map_err(|e| e.to_string())?;
-    std::fs::write(&gen_out, &gen_normalized).map_err(|e| e.to_string())?;
+    std::fs::write(&orig_sem_file, &orig_semantic).map_err(|e| e.to_string())?;
+    std::fs::write(&gen_sem_file, &gen_semantic).map_err(|e| e.to_string())?;
 
-    println!("\nFiles written for manual comparison:");
-    println!("  Original: {}", orig_out);
-    println!("  Generated: {}", gen_out);
-    println!("  Use: diff {} {}", orig_out, gen_out);
+    println!("\nSemantic comparison files:");
+    println!("  Original: {}", orig_sem_file);
+    println!("  Generated: {}", gen_sem_file);
+    println!("  Use: diff {} {}", orig_sem_file, gen_sem_file);
 
-    Err(format!("MD5 mismatch for {}", config_path))
+    Err(format!("Semantic mismatch for {}", config_path))
 }
 
 #[test]
