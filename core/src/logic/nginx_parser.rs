@@ -203,18 +203,20 @@ fn tokenize(input: &str) -> Vec<Token> {
             continue;
         }
 
-        // Quoted string
+        // Quoted string — preserve quotes in the token
         if c == '\'' || c == '"' {
             let quote = c;
             let mut s = String::new();
-            i += 1; // skip opening quote
+            s.push(quote); // include opening quote
+            i += 1; // skip opening quote character position
             while i < len {
                 if chars[i] == '\\' && i + 1 < len {
                     s.push(chars[i]);
                     s.push(chars[i + 1]);
                     i += 2;
                 } else if chars[i] == quote {
-                    i += 1; // skip closing quote
+                    s.push(chars[i]); // include closing quote
+                    i += 1;
                     break;
                 } else {
                     s.push(chars[i]);
