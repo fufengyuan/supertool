@@ -32,6 +32,10 @@ fn escape_quotes(value: &str) -> String {
 /// Quote return_url if it contains spaces, newlines, or special chars
 /// Used for `return` directive output
 fn quote_return_url(return_url: &str) -> String {
+    // If already quoted, don't double-quote
+    if return_url.starts_with('"') && return_url.ends_with('"') {
+        return return_url.to_string();
+    }
     if return_url.contains(' ')
         || return_url.contains('\n')
         || return_url.contains('\t')
