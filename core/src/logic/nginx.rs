@@ -1216,6 +1216,8 @@ impl CoreService {
                     server_name: srv.server_name.clone(),
                     ssl: srv.ssl != 0,
                     cert_id: resolved_cert_id,
+                    pem: srv.pem.clone(),
+                    key: srv.key.clone(),
                     rewrite: srv.rewrite,
                     rewrite_listen: srv.rewrite_listen.clone(),
                     http2: srv.http2,

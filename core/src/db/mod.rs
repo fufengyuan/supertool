@@ -348,6 +348,8 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             serverName TEXT NOT NULL DEFAULT '',
             ssl INTEGER NOT NULL DEFAULT 0,
             certId TEXT NOT NULL DEFAULT '',
+            pem TEXT NOT NULL DEFAULT '',
+            key TEXT NOT NULL DEFAULT '',
             rewrite INTEGER NOT NULL DEFAULT 0,
             rewriteListen TEXT NOT NULL DEFAULT '80',
             http2 INTEGER NOT NULL DEFAULT 0,
