@@ -530,7 +530,7 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
 /// If spacing is empty, default to single space for readability
 fn join_args_with_spacing(args: &[String], args_spacing: &[String]) -> String {
     args.iter()
-        .zip(args_spacing.iter())
+        .zip(args_spacing.iter().take(args.len())) // Only use args.len() spacings, ignore trailing spacing
         .map(|(arg, spacing)| {
             if spacing.is_empty() {
                 format!(" {}", arg)
