@@ -986,6 +986,15 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
             _ => {
                 // Block directives like if (...) { ... } need special handling
                 if child.is_block {
+                    // Skip CORS OPTIONS if block - generator outputs this hardcoded when cros=true
+                    if child.name == "if" {
+                        if let Some(cond) = child.args.first() {
+                            if cond.contains("$request_method") && child.block.iter().any(|c| c.name == "return") {
+                                // This is CORS OPTIONS handling - skip to avoid duplication
+                                continue;
+                            }
+                        }
+                    }
                     // Use directives_to_text to serialize the block content
                     let block_text = directives_to_text(&child.block, 0);
                     // Format: "($condition) {\n  block_content\n}"
