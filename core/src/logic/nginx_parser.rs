@@ -241,6 +241,7 @@ struct Directive {
     block: Vec<Directive>, // nested directives (empty for simple directives)
     is_block: bool,        // true if this directive has { ... }
     descr: String,         // comment lines preceding this directive
+    inline_comment: String, // comment on the same line after ; (e.g. "default ...;  # comment")
 }
 
 /// Parse tokens into a list of top-level directives.
@@ -270,6 +271,7 @@ fn parse_directives(tokens: &[Token], pos: &mut usize) -> Result<Vec<Directive>,
                     block: dir.block,
                     is_block: dir.is_block,
                     descr,
+                    inline_comment: dir.inline_comment,
                 });
             }
         }
@@ -304,7 +306,25 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
         match &tokens[*pos] {
             Token::Semicolon => {
                 *pos += 1;
-                break;
+                // Check for inline comment after semicolon
+                let inline_comment = if *pos < tokens.len() && matches!(tokens[*pos], Token::Comment(_)) {
+                    if let Token::Comment(c) = &tokens[*pos] {
+                        *pos += 1;
+                        c.clone()
+                    } else {
+                        String::new()
+                    }
+                } else {
+                    String::new()
+                };
+                return Ok(Directive {
+                    name,
+                    args,
+                    block: Vec::new(),
+                    is_block: false,
+                    descr: String::new(), // descr is set by parse_directives
+                    inline_comment,
+                });
             }
             Token::LeftBrace => {
                 *pos += 1;
@@ -320,6 +340,7 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
                     block,
                     is_block: true,
                     descr: String::new(), // descr is set by parse_directives
+                    inline_comment: String::new(), // block directives don't have inline comments
                 });
             }
             Token::Word(w) => {
@@ -332,16 +353,14 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
         }
     }
 
+    // This branch is unreachable because Semicolon returns early above
     Ok(Directive {
         name,
         args,
-        block: if is_block {
-            Vec::new() // populated above
-        } else {
-            Vec::new()
-        },
+        block: Vec::new(),
         is_block,
-        descr: String::new(), // descr is set by parse_directives
+        descr: String::new(),
+        inline_comment: String::new(),
     })
 }
 
@@ -428,13 +447,21 @@ fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
             });
         } else if d.is_block {
             // Block directive (like geo, map) — render value as "args {\n  body\n}"
+            // NOTE: nginxWebUI uses 8-space indent inside geo/map blocks, 4-space closing brace
             let args = d.args.join(" ");
             let body: Vec<String> = d
                 .block
                 .iter()
-                .map(|child| format!("    {} {};", child.name, child.args.join(" ")))
+                .map(|child| {
+                    let inline = if child.inline_comment.is_empty() {
+                        String::new()
+                    } else {
+                        format!("  # {}", child.inline_comment)
+                    };
+                    format!("        {} {};{}", child.name, child.args.join(" "), inline)
+                })
                 .collect();
-            let block_value = format!("{} {{\n{}\n}}", args, body.join("\n"));
+            let block_value = format!("{} {{\n{}\n    }}", args, body.join("\n"));
             if !block_value.trim().is_empty() {
                 config.http_params.push(ParsedHttpParam {
                     name: d.name.clone(),
@@ -1061,7 +1088,12 @@ fn directives_to_text(dirs: &[Directive], indent: usize) -> String {
         if d.is_block {
             out.push_str(&format!("{}{} {};\n", ind, d.name, d.args.join(" ")));
         } else {
-            out.push_str(&format!("{}{} {};\n", ind, d.name, d.args.join(" ")));
+            let inline = if d.inline_comment.is_empty() {
+                String::new()
+            } else {
+                format!("  # {}", d.inline_comment)
+            };
+            out.push_str(&format!("{}{} {};{}\n", ind, d.name, d.args.join(" "), inline));
         }
     }
     out
