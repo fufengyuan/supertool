@@ -110,7 +110,7 @@ fn import_config_to_db(
         let param_json = serde_json::to_string(&srv.extra_params).unwrap_or_default();
 
         conn.execute(
-            "INSERT INTO nginx_servers (id, presetId, proxyType, serverName, listen, ssl, certId, rewrite, rewriteListen, http2, descr, sort, paramJson, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            "INSERT INTO nginx_servers (id, presetId, proxyType, serverName, listen, ssl, certId, pem, key, rewrite, rewriteListen, http2, descr, sort, paramJson, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             rusqlite::params![
                 &server_id,
                 &preset_id,
@@ -119,6 +119,8 @@ fn import_config_to_db(
                 &srv.listen,
                 srv.ssl,
                 &srv.cert_id,
+                &srv.pem,
+                &srv.key,
                 srv.rewrite,
                 &srv.rewrite_listen,
                 srv.http2,

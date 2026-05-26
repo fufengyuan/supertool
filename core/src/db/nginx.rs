@@ -56,6 +56,8 @@ pub struct NginxServer {
     pub ssl: bool,
     #[serde(rename = "certId")]
     pub cert_id: String,
+    pub pem: String,
+    pub key: String,
     pub rewrite: bool,
     #[serde(rename = "rewriteListen")]
     pub rewrite_listen: String,
@@ -327,6 +329,8 @@ pub fn row_to_nginx_server(row: &rusqlite::Row<'_>) -> rusqlite::Result<NginxSer
         server_name: row.get("serverName")?,
         ssl: row.get::<_, i64>("ssl")? == 1,
         cert_id: row.get("certId")?,
+        pem: row.get("pem")?,
+        key: row.get("key")?,
         rewrite: row.get::<_, i64>("rewrite")? == 1,
         rewrite_listen: row.get("rewriteListen")?,
         http2: row.get("http2")?,
@@ -788,25 +792,27 @@ pub fn get_server_by_id(
 
 pub fn add_nginx_server(conn: &rusqlite::Connection, s: &NginxServer) -> rusqlite::Result<()> {
     conn.execute(
-        "INSERT INTO nginx_servers (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol,
-         serverName, ssl, certId, rewrite, rewriteListen, http2, protocols,
+"INSERT INTO nginx_servers (id, presetId, proxyType, listen, ip, def, ipv6, proxyProtocol,
+         serverName, ssl, certId, pem, key, rewrite, rewriteListen, http2, protocols,
          passwordId, denyAllow, denyId, allowId, proxyUpstreamId,
          descr, enabled, sort, paramJson, createdAt, updatedAt)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,
-                 ?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
-        params![
-            s.id,
-            s.preset_id,
-            s.proxy_type,
-            s.listen,
-            s.ip,
-            bool_int(s.def),
-            bool_int(s.ipv6),
-            bool_int(s.proxy_protocol),
-            s.server_name,
-            bool_int(s.ssl),
-            s.cert_id,
-            bool_int(s.rewrite),
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,
+                 ?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28)",
+       params![
+           s.id,
+           s.preset_id,
+           s.proxy_type,
+           s.listen,
+           s.ip,
+           bool_int(s.def),
+           bool_int(s.ipv6),
+           bool_int(s.proxy_protocol),
+           s.server_name,
+           bool_int(s.ssl),
+           s.cert_id,
+           s.pem,
+           s.key,
+           bool_int(s.rewrite),
             s.rewrite_listen,
             s.http2,
             s.protocols,
@@ -829,13 +835,13 @@ pub fn add_nginx_server(conn: &rusqlite::Connection, s: &NginxServer) -> rusqlit
 pub fn update_nginx_server(conn: &rusqlite::Connection, s: &NginxServer) -> rusqlite::Result<()> {
     conn.execute(
         "UPDATE nginx_servers SET proxyType=?2, listen=?3, ip=?4, def=?5, ipv6=?6, proxyProtocol=?7,
-         serverName=?8, ssl=?9, certId=?10, rewrite=?11, rewriteListen=?12, http2=?13, protocols=?14,
-         passwordId=?15, denyAllow=?16, denyId=?17, allowId=?18, proxyUpstreamId=?19,
-         descr=?20, enabled=?21, sort=?22, paramJson=?23, updatedAt=?24
+         serverName=?8, ssl=?9, certId=?10, pem=?11, key=?12, rewrite=?13, rewriteListen=?14, http2=?15, protocols=?16,
+         passwordId=?17, denyAllow=?18, denyId=?19, allowId=?20, proxyUpstreamId=?21,
+         descr=?22, enabled=?23, sort=?24, paramJson=?25, updatedAt=?26
          WHERE id=?1",
         params![s.id, s.proxy_type, s.listen, s.ip,
                 bool_int(s.def), bool_int(s.ipv6), bool_int(s.proxy_protocol),
-                s.server_name, bool_int(s.ssl), s.cert_id, bool_int(s.rewrite),
+                s.server_name, bool_int(s.ssl), s.cert_id, s.pem, s.key, bool_int(s.rewrite),
                 s.rewrite_listen, s.http2, s.protocols,
                 s.password_id, s.deny_allow, s.deny_id, s.allow_id, s.proxy_upstream_id,
                 s.descr, bool_int(s.enabled), s.sort, s.param_json, s.updated_at],

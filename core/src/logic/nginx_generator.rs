@@ -738,19 +738,35 @@ fn append_server_block_inner(
 
 // SSL certs
         if s.ssl {
-            if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
+            // Use pem/key directly from server fields (imported configs)
+            if !s.pem.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_certificate      {};\\n",
-                    handle_path(&cert.pem)
+                    "    ssl_certificate      {};\n",
+                    handle_path(&s.pem)
                 ));
+            }
+            if !s.key.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_certificate_key  {};\\n",
-                    handle_path(&cert.key)
+                    "    ssl_certificate_key  {};\n",
+                    handle_path(&s.key)
                 ));
+            }
+            // Or lookup cert by ID if pem/key are empty
+            if s.pem.is_empty() && s.key.is_empty() && !s.cert_id.is_empty() {
+                if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
+                    out.push_str(&format!(
+                        "    ssl_certificate      {};\n",
+                        handle_path(&cert.pem)
+                    ));
+                    out.push_str(&format!(
+                        "    ssl_certificate_key  {};\n",
+                        handle_path(&cert.key)
+                    ));
+                }
             }
             if !s.protocols.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_protocols       {};\\n",
+                    "    ssl_protocols       {};\n",
                     s.protocols.replace(",", " ")
                 ));
             }
