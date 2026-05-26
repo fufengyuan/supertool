@@ -1038,15 +1038,23 @@ fn append_location_block(
                     // Dynamic path — use as-is
                     out.push_str(&format!("      {} {};\n", root_type, loc.root_path));
                 } else {
-                    let path = handle_path(loc.root_path.trim_end_matches('/'));
+                    let path = handle_path(&loc.root_path);
+                    // For root directive, preserve trailing slash from original
+                    // For alias directive, always add trailing slash
+                    let final_path = if root_type == "alias" {
+                        if path.ends_with('/') {
+                            path
+                        } else {
+                            format!("{}/", path)
+                        }
+                    } else {
+                        // root directive: preserve original trailing slash
+                        path
+                    };
                     out.push_str(&format!(
                         "      {} {};\n",
                         root_type,
-                        if root_type == "alias" {
-                            format!("{}/", path)
-                        } else {
-                            path
-                        }
+                        final_path
                     ));
                     if !loc.root_page.is_empty() {
                         out.push_str(&format!("      index {};\n", loc.root_page));
