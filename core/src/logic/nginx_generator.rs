@@ -738,13 +738,13 @@ fn append_server_block_inner(
             // Use pem/key directly from server fields (imported configs)
             if !s.pem.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_certificate      {};\n",
+                    "    ssl_certificate {};\n",
                     handle_path(&s.pem)
                 ));
             }
             if !s.key.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_certificate_key  {};\n",
+                    "    ssl_certificate_key {};\n",
                     handle_path(&s.key)
                 ));
             }
@@ -752,11 +752,11 @@ fn append_server_block_inner(
             if s.pem.is_empty() && s.key.is_empty() && !s.cert_id.is_empty() {
                 if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                     out.push_str(&format!(
-                        "    ssl_certificate      {};\n",
+                        "    ssl_certificate {};\n",
                         handle_path(&cert.pem)
                     ));
                     out.push_str(&format!(
-                        "    ssl_certificate_key  {};\n",
+                        "    ssl_certificate_key {};\n",
                         handle_path(&cert.key)
                     ));
                 }
