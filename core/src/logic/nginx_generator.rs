@@ -234,16 +234,13 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 out.push_str(&format!("  {}{}\n", p.name, p.value));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
-                if let Some((fmt_name, rest)) = p.value.split_once(' ') {
-                    if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
-                        out.push_str(&format!(
-                            "  {} '{}';\n",
-                            format!("{}{}", p.name, fmt_name),
-                            rest
-                        ));
-                    } else {
-                        out.push_str(&format!("  {}{};\n", p.name, p.value));
-                    }
+                // value is like "custom '$remote_addr...' '$request...'"
+                // Split by first space to get name and format strings
+                let value_trimmed = p.value.trim();
+                if let Some((fmt_name, rest)) = value_trimmed.split_once(' ') {
+                    // rest may already contain quotes from original format
+                    // Just output: log_format name rest;
+                    out.push_str(&format!("  {} {};\n", p.name, value_trimmed));
                 } else {
                     out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
@@ -422,16 +419,13 @@ fn append_http_block_decomposed(
                 out.push_str(&format!("  {}{}\n", p.name, p.value));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
-                if let Some((fmt_name, rest)) = p.value.split_once(' ') {
-                    if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
-                        out.push_str(&format!(
-                            "  {} '{}';\n",
-                            format!("{}{}", p.name, fmt_name),
-                            rest
-                        ));
-                    } else {
-                        out.push_str(&format!("  {}{};\n", p.name, p.value));
-                    }
+                // value is like "custom '$remote_addr...' '$request...'"
+                // Split by first space to get name and format strings
+                let value_trimmed = p.value.trim();
+                if let Some((fmt_name, rest)) = value_trimmed.split_once(' ') {
+                    // rest may already contain quotes from original format
+                    // Just output: log_format name rest;
+                    out.push_str(&format!("  {} {};\n", p.name, value_trimmed));
                 } else {
                     out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
