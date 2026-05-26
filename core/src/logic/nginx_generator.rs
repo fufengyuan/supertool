@@ -7,16 +7,22 @@ use rusqlite::Connection;
 /// Check if a value needs quoting in nginx config
 /// Values with curly braces (not block-style), semicolons, or special chars need quotes
 fn needs_quoting(value: &str) -> bool {
+    // Already quoted - no need for additional quoting
+    if (value.starts_with('"') && value.ends_with('"'))
+        || (value.starts_with('\'') && value.ends_with('\''))
+    {
+        return false;
+    }
     // Contains '{' but not as block start (i.e., '{' followed by newline)
     if value.contains('{') && !value.contains("{\n") && !value.contains("{ \n") {
         return true;
     }
-    // Contains unescaped quotes
-    if value.contains('"') || value.contains('\'') {
-        return true;
-    }
     // Contains semicolon (outside of context)
     if value.contains(';') {
+        return true;
+    }
+    // Contains special chars that nginx requires quoting for
+    if value.contains(' ') || value.contains('\t') {
         return true;
     }
     false
@@ -245,9 +251,9 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 } else {
                     out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
-            } else if needs_quoting(&p.value) {
+            } else if needs_quoting(&p.value.trim()) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value.trim())));
             } else {
                 // value already contains spacing before args from join_args_with_spacing
                 out.push_str(&format!("  {}{};\n", p.name, p.value));
@@ -436,9 +442,9 @@ fn append_http_block_decomposed(
                 } else {
                     out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
-            } else if needs_quoting(&p.value) {
+            } else if needs_quoting(&p.value.trim()) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value.trim())));
             } else {
                 // value already contains spacing before args from join_args_with_spacing
                 out.push_str(&format!("  {}{};\n", p.name, p.value));
