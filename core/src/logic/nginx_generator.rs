@@ -683,7 +683,7 @@ fn append_server_block_inner(
                     listen_val += " http2";
                 } // old-style http2
             }
-            out.push_str(&format!("        {};\n", listen_val));
+            out.push_str(&format!("    {};\n", listen_val));
         }
         if s.ipv6 {
             for port in &ports {
@@ -697,7 +697,7 @@ fn append_server_block_inner(
                 if s.ssl {
                     listen_ipv6 += " ssl";
                 }
-                out.push_str(&format!("        {};\n", listen_ipv6));
+                out.push_str(&format!("    {};\n", listen_ipv6));
             }
         }
 
@@ -717,7 +717,7 @@ fn append_server_block_inner(
 
         // HTTP2 new-style (http2 on;)
         if s.ssl && s.http2 == 2 {
-            out.push_str("        http2 on;\n");
+            out.push_str("    http2 on;\n");
         }
 
         // Password auth
@@ -725,11 +725,11 @@ fn append_server_block_inner(
             // Look up Password by ID
             if let Ok(Some(pw)) = get_password_by_id(conn, &s.password_id) {
                 if !pw.descr.is_empty() {
-                    out.push_str(&format!("        auth_basic           \"{}\";\n", pw.descr));
+                    out.push_str(&format!("    auth_basic           \"{}\";\n", pw.descr));
                 }
                 if !pw.path.is_empty() {
                     out.push_str(&format!(
-                        "        auth_basic_user_file {};\n",
+                        "    auth_basic_user_file {};\n",
                         handle_path(&pw.path)
                     ));
                 }

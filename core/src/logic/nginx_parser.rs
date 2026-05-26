@@ -840,33 +840,10 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
                         }
                     }
                 }
-                // For block directives (like if { ... }), serialize the full block content
+                // For block directives (like if { ... }), use directives_to_text for proper formatting
                 let value = if child.is_block {
-                    let inner: Vec<String> = child
-                        .block
-                        .iter()
-                        .map(|c| {
-                            // Special handling: for 'set' directive, if value is a plain string (not a variable), quote it
-                            if c.name == "set" && c.args.len() >= 2 {
-                                let var_name = &c.args[0];
-                                let val = &c.args[1];
-                                // Check if value looks like a variable (starts with $) or is already quoted
-                                let needs_quotes = !val.starts_with('$')
-                                    && !val.starts_with('"')
-                                    && !val.starts_with("'")
-                                    && !val.contains('{') // skip complex values
-                                    && val.chars().all(|ch| ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.');
-                                if needs_quotes {
-                                    format!("        {} {} \"{}\";", c.name, var_name, val)
-                                } else {
-                                    format!("        {} {};", c.name, c.args.join(" "))
-                                }
-                            } else {
-                                format!("        {} {};", c.name, c.args.join(" "))
-                            }
-                        })
-                        .collect();
-                    format!("{} {{\n{}\n    }}", child.args.join(" "), inner.join("\n"))
+                    let block_text = directives_to_text(&child.block, 0);
+                    format!("{} {{\n{}}}", join_args_with_spacing(&child.args, &child.args_spacing), block_text.trim_end())
                 } else {
                     child.args.join(" ")
                 };
@@ -1007,9 +984,17 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                 // Don't capture as extra_param to avoid duplication in round-trip.
             }
             _ => {
-                // Skip block directives that can't be serialized as simple name+value;
-                // e.g., if (...) { ... } blocks need braces not semicolons.
+                // Block directives like if (...) { ... } need special handling
                 if child.is_block {
+                    // Use directives_to_text to serialize the block content
+                    let block_text = directives_to_text(&child.block, 0);
+                    // Format: "($condition) {\n  block_content\n}"
+                    let value = format!("{} {{\n{}}}", join_args_with_spacing(&child.args, &child.args_spacing), block_text.trim_end());
+                    loc.extra_params.push(ParsedParamEntry {
+                        name: child.name.clone(),
+                        value,
+                        position: 0,
+                    });
                     continue;
                 }
                 let value = child.args.join(" ");
@@ -1137,16 +1122,19 @@ fn directives_to_text(dirs: &[Directive], indent: usize) -> String {
     for d in dirs {
         let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
         if d.is_block {
-            out.push_str(&format!("{}{}{};", ind, d.name, args_str));
+            // Block directive: output name args { ... }
+            out.push_str(&format!("{}{}{} {{\n", ind, d.name, args_str));
+            // Output nested block content with increased indent
+            out.push_str(&directives_to_text(&d.block, indent + 1));
+            out.push_str(&format!("{}}}\n", ind));
         } else {
             let inline = if d.inline_comment.is_empty() {
                 String::new()
             } else {
                 format!("  # {}", d.inline_comment)
             };
-            out.push_str(&format!("{}{}{};{}", ind, d.name, args_str, inline));
+            out.push_str(&format!("{}{}{};{}\n", ind, d.name, args_str, inline));
         }
-        out.push('\n');
     }
     out
 }
