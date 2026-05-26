@@ -256,9 +256,6 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
             }
         }
     }
-    if !params.is_empty() {
-        out.push_str("\n");
-    }
 
     // Global HTTP-level IP blacklist/whitelist
     append_global_deny_allow(conn, preset_id, "http", out)?;
