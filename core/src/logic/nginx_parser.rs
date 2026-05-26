@@ -393,16 +393,6 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
             }
         }
     }
-
-    Ok(Directive {
-        name,
-        args,
-        args_spacing,
-        block: Vec::new(),
-        is_block: false,
-        descr: String::new(),
-        inline_comment: String::new(),
-    })
 }
 
 // ── Analyzer ──────────────────────────────────────────────────────
