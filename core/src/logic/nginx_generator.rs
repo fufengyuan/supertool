@@ -194,7 +194,7 @@ fn append_basic_settings(
             }
         }
     }
-    out.push_str("\n");
+    // No trailing newline after basic_settings - http block will start immediately
     Ok(())
 }
 
@@ -209,13 +209,13 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
     let has_default_type = params.iter().any(|p| p.enabled && p.name == "default_type");
 
     // Only add default directives if not already present in params
+    // NOTE: http block uses 2-space indent (matching nginxWebUI)
     if !has_include {
-        out.push_str("    include       mime.types;\n");
+        out.push_str("  include       mime.types;\n");
     }
     if !has_default_type {
-        out.push_str("    default_type  application/octet-stream;\n");
+        out.push_str("  default_type  application/octet-stream;\n");
     }
-    out.push_str("\n");
 
     // Output HTTP-level params (skip include/default_type if we just added defaults)
     for p in &params {
@@ -228,27 +228,27 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
             }
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
-                out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+                out.push_str(&format!("  {}\n", format!("{} {}", p.name, p.value)));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
                         out.push_str(&format!(
-                            "    {} '{}';\n",
+                            "  {} '{}';\n",
                             format!("{} {}", p.name, fmt_name),
                             rest
                         ));
                     } else {
-                        out.push_str(&format!("    {} {};\n", p.name, p.value));
+                        out.push_str(&format!("  {} {};\n", p.name, p.value));
                     }
                 } else {
-                    out.push_str(&format!("    {} {};\n", p.name, p.value));
+                    out.push_str(&format!("  {} {};\n", p.name, p.value));
                 }
             } else if needs_quoting(&p.value) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
-                out.push_str(&format!("    {} {};\n", p.name, p.value));
+                out.push_str(&format!("  {} {};\n", p.name, p.value));
             }
         }
     }
@@ -398,13 +398,13 @@ fn append_http_block_decomposed(
     let has_default_type = params.iter().any(|p| p.enabled && p.name == "default_type");
 
     // Only add default directives if not already present in params
+    // NOTE: http block uses 2-space indent (matching nginxWebUI)
     if !has_include {
-        out.push_str("    include       mime.types;\n");
+        out.push_str("  include       mime.types;\n");
     }
     if !has_default_type {
-        out.push_str("    default_type  application/octet-stream;\n");
+        out.push_str("  default_type  application/octet-stream;\n");
     }
-    out.push_str("\n");
 
     // Output HTTP-level params (skip include/default_type if we just added defaults)
     for p in &params {
@@ -417,27 +417,27 @@ fn append_http_block_decomposed(
             }
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
-                out.push_str(&format!("    {}\n", format!("{} {}", p.name, p.value)));
+                out.push_str(&format!("  {}\n", format!("{} {}", p.name, p.value)));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
                         out.push_str(&format!(
-                            "    {} '{}';\n",
+                            "  {} '{}';\n",
                             format!("{} {}", p.name, fmt_name),
                             rest
                         ));
                     } else {
-                        out.push_str(&format!("    {} {};\n", p.name, p.value));
+                        out.push_str(&format!("  {} {};\n", p.name, p.value));
                     }
                 } else {
-                    out.push_str(&format!("    {} {};\n", p.name, p.value));
+                    out.push_str(&format!("  {} {};\n", p.name, p.value));
                 }
             } else if needs_quoting(&p.value) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("    {} '{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {} '{}';\n", p.name, escape_quotes(&p.value)));
             } else {
-                out.push_str(&format!("    {} {};\n", p.name, p.value));
+                out.push_str(&format!("  {} {};\n", p.name, p.value));
             }
         }
     }
@@ -516,16 +516,16 @@ fn sanitize_filename(name: &str) -> String {
 }
 
 fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Result<(), String> {
-    out.push_str(&format!("    upstream {} {{\n", u.name));
-
-    // Description as comments
+    // Description as comments - BEFORE the block starts (matching nginxWebUI)
     if !u.descr.is_empty() {
         for line in u.descr.lines() {
             if !line.trim().is_empty() {
-                out.push_str(&format!("        # {}\n", line.trim()));
+                out.push_str(&format!("    # {}\n", line.trim()));
             }
         }
     }
+
+    out.push_str(&format!("    upstream {} {{\n", u.name));
 
     // Strategy
     if u.strategy == "ip_hash" {
@@ -653,15 +653,6 @@ fn append_server_block_inner(
 
     if s.proxy_type == 0 {
         // HTTP proxy
-
-        // Description as comments (at the very beginning, matching nginxWebUI)
-        if !s.descr.is_empty() {
-            for line in s.descr.lines() {
-                if !line.trim().is_empty() {
-                    out.push_str(&format!("        # {}\n", line.trim()));
-                }
-            }
-        }
 
         // server_name
         if !s.server_name.is_empty() {
@@ -1240,6 +1231,14 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
         if !s.enabled {
             continue;
         }
+        // Description as comments - BEFORE the server block
+        if !s.descr.is_empty() {
+            for line in s.descr.lines() {
+                if !line.trim().is_empty() {
+                    out.push_str(&format!("    # {}\n", line.trim()));
+                }
+            }
+        }
         out.push_str(&format!("    server {{\n"));
         out.push_str(&format!("        listen {};\n", s.listen));
         if s.ssl {
@@ -1310,6 +1309,14 @@ fn append_stream_block_decomposed(
 
         // Generate stream server block into sub-file
         let mut sub = String::new();
+        // Description as comments - BEFORE the server block
+        if !s.descr.is_empty() {
+            for line in s.descr.lines() {
+                if !line.trim().is_empty() {
+                    sub.push_str(&format!("    # {}\n", line.trim()));
+                }
+            }
+        }
         sub.push_str(&format!("    server {{\n"));
         sub.push_str(&format!("        listen {};\n", s.listen));
         if s.ssl {

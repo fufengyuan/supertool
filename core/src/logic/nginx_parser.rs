@@ -128,6 +128,7 @@ enum Token {
     LeftBrace,
     RightBrace,
     Eof,
+    Comment(String), // # comment line
 }
 
 fn tokenize(input: &str) -> Vec<Token> {
@@ -154,8 +155,15 @@ fn tokenize(input: &str) -> Vec<Token> {
         // Comment — only at directive start (not in the middle of a value)
         // nginx treats '#' as comment only when it's at the start of a directive
         if c == '#' && at_directive_start {
+            let mut comment = String::new();
             while i < len && chars[i] != '\n' {
+                comment.push(chars[i]);
                 i += 1;
+            }
+            // Remove the '#' prefix and trim
+            let comment_text = comment.trim_start_matches('#').trim();
+            if !comment_text.is_empty() {
+                tokens.push(Token::Comment(comment_text.to_string()));
             }
             continue;
         }
@@ -232,20 +240,37 @@ struct Directive {
     args: Vec<String>,     // arguments before ; or {
     block: Vec<Directive>, // nested directives (empty for simple directives)
     is_block: bool,        // true if this directive has { ... }
+    descr: String,         // comment lines preceding this directive
 }
 
 /// Parse tokens into a list of top-level directives.
+/// Collects preceding comments and attaches them to the next directive.
 fn parse_directives(tokens: &[Token], pos: &mut usize) -> Result<Vec<Directive>, String> {
     let mut directives = Vec::new();
+    let mut pending_comments: Vec<String> = Vec::new();
+
     loop {
         if *pos >= tokens.len() {
             return Err("Unexpected end of input".to_string());
         }
         match &tokens[*pos] {
             Token::Eof | Token::RightBrace => break,
+            Token::Comment(c) => {
+                pending_comments.push(c.clone());
+                *pos += 1;
+            }
             _ => {
                 let dir = parse_one_directive(tokens, pos)?;
-                directives.push(dir);
+                // Attach pending comments to this directive
+                let descr = pending_comments.join("\n");
+                pending_comments.clear();
+                directives.push(Directive {
+                    name: dir.name,
+                    args: dir.args,
+                    block: dir.block,
+                    is_block: dir.is_block,
+                    descr,
+                });
             }
         }
     }
@@ -294,6 +319,7 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
                     args,
                     block,
                     is_block: true,
+                    descr: String::new(), // descr is set by parse_directives
                 });
             }
             Token::Word(w) => {
@@ -315,6 +341,7 @@ fn parse_one_directive(tokens: &[Token], pos: &mut usize) -> Result<Directive, S
             Vec::new()
         },
         is_block,
+        descr: String::new(), // descr is set by parse_directives
     })
 }
 
@@ -340,10 +367,11 @@ fn analyze_config(directives: &[Directive]) -> ParsedNginxConfig {
             analyze_stream_block(&d.block, &mut config);
         } else if d.name == "events" && d.is_block {
             // Treat events block as a basic setting: "events { ... }"
-            let block_text = directives_to_text(&d.block, 0);
+            // Format: 4-space indent for content, 2-space indent for closing brace (matching nginxWebUI)
+            let block_text = directives_to_text(&d.block, 1);
             config.basic_settings.push(ParsedBasicSetting {
                 name: "events".to_string(),
-                value: format!("{{\n{}    }}", block_text),
+                value: format!("{{\n{}  }}", block_text),
             });
         } else if d.name == "upstream" && d.is_block {
             // Top-level upstream
@@ -443,7 +471,7 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
     }
     let name = d.args.first()?.clone();
     let mut strategy = String::new();
-    let descr = String::new();
+    let descr = d.descr.clone(); // Use directive's descr
     let mut servers = Vec::new();
     let mut extra_params: Vec<ParsedParamEntry> = Vec::new();
 
@@ -573,7 +601,7 @@ fn parse_server_block(d: &Directive) -> Option<ParsedServer> {
         deny_id: String::new(),
         allow_id: String::new(),
         proxy_upstream_id: String::new(),
-        descr: String::new(),
+        descr: d.descr.clone(), // Use directive's descr
         locations: Vec::new(),
         extra_params: Vec::new(),
     };
@@ -811,7 +839,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
         websocket: false,
         cros: false,
         return_url: String::new(),
-        descr: String::new(),
+        descr: d.descr.clone(), // Use directive's descr
         extra_params: Vec::new(),
     };
 
@@ -958,7 +986,7 @@ fn parse_stream_server(d: &Directive) -> Option<ParsedStream> {
         pem: String::new(),
         key: String::new(),
         protocol: String::new(),
-        descr: String::new(),
+        descr: d.descr.clone(), // Use directive's descr
     };
 
     for child in &d.block {
