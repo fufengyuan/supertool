@@ -227,28 +227,30 @@ fn append_http_block(conn: &Connection, preset_id: &str, out: &mut String) -> Re
                 continue;
             }
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
+            // value already contains spacing before args from join_args_with_spacing
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
-                out.push_str(&format!("  {}\n", format!("{} {}", p.name, p.value)));
+                out.push_str(&format!("  {}{}\n", p.name, p.value));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
                         out.push_str(&format!(
                             "  {} '{}';\n",
-                            format!("{} {}", p.name, fmt_name),
+                            format!("{}{}", p.name, fmt_name),
                             rest
                         ));
                     } else {
-                        out.push_str(&format!("  {} {};\n", p.name, p.value));
+                        out.push_str(&format!("  {}{};\n", p.name, p.value));
                     }
                 } else {
-                    out.push_str(&format!("  {} {};\n", p.name, p.value));
+                    out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
             } else if needs_quoting(&p.value) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("  {} '{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value)));
             } else {
-                out.push_str(&format!("  {} {};\n", p.name, p.value));
+                // value already contains spacing before args from join_args_with_spacing
+                out.push_str(&format!("  {}{};\n", p.name, p.value));
             }
         }
     }
@@ -416,28 +418,30 @@ fn append_http_block_decomposed(
                 continue;
             }
             // Block-style param: ends with '}' and has '{' followed by newline (like geo/map)
+            // value already contains spacing before args from join_args_with_spacing
             if p.value.ends_with('}') && (p.value.contains("{\n") || p.value.contains("{ \n")) {
-                out.push_str(&format!("  {}\n", format!("{} {}", p.name, p.value)));
+                out.push_str(&format!("  {}{}\n", p.name, p.value));
             } else if p.name == "log_format" && !p.value.is_empty() {
                 // log_format has syntax: log_format name 'format string'
                 if let Some((fmt_name, rest)) = p.value.split_once(' ') {
                     if rest.contains('\'') || rest.contains('"') || rest.contains(' ') {
                         out.push_str(&format!(
                             "  {} '{}';\n",
-                            format!("{} {}", p.name, fmt_name),
+                            format!("{}{}", p.name, fmt_name),
                             rest
                         ));
                     } else {
-                        out.push_str(&format!("  {} {};\n", p.name, p.value));
+                        out.push_str(&format!("  {}{};\n", p.name, p.value));
                     }
                 } else {
-                    out.push_str(&format!("  {} {};\n", p.name, p.value));
+                    out.push_str(&format!("  {}{};\n", p.name, p.value));
                 }
             } else if needs_quoting(&p.value) {
                 // Value contains special chars that need quoting
-                out.push_str(&format!("  {} '{}';\n", p.name, escape_quotes(&p.value)));
+                out.push_str(&format!("  {}'{}';\n", p.name, escape_quotes(&p.value)));
             } else {
-                out.push_str(&format!("  {} {};\n", p.name, p.value));
+                // value already contains spacing before args from join_args_with_spacing
+                out.push_str(&format!("  {}{};\n", p.name, p.value));
             }
         }
     }

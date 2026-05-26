@@ -1142,7 +1142,7 @@ fn split_addr_port(s: &str) -> (String, i64) {
 fn directives_to_text(dirs: &[Directive], indent: usize) -> String {
     let mut out = String::new();
     let ind = "    ".repeat(indent);
-for d in dirs {
+    for d in dirs {
         let args_str = join_args_with_spacing(&d.args, &d.args_spacing);
         if d.is_block {
             out.push_str(&format!("{}{}{};", ind, d.name, args_str));
