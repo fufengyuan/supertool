@@ -664,7 +664,8 @@ fn append_server_block_inner(
             out.push_str(&format!("    server_name {};\n", s.server_name));
         }
 
-        // listen directive (with port range support)
+        // listen directive (BEFORE http2/ssl_certs, matching nginxWebUI order)
+        // SSL listen (443 ssl) goes first, then http2 on, then ssl_certs
         let ports = parse_ports(&s.listen);
         for port in &ports {
             let mut listen_val = format!("listen {}", port);
@@ -698,26 +699,12 @@ fn append_server_block_inner(
             }
         }
 
-        // Rewrite listen (HTTP→HTTPS redirect second port, matching nginxWebUI)
-        if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
-            out.push_str(&format!("    listen {};\n", s.rewrite_listen));
-            // IPv6 for rewrite_listen (nginxWebUI line 830-835)
-            if s.ipv6 {
-                let rewrite_port = s
-                    .rewrite_listen
-                    .rsplit(':')
-                    .next()
-                    .unwrap_or(&s.rewrite_listen);
-                out.push_str(&format!("    listen [::]:{};\n", rewrite_port));
-            }
-        }
-
-        // HTTP2 new-style (http2 on;)
+        // HTTP2 new-style (http2 on;) - AFTER listen, BEFORE ssl_certs
         if s.ssl && s.http2 == 2 {
             out.push_str("    http2 on;\n");
         }
 
-        // Password auth
+        // Password auth (after http2 on, before SSL)
         if !s.password_id.is_empty() {
             // Look up Password by ID
             if let Ok(Some(pw)) = get_password_by_id(conn, &s.password_id) {
@@ -733,7 +720,7 @@ fn append_server_block_inner(
             }
         }
 
-// SSL certs
+// SSL certs (after http2 on, before listen)
         if s.ssl {
             // Use pem/key directly from server fields (imported configs)
             if !s.pem.is_empty() {
@@ -769,7 +756,7 @@ fn append_server_block_inner(
             }
         }
 
-        // IP blacklist/whitelist (before custom params, matching nginxWebUI order)
+        // IP blacklist/whitelist (before custom params)
         if s.deny_allow > 0 {
             if !s.deny_id.is_empty() || s.deny_allow == 2 || s.deny_allow == 3 {
                 if let Ok(Some(da)) = get_deny_allow_by_id(
@@ -801,8 +788,8 @@ fn append_server_block_inner(
             }
         }
 
-        // Custom params (all before locations, matching nginxWebUI behavior)
-        // nginxWebUI outputs ALL server-level params before locations, regardless of position
+        // Custom params (param_json) - output BEFORE listen, matching nginxWebUI
+        // nginxWebUI outputs ALL server-level params before locations
         if !s.param_json.is_empty() {
             if let Ok(extras) = serde_json::from_str::<Vec<serde_json::Value>>(&s.param_json) {
                 for extra in &extras {
@@ -831,30 +818,38 @@ fn append_server_block_inner(
             }
         }
 
-        // Locations (passed in for preview support)
+        // Rewrite listen (HTTP→HTTPS redirect second port) - output listen 80 AFTER SSL directives
+        if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
+            out.push_str(&format!("    listen {};\n", s.rewrite_listen));
+            // IPv6 for rewrite_listen
+            if s.ipv6 {
+                let rewrite_port = s
+                    .rewrite_listen
+                    .rsplit(':')
+                    .next()
+                    .unwrap_or(&s.rewrite_listen);
+                out.push_str(&format!("    listen [::]:{};\n", rewrite_port));
+            }
+        }
+
+        // HTTP→HTTPS redirect if block (BEFORE locations, matching nginxWebUI)
+        // nginxWebUI outputs if block before locations
+        // return 301 should redirect to SSL listen port (443), not rewrite_listen port (80)
+        if s.ssl && s.rewrite {
+            // Use SSL listen port as the redirect target
+            let port = s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string();
+            out.push_str(&format!(
+                "    if ($scheme = http) {{\n      return 301 https://$host:{}$request_uri;\n    }}\n",
+                port
+            ));
+        }
+
+        // Locations (at the end, after all server-level directives)
         for loc in locations {
             if !loc.enabled {
                 continue;
             }
             append_location_block(conn, loc, s, out)?;
-        }
-
-        // HTTP→HTTPS redirect (inside the same server block, like nginxWebUI)
-        // nginxWebUI supports separate rewriteListen port; if not set, uses listen port
-        if s.ssl && s.rewrite {
-            let port = if !s.rewrite_listen.is_empty() {
-                s.rewrite_listen
-                    .rsplit(':')
-                    .next()
-                    .unwrap_or(&s.rewrite_listen)
-                    .to_string()
-            } else {
-                s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string()
-            };
-            out.push_str(&format!(
-                "    if ($scheme = http) {{\n      return 301 https://$host:{}$request_uri;\n    }}\n",
-                port
-            ));
         }
     } else {
         // TCP/UDP proxy (proxyType 1 or 2)
@@ -1019,7 +1014,7 @@ fn append_location_block(
                 if !loc.return_url.is_empty() {
                     let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "        return {} {};\\n",
+                        "        return {} {};\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
@@ -1097,7 +1092,7 @@ fn append_location_block(
             };
             let ret_url_quoted = quote_return_url(&ret_url);
             out.push_str(&format!(
-                "        return {} {};\\n",
+                "        return {} {};\n",
                 if loc.value.is_empty() {
                     "302"
                 } else {
@@ -1199,10 +1194,10 @@ fn append_location_param_json_prepend(conn: &Connection, loc: &NginxLocation, ou
                             for line in value.lines() {
                                 out.push_str(&format!("      {}\n", line));
                             }
-                        } else if value.contains("\\n") {
+                        } else if value.contains("\n") {
                             // Value contains literal \n (escaped newline from JSON storage)
                             // Split on \n and output each directive
-                            let parts: Vec<&str> = value.split("\\n").collect();
+                            let parts: Vec<&str> = value.split("\n").collect();
                             for part in parts {
                                 let trimmed = part.trim();
                                 if !trimmed.is_empty() {
