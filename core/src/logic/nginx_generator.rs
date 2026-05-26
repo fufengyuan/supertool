@@ -631,7 +631,7 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         }
     }
 
-    out.push_str("  }\n\n");
+    out.push_str("  }\n");
     Ok(())
 }
 
