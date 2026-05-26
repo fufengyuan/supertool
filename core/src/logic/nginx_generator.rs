@@ -763,7 +763,7 @@ fn append_server_block_inner(
             }
             if !s.protocols.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_protocols       {};\n",
+                    "    ssl_protocols {};\n",
                     s.protocols.replace(",", " ")
                 ));
             }
