@@ -664,7 +664,7 @@ fn append_server_block_inner(
 
         // server_name
         if !s.server_name.is_empty() {
-            out.push_str(&format!("        server_name  {};\n", s.server_name));
+            out.push_str(&format!("    server_name  {};\n", s.server_name));
         }
 
         // listen directive (with port range support)
@@ -703,7 +703,7 @@ fn append_server_block_inner(
 
         // Rewrite listen (HTTP→HTTPS redirect second port, matching nginxWebUI)
         if s.rewrite && !s.rewrite_listen.is_empty() && s.rewrite_listen != s.listen {
-            out.push_str(&format!("        listen {};\n", s.rewrite_listen));
+            out.push_str(&format!("    listen {};\n", s.rewrite_listen));
             // IPv6 for rewrite_listen (nginxWebUI line 830-835)
             if s.ipv6 {
                 let rewrite_port = s
@@ -711,7 +711,7 @@ fn append_server_block_inner(
                     .rsplit(':')
                     .next()
                     .unwrap_or(&s.rewrite_listen);
-                out.push_str(&format!("        listen [::]:{};\n", rewrite_port));
+                out.push_str(&format!("    listen [::]:{};\n", rewrite_port));
             }
         }
 
@@ -740,17 +740,17 @@ fn append_server_block_inner(
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!(
-                    "        ssl_certificate      {};\n",
+                    "    ssl_certificate      {};\n",
                     handle_path(&cert.pem)
                 ));
                 out.push_str(&format!(
-                    "        ssl_certificate_key  {};\n",
+                    "    ssl_certificate_key  {};\n",
                     handle_path(&cert.key)
                 ));
             }
             if !s.protocols.is_empty() {
                 out.push_str(&format!(
-                    "        ssl_protocols       {};\n",
+                    "    ssl_protocols       {};\n",
                     s.protocols.replace(",", " ")
                 ));
             }
@@ -839,7 +839,7 @@ fn append_server_block_inner(
                 s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string()
             };
             out.push_str(&format!(
-                "        if ($scheme = http) {{\n            return 301 https://$host:{}$request_uri;\n        }}\n",
+                "        if ($scheme = http) {{\n        return 301 https://$host:{}$request_uri;\n        }}\n",
                 port
             ));
         }
@@ -872,11 +872,11 @@ fn append_server_block_inner(
         if s.ssl && !s.cert_id.is_empty() {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!(
-                    "        ssl_certificate      {};\n",
+                    "    ssl_certificate      {};\n",
                     handle_path(&cert.pem)
                 ));
                 out.push_str(&format!(
-                    "        ssl_certificate_key  {};\n",
+                    "    ssl_certificate_key  {};\n",
                     handle_path(&cert.key)
                 ));
             }
@@ -921,7 +921,7 @@ fn append_location_block(
         }
     }
 
-    out.push_str(&format!("        location {} {{\n", loc.path));
+    out.push_str(&format!("    location {} {{\n", loc.path));
 
     // Custom params - prepend mode
     append_location_param_json_prepend(conn, loc, out);
@@ -932,7 +932,7 @@ fn append_location_block(
 
             // proxy_pass directive
             if loc.upstream_type == 0 && !loc.value.is_empty() {
-                out.push_str(&format!("            proxy_pass {};\n", loc.value));
+                out.push_str(&format!("      proxy_pass {};\n", loc.value));
             } else if loc.upstream_type == 2 || (!loc.upstream_id.is_empty()) {
                 let upstream_type = if loc.upstream_type == 1 {
                     "https"
@@ -946,13 +946,13 @@ fn append_location_block(
                     &loc.upstream_path
                 };
                 out.push_str(&format!(
-                    "            proxy_pass {}://{}{};\n",
+                    "      proxy_pass {}://{}{};\n",
                     upstream_type, upstream_name, path
                 ));
             } else if loc.upstream_type == 1 && !loc.upstream_id.is_empty() {
                 // Manual upstream reference
                 out.push_str(&format!(
-                    "            proxy_pass http://{};\n",
+                    "      proxy_pass http://{};\n",
                     loc.upstream_id
                 ));
             }
@@ -960,37 +960,37 @@ fn append_location_block(
             // Header settings (before websocket, matching nginxWebUI order)
             if loc.header {
                 out.push_str(&format!(
-                    "            proxy_set_header Host {};\n",
+                    "      proxy_set_header Host {};\n",
                     if loc.header_host.is_empty() {
                         "$host"
                     } else {
                         &loc.header_host
                     }
                 ));
-                out.push_str("            proxy_set_header X-Real-IP $remote_addr;\n");
+                out.push_str("      proxy_set_header X-Real-IP $remote_addr;\n");
                 out.push_str(
-                    "            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n",
+                    "      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n",
                 );
-                out.push_str("            proxy_set_header X-Forwarded-Proto $scheme;\n");
-                out.push_str("            proxy_set_header X-Forwarded-Host $http_host;\n");
-                out.push_str("            proxy_set_header X-Forwarded-Port $server_port;\n");
+                out.push_str("      proxy_set_header X-Forwarded-Proto $scheme;\n");
+                out.push_str("      proxy_set_header X-Forwarded-Host $http_host;\n");
+                out.push_str("      proxy_set_header X-Forwarded-Port $server_port;\n");
             }
 
             // Websocket support (after header, matching nginxWebUI order)
             if loc.websocket {
                 out.push_str("            proxy_http_version 1.1;\n");
-                out.push_str("            proxy_set_header Upgrade $http_upgrade;\n");
-                out.push_str("            proxy_set_header Connection \"upgrade\";\n");
+                out.push_str("      proxy_set_header Upgrade $http_upgrade;\n");
+                out.push_str("      proxy_set_header Connection \"upgrade\";\n");
             }
 
             // CORS support
             if loc.cros {
-                out.push_str("            add_header Access-Control-Allow-Origin *;\n");
-                out.push_str("            add_header Access-Control-Allow-Methods *;\n");
-                out.push_str("            add_header Access-Control-Allow-Headers *;\n");
-                out.push_str("            add_header Access-Control-Allow-Credentials true;\n");
-                out.push_str("            if ($request_method = 'OPTIONS') {\n");
-                out.push_str("                return 204;\n");
+                out.push_str("      add_header Access-Control-Allow-Origin *;\n");
+                out.push_str("      add_header Access-Control-Allow-Methods *;\n");
+                out.push_str("      add_header Access-Control-Allow-Headers *;\n");
+                out.push_str("      add_header Access-Control-Allow-Credentials true;\n");
+                out.push_str("        if ($request_method = 'OPTIONS') {\n");
+                out.push_str("            return 204;\n");
                 out.push_str("            }\n");
             }
 
@@ -1006,7 +1006,7 @@ fn append_location_block(
                 if !loc.return_url.is_empty() {
                     let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "            return {} {};\\n",
+                        "        return {} {};\\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
@@ -1043,7 +1043,7 @@ fn append_location_block(
                 if !loc.return_url.is_empty() {
                     let return_url_quoted = quote_return_url(&loc.return_url);
                     out.push_str(&format!(
-                        "            return {} {};\\n",
+                        "        return {} {};\\n",
                         if loc.value.is_empty() {
                             "302"
                         } else {
@@ -1076,7 +1076,7 @@ fn append_location_block(
             };
             let ret_url_quoted = quote_return_url(&ret_url);
             out.push_str(&format!(
-                "            return {} {};\\n",
+                "        return {} {};\\n",
                 if loc.value.is_empty() {
                     "302"
                 } else {
@@ -1248,7 +1248,7 @@ fn append_stream_block(conn: &Connection, preset_id: &str, out: &mut String) -> 
             }
         }
         out.push_str(&format!("    server {{\n"));
-        out.push_str(&format!("        listen {};\n", s.listen));
+        out.push_str(&format!("    listen {};\n", s.listen));
         if s.ssl {
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
@@ -1326,7 +1326,7 @@ fn append_stream_block_decomposed(
             }
         }
         sub.push_str(&format!("    server {{\n"));
-        sub.push_str(&format!("        listen {};\n", s.listen));
+        sub.push_str(&format!("    listen {};\n", s.listen));
         if s.ssl {
             if !s.cert_id.is_empty() {
                 let (pem, key) = get_cert_path(conn, &s.cert_id);
