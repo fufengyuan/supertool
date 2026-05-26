@@ -902,7 +902,7 @@ fn append_server_block_inner(
         }
     }
 
-    out.push_str("  }\n\n");
+    out.push_str("  }\n");
     Ok(())
 }
 
