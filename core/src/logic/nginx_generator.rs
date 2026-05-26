@@ -1254,18 +1254,15 @@ fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out
                                 out.push_str(&format!("      {}\n", line));
                             }
                         } else if value.contains('\n') {
-                            // Multi-line simple directive or literal \n from JSON
-                            // Split on actual newline and output each directive separately
-                            for part in value.split('\n') {
-                                let trimmed = part.trim();
-                                if !trimmed.is_empty() {
-                                    // Add semicolon if not already present
-                                    if trimmed.ends_with(';') {
-                                        out.push_str(&format!("      {}\n", trimmed));
-                                    } else {
-                                        out.push_str(&format!("      {};\n", trimmed));
-                                    }
-                                }
+                            // Multi-line directive with newline - preserve the full format
+                            // Value contains args_spacing from parser: " arg1\n        arg2\n        arg3"
+                            // Output as-is, then add semicolon at the end
+                            // Note: args_spacing already has proper indentation from original
+                            // Check if last line already has semicolon
+                            if value.trim().ends_with(';') {
+                                out.push_str(&format!("      {}{}\n", name, value));
+                            } else {
+                                out.push_str(&format!("      {}{};\n", name, value));
                             }
                         } else {
                             out.push_str(&format!("      {} {};\n", name, value));
@@ -1659,6 +1656,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "Main server".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -1725,6 +1724,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "SSL server".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -1803,6 +1804,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -1952,6 +1955,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -2020,6 +2025,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -2078,6 +2085,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -2139,6 +2148,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".into(),
+                pem: "".into(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),
@@ -2198,6 +2209,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: r#"[{"name":"client_max_body_size","value":"100M","position":1}]"#
@@ -2288,6 +2301,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "".into(),
                 descr: "".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: false,
                 sort: 0,
                 param_json: "".into(),
@@ -2334,6 +2349,8 @@ mod tests {
                 allow_id: "".into(),
                 proxy_upstream_id: "db-upstream".into(),
                 descr: "MySQL proxy".into(),
+                key: "".to_string(),
+                pem: "".to_string(),
                 enabled: true,
                 sort: 0,
                 param_json: "".into(),

@@ -147,21 +147,20 @@ fn tokenize(input: &str) -> Vec<Token> {
     while i < len {
         let c = chars[i];
 
-        // Whitespace - capture for preserving alignment
+        // Whitespace - capture ALL whitespace including newlines+indent
+        // Parser will decide what to use (multi-line args vs new directive)
         if c.is_whitespace() {
             let mut space = String::new();
-            // Collect whitespace but stop at newline
-            while i < len && chars[i].is_whitespace() && chars[i] != '\n' {
+            while i < len && chars[i].is_whitespace() {
                 space.push(chars[i]);
                 i += 1;
             }
-            // Handle newline separately
-            if i < len && chars[i] == '\n' {
-                i += 1;
+            // Mark directive start on newline (for comment detection)
+            if space.contains('\n') {
                 at_directive_start = true;
             }
-            // Only emit Space token if not at directive start (between words)
-            if !at_directive_start && !space.is_empty() {
+            // Always emit Space token - parser will filter unused ones
+            if !space.is_empty() {
                 tokens.push(Token::Space(space));
             }
             continue;
@@ -277,6 +276,17 @@ fn parse_directives(tokens: &[Token], pos: &mut usize) -> Result<Vec<Directive>,
             Token::Comment(c) => {
                 pending_comments.push(c.clone());
                 *pos += 1;
+            }
+            Token::Space(s) => {
+                // Skip Space tokens that contain newline (formatting whitespace)
+                // These are whitespace between directives (blank lines, indentation)
+                if s.contains('\n') {
+                    *pos += 1;
+                } else {
+                    // Space without newline - this should be spacing before a directive
+                    // Skip it too, the directive will handle its own spacing
+                    *pos += 1;
+                }
             }
             _ => {
                 let dir = parse_one_directive(tokens, pos)?;
@@ -1006,7 +1016,7 @@ fn parse_location(d: &Directive) -> Option<ParsedLocation> {
                     });
                     continue;
                 }
-                let value = child.args.join(" ");
+                let value = join_args_with_spacing(&child.args, &child.args_spacing);
                 if !value.is_empty() {
                     loc.extra_params.push(ParsedParamEntry {
                         name: child.name.clone(),
@@ -1203,6 +1213,69 @@ mod tests {
                 .any(|t| t == &Token::Word("example.com".to_string())),
             "quoted string should produce a Word token without quotes"
         );
+    }
+
+    #[test]
+    fn test_tokenize_gzip_types_multiline() {
+        // Test that multi-line directive preserves newline+indent in args_spacing
+        let text = "  gzip_types text/css\n        text/javascript\n        text/xml\n        text/plain\n        application/json;";
+        let tokens = tokenize(text);
+        
+        // Debug: print all tokens
+        println!("Tokens for gzip_types multi-line:");
+        for t in &tokens {
+            match t {
+                Token::Word(w) => println!("  Word: '{}'", w),
+                Token::Space(s) => println!("  Space: {:?}", s),
+                Token::Semicolon => println!("  Semicolon"),
+                _ => println!("  Other"),
+            }
+        }
+        
+        // Should have Word tokens for directive name and args
+        let words: Vec<_> = tokens.iter().filter_map(|t| {
+            if let Token::Word(w) = t { Some(w.clone()) } else { None }
+        }).collect();
+        assert!(words.contains(&"gzip_types".to_string()));
+        assert!(words.contains(&"text/css".to_string()));
+        assert!(words.contains(&"text/javascript".to_string()));
+        
+        // Should have Space tokens with newline+indent for multi-line args
+        let spaces: Vec<_> = tokens.iter().filter_map(|t| {
+            if let Token::Space(s) = t { Some(s.clone()) } else { None }
+        }).collect();
+        println!("Space tokens: {:?}", spaces);
+        // At least one space token should contain newline
+        assert!(spaces.iter().any(|s| s.contains('\n')), "Space token should contain newline for multi-line args");
+    }
+
+    #[test]
+    fn test_parse_gzip_types_multiline() {
+        // Test that multi-line gzip_types is preserved with correct args_spacing
+        let text = r#"
+http {
+  gzip_types text/css
+        text/javascript
+        text/xml
+        text/plain
+        application/json;
+}
+"#;
+        let config = parse_nginx_config(text).unwrap();
+        
+        // Find gzip_types in http_params
+        let gzip_types_param = config.http_params.iter().find(|p| p.name == "gzip_types");
+        assert!(gzip_types_param.is_some(), "gzip_types should be in http_params");
+        
+        let param = gzip_types_param.unwrap();
+        println!("gzip_types value: {:?}", param.value);
+        
+        // Value should contain newline+indent for multi-line format
+        assert!(param.value.contains('\n'), "gzip_types value should contain newline for multi-line args");
+        
+        // Value should match the original format
+        assert!(param.value.contains("text/css"), "should contain text/css");
+        assert!(param.value.contains("text/javascript"), "should contain text/javascript");
     }
 
     #[test]
