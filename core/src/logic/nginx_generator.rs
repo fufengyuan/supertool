@@ -664,7 +664,7 @@ fn append_server_block_inner(
 
         // server_name
         if !s.server_name.is_empty() {
-            out.push_str(&format!("    server_name  {};\n", s.server_name));
+            out.push_str(&format!("    server_name {};\n", s.server_name));
         }
 
         // listen directive (with port range support)
@@ -736,21 +736,21 @@ fn append_server_block_inner(
             }
         }
 
-        // SSL certs
-        if s.ssl && !s.cert_id.is_empty() {
+// SSL certs
+        if s.ssl {
             if let Ok(Some(cert)) = get_cert_by_id(conn, &s.cert_id) {
                 out.push_str(&format!(
-                    "    ssl_certificate      {};\n",
+                    "    ssl_certificate      {};\\n",
                     handle_path(&cert.pem)
                 ));
                 out.push_str(&format!(
-                    "    ssl_certificate_key  {};\n",
+                    "    ssl_certificate_key  {};\\n",
                     handle_path(&cert.key)
                 ));
             }
             if !s.protocols.is_empty() {
                 out.push_str(&format!(
-                    "    ssl_protocols       {};\n",
+                    "    ssl_protocols       {};\\n",
                     s.protocols.replace(",", " ")
                 ));
             }
