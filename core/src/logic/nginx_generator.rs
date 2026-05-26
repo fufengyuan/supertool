@@ -8,21 +8,17 @@ use rusqlite::Connection;
 /// Values with curly braces (not block-style), semicolons, or special chars need quotes
 fn needs_quoting(value: &str) -> bool {
     // Already quoted - no need for additional quoting
-    if (value.starts_with('"') && value.ends_with('"'))
-        || (value.starts_with('\'') && value.ends_with('\''))
+    if (value.starts_with('"') && value.ends_with('"')
+        || value.starts_with('\'') && value.ends_with('\'')
     {
         return false;
     }
-    // Contains '{' but not as block start (i.e., '{' followed by newline)
+    // Contains '{' but not as block start (i.e., '{' followed by newline) - needs quoting
     if value.contains('{') && !value.contains("{\n") && !value.contains("{ \n") {
         return true;
     }
-    // Contains semicolon (outside of context)
+    // Contains semicolon - needs quoting
     if value.contains(';') {
-        return true;
-    }
-    // Contains special chars that nginx requires quoting for
-    if value.contains(' ') || value.contains('\t') {
         return true;
     }
     false
@@ -610,7 +606,8 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
         if !srv.param.is_empty() {
             out.push_str(&format!(" {}", srv.param));
         }
-        out.push_str(";\n");
+        // nginxWebUI style: space before semicolon
+        out.push_str(" ;\n");
     }
 
     // Custom params - append mode (position=0 or null, matching nginxWebUI HTTP upstream)
