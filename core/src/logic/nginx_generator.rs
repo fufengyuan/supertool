@@ -568,7 +568,7 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
                         if name == "if" || value.contains('{') {
-                            out.push_str(&format!("        if {}\n", value));
+                            out.push_str(&format!("    if {}\n", value));
                         } else {
                             out.push_str(&format!("        {} {};\n", name, value));
                         }
@@ -621,7 +621,7 @@ fn append_upstream(conn: &Connection, u: &NginxUpstream, out: &mut String) -> Re
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
                         if name == "if" || value.contains('{') {
-                            out.push_str(&format!("        if {}\n", value));
+                            out.push_str(&format!("    if {}\n", value));
                         } else {
                             out.push_str(&format!("        {} {};\n", name, value));
                         }
@@ -809,7 +809,7 @@ fn append_server_block_inner(
                     if !name.is_empty() {
                         // For block directives (like "if"), the value already contains the full block
                         if name == "if" || value.contains('{') {
-                            out.push_str(&format!("        if {}\n", value));
+                            out.push_str(&format!("    if {}\n", value));
                         } else {
                             out.push_str(&format!("        {} {};\n", name, value));
                         }
@@ -839,7 +839,7 @@ fn append_server_block_inner(
                 s.listen.rsplit(':').next().unwrap_or(&s.listen).to_string()
             };
             out.push_str(&format!(
-                "        if ($scheme = http) {{\n        return 301 https://$host:{}$request_uri;\n        }}\n",
+                "    if ($scheme = http) {{\n      return 301 https://$host:{}$request_uri;\n    }}\n",
                 port
             ));
         }
@@ -971,14 +971,14 @@ fn append_location_block(
                 out.push_str(
                     "      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;\n",
                 );
-                out.push_str("      proxy_set_header X-Forwarded-Proto $scheme;\n");
                 out.push_str("      proxy_set_header X-Forwarded-Host $http_host;\n");
                 out.push_str("      proxy_set_header X-Forwarded-Port $server_port;\n");
+                out.push_str("      proxy_set_header X-Forwarded-Proto $scheme;\n");
             }
 
             // Websocket support (after header, matching nginxWebUI order)
             if loc.websocket {
-                out.push_str("            proxy_http_version 1.1;\n");
+                out.push_str("      proxy_http_version 1.1;\n");
                 out.push_str("      proxy_set_header Upgrade $http_upgrade;\n");
                 out.push_str("      proxy_set_header Connection \"upgrade\";\n");
             }
@@ -989,14 +989,14 @@ fn append_location_block(
                 out.push_str("      add_header Access-Control-Allow-Methods *;\n");
                 out.push_str("      add_header Access-Control-Allow-Headers *;\n");
                 out.push_str("      add_header Access-Control-Allow-Credentials true;\n");
-                out.push_str("        if ($request_method = 'OPTIONS') {\n");
-                out.push_str("            return 204;\n");
-                out.push_str("            }\n");
+                out.push_str("      if ($request_method = 'OPTIONS') {\n");
+                out.push_str("        return 204;\n");
+                out.push_str("      }\n");
             }
 
             // proxy_redirect for SSL
             if server.ssl && server.rewrite {
-                out.push_str("            proxy_redirect http:// https://;\n");
+                out.push_str("      proxy_redirect http:// https://;\n");
             }
         }
 1 => {
@@ -1064,7 +1064,7 @@ fn append_location_block(
                     "root"
                 };
                 out.push_str(&format!(
-                    "            {} {};\\n",
+                    "      {} {};\n",
                     root_type,
                     loc.root_path.trim_end_matches('/')
                 ));
@@ -1163,7 +1163,7 @@ fn append_location_param_json_prepend(conn: &Connection, loc: &NginxLocation, ou
                         if !tid.is_empty() {
                             if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
                                 for line in tpl.content.lines() {
-                                    out.push_str(&format!("            {}\n", line));
+                                    out.push_str(&format!("      {}\n", line));
                                 }
                                 continue;
                             }
@@ -1172,7 +1172,32 @@ fn append_location_param_json_prepend(conn: &Connection, loc: &NginxLocation, ou
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        out.push_str(&format!("            {} {};\n", name, value));
+                        // Block directives (if) value contains full block, simple directives need semicolon
+                        if value.contains('{') {
+                            // Multi-line block directive - output each line with proper indent
+                            for line in value.lines() {
+                                out.push_str(&format!("      {}\n", line));
+                            }
+                        } else if value.contains("\\n") {
+                            // Value contains literal \n (escaped newline from JSON storage)
+                            // Split on \n and output each directive
+                            let parts: Vec<&str> = value.split("\\n").collect();
+                            for part in parts {
+                                let trimmed = part.trim();
+                                if !trimmed.is_empty() {
+                                    out.push_str(&format!("      {};\n", trimmed));
+                                }
+                            }
+                        } else if value.contains('\n') {
+                            // Multi-line simple directive - split and output each line
+                            for line in value.lines() {
+                                if !line.trim().is_empty() {
+                                    out.push_str(&format!("      {};\n", line.trim()));
+                                }
+                            }
+                        } else {
+                            out.push_str(&format!("      {} {};\n", name, value));
+                        }
                     }
                 }
             }
@@ -1192,7 +1217,7 @@ fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out
                         if !tid.is_empty() {
                             if let Ok(Some(tpl)) = get_nginx_template_by_id(conn, tid) {
                                 for line in tpl.content.lines() {
-                                    out.push_str(&format!("            {}\n", line));
+                                    out.push_str(&format!("      {}\n", line));
                                 }
                                 continue;
                             }
@@ -1201,7 +1226,32 @@ fn append_location_param_json_append(conn: &Connection, loc: &NginxLocation, out
                     let name = extra.get("name").and_then(|v| v.as_str()).unwrap_or("");
                     let value = extra.get("value").and_then(|v| v.as_str()).unwrap_or("");
                     if !name.is_empty() {
-                        out.push_str(&format!("            {} {};\n", name, value));
+                        // Block directives (if) value contains full block, simple directives need semicolon
+                        if value.contains('{') {
+                            // Multi-line block directive - output each line with proper indent
+                            for line in value.lines() {
+                                out.push_str(&format!("      {}\n", line));
+                            }
+                        } else if value.contains("\\n") {
+                            // Value contains literal \n (escaped newline from JSON storage)
+                            // Split on \n and output each directive
+                            let parts: Vec<&str> = value.split("\\n").collect();
+                            for part in parts {
+                                let trimmed = part.trim();
+                                if !trimmed.is_empty() {
+                                    out.push_str(&format!("      {};\n", trimmed));
+                                }
+                            }
+                        } else if value.contains('\n') {
+                            // Multi-line simple directive - split and output each line
+                            for line in value.lines() {
+                                if !line.trim().is_empty() {
+                                    out.push_str(&format!("      {};\n", line.trim()));
+                                }
+                            }
+                        } else {
+                            out.push_str(&format!("      {} {};\n", name, value));
+                        }
                     }
                 }
             }
