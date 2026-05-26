@@ -226,6 +226,14 @@ fn test_config_md5(config_path: &str) -> Result<(), String> {
         }
     }
 
+    // Debug: check gzip_types http_param
+    for hp in &parsed.http_params {
+        if hp.name == "gzip_types" {
+            println!("DEBUG gzip_types http_param (config: {}):", config_path);
+            println!("  value: {:?}", hp.value);
+        }
+    }
+
     // Create in-memory DB
     let conn = Connection::open_in_memory().map_err(|e| e.to_string())?;
     supertool_core::db::init_db(&conn).map_err(|e| e.to_string())?;
