@@ -8,8 +8,8 @@ use rusqlite::Connection;
 /// Values with curly braces (not block-style), semicolons, or special chars need quotes
 fn needs_quoting(value: &str) -> bool {
     // Already quoted - no need for additional quoting
-    if (value.starts_with('"') && value.ends_with('"')
-        || value.starts_with('\'') && value.ends_with('\'')
+    if (value.starts_with('"') && value.ends_with('"'))
+        || (value.starts_with('\'') && value.ends_with('\''))
     {
         return false;
     }
