@@ -105,7 +105,7 @@ fn import_config_to_db(
 
         conn.execute(
             "INSERT INTO nginx_upstreams (id, presetId, name, proxyType, strategy, descr, paramJson, updatedAt) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            rusqlite::params![&upstream_id, &preset_id, &up.name, 0, &up.strategy, &up.descr, &param_json, &now],
+            rusqlite::params![&upstream_id, &preset_id, &up.name, up.proxy_type, &up.strategy, &up.descr, &param_json, &now],
         ).map_err(|e| e.to_string())?;
 
         // Import upstream servers

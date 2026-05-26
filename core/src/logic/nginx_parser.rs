@@ -36,6 +36,7 @@ pub struct ParsedHttpParam {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParsedUpstream {
     pub name: String,
+    pub proxy_type: i64, // 0=HTTP, 1=Stream
     pub strategy: String,
     pub descr: String,
     pub servers: Vec<ParsedUpstreamServer>,
@@ -475,7 +476,8 @@ fn analyze_config(directives: &[Directive]) -> ParsedNginxConfig {
 fn analyze_http_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
     for d in dirs {
         if d.name == "upstream" && d.is_block {
-            if let Some(up) = parse_upstream(d) {
+            if let Some(mut up) = parse_upstream(d) {
+                up.proxy_type = 0; // HTTP upstream
                 config.upstreams.push(up);
             }
         } else if d.name == "server" && d.is_block {
@@ -547,6 +549,12 @@ fn analyze_stream_block(dirs: &[Directive], config: &mut ParsedNginxConfig) {
         if d.name == "server" && d.is_block {
             if let Some(s) = parse_stream_server(d) {
                 config.streams.push(s);
+            }
+        } else if d.name == "upstream" && d.is_block {
+            // Stream block can also contain upstream definitions
+            if let Some(mut u) = parse_upstream(d) {
+                u.proxy_type = 1; // Stream upstream
+                config.upstreams.push(u);
             }
         }
     }
@@ -656,6 +664,7 @@ fn parse_upstream(d: &Directive) -> Option<ParsedUpstream> {
 
     Some(ParsedUpstream {
         name,
+        proxy_type: 0, // Default HTTP, caller sets correct type
         strategy,
         descr,
         servers,
