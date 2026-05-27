@@ -5,6 +5,7 @@ use crate::db::nginx::{
 };
 use crate::logic::CoreService;
 use crate::logic::nginx_generator::{NginxConfigResult, NginxSubFile};
+use crate::logic::ssh::SshServerConfig;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct NginxTestResult {
@@ -55,57 +56,60 @@ impl CoreService {
     }
 
     /// Test nginx config on remote server (nginx -t -c <path>)
+    /// Uses an independent SSH connection (not from pool) to avoid conflicts with terminal sessions
     pub async fn test_nginx_config(
         &self,
         server_id: &str,
         config_path: &str,
     ) -> Result<ApiResponse<NginxTestResult>, String> {
-        // Ensure SSH connection before operation
-        self.ensure_ssh_connected(server_id).await?;
-
-        let sid = server_id.to_string();
+        let server = self.get_server_by_id(server_id).await?;
+        let config = Self::value_to_ssh_config(server_id, &server)?;
         let safe_path = shell_escape_path(config_path);
-        let result = self
-            .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(&sid, &format!("nginx -t -c '{}' 2>&1", safe_path))
-            })
-            .await?;
+        let cmd = format!("nginx -t -c '{}' 2>&1", safe_path);
+
+        let ssh = self.ssh.clone();
+        let cmds = vec![cmd.clone()];
+        let results = tokio::task::spawn_blocking(move || {
+            ssh.exec_commands_independent(&config, &cmds)
+        })
+        .await
+        .map_err(|e| format!("SSH 操作失败: {}", e))??;
+
+        let result = results.get(&cmd).ok_or("未获取到执行结果")?;
         let output = result.output.clone();
         let passed = output.contains("syntax is ok") || output.contains("test is successful");
-        Ok(ApiResponse::ok(NginxTestResult {
-            passed,
-            message: output,
-        }))
+        Ok(ApiResponse::ok(NginxTestResult { passed, message: output }))
     }
 
     /// Test a new nginx config content by writing to a temp file and running nginx -t
-    /// This tests the LOCAL config before deploying, not the server's existing config
+    /// Uses an independent SSH connection (not from pool) — all 3 steps on one ephemeral connection
     pub async fn test_nginx_config_content(
         &self,
         server_id: &str,
         config_path: &str,
         content: &str,
     ) -> Result<ApiResponse<NginxTestResult>, String> {
-        self.ensure_ssh_connected(server_id).await?;
+        let server = self.get_server_by_id(server_id).await?;
+        let config = Self::value_to_ssh_config(server_id, &server)?;
 
-        let sid = server_id.to_string();
-        // Use a temp file path: original path + .test suffix
         let test_path = format!("{}.test", config_path);
         let safe_test_path = shell_escape_path(&test_path);
 
-        // 1. Write config content to temp file via base64
         let encoded = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, content);
-        let sid1 = sid.clone();
-        let stp1 = safe_test_path.clone();
-        let write_result = self
-            .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(
-                    &sid1,
-                    &format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, stp1),
-                )
-            })
-            .await?;
+        let cmd_write = format!("printf '%s' '{}' | base64 -d > '{}' 2>&1", encoded, safe_test_path);
+        let cmd_test = format!("nginx -t -c '{}' 2>&1", safe_test_path);
+        let cmd_clean = format!("rm -f '{}' 2>&1", safe_test_path);
 
+        let ssh = self.ssh.clone();
+        let cmds = vec![cmd_write.clone(), cmd_test.clone(), cmd_clean.clone()];
+        let results = tokio::task::spawn_blocking(move || {
+            ssh.exec_commands_independent(&config, &cmds)
+        })
+        .await
+        .map_err(|e| format!("SSH 操作失败: {}", e))??;
+
+        // Check write result
+        let write_result = results.get(&cmd_write).ok_or("未获取到写入结果")?;
         if !write_result.success {
             return Ok(ApiResponse::err(format!(
                 "写入临时文件失败: {}",
@@ -113,31 +117,26 @@ impl CoreService {
             )));
         }
 
-        // 2. Test the temp file
-        let sid2 = sid.clone();
-        let stp2 = safe_test_path.clone();
-        let test_result = self
-            .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(&sid2, &format!("nginx -t -c '{}' 2>&1", stp2))
-            })
-            .await?;
-
+        // Check test result
+        let test_result = results.get(&cmd_test).ok_or("未获取到测试结果")?;
         let output = test_result.output.clone();
         let passed = output.contains("syntax is ok") || output.contains("test is successful");
 
-        // 3. Clean up temp file (ignore errors)
-        let sid3 = sid.clone();
-        let stp3 = safe_test_path.clone();
-        let _ = self
-            .run_ssh_with_retry(server_id, move |ssh| {
-                ssh.exec_command(&sid3, &format!("rm -f '{}' 2>&1", stp3))
-            })
-            .await;
+        Ok(ApiResponse::ok(NginxTestResult { passed, message: output }))
+    }
 
-        Ok(ApiResponse::ok(NginxTestResult {
-            passed,
-            message: output,
-        }))
+    /// Convert a serde_json::Value (from get_server_by_id) to SshServerConfig
+    fn value_to_ssh_config(server_id: &str, server: &serde_json::Value) -> Result<SshServerConfig, String> {
+        let obj = server.as_object().ok_or("服务器数据格式错误")?;
+        Ok(SshServerConfig {
+            id: server_id.to_string(),
+            name: obj.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            host: obj.get("host").and_then(|v| v.as_str()).ok_or("缺少 host")?.to_string(),
+            port: obj.get("port").and_then(|v| v.as_u64()).unwrap_or(22) as u32,
+            username: obj.get("username").and_then(|v| v.as_str()).ok_or("缺少 username")?.to_string(),
+            password: obj.get("password").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
+            ssh_key_path: obj.get("sshKeyPath").and_then(|v| v.as_str()).filter(|s| !s.is_empty()).map(|s| s.to_string()),
+        })
     }
 
     /// Deploy nginx config: backup → write → test → reload (with auto-rollback)
