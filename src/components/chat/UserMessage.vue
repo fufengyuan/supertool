@@ -29,18 +29,50 @@
         />
       </div>
       <!-- 时间戳 -->
-      <div v-if="message.timestamp" class="mt-1 text-xs text-base-content/40">
-        {{ formatTime(message.timestamp) }}
+      <div class="mt-1 flex items-center justify-between">
+        <span v-if="message.timestamp" class="text-xs text-base-content/40">
+          {{ formatTime(message.timestamp) }}
+        </span>
+        <button
+          v-if="message.content"
+          class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+          :title="copied ? '已复制' : '复制消息'"
+          @click="copyContent"
+        >
+          <SvgIcon :name="copied ? 'clipboardCheck' : 'clipboard'" size="12" :class="copied ? 'text-success' : ''" />
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import VueMarkdown from 'vue-markdown-render';
 import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+const copied = ref(false);
+
+async function copyContent() {
+  if (!props.message.content) return;
+  try {
+    await navigator.clipboard.writeText(displayContent.value);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = displayContent.value;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  }
+}
 
 interface FilePath {
   type: 'file' | 'folder';
