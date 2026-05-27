@@ -48,31 +48,65 @@
           />
         </div>
       </div>
-      <!-- 时间戳和重试按钮 -->
+      <!-- 时间戳和操作按钮 -->
       <div class="mt-1 flex items-center justify-between">
         <span v-if="message.timestamp" class="text-xs text-base-content/40">
           {{ formatTime(message.timestamp) }}
         </span>
-        <!-- 错误消息重试按钮 -->
-        <button 
-          v-if="message.isError && message.retryContent"
-          class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
-          @click="retryMessage(message.retryContent)"
-        >
-          <SvgIcon name="refresh" size="10" />
-          重试
-        </button>
+        <div class="flex items-center gap-1">
+          <!-- 复制消息内容 -->
+          <button
+            v-if="message.content"
+            class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
+            :title="copied ? '已复制' : '复制消息'"
+            @click="copyContent"
+          >
+            <SvgIcon :name="copied ? 'clipboardCheck' : 'clipboard'" size="12" :class="copied ? 'text-success' : ''" />
+          </button>
+          <!-- 错误消息重试按钮 -->
+          <button 
+            v-if="message.isError && message.retryContent"
+            class="btn btn-ghost btn-xs text-xs text-error hover:bg-error/10"
+            @click="retryMessage(message.retryContent)"
+          >
+            <SvgIcon name="refresh" size="10" />
+            重试
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import VueMarkdown from 'vue-markdown-render';
 import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
+
+const copied = ref(false);
+
+async function copyContent() {
+  if (!props.message.content) return;
+  try {
+    await navigator.clipboard.writeText(props.message.content);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  } catch {
+    // 降级：部分 Tauri 环境可能不支持 clipboard API
+    const ta = document.createElement('textarea');
+    ta.value = props.message.content;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    copied.value = true;
+    setTimeout(() => { copied.value = false; }, 2000);
+  }
+}
 
 // markdown-it 配置（代码高亮）
 const mdOptions = {

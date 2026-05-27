@@ -634,6 +634,15 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE nginx_templates ADD COLUMN sort INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration: add pem and key columns to nginx_servers for databases created before these fields were added
+    let _ = conn.execute(
+        "ALTER TABLE nginx_servers ADD COLUMN pem TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE nginx_servers ADD COLUMN key TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
