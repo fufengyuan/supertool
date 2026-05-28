@@ -270,7 +270,6 @@ fn get_compression_tip_with_conn(
             JOIN sessions s1 ON s2.parent_session_id = s1.id
             WHERE s1.id = ? 
               AND s1.end_reason IN ('session_reset', 'compression')
-              AND s2.started_at >= s1.ended_at
             ORDER BY s2.started_at DESC LIMIT 1
             "#,
             [&current],
@@ -370,15 +369,16 @@ pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
     for _ in 0..100 {
         // Find child session where:
         // 1. parent_session_id = current
-        // 2. parent's end_reason = 'compression'
-        // 3. child started_at >= parent ended_at
+        // 2. parent's end_reason IN ('session_reset', 'compression')
+        // Note: no started_at >= ended_at check because session_reset
+        // children have timestamps from original conversation time,
+        // which may be before the parent's end time.
         let tip_result: Result<String, rusqlite::Error> = conn.query_row(
             r#"
             SELECT s2.id FROM sessions s2
             JOIN sessions s1 ON s2.parent_session_id = s1.id
             WHERE s1.id = ? 
               AND s1.end_reason IN ('session_reset', 'compression')
-              AND s2.started_at >= s1.ended_at
             ORDER BY s2.started_at DESC LIMIT 1
             "#,
             [&current],
