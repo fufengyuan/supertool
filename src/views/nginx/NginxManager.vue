@@ -589,6 +589,7 @@ async function onSelectPreset(preset: any) {
   configContent.value = ''
   versions.value = []
   testResult.value = null
+  generatedNewConfig.value = ''
   currentTab.value = 'server'
   // Auto-load cached config from local DB
   const hasCache = await loadCachedConfig(preset.id)
