@@ -611,11 +611,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             m.reasoning_content,
             CASE WHEN m.session_id != ?
               AND sessions.parent_session_id = ?
-              AND NOT EXISTS (
-                SELECT 1 FROM sessions p
-                WHERE p.id = ?
-                  AND p.end_reason IN ('session_reset', 'compression')
-              )
+              AND sessions.end_reason IS NULL
               THEN 1 ELSE 0 END as is_child
         FROM messages m
         LEFT JOIN sessions ON sessions.id = m.session_id
@@ -630,7 +626,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
         .map_err(|e| format!("查询消息失败: {}", e))?;
 
     let messages = stmt
-        .query_map([&effective_session_id, &effective_session_id, &effective_session_id], |row| {
+        .query_map([&effective_session_id, &effective_session_id], |row| {
             Ok(HermesMessage {
                 id: row.get(0)?,
                 session_id: row.get(1)?,
