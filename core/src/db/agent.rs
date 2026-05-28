@@ -269,7 +269,7 @@ fn get_compression_tip_with_conn(
             SELECT s2.id FROM sessions s2
             JOIN sessions s1 ON s2.parent_session_id = s1.id
             WHERE s1.id = ? 
-              AND s1.end_reason = 'compression'
+              AND s1.end_reason IN ('session_reset', 'compression')
               AND s2.started_at >= s1.ended_at
             ORDER BY s2.started_at DESC LIMIT 1
             "#,
@@ -377,7 +377,7 @@ pub fn get_compression_tip(session_id: &str) -> Result<String, String> {
             SELECT s2.id FROM sessions s2
             JOIN sessions s1 ON s2.parent_session_id = s1.id
             WHERE s1.id = ? 
-              AND s1.end_reason = 'compression'
+              AND s1.end_reason IN ('session_reset', 'compression')
               AND s2.started_at >= s1.ended_at
             ORDER BY s2.started_at DESC LIMIT 1
             "#,
@@ -609,7 +609,14 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             m.finish_reason,
             m.reasoning,
             m.reasoning_content,
-            CASE WHEN m.session_id != ? AND sessions.parent_session_id = ? THEN 1 ELSE 0 END as is_child
+            CASE WHEN m.session_id != ?
+              AND sessions.parent_session_id = ?
+              AND NOT EXISTS (
+                SELECT 1 FROM sessions p
+                WHERE p.id = ?
+                  AND p.end_reason IN ('session_reset', 'compression')
+              )
+              THEN 1 ELSE 0 END as is_child
         FROM messages m
         LEFT JOIN sessions ON sessions.id = m.session_id
         WHERE m.session_id IN ({})
@@ -623,7 +630,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
         .map_err(|e| format!("查询消息失败: {}", e))?;
 
     let messages = stmt
-        .query_map([session_id, session_id], |row| {
+        .query_map([&effective_session_id, &effective_session_id, &effective_session_id], |row| {
             Ok(HermesMessage {
                 id: row.get(0)?,
                 session_id: row.get(1)?,
