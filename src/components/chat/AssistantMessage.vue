@@ -36,16 +36,22 @@
         
         <!-- 工具调用卡片 -->
         <div v-if="message.toolCalls && message.toolCalls.length > 0" class="space-y-1.5">
-          <ToolCallCard
-            v-for="(tool, tIdx) in message.toolCalls"
-            :key="`${tool.name}-${tIdx}`"
-            :tool="tool"
-            :icon="tool.isSubAgent ? 'bot' : getToolIcon(tool.name).icon"
-            :title="tool.isSubAgent ? '子 Agent' : tool.name"
-            :summary="tool.isSubAgent 
-              ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 80) + '...' : '')
-              : (tool.name === 'todo' ? formatTodoArgsSummary(tool.args || {}) : formatArgsSummary(tool.args || {}))"
-          />
+          <template v-for="(tool, tIdx) in message.toolCalls" :key="`${tool.name}-${tIdx}`">
+            <ToolCallCard
+              :tool="tool"
+              :icon="tool.isSubAgent ? 'bot' : getToolIcon(tool.name).icon"
+              :title="tool.isSubAgent ? '子 Agent' : tool.name"
+              :summary="tool.isSubAgent 
+                ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 80) + '...' : '')
+                : (tool.name === 'todo' ? formatTodoArgsSummary(tool.args || {}) : formatArgsSummary(tool.args || {}))"
+            />
+            <!-- todo 格式化结果：折叠时展示任务列表 -->
+            <div 
+              v-if="tool.name === 'todo' && tool.result && tool.status === 'completed'" 
+              class="ml-5 text-xs border-l-2 border-success/20 pl-2"
+              v-html="formatTodoResult(tool.result)"
+            />
+          </template>
         </div>
       </div>
       <!-- 时间戳和操作按钮 -->
@@ -84,7 +90,7 @@ import VueMarkdown from 'vue-markdown-render';
 import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
-import { formatTodoArgsSummary } from '@/composables/useToolFormatter';
+import { formatTodoArgsSummary, formatTodoResult } from '@/composables/useToolFormatter';
 
 const copied = ref(false);
 

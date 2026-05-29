@@ -52,16 +52,22 @@
                   <VueMarkdown v-if="msg.content" :source="msg.content" class="prose prose-sm max-w-none" :options="mdOptions" />
                   <!-- 工具调用显示 -->
                   <div v-if="msg.toolCalls && msg.toolCalls.length > 0" class="mt-1.5 space-y-1">
-                    <ToolCallCard
-                      v-for="(tc, tcIdx) in msg.toolCalls"
-                      :key="tcIdx"
-                      :tool="tc"
-                      :icon="tc.isSubAgent ? 'bot' : 'tool'"
-                      :title="tc.isSubAgent ? '子 Agent' : tc.name"
-                      :summary="tc.isSubAgent 
-                        ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 80) + '...' : '')
-                        : formatArgsSummary(tc.args || {})"
-                    />
+                    <template v-for="(tc, tcIdx) in msg.toolCalls" :key="tcIdx">
+                      <ToolCallCard
+                        :tool="tc"
+                        :icon="tc.isSubAgent ? 'bot' : 'tool'"
+                        :title="tc.isSubAgent ? '子 Agent' : tc.name"
+                        :summary="tc.isSubAgent 
+                          ? (tc.args?.goal || tc.args?.task || tc.args?.prompt ? String(tc.args?.goal || tc.args?.task || tc.args?.prompt).slice(0, 80) + '...' : '')
+                          : formatArgsSummary(tc.args || {})"
+                      />
+                      <!-- todo 格式化结果 -->
+                      <div 
+                        v-if="tc.name === 'todo' && tc.result && tc.status === 'completed'" 
+                        class="ml-5 text-xs border-l-2 border-success/20 pl-2"
+                        v-html="formatTodoResult(tc.result)"
+                      />
+                    </template>
                   </div>
                 </div>
               </div>
@@ -97,6 +103,7 @@ import { computed, ref } from 'vue';
 import VueMarkdown from 'vue-markdown-render';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
+import { formatTodoResult } from '@/composables/useToolFormatter';
 
 // markdown-it 配置（代码高亮）
 const mdOptions = {
