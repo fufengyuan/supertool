@@ -54,6 +54,7 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/agent/cron': { label: '定时任务', viewId: 'cron', componentNames: ['CronManager'] },
   '/agent/skills': { label: '技能', viewId: 'skills', componentNames: ['SkillsBrowser'] },
   '/agent/memory': { label: '记忆', viewId: 'memory', componentNames: ['MemoryManager'] },
+  '/agent/settings': { label: 'Agent 设置', viewId: 'agent-settings', componentNames: ['SettingsPage'] },
   '/kanban':    { label: '看板',    viewId: 'kanban',           componentNames: ['KanbanBoard'] },
   '/alert':     { label: '告警',    viewId: 'alert',            componentNames: ['AlertView'] },
   '/devtools':  { label: '开发工具',viewId: 'devtools',         componentNames: ['DevTools'] },
@@ -106,6 +107,7 @@ export const VIEW_ID_TO_PATH: Record<string, string> = {
   cron: '/agent/cron',
   skills: '/agent/skills',
   memory: '/agent/memory',
+  'agent-settings': '/agent/settings',
 }
 
 // ============ Store ============

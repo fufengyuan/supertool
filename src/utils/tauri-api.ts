@@ -13,9 +13,12 @@ import type {
   AccountingRecord, AccountingCategory, Budget, LogPreset, NotificationSettings,
   WireGuardConfig, WireGuardStatus,
   ToolsetInfo, MCPServerInfo,
+  HermesConfigInfo, ConfigExportResult, ConfigImportResult,
   MemoryInfo, MemoryWriteResult, MemoryProviderResult,
   SkillInfo, SkillCliResult,
   CronJob,
+  ProviderInfo, ProviderListResult, ProviderSaveResult,
+  OAuthFlowResult, OAuthPollResult,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -1935,6 +1938,11 @@ export interface TauriAPI {
   setToolsetEnabled: (key: string, enabled: boolean) => Promise<void>
   listMcpServers: () => Promise<MCPServerInfo[]>
 
+  // Hermes Config (Agent Settings)
+  getHermesConfigInfo: () => Promise<HermesConfigInfo>
+  exportHermesConfig: () => Promise<ConfigExportResult>
+  importHermesConfig: (content: string) => Promise<ConfigImportResult>
+
   // Hermes Memory
   readMemory: () => Promise<MemoryInfo>
   addMemoryEntry: (content: string) => Promise<MemoryWriteResult>
@@ -1945,6 +1953,13 @@ export interface TauriAPI {
   setMemoryProvider: (provider: string) => Promise<MemoryWriteResult>
   readEnvVars: (keys: string[]) => Promise<Record<string, string>>
   saveEnvVar: (key: string, value: string) => Promise<MemoryWriteResult>
+
+  // Hermes Provider
+  listProviders: () => Promise<ProviderListResult>
+  saveProviderCredential: (providerId: string, apiKey: string) => Promise<ProviderSaveResult>
+  removeProviderCredential: (providerId: string) => Promise<ProviderSaveResult>
+  startOauthFlow: (providerId: string) => Promise<ProviderSaveResult>
+  pollOauthResult: (providerId: string) => Promise<ProviderSaveResult>
 
   // Hermes Skills
   listInstalledSkills: () => Promise<SkillInfo[]>
@@ -2673,6 +2688,11 @@ export function getTauriAPI(): TauriAPI {
     setToolsetEnabled: async (key: string, enabled: boolean) => tauriCall<void>('set_toolset_enabled', { key, enabled }),
     listMcpServers: async () => tauriCall<MCPServerInfo[]>('list_mcp_servers'),
 
+    // ============ Hermes Config Export/Import ============
+    getHermesConfigInfo: async () => tauriCall<HermesConfigInfo>('get_hermes_config_info'),
+    exportHermesConfig: async () => tauriCall<ConfigExportResult>('export_hermes_config'),
+    importHermesConfig: async (content: string) => tauriCall<ConfigImportResult>('import_hermes_config', { content }),
+
     // ============ Hermes Memory ============
     readMemory: async () => tauriCall<MemoryInfo>('read_memory'),
     addMemoryEntry: async (content: string) => tauriCall<MemoryWriteResult>('add_memory_entry', { content }),
@@ -2690,6 +2710,13 @@ export function getTauriAPI(): TauriAPI {
     getSkillContent: async (path: string) => tauriCall<string>('get_skill_content', { path }),
     installSkill: async (identifier: string) => tauriCall<SkillCliResult>('install_skill', { identifier }),
     uninstallSkill: async (name: string) => tauriCall<SkillCliResult>('uninstall_skill', { name }),
+
+    // ============ Provider Credential Management ============
+    listProviders: async () => tauriCall<ProviderListResult>('list_providers'),
+    saveProviderCredential: async (providerId: string, apiKey: string) => tauriCall<ProviderSaveResult>('save_provider_credential', { providerId, apiKey }),
+    removeProviderCredential: async (providerId: string) => tauriCall<ProviderSaveResult>('remove_provider_credential', { providerId }),
+    startOAuthFlow: async (providerId: string) => tauriCall<OAuthFlowResult>('start_oauth_flow', { providerId }),
+    pollOAuthResult: async (providerId: string) => tauriCall<OAuthPollResult>('poll_oauth_result', { providerId }),
 
     // ============ Hermes Cron Jobs ============
     listCronJobs: async () => tauriCall<CronJob[]>('list_cron_jobs'),

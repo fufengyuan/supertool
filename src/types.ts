@@ -486,6 +486,44 @@ export interface MemoryWriteResult {
   error?: string;
 }
 
+// ============ Provider Credential Management ============
+
+export interface ProviderInfo {
+  id: string
+  name: string
+  authType: string
+  configured: boolean
+  hasValidKey: boolean
+  apiKeyPreview: string
+}
+
+export interface ProviderListResult {
+  success: boolean
+  providers: ProviderInfo[]
+}
+
+export interface ProviderSaveResult {
+  success: boolean
+  providerId: string
+}
+
+export interface OAuthFlowResult {
+  success: boolean
+  authorizationUrl: string
+  deviceCode: string
+  verificationUri: string
+  providerId: string
+  note?: string
+}
+
+export interface OAuthPollResult {
+  success: boolean
+  providerId: string
+  configured: boolean
+  hasToken: boolean
+  completed: boolean
+}
+
 // ============ Hermes Cron Jobs ============
 
 export interface CronJob {
@@ -517,4 +555,24 @@ export interface SkillInfo {
 export interface SkillCliResult {
   success: boolean
   error?: string
+}
+
+// ============ Hermes Config (Agent Settings) ============
+
+export interface HermesConfigInfo {
+  hermesHome: string
+  configExists: boolean
+  installed: boolean
+  version: string
+}
+
+export interface ConfigExportResult {
+  success: boolean
+  content?: string
+  message?: string
+}
+
+export interface ConfigImportResult {
+  success: boolean
+  message?: string
 }

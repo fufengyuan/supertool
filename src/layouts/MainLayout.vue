@@ -177,6 +177,8 @@ import {
   IconPhoto,
   IconBrain,
   IconCpu,
+  IconSettings,
+  IconKey,
 } from '@tabler/icons-vue'
 
 import { defineAsyncComponent, type Component } from 'vue'
@@ -198,6 +200,8 @@ const tabComponents: Record<string, Component> = {
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
   '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
+  '/agent/settings': defineAsyncComponent(() => import('@/views/agent/SettingsPage.vue')),
+  '/agent/providers': defineAsyncComponent(() => import('@/views/agent/ProviderManager.vue')),
   '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
   '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
   '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
@@ -251,6 +255,7 @@ const iconMap: Record<string, any> = {
   'agent-profiles': IconUsers,
   'skills': IconBrain,
   'memory': IconCpu,
+  'agent-settings': IconSettings,
   'kanban': IconLayoutColumns,
   'image-processor': IconPhoto,
 }
@@ -285,6 +290,7 @@ const navGroups = {
     { path: '/agent/profiles', icon: '👥', label: 'Profiles', viewId: 'agent-profiles' },
     { path: '/agent/skills', icon: '🧠', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '🧠', label: '记忆', viewId: 'memory' },
+    { path: '/agent/settings', icon: '⚙️', label: '设置', viewId: 'agent-settings' },
     { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
   ],
   dev: [

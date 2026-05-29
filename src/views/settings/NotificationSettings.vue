@@ -1,6 +1,6 @@
 <template>
-  <div class="p-6 flex flex-col gap-4 text-base-content">
-    <h3><SvgIcon name="bell" size="14" />  {{ $t('notification.title') }}</h3>
+  <div class="flex flex-col gap-4 text-base-content" :class="compact ? '' : 'p-6'">
+    <h3 v-if="!compact"><SvgIcon name="bell" size="14" />  {{ $t('notification.title') }}</h3>
 
     <!-- 提醒时间设置 -->
     <div class="p-5 bg-base-100 rounded-xl border border-base-content/10 transition-all duration-200 hover:border-primary hover:shadow-lg">
@@ -114,6 +114,10 @@ import { useErrorHandler } from '../../composables/useErrorHandler';
 import { getTauriAPI } from '../../utils/tauri-api';
 
 const { handleError } = useErrorHandler();
+
+defineProps<{
+  compact?: boolean
+}>()
 
 interface NotificationSettings {
   reminderTime: number | string;
