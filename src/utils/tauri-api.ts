@@ -990,6 +990,7 @@ export function useMfaAPI() {
       const full = {
         id: secret.id ?? crypto.randomUUID(), name: secret.name ?? '',
         secret: secret.secret ?? '', issuer: secret.issuer ?? null,
+        account: secret.account ?? null,
         algorithm: secret.algorithm ?? 'SHA1', digits: secret.digits ?? 6,
         period: secret.period ?? 30,
         createdAt: secret.createdAt ?? new Date().toISOString(),
@@ -1008,8 +1009,8 @@ export function useMfaAPI() {
       const res = await tauriInvoke<string>('delete_mfa_secret', { id })
       if (!res.success) {throw new Error(res.error)}
     },
-    generateTotp: async (secret: string): Promise<string> => {
-      const res = await tauriInvoke<string>('generate_totp', { secret })
+    generateTotp: async (secret: string, digits?: number, period?: number, algorithm?: string): Promise<string> => {
+      const res = await tauriInvoke<string>('generate_totp', { secret, digits: digits ?? 6, period: period ?? 30, algorithm: algorithm ?? 'SHA1' })
       return res.success ? (res.data ?? '') : ''
     },
   }

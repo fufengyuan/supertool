@@ -342,23 +342,19 @@ async function onUriInput() {
   if (val.startsWith('otpauth://')) {
     try {
       const result: any = await getTauriAPI().parseOtpAuthUri(val);
-      if (result.success) {
-        form.value.name = result.issuer || result.account || '未命名';
-        form.value.secret = result.secret;
-        form.value.account = result.account || '';
-        form.value.issuer = result.issuer || '';
-        form.value.digits = result.digits || 6;
-        form.value.period = result.period || 30;
-        form.value.algorithm = result.algorithm || 'sha1';
-        // 预览验证码
-        const codeResult = await getTauriAPI().generateTotp(
-          form.value.secret, form.value.digits, form.value.period, form.value.algorithm
-        );
-        previewCode.value = codeResult?.code || '';
-      } else {
-        // 解析失败，显示真实错误信息
-        formError.value = result.error || 'OTP URI 解析失败';
-      }
+      // parseOtpAuthUri 通过 tauriCall 调用，错误会 throw，成功时返回 data 本体
+      form.value.name = result.issuer || result.name || '未命名';
+      form.value.secret = result.secret;
+      form.value.account = result.account || '';
+      form.value.issuer = result.issuer || '';
+      form.value.digits = result.digits || 6;
+      form.value.period = result.period || 30;
+      form.value.algorithm = result.algorithm || 'sha1';
+      // 预览验证码
+      const codeResult = await getTauriAPI().generateTotp(
+        form.value.secret, form.value.digits, form.value.period, form.value.algorithm
+      );
+      previewCode.value = codeResult?.code || '';
     } catch (e: any) {
       formError.value = 'OTP URI 格式无效: ' + (e?.message || '解析出错');
     }
@@ -410,22 +406,18 @@ async function submitForm() {
   try {
     if (editingTarget.value) {
       // 更新
-      const result: any = await getTauriAPI().updateMfaSecret(editingTarget.value.id, {
+      await getTauriAPI().updateMfaSecret(editingTarget.value.id, {
         name: form.value.name.trim(),
         account: form.value.account.trim(),
         issuer: form.value.issuer.trim(),
       });
-      if (result && result.data) {
-        const idx = secrets.value.findIndex(s => s.id === editingTarget.value!.id);
-        if (idx !== -1) {
-          secrets.value[idx] = { ...secrets.value[idx], ...result.data };
-        }
-        toast.success('已更新');
-      }
+      toast.success('已更新');
+      // 重新加载列表刷新数据
+      await loadSecrets();
     } else {
       // 新增
       const secretClean = form.value.secret.trim().toUpperCase().replace(/[=\s]/g, '');
-      const result: any = await getTauriAPI().addMfaSecret({
+      await getTauriAPI().addMfaSecret({
         name: form.value.name.trim(),
         secret: secretClean,
         account: form.value.account.trim(),
@@ -434,15 +426,9 @@ async function submitForm() {
         period: form.value.period,
         algorithm: form.value.algorithm,
       });
-      if (result && result.success && result.data) {
-        secrets.value.push(result.data);
-        toast.success('MFA 密钥已添加');
-        await refreshCodes();
-      } else {
-        formError.value = result?.error || '添加失败';
-        submitting.value = false;
-        return;
-      }
+      toast.success('MFA 密钥已添加');
+      await loadSecrets();
+      await refreshCodes();
     }
     closeDialogs();
   } catch (e: any) {
