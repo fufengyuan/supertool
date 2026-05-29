@@ -17,7 +17,8 @@
               : 'bg-info/10 border-info/25 text-info/90'"
             :title="pathItem.path"
           >
-            <SvgIcon :name="pathItem.type === 'folder' ? 'folder' : 'file'" size="11" />
+            <img v-if="pathItem.previewUrl" :src="pathItem.previewUrl" class="w-6 h-6 rounded object-cover shrink-0 cursor-pointer hover:opacity-80" @click.stop="openPreview(pathItem.previewUrl, pathItem.name)" />
+            <SvgIcon v-else :name="pathItem.type === 'folder' ? 'folder' : 'file'" size="11" />
             <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
           </div>
         </div>
@@ -43,6 +44,21 @@
         </button>
       </div>
     </div>
+    <!-- Image Preview Lightbox -->
+    <Teleport to="body">
+      <div
+        v-if="previewImage"
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] cursor-pointer"
+        @click="closePreview"
+      >
+        <img
+          :src="previewImage.src"
+          :alt="previewImage.alt"
+          class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain"
+          @click.stop
+        />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -51,6 +67,16 @@ import { computed, ref } from 'vue';
 import VueMarkdown from 'vue-markdown-render';
 import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+const previewImage = ref<{ src: string; alt: string } | null>(null);
+
+const openPreview = (src: string, alt: string) => {
+  previewImage.value = { src, alt };
+};
+
+const closePreview = () => {
+  previewImage.value = null;
+};
 
 const copied = ref(false);
 
@@ -78,6 +104,7 @@ interface FilePath {
   type: 'file' | 'folder';
   path: string;
   name: string;
+  previewUrl?: string;
 }
 
 interface Message {

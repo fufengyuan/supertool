@@ -12,6 +12,10 @@ import type {
   Todo, Tag, Subtask, Note, NoteGroup, WeeklyReport, MfaSecret,
   AccountingRecord, AccountingCategory, Budget, LogPreset, NotificationSettings,
   WireGuardConfig, WireGuardStatus,
+  ToolsetInfo, MCPServerInfo,
+  MemoryInfo, MemoryWriteResult, MemoryProviderResult,
+  SkillInfo, SkillCliResult,
+  CronJob,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -1926,6 +1930,36 @@ export interface TauriAPI {
   gitApplyPatch: (repoPath: string, patchContent: string) => Promise<any>
   gitRawCommand: (repoPath: string, args: string[]) => Promise<any>
 
+  // Hermes Tools
+  listToolsets: () => Promise<ToolsetInfo[]>
+  setToolsetEnabled: (key: string, enabled: boolean) => Promise<void>
+  listMcpServers: () => Promise<MCPServerInfo[]>
+
+  // Hermes Memory
+  readMemory: () => Promise<MemoryInfo>
+  addMemoryEntry: (content: string) => Promise<MemoryWriteResult>
+  updateMemoryEntry: (index: number, content: string) => Promise<MemoryWriteResult>
+  removeMemoryEntry: (index: number) => Promise<MemoryWriteResult>
+  writeUserProfile: (content: string) => Promise<MemoryWriteResult>
+  listMemoryProviders: () => Promise<MemoryProviderResult>
+  setMemoryProvider: (provider: string) => Promise<MemoryWriteResult>
+  readEnvVars: (keys: string[]) => Promise<Record<string, string>>
+  saveEnvVar: (key: string, value: string) => Promise<MemoryWriteResult>
+
+  // Hermes Skills
+  listInstalledSkills: () => Promise<SkillInfo[]>
+  listBundledSkills: () => Promise<SkillInfo[]>
+  getSkillContent: (path: string) => Promise<string>
+  installSkill: (identifier: string) => Promise<SkillCliResult>
+  uninstallSkill: (name: string) => Promise<SkillCliResult>
+
+  // Hermes Cron Jobs
+  listCronJobs: () => Promise<CronJob[]>
+  createCronJob: (schedule: string, prompt?: string, name?: string, deliver?: string) => Promise<void>
+  removeCronJob: (jobId: string) => Promise<void>
+  pauseCronJob: (jobId: string) => Promise<void>
+  resumeCronJob: (jobId: string) => Promise<void>
+  triggerCronJob: (jobId: string) => Promise<void>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2633,6 +2667,38 @@ export function getTauriAPI(): TauriAPI {
     getFileTree: async (repoPath: string, subdir?: string) => tauriCall<FileTreeEntry[]>('get_file_tree', { repoPath, subdir }),
     readFileContent: async (repoPath: string, filePath: string) => tauriCall<string>('read_file_content', { repoPath, filePath }),
     saveFileContent: async (repoPath: string, filePath: string, content: string) => tauriCall<void>('save_file_content', { repoPath, filePath, content }),
+
+    // ============ Hermes Tools ============
+    listToolsets: async () => tauriCall<ToolsetInfo[]>('list_toolsets'),
+    setToolsetEnabled: async (key: string, enabled: boolean) => tauriCall<void>('set_toolset_enabled', { key, enabled }),
+    listMcpServers: async () => tauriCall<MCPServerInfo[]>('list_mcp_servers'),
+
+    // ============ Hermes Memory ============
+    readMemory: async () => tauriCall<MemoryInfo>('read_memory'),
+    addMemoryEntry: async (content: string) => tauriCall<MemoryWriteResult>('add_memory_entry', { content }),
+    updateMemoryEntry: async (index: number, content: string) => tauriCall<MemoryWriteResult>('update_memory_entry', { index, content }),
+    removeMemoryEntry: async (index: number) => tauriCall<MemoryWriteResult>('remove_memory_entry', { index }),
+    writeUserProfile: async (content: string) => tauriCall<MemoryWriteResult>('write_user_profile', { content }),
+    listMemoryProviders: async () => tauriCall<MemoryProviderResult>('list_memory_providers'),
+    setMemoryProvider: async (provider: string) => tauriCall<MemoryWriteResult>('set_memory_provider', { provider }),
+    readEnvVars: async (keys: string[]) => tauriCall<Record<string, string>>('read_env_vars', { keys }),
+    saveEnvVar: async (key: string, value: string) => tauriCall<MemoryWriteResult>('save_env_var', { key, value }),
+
+    // ============ Hermes Skills ============
+    listInstalledSkills: async () => tauriCall<SkillInfo[]>('list_installed_skills'),
+    listBundledSkills: async () => tauriCall<SkillInfo[]>('list_bundled_skills'),
+    getSkillContent: async (path: string) => tauriCall<string>('get_skill_content', { path }),
+    installSkill: async (identifier: string) => tauriCall<SkillCliResult>('install_skill', { identifier }),
+    uninstallSkill: async (name: string) => tauriCall<SkillCliResult>('uninstall_skill', { name }),
+
+    // ============ Hermes Cron Jobs ============
+    listCronJobs: async () => tauriCall<CronJob[]>('list_cron_jobs'),
+    createCronJob: async (schedule: string, prompt?: string, name?: string, deliver?: string) =>
+      tauriCall<void>('create_cron_job', { schedule, prompt, name, deliver }),
+    removeCronJob: async (jobId: string) => tauriCall<void>('remove_cron_job', { jobId }),
+    pauseCronJob: async (jobId: string) => tauriCall<void>('pause_cron_job', { jobId }),
+    resumeCronJob: async (jobId: string) => tauriCall<void>('resume_cron_job', { jobId }),
+    triggerCronJob: async (jobId: string) => tauriCall<void>('trigger_cron_job', { jobId }),
 
   }
 

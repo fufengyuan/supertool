@@ -138,14 +138,23 @@
                     <span class="text-base-content/40">({{ group.models.length }})</span>
                   </div>
                   <template v-if="expandedModelGroups[group.provider]">
-                    <button
-                      v-for="m in group.models.slice(0, 20)" :key="m"
-                      class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
-                      :class="{ 'bg-primary/10': selectedModel === m }"
-                      @click="setModel(m); showModelDropdown = false"
-                    >
-                      <span class="truncate">{{ parseModelName(m).name }}</span>
-                    </button>
+                    <div v-for="m in group.models.slice(0, 20)" :key="m" class="group/model relative">
+                      <button
+                        class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
+                        :class="{ 'bg-primary/10': selectedModel === m }"
+                        @click="setModel(m); showModelDropdown = false"
+                      >
+                        <span class="truncate flex-1">{{ parseModelName(m).name }}</span>
+                      </button>
+                      <button
+                        v-if="!isDefaultModel(m)"
+                        class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/model:opacity-100 btn btn-ghost btn-xs btn-square"
+                        @click.stop="deleteModel(m)"
+                        title="删除模型"
+                      >
+                        <SvgIcon name="close" size="10" class="text-error/60 hover:text-error" />
+                      </button>
+                    </div>
                     <button
                       v-if="group.models.length > 20"
                       class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs text-base-content/60 hover:bg-base-200"
@@ -154,14 +163,23 @@
                       <span>{{ expandedModelGroupsFull[group.provider] ? '收起' : `展开全部 ${group.models.length} 个` }}</span>
                     </button>
                     <template v-if="expandedModelGroupsFull[group.provider]">
-                      <button
-                        v-for="m in group.models.slice(20)" :key="m"
-                        class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
-                        :class="{ 'bg-primary/10': selectedModel === m }"
-                        @click="setModel(m); showModelDropdown = false"
-                      >
-                        <span class="truncate">{{ parseModelName(m).name }}</span>
-                      </button>
+                      <div v-for="m in group.models.slice(20)" :key="m" class="group/model relative">
+                        <button
+                          class="flex items-center gap-2 w-full px-3 pl-6 py-1.5 text-xs hover:bg-base-200"
+                          :class="{ 'bg-primary/10': selectedModel === m }"
+                          @click="setModel(m); showModelDropdown = false"
+                        >
+                          <span class="truncate flex-1">{{ parseModelName(m).name }}</span>
+                        </button>
+                        <button
+                          v-if="!isDefaultModel(m)"
+                          class="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/model:opacity-100 btn btn-ghost btn-xs btn-square"
+                          @click.stop="deleteModel(m)"
+                          title="删除模型"
+                        >
+                          <SvgIcon name="close" size="10" class="text-error/60 hover:text-error" />
+                        </button>
+                      </div>
                     </template>
                   </template>
                 </template>
@@ -215,10 +233,14 @@
           v-model="inputText"
           class="textarea w-full resize-none text-sm transition-colors"
           :class="isStreaming ? 'textarea-warning border-warning/30 bg-warning/5' : 'textarea-bordered'"
-          style="min-height: 52px; max-height: 200px;"
+          style="min-height: 40px;"
           :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
           @keydown.enter.exact.prevent="handleSend"
-          @paste="$emit('paste', $event)"
+          @input="autoResize"
+          @keydown="handleKeydown"
+          @compositionstart="isComposing = true"
+          @compositionend="isComposing = false"
+          @paste="handlePaste"
           autocapitalize="off"
           autocomplete="off"
         ></textarea>
@@ -263,6 +285,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { getTauriAPI } from '@/utils/tauri-api';
 import type { GitRepo } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { filesFromClipboard, processFiles, type Attachment } from '@/composables/useAttachmentProcessor';
 
 // Props
 const props = defineProps<{
@@ -277,6 +300,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   send: [text: string, paths: PathItem[], model: string];
   paste: [event: ClipboardEvent];
+  pasteError: [errors: string[]];
   checkHermes: [];
   removeFavoriteFolder: [folder: string];
   modelChanged: [model: string];
@@ -296,6 +320,10 @@ const inputRef = ref<HTMLTextAreaElement | null>(null);
 const inputText = ref('');
 const attachedPaths = ref<PathItem[]>([]);
 const showAttachMenu = ref(false);
+const isComposing = ref(false);
+const inputHistory = ref<string[]>([]);
+const historyIndex = ref(-1);
+const savedDraft = ref('');
 
 // 模型选择
 const selectedModel = ref('');
@@ -503,14 +531,15 @@ const deleteModel = async (model: string) => {
   }
 };
 
+// 检查是否为默认模型（不允许删除）
+const isDefaultModel = (m: string) => m === defaultModel.value;
+
 // 自动调整输入框高度
-const adjustTextareaHeight = () => {
-  if (inputRef.value) {
-    inputRef.value.style.height = 'auto';
-    const maxHeight = 200;
-    const newHeight = Math.min(inputRef.value.scrollHeight, maxHeight);
-    inputRef.value.style.height = `${newHeight}px`;
-  }
+const autoResize = () => {
+  const el = inputRef.value;
+  if (!el) return;
+  el.style.height = 'auto';
+  el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 };
 
 // 选择文件
@@ -526,7 +555,7 @@ const selectFile = async (defaultPath?: string) => {
       const name = path.split('/').pop() || path;
       attachedPaths.value.push({ path, type: 'file', name });
       emit('pathsChanged', [...attachedPaths.value]);
-      nextTick(() => adjustTextareaHeight());
+      nextTick(() => autoResize());
     }
   } catch (e) {
     console.error('选择文件失败:', e);
@@ -548,7 +577,7 @@ const selectFolder = async (defaultPath?: string) => {
       const name = path.split('/').pop() || path;
       attachedPaths.value.push({ path, type: 'folder', name });
       emit('pathsChanged', [...attachedPaths.value]);
-      nextTick(() => adjustTextareaHeight());
+      nextTick(() => autoResize());
     }
   } catch (e) {
     console.error('选择文件夹失败:', e);
@@ -562,7 +591,7 @@ const selectGitRepo = (repo: GitRepo) => {
   attachedPaths.value.push({ path: repo.path, type: 'folder', name });
   emit('pathsChanged', [...attachedPaths.value]);
   showAttachMenu.value = false;
-  nextTick(() => adjustTextareaHeight());
+  nextTick(() => autoResize());
 };
 
 // 从常用文件夹打开文件选择
@@ -580,7 +609,7 @@ const removeAttachedPath = (idx: number) => {
   if (item?.previewUrl) {URL.revokeObjectURL(item.previewUrl);}
   attachedPaths.value.splice(idx, 1);
   emit('pathsChanged', [...attachedPaths.value]);
-  nextTick(() => adjustTextareaHeight());
+  nextTick(() => autoResize());
 };
 
 // 发送消息
@@ -590,6 +619,11 @@ const handleSend = () => {
   const text = inputText.value.trim();
   const paths = [...attachedPaths.value];
   const model = selectedModel.value || defaultModel.value || '';
+  
+  // 记录输入历史
+  inputHistory.value.push(text);
+  historyIndex.value = -1;
+  savedDraft.value = '';
   
   // 清空输入
   inputText.value = '';
@@ -602,6 +636,66 @@ const handleSend = () => {
   emit('pathsChanged', []);
   
   emit('send', text, paths, model);
+};
+
+// 处理粘贴事件（处理图片和文件粘贴）
+const handlePaste = async (e: ClipboardEvent) => {
+  const files = filesFromClipboard(e);
+  if (files.length === 0) return; // normal text paste, let it through
+  e.preventDefault();
+  const { attachments, errors } = await processFiles(files);
+  if (errors.length > 0) {
+    emit('pasteError', errors);
+  }
+  // Convert attachments to PathItem format and add to attachedPaths
+  let hasTextContent = false;
+  for (const att of attachments) {
+    if (att.path) {
+      attachedPaths.value.push({ path: att.path, type: 'file', name: att.name });
+    } else if (att.dataUrl) {
+      // Image: show as preview in attached paths
+      attachedPaths.value.push({ path: att.name, type: 'file', name: att.name, previewUrl: att.dataUrl });
+    } else if (att.text) {
+      // Text file: prepend content to message
+      inputText.value += (inputText.value ? '\n\n' : '') + att.text;
+      hasTextContent = true;
+    }
+  }
+  if (hasTextContent) {
+    nextTick(() => autoResize());
+  }
+};
+
+// 文本框快捷键处理（输入历史导航）
+const handleKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'ArrowUp' && !e.shiftKey) {
+    const el = inputRef.value;
+    if (el && el.selectionStart === 0) {
+      e.preventDefault();
+      if (historyIndex.value === -1 && inputText.value) {
+        savedDraft.value = inputText.value;
+      }
+      const next = historyIndex.value === -1 ? inputHistory.value.length - 1 : Math.max(0, historyIndex.value - 1);
+      historyIndex.value = next;
+      inputText.value = inputHistory.value[next] || '';
+      nextTick(() => { el.selectionStart = el.selectionEnd = 0; });
+    }
+  } else if (e.key === 'ArrowDown' && !e.shiftKey) {
+    const el = inputRef.value;
+    if (el && el.selectionStart === el.value.length) {
+      e.preventDefault();
+      if (historyIndex.value === -1) return;
+      const next = historyIndex.value + 1;
+      if (next >= inputHistory.value.length) {
+        historyIndex.value = -1;
+        inputText.value = savedDraft.value;
+      } else {
+        historyIndex.value = next;
+        inputText.value = inputHistory.value[next] || '';
+      }
+      nextTick(() => { el.selectionStart = el.selectionEnd = el.value.length; });
+    }
+  }
 };
 
 // 全局快捷键处理
@@ -649,6 +743,7 @@ defineExpose({
   },
   setInputText: (text: string) => {
     inputText.value = text;
+    nextTick(() => autoResize());
   },
   closeDropdowns: () => {
     showAttachMenu.value = false;
@@ -666,6 +761,8 @@ defineExpose({
   },
   setModel,
   loadModels,
-  adjustTextareaHeight,
+  autoResize,
+  inputHistory,
+  isComposing,
 });
 </script>

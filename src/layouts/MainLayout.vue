@@ -175,6 +175,8 @@ import {
   IconUsers,
   IconLayoutColumns,
   IconPhoto,
+  IconBrain,
+  IconCpu,
 } from '@tabler/icons-vue'
 
 import { defineAsyncComponent, type Component } from 'vue'
@@ -194,6 +196,8 @@ const tabComponents: Record<string, Component> = {
   '/agent': defineAsyncComponent(() => import('@/views/agent/AgentManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/HermesChat.vue')),
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
+  '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
+  '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
   '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
   '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
   '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
@@ -245,6 +249,8 @@ const iconMap: Record<string, any> = {
   'disk-cleaner': IconTrash,
   'agent': IconRobot,
   'agent-profiles': IconUsers,
+  'skills': IconBrain,
+  'memory': IconCpu,
   'kanban': IconLayoutColumns,
   'image-processor': IconPhoto,
 }
@@ -277,6 +283,8 @@ const navGroups = {
   agent: [
     { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
     { path: '/agent/profiles', icon: '👥', label: 'Profiles', viewId: 'agent-profiles' },
+    { path: '/agent/skills', icon: '🧠', label: '技能', viewId: 'skills' },
+    { path: '/agent/memory', icon: '🧠', label: '记忆', viewId: 'memory' },
     { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
   ],
   dev: [
@@ -365,6 +373,7 @@ onMounted(async () => {
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
+      'skills': '/agent/skills',
     }
     const path = routeMap[view]
     if (path) {

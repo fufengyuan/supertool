@@ -71,37 +71,42 @@
         <div v-if="loadingSessions" class="flex items-center justify-center py-8">
           <SvgIcon name="refresh" size="16" class="animate-spin text-base-content/40" />
         </div>
-        <div v-else-if="sessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
+        <div v-else-if="groupedSessions.length === 0" class="flex flex-col items-center justify-center py-8 text-center">
           <SvgIcon name="chat" size="24" class="text-base-content/30" />
           <p class="mt-2 text-xs text-base-content/50">暂无会话</p>
         </div>
         <div v-else class="flex flex-col gap-1 px-2 py-1">
-          <div
-            v-for="session in sessions"
-            :key="session.id"
-            class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
-            :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
-            @click="emit('select', session)"
-          >
-            <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
-            <SvgIcon v-if="session.parentSessionId" name="gitBranch" size="12" class="shrink-0 text-warning" title="Subagent 会话" />
-            <div class="flex flex-col min-w-0 flex-1">
-              <div class="flex items-center gap-1">
-                <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
-                <span v-if="session.profile !== 'default'" class="badge badge-xs badge-info shrink-0">{{ session.profile }}</span>
-              </div>
-              <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
+          <template v-for="group in groupedSessions" :key="group.label">
+            <div class="px-2 pt-3 pb-1 text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">
+              {{ group.label }}
             </div>
-            <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
-            <!-- hover 显示删除按钮 -->
-            <button 
-              class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-              @click.stop="emit('delete', session.id)"
-              title="删除会话"
+            <div
+              v-for="session in group.sessions"
+              :key="session.id"
+              class="group flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer transition-colors"
+              :class="currentSessionId === session.id ? 'bg-primary/10 text-primary' : 'hover:bg-base-200'"
+              @click="emit('select', session)"
             >
-              <SvgIcon name="trash" size="10" class="text-error" />
-            </button>
-          </div>
+              <SvgIcon :name="sourceIcon(session.source)" size="14" class="shrink-0" />
+              <SvgIcon v-if="session.parentSessionId" name="gitBranch" size="12" class="shrink-0 text-warning" title="Subagent 会话" />
+              <div class="flex flex-col min-w-0 flex-1">
+                <div class="flex items-center gap-1">
+                  <span class="truncate text-xs font-medium">{{ session.title || session.preview || '新会话' }}</span>
+                  <span v-if="session.profile !== 'default'" class="badge badge-xs badge-info shrink-0">{{ session.profile }}</span>
+                </div>
+                <span class="truncate text-xs text-base-content/50">{{ formatTime(session.lastActive || session.startedAt) }}</span>
+              </div>
+              <span class="text-xs text-base-content/40 shrink-0">{{ session.messageCount }}</span>
+              <!-- hover 显示删除按钮 -->
+              <button 
+                class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                @click.stop="emit('delete', session.id)"
+                title="删除会话"
+              >
+                <SvgIcon name="trash" size="10" class="text-error" />
+              </button>
+            </div>
+          </template>
         </div>
       </template>
     </div>
@@ -168,6 +173,49 @@ const sessionSearchQuery = ref('');
 
 // 计算属性
 const isSearchMode = computed(() => sessionSearchQuery.value.trim().length > 0);
+
+// Date grouping
+type DateGroup = 'today' | 'yesterday' | 'thisWeek' | 'earlier'
+
+const DATE_GROUP_LABELS: Record<DateGroup, string> = {
+  today: '今天',
+  yesterday: '昨天',
+  thisWeek: '本周',
+  earlier: '更早',
+};
+
+function getDateGroup(ts: number): DateGroup {
+  const d = new Date(ts * 1000);
+  const now = new Date();
+  const isToday = d.getDate() === now.getDate() &&
+    d.getMonth() === now.getMonth() &&
+    d.getFullYear() === now.getFullYear();
+  if (isToday) return 'today';
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const isYesterday = d.getDate() === yesterday.getDate() &&
+    d.getMonth() === yesterday.getMonth() &&
+    d.getFullYear() === yesterday.getFullYear();
+  if (isYesterday) return 'yesterday';
+  const weekAgo = new Date(now);
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  if (d >= weekAgo) return 'thisWeek';
+  return 'earlier';
+}
+
+const groupedSessions = computed(() => {
+  const groups = new Map<DateGroup, Session[]>();
+  for (const s of props.sessions) {
+    const group = getDateGroup(s.lastActive || s.startedAt || 0);
+    if (!groups.has(group)) groups.set(group, []);
+    groups.get(group)!.push(s);
+  }
+  const order: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier'];
+  return order
+    .filter(label => groups.has(label))
+    .map(label => ({ label: DATE_GROUP_LABELS[label], sessions: groups.get(label)! }));
+});
+
 
 // 清空搜索
 const handleClearSearch = () => {

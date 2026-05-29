@@ -421,3 +421,100 @@ export interface Budget {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============ Hermes Tools ============
+
+export interface ToolsetInfo {
+  key: string;
+  label: string;
+  description: string;
+  enabled: boolean;
+}
+
+export interface MCPServerInfo {
+  name: string;
+  type: 'http' | 'stdio' | 'other';
+  detail: string;
+}
+
+// ============ Hermes Memory ============
+
+export interface MemoryEntry {
+  index: number;
+  content: string;
+}
+
+export interface MemoryFileInfo {
+  content: string;
+  exists: boolean;
+  lastModified: number | null;
+  entries: MemoryEntry[];
+  charCount: number;
+  charLimit: number;
+}
+
+export interface SessionStats {
+  totalSessions: number;
+  totalMessages: number;
+}
+
+export interface MemoryInfo {
+  memory: MemoryFileInfo;
+  user: MemoryFileInfo;
+  stats: SessionStats;
+}
+
+export interface MemoryProviderInfo {
+  name: string;
+  description: string;
+  installed: boolean;
+  active: boolean;
+  envVars: string[];
+}
+
+export interface MemoryProviderResult {
+  providers: MemoryProviderInfo[];
+  activeProvider: string;
+  memoryEnabled: boolean;
+  userProfileEnabled: boolean;
+  memoryCharLimit: number;
+  userCharLimit: number;
+}
+
+export interface MemoryWriteResult {
+  success: boolean;
+  error?: string;
+}
+
+// ============ Hermes Cron Jobs ============
+
+export interface CronJob {
+  id: string
+  name: string
+  prompt: string
+  schedule: string       // schedule_display (e.g. "once in 30m", "every 2h")
+  state: 'active' | 'paused' | 'completed' | 'scheduled'
+  enabled: boolean
+  next_run_at: string | null
+  last_run_at: string | null
+  last_status: string | null
+  last_error: string | null
+  deliver: string
+  skills: string[]
+  script: string | null
+}
+
+// ============ Hermes Skills ============
+
+export interface SkillInfo {
+  name: string
+  category: string
+  description: string
+  path: string
+  source: 'installed' | 'bundled'
+}
+
+export interface SkillCliResult {
+  success: boolean
+  error?: string
+}

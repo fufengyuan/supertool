@@ -885,6 +885,33 @@ fn main() {
             // Hermes API server configuration
             commands::hermes_config::agent_api_server_status,
             commands::hermes_config::agent_configure_api_server,
+            // Hermes Toolset management (platform_toolsets.cli + mcp_servers)
+            commands::hermes_config::list_toolsets,
+            commands::hermes_config::set_toolset_enabled,
+            commands::hermes_config::list_mcp_servers,
+            // Hermes Memory management
+            commands::hermes_memory::read_memory,
+            commands::hermes_memory::add_memory_entry,
+            commands::hermes_memory::update_memory_entry,
+            commands::hermes_memory::remove_memory_entry,
+            commands::hermes_memory::write_user_profile,
+            commands::hermes_memory::list_memory_providers,
+            commands::hermes_memory::set_memory_provider,
+            commands::hermes_memory::read_env_vars,
+            commands::hermes_memory::save_env_var,
+            // Hermes Skills browser
+            commands::hermes_skills::list_installed_skills,
+            commands::hermes_skills::list_bundled_skills,
+            commands::hermes_skills::get_skill_content,
+            commands::hermes_skills::install_skill,
+            commands::hermes_skills::uninstall_skill,
+            // Hermes Cron Jobs
+            commands::hermes_cron::list_cron_jobs,
+            commands::hermes_cron::create_cron_job,
+            commands::hermes_cron::remove_cron_job,
+            commands::hermes_cron::pause_cron_job,
+            commands::hermes_cron::resume_cron_job,
+            commands::hermes_cron::trigger_cron_job,
             // Hermes Kanban board
             commands::kanban::kanban_list_boards,
             commands::kanban::kanban_get_current_board,
