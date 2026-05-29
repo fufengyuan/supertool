@@ -44,7 +44,7 @@
             :title="tool.isSubAgent ? '子 Agent' : tool.name"
             :summary="tool.isSubAgent 
               ? (tool.args?.goal || tool.args?.task || tool.args?.prompt ? String(tool.args?.goal || tool.args?.task || tool.args?.prompt).slice(0, 80) + '...' : '')
-              : (tool.name === 'todo' ? '待办任务' : formatArgsSummary(tool.args || {}))"
+              : (tool.name === 'todo' ? formatTodoArgsSummary(tool.args || {}) : formatArgsSummary(tool.args || {}))"
           />
         </div>
       </div>
@@ -84,6 +84,7 @@ import VueMarkdown from 'vue-markdown-render';
 import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ToolCallCard from './ToolCallCard.vue';
+import { formatTodoArgsSummary } from '@/composables/useToolFormatter';
 
 const copied = ref(false);
 

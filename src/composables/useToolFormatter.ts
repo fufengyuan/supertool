@@ -103,6 +103,30 @@ function escapeHtml(text: string): string {
 }
 
 /**
+ * 格式化 todo 工具参数摘要 - 显示任务数量和首个任务内容
+ */
+export function formatTodoArgsSummary(args: Record<string, unknown>): string {
+  const todos = args?.todos as Array<{ id?: string; content?: string; status?: string }> | undefined;
+  if (!todos || !Array.isArray(todos) || todos.length === 0) return '待办任务';
+
+  const total = todos.length;
+  const pending = todos.filter(t => t.status === 'pending').length;
+  const inProgress = todos.filter(t => t.status === 'in_progress').length;
+  const completed = todos.filter(t => t.status === 'completed').length;
+
+  const parts: string[] = [];
+  if (pending > 0) parts.push(`${pending} 待办`);
+  if (inProgress > 0) parts.push(`${inProgress} 进行中`);
+  if (completed > 0) parts.push(`${completed} 已完成`);
+
+  const summary = parts.join(', ');
+  const first = todos.find(t => t.content);
+  const preview = first ? ` — ${first.content}` : '';
+
+  return `${total} 项任务 (${summary})${preview}`;
+}
+
+/**
  * 格式化 todo 工具返回结果 - HTML 格式用于 v-html 渲染
  */
 export function formatTodoResult(result: string): string {
