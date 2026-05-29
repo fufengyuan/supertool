@@ -107,6 +107,7 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             name TEXT NOT NULL DEFAULT '',
             secret TEXT NOT NULL DEFAULT '',
             issuer TEXT,
+            account TEXT,
             digits INTEGER NOT NULL DEFAULT 6,
             period INTEGER NOT NULL DEFAULT 30,
             algorithm TEXT NOT NULL DEFAULT 'SHA1',
@@ -641,6 +642,11 @@ pub fn init_db(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "ALTER TABLE nginx_servers ADD COLUMN key TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    // Migration: add account column to mfa_secrets
+    let _ = conn.execute(
+        "ALTER TABLE mfa_secrets ADD COLUMN account TEXT",
         [],
     );
     cicd_tables::init_cicd_tables(conn)?;

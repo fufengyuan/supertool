@@ -40,7 +40,7 @@ export default defineConfig({
       ? { protocol: 'ws', host, port: 1421 }
       : undefined,
     watch: {
-      ignored: ['**/tauri/**'],
+      ignored: ['**/tauri/**', '**/target/**', '**/.git/**'],
     },
   },
   test: {
