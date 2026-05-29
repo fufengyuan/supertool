@@ -174,6 +174,7 @@ import {
   IconRobot,
   IconUsers,
   IconLayoutColumns,
+  IconPhoto,
 } from '@tabler/icons-vue'
 
 import { defineAsyncComponent, type Component } from 'vue'
@@ -202,6 +203,7 @@ const tabComponents: Record<string, Component> = {
   '/vpn': defineAsyncComponent(() => import('@/views/vpn/VPNManager.vue')),
   '/backup': defineAsyncComponent(() => import('@/views/backup/DataBackup.vue')),
   '/disk-cleaner': defineAsyncComponent(() => import('@/components/DiskCleaner.vue')),
+  '/image': defineAsyncComponent(() => import('@/views/image/ImageProcessor.vue')),
   '/report': defineAsyncComponent(() => import('@/views/reports/TodoReport.vue')),
   '/settings': defineAsyncComponent(() => import('@/views/settings/SettingsView.vue')),
 }
@@ -244,6 +246,7 @@ const iconMap: Record<string, any> = {
   'agent': IconRobot,
   'agent-profiles': IconUsers,
   'kanban': IconLayoutColumns,
+  'image-processor': IconPhoto,
 }
 
 const router = useRouter()
@@ -282,6 +285,7 @@ const navGroups = {
     { path: '/devtools', icon: '🛠️', label: '开发工具', viewId: 'devtools' },
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
     { path: '/git', icon: '🔀', label: 'Git 仓库', viewId: 'git' },
+    { path: '/image', icon: '🖼️', label: '图像处理', viewId: 'image-processor' },
   ],
   security: [
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },
@@ -360,6 +364,7 @@ onMounted(async () => {
       'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
+      'image-processor': '/image',
     }
     const path = routeMap[view]
     if (path) {

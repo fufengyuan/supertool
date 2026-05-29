@@ -212,6 +212,8 @@ const paths: Record<string, string> = {
   question: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   checklist: '<rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="9" y1="15" x2="9.01" y2="15"/><polyline points="13 9 15 11 19 7"/><polyline points="13 15 15 17 19 13"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="currentColor"/><polyline points="21 15 16 10 5 21"/>',
+  compress: '<path d="M8 3v3a3 3 0 0 1-3 3H2"/><path d="M2 15h3a3 3 0 0 1 3 3v3"/><path d="M22 3h-3a3 3 0 0 0-3 3v3"/><path d="M16 15v3a3 3 0 0 0 3 3h3"/>',
+  crop: '<path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/>',
   audio: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 }

@@ -917,6 +917,12 @@ fn main() {
             commands::profile::kanban_dispatch,
             commands::profile::kanban_dispatcher_status,
             commands::profile::kanban_workload,
+            // Image commands
+            commands::image::image_compress,
+            commands::image::image_resize,
+            commands::image::image_convert,
+            commands::image::image_crop,
+            commands::image::image_remove_bg,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Tauri application");

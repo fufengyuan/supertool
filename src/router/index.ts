@@ -128,6 +128,12 @@ const routes = [
         component: () => import('../components/kanban/KanbanBoard.vue'),
       },
       {
+        path: 'image',
+        name: 'ImageProcessor',
+        meta: { title: '图像处理' },
+        component: () => import('../views/image/ImageProcessor.vue'),
+      },
+      {
         path: 'settings',
         name: 'Settings',
         component: () => import('../views/settings/SettingsView.vue'),

@@ -12,6 +12,7 @@ pub mod git_repo;
 pub mod git_sync;
 pub mod hermes_chat;
 pub mod hermes_config;
+pub mod image;
 pub mod kanban;
 pub mod lan;
 pub mod logs;
