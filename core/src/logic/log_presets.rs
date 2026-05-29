@@ -537,28 +537,14 @@ fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
 }
 
 fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
-    if pattern.contains(r"^(\d+):(.*)$") {
+    // Match line: "lineNum:content" or "filename:lineNum:content"
+    if pattern.contains(r"^(\d+):(.*)$")
+        || pattern.contains(r"^(?:[^:]*:)?(\d+):(.*)$")
+    {
+        // Try "lineNum:content" (no filename)
         if let Some(pos) = line.find(':') {
             let num_part = &line[..pos];
-            if num_part.chars().all(|c| c.is_ascii_digit()) {
-                return Some((num_part.to_string(), line[pos + 1..].to_string()));
-            }
-        }
-    }
-    if pattern.contains(r"^(\d+)-(.*)$") {
-        if let Some(pos) = line.find('-') {
-            let num_part = &line[..pos];
-            if num_part.chars().all(|c| c.is_ascii_digit()) {
-                return Some((num_part.to_string(), line[pos + 1..].to_string()));
-            }
-        }
-    }
-    if pattern.contains(r"^(?:[^:]*:)?(\d+):(.*)$") {
-        // "filename:lineNum:content" or "lineNum:content" (content may contain colons)
-        // First try: find first ':', check if prefix is digits → "lineNum:content"
-        if let Some(pos) = line.find(':') {
-            let num_part = &line[..pos];
-            if num_part.chars().all(|c| c.is_ascii_digit()) {
+            if !num_part.is_empty() && num_part.chars().all(|c| c.is_ascii_digit()) {
                 return Some((num_part.to_string(), line[pos + 1..].to_string()));
             }
         }
@@ -568,15 +554,31 @@ fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
             return Some((parts[1].to_string(), parts[2].to_string()));
         }
     }
-    if pattern.contains(r"^(?:[^:]*:)?(\\d+)-(.*)$") {
-        // Context line with dash separator: "lineNum-content"
-        // 关键：只在第一个 '-' 处分割，内容中的 '-'（如日期 2026-05-29）必须保留
+
+    // Context line: "lineNum-content" or "filename:lineNum-content"
+    if pattern.contains(r"^(\d+)-(.*)$")
+        || pattern.contains(r"^(?:[^:]*:)?(\d+)-(.*)$")
+    {
+        // 策略1: 带文件名前缀 "filename:lineNum-content"
+        // 用 rfind(':') 找最后一个 ':'，然后检查后面的 "digits-content" 格式
+        if let Some(colon_pos) = line.rfind(':') {
+            let after_colon = &line[colon_pos + 1..];
+            if let Some(dash_pos) = after_colon.find('-') {
+                let line_num = &after_colon[..dash_pos];
+                if !line_num.is_empty() && line_num.chars().all(|c| c.is_ascii_digit()) {
+                    let content = &line[colon_pos + 1 + dash_pos + 1..];
+                    return Some((line_num.to_string(), content.to_string()));
+                }
+            }
+        }
+        // 策略2: 直接 "lineNum-content"（无文件名前缀）
         if let Some(pos) = line.find('-') {
             let num_part = &line[..pos];
-            if num_part.chars().all(|c| c.is_ascii_digit()) {
+            if !num_part.is_empty() && num_part.chars().all(|c| c.is_ascii_digit()) {
                 return Some((num_part.to_string(), line[pos + 1..].to_string()));
             }
         }
     }
+
     None
 }
