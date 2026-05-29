@@ -568,18 +568,13 @@ fn regex_match(line: &str, pattern: &str) -> Option<(String, String)> {
             return Some((parts[1].to_string(), parts[2].to_string()));
         }
     }
-    if pattern.contains(r"^(?:[^:]*:)?(\d+)-(.*)$") {
-        // Context line with dash separator
-        let parts: Vec<&str> = line.splitn(3, '-').collect();
-        if parts.len() >= 2 {
-            if parts.len() == 2 {
-                if parts[0].chars().all(|c| c.is_ascii_digit()) {
-                    return Some((parts[0].to_string(), parts[1].to_string()));
-                }
-            } else {
-                if parts[1].chars().all(|c| c.is_ascii_digit()) {
-                    return Some((parts[1].to_string(), parts[2].to_string()));
-                }
+    if pattern.contains(r"^(?:[^:]*:)?(\\d+)-(.*)$") {
+        // Context line with dash separator: "lineNum-content"
+        // 关键：只在第一个 '-' 处分割，内容中的 '-'（如日期 2026-05-29）必须保留
+        if let Some(pos) = line.find('-') {
+            let num_part = &line[..pos];
+            if num_part.chars().all(|c| c.is_ascii_digit()) {
+                return Some((num_part.to_string(), line[pos + 1..].to_string()));
             }
         }
     }
