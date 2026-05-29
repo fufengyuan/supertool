@@ -60,7 +60,8 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/backup':    { label: '备份',    viewId: 'data-backup',      componentNames: ['DataBackup'] },
   '/disk-cleaner': { label: '磁盘清理', viewId: 'disk-cleaner', componentNames: ['DiskCleaner'] },
   '/report':    { label: '报告',    viewId: 'report',           componentNames: ['TodoReport'] },
-  '/settings':  { label: '设置',    viewId: 'settings',         componentNames: ['SettingsView'] },
+  '/image':     { label: '图像处理', viewId: 'image-processor', componentNames: ['ImageProcessor'] },
+  '/settings':  { label: '设置',     viewId: 'settings',          componentNames: ['SettingsView'] },
 }
 
 // 已知导航路径的有序列表（用于匹配子路由的父标签页）
@@ -96,6 +97,7 @@ export const VIEW_ID_TO_PATH: Record<string, string> = {
   devtools: '/devtools', notes: '/notes', git: '/git',
   mfa: '/mfa', vpn: '/vpn', 'data-backup': '/backup',
   'disk-cleaner': '/disk-cleaner', report: '/report', settings: '/settings',
+  'image-processor': '/image',
 }
 
 // ============ Store ============

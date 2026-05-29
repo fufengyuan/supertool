@@ -82,6 +82,7 @@ import {
   IconRobot,
   IconUsers,
   IconLayoutColumns,
+  IconPhoto,
 } from '@tabler/icons-vue'
 
 const iconMap: Record<string, any> = {
@@ -106,6 +107,7 @@ const iconMap: Record<string, any> = {
   'agent': IconRobot,
   'agent-profiles': IconUsers,
   'kanban': IconLayoutColumns,
+  'image-processor': IconPhoto,
 }
 
 const tabStore = useTabStore()
