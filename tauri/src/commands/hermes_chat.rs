@@ -89,6 +89,26 @@ struct ChoiceDelta {
 struct DeltaContent {
     #[serde(default)]
     content: Option<String>,
+    /// Reasoning/thinking tokens from DeepSeek (reasoning_content)
+    /// or OpenAI o1/o3-style (reasoning) models.
+    #[serde(default, alias = "reasoning_content")]
+    reasoning: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UsageInfo {
+    #[serde(default, alias = "prompt_tokens")]
+    prompt_tokens: Option<u32>,
+    #[serde(default, alias = "completion_tokens")]
+    completion_tokens: Option<u32>,
+    #[serde(default, alias = "total_tokens")]
+    total_tokens: Option<u32>,
+    #[serde(default)]
+    cost: Option<f64>,
+    #[serde(default, alias = "rate_limit_remaining")]
+    rate_limit_remaining: Option<u32>,
+    #[serde(default, alias = "rate_limit_reset")]
+    rate_limit_reset: Option<f64>,
 }
 
 /// Parse SSE line and extract event type and data
@@ -115,6 +135,7 @@ pub async fn agent_chat(
     session_id: Option<String>,
     model: Option<String>,
     toolsets: Option<Vec<String>>,
+    context_folder: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // 1. Check API server health
     if !check_api_server_health().await {
@@ -131,11 +152,30 @@ pub async fn agent_chat(
         *current = session_id.clone();
     }
 
-    // 4. Build OpenAI-compatible request
+    // 4. Build OpenAI-compatible request with optional context folder system message
     let client = local_client();
+    let model_name = model.unwrap_or_else(|| "hermes-agent".to_string());
+    let mut messages = Vec::new();
+
+    // Inject context folder system message if provided
+    if let Some(ref folder) = context_folder {
+        let trimmed = folder.trim();
+        if !trimmed.is_empty() {
+            messages.push(serde_json::json!({
+                "role": "system",
+                "content": format!(
+                    "The working folder for this conversation is {}. When the user asks you to read, create, modify, or run project files, use the file, terminal, and code-execution tools with absolute paths under this folder.",
+                    trimmed
+                )
+            }));
+        }
+    }
+
+    messages.push(serde_json::json!({"role": "user", "content": message}));
+
     let request_body = serde_json::json!({
-        "model": model.unwrap_or_else(|| "hermes-agent".to_string()),
-        "messages": [{"role": "user", "content": message}],
+        "model": model_name.clone(),
+        "messages": messages,
         "stream": true,
     });
 
@@ -178,8 +218,10 @@ pub async fn agent_chat(
     let mut stream = resp.bytes_stream();
     let mut buffer = String::new();
     let mut accumulated_text = String::new();
+    let mut accumulated_reasoning = String::new();
     let mut final_response: Option<String> = None;
     let mut current_event_type: Option<String> = None;
+    let mut has_content = false;
 
     // Track tool calls for status updates
     let mut running_tools: std::collections::HashMap<String, (String, Option<serde_json::Value>)> = std::collections::HashMap::new();
@@ -267,10 +309,39 @@ pub async fn agent_chat(
                                 "message_count": 0,
                             })).ok();
                         } else if let Ok(chunk) = serde_json::from_str::<ChatCompletionChunk>(&data) {
-                            // Extract content from delta
+                            // Extract usage from final chunk (if present)
+                            if let Ok(raw_json) = serde_json::from_str::<serde_json::Value>(&data) {
+                                if let Some(usage_obj) = raw_json.get("usage") {
+                                    if let Ok(usage) = serde_json::from_value::<UsageInfo>(usage_obj.clone()) {
+                                        app.emit("agent-usage", serde_json::json!({
+                                            "prompt_tokens": usage.prompt_tokens.unwrap_or(0),
+                                            "completion_tokens": usage.completion_tokens.unwrap_or(0),
+                                            "total_tokens": usage.total_tokens.unwrap_or(0),
+                                            "cost": usage.cost,
+                                            "session_id": captured_session_id,
+                                        })).ok();
+                                    }
+                                }
+                            }
+
+                            // Extract content and reasoning from delta
                             for choice in &chunk.choices {
+                                // Reasoning/thinking tokens (DeepSeek reasoning_content, OpenAI o1/o3 reasoning)
+                                if let Some(ref reasoning) = choice.delta.reasoning {
+                                    if !reasoning.is_empty() {
+                                        accumulated_reasoning.push_str(reasoning);
+                                        has_content = true;
+                                        app.emit("agent-reasoning-delta", serde_json::json!({
+                                            "text": reasoning,
+                                            "session_id": captured_session_id,
+                                        })).ok();
+                                    }
+                                }
+
+                                // Content tokens
                                 if let Some(content) = &choice.delta.content {
                                     accumulated_text.push_str(content);
+                                    has_content = true;
                                     app.emit("agent-delta", serde_json::json!({
                                         "text": content,
                                         "session_id": captured_session_id,
@@ -287,6 +358,44 @@ pub async fn agent_chat(
                             }
                         }
                     }
+                }
+            }
+        }
+    }
+
+    // 8. Empty stream diagnostic probe — when streaming returned no content,
+    //    make a non-streaming request to surface the real error message.
+    if !has_content && final_response.is_none() {
+        let probe_body = serde_json::json!({
+            "model": model_name.clone(),
+            "messages": [{"role": "user", "content": message}],
+            "stream": false,
+        });
+        if let Ok(probe_resp) = client
+            .post(format!("{}/v1/chat/completions", HERMES_API_URL))
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&probe_body)
+            .timeout(std::time::Duration::from_secs(30))
+            .send()
+            .await
+        {
+            if let Ok(probe_text) = probe_resp.text().await {
+                if let Ok(probe_json) = serde_json::from_str::<serde_json::Value>(&probe_text) {
+                    let err_msg = probe_json["error"]["message"]
+                        .as_str()
+                        .or_else(|| probe_json["choices"][0]["message"]["content"].as_str())
+                        .unwrap_or("No response received from the model. Check your model configuration and API key.");
+                    app.emit("agent-error", serde_json::json!({
+                        "message": err_msg,
+                        "session_id": captured_session_id,
+                    })).ok();
+                    return Ok(serde_json::json!({
+                        "response": serde_json::Value::Null,
+                        "session_id": captured_session_id,
+                        "message_count": 0,
+                        "error": err_msg,
+                    }));
                 }
             }
         }

@@ -50,6 +50,10 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/database':  { label: '数据库',  viewId: 'database',         componentNames: ['DBManager'] },
   '/agent':     { label: 'Agent',   viewId: 'agent',            componentNames: ['AgentManager', 'HermesChat'] },
   '/agent/profiles': { label: 'Profiles', viewId: 'agent-profiles', componentNames: ['AgentProfiles'] },
+  '/agent/tools': { label: '工具', viewId: 'tools', componentNames: ['ToolsManager'] },
+  '/agent/cron': { label: '定时任务', viewId: 'cron', componentNames: ['CronManager'] },
+  '/agent/skills': { label: '技能', viewId: 'skills', componentNames: ['SkillsBrowser'] },
+  '/agent/memory': { label: '记忆', viewId: 'memory', componentNames: ['MemoryManager'] },
   '/kanban':    { label: '看板',    viewId: 'kanban',           componentNames: ['KanbanBoard'] },
   '/alert':     { label: '告警',    viewId: 'alert',            componentNames: ['AlertView'] },
   '/devtools':  { label: '开发工具',viewId: 'devtools',         componentNames: ['DevTools'] },
@@ -98,6 +102,10 @@ export const VIEW_ID_TO_PATH: Record<string, string> = {
   mfa: '/mfa', vpn: '/vpn', 'data-backup': '/backup',
   'disk-cleaner': '/disk-cleaner', report: '/report', settings: '/settings',
   'image-processor': '/image',
+  tools: '/agent/tools',
+  cron: '/agent/cron',
+  skills: '/agent/skills',
+  memory: '/agent/memory',
 }
 
 // ============ Store ============

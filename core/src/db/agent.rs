@@ -522,73 +522,39 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
     let conn = rusqlite::Connection::open(&db_path)
         .map_err(|e| format!("无法打开 Hermes state.db: {}", e))?;
 
-    // First, collect all related session_ids:
-    // 1. The effective session (compression tip or original)
-    // 2. Child sessions (subagent runs): WHERE parent_session_id = effective_session_id
-    // 3. Compression ancestors: walk up parent_session_id chain
+    // Follow Hermes Desktop's approach: only load messages from the tip session
+    // and its subagent children. Do NOT load ancestor messages (they've been compressed).
+    //
+    // Ancestor messages appear when a session was compressed/reset — the old messages
+    // are in ancestor sessions and have been replaced by a summary in the tip.
+    // Including them causes duplicates and misclassified messages.
 
-    // Collect compression ancestors (walk up the chain)
-    let mut ancestor_ids: Vec<String> = Vec::new();
-    let mut current_ancestor: Option<String> = Some(effective_session_id.clone());
-
-    // Walk up the compression chain: find sessions where current session is their child
-    // i.e., find the parent of current session, then parent's parent, etc.
-    while let Some(sid) = current_ancestor {
-        let parent_id_result: Result<String, rusqlite::Error> = conn.query_row(
-            "SELECT parent_session_id FROM sessions WHERE id = ? AND parent_session_id IS NOT NULL",
-            [&sid],
-            |row| row.get::<_, String>(0),
-        );
-
-        let parent_id = parent_id_result
-            .optional()
-            .map_err(|e| format!("查询压缩链失败: {}", e))?;
-
-        if let Some(pid) = parent_id {
-            ancestor_ids.push(pid.clone());
-            current_ancestor = Some(pid);
-        } else {
-            current_ancestor = None;
-        }
-    }
-
-    // Build the list of all session_ids to query
-    // Include: effective session + ancestors + children of effective session + children of ancestors
-    let base_ids: Vec<String> = {
-        let mut ids = vec![effective_session_id.clone()];
-        ids.extend(ancestor_ids.clone());
-        ids
-    };
-
-    // Add children (subagent runs) of current session and ancestors
-    // Use a separate statement to avoid borrow conflicts
-    let mut all_children: Vec<String> = Vec::new();
-    {
+    // Find subagent children of the tip:
+    // - parent_session_id = tip
+    // - parent's end_reason IS NULL (subagent, not continuation)
+    let subagent_children: Vec<String> = {
         let mut stmt = conn
-            .prepare("SELECT id FROM sessions WHERE parent_session_id = ?")
+            .prepare(
+                "SELECT c.id FROM sessions c
+                 JOIN sessions p ON p.id = c.parent_session_id
+                 WHERE c.parent_session_id = ?
+                   AND p.end_reason IS NULL",
+            )
             .map_err(|e| format!("查询子会话失败: {}", e))?;
-        for sid in &base_ids {
-            let child_ids: Vec<String> = stmt
-                .query_map([sid], |row| row.get::<_, String>(0))
-                .map_err(|e| format!("读取子会话失败: {}", e))?
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|e| format!("解析子会话失败: {}", e))?;
-            all_children.extend(child_ids);
-        }
-    }
-
-    let all_session_ids: Vec<String> = {
-        let mut ids = base_ids;
-        ids.extend(all_children);
-        ids
+        stmt.query_map([&effective_session_id], |row| row.get::<_, String>(0))
+            .map_err(|e| format!("读取子会话失败: {}", e))?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("解析子会话失败: {}", e))?
     };
 
-    // Unified query: include messages from all related sessions
-    // is_child is 1 if message belongs to a child session (subagent), 0 otherwise
-    // Compression ancestor messages are NOT marked as is_child (they are part of the main conversation)
+    // Build session list: tip + subagent children only
+    let mut all_session_ids = vec![effective_session_id.clone()];
+    all_session_ids.extend(subagent_children.clone());
 
-    // Use a parameterized query with dynamic session list
-    // SQLite doesn't support array parameters, so we build the IN clause dynamically
+    // Unified query: load messages from tip + subagent children
+    // is_child = 1 for messages from subagent children, 0 for tip messages
+    // Since all_session_ids only contains tip + its subagent children,
+    // any message from a non-tip session is a subagent message.
     let in_clause = all_session_ids
         .iter()
         .map(|s| format!("'{}'", s.replace("'", "''")))
@@ -609,12 +575,8 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             m.finish_reason,
             m.reasoning,
             m.reasoning_content,
-            CASE WHEN m.session_id != ?
-              AND sessions.parent_session_id = ?
-              AND sessions.end_reason IS NULL
-              THEN 1 ELSE 0 END as is_child
+            CASE WHEN m.session_id != ? THEN 1 ELSE 0 END as is_child
         FROM messages m
-        LEFT JOIN sessions ON sessions.id = m.session_id
         WHERE m.session_id IN ({})
         ORDER BY m.timestamp, m.id
         "#,
@@ -626,7 +588,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
         .map_err(|e| format!("查询消息失败: {}", e))?;
 
     let messages = stmt
-        .query_map([&effective_session_id, &effective_session_id], |row| {
+        .query_map([&effective_session_id], |row| {
             Ok(HermesMessage {
                 id: row.get(0)?,
                 session_id: row.get(1)?,

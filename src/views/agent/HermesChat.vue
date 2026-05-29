@@ -20,7 +20,13 @@
     />
 
     <!-- 右侧聊天区域 -->
-    <div class="flex-1 flex flex-col">
+    <div 
+      class="flex-1 flex flex-col relative"
+      @dragenter="handleDragEnter"
+      @dragover="handleDragOver"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+    >
       <!-- 聊天头部 -->
       <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100">
         <div class="flex items-center gap-2 flex-1">
@@ -51,6 +57,16 @@
           <span v-if="currentSession" class="badge badge-ghost badge-xs" :title="currentSession.model">
             {{ parseModelName(currentSession.model).name || currentSession.model }}
           </span>
+          <!-- Context folder indicator -->
+          <span v-if="contextFolder" class="badge badge-info badge-xs gap-1 cursor-pointer" :title="'工作目录: ' + contextFolder" @click="clearContextFolder">
+            <SvgIcon name="folder" size="10" />
+            {{ contextFolder.split('/').pop() || contextFolder }}
+            <SvgIcon name="close" size="8" class="opacity-50" />
+          </span>
+          <!-- Queued messages indicator -->
+          <span v-if="queuedCount > 0" class="badge badge-warning badge-xs gap-1">
+            {{ queuedCount }} 条排队
+          </span>
           <!-- 会话统计 -->
           <span v-if="messages.length > 0" class="text-xs text-base-content/40">
             {{ sessionStats.totalMessages }} 条消息 · {{ sessionStats.totalTokens > 0 ? `${sessionStats.totalTokens} tokens` : '' }}
@@ -78,6 +94,20 @@
           <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
             <SvgIcon name="download" size="12" />
           </button>
+          <!-- 复制聊天记录 -->
+          <div v-if="messages.length > 0" class="dropdown dropdown-end">
+            <button tabindex="0" class="btn btn-ghost btn-xs" title="复制聊天记录">
+              <SvgIcon name="copy" size="12" />
+            </button>
+            <ul tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-40 z-50">
+              <li><a @click="copyChatTranscript('text')" class="text-xs">复制为纯文本</a></li>
+              <li><a @click="copyChatTranscript('markdown')" class="text-xs">复制为 Markdown</a></li>
+            </ul>
+          </div>
+          <!-- Context folder picker -->
+          <button class="btn btn-ghost btn-xs" :class="{ 'text-info': contextFolder }" @click="pickContextFolder" title="设置工作目录">
+            <SvgIcon name="folder" size="12" />
+          </button>
           <button v-if="messages.length > 0" class="btn btn-ghost btn-xs" @click="clearMessages" title="清空消息">
             <SvgIcon name="clear" size="12" />
           </button>
@@ -95,6 +125,19 @@
           <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSessionLocal" title="删除">
             <SvgIcon name="trash" size="12" />
           </button>
+          <!-- 快速模式按钮 -->
+          <button class="btn btn-ghost btn-xs" :class="{ 'text-warning': fastMode }" @click="toggleFastMode" title="快速模式">
+            <SvgIcon name="zap" size="14" />
+          </button>
+          <!-- 使用量 badge -->
+          <span
+            v-if="lastUsage"
+            class="badge badge-ghost badge-xs"
+            :title="`Prompt: ${lastUsage.promptTokens} · Completion: ${lastUsage.completionTokens}${lastUsage.cost ? ' · $' + lastUsage.cost.toFixed(4) : ''}`"
+          >
+            {{ lastUsage.promptTokens + lastUsage.completionTokens }} tokens
+            <template v-if="lastUsage.cost"> · ${{ lastUsage.cost.toFixed(4) }}</template>
+          </span>
           <!-- 搜索按钮 -->
           <div v-if="messages.length > 0" class="relative">
             <input
@@ -115,7 +158,7 @@
       </div>
 
       <!-- 消息列表 -->
-      <div ref="messagesContainer" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-1">
+      <div ref="messagesContainer" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-1" @scroll="handleScroll">
         <!-- 加载消息状态 - 骨架屏 -->
         <div v-if="loadingMessages" class="space-y-1">
           <div class="flex gap-2">
@@ -218,31 +261,118 @@
           </div>
         </template>
 
+        <!-- Agent approval bar -->
+        <div v-if="needsApproval" class="flex gap-2 w-full mt-2">
+          <div class="flex h-8 w-8 items-center justify-center rounded-full bg-warning/20 shrink-0">
+            <SvgIcon name="zap" size="14" class="text-warning" />
+          </div>
+          <div class="max-w-[600px] bg-warning/10 border border-warning/30 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span class="text-sm text-base-content/80">需要你的批准</span>
+            <button class="btn btn-success btn-xs gap-1" @click="handleApproval(true)">
+              <SvgIcon name="check" size="10" />
+              批准
+            </button>
+            <button class="btn btn-error btn-xs gap-1" @click="handleApproval(false)">
+              <SvgIcon name="close" size="10" />
+              拒绝
+            </button>
+          </div>
+        </div>
+
         <!-- 空状态 -->
-        <div v-else class="flex flex-col items-center justify-center py-16 text-center">
-          <SvgIcon name="chat" size="32" class="text-base-content/30" />
-          <p class="mt-2 text-sm text-base-content/50">开始对话</p>
-          <p class="text-xs text-base-content/40">输入消息与 Hermes Agent 交流</p>
-          <!-- 快捷建议 -->
-          <div class="mt-4 flex flex-wrap gap-2 justify-center">
+        <div v-else class="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
+          <!-- Hero icon with decorative background -->
+          <div class="relative mb-5">
+            <div class="absolute inset-0 w-20 h-20 rounded-full bg-primary/5 blur-xl"></div>
+            <div class="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
+              <SvgIcon name="bot" size="32" class="text-primary" />
+            </div>
+          </div>
+
+          <!-- Title & description -->
+          <h2 class="text-lg font-semibold text-base-content">Hermes Agent</h2>
+          <p class="mt-1.5 text-sm text-base-content/50 max-w-sm leading-relaxed">
+            AI 编程助手 — 理解你的代码库，帮你分析、编写、重构和调试
+          </p>
+
+          <!-- Capability chips -->
+          <div class="mt-4 flex flex-wrap gap-1.5 justify-center max-w-md">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
+              <SvgIcon name="code" size="10" /> 代码编写
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
+              <SvgIcon name="search" size="10" /> 项目分析
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
+              <SvgIcon name="tool" size="10" /> 代码重构
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
+              <SvgIcon name="terminal" size="10" /> Shell 操作
+            </span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
+              <SvgIcon name="gitBranch" size="10" /> Git 管理
+            </span>
+          </div>
+
+          <!-- Suggestion cards -->
+          <div class="mt-6 grid grid-cols-2 gap-2 w-full max-w-md">
             <button 
-              class="btn btn-ghost btn-xs text-xs"
+              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
               @click="chatInputRef?.setInputText('帮我分析一下当前项目的结构')"
             >
-              分析项目
+              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 shrink-0 group-hover:bg-primary/15 transition-colors">
+                <SvgIcon name="search" size="14" class="text-primary/70" />
+              </div>
+              <div>
+                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">分析项目</div>
+                <div class="text-[11px] text-base-content/40 mt-0.5">了解项目结构与依赖</div>
+              </div>
             </button>
+
             <button 
-              class="btn btn-ghost btn-xs text-xs"
+              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
               @click="chatInputRef?.setInputText('帮我写一个测试用例')"
             >
-              写测试
+              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-success/10 shrink-0 group-hover:bg-success/15 transition-colors">
+                <SvgIcon name="check" size="14" class="text-success/70" />
+              </div>
+              <div>
+                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">编写测试</div>
+                <div class="text-[11px] text-base-content/40 mt-0.5">为代码添加单元测试</div>
+              </div>
             </button>
+
             <button 
-              class="btn btn-ghost btn-xs text-xs"
+              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
               @click="chatInputRef?.setInputText('帮我重构这段代码')"
             >
-              重构代码
+              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-warning/10 shrink-0 group-hover:bg-warning/15 transition-colors">
+                <SvgIcon name="tool" size="14" class="text-warning/70" />
+              </div>
+              <div>
+                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">重构代码</div>
+                <div class="text-[11px] text-base-content/40 mt-0.5">改善代码质量与结构</div>
+              </div>
             </button>
+
+            <button 
+              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
+              @click="chatInputRef?.setInputText('帮我修复这个 bug')"
+            >
+              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-error/10 shrink-0 group-hover:bg-error/15 transition-colors">
+                <SvgIcon name="zap" size="14" class="text-error/70" />
+              </div>
+              <div>
+                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">修复 Bug</div>
+                <div class="text-[11px] text-base-content/40 mt-0.5">诊断并修复代码问题</div>
+              </div>
+            </button>
+          </div>
+
+          <!-- Keyboard hint -->
+          <div class="mt-5 flex items-center gap-1.5 text-[11px] text-base-content/30">
+            <SvgIcon name="keyboard" size="12" />
+            <span>输入消息开始对话，<kbd class="px-1 py-0.5 rounded bg-base-200/60 text-base-content/40 font-mono text-[10px]">⌘ ↵</kbd> 发送</span>
           </div>
         </div>
         
@@ -250,11 +380,19 @@
         <button 
           v-if="showScrollToBottom && messages.length > 0"
           class="fixed bottom-[140px] right-[30px] btn btn-circle btn-sm btn-primary shadow-lg opacity-90 hover:opacity-100 transition-opacity z-10"
-          @click="scrollToBottom"
+          @click="scrollToBottom(true)"
           title="回到底部"
         >
           <SvgIcon name="chevronDown" size="16" />
         </button>
+      </div>
+
+      <!-- 拖放文件覆盖层 -->
+      <div v-if="dragActive" class="absolute inset-0 bg-primary/5 border-2 border-dashed border-primary/30 rounded-lg flex items-center justify-center z-40 pointer-events-none">
+        <div class="text-center">
+          <SvgIcon name="paperclip" size="32" class="text-primary/40 mx-auto mb-2" />
+          <p class="text-sm text-primary/60">拖放文件到此处</p>
+        </div>
       </div>
 
       <!-- 输入区域 -->
@@ -310,6 +448,7 @@ defineOptions({ name: 'HermesChat' })
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch, type Ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useStreamingHandler } from '@/composables/useStreamingHandler';
 import { marked } from 'marked';
@@ -496,6 +635,86 @@ const isAborting = ref(false); // 正在停止中
 const showScrollToBottom = ref(false); // 是否显示回到底部按钮
 const hermesAvailable = ref(false);
 
+// Smart auto-scroll: track if user scrolled up
+const userScrolledUp = ref(false);
+
+// Fast mode toggle
+const fastMode = ref(false);
+
+// Rich usage badge with cost
+const lastUsage = ref<{ promptTokens: number; completionTokens: number; cost?: number } | null>(null);
+const unlistenUsageFn = ref<(() => void) | null>(null);
+
+// Context folder: 绑定会话到工作目录
+const contextFolder = ref<string | null>(null);
+
+// Message queue: agent 忙时排队消息，完成后逐条发送
+interface QueuedMessage {
+  text: string;
+  paths: PathItem[];
+  model: string;
+}
+const messageQueue = ref<QueuedMessage[]>([]);
+const queuedCount = ref(0);
+
+// Drag-and-drop file overlay state
+const dragActive = ref(false);
+const dragCounter = ref(0);
+
+const eventHasFiles = (e: DragEvent): boolean => {
+  const types = e.dataTransfer?.types;
+  if (!types) return false;
+  for (let i = 0; i < types.length; i++) {
+    if (types[i] === 'Files') return true;
+  }
+  return false;
+};
+
+const handleDragEnter = (e: DragEvent) => {
+  if (!eventHasFiles(e)) return;
+  e.preventDefault();
+  dragCounter.value += 1;
+  if (dragCounter.value === 1) dragActive.value = true;
+};
+
+const handleDragOver = (e: DragEvent) => {
+  if (!eventHasFiles(e)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+};
+
+const handleDragLeave = (e: DragEvent) => {
+  if (!eventHasFiles(e)) return;
+  dragCounter.value -= 1;
+  if (dragCounter.value === 0) dragActive.value = false;
+};
+
+const handleDrop = async (e: DragEvent) => {
+  if (!eventHasFiles(e)) return;
+  e.preventDefault();
+  dragCounter.value = 0;
+  dragActive.value = false;
+  const files = Array.from(e.dataTransfer?.files || []);
+  if (files.length === 0) return;
+  // Process files through attachment processor
+  const { processFiles } = await import('@/composables/useAttachmentProcessor');
+  const { attachments, errors } = await processFiles(files);
+  if (errors.length > 0) {
+    messages.value.push({ role: 'assistant', content: `文件处理错误: ${errors.join(', ')}`, timestamp: Date.now() / 1000, toolName: null, isError: true });
+  }
+  // Add as path attachments via ChatInput's attachedPaths
+  for (const att of attachments) {
+    if (att.path) {
+      chatInputRef.value?.attachedPaths.push({ path: att.path, type: att.mime?.startsWith('image/') ? 'file' : 'file', name: att.name });
+    } else if (att.dataUrl) {
+      chatInputRef.value?.attachedPaths.push({ path: att.name, type: 'file', name: att.name, previewUrl: att.dataUrl });
+    } else if (att.text) {
+      // For text files, we can't directly set ChatInput text, so add as a path ref with the name
+      chatInputRef.value?.attachedPaths.push({ path: att.name, type: 'file', name: att.name });
+    }
+  }
+};
+
 // 调试日志函数（写入日志文件）
 const agentLog = async (message: string) => {
   // 直接写入 DEBUG 日志，不再调用 console.log（会被 main.ts 拦截写入 INFO，导致双重记录）
@@ -508,11 +727,13 @@ const agentLog = async (message: string) => {
 };
 
 // 滚动到底部
-const scrollToBottom = () => {
+const scrollToBottom = (force = false) => {
+  if (!force && userScrolledUp.value) return;
   nextTick(() => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
       showScrollToBottom.value = false;
+      userScrolledUp.value = false;
     }
   });
 };
@@ -701,14 +922,14 @@ interface PathItem {
 const handleSend = async (text: string, paths: PathItem[], model: string) => {
   if (!text.trim()) {return;}
 
-  // 如果正在处理，先打断当前处理
+  // Force scroll to bottom when user sends a message
+  userScrolledUp.value = false;
+
+  // 如果正在处理，排队消息（而不是打断）
   if (isStreaming.value) {
-    await abortChat();
-    await new Promise(resolve => setTimeout(resolve, 200));
-    if (isStreaming.value) {
-      void agentLog('[handleSend] abort 后状态仍为 streaming，强制重置');
-      if (currentSessionId.value) {streamingSessions[currentSessionId.value] = false;}
-    }
+    messageQueue.value.push({ text, paths, model });
+    queuedCount.value = messageQueue.value.length;
+    return;
   }
 
   // 将已选择路径拼入消息头部
@@ -743,6 +964,7 @@ const handleSend = async (text: string, paths: PathItem[], model: string) => {
       message: fullText,
       sessionId: currentSessionId.value,
       model: modelToUse,
+      contextFolder: contextFolder.value || null,
     });
 
     // Always update session_id from API response (it may change on continuation)
@@ -1011,8 +1233,24 @@ const startNewChat = () => {
     messages.value = [];
     chatInputRef.value?.clear();
     thinkingText.value = '';
+    // 重置 context folder 和消息队列
+    contextFolder.value = null;
+    messageQueue.value = [];
+    queuedCount.value = 0;
   });
 };
+
+// 消息队列 drain: agent 完成后自动发送排队的消息
+watch(isStreaming, (streaming) => {
+  if (!streaming && messageQueue.value.length > 0) {
+    const next = messageQueue.value.shift()!;
+    queuedCount.value = messageQueue.value.length;
+    // 使用 nextTick 确保状态完全更新后发送
+    nextTick(() => {
+      handleSend(next.text, next.paths, next.model);
+    });
+  }
+});
 
 // 注：generateSessionTitle 已从 useSessionManager composable 导入
 
@@ -1070,6 +1308,43 @@ const copyMessageContent = async (content: string | null) => {
   } catch (e) {
     console.error('Copy failed:', e);
   }
+};
+
+// 聊天记录导出（纯文本 / Markdown）
+const copyChatTranscript = async (format: 'text' | 'markdown') => {
+  const textContent = messages.value
+    .filter(m => m.content && m.content.trim())
+    .map(m => {
+      const speaker = m.role === 'user' ? 'You' : 'Hermes';
+      const content = m.content!.trim();
+      return format === 'markdown'
+        ? `**${speaker}:**\n\n${content}`
+        : `${speaker}: ${content}`;
+    })
+    .join('\n\n');
+  if (!textContent) {return;}
+  try {
+    await navigator.clipboard.writeText(textContent);
+  } catch (e) {
+    console.error('Copy transcript failed:', e);
+  }
+};
+
+// Context folder: 选择工作目录
+const pickContextFolder = async () => {
+  try {
+    const { open } = await import('@tauri-apps/plugin-dialog');
+    const selected = await open({ directory: true, multiple: false });
+    if (selected) {
+      contextFolder.value = typeof selected === 'string' ? selected : String(selected);
+    }
+  } catch (e) {
+    console.error('Failed to pick folder:', e);
+  }
+};
+
+const clearContextFolder = () => {
+  contextFolder.value = null;
 };
 
 // 获取用户消息的显示内容（去除已单独展示的文件路径前缀）
@@ -1320,7 +1595,37 @@ const checkScrollPosition = () => {
     // 当用户向上滚动超过 100px 时显示按钮
     const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
     showScrollToBottom.value = !isNearBottom && messages.value.length > 0;
+    userScrolledUp.value = !isNearBottom;
   }
+};
+
+// Handle scroll event for messagesContainer (smart auto-scroll threshold)
+const handleScroll = () => {
+  const el = messagesContainer.value;
+  if (!el) return;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  userScrolledUp.value = !atBottom;
+};
+
+// Fast mode toggle
+const toggleFastMode = async () => {
+  fastMode.value = !fastMode.value;
+  try {
+    await invoke('hermes_set_config', { key: 'agent.service_tier', value: fastMode.value ? 'fast' : 'normal' });
+  } catch (e) { /* ignore */ }
+};
+
+// Agent approval detection
+const needsApproval = computed(() => {
+  if (isStreaming.value) return false;
+  const lastMsg = messages.value[messages.value.length - 1];
+  if (!lastMsg || lastMsg.role !== 'assistant') return false;
+  const content = lastMsg.content || '';
+  return /⚠️.*dangerous|requires? (your )?approval|do you want (me )?to (proceed|continue|run|execute)/i.test(content);
+});
+
+const handleApproval = async (approved: boolean) => {
+  await handleSend(approved ? '/approve' : '/deny', [], currentSession.value?.model || '');
 };
 
 // Lifecycle
@@ -1339,7 +1644,18 @@ onMounted(async () => {
   if (messagesContainer.value) {
     messagesContainer.value.addEventListener('scroll', checkScrollPosition);
   }
-  
+
+  // Listen for agent-usage events to track cost
+  unlistenUsageFn.value = await listen<{ prompt_tokens: number; completion_tokens: number; total_tokens: number; cost?: number; session_id: string | null }>('agent-usage', (event) => {
+    if (event.payload?.session_id === currentSessionId.value) {
+      lastUsage.value = {
+        promptTokens: event.payload.prompt_tokens,
+        completionTokens: event.payload.completion_tokens,
+        cost: event.payload.cost,
+      };
+    }
+  });
+
   // 使用 composable 设置流式事件监听
   await setupStreamingListeners();
 
@@ -1389,6 +1705,9 @@ onMounted(async () => {
 onUnmounted(() => {
   // 清理流式事件监听（使用 composable）
   cleanupStreamingListeners();
+  // 清理 usage listener
+  unlistenUsageFn.value?.();
+  unlistenUsageFn.value = null;
   // 移除快捷键监听
   document.removeEventListener('keydown', handleGlobalKeydown);
   // 移除滚动监听

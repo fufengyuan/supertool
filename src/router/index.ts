@@ -123,6 +123,26 @@ const routes = [
         component: () => import('../views/agent/AgentProfiles.vue'),
       },
       {
+        path: 'agent/tools',
+        name: 'AgentTools',
+        component: () => import('../views/agent/ToolsManager.vue'),
+      },
+      {
+        path: 'agent/cron',
+        name: 'AgentCron',
+        component: () => import('../views/agent/CronManager.vue'),
+      },
+      {
+        path: 'agent/skills',
+        name: 'AgentSkills',
+        component: () => import('../views/agent/SkillsBrowser.vue'),
+      },
+      {
+        path: 'agent/memory',
+        name: 'AgentMemory',
+        component: () => import('../views/agent/MemoryManager.vue'),
+      },
+      {
         path: 'kanban',
         name: 'Kanban',
         component: () => import('../components/kanban/KanbanBoard.vue'),

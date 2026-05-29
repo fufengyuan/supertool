@@ -1,5 +1,6 @@
 import { ref, reactive, computed, type Ref } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
 
 // 工具调用详情
 export interface ToolCall {
@@ -107,6 +108,8 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
   let unlistenToolComplete: UnlistenFn | null = null;
   let unlistenError: UnlistenFn | null = null;
   let unlistenDone: UnlistenFn | null = null;
+  let unlistenReasoningDelta: UnlistenFn | null = null;
+  let unlistenUsage: UnlistenFn | null = null;
   
   // 日志函数（默认空实现）
   const log = agentLog || (async (_message: string) => {});
@@ -537,6 +540,84 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
       if (currentSessionId.value) {sessionRoundEnded[currentSessionId.value] = true;}
       void log('[agent-done] messages.length: ' + messages.value.length + ' 最后一条: ' + (messages.value[messages.value.length - 1]?.role || 'none'));
       if (currentSessionId.value) {streamingSessions[currentSessionId.value] = false;} // trigger computed update via streamingSessions
+
+      // End-of-stream DB merge: 从 state.db 加载完整的 tool_call/tool_result/reasoning 数据
+      // 流式传输只能拿到 user 和 assistant content，tool_call/tool_result 只存在于 DB 中
+      if (eventSid) {
+        try {
+          const dbResult = await invoke<{ success: boolean; messages: Array<{
+            role: string;
+            content: string | null;
+            timestamp: number | null;
+            toolName: string | null;
+            toolCalls?: string | null;
+            toolCallId?: string | null;
+            reasoning?: string | null;
+          }>}>('agent_list_messages', { sessionId: eventSid });
+
+          if (dbResult.success && dbResult.messages.length > 0) {
+            // 转换 DB 消息为前端 Message 格式
+            const dbMessages: Message[] = [];
+            for (const row of dbResult.messages) {
+              if (row.role === 'user') {
+                dbMessages.push({
+                  role: 'user',
+                  content: row.content || '',
+                  timestamp: row.timestamp,
+                  toolName: null,
+                });
+              } else if (row.role === 'assistant') {
+                // 添加 reasoning 消息（如果有）
+                if (row.reasoning && row.reasoning.trim()) {
+                  dbMessages.push({
+                    role: 'assistant',
+                    content: '',
+                    timestamp: row.timestamp,
+                    toolName: null,
+                    thinking: row.reasoning,
+                  });
+                }
+                // 添加 assistant 消息
+                dbMessages.push({
+                  role: 'assistant',
+                  content: row.content || '',
+                  timestamp: row.timestamp,
+                  toolName: null,
+                  toolCalls: row.toolCalls ? JSON.parse(row.toolCalls) : [],
+                });
+              } else if (row.role === 'tool') {
+                // tool result 消息 — 合并到最近的 assistant toolCalls 中
+                const lastAssistant = dbMessages.filter(m => m.role === 'assistant').pop();
+                if (lastAssistant?.toolCalls) {
+                  const toolCall = lastAssistant.toolCalls.find(
+                    (t: { id?: string; name: string; status?: string }) => t.id === row.toolCallId || t.name === row.toolName
+                  );
+                  if (toolCall) {
+                    toolCall.result = row.content || '';
+                    toolCall.status = 'completed';
+                  }
+                }
+              }
+            }
+
+            // 合并策略：保留流式渲染的 React identity，补充 DB-only 的 tool_call/tool_result
+            if (dbMessages.length > 0) {
+              const currentMsgs = messages.value;
+              // 简单合并：如果 DB 消息比流式消息更完整，使用 DB 版本
+              // 但保留流式期间的实时状态（如 isStopped）
+              if (dbMessages.length >= currentMsgs.length) {
+                messages.value = dbMessages;
+                void log('[agent-done] DB merge: replaced ' + currentMsgs.length + ' with ' + dbMessages.length + ' DB messages');
+              } else {
+                void log('[agent-done] DB merge: skipped (DB has fewer messages: ' + dbMessages.length + ' < ' + currentMsgs.length + ')');
+              }
+            }
+          }
+        } catch (e) {
+          void log('[agent-done] DB merge failed: ' + e);
+          // 静默失败，保留流式渲染的消息
+        }
+      }
     }
     // 恢复 UI 状态（仅当该会话是当前会话时）
     if (!eventSid || (currentSessionId.value && eventSid === currentSessionId.value)) {
@@ -559,6 +640,115 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
   };
   
   /**
+   * 处理 agent-reasoning-delta 事件（推理/思考 token 流式输出）
+   * 来自 DeepSeek reasoning_content 或 OpenAI o1/o3 reasoning 字段
+   */
+  const handleReasoningDelta = async (event: { payload: { text: string | null; session_id: string | null } }) => {
+    const eventSid = event.payload?.session_id;
+    if (!eventSid || !event.payload?.text) {return;}
+
+    // 获取该会话的消息缓存
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      if (currentSessionId.value === null || eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        sessionMessagesCache[eventSid] = [];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      }
+    }
+
+    // 查找当前 turn 的 reasoning 消息（在最后一个 user 之后）
+    let lastUserIdx = -1;
+    for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+      if (sessionMsgs[i].role === 'user') {lastUserIdx = i; break;}
+    }
+    // 查找 lastUserIdx 之后的 reasoning 消息
+    let reasoningMsg: Message | undefined;
+    let reasoningIdx = -1;
+    for (let i = sessionMsgs.length - 1; i > lastUserIdx; i--) {
+      if (sessionMsgs[i].thinking && !sessionMsgs[i].content) {
+        reasoningMsg = sessionMsgs[i];
+        reasoningIdx = i;
+        break;
+      }
+    }
+
+    if (reasoningMsg && reasoningIdx >= 0) {
+      // 追加到已有的 reasoning 消息
+      reasoningMsg.thinking = (reasoningMsg.thinking || '') + event.payload.text;
+    } else {
+      // 创建新的 reasoning 消息（插入到最后一个 assistant 内容之前）
+      const insertAt = sessionMsgs.length;
+      // 找到最后一个 user 之后的第一个 assistant 消息，在它之前插入
+      for (let i = sessionMsgs.length - 1; i > lastUserIdx; i--) {
+        if (sessionMsgs[i].role === 'assistant' && sessionMsgs[i].content) {
+          // 在此 assistant 之前插入 reasoning
+          sessionMsgs.splice(i, 0, {
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now() / 1000,
+            toolName: null,
+            thinking: event.payload.text,
+          } as Message);
+          break;
+        }
+      }
+      // 如果没找到合适的 assistant，在末尾追加
+      if (sessionMsgs.length === insertAt) {
+        sessionMsgs.push({
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now() / 1000,
+          toolName: null,
+          thinking: event.payload.text,
+        } as Message);
+      }
+    }
+
+    // 同步到 messages.value（仅当前会话）
+    if (currentSessionId.value === null || eventSid === currentSessionId.value) {
+      messages.value = [...sessionMsgs];
+      scroll();
+    }
+  };
+
+  /**
+   * 处理 agent-usage 事件（token 使用量统计）
+   */
+  const handleUsage = async (event: { payload: { prompt_tokens: number; completion_tokens: number; total_tokens: number; cost?: number; session_id: string | null } }) => {
+    const eventSid = event.payload?.session_id;
+    if (!eventSid) {return;}
+
+    // 获取该会话的消息缓存
+    let sessionMsgs = sessionMessagesCache[eventSid];
+    if (!sessionMsgs) {
+      if (currentSessionId.value === null || eventSid === currentSessionId.value) {
+        sessionMessagesCache[eventSid] = [...messages.value];
+        sessionMsgs = sessionMessagesCache[eventSid];
+      } else {
+        return; // 非当前会话，忽略
+      }
+    }
+
+    // 在最后一条 assistant 消息上记录 token 使用量
+    for (let i = sessionMsgs.length - 1; i >= 0; i--) {
+      if (sessionMsgs[i].role === 'assistant') {
+        sessionMsgs[i].tokens = {
+          input: event.payload.prompt_tokens,
+          output: event.payload.completion_tokens,
+        };
+        break;
+      }
+    }
+
+    if (eventSid === currentSessionId.value) {
+      messages.value = [...sessionMsgs];
+    }
+  };
+
+  /**
    * 设置流式事件监听
    */
   const setupStreamingListeners = async () => {
@@ -568,8 +758,10 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     unlistenThinking = await listen<{ text: string | null; session_id: string | null }>('agent-thinking', handleThinking);
     unlistenError = await listen<{ message: string; session_id: string | null }>('agent-error', handleError);
     unlistenDone = await listen<{ response: string | null; session_id: string; message_count: number }>('agent-done', handleDone);
+    unlistenReasoningDelta = await listen<{ text: string | null; session_id: string | null }>('agent-reasoning-delta', handleReasoningDelta);
+    unlistenUsage = await listen<{ prompt_tokens: number; completion_tokens: number; total_tokens: number; cost?: number; session_id: string | null }>('agent-usage', handleUsage);
   };
-  
+
   /**
    * 清理流式事件监听
    */
@@ -580,12 +772,16 @@ export function useStreamingHandler(options: UseStreamingHandlerOptions): UseStr
     unlistenToolComplete?.();
     unlistenError?.();
     unlistenDone?.();
+    unlistenReasoningDelta?.();
+    unlistenUsage?.();
     unlistenDelta = null;
     unlistenThinking = null;
     unlistenToolStart = null;
     unlistenToolComplete = null;
     unlistenError = null;
     unlistenDone = null;
+    unlistenReasoningDelta = null;
+    unlistenUsage = null;
   };
   
   // 手动设置流式状态的方法
