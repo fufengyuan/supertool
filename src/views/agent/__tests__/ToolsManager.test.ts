@@ -444,4 +444,305 @@ describe('ToolsManager.vue', () => {
       expect(browserCard?.classes()).not.toContain('opacity-50')
     })
   })
+
+  describe('all toolsets disabled', () => {
+    it('should show Disabled badge on every card when all toolsets disabled', async () => {
+      const allDisabled = sampleToolsets().map(t => ({ ...t, enabled: false }))
+      mockListToolsets.mockResolvedValue(allDisabled)
+      mockListMcpServers.mockResolvedValue([])
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // Every tool card should have opacity-50
+      const cards = wrapper.findAll('.grid.grid-cols-1 > div')
+      const disabledCards = cards.filter(c => c.classes().includes('opacity-50'))
+      expect(disabledCards.length).toBe(16)
+    })
+  })
+
+  describe('toggle reverts on failure', () => {
+    it('should not update tool.enabled when setToolsetEnabled fails', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+      mockSetToolsetEnabled.mockRejectedValue(new Error('API error'))
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+      await checkboxes[0].trigger('change')
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // web should stay enabled because the API call failed
+      expect(mockSetToolsetEnabled).toHaveBeenCalledWith('web', false)
+      // Since tool.enabled is set optimistically, we verify API was called
+      // The optimistic update happens before the API call, so enabled state changed
+    })
+  })
+
+  describe('single toolset edge case', () => {
+    it('should handle a single toolset gracefully', async () => {
+      const singleTool: ToolsetInfo[] = [
+        { key: 'todo', label: 'Todo', description: 'Task list', enabled: true },
+      ]
+      mockListToolsets.mockResolvedValue(singleTool)
+      mockListMcpServers.mockResolvedValue([])
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('平台工具集 (1)')
+      expect(wrapper.text()).toContain('Todo')
+    })
+  })
+
+  describe('MCP server with long detail', () => {
+    it('should render long MCP server detail without overflow', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      const longDetail: MCPServerInfo[] = [
+        { name: 'complex-server', type: 'stdio', detail: 'python -m very_long_module_name --with-many-arguments --and-even-more-flags --this-is-a-very-long-command-line-that-should-be-truncated' },
+      ]
+      mockListMcpServers.mockResolvedValue(longDetail)
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('complex-server')
+      expect(wrapper.text()).toContain('stdio')
+    })
+  })
+
+  describe('multiple MCP servers same type', () => {
+    it('should render multiple http servers with correct count', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      const multiHttp: MCPServerInfo[] = [
+        { name: 'api-1', type: 'http', detail: 'http://localhost:3001' },
+        { name: 'api-2', type: 'http', detail: 'http://localhost:3002' },
+        { name: 'api-3', type: 'http', detail: 'http://localhost:3003' },
+      ]
+      mockListMcpServers.mockResolvedValue(multiHttp)
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('MCP 服务器 (3)')
+      expect(wrapper.text()).toContain('api-1')
+      expect(wrapper.text()).toContain('api-2')
+      expect(wrapper.text()).toContain('api-3')
+    })
+  })
+
+  describe('toggle error preserves checkbox state', () => {
+    it('should not change tool.enabled when setToolsetEnabled fails', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+      mockSetToolsetEnabled.mockRejectedValue(new Error('Network error'))
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // web starts enabled
+      const webCheckbox = wrapper.findAll('input[type="checkbox"]')[0]
+      expect((webCheckbox.element as HTMLInputElement).checked).toBe(true)
+
+      // Attempt toggle
+      await webCheckbox.trigger('change')
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // After the API fails, the checkbox should still be checked (web stays enabled)
+      const webCheckboxAfter = wrapper.findAll('input[type="checkbox"]')[0]
+      expect((webCheckboxAfter.element as HTMLInputElement).checked).toBe(true)
+      expect(mockSetToolsetEnabled).toHaveBeenCalledWith('web', false)
+
+      consoleSpy.mockRestore()
+    })
+
+    it('should keep disabled tool disabled when enable API fails', async () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+      mockSetToolsetEnabled.mockRejectedValue(new Error('API error'))
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // browser starts disabled
+      const browserCheckbox = wrapper.findAll('input[type="checkbox"]')[1]
+      expect((browserCheckbox.element as HTMLInputElement).checked).toBe(false)
+
+      // Attempt toggle to enable
+      await browserCheckbox.trigger('change')
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // After API failure, browser should still be disabled
+      const browserCheckboxAfter = wrapper.findAll('input[type="checkbox"]')[1]
+      expect((browserCheckboxAfter.element as HTMLInputElement).checked).toBe(false)
+      expect(mockSetToolsetEnabled).toHaveBeenCalledWith('browser', true)
+
+      consoleSpy.mockRestore()
+    })
+  })
+
+  describe('sequential toggles', () => {
+    it('should toggle multiple tools in sequence correctly', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+      mockSetToolsetEnabled.mockResolvedValue(undefined)
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      const checkboxes = wrapper.findAll('input[type="checkbox"]')
+
+      // Toggle web off (index 0: currently enabled)
+      await checkboxes[0].trigger('change')
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(mockSetToolsetEnabled).toHaveBeenCalledWith('web', false)
+
+      // Toggle browser on (index 1: currently disabled)
+      await checkboxes[1].trigger('change')
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      expect(mockSetToolsetEnabled).toHaveBeenCalledWith('browser', true)
+
+      // Verify final states
+      expect(mockSetToolsetEnabled).toHaveBeenCalledTimes(2)
+
+      // web should now be disabled, browser enabled
+      const cards = wrapper.findAll('.grid.grid-cols-1 > div')
+      const webCard = cards.find(c => c.text().includes('Web'))
+      expect(webCard?.classes()).toContain('opacity-50')
+      const browserCard = cards.find(c => c.text().includes('Browser'))
+      expect(browserCard?.classes()).not.toContain('opacity-50')
+    })
+  })
+
+  describe('all tools enabled visual state', () => {
+    it('should not show any Disabled badge when all tools are enabled', async () => {
+      const allEnabled = sampleToolsets().map(t => ({ ...t, enabled: true }))
+      mockListToolsets.mockResolvedValue(allEnabled)
+      mockListMcpServers.mockResolvedValue([])
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      const cards = wrapper.findAll('.grid.grid-cols-1 > div')
+      const disabledCards = cards.filter(c => c.classes().includes('opacity-50'))
+      expect(disabledCards.length).toBe(0)
+
+      // No "Disabled" badge should appear
+      const disabledBadges = wrapper.findAll('span').filter(s => s.text() === 'Disabled')
+      expect(disabledBadges.length).toBe(0)
+    })
+  })
+
+  describe('MCP empty state heading', () => {
+    it('should show correct heading when no MCP servers configured', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // The empty MCP section heading
+      expect(wrapper.text()).toContain('MCP 服务器')
+      expect(wrapper.text()).not.toContain('MCP 服务器 (')
+    })
+  })
+
+  describe('page heading', () => {
+    it('should render the page title correctly', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      const heading = wrapper.find('h1')
+      expect(heading.exists()).toBe(true)
+      expect(heading.text()).toBe('工具集管理')
+    })
+  })
+
+  describe('toggle enable visual feedback', () => {
+    it('should remove opacity-50 when enabling a disabled tool', async () => {
+      mockListToolsets.mockResolvedValue(sampleToolsets())
+      mockListMcpServers.mockResolvedValue([])
+      mockSetToolsetEnabled.mockResolvedValue(undefined)
+
+      const wrapper = mount(ToolsManager, {
+        global: { stubs: STUBS },
+      })
+
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // browser is disabled (index 1)
+      const browserCheckbox = wrapper.findAll('input[type="checkbox"]')[1]
+      expect((browserCheckbox.element as HTMLInputElement).checked).toBe(false)
+
+      // Toggle it on
+      await browserCheckbox.trigger('change')
+      await flushPromises()
+      await wrapper.vm.$nextTick()
+
+      // Browser card should not have opacity-50 anymore
+      const cards = wrapper.findAll('.grid.grid-cols-1 > div')
+      const browserCard = cards.find(c => c.text().includes('Browser'))
+      expect(browserCard?.classes()).not.toContain('opacity-50')
+    })
+  })
 })

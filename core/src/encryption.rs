@@ -164,4 +164,120 @@ mod tests {
     fn test_decrypt_empty() {
         assert_eq!(decrypt_password("").unwrap(), "");
     }
+
+    #[test]
+    fn test_encrypt_decrypt_unicode() {
+        let inputs = vec![
+            "密码123",
+            "パスワード",
+            "🔑 secret",
+            "русский_пароль",
+            "normal_ascii!@#$%^&*()",
+        ];
+        for input in inputs {
+            let encrypted = encrypt_password(input).unwrap();
+            let decrypted = decrypt_password(&encrypted).unwrap();
+            assert_eq!(input, decrypted, "round-trip failed for: {input}");
+        }
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_empty_string() {
+        let encrypted = encrypt_password("").unwrap();
+        let decrypted = decrypt_password(&encrypted).unwrap();
+        assert_eq!(decrypted, "");
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_long_string() {
+        let long = "a".repeat(10_000);
+        let encrypted = encrypt_password(&long).unwrap();
+        let decrypted = decrypt_password(&encrypted).unwrap();
+        assert_eq!(long, decrypted);
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_various_lengths() {
+        for len in [1, 2, 3, 16, 32, 64, 128, 256, 1024, 4096] {
+            let input = "x".repeat(len);
+            let encrypted = encrypt_password(&input).unwrap();
+            let decrypted = decrypt_password(&encrypted).unwrap();
+            assert_eq!(input, decrypted, "length {len} round-trip failed");
+        }
+    }
+
+    #[test]
+    fn test_encrypt_produces_different_output_each_time() {
+        // Nonce randomness should produce different ciphertext each time
+        let input = "same_password";
+        let e1 = encrypt_password(input).unwrap();
+        let e2 = encrypt_password(input).unwrap();
+        assert_ne!(e1, e2, "encrypted outputs should differ due to random nonce");
+    }
+
+    #[test]
+    fn test_decrypt_invalid_base64() {
+        let result = decrypt_password("not-valid-base64!!");
+        assert!(result.is_err(), "invalid base64 should fail");
+    }
+
+    #[test]
+    fn test_decrypt_corrupted_data() {
+        let original = "secret_data";
+        let encrypted = encrypt_password(original).unwrap();
+        let mut bytes = BASE64.decode(&encrypted).unwrap();
+        // Corrupt the last byte of ciphertext
+        if let Some(last) = bytes.last_mut() {
+            *last ^= 0xFF;
+        }
+        let corrupted = BASE64.encode(&bytes);
+        let result = decrypt_password(&corrupted);
+        assert!(result.is_err(), "corrupted ciphertext should fail");
+    }
+
+    #[test]
+    fn test_decrypt_short_data() {
+        // Data shorter than 13 bytes (12 nonce + 1 ciphertext min) should pass through
+        // Use valid base64 with decoded length < 13
+        let short_b64 = BASE64.encode(&[0u8; 5]); // 8 chars of valid base64, decodes to 5 bytes
+        let result = decrypt_password(&short_b64).unwrap();
+        // When combined length < 13, returns original encoded string
+        assert_eq!(result, short_b64);
+    }
+
+    #[test]
+    fn test_try_decrypt_empty() {
+        assert_eq!(try_decrypt_password(""), "");
+    }
+
+    #[test]
+    fn test_try_decrypt_plaintext() {
+        // If it can't be decrypted, it returns as-is
+        let result = try_decrypt_password("already_plain");
+        assert_eq!(result, "already_plain");
+    }
+
+    #[test]
+    fn test_try_decrypt_valid_roundtrip() {
+        let input = "valid_password_123";
+        let encrypted = encrypt_password(input).unwrap();
+        let decrypted = try_decrypt_password(&encrypted);
+        assert_eq!(decrypted, input);
+    }
+
+    #[test]
+    fn test_encrypt_decrypt_special_chars() {
+        let inputs = vec![
+            "\t\n\r",
+            "line1\nline2\nline3",
+            "  spaces around  ",
+            "\0null", // String may contain null
+            "{\"json\": \"like\"}",
+        ];
+        for input in inputs {
+            let encrypted = encrypt_password(input).unwrap();
+            let decrypted = decrypt_password(&encrypted).unwrap();
+            assert_eq!(input, decrypted, "special chars round-trip failed for: {input:?}");
+        }
+    }
 }

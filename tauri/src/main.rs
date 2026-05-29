@@ -889,6 +889,10 @@ fn main() {
             commands::hermes_config::list_toolsets,
             commands::hermes_config::set_toolset_enabled,
             commands::hermes_config::list_mcp_servers,
+            // Hermes Config export/import
+            commands::hermes_config::get_hermes_config_info,
+            commands::hermes_config::export_hermes_config,
+            commands::hermes_config::import_hermes_config,
             // Hermes Memory management
             commands::hermes_memory::read_memory,
             commands::hermes_memory::add_memory_entry,
@@ -944,6 +948,12 @@ fn main() {
             commands::profile::kanban_dispatch,
             commands::profile::kanban_dispatcher_status,
             commands::profile::kanban_workload,
+            // Provider credential management
+            commands::provider::list_providers,
+            commands::provider::save_provider_credential,
+            commands::provider::remove_provider_credential,
+            commands::provider::start_oauth_flow,
+            commands::provider::poll_oauth_result,
             // Image commands
             commands::image::image_compress,
             commands::image::image_resize,

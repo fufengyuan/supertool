@@ -4,11 +4,13 @@ import { Store } from "@tauri-apps/plugin-store";
 export interface UserSettings {
     theme: "cupcake" | "sunset";
     language: "en-US" | "zh-CN";
+    httpProxy: string;
 }
 
 const defaultSettings: UserSettings = {
     theme: "cupcake",
     language: "zh-CN",
+    httpProxy: "",
 };
 
 let diskStore: Store | null = null;

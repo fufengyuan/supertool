@@ -143,6 +143,16 @@ const routes = [
         component: () => import('../views/agent/MemoryManager.vue'),
       },
       {
+        path: 'agent/settings',
+        name: 'AgentSettings',
+        component: () => import('../views/agent/SettingsPage.vue'),
+      },
+      {
+        path: 'agent/providers',
+        name: 'AgentProviders',
+        component: () => import('../views/agent/ProviderManager.vue'),
+      },
+      {
         path: 'kanban',
         name: 'Kanban',
         component: () => import('../components/kanban/KanbanBoard.vue'),

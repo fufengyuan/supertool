@@ -271,9 +271,13 @@ async function handleTaskAction(action: string, taskId: string, ...args: unknown
       case 'complete':
         await invoke('kanban_complete_task', { taskId, summary: args[0] || null });
         break;
-      case 'block':
-        await invoke('kanban_block_task', { taskId, reason: args[0] || '需要人工介入' });
+      case 'block': {
+        const reason = window.prompt('请输入阻塞原因', String(args[0] || '需要人工介入'));
+        // 用户取消 prompt（返回 null）则不执行阻塞操作
+        if (reason === null) break;
+        await invoke('kanban_block_task', { taskId, reason: reason || '需要人工介入' });
         break;
+      }
       case 'unblock':
         await invoke('kanban_unblock_task', { taskId });
         break;

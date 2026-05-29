@@ -23,6 +23,7 @@ pub mod mfa;
 pub mod nginx;
 pub mod notes;
 pub mod openvpn;
+pub mod provider;
 pub mod profile;
 pub mod projects;
 pub mod servers;
