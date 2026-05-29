@@ -431,6 +431,37 @@ function detectLevel(content: string): string {
   return 'info'
 }
 
+// 从日志行中解析时间戳，返回毫秒时间戳或 null
+// 支持常见格式：2026-05-29 10:30:15, 2026-05-29T10:30:15, May 29 10:30:15 等
+function parseLogTimestamp(content: string): number | null {
+  // 只检查行首 40 个字符（时间戳通常在行首）
+  const head = content.slice(0, 40)
+
+  // 格式1: 2026-05-29 10:30:15 或 2026-05-29T10:30:15（可选毫秒）
+  let m = head.match(/(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+  if (m) {
+    const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] ? '.' + m[7].padEnd(3, '0') : ''}`)
+    if (!isNaN(d.getTime())) {return d.getTime()}
+  }
+
+  // 格式2: May 29 10:30:15（syslog 风格）
+  m = head.match(/([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})/)
+  if (m) {
+    const d = new Date(`${m[1]} ${m[2]} ${new Date().getFullYear()} ${m[3]}:${m[4]}:${m[5]}`)
+    if (!isNaN(d.getTime())) {return d.getTime()}
+  }
+
+  // 格式3: 仅时间 10:30:15（无日期，用今天补全）
+  m = head.match(/(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
+  if (m) {
+    const now = new Date()
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), m[4] ? parseInt(m[4].padEnd(3, '0')) : 0)
+    if (!isNaN(d.getTime())) {return d.getTime()}
+  }
+
+  return null
+}
+
 // 获取预设关键字
 function getKeywordsFromPreset(): string {
   if (selectedPreset.value?.keywords?.length) {
@@ -620,18 +651,22 @@ async function doSearch() {
     if (result?.matches) {
       for (const match of (result.matches || [])) {
         for (const m of match.lines) {
+          const parsedTime = parseLogTimestamp(m.content)
           logLines.value.push({
             id: `${match.serverId}-${m.lineNum}-${Date.now()}`,
             serverId: match.serverId,
             serverName: match.serverName,
-            timestamp: Date.now(),
+            timestamp: parsedTime ?? Date.now(),
             content: m.content,
             level: detectLevel(m.content),
             isMatch: m.isMatch,
-            lineNum: String(m.lineNum)
-          })
+            lineNum: String(m.lineNum),
+            sortKey: parsedTime ?? Date.now()
+          } as any)
         }
       }
+      // 按时间排序搜索结果
+      logLines.value.sort((a: any, b: any) => (a.sortKey ?? 0) - (b.sortKey ?? 0))
       const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
       toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果`)
     } else {
@@ -655,7 +690,7 @@ function scheduleFlush() {
     logFlushTimer = null
     if (logBuffer.length === 0) {return}
     const batch = logBuffer.splice(0, logBuffer.length)
-    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean }> = []
+    const newLines: Array<{ id: string; serverId: string; serverName: string; timestamp: number; content: string; level: string; matched?: boolean; sortKey: number }> = []
     const now = Date.now()
     // 预计算当前预设关键字（流式模式下只需计算一次）
     const presetKeywords = queryMode.value === 'stream' && selectedPreset.value?.keywords?.length
@@ -664,6 +699,7 @@ function scheduleFlush() {
     for (const data of batch) {
       if (!data?.line || typeof data.line !== 'string' || !data?.serverId) {continue}
       const content = data.line
+      const parsedTime = parseLogTimestamp(content)
       newLines.push({
         id: `${data.serverId}-${now}-${Math.random()}`,
         serverId: data.serverId,
@@ -671,12 +707,20 @@ function scheduleFlush() {
         timestamp: now,
         content,
         level: detectLevel(content),
-        matched: presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw))
+        matched: presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw)),
+        // sortKey: 有解析到时间戳就用解析的，否则用当前时间 + 微小偏移保持批次内顺序
+        sortKey: parsedTime ?? (now + newLines.length * 0.001)
       })
       activeServers.value.add(data.serverId)
     }
+
+    // 按 sortKey 排序，确保多服务器日志按时间顺序排列
+    newLines.sort((a, b) => a.sortKey - b.sortKey)
+
     logLines.value.push(...newLines)
+    // 裁剪时也要按 sortKey 排序（旧数据可能未排序）
     if (logLines.value.length > 2000) {
+      logLines.value.sort((a, b) => (a as any).sortKey - (b as any).sortKey)
       logLines.value = logLines.value.slice(-2000)
     }
     if (followMode.value) {
