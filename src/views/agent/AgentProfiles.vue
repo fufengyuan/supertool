@@ -316,8 +316,8 @@ function getWorkload(name: string): number {
 }
 
 function gatewayClass(status?: string): string {
-  if (status === 'running') return 'text-success';
-  if (status === 'stopped') return 'text-base-content/50';
+  if (status === 'running') {return 'text-success';}
+  if (status === 'stopped') {return 'text-base-content/50';}
   return 'text-warning';
 }
 
@@ -331,7 +331,7 @@ async function setDefault(name: string) {
 }
 
 async function deleteProfile(name: string) {
-  if (!confirm(`确定删除 Profile "${name}"？`)) return;
+  if (!confirm(`确定删除 Profile "${name}"？`)) {return;}
   try {
     await invoke('profile_delete', { name });
     await refreshProfiles();
@@ -341,7 +341,7 @@ async function deleteProfile(name: string) {
 }
 
 async function createProfile() {
-  if (!newProfile.value.name.trim()) return;
+  if (!newProfile.value.name.trim()) {return;}
   try {
     await invoke('profile_create', {
       name: newProfile.value.name.trim(),
@@ -370,7 +370,7 @@ async function editDescription(name: string) {
 }
 
 async function saveDescription() {
-  if (!editingProfile.value) return;
+  if (!editingProfile.value) {return;}
   try {
     await invoke('profile_describe', {
       name: editingProfile.value,
@@ -389,7 +389,7 @@ function openSetModel(name: string, currentModel?: string) {
 }
 
 async function saveModel() {
-  if (!settingModelProfile.value) return;
+  if (!settingModelProfile.value) {return;}
   try {
     await invoke('profile_set_model', {
       name: settingModelProfile.value,

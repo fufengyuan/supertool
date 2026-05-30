@@ -241,7 +241,7 @@ function statusBadgeClass(job: CronJob): string {
 }
 
 function formatTime(t: string | null): string {
-  if (!t) return ''
+  if (!t) {return ''}
   try {
     const d = new Date(t)
     return d.toLocaleString('zh-CN', {
@@ -286,7 +286,7 @@ function openCreateModal() {
 }
 
 async function createJob() {
-  if (!form.value.schedule.trim()) return
+  if (!form.value.schedule.trim()) {return}
   creating.value = true
   try {
     const api = getTauriAPI()
@@ -307,7 +307,7 @@ async function createJob() {
 }
 
 async function removeJob(job: CronJob) {
-  if (!confirm(`确定要删除定时任务「${job.name || job.id}」吗？`)) return
+  if (!confirm(`确定要删除定时任务「${job.name || job.id}」吗？`)) {return}
   actionLoading.value = job.id
   try {
     const api = getTauriAPI()

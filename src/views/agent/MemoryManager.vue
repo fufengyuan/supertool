@@ -303,32 +303,32 @@ const providerUrls: Record<string, string> = {
 
 // Capacity bar helpers
 const memBarWidth = computed(() => {
-  if (!data.value) return 0
+  if (!data.value) {return 0}
   return Math.min(100, Math.round((data.value.memory.charCount / data.value.memory.charLimit) * 100))
 })
 const userBarWidth = computed(() => {
-  if (!data.value) return 0
+  if (!data.value) {return 0}
   return Math.min(100, Math.round((data.value.user.charCount / data.value.user.charLimit) * 100))
 })
 const memBarClass = computed(() => {
   const pct = memBarWidth.value
-  if (pct > 90) return 'bg-error'
-  if (pct > 70) return 'bg-warning'
+  if (pct > 90) {return 'bg-error'}
+  if (pct > 70) {return 'bg-warning'}
   return 'bg-success'
 })
 const userBarClass = computed(() => {
   const pct = userBarWidth.value
-  if (pct > 90) return 'bg-error'
-  if (pct > 70) return 'bg-warning'
+  if (pct > 90) {return 'bg-error'}
+  if (pct > 70) {return 'bg-warning'}
   return 'bg-success'
 })
 
 function timeAgo(ts: number | null): string {
-  if (!ts) return ''
+  if (!ts) {return ''}
   const diff = Math.floor(Date.now() / 1000) - ts
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return `${Math.floor(diff / 60)}m 前`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h 前`
+  if (diff < 60) {return '刚刚'}
+  if (diff < 3600) {return `${Math.floor(diff / 60)}m 前`}
+  if (diff < 86400) {return `${Math.floor(diff / 3600)}h 前`}
   return `${Math.floor(diff / 86400)}d 前`
 }
 
@@ -349,7 +349,7 @@ async function loadData() {
     const envKeys: string[] = []
     for (const p of prov.providers) {
       for (const envKey of p.envVars) {
-        if (!envKeys.includes(envKey)) envKeys.push(envKey)
+        if (!envKeys.includes(envKey)) {envKeys.push(envKey)}
       }
     }
     if (envKeys.length > 0) {
@@ -370,7 +370,7 @@ async function loadData() {
 }
 
 async function handleAddEntry() {
-  if (!newEntry.value.trim()) return
+  if (!newEntry.value.trim()) {return}
   error.value = ''
   try {
     const result: MemoryWriteResult = await api.addMemoryEntry(newEntry.value.trim())
@@ -387,7 +387,7 @@ async function handleAddEntry() {
 }
 
 async function handleSaveEdit() {
-  if (editingIndex.value === null) return
+  if (editingIndex.value === null) {return}
   error.value = ''
   try {
     const result: MemoryWriteResult = await api.updateMemoryEntry(editingIndex.value, editContent.value.trim())

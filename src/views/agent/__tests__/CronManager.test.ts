@@ -764,7 +764,7 @@ describe('CronManager.vue', () => {
       await (wrapper.vm as any).openCreateModal()
       await wrapper.vm.$nextTick()
 
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('not-a-valid-cron')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('not-a-valid-cron')
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -786,7 +786,7 @@ describe('CronManager.vue', () => {
       await (wrapper.vm as any).openCreateModal()
       await wrapper.vm.$nextTick()
 
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('   ')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('   ')
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -807,7 +807,7 @@ describe('CronManager.vue', () => {
 
       // 1000-character schedule string
       const longSchedule = '*/5 * * * *' + 'x'.repeat(990)
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue(longSchedule)
+      await wrapper.find('input[placeholder*="e.g."]').setValue(longSchedule)
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -828,7 +828,7 @@ describe('CronManager.vue', () => {
       await (wrapper.vm as any).openCreateModal()
       await wrapper.vm.$nextTick()
 
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('every 你好 世界')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('every 你好 世界')
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -854,7 +854,7 @@ describe('CronManager.vue', () => {
       await (wrapper.vm as any).openCreateModal()
       await wrapper.vm.$nextTick()
 
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('<script>alert(1)</script>')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('<script>alert(1)</script>')
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -884,8 +884,8 @@ describe('CronManager.vue', () => {
       await wrapper.vm.$nextTick()
 
       const longName = 'A'.repeat(2000)
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('0 9 * * *')
-      await wrapper.find('input[placeholder*=\"可选，留空自动生成\"]').setValue(longName)
+      await wrapper.find('input[placeholder*="e.g."]').setValue('0 9 * * *')
+      await wrapper.find('input[placeholder*="可选，留空自动生成"]').setValue(longName)
       await wrapper.vm.$nextTick()
 
       const createBtn = wrapper.findAll('button').find(b => b.text() === '创建')
@@ -912,7 +912,7 @@ describe('CronManager.vue', () => {
       await wrapper.vm.$nextTick()
 
       const longPrompt = 'x'.repeat(5000)
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('0 9 * * *')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('0 9 * * *')
       await wrapper.find('textarea').setValue(longPrompt)
       await wrapper.vm.$nextTick()
 
@@ -942,8 +942,8 @@ describe('CronManager.vue', () => {
       await (wrapper.vm as any).openCreateModal()
       await wrapper.vm.$nextTick()
 
-      await wrapper.find('input[placeholder*=\"e.g.\"]').setValue('0 9 * * *')
-      await wrapper.find('input[placeholder*=\"可选，留空自动生成\"]').setValue('Test Name')
+      await wrapper.find('input[placeholder*="e.g."]').setValue('0 9 * * *')
+      await wrapper.find('input[placeholder*="可选，留空自动生成"]').setValue('Test Name')
       await wrapper.find('textarea').setValue('Test prompt')
 
       // Close and reopen modal
@@ -951,7 +951,7 @@ describe('CronManager.vue', () => {
       await wrapper.vm.$nextTick()
 
       // Fields should be reset
-      const scheduleInput = wrapper.find('input[placeholder*=\"e.g.\"]')
+      const scheduleInput = wrapper.find('input[placeholder*="e.g."]')
       expect((scheduleInput.element as HTMLInputElement).value).toBe('')
     })
   })
@@ -1007,7 +1007,7 @@ describe('CronManager.vue', () => {
       expect(wrapper.text()).toContain('Some error')
 
       // Find and click the dismiss X button
-      const dismissBtn = wrapper.findAll('button').find(b => b.find('SvgIcon[name=\"x\"]'))
+      const dismissBtn = wrapper.findAll('button').find(b => b.find('SvgIcon[name="x"]'))
         || wrapper.findAll('button').filter(b => b.attributes('class')?.includes('btn-ghost')).find(b =>
           b.text() === ''
         )
@@ -1036,7 +1036,7 @@ describe('CronManager.vue', () => {
       await wrapper.vm.$nextTick()
 
       // Click trigger on first job
-      const triggerBtn = wrapper.findAll('button[title=\"立即执行\"]')[0]
+      const triggerBtn = wrapper.findAll('button[title="立即执行"]')[0]
       await triggerBtn.trigger('click')
       await wrapper.vm.$nextTick()
 

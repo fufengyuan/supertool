@@ -143,6 +143,11 @@ const routes = [
         component: () => import('../views/agent/MemoryManager.vue'),
       },
       {
+        path: 'agent/sessions',
+        name: 'AgentSessions',
+        component: () => import('../views/agent/SessionsPage.vue'),
+      },
+      {
         path: 'agent/settings',
         name: 'AgentSettings',
         component: () => import('../views/agent/SettingsPage.vue'),

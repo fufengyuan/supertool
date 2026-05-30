@@ -200,6 +200,7 @@ const tabComponents: Record<string, Component> = {
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
   '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
+  '/agent/sessions': defineAsyncComponent(() => import('@/views/agent/SessionsPage.vue')),
   '/agent/settings': defineAsyncComponent(() => import('@/views/agent/SettingsPage.vue')),
   '/agent/providers': defineAsyncComponent(() => import('@/views/agent/ProviderManager.vue')),
   '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
@@ -255,6 +256,7 @@ const iconMap: Record<string, any> = {
   'agent-profiles': IconUsers,
   'skills': IconBrain,
   'memory': IconCpu,
+  'agent-sessions': IconRobot,
   'agent-settings': IconSettings,
   'kanban': IconLayoutColumns,
   'image-processor': IconPhoto,
@@ -288,6 +290,7 @@ const navGroups = {
   agent: [
     { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
     { path: '/agent/profiles', icon: '👥', label: 'Profiles', viewId: 'agent-profiles' },
+    { path: '/agent/sessions', icon: '💬', label: 'Sessions', viewId: 'agent-sessions' },
     { path: '/agent/skills', icon: '🧠', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '🧠', label: '记忆', viewId: 'memory' },
     { path: '/agent/settings', icon: '⚙️', label: '设置', viewId: 'agent-settings' },
@@ -380,6 +383,7 @@ onMounted(async () => {
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
       'skills': '/agent/skills',
+      'agent-sessions': '/agent/sessions',
     }
     const path = routeMap[view]
     if (path) {

@@ -200,7 +200,7 @@ async function loadAppInfo() {
   try {
     const api = getTauriAPI()
     const v = await api.getAppVersion()
-    if (v) appVersion.value = v
+    if (v) {appVersion.value = v}
     dataDir.value = await appConfigDir()
   } catch {
     dataDir.value = '-'

@@ -1,13 +1,11 @@
 <template>
-  <div class="flex gap-2 w-full group">
-    <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-base-200">
-      <SvgIcon name="user" size="14" class="text-base-content/60" />
-    </div>
-    <div class="max-w-[900px]">
-      <!-- 用户消息气泡 -->
-      <div class="bg-primary/10 border border-primary/20 rounded-xl px-3 py-2">
+  <!-- User message: right-aligned bubble with accent background -->
+  <div class="flex gap-2 w-full group justify-end">
+    <div class="max-w-[80%]">
+      <!-- 用户消息气泡 - right aligned, accent background -->
+      <div class="bg-primary/15 border border-primary/25 rounded-xl px-3 py-2 rounded-tr-sm">
         <!-- 文件/文件夹路径徽章 -->
-        <div v-if="message.filePaths && message.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5">
+        <div v-if="message.filePaths && message.filePaths.length > 0" class="flex flex-wrap gap-1.5 mb-1.5 justify-end">
           <div
             v-for="(pathItem, pi) in message.filePaths"
             :key="pi"
@@ -26,14 +24,11 @@
         <VueMarkdown
           :source="displayContent"
           :options="mdOptions"
-          class="prose prose-sm max-w-none"
+          class="prose prose-sm max-w-none text-base-content"
         />
       </div>
-      <!-- 时间戳 -->
-      <div class="mt-1 flex items-center justify-between">
-        <span v-if="message.timestamp" class="text-xs text-base-content/40">
-          {{ formatTime(message.timestamp) }}
-        </span>
+      <!-- 时间戳和操作按钮 - right-aligned -->
+      <div class="mt-1 flex items-center justify-end gap-1">
         <button
           v-if="message.content"
           class="btn btn-ghost btn-xs btn-square opacity-0 group-hover:opacity-100 transition-opacity"
@@ -42,7 +37,13 @@
         >
           <SvgIcon :name="copied ? 'clipboardCheck' : 'clipboard'" size="12" :class="copied ? 'text-success' : ''" />
         </button>
+        <span v-if="message.timestamp" class="text-xs text-base-content/40">
+          {{ formatTime(message.timestamp) }}
+        </span>
       </div>
+    </div>
+    <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-primary/15 self-start mt-0.5">
+      <SvgIcon name="user" size="14" class="text-primary/60" />
     </div>
     <!-- Image Preview Lightbox -->
     <Teleport to="body">
@@ -81,7 +82,7 @@ const closePreview = () => {
 const copied = ref(false);
 
 async function copyContent() {
-  if (!props.message.content) return;
+  if (!props.message.content) {return;}
   try {
     await navigator.clipboard.writeText(displayContent.value);
     copied.value = true;

@@ -206,7 +206,7 @@ const filteredSkills = computed(() => {
   const q = search.value.toLowerCase().trim()
   return list.filter(s => {
     if (categoryFilter.value && tab.value === 'browse') {
-      if (s.category !== categoryFilter.value) return false
+      if (s.category !== categoryFilter.value) {return false}
     }
     if (q) {
       return (

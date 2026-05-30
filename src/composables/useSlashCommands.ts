@@ -76,16 +76,16 @@ export function useSlashCommands(options: SlashCommandsOptions) {
    * 调用方应在 inputText 变化时调用此方法以更新菜单可见性。
    */
   function isSlashInput(text: string): boolean {
-    if (!text.startsWith('/')) return false;
+    if (!text.startsWith('/')) {return false;}
     const prefix = text.trim().toLowerCase();
-    if (!prefix.startsWith('/')) return false;
+    if (!prefix.startsWith('/')) {return false;}
     return SLASH_COMMANDS.some(cmd => cmd.name.startsWith(prefix));
   }
 
   /** 根据当前输入文本实时过滤匹配的命令 */
   const filteredSlashCommands: ComputedRef<SlashCommand[]> = computed(() => {
     const text = currentInputText.value.trim();
-    if (!text.startsWith('/')) return [];
+    if (!text.startsWith('/')) {return [];}
     return SLASH_COMMANDS.filter(cmd => cmd.name.startsWith(text));
   });
 
@@ -209,7 +209,7 @@ export function useSlashCommands(options: SlashCommandsOptions) {
       case '/help': {
         const groups: Record<string, SlashCommand[]> = {};
         for (const cmd of SLASH_COMMANDS) {
-          if (!groups[cmd.category]) groups[cmd.category] = [];
+          if (!groups[cmd.category]) {groups[cmd.category] = [];}
           groups[cmd.category].push(cmd);
         }
         const lines: string[] = ['**📖 斜杠命令帮助**', ''];

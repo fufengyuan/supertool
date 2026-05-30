@@ -537,7 +537,7 @@ const isDefaultModel = (m: string) => m === defaultModel.value;
 // 自动调整输入框高度
 const autoResize = () => {
   const el = inputRef.value;
-  if (!el) return;
+  if (!el) {return;}
   el.style.height = 'auto';
   el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
 };
@@ -641,7 +641,7 @@ const handleSend = () => {
 // 处理粘贴事件（处理图片和文件粘贴）
 const handlePaste = async (e: ClipboardEvent) => {
   const files = filesFromClipboard(e);
-  if (files.length === 0) return; // normal text paste, let it through
+  if (files.length === 0) {return;} // normal text paste, let it through
   e.preventDefault();
   const { attachments, errors } = await processFiles(files);
   if (errors.length > 0) {
@@ -684,7 +684,7 @@ const handleKeydown = (e: KeyboardEvent) => {
     const el = inputRef.value;
     if (el && el.selectionStart === el.value.length) {
       e.preventDefault();
-      if (historyIndex.value === -1) return;
+      if (historyIndex.value === -1) {return;}
       const next = historyIndex.value + 1;
       if (next >= inputHistory.value.length) {
         historyIndex.value = -1;

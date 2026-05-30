@@ -297,18 +297,18 @@ const cropH = ref(100)
 // ============ Computed ============
 
 const fileName = computed(() => {
-  if (!originalPath.value) return ''
+  if (!originalPath.value) {return ''}
   const parts = originalPath.value.replace(/\\/g, '/').split('/')
   return parts[parts.length - 1] || ''
 })
 
 const originalUrl = computed(() => {
-  if (!originalPath.value) return ''
+  if (!originalPath.value) {return ''}
   return convertFileSrc(originalPath.value)
 })
 
 const processedUrl = computed(() => {
-  if (!processedPath.value) return ''
+  if (!processedPath.value) {return ''}
   return convertFileSrc(processedPath.value)
 })
 
@@ -382,7 +382,7 @@ function clearFile() {
 }
 
 async function processImage() {
-  if (!originalPath.value || processing.value) return
+  if (!originalPath.value || processing.value) {return}
   processing.value = true
   errorMsg.value = ''
   processedPath.value = ''
@@ -454,7 +454,7 @@ async function getProcessedFileSize(path: string) {
 }
 
 async function downloadImage() {
-  if (!processedPath.value) return
+  if (!processedPath.value) {return}
   try {
     // Use Tauri shell to open/save or just copy path to clipboard
     // For simplicity, we use the dialog to save a copy
@@ -474,7 +474,7 @@ async function downloadImage() {
 }
 
 function formatSize(bytes: number): string {
-  if (bytes === 0) return '0 B'
+  if (bytes === 0) {return '0 B'}
   const units = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i]
