@@ -3,7 +3,7 @@
     <div class="flex h-8 w-8 items-center justify-center rounded-full shrink-0 bg-primary/20">
       <SvgIcon name="bot" size="14" class="text-primary" />
     </div>
-    <div class="max-w-[900px]">
+    <div class="max-w-[80%]">
       <!-- 思考过程（如果有）- 可折叠 -->
       <div 
         v-if="message.thinking" 
@@ -22,7 +22,7 @@
       <!-- 气泡主体：有内容时才渲染 -->
       <div
         v-if="hasContent"
-        class="bg-base-100 border border-base-300 rounded-xl px-3 py-2"
+        class="bg-base-200/60 border border-base-content/10 rounded-xl px-3 py-2 rounded-tl-sm"
       >
         <!-- 已停止徽章 -->
         <div v-if="message.isStopped" class="mb-2 flex items-center gap-1 text-xs text-warning">
@@ -95,7 +95,7 @@ import { formatTodoArgsSummary, formatTodoResult } from '@/composables/useToolFo
 const copied = ref(false);
 
 async function copyContent() {
-  if (!props.message.content) return;
+  if (!props.message.content) {return;}
   try {
     await navigator.clipboard.writeText(props.message.content);
     copied.value = true;

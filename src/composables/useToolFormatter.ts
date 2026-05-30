@@ -107,7 +107,7 @@ function escapeHtml(text: string): string {
  */
 export function formatTodoArgsSummary(args: Record<string, unknown>): string {
   const todos = args?.todos as Array<{ id?: string; content?: string; status?: string }> | undefined;
-  if (!todos || !Array.isArray(todos) || todos.length === 0) return '待办任务';
+  if (!todos || !Array.isArray(todos) || todos.length === 0) {return '待办任务';}
 
   const total = todos.length;
   const pending = todos.filter(t => t.status === 'pending').length;
@@ -115,9 +115,9 @@ export function formatTodoArgsSummary(args: Record<string, unknown>): string {
   const completed = todos.filter(t => t.status === 'completed').length;
 
   const parts: string[] = [];
-  if (pending > 0) parts.push(`${pending} 待办`);
-  if (inProgress > 0) parts.push(`${inProgress} 进行中`);
-  if (completed > 0) parts.push(`${completed} 已完成`);
+  if (pending > 0) {parts.push(`${pending} 待办`);}
+  if (inProgress > 0) {parts.push(`${inProgress} 进行中`);}
+  if (completed > 0) {parts.push(`${completed} 已完成`);}
 
   const summary = parts.join(', ');
   const first = todos.find(t => t.content);

@@ -1,167 +1,366 @@
 <template>
-  <div class="flex-shrink-0 w-72 flex flex-col rounded-xl shadow-sm" :class="columnBgClass">
-    <!-- Column header with colored bar -->
-    <div class="flex items-center gap-2 px-3 py-2.5 rounded-t-xl" :class="headerBgClass">
-      <span class="w-3 h-3 rounded-full" :class="colorDotClass"></span>
-      <span class="text-sm font-semibold">{{ title }}</span>
-      <span class="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-base-content/10">{{ tasks.length }}</span>
+  <div
+    class="flex-shrink-0 w-72 flex flex-col kanban-column"
+    :class="[
+      columnBgClass,
+      isDragOver && canDropHere ? 'kanban-column-drop' : '',
+    ]"
+    @dragover.prevent="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
+    <!-- Column header -->
+    <div
+      class="flex items-center gap-2 px-3 py-2.5 rounded-t-lg border-b"
+      :class="colHeaderBorderClass"
+    >
+      <span class="w-2 h-2 rounded-full shrink-0" :class="colorDotClass" />
+      <span class="text-xs font-semibold uppercase tracking-wide text-base-content/70">{{ title }}</span>
+      <span class="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-base-content/10 font-mono">
+        {{ tasks.length }}
+      </span>
     </div>
 
-    <!-- Tasks list -->
-    <div class="flex-1 overflow-y-auto p-2 space-y-2 min-h-[200px]">
-      <div 
-        v-for="task in tasks" 
+    <!-- Column body -->
+    <div class="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-[100px]">
+      <div
+        v-for="task in tasks"
         :key="task.id"
-        class="bg-base-100 rounded-lg p-3 cursor-pointer border border-base-content/5 hover:border-primary/30 hover:shadow-md transition-all group"
+        class="kanban-card group"
+        :class="{
+          'kanban-card-dragging': isDragging && draggingTaskId === task.id,
+          'opacity-50 pointer-events-none': busyTaskIds?.includes(task.id),
+        }"
+        :draggable="!busyTaskIds?.includes(task.id)"
+        @dragstart="onCardDragStart($event, task)"
+        @dragend="$emit('drag-end', task.id)"
         @click="$emit('task-click', task)"
       >
-        <!-- Task header -->
-        <div class="flex items-start justify-between gap-2">
-          <span class="text-sm font-medium leading-snug flex-1 line-clamp-2">{{ task.title }}</span>
-          <span v-if="task.priority" class="text-xs px-1.5 py-0.5 rounded bg-warning/20 text-warning shrink-0">
-            P{{ task.priority }}
+        <!-- Title -->
+        <div class="kanban-card-title">{{ task.title }}</div>
+
+        <!-- Pills row -->
+        <div class="kanban-card-meta">
+          <span class="kanban-pill kanban-pill-status">
+            {{ colStatusLabel }}
+          </span>
+          <span v-if="taskPriorityLabel(task.priority)" class="kanban-pill kanban-pill-prio">
+            {{ taskPriorityLabel(task.priority) }}
+          </span>
+          <span v-if="task.assignee" class="kanban-pill" title="Assignee">
+            @{{ task.assignee }}
+          </span>
+          <span v-if="taskAgeLabel(task.created_at)" class="kanban-pill kanban-pill-age" title="Age">
+            {{ taskAgeLabel(task.created_at) }}
+          </span>
+          <span v-if="task.status === 'running' && task.started_at && taskStartedAgo(task.started_at)" class="kanban-pill" title="Running for">
+            {{ taskStartedAgo(task.started_at) }}
           </span>
         </div>
 
-        <!-- Task meta -->
-        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
-          <span v-if="task.assignee" class="flex items-center gap-1">
-            <SvgIcon name="user" size="12" />
-            <span class="truncate max-w-[100px]">{{ task.assignee }}</span>
-          </span>
-          <span v-if="task.skills && task.skills.length > 0" class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary">
-            <SvgIcon name="skill" size="10" />
-            <span class="truncate max-w-[80px]">{{ task.skills[0] }}</span>
-          </span>
-        </div>
-
-        <!-- Actions (shown on hover) -->
-        <div class="mt-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <!-- Triage: assign button -->
-          <button 
-            v-if="status === 'triage'"
-            class="btn btn-xs btn-ghost px-2 text-info hover:bg-info/10"
-            @click.stop="$emit('task-action', 'assign', task.id)"
-            title="分配任务"
-          >
-            分配
-          </button>
-          <!-- Running/In Progress: reclaim button -->
-          <button 
-            v-if="status === 'running' || status === 'in_progress'"
-            class="btn btn-xs btn-ghost px-2 text-warning hover:bg-warning/10"
-            @click.stop="$emit('task-action', 'reclaim', task.id)"
-            title="回收任务"
-          >
-            回收
-          </button>
-          <!-- Ready/Running: complete button -->
-          <button 
-            v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
-            class="btn btn-xs btn-ghost px-2 text-success hover:bg-success/10"
+        <!-- Hover-reveal actions -->
+        <div class="kanban-card-actions">
+          <!-- Ready: complete -->
+          <button
+            v-if="task.status === 'ready'"
+            class="kanban-card-action text-success"
+            title="Mark done"
             @click.stop="$emit('task-action', 'complete', task.id)"
-            title="完成任务"
           >
-            完成
+            <SvgIcon name="check" size="14" />
           </button>
-          <!-- Ready/Running: block button -->
-          <button 
-            v-if="status === 'ready' || status === 'running' || status === 'in_progress'"
-            class="btn btn-xs btn-ghost px-2 text-error hover:bg-error/10"
-            @click.stop="$emit('task-action', 'block', task.id, '需要人工介入')"
-            title="阻塞任务"
+          <!-- Running: reclaim -->
+          <button
+            v-if="task.status === 'running'"
+            class="kanban-card-action text-warning"
+            title="Reclaim"
+            @click.stop="$emit('task-action', 'reclaim', task.id)"
           >
-            阻塞
+            <SvgIcon name="undo" size="14" />
           </button>
-          <!-- Blocked: unblock button -->
-          <button 
-            v-if="status === 'blocked'"
-            class="btn btn-xs btn-ghost px-2 text-success hover:bg-success/10"
+          <!-- Blocked: unblock -->
+          <button
+            v-if="task.status === 'blocked'"
+            class="kanban-card-action text-success"
+            title="Unblock"
             @click.stop="$emit('task-action', 'unblock', task.id)"
-            title="解除阻塞"
           >
-            解除
+            <SvgIcon name="undo" size="14" />
           </button>
-          <!-- Done: archive button -->
-          <button 
-            v-if="status === 'done'"
-            class="btn btn-xs btn-ghost px-2 text-base-content/50 hover:bg-base-content/5"
-            @click.stop="$emit('task-action', 'archive', task.id)"
-            title="归档任务"
+          <!-- Todo/Ready: block -->
+          <button
+            v-if="task.status === 'todo' || task.status === 'ready'"
+            class="kanban-card-action text-error"
+            title="Block"
+            @click.stop="$emit('task-action', 'block', task.id, 'Needs attention')"
           >
-            归档
+            <SvgIcon name="ban" size="14" />
+          </button>
+          <!-- Running: block -->
+          <button
+            v-if="task.status === 'running'"
+            class="kanban-card-action text-error"
+            title="Block"
+            @click.stop="$emit('task-action', 'block', task.id, 'Needs attention')"
+          >
+            <SvgIcon name="ban" size="14" />
+          </button>
+          <!-- Archive (always visible) -->
+          <button
+            class="kanban-card-action kanban-card-action-danger text-base-content/40 hover:text-error"
+            title="Archive"
+            @click.stop="$emit('task-action', 'archive', task.id)"
+          >
+            <SvgIcon name="trash" size="12" />
           </button>
         </div>
       </div>
 
       <!-- Empty state -->
-      <div v-if="tasks.length === 0" class="flex flex-col items-center justify-center py-8 text-xs text-base-content/40">
-        <SvgIcon name="inbox" size="24" class="mb-2 opacity-30" />
-        <span>暂无任务</span>
+      <div
+        v-if="tasks.length === 0"
+        class="flex items-center justify-center py-8 text-xs text-base-content/30 italic"
+      >
+        &mdash;
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { computed, ref } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
 interface KanbanTask {
-  id: string;
-  title: string;
-  status: string;
-  assignee?: string;
-  priority?: number;
-  skills?: string[];
-  createdBy?: string;
+  id: string
+  title: string
+  status: string
+  assignee?: string
+  priority?: number
+  skills?: string[]
+  created_by?: string
+  created_at?: number
+  started_at?: number
+  completed_at?: number
+  tenant?: string
 }
 
 const props = defineProps<{
-  title: string;
-  status: string;
-  tasks: KanbanTask[];
-  color: string;
-}>();
+  title: string
+  status: string
+  tasks: KanbanTask[]
+  color: string
+  busyTaskIds?: string[]
+  draggingTaskId?: string | null
+  dragOverCol?: string | null
+  canDropHere?: boolean
+}>()
 
-defineEmits<{
-  (e: 'task-click', task: KanbanTask): void;
-  (e: 'task-action', action: string, taskId: string, ...args: unknown[]): void;
-}>();
+const emit = defineEmits<{
+  (e: 'task-click', task: KanbanTask): void
+  (e: 'task-action', action: string, taskId: string, ...args: unknown[]): void
+  (e: 'drag-start', taskId: string): void
+  (e: 'drag-end', taskId: string): void
+  (e: 'drag-over', colKey: string): void
+  (e: 'drag-leave', colKey: string): void
+  (e: 'drop', colKey: string): void
+}>()
 
-// Column background (subtle tint)
+const isDragging = computed(() => props.draggingTaskId !== null && props.draggingTaskId !== undefined)
+const isDragOver = computed(() => props.dragOverCol === props.status)
+
+// ── Style helpers ────────────────────────────────────────
 const columnBgClass = computed(() => {
-  switch (props.color) {
-    case 'warning': return 'bg-warning/5';
-    case 'info': return 'bg-info/5';
-    case 'primary': return 'bg-primary/5';
-    case 'error': return 'bg-error/5';
-    case 'success': return 'bg-success/5';
-    default: return 'bg-base-200/30';
+  const map: Record<string, string> = {
+    secondary: 'bg-secondary/5', warning: 'bg-warning/5',
+    info: 'bg-info/5', primary: 'bg-primary/5',
+    error: 'bg-error/5', success: 'bg-success/5',
   }
-});
+  return map[props.color] || 'bg-base-200/30'
+})
 
-// Header background (stronger tint)
-const headerBgClass = computed(() => {
-  switch (props.color) {
-    case 'warning': return 'bg-warning/15';
-    case 'info': return 'bg-info/15';
-    case 'primary': return 'bg-primary/15';
-    case 'error': return 'bg-error/15';
-    case 'success': return 'bg-success/15';
-    default: return 'bg-base-200';
+const colHeaderBorderClass = computed(() => {
+  const map: Record<string, string> = {
+    secondary: 'border-secondary/20', warning: 'border-warning/20',
+    info: 'border-info/20', primary: 'border-primary/20',
+    error: 'border-error/20', success: 'border-success/20',
   }
-});
+  return map[props.color] || 'border-base-content/10'
+})
 
-// Color dot
 const colorDotClass = computed(() => {
-  switch (props.color) {
-    case 'warning': return 'bg-warning';
-    case 'info': return 'bg-info';
-    case 'primary': return 'bg-primary';
-    case 'error': return 'bg-error';
-    case 'success': return 'bg-success';
-    default: return 'bg-base-content/40';
+  const map: Record<string, string> = {
+    secondary: 'bg-secondary', warning: 'bg-warning',
+    info: 'bg-info', primary: 'bg-primary',
+    error: 'bg-error', success: 'bg-success',
   }
-});
+  return map[props.color] || 'bg-base-content/40'
+})
+
+// ── Per-task helpers (called from template) ──────────────
+const colStatusLabel = computed(() => {
+  const map: Record<string, string> = {
+    triage: 'triage', todo: 'todo', ready: 'ready',
+    running: 'running', blocked: 'blocked', done: 'done',
+  }
+  return map[props.status] || props.status
+})
+
+function taskPriorityLabel(p: number | undefined): string {
+  if (!p) {return ''}
+  if (p >= 10) {return 'P0'}
+  if (p >= 5) {return 'P1'}
+  if (p > 0) {return 'P2'}
+  return ''
+}
+
+function taskAgeLabel(createdAt: number | undefined): string {
+  if (!createdAt) {return ''}
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - createdAt))
+  if (seconds < 60) {return `${seconds}s`}
+  if (seconds < 3600) {return `${Math.floor(seconds / 60)}m`}
+  if (seconds < 86400) {return `${Math.floor(seconds / 3600)}h`}
+  return `${Math.floor(seconds / 86400)}d`
+}
+
+function taskStartedAgo(startedAt: number | undefined): string {
+  if (!startedAt) {return ''}
+  const seconds = Math.max(0, Math.floor(Date.now() / 1000 - startedAt))
+  if (seconds < 60) {return `${seconds}s`}
+  if (seconds < 3600) {return `${Math.floor(seconds / 60)}m`}
+  if (seconds < 86400) {return `${Math.floor(seconds / 3600)}h`}
+  return `${Math.floor(seconds / 86400)}d`
+}
+
+// ── Drag & drop handlers ─────────────────────────────────
+function onCardDragStart(e: DragEvent, task: KanbanTask) {
+  if (e.dataTransfer) {
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', task.id)
+  }
+  emit('drag-start', task.id)
+}
+
+function onDragOver(e: DragEvent) {
+  if (!isDragging.value) {return}
+  if (!props.canDropHere) {return}
+  if (e.dataTransfer) {e.dataTransfer.dropEffect = 'move'}
+  emit('drag-over', props.status)
+}
+
+function onDragLeave(e: DragEvent) {
+  const target = e.currentTarget as HTMLElement | null
+  if (target && e.relatedTarget instanceof Node && target.contains(e.relatedTarget)) {return}
+  emit('drag-leave', props.status)
+}
+
+function onDrop(e: DragEvent) {
+  e.preventDefault()
+  emit('drop', props.status)
+}
 </script>
+
+<style scoped>
+/* ── Column ─────────────────────────────────────────────── */
+.kanban-column {
+  transition: box-shadow 0.15s ease;
+}
+.kanban-column-drop {
+  box-shadow: 0 0 0 2px var(--fallback-p, oklch(0.55 0.2 250 / 0.4));
+}
+
+/* ── Cards ──────────────────────────────────────────────── */
+.kanban-card {
+  background: var(--fallback-b1, oklch(1 0 0));
+  border: 1px solid oklch(0.4 0 0 / 0.06);
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  user-select: none;
+}
+.kanban-card:hover {
+  border-color: var(--fallback-p, oklch(0.55 0.2 250 / 0.25));
+  box-shadow: 0 1px 6px oklch(0 0 0 / 0.08);
+}
+.kanban-card-dragging {
+  opacity: 0.4;
+  transform: rotate(2deg);
+}
+.kanban-card-title {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+  margin-bottom: 0.375rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Pills ──────────────────────────────────────────────── */
+.kanban-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+.kanban-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: oklch(0.4 0 0 / 0.06);
+  color: oklch(0.4 0 0 / 0.6);
+}
+.kanban-pill-status {
+  background: var(--fallback-p, oklch(0.55 0.2 250 / 0.1));
+  color: var(--fallback-p, oklch(0.55 0.2 250));
+}
+.kanban-pill-prio {
+  background: var(--fallback-wa, oklch(0.75 0.15 80 / 0.12));
+  color: var(--fallback-wa, oklch(0.65 0.15 80));
+  font-weight: 700;
+}
+.kanban-pill-age {
+  color: oklch(0.4 0 0 / 0.4);
+  margin-left: auto;
+}
+
+/* ── Hover-reveal actions ───────────────────────────────── */
+.kanban-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  margin-top: 0.375rem;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.kanban-card:hover .kanban-card-actions {
+  opacity: 1;
+}
+.kanban-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.25rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  padding: 0;
+}
+.kanban-card-action:hover {
+  background: oklch(0.4 0 0 / 0.08);
+}
+.kanban-card-action-danger:hover {
+  background: var(--fallback-er, oklch(0.6 0.2 20 / 0.1));
+}
+</style>

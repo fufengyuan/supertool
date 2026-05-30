@@ -55,7 +55,7 @@ const titleText = computed(() => {
 });
 
 const summaryText = computed(() => {
-  if (props.summary) return props.summary;
+  if (props.summary) {return props.summary;}
   if (props.tool.isSubAgent) {
     const args = props.tool.args as Record<string, unknown> | undefined;
     const goal = args?.goal || args?.task || args?.prompt;

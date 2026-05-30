@@ -163,7 +163,7 @@ const sendContinueMessage = () => {
 // 工具摘要生成
 const formatArgsSummary = (args: Record<string, unknown>): string => {
   const keys = Object.keys(args);
-  if (keys.length === 0) return '';
+  if (keys.length === 0) {return '';}
   const firstKey = keys[0];
   const value = args[firstKey];
   if (typeof value === 'string') {

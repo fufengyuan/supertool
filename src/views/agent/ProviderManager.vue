@@ -205,7 +205,7 @@ function cancelEdit(providerId: string) {
 
 async function saveKey(providerId: string) {
   const key = newKeys.value[providerId]?.trim()
-  if (!key) return
+  if (!key) {return}
   saving.value = true
   error.value = ''
   try {
@@ -227,7 +227,7 @@ function confirmRemove(providerId: string) {
 
 async function removeKey() {
   const providerId = removingProvider.value
-  if (!providerId) return
+  if (!providerId) {return}
   saving.value = true
   error.value = ''
   try {

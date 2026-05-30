@@ -250,7 +250,7 @@ function checkOfficialHoliday(y: number, m: number, d: number, festivals: string
   // 优先用 HolidayUtil（区分调班/放假）
   try {
     const h = (LunarJS.HolidayUtil as any).getHoliday(y, m, d);
-    if (h && !h.isWork()) return true;
+    if (h && !h.isWork()) {return true;}
   } catch {
     // HolidayUtil 可能没有某年数据，降级到名称匹配
   }
@@ -263,7 +263,7 @@ const monthCache = new Map<string, (DayInfo | null)[]>();
 function buildMonthData(y: number, m: number): (DayInfo | null)[] {
   const key = `${y}-${m}`;
   const cached = monthCache.get(key);
-  if (cached) return cached;
+  if (cached) {return cached;}
 
   const days: (DayInfo | null)[] = [];
   const firstDay = new Date(y, m - 1, 1);
@@ -392,7 +392,7 @@ const goToday = () => {
 
 // ===== 选日看黄历 =====
 const almanacTitle = computed(() => {
-  if (!selectedDay.value) return '';
+  if (!selectedDay.value) {return '';}
   const d = selectedDay.value;
   return `${d.year}年${d.month}月${d.day}日 黄历`;
 });

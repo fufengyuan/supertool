@@ -541,7 +541,7 @@ describe('MemoryManager.vue', () => {
       // Actually the trash button has no text, only an icon. Let me find buttons that contain IconTrash stub
       // The stub renders nothing, so we can't find by text. Let's just find buttons with class containing specific patterns
       const lastRow = wrapper.findAll('.bg-base-100.border').at(-1)
-      if (!lastRow) throw new Error('No entry card found')
+      if (!lastRow) {throw new Error('No entry card found')}
       const trashBtn = lastRow.findAll('button').filter(b => b.text().includes(''))
       // Click the last button (trash icon) in the first entry card
       if (trashBtn.length > 0) {

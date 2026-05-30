@@ -418,7 +418,7 @@ async function copyExport() {
 }
 
 async function handleImport() {
-  if (!importContent.value.trim()) return
+  if (!importContent.value.trim()) {return}
   importLoading.value = true
   importError.value = ''
   try {

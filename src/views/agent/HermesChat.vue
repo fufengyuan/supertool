@@ -1,161 +1,73 @@
 <template>
-  <div class="flex h-full">
-    <!-- 左侧会话列表 -->
-    <SessionSidebar
-      :sessions="sessions"
-      :currentSessionId="currentSessionId"
-      :loadingSessions="loadingSessions"
-      :isSearching="isSearching"
-      :searchResults="searchResults"
-      :formatTime="formatTime"
-      :sourceIcon="sourceIcon"
-      :highlightSnippet="highlightSnippet"
-      @refresh="refreshSessions"
-      @newChat="startNewChat"
-      @select="selectSessionWithMessages"
-      @delete="deleteSessionLocal"
-      @search="handleSessionSearch"
-      @jumpToResult="jumpToSearchResultWithMessages"
-      @clearSearch="clearSessionSearch"
-    />
-
-    <!-- 右侧聊天区域 -->
-    <div 
-      class="flex-1 flex flex-col relative"
-      @dragenter="handleDragEnter"
-      @dragover="handleDragOver"
-      @dragleave="handleDragLeave"
-      @drop="handleDrop"
-    >
-      <!-- 聊天头部 -->
-      <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100">
-        <div class="flex items-center gap-2 flex-1">
-          <button class="btn btn-ghost btn-xs btn-circle" @click="router.back()" title="返回">
-            <SvgIcon name="arrowLeft" size="14" />
-          </button>
-          <SvgIcon name="bot" size="16" class="text-primary" />
-          <!-- 标题显示/编辑 -->
-          <template v-if="isEditingTitle">
-            <input
-              ref="titleInputRef"
-              v-model="editingTitle"
-              class="input input-sm input-bordered w-48 text-sm"
-              placeholder="输入标题..."
-              @keydown.enter.exact="saveTitle"
-              @keydown.escape="cancelEditTitle"
-              @blur="saveTitle"
-            />
-          </template>
-          <template v-else>
-            <span class="text-sm font-semibold text-base-content cursor-pointer hover:opacity-80" @click="startEditTitle">
-              {{ currentSession?.title || '新对话' }}
-            </span>
-            <button v-if="currentSession" class="btn btn-ghost btn-xs btn-square" @click="startEditTitle">
-              <SvgIcon name="edit" size="12" />
-            </button>
-          </template>
-          <span v-if="currentSession" class="badge badge-ghost badge-xs" :title="currentSession.model">
-            {{ parseModelName(currentSession.model).name || currentSession.model }}
+  <div
+    class="flex flex-col h-full relative"
+    @dragenter="handleDragEnter"
+    @dragover="handleDragOver"
+    @dragleave="handleDragLeave"
+    @drop="handleDrop"
+  >
+    <!-- Chat header - hermes-desktop simplified style -->
+    <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10 bg-base-100 shrink-0">
+      <div class="flex items-center gap-2">
+        <SvgIcon name="bot" size="16" class="text-primary" />
+        <!-- 标题显示/编辑 -->
+        <template v-if="isEditingTitle">
+          <input
+            ref="titleInputRef"
+            v-model="editingTitle"
+            class="input input-sm input-bordered w-48 text-sm"
+            placeholder="输入标题..."
+            @keydown.enter.exact="saveTitle"
+            @keydown.escape="cancelEditTitle"
+            @blur="saveTitle"
+          />
+        </template>
+        <template v-else>
+          <span class="text-sm font-semibold text-base-content cursor-pointer hover:opacity-80" @click="startEditTitle">
+            {{ currentSession?.title || 'Hermes Chat' }}
           </span>
-          <!-- Context folder indicator -->
-          <span v-if="contextFolder" class="badge badge-info badge-xs gap-1 cursor-pointer" :title="'工作目录: ' + contextFolder" @click="clearContextFolder">
-            <SvgIcon name="folder" size="10" />
-            {{ contextFolder.split('/').pop() || contextFolder }}
-            <SvgIcon name="close" size="8" class="opacity-50" />
-          </span>
-          <!-- Queued messages indicator -->
-          <span v-if="queuedCount > 0" class="badge badge-warning badge-xs gap-1">
-            {{ queuedCount }} 条排队
-          </span>
-          <!-- 会话统计 -->
-          <span v-if="messages.length > 0" class="text-xs text-base-content/40">
-            {{ sessionStats.totalMessages }} 条消息 · {{ sessionStats.totalTokens > 0 ? `${sessionStats.totalTokens} tokens` : '' }}
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <!-- 停止按钮 - 流式输出时显示，更醒目 -->
-          <button 
-            v-if="isStreaming && !isAborting" 
-            class="btn btn-error btn-xs gap-1 animate-pulse shadow-error/30 shadow-md" 
-            @click="abortChat"
-          >
-            <SvgIcon name="stop" size="12" />
-            停止
+          <button v-if="currentSession" class="btn btn-ghost btn-xs btn-square" @click="startEditTitle">
+            <SvgIcon name="edit" size="12" />
           </button>
-          <!-- 停止中状态 -->
-          <button 
-            v-if="isAborting" 
-            class="btn btn-xs gap-1 btn-disabled"
-            disabled
-          >
-            <span class="loading loading-spinner loading-xs"></span>
-            停止中...
-          </button>
-          <button v-if="currentSession && messages.length > 0" class="btn btn-ghost btn-xs" @click="exportSession" title="导出 (Cmd+S)">
-            <SvgIcon name="download" size="12" />
-          </button>
-          <!-- 复制聊天记录 -->
-          <div v-if="messages.length > 0" class="dropdown dropdown-end">
-            <button tabindex="0" class="btn btn-ghost btn-xs" title="复制聊天记录">
-              <SvgIcon name="copy" size="12" />
-            </button>
-            <ul tabindex="0" class="dropdown-content menu p-1 shadow bg-base-100 rounded-box w-40 z-50">
-              <li><a @click="copyChatTranscript('text')" class="text-xs">复制为纯文本</a></li>
-              <li><a @click="copyChatTranscript('markdown')" class="text-xs">复制为 Markdown</a></li>
-            </ul>
-          </div>
-          <!-- Context folder picker -->
-          <button class="btn btn-ghost btn-xs" :class="{ 'text-info': contextFolder }" @click="pickContextFolder" title="设置工作目录">
-            <SvgIcon name="folder" size="12" />
-          </button>
-          <button v-if="messages.length > 0" class="btn btn-ghost btn-xs" @click="clearMessages" title="清空消息">
-            <SvgIcon name="clear" size="12" />
-          </button>
-          <!-- 任务面板按钮 -->
-          <button 
-            v-if="currentTasks.length > 0" 
-            class="btn btn-xs"
-            :class="showTaskPanel ? 'btn-primary' : 'btn-ghost'"
-            @click="showTaskPanel = !showTaskPanel"
-            title="显示任务列表"
-          >
-            <SvgIcon name="checklist" size="12" />
-            <span class="text-xs">{{ completedTasksCount }}/{{ currentTasks.length }}</span>
-          </button>
-          <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSessionLocal" title="删除">
-            <SvgIcon name="trash" size="12" />
-          </button>
-          <!-- 快速模式按钮 -->
-          <button class="btn btn-ghost btn-xs" :class="{ 'text-warning': fastMode }" @click="toggleFastMode" title="快速模式">
-            <SvgIcon name="zap" size="14" />
-          </button>
-          <!-- 使用量 badge -->
-          <span
-            v-if="lastUsage"
-            class="badge badge-ghost badge-xs"
-            :title="`Prompt: ${lastUsage.promptTokens} · Completion: ${lastUsage.completionTokens}${lastUsage.cost ? ' · $' + lastUsage.cost.toFixed(4) : ''}`"
-          >
-            {{ lastUsage.promptTokens + lastUsage.completionTokens }} tokens
-            <template v-if="lastUsage.cost"> · ${{ lastUsage.cost.toFixed(4) }}</template>
-          </span>
-          <!-- 搜索按钮 -->
-          <div v-if="messages.length > 0" class="relative">
-            <input
-              v-model="searchQuery"
-              type="text"
-              class="input input-xs input-bordered w-20 focus:w-40 transition-all"
-              placeholder="搜索..."
-            />
-            <button
-              v-if="searchQuery"
-              class="btn btn-ghost btn-xs btn-square absolute right-0"
-              @click="clearSearch"
-            >
-              <SvgIcon name="close" size="10" />
-            </button>
-          </div>
-        </div>
+        </template>
+        <!-- Usage badge -->
+        <span
+          v-if="lastUsage"
+          class="badge badge-ghost badge-xs"
+          :title="`Prompt: ${lastUsage.promptTokens} · Completion: ${lastUsage.completionTokens}${lastUsage.cost ? ' · $' + lastUsage.cost.toFixed(4) : ''}`"
+        >
+          {{ (lastUsage.promptTokens + lastUsage.completionTokens).toLocaleString() }} tokens
+          <template v-if="lastUsage.cost"> · ${{ lastUsage.cost.toFixed(4) }}</template>
+        </span>
       </div>
+      <div class="flex items-center gap-1">
+        <!-- Context folder chip -->
+        <div v-if="contextFolder" class="flex items-center gap-0.5">
+          <button class="btn btn-ghost btn-xs gap-1 text-info" @click="pickContextFolder" :title="'工作目录: ' + contextFolder">
+            <SvgIcon name="folder" size="12" />
+            <span class="text-xs max-w-[100px] truncate">{{ contextFolder.split('/').pop() || contextFolder }}</span>
+          </button>
+          <button class="btn btn-ghost btn-xs btn-square" @click="clearContextFolder" title="清除工作目录">
+            <SvgIcon name="close" size="10" />
+          </button>
+        </div>
+        <button v-else class="btn btn-ghost btn-xs" @click="pickContextFolder" title="设置工作目录">
+          <SvgIcon name="folder" size="12" />
+        </button>
+        <!-- Fast mode toggle -->
+        <button class="btn btn-ghost btn-xs" :class="{ 'text-warning': fastMode }" @click="toggleFastMode" :title="fastMode ? '快速模式: 开启' : '快速模式: 关闭'">
+          <SvgIcon name="zap" size="14" />
+        </button>
+        <!-- New chat -->
+        <button class="btn btn-ghost btn-xs" @click="startNewChat" title="新对话 (Cmd+K)">
+          <SvgIcon name="plus" size="14" />
+        </button>
+        <!-- Delete -->
+        <button v-if="currentSession" class="btn btn-ghost btn-xs" @click="deleteCurrentSessionLocal" title="删除会话">
+          <SvgIcon name="trash" size="14" />
+        </button>
+      </div>
+    </div>
 
       <!-- 消息列表 -->
       <div ref="messagesContainer" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-1" @scroll="handleScroll">
@@ -279,98 +191,36 @@
           </div>
         </div>
 
-        <!-- 空状态 -->
+        <!-- Empty state - hermes-desktop style suggestion chips -->
         <div v-else class="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
-          <!-- Hero icon with decorative background -->
-          <div class="relative mb-5">
-            <div class="absolute inset-0 w-20 h-20 rounded-full bg-primary/5 blur-xl"></div>
-            <div class="relative flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
+          <!-- Logo icon -->
+          <div class="mb-4">
+            <div class="flex items-center justify-center w-16 h-16 rounded-2xl bg-primary/10 border border-primary/20">
               <SvgIcon name="bot" size="32" class="text-primary" />
             </div>
           </div>
 
-          <!-- Title & description -->
+          <!-- Title -->
           <h2 class="text-lg font-semibold text-base-content">Hermes Agent</h2>
-          <p class="mt-1.5 text-sm text-base-content/50 max-w-sm leading-relaxed">
-            AI 编程助手 — 理解你的代码库，帮你分析、编写、重构和调试
+          <p class="mt-1 text-sm text-base-content/50 max-w-sm">
+            我能做什么？试着问我：
           </p>
 
-          <!-- Capability chips -->
-          <div class="mt-4 flex flex-wrap gap-1.5 justify-center max-w-md">
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
-              <SvgIcon name="code" size="10" /> 代码编写
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
-              <SvgIcon name="search" size="10" /> 项目分析
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
-              <SvgIcon name="tool" size="10" /> 代码重构
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
-              <SvgIcon name="terminal" size="10" /> Shell 操作
-            </span>
-            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-base-200/60 text-[11px] text-base-content/60">
-              <SvgIcon name="gitBranch" size="10" /> Git 管理
-            </span>
-          </div>
-
-          <!-- Suggestion cards -->
-          <div class="mt-6 grid grid-cols-2 gap-2 w-full max-w-md">
-            <button 
-              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
-              @click="chatInputRef?.setInputText('帮我分析一下当前项目的结构')"
+          <!-- Suggestion chips (6 items matching hermes-desktop pattern) -->
+          <div class="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-lg">
+            <button
+              v-for="suggestion in suggestionChips"
+              :key="suggestion.text"
+              class="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border border-base-content/10 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
+              @click="chatInputRef?.setInputText(suggestion.text)"
             >
-              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-primary/10 shrink-0 group-hover:bg-primary/15 transition-colors">
-                <SvgIcon name="search" size="14" class="text-primary/70" />
-              </div>
-              <div>
-                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">分析项目</div>
-                <div class="text-[11px] text-base-content/40 mt-0.5">了解项目结构与依赖</div>
-              </div>
-            </button>
-
-            <button 
-              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
-              @click="chatInputRef?.setInputText('帮我写一个测试用例')"
-            >
-              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-success/10 shrink-0 group-hover:bg-success/15 transition-colors">
-                <SvgIcon name="check" size="14" class="text-success/70" />
-              </div>
-              <div>
-                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">编写测试</div>
-                <div class="text-[11px] text-base-content/40 mt-0.5">为代码添加单元测试</div>
-              </div>
-            </button>
-
-            <button 
-              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
-              @click="chatInputRef?.setInputText('帮我重构这段代码')"
-            >
-              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-warning/10 shrink-0 group-hover:bg-warning/15 transition-colors">
-                <SvgIcon name="tool" size="14" class="text-warning/70" />
-              </div>
-              <div>
-                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">重构代码</div>
-                <div class="text-[11px] text-base-content/40 mt-0.5">改善代码质量与结构</div>
-              </div>
-            </button>
-
-            <button 
-              class="flex items-start gap-2.5 p-3 rounded-xl border border-base-content/5 bg-base-200/30 hover:bg-base-200/60 hover:border-primary/20 transition-all text-left group"
-              @click="chatInputRef?.setInputText('帮我修复这个 bug')"
-            >
-              <div class="flex items-center justify-center w-7 h-7 rounded-lg bg-error/10 shrink-0 group-hover:bg-error/15 transition-colors">
-                <SvgIcon name="zap" size="14" class="text-error/70" />
-              </div>
-              <div>
-                <div class="text-xs font-medium text-base-content/70 group-hover:text-base-content/90">修复 Bug</div>
-                <div class="text-[11px] text-base-content/40 mt-0.5">诊断并修复代码问题</div>
-              </div>
+              <SvgIcon :name="suggestion.icon" size="16" class="text-primary/60 group-hover:text-primary/80 shrink-0" />
+              <span class="text-sm text-base-content/70 group-hover:text-base-content/90">{{ suggestion.label }}</span>
             </button>
           </div>
 
           <!-- Keyboard hint -->
-          <div class="mt-5 flex items-center gap-1.5 text-[11px] text-base-content/30">
+          <div class="mt-6 flex items-center gap-1.5 text-[11px] text-base-content/30">
             <SvgIcon name="keyboard" size="12" />
             <span>输入消息开始对话，<kbd class="px-1 py-0.5 rounded bg-base-200/60 text-base-content/40 font-mono text-[10px]">⌘ ↵</kbd> 发送</span>
           </div>
@@ -386,6 +236,12 @@
           <SvgIcon name="chevronDown" size="16" />
         </button>
       </div>
+
+    <!-- Message queue indicator -->
+    <div v-if="queuedCount > 0" class="flex items-center justify-center gap-1.5 px-4 py-1.5 bg-warning/10 border-b border-warning/20 shrink-0">
+      <SvgIcon name="zap" size="12" class="text-warning" />
+      <span class="text-xs text-warning/80">{{ queuedCount }} 条消息排队中</span>
+    </div>
 
       <!-- 拖放文件覆盖层 -->
       <div v-if="dragActive" class="absolute inset-0 bg-primary/5 border-2 border-dashed border-primary/30 rounded-lg flex items-center justify-center z-40 pointer-events-none">
@@ -411,35 +267,6 @@
       />
     </div>
 
-    <!-- 右侧任务专栏 -->
-    <div v-if="showTaskPanel && currentTasks.length > 0" class="w-72 border-l border-base-content/10 flex flex-col bg-base-100">
-      <!-- 任务面板头部 -->
-      <div class="flex items-center justify-between px-3 py-2 border-b border-base-content/10">
-        <span class="text-sm font-semibold text-base-content">任务列表</span>
-        <button class="btn btn-ghost btn-xs btn-square" @click="showTaskPanel = false" title="关闭">
-          <SvgIcon name="close" size="12" />
-        </button>
-      </div>
-      
-      <!-- 任务列表 -->
-      <div class="flex-1 overflow-y-auto px-3 py-2">
-        <div v-for="task in currentTasks" :key="task.id" class="flex items-center gap-2 py-1.5 border-b border-base-content/5 last:border-b-0">
-          <!-- 状态图标 -->
-          <span :class="task.status === 'completed' ? 'text-success' : task.status === 'cancelled' ? 'text-base-content/30' : 'text-base-content/40'" class="text-xs">
-            {{ task.status === 'completed' ? '✓' : task.status === 'cancelled' ? '✕' : '○' }}
-          </span>
-          <!-- 任务内容 -->
-          <div class="flex-1 min-w-0">
-            <span class="text-xs text-base-content truncate">{{ task.content }}</span>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 任务统计 -->
-      <div class="px-3 py-2 border-t border-base-content/10 text-xs text-base-content/50">
-        {{ completedTasksCount }}/{{ currentTasks.length }} 已完成
-      </div>
-    </div>
   </div>
 </template>
 
@@ -470,7 +297,7 @@ import bash from 'highlight.js/lib/languages/bash';
 import xml from 'highlight.js/lib/languages/xml';
 import yaml from 'highlight.js/lib/languages/yaml';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
-import { UserMessage, AssistantMessage, ChildSessionGroup, ToolCallCard, ChatInput, SessionSidebar } from '@/components/chat';
+import { UserMessage, AssistantMessage, ChildSessionGroup, ToolCallCard, ChatInput } from '@/components/chat';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('json', json);
@@ -641,6 +468,16 @@ const userScrolledUp = ref(false);
 // Fast mode toggle
 const fastMode = ref(false);
 
+// Suggestion chips for empty state (matches hermes-desktop pattern)
+const suggestionChips = [
+  { icon: 'search', label: '搜索今天的科技新闻', text: 'Search the web for today\'s top tech news' },
+  { icon: 'bell', label: '设置每日提醒', text: 'Set a reminder to check emails every day at 9 AM' },
+  { icon: 'mail', label: '总结最新邮件', text: 'Read my latest emails and summarize them' },
+  { icon: 'code', label: '写一个脚本', text: 'Write a Python script to rename all files in a folder' },
+  { icon: 'clock', label: '定时备份数据库', text: 'Schedule a cron job to back up my database every night' },
+  { icon: 'chart', label: '分析 CSV 数据', text: 'Analyze this CSV file and show key insights' },
+];
+
 // Rich usage badge with cost
 const lastUsage = ref<{ promptTokens: number; completionTokens: number; cost?: number } | null>(null);
 const unlistenUsageFn = ref<(() => void) | null>(null);
@@ -663,39 +500,39 @@ const dragCounter = ref(0);
 
 const eventHasFiles = (e: DragEvent): boolean => {
   const types = e.dataTransfer?.types;
-  if (!types) return false;
+  if (!types) {return false;}
   for (let i = 0; i < types.length; i++) {
-    if (types[i] === 'Files') return true;
+    if (types[i] === 'Files') {return true;}
   }
   return false;
 };
 
 const handleDragEnter = (e: DragEvent) => {
-  if (!eventHasFiles(e)) return;
+  if (!eventHasFiles(e)) {return;}
   e.preventDefault();
   dragCounter.value += 1;
-  if (dragCounter.value === 1) dragActive.value = true;
+  if (dragCounter.value === 1) {dragActive.value = true;}
 };
 
 const handleDragOver = (e: DragEvent) => {
-  if (!eventHasFiles(e)) return;
+  if (!eventHasFiles(e)) {return;}
   e.preventDefault();
-  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  if (e.dataTransfer) {e.dataTransfer.dropEffect = 'copy';}
 };
 
 const handleDragLeave = (e: DragEvent) => {
-  if (!eventHasFiles(e)) return;
+  if (!eventHasFiles(e)) {return;}
   dragCounter.value -= 1;
-  if (dragCounter.value === 0) dragActive.value = false;
+  if (dragCounter.value === 0) {dragActive.value = false;}
 };
 
 const handleDrop = async (e: DragEvent) => {
-  if (!eventHasFiles(e)) return;
+  if (!eventHasFiles(e)) {return;}
   e.preventDefault();
   dragCounter.value = 0;
   dragActive.value = false;
   const files = Array.from(e.dataTransfer?.files || []);
-  if (files.length === 0) return;
+  if (files.length === 0) {return;}
   // Process files through attachment processor
   const { processFiles } = await import('@/composables/useAttachmentProcessor');
   const { attachments, errors } = await processFiles(files);
@@ -728,7 +565,7 @@ const agentLog = async (message: string) => {
 
 // 滚动到底部
 const scrollToBottom = (force = false) => {
-  if (!force && userScrolledUp.value) return;
+  if (!force && userScrolledUp.value) {return;}
   nextTick(() => {
     if (messagesContainer.value) {
       messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
@@ -1602,7 +1439,7 @@ const checkScrollPosition = () => {
 // Handle scroll event for messagesContainer (smart auto-scroll threshold)
 const handleScroll = () => {
   const el = messagesContainer.value;
-  if (!el) return;
+  if (!el) {return;}
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
   userScrolledUp.value = !atBottom;
 };
@@ -1617,9 +1454,9 @@ const toggleFastMode = async () => {
 
 // Agent approval detection
 const needsApproval = computed(() => {
-  if (isStreaming.value) return false;
+  if (isStreaming.value) {return false;}
   const lastMsg = messages.value[messages.value.length - 1];
-  if (!lastMsg || lastMsg.role !== 'assistant') return false;
+  if (!lastMsg || lastMsg.role !== 'assistant') {return false;}
   const content = lastMsg.content || '';
   return /⚠️.*dangerous|requires? (your )?approval|do you want (me )?to (proceed|continue|run|execute)/i.test(content);
 });

@@ -190,16 +190,16 @@ function getDateGroup(ts: number): DateGroup {
   const isToday = d.getDate() === now.getDate() &&
     d.getMonth() === now.getMonth() &&
     d.getFullYear() === now.getFullYear();
-  if (isToday) return 'today';
+  if (isToday) {return 'today';}
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
   const isYesterday = d.getDate() === yesterday.getDate() &&
     d.getMonth() === yesterday.getMonth() &&
     d.getFullYear() === yesterday.getFullYear();
-  if (isYesterday) return 'yesterday';
+  if (isYesterday) {return 'yesterday';}
   const weekAgo = new Date(now);
   weekAgo.setDate(weekAgo.getDate() - 7);
-  if (d >= weekAgo) return 'thisWeek';
+  if (d >= weekAgo) {return 'thisWeek';}
   return 'earlier';
 }
 
@@ -207,7 +207,7 @@ const groupedSessions = computed(() => {
   const groups = new Map<DateGroup, Session[]>();
   for (const s of props.sessions) {
     const group = getDateGroup(s.lastActive || s.startedAt || 0);
-    if (!groups.has(group)) groups.set(group, []);
+    if (!groups.has(group)) {groups.set(group, []);}
     groups.get(group)!.push(s);
   }
   const order: DateGroup[] = ['today', 'yesterday', 'thisWeek', 'earlier'];

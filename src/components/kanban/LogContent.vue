@@ -79,7 +79,7 @@ const parsedLines = computed(() => {
     const trimmed = line.trim();
     
     // Empty lines
-    if (!trimmed) continue;
+    if (!trimmed) {continue;}
     
     // User message (Query: ...)
     if (trimmed.startsWith('Query:')) {
@@ -138,9 +138,9 @@ const parsedLines = computed(() => {
 });
 
 function statusClass(status: string): string {
-  if (status.includes('success') || status.includes('completed')) return 'text-success';
-  if (status.includes('error') || status.includes('failed')) return 'text-error';
-  if (status.includes('running') || status.includes('pending')) return 'text-info';
+  if (status.includes('success') || status.includes('completed')) {return 'text-success';}
+  if (status.includes('error') || status.includes('failed')) {return 'text-error';}
+  if (status.includes('running') || status.includes('pending')) {return 'text-info';}
   return 'text-base-content/60';
 }
 </script>

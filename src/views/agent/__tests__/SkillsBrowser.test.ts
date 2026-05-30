@@ -72,8 +72,8 @@ describe('SkillsBrowser.vue', () => {
 
   it('should show empty message when no skills installed', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -82,8 +82,8 @@ describe('SkillsBrowser.vue', () => {
 
   it('should show empty message in browse tab', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -96,11 +96,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should render installed skills in the installed tab', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'git-helper', source: 'installed' }),
         makeSkill({ name: 'deploy-tool', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -110,11 +110,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should render bundled skills in the browse tab', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'git-skills', source: 'bundled' }),
         makeSkill({ name: 'ml-training', source: 'bundled' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -128,12 +128,12 @@ describe('SkillsBrowser.vue', () => {
 
   it('should switch between installed and browse tabs', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'installed-only', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'bundled-only', source: 'bundled' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -150,11 +150,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should filter skills by name', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'docker-deploy', source: 'installed' }),
         makeSkill({ name: 'git-helper', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -166,11 +166,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should filter skills by description', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'tool-a', description: 'Docker management', source: 'installed' }),
         makeSkill({ name: 'tool-b', description: 'Git operations', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -182,12 +182,12 @@ describe('SkillsBrowser.vue', () => {
 
   it('should filter skills by category', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'backend', category: 'devops', source: 'bundled' }),
         makeSkill({ name: 'trainer', category: 'mlops', source: 'bundled' }),
         makeSkill({ name: 'deployer', category: 'devops', source: 'bundled' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -205,10 +205,10 @@ describe('SkillsBrowser.vue', () => {
 
   it('should show empty message when search finds nothing', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'tool-a', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -242,9 +242,9 @@ describe('SkillsBrowser.vue', () => {
   it('should open detail overlay on skill card click', async () => {
     const skill = makeSkill({ name: 'detail-skill', source: 'installed' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'get_skill_content') return Promise.resolve('# Full body')
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'get_skill_content') {return Promise.resolve('# Full body')}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -264,9 +264,9 @@ describe('SkillsBrowser.vue', () => {
   it('should close detail overlay', async () => {
     const skill = makeSkill({ name: 'close-skill', source: 'installed' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'get_skill_content') return Promise.resolve('# Content')
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'get_skill_content') {return Promise.resolve('# Content')}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -289,9 +289,9 @@ describe('SkillsBrowser.vue', () => {
   it('should show error when getSkillContent fails', async () => {
     const skill = makeSkill({ name: 'err-skill', source: 'installed' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'get_skill_content') return Promise.reject(new Error('Read error'))
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'get_skill_content') {return Promise.reject(new Error('Read error'))}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -317,8 +317,8 @@ describe('SkillsBrowser.vue', () => {
         callCount++
         return Promise.resolve(callCount === 1 ? [] : [makeSkill({ ...skill, source: 'installed' })])
       }
-      if (cmd === 'list_bundled_skills') return Promise.resolve([skill])
-      if (cmd === 'install_skill') return installPromise
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([skill])}
+      if (cmd === 'install_skill') {return installPromise}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -346,9 +346,9 @@ describe('SkillsBrowser.vue', () => {
     const installPromise = new Promise(resolve => { resolveInstall = resolve })
 
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([skill])
-      if (cmd === 'install_skill') return installPromise
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([skill])}
+      if (cmd === 'install_skill') {return installPromise}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -371,9 +371,9 @@ describe('SkillsBrowser.vue', () => {
     const installPromise = new Promise((_, reject) => { rejectInstall = reject })
 
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([skill])
-      if (cmd === 'install_skill') return installPromise
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([skill])}
+      if (cmd === 'install_skill') {return installPromise}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -403,8 +403,8 @@ describe('SkillsBrowser.vue', () => {
         callCount++
         return Promise.resolve(callCount === 1 ? [skill] : [])
       }
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'uninstall_skill') return uninstallPromise
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'uninstall_skill') {return uninstallPromise}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -429,9 +429,9 @@ describe('SkillsBrowser.vue', () => {
     const uninstallPromise = new Promise(resolve => { resolveUninstall = resolve })
 
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'uninstall_skill') return uninstallPromise
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'uninstall_skill') {return uninstallPromise}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -459,7 +459,7 @@ describe('SkillsBrowser.vue', () => {
             : [makeSkill({ name: 'new-skill', source: 'installed' })],
         )
       }
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -481,11 +481,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should toggle category filter on/off', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'skill-a', category: 'devops', source: 'bundled' }),
         makeSkill({ name: 'skill-b', category: 'mlops', source: 'bundled' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -511,9 +511,9 @@ describe('SkillsBrowser.vue', () => {
   it('should show fallback when skill content is empty', async () => {
     const skill = makeSkill({ name: 'empty-content', source: 'installed' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'get_skill_content') return Promise.resolve('')
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'get_skill_content') {return Promise.resolve('')}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -530,8 +530,8 @@ describe('SkillsBrowser.vue', () => {
 
   it('should call both list APIs on mount', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     await createSkillsBrowser()
@@ -543,10 +543,10 @@ describe('SkillsBrowser.vue', () => {
 
   it('should handle empty category and description gracefully', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'minimal', description: '', category: '' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -558,12 +558,12 @@ describe('SkillsBrowser.vue', () => {
 
   it('should display correct source badge for installed vs bundled', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'inst', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([
         makeSkill({ name: 'bndl', source: 'bundled' }),
-      ])
+      ])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -580,11 +580,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should restore full list when search is cleared', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'skill-alpha', source: 'installed' }),
         makeSkill({ name: 'skill-beta', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -601,11 +601,11 @@ describe('SkillsBrowser.vue', () => {
 
   it('should filter by category name in search', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: 'tool-a', category: 'devops', source: 'installed' }),
         makeSkill({ name: 'tool-b', category: 'mlops', source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -620,10 +620,10 @@ describe('SkillsBrowser.vue', () => {
   it('should handle very long skill name without breaking', async () => {
     const longName = 'a'.repeat(200)
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([
+      if (cmd === 'list_installed_skills') {return Promise.resolve([
         makeSkill({ name: longName, source: 'installed' }),
-      ])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      ])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -634,8 +634,8 @@ describe('SkillsBrowser.vue', () => {
 
   it('should not show category pills when browse tab has no categories', async () => {
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -653,9 +653,9 @@ describe('SkillsBrowser.vue', () => {
   it('should show install button in detail overlay for bundled skill', async () => {
     const skill = makeSkill({ name: 'browse-detail', source: 'bundled' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([skill])
-      if (cmd === 'get_skill_content') return Promise.resolve('# Details')
+      if (cmd === 'list_installed_skills') {return Promise.resolve([])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([skill])}
+      if (cmd === 'get_skill_content') {return Promise.resolve('# Details')}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
@@ -674,9 +674,9 @@ describe('SkillsBrowser.vue', () => {
   it('should show uninstall button in detail overlay for installed skill', async () => {
     const skill = makeSkill({ name: 'installed-detail', source: 'installed' })
     mockedInvoke.mockImplementation((cmd: string) => {
-      if (cmd === 'list_installed_skills') return Promise.resolve([skill])
-      if (cmd === 'list_bundled_skills') return Promise.resolve([])
-      if (cmd === 'get_skill_content') return Promise.resolve('# Installed body')
+      if (cmd === 'list_installed_skills') {return Promise.resolve([skill])}
+      if (cmd === 'list_bundled_skills') {return Promise.resolve([])}
+      if (cmd === 'get_skill_content') {return Promise.resolve('# Installed body')}
       return Promise.reject(new Error(`unexpected cmd: ${cmd}`))
     })
     const { wrapper } = await createSkillsBrowser()
