@@ -1006,12 +1006,7 @@ describe('CronManager.vue', () => {
       // Error should be shown
       expect(wrapper.text()).toContain('Some error')
 
-      // Find and click the dismiss X button
-      const dismissBtn = wrapper.findAll('button').find(b => b.find('SvgIcon[name="x"]'))
-        || wrapper.findAll('button').filter(b => b.attributes('class')?.includes('btn-ghost')).find(b =>
-          b.text() === ''
-        )
-      // Fallback: find any button inside the error div
+      // Find any button inside the error div
       const errorDiv = wrapper.find('.text-error')
       if (errorDiv.exists()) {
         const closeBtns = errorDiv.findAll('button')

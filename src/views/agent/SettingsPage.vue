@@ -392,7 +392,7 @@ async function handleExport() {
   try {
     const api = getTauriAPI()
     const result = await api.exportHermesConfig()
-    if (result?.success && result?.content != null) {
+    if (result?.success && typeof result?.content === 'string') {
       exportContent.value = result.content
     } else {
       exportContent.value = result?.message || 'No config content'
