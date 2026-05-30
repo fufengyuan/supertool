@@ -158,6 +158,11 @@ const routes = [
         component: () => import('../views/agent/ProviderManager.vue'),
       },
       {
+        path: 'agent/models',
+        name: 'AgentModels',
+        component: () => import('../views/agent/ModelsPage.vue'),
+      },
+      {
         path: 'kanban',
         name: 'Kanban',
         component: () => import('../components/kanban/KanbanBoard.vue'),
