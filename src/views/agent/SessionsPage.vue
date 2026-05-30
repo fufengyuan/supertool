@@ -49,7 +49,7 @@
       <template v-else-if="isSearchMode">
         <!-- Searching spinner -->
         <div
-          v-if="isSearchingLocal"
+          v-if="isSearching"
           class="flex items-center justify-center py-20"
         >
           <span class="loading loading-spinner loading-md text-primary" />
@@ -207,7 +207,6 @@ const {
 // Local state
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement | null>(null)
-const isSearchingLocal = ref(false)
 
 // Auto-refresh interval (ms)
 const REFRESH_INTERVAL_MS = 30_000
@@ -304,32 +303,10 @@ function highlightedSnippet(snippet: string): string {
   return highlightSnippet(snippet)
 }
 
-// --- Search with debounce ---
-
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null
+// --- Search ---
 
 watch(searchQuery, (query) => {
-  if (searchDebounceTimer) {clearTimeout(searchDebounceTimer)}
-  const trimmed = query.trim()
-  if (!trimmed) {
-    // When clearing search, the composable's handleSessionSearch clears results
-    handleSessionSearch('')
-    isSearchingLocal.value = false
-    return
-  }
-  isSearchingLocal.value = true
-  searchDebounceTimer = setTimeout(() => {
-    handleSessionSearch(trimmed)
-    // Watch for isSearching to become false
-    isSearchingLocal.value = false
-  }, 300)
-})
-
-// Sync the composable's isSearching with our local flag
-watch(isSearching, (val) => {
-  if (!val && searchQuery.value.trim()) {
-    isSearchingLocal.value = false
-  }
+  handleSessionSearch(query)
 })
 
 function onClearSearch() {
@@ -372,10 +349,6 @@ onUnmounted(() => {
   if (refreshTimer) {
     clearInterval(refreshTimer)
     refreshTimer = null
-  }
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer)
-    searchDebounceTimer = null
   }
   window.removeEventListener('focus', onWindowFocus)
 })
