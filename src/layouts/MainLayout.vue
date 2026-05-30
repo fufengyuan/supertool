@@ -203,6 +203,7 @@ const tabComponents: Record<string, Component> = {
   '/agent/sessions': defineAsyncComponent(() => import('@/views/agent/SessionsPage.vue')),
   '/agent/settings': defineAsyncComponent(() => import('@/views/agent/SettingsPage.vue')),
   '/agent/providers': defineAsyncComponent(() => import('@/views/agent/ProviderManager.vue')),
+  '/agent/models': defineAsyncComponent(() => import('@/views/agent/ModelsPage.vue')),
   '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
   '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
   '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
@@ -258,6 +259,7 @@ const iconMap: Record<string, any> = {
   'memory': IconCpu,
   'agent-sessions': IconRobot,
   'agent-settings': IconSettings,
+  'models': IconBrain,
   'kanban': IconLayoutColumns,
   'image-processor': IconPhoto,
 }
@@ -294,6 +296,7 @@ const navGroups = {
     { path: '/agent/skills', icon: '🧠', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '🧠', label: '记忆', viewId: 'memory' },
     { path: '/agent/settings', icon: '⚙️', label: '设置', viewId: 'agent-settings' },
+    { path: '/agent/models', icon: '🧠', label: '模型', viewId: 'models' },
     { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
   ],
   dev: [
