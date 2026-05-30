@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 // 工具图标映射
 const toolIconMap: Record<string, { icon: string; color: string }> = {
