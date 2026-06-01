@@ -211,7 +211,7 @@
         <div v-else-if="viewMode === 'split' && processedPath" class="flex w-full h-full">
           <div class="flex-1 flex flex-col border-r border-base-300">
             <div class="text-[10px] text-base-content/40 px-3 py-1 bg-base-100 border-b border-base-300 shrink-0">原始图片</div>
-            <div ref="imgContainerRef" class="flex-1 flex items-center justify-center p-3 overflow-hidden relative">
+            <div ref="imgContainerRef2" class="flex-1 flex items-center justify-center p-3 overflow-hidden relative">
               <img
                 ref="imgElementRef"
                 :src="originalUrl"
@@ -332,6 +332,7 @@ const viewMode = ref<'split' | 'result'>('split')
 
 // Image container for crop overlay measurement
 const imgContainerRef = ref<HTMLDivElement>()
+const imgContainerRef2 = ref<HTMLDivElement>()
 const imgElementRef = ref<HTMLImageElement>()
 const imgDisplayWidth = ref(0)
 const imgDisplayHeight = ref(0)
@@ -631,7 +632,7 @@ function measureImage() {
   if (!img || !img.complete || img.naturalWidth === 0) { return }
   imgDisplayWidth.value = img.clientWidth
   imgDisplayHeight.value = img.clientHeight
-  const container = imgContainerRef.value
+  const container = viewMode.value === 'split' ? imgContainerRef2.value : imgContainerRef.value
   if (container) {
     const containerRect = container.getBoundingClientRect()
     const imgRect = img.getBoundingClientRect()
@@ -663,8 +664,9 @@ watch(originalUrl, (url) => {
 // Resize observer to re-measure when container resizes
 let resizeObserver: ResizeObserver | null = null
 
-watch(imgContainerRef, (el) => {
+watch([imgContainerRef, imgContainerRef2, viewMode], () => {
   resizeObserver?.disconnect()
+  const el = viewMode.value === 'split' ? imgContainerRef2.value : imgContainerRef.value
   if (el) {
     resizeObserver = new ResizeObserver(() => {
       if (originalUrl.value) { measureImage() }
