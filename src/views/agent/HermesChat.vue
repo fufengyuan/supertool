@@ -259,11 +259,15 @@
         :favoriteFolders="favoriteFolders"
         :gitRepos="gitRepos"
         :hermesAvailable="hermesAvailable"
+        :onNewChat="startNewChat"
+        :onClear="clearCurrentChat"
+        :usageStats="usageStats"
         @send="handleSend"
         @paste="onPaste"
         @checkHermes="checkHermes"
         @removeFavoriteFolder="removeFavoriteFolder"
         @modelChanged="onModelChanged"
+        @commandMessage="handleCommandMessage"
       />
     </div>
 
@@ -1076,6 +1080,34 @@ const startNewChat = () => {
     queuedCount.value = 0;
   });
 };
+
+/** 清空当前对话（本地命令 /clear） */
+function clearCurrentChat() {
+  messages.value = [];
+  chatInputRef.value?.clear();
+  lastUsage.value = null;
+}
+
+/** 暴露给斜杠命令的 Token 用量统计 */
+const usageStats = computed(() => {
+  if (!lastUsage.value) { return null; }
+  return {
+    inputTokens: lastUsage.value.promptTokens,
+    outputTokens: lastUsage.value.completionTokens,
+    totalTokens: lastUsage.value.promptTokens + lastUsage.value.completionTokens,
+  };
+});
+
+/** 处理斜杠命令返回的助手消息（粘贴到对话中） */
+function handleCommandMessage(content: string) {
+  messages.value.push({
+    role: 'assistant',
+    content,
+    timestamp: Date.now(),
+    toolName: null,
+  });
+  nextTick(() => scrollToBottom(true));
+}
 
 // 消息队列 drain: agent 完成后自动发送排队的消息
 watch(isStreaming, (streaming) => {
