@@ -89,7 +89,7 @@
             <div class="flex items-center gap-1.5 shrink-0">
               <button
                 class="btn btn-ghost btn-xs text-xs"
-                :disabled="m.fullId === defaultModel || m.name === defaultModel"
+                :disabled="m.fullId === defaultModel || m.name === defaultModel || settingDefault"
                 @click="setAsDefault(m.fullId)"
               >设为默认</button>
               <button
@@ -167,7 +167,7 @@
             <div class="flex items-center gap-1.5 shrink-0">
               <button
                 class="btn btn-ghost btn-xs text-xs"
-                :disabled="cm === defaultModel"
+                :disabled="cm === defaultModel || settingDefault"
                 @click="setAsDefault(cm)"
               >设为默认</button>
               <button
@@ -234,7 +234,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import {
   IconRefresh,
@@ -275,6 +275,7 @@ const customModels = ref<string[]>([])
 const showAddModel = ref(false)
 const newModelName = ref('')
 const addingModel = ref(false)
+const settingDefault = ref(false)
 
 const detailModel = ref<ModelDetail | null>(null)
 
@@ -301,17 +302,24 @@ const providerGroups = computed<ProviderGroup[]>(() => {
     }
   }
 
-  // Auto-expand all groups on first load
-  for (const provider of groups.keys()) {
-    if (expandedGroups.value[provider] === undefined) {
-      expandedGroups.value[provider] = true
-    }
-  }
-
   return Array.from(groups.entries())
     .map(([provider, models]) => ({ provider, models }))
     .sort((a, b) => a.provider.localeCompare(b.provider))
 })
+
+function initExpandedGroups() {
+  const providerSet = new Set<string>()
+  for (const fullId of providerModels.value) {
+    const slashIdx = fullId.indexOf('/')
+    const provider = slashIdx > 0 ? fullId.substring(0, slashIdx) : 'other'
+    providerSet.add(provider)
+  }
+  for (const provider of providerSet) {
+    if (expandedGroups.value[provider] === undefined) {
+      expandedGroups.value[provider] = true
+    }
+  }
+}
 
 function toggleGroup(provider: string) {
   expandedGroups.value[provider] = !expandedGroups.value[provider]
@@ -341,6 +349,8 @@ async function loadModels() {
 
 async function setAsDefault(model: string) {
   if (model === defaultModel.value) return
+  if (settingDefault.value) return
+  settingDefault.value = true
   try {
     await invoke('agent_set_model', { model })
     defaultModel.value = model
@@ -348,12 +358,17 @@ async function setAsDefault(model: string) {
     clearSuccessAfterDelay()
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    settingDefault.value = false
   }
 }
 
 async function addModel() {
   const name = newModelName.value.trim()
-  if (!name) return
+  if (!name) {
+    error.value = '请输入模型名称'
+    return
+  }
 
   addingModel.value = true
   error.value = ''
@@ -390,6 +405,8 @@ async function removeModel(model: string) {
       }
       successMsg.value = `已删除模型「${model}」`
       clearSuccessAfterDelay()
+    } else {
+      error.value = '删除模型失败：服务器返回错误'
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : String(e)
