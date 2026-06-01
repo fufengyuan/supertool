@@ -227,7 +227,54 @@
         </div>
       </div>
       <!-- 输入框 -->
-      <div class="flex gap-2">
+      <div class="flex gap-2 relative">
+        <!-- 斜杠命令自动补全菜单 -->
+        <div
+          v-if="slash.isSlashMenuVisible.value && slash.filteredSlashCommands.value.length > 0"
+          class="absolute left-0 bottom-full mb-1 bg-base-100 border border-base-content/20 rounded-lg shadow-xl z-50 w-[380px] max-h-[320px] overflow-hidden"
+          @click.stop
+        >
+          <!-- 菜单头部 -->
+          <div class="px-3 py-1.5 bg-base-200/50 border-b border-base-content/10">
+            <span class="text-[11px] font-medium text-base-content/50">Slash Commands</span>
+          </div>
+          <!-- 命令列表 -->
+          <div class="overflow-y-auto max-h-[280px] py-1">
+            <template v-for="(cmd, idx) in slash.filteredSlashCommands.value" :key="cmd.name">
+              <!-- 类别分隔符 -->
+              <div
+                v-if="idx === 0 || cmd.category !== slash.filteredSlashCommands.value[idx - 1]?.category"
+                class="px-3 pt-2 pb-1 text-[10px] font-semibold text-base-content/40 uppercase tracking-wider"
+              >
+                {{ CATEGORY_LABELS[cmd.category] || cmd.category }}
+              </div>
+              <!-- 命令项 -->
+              <button
+                class="flex items-center gap-2.5 w-full px-3 py-2 text-left hover:bg-base-200 transition-colors"
+                :class="{
+                  'bg-primary/10 hover:bg-primary/15': slash.slashMenuIndex.value === idx,
+                }"
+                @click="selectSlashCommand(cmd)"
+                @mouseenter="slash.slashMenuIndex.value = idx"
+              >
+                <SvgIcon
+                  :name="CATEGORY_ICONS[cmd.category] || 'command'"
+                  :size="14"
+                  :class="slash.slashMenuIndex.value === idx ? 'text-primary' : 'text-base-content/50'"
+                />
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <code class="text-xs font-mono font-medium" :class="cmd.local ? 'text-base-content' : 'text-primary'">
+                      {{ cmd.name }}
+                    </code>
+                    <span v-if="cmd.local" class="badge badge-ghost badge-xs text-[9px] px-1 text-base-content/40">local</span>
+                  </div>
+                  <div class="text-[11px] text-base-content/50 truncate">{{ cmd.description }}</div>
+                </div>
+              </button>
+            </template>
+          </div>
+        </div>
         <textarea
           ref="inputRef"
           v-model="inputText"
@@ -279,13 +326,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
 import { getTauriAPI } from '@/utils/tauri-api';
 import type { GitRepo } from '@/types';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import { filesFromClipboard, processFiles, type Attachment } from '@/composables/useAttachmentProcessor';
+import {
+  useSlashCommands,
+  CATEGORY_ICONS,
+  CATEGORY_LABELS,
+  SLASH_COMMANDS,
+  type SlashCommand,
+} from '@/composables/useSlashCommands';
 
 // Props
 const props = defineProps<{
@@ -294,6 +348,9 @@ const props = defineProps<{
   favoriteFolders: string[];
   gitRepos: GitRepo[];
   hermesAvailable: boolean;
+  onNewChat?: () => void;
+  onClear?: () => void;
+  usageStats?: { inputTokens: number; outputTokens: number; totalTokens: number } | null;
 }>();
 
 // Events
@@ -305,6 +362,7 @@ const emit = defineEmits<{
   removeFavoriteFolder: [folder: string];
   modelChanged: [model: string];
   pathsChanged: [paths: PathItem[]];
+  commandMessage: [content: string];
 }>();
 
 // Types
@@ -324,6 +382,48 @@ const isComposing = ref(false);
 const inputHistory = ref<string[]>([]);
 const historyIndex = ref(-1);
 const savedDraft = ref('');
+
+// 斜杠命令
+const slash = useSlashCommands({
+  onNewChat: () => props.onNewChat?.(),
+  onClear: () => props.onClear?.(),
+  addAgentMessage: (content: string) => emit('commandMessage', content),
+  usageStats: props.usageStats ?? undefined,
+});
+
+/** 选中非本地命令填入输入框后，暂时阻止菜单重新弹出 */
+const suppressSlashMenu = ref(false);
+
+// 监听输入文本，触发斜杠命令实时过滤
+watch(inputText, (val) => {
+  if (suppressSlashMenu.value) {
+    slash.hideSlashMenu();
+    return;
+  }
+  slash.updateInputText(val);
+});
+
+/** 将选中命令填入输入框（用于非本地命令） */
+function setInputWithCommand(text: string) {
+  suppressSlashMenu.value = true;
+  inputText.value = text;
+  slash.hideSlashMenu();
+  nextTick(() => {
+    suppressSlashMenu.value = false;
+    autoResize();
+    inputRef.value?.focus();
+  });
+}
+
+/** 点击选择斜杠命令 */
+function selectSlashCommand(cmd: SlashCommand) {
+  if (cmd.local) {
+    slash.executeLocal(cmd.name);
+  } else {
+    setInputWithCommand(cmd.name + ' ');
+  }
+  slash.hideSlashMenu();
+}
 
 // 模型选择
 const selectedModel = ref('');
@@ -666,8 +766,14 @@ const handlePaste = async (e: ClipboardEvent) => {
   }
 };
 
-// 文本框快捷键处理（输入历史导航）
+// 文本框快捷键处理（输入历史导航 + 斜杠命令）
 const handleKeydown = (e: KeyboardEvent) => {
+  // 斜杠菜单打开时，优先交给菜单处理
+  if (slash.isSlashMenuVisible.value) {
+    const consumed = slash.handleSlashKeydown(e, setInputWithCommand);
+    if (consumed) { return; }
+  }
+
   if (e.key === 'ArrowUp' && !e.shiftKey) {
     const el = inputRef.value;
     if (el && el.selectionStart === 0) {
@@ -701,6 +807,11 @@ const handleKeydown = (e: KeyboardEvent) => {
 // 全局快捷键处理
 const handleGlobalKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
+    if (slash.isSlashMenuVisible.value) {
+      slash.hideSlashMenu();
+      e.preventDefault();
+      return;
+    }
     if (showAttachMenu.value) {
       showAttachMenu.value = false;
       return;
