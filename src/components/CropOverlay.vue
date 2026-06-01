@@ -11,7 +11,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick } from 'vue'
+import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
 
 interface Props {
   imgNaturalWidth: number
@@ -407,5 +407,12 @@ onMounted(() => {
     syncFromProps()
     animFrameId = requestAnimationFrame(draw)
   })
+})
+
+onUnmounted(() => {
+  if (animFrameId !== null) {
+    cancelAnimationFrame(animFrameId)
+    animFrameId = null
+  }
 })
 </script>
