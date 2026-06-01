@@ -269,7 +269,7 @@ export function useSlashCommands(options: SlashCommandsOptions) {
 
       case '/usage': {
         const stats = usageStats
-        if (stats && stats.totalTokens > 0) {
+        if (stats) {
           const msg = [
             '**Token Usage**',
             '',
