@@ -722,6 +722,86 @@ pub fn import_hermes_config(content: String) -> Result<serde_json::Value, String
     }))
 }
 
+/// Set a specific config key in ~/.hermes/config.yaml using dot-notation.
+/// e.g. key="agent.service_tier", value="fast"
+#[tauri::command(rename_all = "camelCase")]
+pub fn hermes_set_config(key: String, value: serde_json::Value) -> Result<serde_json::Value, String> {
+    let path = config_path();
+    let yaml_content = if path.exists() {
+        std::fs::read_to_string(&path)
+            .map_err(|e| format!("读取配置失败: {e}"))?
+    } else {
+        String::new()
+    };
+
+    let mut root: serde_yaml::Value = if yaml_content.is_empty() {
+        serde_yaml::Value::Mapping(serde_yaml::Mapping::new())
+    } else {
+        serde_yaml::from_str(&yaml_content)
+            .map_err(|e| format!("解析 config.yaml 失败: {e}"))?
+    };
+
+    // 将 JSON value 转为 YAML value
+    fn json_to_yaml(v: &serde_json::Value) -> serde_yaml::Value {
+        match v {
+            serde_json::Value::Null => serde_yaml::Value::Null,
+            serde_json::Value::Bool(b) => serde_yaml::Value::Bool(*b),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    serde_yaml::Value::Number(i.into())
+                } else if let Some(f) = n.as_f64() {
+                    serde_yaml::Number::from_f64(f)
+                        .map(serde_yaml::Value::Number)
+                        .unwrap_or(serde_yaml::Value::Null)
+                } else {
+                    serde_yaml::Value::Null
+                }
+            }
+            serde_json::Value::String(s) => serde_yaml::Value::String(s.clone()),
+            serde_json::Value::Array(arr) => {
+                serde_yaml::Value::Sequence(arr.iter().map(json_to_yaml).collect())
+            }
+            serde_json::Value::Object(obj) => {
+                let mut m = serde_yaml::Mapping::new();
+                for (k, v) in obj {
+                    m.insert(serde_yaml::Value::String(k.clone()), json_to_yaml(v));
+                }
+                serde_yaml::Value::Mapping(m)
+            }
+        }
+    }
+
+    // 按 dot-notation 路径导航（如 "agent.service_tier"）
+    let keys: Vec<&str> = key.split('.').collect();
+    let mut current = &mut root;
+    for k in &keys[..keys.len() - 1] {
+        let entry = current
+            .as_mapping_mut()
+            .ok_or(format!("配置路径 '{key}' 中间节点不是 mapping"))?
+            .entry(serde_yaml::Value::String(k.to_string()))
+            .or_insert_with(|| serde_yaml::Value::Mapping(serde_yaml::Mapping::new()));
+        current = entry;
+    }
+
+    // 设置最后一个 key
+    let last_key = keys.last().ok_or("空 key")?;
+    current
+        .as_mapping_mut()
+        .ok_or(format!("配置路径 '{key}' 的父节点不是 mapping"))?
+        .insert(serde_yaml::Value::String(last_key.to_string()), json_to_yaml(&value));
+
+    // 原子写入
+    let new_content = serde_yaml::to_string(&root)
+        .map_err(|e| format!("序列化配置失败: {e}"))?;
+    let tmp_path = path.with_extension("yaml.tmp");
+    std::fs::write(&tmp_path, &new_content)
+        .map_err(|e| format!("写入配置失败: {e}"))?;
+    std::fs::rename(&tmp_path, &path)
+        .map_err(|e| format!("更新配置失败: {e}"))?;
+
+    Ok(serde_json::json!({ "success": true, "key": key }))
+}
+
 /// Read and parse ~/.hermes/config.yaml as a generic YAML value.
 fn read_config_yaml() -> Result<serde_yaml::Value, String> {
     let path = config_path();

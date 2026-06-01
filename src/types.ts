@@ -576,3 +576,18 @@ export interface ConfigImportResult {
   success: boolean
   message?: string
 }
+
+export interface GatewayStatus {
+  success: boolean
+  running: boolean
+  pid: string
+  status: string
+  output: string
+  error: string
+}
+
+export interface GatewayResult {
+  success: boolean
+  output: string
+  error: string
+}

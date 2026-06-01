@@ -773,6 +773,13 @@ const handleKeydown = (e: KeyboardEvent) => {
     if (consumed) { return; }
   }
 
+  // Enter 发送（仅当斜杠菜单未消费时）
+  if (e.key === 'Enter' && !e.shiftKey && !isComposing.value) {
+    e.preventDefault();
+    handleSend();
+    return;
+  }
+
   if (e.key === 'ArrowUp' && !e.shiftKey) {
     const el = inputRef.value;
     if (el && el.selectionStart === 0) {
