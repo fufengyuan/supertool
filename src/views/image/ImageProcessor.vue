@@ -211,8 +211,30 @@
         <div v-else-if="viewMode === 'split' && processedPath" class="flex w-full h-full">
           <div class="flex-1 flex flex-col border-r border-base-300">
             <div class="text-[10px] text-base-content/40 px-3 py-1 bg-base-100 border-b border-base-300 shrink-0">原始图片</div>
-            <div class="flex-1 flex items-center justify-center p-3 overflow-hidden">
-              <img :src="originalUrl" class="max-w-full max-h-full object-contain rounded shadow-sm" alt="原始图片" />
+            <div ref="imgContainerRef" class="flex-1 flex items-center justify-center p-3 overflow-hidden relative">
+              <img
+                ref="imgElementRef"
+                :src="originalUrl"
+                class="max-w-full max-h-full object-contain rounded shadow-sm"
+                alt="原始图片"
+              />
+              <CropOverlay
+                v-if="activeFunction === 'crop' && imgDisplayWidth > 0 && imgDisplayHeight > 0"
+                :img-natural-width="originalWidth"
+                :img-natural-height="originalHeight"
+                :img-display-width="imgDisplayWidth"
+                :img-display-height="imgDisplayHeight"
+                :img-offset-x="imgOffsetX"
+                :img-offset-y="imgOffsetY"
+                :crop-x="cropX"
+                :crop-y="cropY"
+                :crop-w="cropW"
+                :crop-h="cropH"
+                @update:crop-x="(v: number) => cropX = v"
+                @update:crop-y="(v: number) => cropY = v"
+                @update:crop-w="(v: number) => cropW = v"
+                @update:crop-h="(v: number) => cropH = v"
+              />
             </div>
           </div>
           <div class="flex-1 flex flex-col">
@@ -309,6 +331,65 @@ const resizeWidth = ref(0)
 const resizeHeight = ref(0)
 const percent = ref(100)
 const keepAspect = ref(true)
+
+// Resize linkage
+const resizeSource = ref<'dimensions' | 'percent'>('dimensions')
+const updatingResize = ref(false)
+
+function onResizeWidthInput(e: Event) {
+  if (updatingResize.value) return
+  const val = Number((e.target as HTMLInputElement).value)
+  if (isNaN(val) || val < 0) return
+  updatingResize.value = true
+  resizeSource.value = 'dimensions'
+  resizeWidth.value = val
+  if (val > 0 && originalWidth.value > 0) {
+    percent.value = Math.round((val / originalWidth.value) * 100)
+    if (keepAspect.value && originalHeight.value > 0) {
+      resizeHeight.value = Math.round(originalHeight.value * val / originalWidth.value)
+    }
+  }
+  updatingResize.value = false
+}
+
+function onResizeHeightInput(e: Event) {
+  if (updatingResize.value) return
+  const val = Number((e.target as HTMLInputElement).value)
+  if (isNaN(val) || val < 0) return
+  updatingResize.value = true
+  resizeSource.value = 'dimensions'
+  resizeHeight.value = val
+  if (val > 0 && originalHeight.value > 0) {
+    percent.value = Math.round((val / originalHeight.value) * 100)
+    if (keepAspect.value && originalWidth.value > 0) {
+      resizeWidth.value = Math.round(originalWidth.value * val / originalHeight.value)
+    }
+  }
+  updatingResize.value = false
+}
+
+function onPercentInput(e: Event) {
+  if (updatingResize.value) return
+  const val = Number((e.target as HTMLInputElement).value)
+  if (isNaN(val) || val < 0) return
+  updatingResize.value = true
+  resizeSource.value = 'percent'
+  percent.value = val
+  if (originalWidth.value > 0) {
+    resizeWidth.value = Math.round(originalWidth.value * val / 100)
+  }
+  if (originalHeight.value > 0) {
+    resizeHeight.value = Math.round(originalHeight.value * val / 100)
+  }
+  updatingResize.value = false
+}
+
+const computedPercent = computed(() => {
+  if (resizeWidth.value > 0 && originalWidth.value > 0) {
+    return Math.round((resizeWidth.value / originalWidth.value) * 100)
+  }
+  return percent.value
+})
 
 // Convert params
 const targetFormat = ref('png')
