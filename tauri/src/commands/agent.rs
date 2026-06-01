@@ -10,9 +10,9 @@
 use serde_json::json;
 
 use supertool_core::db::agent::{
-    count_hermes_sessions, delete_hermes_session, get_compression_tip, get_hermes_stats,
-    hermes_is_installed, list_hermes_messages, list_hermes_sessions, rename_hermes_session,
-    search_hermes_sessions,
+    count_hermes_sessions, delete_hermes_session, get_compression_tip, get_hermes_session,
+    get_hermes_stats, hermes_is_installed, list_hermes_messages, list_hermes_sessions,
+    rename_hermes_session, search_hermes_sessions,
 };
 
 /// Check if Agent is installed
@@ -92,6 +92,19 @@ pub fn agent_rename_session(
         "success": true,
         "sessionId": session_id,
         "newTitle": new_title
+    }))
+}
+
+/// Get a single session with its messages (direct SQLite access)
+#[tauri::command(rename_all = "camelCase")]
+pub fn agent_get_session(session_id: String) -> Result<serde_json::Value, String> {
+    let session = get_hermes_session(&session_id)?;
+    let messages = list_hermes_messages(&session_id)?;
+    Ok(json!({
+        "success": true,
+        "sessionId": session_id,
+        "session": session,
+        "messages": messages,
     }))
 }
 

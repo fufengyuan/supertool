@@ -2716,16 +2716,25 @@ export function getTauriAPI(): TauriAPI {
     saveProviderCredential: async (providerId: string, apiKey: string) => tauriCall<ProviderSaveResult>('save_provider_credential', { providerId, apiKey }),
     removeProviderCredential: async (providerId: string) => tauriCall<ProviderSaveResult>('remove_provider_credential', { providerId }),
     startOAuthFlow: async (providerId: string) => tauriCall<OAuthFlowResult>('start_oauth_flow', { providerId }),
-    pollOAuthResult: async (providerId: string) => tauriCall<OAuthPollResult>('poll_oauth_result', { providerId }),
-
     // ============ Hermes Cron Jobs ============
     listCronJobs: async () => tauriCall<CronJob[]>('list_cron_jobs'),
-    createCronJob: async (schedule: string, prompt?: string, name?: string, deliver?: string) =>
+    createCronJob: async (
+      schedule: string, prompt: string, name?: string, deliver?: string,
+    ) =>
       tauriCall<void>('create_cron_job', { schedule, prompt, name, deliver }),
     removeCronJob: async (jobId: string) => tauriCall<void>('remove_cron_job', { jobId }),
     pauseCronJob: async (jobId: string) => tauriCall<void>('pause_cron_job', { jobId }),
     resumeCronJob: async (jobId: string) => tauriCall<void>('resume_cron_job', { jobId }),
     triggerCronJob: async (jobId: string) => tauriCall<void>('trigger_cron_job', { jobId }),
+
+    // ============ Hermes Gateway ============
+    gatewayStatus: async () => tauriCall<GatewayStatus>('gateway_status'),
+    gatewayStart: async () => tauriCall<GatewayResult>('gateway_start'),
+    gatewayStop: async () => tauriCall<GatewayResult>('gateway_stop'),
+    gatewayRestart: async () => tauriCall<GatewayResult>('gateway_restart'),
+
+    // ============ Hermes Config (generic set) ============
+    hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
   }
 

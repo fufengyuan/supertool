@@ -13,6 +13,7 @@ pub mod git_sync;
 pub mod hermes_chat;
 pub mod hermes_config;
 pub mod hermes_cron;
+pub mod hermes_gateway;
 pub mod hermes_memory;
 pub mod hermes_skills;
 pub mod image;

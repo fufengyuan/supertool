@@ -868,6 +868,7 @@ fn main() {
             commands::agent::agent_list_sessions,
             commands::agent::agent_delete_session,
             commands::agent::agent_rename_session,
+            commands::agent::agent_get_session,
             commands::agent::agent_search_sessions,
             commands::agent::agent_get_compression_tip,
             commands::agent::save_temp_file,
@@ -876,6 +877,11 @@ fn main() {
             commands::hermes_chat::agent_chat,
             commands::hermes_chat::agent_abort_chat,
             commands::hermes_chat::agent_clear_cache,
+            // Hermes gateway management
+            commands::hermes_gateway::gateway_status,
+            commands::hermes_gateway::gateway_start,
+            commands::hermes_gateway::gateway_stop,
+            commands::hermes_gateway::gateway_restart,
             // Hermes config management (pure Rust, no Python bridge)
             commands::hermes_chat::agent_check_available,
             commands::hermes_chat::agent_get_models,
@@ -893,6 +899,7 @@ fn main() {
             commands::hermes_config::get_hermes_config_info,
             commands::hermes_config::export_hermes_config,
             commands::hermes_config::import_hermes_config,
+            commands::hermes_config::hermes_set_config,
             // Hermes Memory management
             commands::hermes_memory::read_memory,
             commands::hermes_memory::add_memory_entry,
