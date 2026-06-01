@@ -151,6 +151,33 @@ pub fn save_temp_file(base64_data: String, file_name: String) -> Result<serde_js
     }))
 }
 
+/// Recursively delete old files under a directory, respecting max_age.
+/// Directories are traversed but never deleted.
+fn clean_dir_recursive(dir: &std::path::Path, now: std::time::SystemTime, max_age_secs: u64) -> u64 {
+    let mut deleted = 0u64;
+    let entries = match fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return 0,
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            deleted += clean_dir_recursive(&path, now, max_age_secs);
+        } else if let Ok(metadata) = path.metadata() {
+            if let Ok(modified) = metadata.modified() {
+                if let Ok(duration) = now.duration_since(modified) {
+                    if duration.as_secs() > max_age_secs {
+                        let _ = fs::remove_file(&path);
+                        deleted += 1;
+                        log::info!("[clean_temp_dir] deleted old temp file: {:?}", path);
+                    }
+                }
+            }
+        }
+    }
+    deleted
+}
+
 /// Clean temp files older than max_age_hours (default: 24h) in ~/.supertool/tmp/
 #[tauri::command(rename_all = "camelCase")]
 pub fn clean_temp_dir(max_age_hours: Option<u64>) -> Result<serde_json::Value, String> {
@@ -161,25 +188,7 @@ pub fn clean_temp_dir(max_age_hours: Option<u64>) -> Result<serde_json::Value, S
 
     let max_age = max_age_hours.unwrap_or(24);
     let now = std::time::SystemTime::now();
-    let mut deleted = 0u64;
-
-    for entry in fs::read_dir(&temp_dir).map_err(|e| format!("读取目录失败: {e}"))? {
-        let entry = entry.map_err(|e| format!("读取条目失败: {e}"))?;
-        let path = entry.path();
-        if path.is_file() {
-            if let Ok(metadata) = path.metadata() {
-                if let Ok(modified) = metadata.modified() {
-                    if let Ok(duration) = now.duration_since(modified) {
-                        if duration.as_secs() > max_age * 3600 {
-                            let _ = fs::remove_file(&path);
-                            deleted += 1;
-                            log::info!("[clean_temp_dir] deleted old temp file: {:?}", path);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    let deleted = clean_dir_recursive(&temp_dir, now, max_age * 3600);
 
     Ok(json!({
         "success": true,
