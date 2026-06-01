@@ -338,6 +338,7 @@ async function loadModels() {
 
     customModels.value = result.customModels || []
     providerModels.value = result.providerModels || []
+    initExpandedGroups()
     defaultModel.value = result.defaultModel || ''
     activeProvider.value = result.activeProvider || ''
   } catch (e) {
@@ -438,5 +439,9 @@ function clearSuccessAfterDelay() {
 
 onMounted(() => {
   loadModels()
+})
+
+onUnmounted(() => {
+  if (successTimer) clearTimeout(successTimer)
 })
 </script>
