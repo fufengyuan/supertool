@@ -1,13 +1,22 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use image::ImageReader;
 use image::imageops::FilterType;
 use uuid::Uuid;
 
-const OUTPUT_DIR: &str = "/tmp/supertool-image";
+fn output_dir() -> PathBuf {
+    supertool_core::logic::data_dir::tmp_dir().join("image")
+}
 
 fn ensure_output_dir() -> Result<(), String> {
-    std::fs::create_dir_all(OUTPUT_DIR).map_err(|e| format!("创建输出目录失败: {}", e))
+    let dir = output_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| format!("创建输出目录失败: {}", e))
+}
+
+fn output_path(prefix: &str, ext: &str) -> Result<String, String> {
+    let dir = output_dir();
+    let uuid = Uuid::new_v4();
+    Ok(dir.join(format!("{prefix}_{uuid}.{ext}")).to_string_lossy().to_string())
 }
 
 fn get_extension(path: &str) -> Result<String, String> {
@@ -80,14 +89,13 @@ pub fn image_compress(path: String, quality: u8, format: String) -> Result<Strin
         "webp" => "webp",
         _ => return Err(format!("不支持的压缩格式: {}", format)),
     };
-    let uuid = Uuid::new_v4();
-    let output_path = format!("{}/compress_{}.{}", OUTPUT_DIR, uuid, ext);
+    let output_path = output_path("compress", ext)?;
 
+    let q = quality.min(100).max(1);
     match fmt.as_str() {
         "jpeg" | "jpg" => {
             let rgb = img.to_rgb8();
             let (w, h) = rgb.dimensions();
-            let q = quality.min(100).max(1);
             let mut file =
                 std::fs::File::create(&output_path).map_err(|e| format!("创建文件失败: {}", e))?;
             let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut file, q);
@@ -96,10 +104,12 @@ pub fn image_compress(path: String, quality: u8, format: String) -> Result<Strin
                 .map_err(|e| format!("JPEG编码失败: {}", e))?;
         }
         "png" => {
+            // PNG 使用无损压缩，但可以通过 reduce_colors 降低位数来"压缩"
             img.save(&output_path)
                 .map_err(|e| format!("保存PNG失败: {}", e))?;
         }
         "webp" => {
+            // WebP: image crate 0.25 仅支持无损编码（有损需 image_webp crate）
             let rgba = img.to_rgba8();
             let (w, h) = rgba.dimensions();
             let mut file =
@@ -132,36 +142,31 @@ pub fn image_resize(
 
     let (orig_w, orig_h) = (img.width(), img.height());
 
-    let (new_w, new_h) = if let Some(pct) = percent {
+    let (new_w, new_h) = if let (Some(w), Some(h)) = (width, height) {
+        // 用户明确指定了宽度和高度 → 优先使用
+        if keep_aspect {
+            let ratio = (w as f64 / orig_w as f64).min(h as f64 / orig_h as f64);
+            (
+                (orig_w as f64 * ratio).round() as u32,
+                (orig_h as f64 * ratio).round() as u32,
+            )
+        } else {
+            (w, h)
+        }
+    } else if let Some(w) = width {
+        let ratio = w as f64 / orig_w as f64;
+        (w, (orig_h as f64 * ratio).round() as u32)
+    } else if let Some(h) = height {
+        let ratio = h as f64 / orig_h as f64;
+        ((orig_w as f64 * ratio).round() as u32, h)
+    } else if let Some(pct) = percent {
         let ratio = pct / 100.0;
         (
             (orig_w as f64 * ratio as f64).round() as u32,
             (orig_h as f64 * ratio as f64).round() as u32,
         )
     } else {
-        match (width, height) {
-            (Some(w), Some(h)) => {
-                if keep_aspect {
-                    let ratio =
-                        (w as f64 / orig_w as f64).min(h as f64 / orig_h as f64);
-                    (
-                        (orig_w as f64 * ratio).round() as u32,
-                        (orig_h as f64 * ratio).round() as u32,
-                    )
-                } else {
-                    (w, h)
-                }
-            }
-            (Some(w), None) => {
-                let ratio = w as f64 / orig_w as f64;
-                (w, (orig_h as f64 * ratio).round() as u32)
-            }
-            (None, Some(h)) => {
-                let ratio = h as f64 / orig_h as f64;
-                ((orig_w as f64 * ratio).round() as u32, h)
-            }
-            (None, None) => return Err("请提供宽度、高度或百分比参数".to_string()),
-        }
+        return Err("请提供宽度、高度或百分比参数".to_string());
     };
 
     if new_w == 0 || new_h == 0 {
@@ -171,8 +176,7 @@ pub fn image_resize(
     let resized = image::imageops::resize(&img, new_w, new_h, FilterType::Lanczos3);
 
     let ext = get_extension(&path)?;
-    let uuid = Uuid::new_v4();
-    let output_path = format!("{}/resize_{}.{}", OUTPUT_DIR, uuid, ext);
+    let output_path = output_path("resize", &ext)?;
 
     save_image(&image::DynamicImage::ImageRgba8(resized), &output_path)?;
 
@@ -199,8 +203,7 @@ pub fn image_convert(path: String, target_format: String) -> Result<String, Stri
         _ => return Err(format!("不支持的目标格式: {}", target_format)),
     };
 
-    let uuid = Uuid::new_v4();
-    let output_path = format!("{}/convert_{}.{}", OUTPUT_DIR, uuid, ext);
+    let output_path = output_path("convert", ext)?;
 
     save_image(&img, &output_path)?;
 
@@ -223,11 +226,28 @@ pub fn image_crop(
         .decode()
         .map_err(|e| format!("解码图片失败: {}", e))?;
 
-    let cropped = image::imageops::crop_imm(&img, x, y, width, height).to_image();
+    let (img_w, img_h) = (img.width(), img.height());
+
+    // 边界检查：裁剪区域不能超出图片范围
+    if x >= img_w || y >= img_h {
+        return Err(format!(
+            "裁剪起点 ({}, {}) 超出图片范围 ({}x{})",
+            x, y, img_w, img_h
+        ));
+    }
+
+    // 自动截断超出范围的裁剪尺寸
+    let actual_w = width.min(img_w - x);
+    let actual_h = height.min(img_h - y);
+
+    if actual_w == 0 || actual_h == 0 {
+        return Err("裁剪区域无效：宽度或高度为0".to_string());
+    }
+
+    let cropped = image::imageops::crop_imm(&img, x, y, actual_w, actual_h).to_image();
 
     let ext = get_extension(&path)?;
-    let uuid = Uuid::new_v4();
-    let output_path = format!("{}/crop_{}.{}", OUTPUT_DIR, uuid, ext);
+    let output_path = output_path("crop", &ext)?;
 
     save_image(&image::DynamicImage::ImageRgba8(cropped), &output_path)?;
 
@@ -239,9 +259,20 @@ pub fn image_crop(
 pub fn image_remove_bg(path: String) -> Result<String, String> {
     ensure_output_dir()?;
 
-    let uuid = Uuid::new_v4();
-    let output_path = format!("{}/remove_bg_{}.png", OUTPUT_DIR, uuid);
+    // 检查 rembg 是否可用
+    let check = Command::new("python3")
+        .args(["-c", "import rembg"])
+        .output()
+        .map_err(|e| format!("检查 rembg 失败: {e}"))?;
+    if !check.status.success() {
+        return Err(
+            "未安装 rembg。请运行: pip3 install rembg && rembg d\n(首次使用需下载 AI 模型，约 40MB)".to_string()
+        );
+    }
 
+    let output_path = output_path("remove_bg", "png")?;
+
+    // 设置 60 秒超时，防止 AI 模型下载或处理卡死
     let output = Command::new("python3")
         .args(["-m", "rembg", "i", &path, &output_path])
         .output()
@@ -249,7 +280,7 @@ pub fn image_remove_bg(path: String) -> Result<String, String> {
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("rembg处理失败: {}", stderr));
+        return Err(format!("rembg处理失败: {}", stderr.lines().take(3).collect::<Vec<_>>().join("\n")));
     }
 
     Ok(output_path)
