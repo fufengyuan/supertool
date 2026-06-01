@@ -247,14 +247,32 @@
 
         <!-- Single view (original or result) -->
         <div v-else class="flex w-full h-full">
-          <div class="flex-1 flex flex-col">
+          <div class="flex-1 flex flex-col relative">
             <div v-if="viewMode === 'result' && processedPath" class="text-[10px] text-base-content/40 px-3 py-1 bg-base-100 border-b border-base-300 shrink-0">处理后图片</div>
             <div v-else class="text-[10px] text-base-content/40 px-3 py-1 bg-base-100 border-b border-base-300 shrink-0">原始图片</div>
-            <div class="flex-1 flex items-center justify-center p-4 overflow-hidden">
+            <div ref="imgContainerRef" class="flex-1 flex items-center justify-center p-4 overflow-hidden relative">
               <img
+                ref="imgElementRef"
                 :src="viewMode === 'result' && processedPath ? processedUrl : originalUrl"
                 class="max-w-full max-h-full object-contain rounded shadow-sm"
                 :alt="viewMode === 'result' && processedPath ? '处理后图片' : '原始图片'"
+              />
+              <CropOverlay
+                v-if="activeFunction === 'crop' && imgDisplayWidth > 0 && imgDisplayHeight > 0"
+                :img-natural-width="originalWidth"
+                :img-natural-height="originalHeight"
+                :img-display-width="imgDisplayWidth"
+                :img-display-height="imgDisplayHeight"
+                :img-offset-x="imgOffsetX"
+                :img-offset-y="imgOffsetY"
+                :crop-x="cropX"
+                :crop-y="cropY"
+                :crop-w="cropW"
+                :crop-h="cropH"
+                @update:crop-x="(v: number) => cropX = v"
+                @update:crop-y="(v: number) => cropY = v"
+                @update:crop-w="(v: number) => cropW = v"
+                @update:crop-h="(v: number) => cropH = v"
               />
             </div>
           </div>
@@ -610,7 +628,7 @@ function formatSize(bytes: number): string {
 
 function measureImage() {
   const img = imgElementRef.value
-  if (!img || !img.complete || img.naturalWidth === 0) return
+  if (!img || !img.complete || img.naturalWidth === 0) { return }
   imgDisplayWidth.value = img.clientWidth
   imgDisplayHeight.value = img.clientHeight
   const container = imgContainerRef.value
@@ -629,7 +647,7 @@ watch(originalUrl, (url) => {
       const img = imgElementRef.value
       if (img) {
         img.onload = () => measureImage()
-        if (img.complete) measureImage()
+        if (img.complete) { measureImage() }
       }
     })
   } else {
@@ -649,7 +667,7 @@ watch(imgContainerRef, (el) => {
   resizeObserver?.disconnect()
   if (el) {
     resizeObserver = new ResizeObserver(() => {
-      if (originalUrl.value) measureImage()
+      if (originalUrl.value) { measureImage() }
     })
     resizeObserver.observe(el)
   }
