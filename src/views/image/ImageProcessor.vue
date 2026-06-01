@@ -69,22 +69,26 @@
         </div>
 
         <div v-if="activeFunction === 'resize'" class="space-y-2.5">
+          <div v-if="originalWidth && originalHeight" class="text-[10px] text-base-content/40 flex items-center gap-1">
+            <SvgIcon name="maximize" size="9" />
+            原始尺寸: {{ originalWidth }} × {{ originalHeight }}
+          </div>
           <div class="grid grid-cols-2 gap-2">
             <div>
-              <label class="text-[10px] font-medium text-base-content/70 block mb-1">宽度 (px)</label>
-              <input type="number" v-model.number="resizeWidth" class="input input-bordered input-xs w-full text-[11px]" min="1" placeholder="自动" />
+              <label class="text-[10px] font-medium block mb-1" :class="resizeSource === 'percent' ? 'text-base-content/40' : 'text-base-content/70'">宽度 (px)</label>
+              <input type="number" :value="resizeWidth" @input="onResizeWidthInput($event)" class="input input-bordered input-xs w-full text-[11px] bg-transparent" min="1" placeholder="自动" />
             </div>
             <div>
-              <label class="text-[10px] font-medium text-base-content/70 block mb-1">高度 (px)</label>
-              <input type="number" v-model.number="resizeHeight" class="input input-bordered input-xs w-full text-[11px]" min="1" placeholder="自动" />
+              <label class="text-[10px] font-medium block mb-1" :class="resizeSource === 'percent' ? 'text-base-content/40' : 'text-base-content/70'">高度 (px)</label>
+              <input type="number" :value="resizeHeight" @input="onResizeHeightInput($event)" class="input input-bordered input-xs w-full text-[11px] bg-transparent" min="1" placeholder="自动" />
             </div>
           </div>
           <div>
             <div class="flex items-center justify-between mb-1">
-              <span class="text-[10px] font-medium text-base-content/70">缩放比例</span>
-              <span class="text-[10px] font-mono text-base-content/50">{{ percent }}%</span>
+              <span class="text-[10px] font-medium" :class="resizeSource === 'dimensions' ? 'text-base-content/40' : 'text-base-content/70'">缩放比例</span>
+              <span class="text-[10px] font-mono text-base-content/50">{{ computedPercent }}%</span>
             </div>
-            <input type="range" min="1" max="200" v-model.number="percent" class="range range-primary range-xs w-full" />
+            <input type="range" min="1" max="200" :value="computedPercent" @input="onPercentInput($event)" class="range range-primary range-xs w-full" :class="{ 'opacity-50': resizeSource === 'dimensions' }" />
           </div>
           <label class="flex items-center gap-2 cursor-pointer py-0.5">
             <input type="checkbox" v-model="keepAspect" class="checkbox checkbox-xs checkbox-primary" />
@@ -237,6 +241,10 @@
 
       <!-- Status Bar -->
       <div v-if="originalPath || processedPath" class="flex items-center gap-3 px-4 py-1.5 bg-base-100 border-t border-base-300 shrink-0 text-[10px] text-base-content/50">
+        <span v-if="originalWidth && originalHeight" class="flex items-center gap-1">
+          <SvgIcon name="maximize" size="9" />
+          {{ originalWidth }}×{{ originalHeight }}
+        </span>
         <span v-if="originalPath && originalSize" class="flex items-center gap-1">
           <SvgIcon name="file" size="9" />
           原始: {{ formatSize(originalSize) }}
@@ -257,10 +265,17 @@
 defineOptions({ name: 'ImageProcessor' })
 
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed } from 'vue'
+import CropOverlay from '@/components/CropOverlay.vue'
+import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc } from '@tauri-apps/api/core'
+
+// ============ Cleanup ============
+
+onUnmounted(() => {
+  invoke('cleanTempDir', { maxAgeHours: 24 }).catch(() => {})
+})
 
 // ============ State ============
 
@@ -268,10 +283,20 @@ const originalPath = ref('')
 const processedPath = ref('')
 const originalSize = ref(0)
 const processedSize = ref(0)
+const originalWidth = ref(0)
+const originalHeight = ref(0)
 const processing = ref(false)
 const errorMsg = ref('')
 const dragOver = ref(false)
 const viewMode = ref<'split' | 'result'>('split')
+
+// Image container for crop overlay measurement
+const imgContainerRef = ref<HTMLDivElement>()
+const imgElementRef = ref<HTMLImageElement>()
+const imgDisplayWidth = ref(0)
+const imgDisplayHeight = ref(0)
+const imgOffsetX = ref(0)
+const imgOffsetY = ref(0)
 
 const activeFunction = ref('compress')
 
@@ -291,8 +316,8 @@ const targetFormat = ref('png')
 // Crop params
 const cropX = ref(0)
 const cropY = ref(0)
-const cropW = ref(100)
-const cropH = ref(100)
+const cropW = ref(0)
+const cropH = ref(0)
 
 // ============ Computed ============
 
@@ -358,10 +383,26 @@ function loadFile(path: string) {
   processedPath.value = ''
   originalSize.value = 0
   processedSize.value = 0
+  originalWidth.value = 0
+  originalHeight.value = 0
   errorMsg.value = ''
   viewMode.value = 'split'
   // Try to get file size
   getFileSize(path)
+  // Get original dimensions via Image
+  getOriginalDimensions(path)
+}
+
+function getOriginalDimensions(path: string) {
+  const url = convertFileSrc(path)
+  const img = new Image()
+  img.onload = () => {
+    originalWidth.value = img.naturalWidth
+    originalHeight.value = img.naturalHeight
+    URL.revokeObjectURL(url)
+  }
+  img.onerror = () => URL.revokeObjectURL(url)
+  img.src = url
 }
 
 async function getFileSize(path: string) {
@@ -378,6 +419,8 @@ function clearFile() {
   processedPath.value = ''
   originalSize.value = 0
   processedSize.value = 0
+  originalWidth.value = 0
+  originalHeight.value = 0
   errorMsg.value = ''
 }
 
@@ -404,7 +447,8 @@ async function processImage() {
           path: originalPath.value,
           width: resizeWidth.value > 0 ? resizeWidth.value : null,
           height: resizeHeight.value > 0 ? resizeHeight.value : null,
-          percent: percent.value,
+          // 只在用户明确使用了百分比（且没有填宽高）时才传 percent
+          percent: (resizeWidth.value <= 0 && resizeHeight.value <= 0) ? percent.value : null,
           keepAspect: keepAspect.value,
         })
         break
@@ -456,11 +500,12 @@ async function getProcessedFileSize(path: string) {
 async function downloadImage() {
   if (!processedPath.value) {return}
   try {
-    // Use Tauri shell to open/save or just copy path to clipboard
-    // For simplicity, we use the dialog to save a copy
     const { save } = await import('@tauri-apps/plugin-dialog')
+    // 正确处理文件名：在扩展名前插入 _processed
+    const baseName = fileName.value.replace(/\.\w+$/, '')
+    const ext = fileName.value.match(/\.(\w+)$/)?.[1] || 'png'
     const destPath = await save({
-      defaultPath: fileName.value.replace(/\.\w+$/, '_processed.$&'),
+      defaultPath: `${baseName}_processed.${ext}`,
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
     })
     if (destPath) {
@@ -479,4 +524,57 @@ function formatSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(1024))
   return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + ' ' + units[i]
 }
+
+// ============ Image display measurement for crop overlay ============
+
+function measureImage() {
+  const img = imgElementRef.value
+  if (!img || !img.complete || img.naturalWidth === 0) return
+  imgDisplayWidth.value = img.clientWidth
+  imgDisplayHeight.value = img.clientHeight
+  const container = imgContainerRef.value
+  if (container) {
+    const containerRect = container.getBoundingClientRect()
+    const imgRect = img.getBoundingClientRect()
+    imgOffsetX.value = imgRect.left - containerRect.left
+    imgOffsetY.value = imgRect.top - containerRect.top
+  }
+}
+
+// Watch for image load to measure
+watch(originalUrl, (url) => {
+  if (url) {
+    nextTick(() => {
+      const img = imgElementRef.value
+      if (img) {
+        img.onload = () => measureImage()
+        if (img.complete) measureImage()
+      }
+    })
+  } else {
+    imgDisplayWidth.value = 0
+    imgDisplayHeight.value = 0
+    cropX.value = 0
+    cropY.value = 0
+    cropW.value = 0
+    cropH.value = 0
+  }
+})
+
+// Resize observer to re-measure when container resizes
+let resizeObserver: ResizeObserver | null = null
+
+watch(imgContainerRef, (el) => {
+  resizeObserver?.disconnect()
+  if (el) {
+    resizeObserver = new ResizeObserver(() => {
+      if (originalUrl.value) measureImage()
+    })
+    resizeObserver.observe(el)
+  }
+})
+
+onUnmounted(() => {
+  resizeObserver?.disconnect()
+})
 </script>
