@@ -282,7 +282,6 @@
           :class="isStreaming ? 'textarea-warning border-warning/30 bg-warning/5' : 'textarea-bordered'"
           style="min-height: 40px;"
           :placeholder="isStreaming ? '正在处理中，输入新消息将打断当前任务...' : '输入消息...'"
-          @keydown.enter.exact.prevent="handleSend"
           @input="autoResize"
           @keydown="handleKeydown"
           @compositionstart="isComposing = true"
@@ -769,7 +768,7 @@ const handlePaste = async (e: ClipboardEvent) => {
 // 文本框快捷键处理（输入历史导航 + 斜杠命令）
 const handleKeydown = (e: KeyboardEvent) => {
   // 斜杠菜单打开时，优先交给菜单处理
-  if (slash.isSlashMenuVisible.value) {
+  if (slash.isSlashMenuVisible.value && !isComposing.value) {
     const consumed = slash.handleSlashKeydown(e, setInputWithCommand);
     if (consumed) { return; }
   }
