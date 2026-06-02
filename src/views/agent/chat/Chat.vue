@@ -16,19 +16,22 @@
     />
 
     <!-- Messages area -->
-    <template v-if="messages.length > 0">
-      <MessageList
-        ref="messageListRef"
-        :messages="messages"
-        :is-loading="isLoading"
-        :tool-progress="toolProgress"
-        :on-approve="handleApprove"
-        :on-deny="handleDeny"
-      />
-    </template>
-    <template v-else>
-      <ChatEmptyState @select-suggestion="handleSuggestion" />
-    </template>
+    <div ref="containerRef" class="flex-1 overflow-y-auto min-h-0">
+      <template v-if="messages.length > 0">
+        <MessageList
+          ref="messageListRef"
+          :messages="messages"
+          :is-loading="isLoading"
+          :tool-progress="toolProgress"
+          :on-approve="handleApprove"
+          :on-deny="handleDeny"
+        />
+      </template>
+      <template v-else>
+        <ChatEmptyState @select-suggestion="handleSuggestion" />
+      </template>
+      <div ref="bottomRef" />
+    </div>
 
     <!-- Input area -->
     <div class="border-t border-base-content/10 bg-base-100/80 backdrop-blur-sm">
@@ -162,6 +165,9 @@ const localCommands = useLocalCommands({
   addAgentMessage,
 });
 
+// ── Scroll management ────────────────────────────────────────────────────────
+const { containerRef, bottomRef, scrollToBottom } = useChatScroll(messages);
+
 // ── Chat IPC listeners ───────────────────────────────────────────────────────
 useChatIPC({
   messages,
@@ -170,10 +176,8 @@ useChatIPC({
   toolProgress,
   isLoading,
   usage,
+  scrollToBottom,
 });
-
-// ── Scroll management ────────────────────────────────────────────────────────
-const { scrollToBottom } = useChatScroll(messages);
 
 // ── Fast mode ────────────────────────────────────────────────────────────────
 const { fastMode, toggle: doToggleFast } = useFastMode();
