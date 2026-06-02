@@ -6,6 +6,7 @@ mod system_logger;
 mod tray_notification;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
+use commands::local_process::LocalProcessManager;
 
 use std::sync::OnceLock;
 use supertool_core::db::Database;
@@ -214,6 +215,7 @@ fn main() {
             // LAN
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
+            app.manage(LocalProcessManager::new());
             // Auto-start LAN service for team collaboration
             crate::commands::lan::auto_start_lan(app.handle());
 
@@ -445,6 +447,10 @@ fn main() {
             commands::terminal::resize_terminal,
             commands::terminal::close_terminal,
             commands::terminal::is_terminal_active,
+            // Local Process commands
+            commands::local_process::start_local_process,
+            commands::local_process::write_to_local_process,
+            commands::local_process::kill_local_process,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,

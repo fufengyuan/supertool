@@ -21,6 +21,7 @@ pub mod hermes_sessions;
 pub mod image;
 pub mod kanban;
 pub mod lan;
+pub mod local_process;
 pub mod logs;
 pub mod mfa;
 pub mod nginx;
