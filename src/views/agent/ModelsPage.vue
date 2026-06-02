@@ -2,13 +2,49 @@
   <div class="max-w-4xl mx-auto">
     <!-- OMP mode overlay -->
     <template v-if="isOmpMode">
-      <div class="flex items-center justify-center py-32">
+      <div v-if="ompLoading" class="flex items-center justify-center py-20">
+        <span class="loading loading-spinner loading-md text-primary" />
+      </div>
+      <div v-else-if="ompError" class="flex items-center justify-center py-20">
         <div class="text-center max-w-md px-6">
           <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
           <p class="text-sm font-medium text-base-content/50">OMP 模型管理</p>
-          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-            OMP 使用自身的模型配置（config.yaml），不依赖 Hermes 的模型管理。请在 OMP 配置文件中修改。
-          </p>
+          <p class="text-xs text-base-content/30 mt-2">{{ ompError }}</p>
+        </div>
+      </div>
+      <div v-else>
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold">OMP 模型管理</h1>
+            <p class="text-sm text-base-content/60 mt-1">来自 ~/.omp/agent/models.yaml</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" @click="loadOmpModels" :disabled="ompLoading">
+            <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+          </button>
+        </div>
+        <div v-for="(prov, name) in ompProviders" :key="name" class="mb-6">
+          <h2 class="text-base font-semibold mb-3 flex items-center gap-2">
+            <IconCloud :size="18" />
+            {{ name }}
+            <span
+              class="badge badge-sm"
+              :class="prov.apiKey ? 'badge-success' : 'badge-ghost'"
+            >{{ prov.apiKey ? '已配置' : '未配置' }}</span>
+          </h2>
+          <div v-if="prov.models?.length" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div
+              v-for="m in prov.models"
+              :key="m.id || m"
+              class="bg-base-100 border border-base-300 rounded-lg p-3"
+            >
+              <div class="text-sm font-medium">{{ m.id || m }}</div>
+              <div v-if="m.maxTokens || m.contextWindow" class="text-[10px] text-base-content/50 mt-1">
+                <span v-if="m.contextWindow">CTX {{ m.contextWindow }}</span>
+                <span v-if="m.maxTokens" class="ml-2">max {{ m.maxTokens }}</span>
+              </div>
+            </div>
+          </div>
+          <p v-else class="text-xs text-base-content/40">无模型配置</p>
         </div>
       </div>
     </template>
@@ -250,13 +286,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
+import { getTauriAPI } from '@/utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { invoke } from '@tauri-apps/api/core'
 import {
   IconRefresh,
   IconPlus,
+  IconCloud,
   IconCheck,
   IconX,
   IconAlertCircle,
@@ -285,6 +323,24 @@ const loading = ref(false)
 const error = ref('')
 const agentModeStore = useAgentModeStore()
 const isOmpMode = computed(() => agentModeStore.mode === 'omp')
+const ompProviders = ref<Record<string, any>>({})
+const ompLoading = ref(false)
+const ompError = ref('')
+
+async function loadOmpModels() {
+  ompLoading.value = true
+  ompError.value = ''
+  try {
+    const api = getTauriAPI()
+    const raw = await api.ompReadModelsConfig() as any
+    ompProviders.value = raw?.providers || {}
+  } catch (e: any) {
+    ompError.value = String(e?.message || e)
+    ompProviders.value = {}
+  } finally {
+    ompLoading.value = false
+  }
+}
 const successMsg = ref('')
 const defaultModel = ref('')
 const activeProvider = ref('')
@@ -458,7 +514,16 @@ function clearSuccessAfterDelay() {
 }
 
 onMounted(() => {
-  loadModels()
+  if (isOmpMode.value) {
+    loadOmpModels()
+  } else {
+    loadModels()
+  }
+})
+
+watch(isOmpMode, (omp) => {
+  if (omp) { loadOmpModels() }
+  else { loadModels() }
 })
 
 onUnmounted(() => {

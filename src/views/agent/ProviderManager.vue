@@ -2,13 +2,62 @@
   <div class="max-w-4xl mx-auto">
     <!-- OMP mode overlay -->
     <template v-if="isOmpMode">
-      <div class="flex items-center justify-center py-32">
+      <!-- Loading -->
+      <div v-if="ompLoading" class="flex items-center justify-center py-20">
+        <span class="loading loading-spinner loading-md text-primary" />
+      </div>
+      <!-- Error (config not found) -->
+      <div v-else-if="ompError" class="flex items-center justify-center py-20">
         <div class="text-center max-w-md px-6">
           <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
           <p class="text-sm font-medium text-base-content/50">OMP 模型提供商</p>
-          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-            OMP 使用自身的提供商配置（config.yaml），不依赖 Hermes 的提供商管理。请在 OMP 配置文件中修改。
-          </p>
+          <p class="text-xs text-base-content/30 mt-2">{{ ompError }}</p>
+        </div>
+      </div>
+      <!-- OMP providers -->
+      <div v-else>
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h1 class="text-2xl font-bold">OMP 模型提供商</h1>
+            <p class="text-sm text-base-content/60 mt-1">来自 ~/.omp/agent/models.yaml</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" @click="loadOmpConfig" :disabled="ompLoading">
+            <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+          </button>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div
+            v-for="(prov, name) in ompProviders"
+            :key="name"
+            class="bg-base-100 border border-base-300 rounded-xl p-4 hover:border-primary/30 transition-colors"
+          >
+            <div class="flex items-start justify-between">
+              <div>
+                <h3 class="font-semibold text-sm">{{ name }}</h3>
+                <code v-if="prov.baseUrl" class="text-[10px] text-base-content/40 mt-1 block truncate max-w-[200px]">
+                  {{ prov.baseUrl }}
+                </code>
+              </div>
+              <span
+                class="badge badge-sm shrink-0"
+                :class="prov.apiKey ? 'badge-success' : 'badge-ghost'"
+              >
+                {{ prov.apiKey ? '已配置' : '未配置' }}
+              </span>
+            </div>
+            <div v-if="prov.models?.length" class="mt-3 flex flex-wrap gap-1">
+              <span
+                v-for="m in prov.models.slice(0, 6)"
+                :key="m.id || m"
+                class="badge badge-sm badge-ghost text-[10px]"
+              >
+                {{ m.id || m }}
+              </span>
+              <span v-if="prov.models.length > 6" class="text-[10px] text-base-content/30 self-center ml-1">
+                +{{ prov.models.length - 6 }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </template>
@@ -157,7 +206,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'ProviderManager' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import {
@@ -179,6 +228,24 @@ const loading = ref(false)
 const error = ref('')
 const agentModeStore = useAgentModeStore()
 const isOmpMode = computed(() => agentModeStore.mode === 'omp')
+const ompProviders = ref<Record<string, any>>({})
+const ompLoading = ref(false)
+const ompError = ref('')
+
+async function loadOmpConfig() {
+  ompLoading.value = true
+  ompError.value = ''
+  try {
+    const api = getTauriAPI()
+    const raw = await api.ompReadModelsConfig() as any
+    ompProviders.value = raw?.providers || {}
+  } catch (e: any) {
+    ompError.value = String(e?.message || e)
+    ompProviders.value = {}
+  } finally {
+    ompLoading.value = false
+  }
+}
 const providers = ref<ProviderInfo[]>([])
 const editing = ref<Set<string>>(new Set())
 const visibleKeys = ref<Set<string>>(new Set())
@@ -291,6 +358,15 @@ async function toggleVisibility(providerId: string) {
 }
 
 onMounted(() => {
-  loadProviders()
+  if (isOmpMode.value) {
+    loadOmpConfig()
+  } else {
+    loadProviders()
+  }
+})
+
+watch(isOmpMode, (omp) => {
+  if (omp) { loadOmpConfig() }
+  else { loadProviders() }
 })
 </script>
