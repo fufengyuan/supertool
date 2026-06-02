@@ -113,7 +113,10 @@ import { useLocalCommands } from './composables/useLocalCommands';
 import type { ChatMessage, UsageState } from './types';
 import { hermesMessagesToChatMessages } from './sessionHistory';
 
+import { useAgentModeStore } from '@/stores/agentModeStore';
+
 const route = useRoute();
+const agentModeStore = useAgentModeStore();
 
 // ── Core state ───────────────────────────────────────────────────────────────
 const messages = ref<ChatMessage[]>([]);
@@ -125,6 +128,10 @@ const contextFolder = ref<string | null>(null);
 const currentInput = ref('');
 const chatInputRef = ref<{ clear: () => void; focus: () => void } | null>(null);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+
+// OMP 模式状态
+const ompInitialized = ref(false);
+const isOmpMode = computed(() => agentModeStore.mode === 'omp');
 
 function setMessages(msgs: ChatMessage[]) {
   messages.value = msgs;
@@ -242,9 +249,52 @@ const inputPlaceholder = computed(() => {
 });
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
+
+/** 添加用户消息到列表 */
+function pushUser(content: string) {
+  setMessages([
+    ...messages.value,
+    { id: `user-${Date.now()}`, role: 'user', content },
+  ])
+}
+
+/** OMP 模式：初始化连接 */
+async function ensureOmpChat() {
+  if (ompInitialized.value) return
+  try {
+    await invoke('omp_chat_init', { cwd: null as string | null })
+    ompInitialized.value = true
+    addAgentMessage('OMP 编码助手已就绪')
+  } catch (e: any) {
+    addAgentMessage(`OMP 初始化失败: ${e?.message || String(e)}`)
+    isLoading.value = false
+  }
+}
+
+/** OMP 模式：发送消息 */
+async function ompSend(text: string) {
+  isLoading.value = true
+  await ensureOmpChat()
+  try {
+    await invoke('omp_chat_send', { message: text })
+  } catch (e: any) {
+    addAgentMessage(`发送失败: ${e?.message || String(e)}`)
+    isLoading.value = false
+  }
+}
+
 async function handleSendInput() {
   const text = currentInput.value.trim();
   if (!text) return;
+
+  // OMP 模式 → 走 ACP 协议
+  if (isOmpMode.value) {
+    chatInputRef.value?.clear()
+    pushUser(text)
+    await ompSend(text)
+    pushHistory(text)
+    return
+  }
 
   if (isApprovalMode.value) {
     if (/^\/approve$/i.test(text)) {
@@ -343,5 +393,9 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  // OMP 清理
+  if (ompInitialized.value) {
+    invoke('omp_chat_close').catch(() => {});
+  }
 });
 </script>

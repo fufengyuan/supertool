@@ -2755,6 +2755,13 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<void>('omp_stop', { sessionId }),
     ompIsRunning: async (sessionId: string) =>
       tauriCall<boolean>('omp_is_running', { sessionId }),
+    // OMP Chat (ACP protocol)
+    ompChatInit: async (cwd?: string) =>
+      tauriCall<void>('omp_chat_init', { cwd }),
+    ompChatSend: async (message: string) =>
+      tauriCall<void>('omp_chat_send', { message }),
+    ompChatClose: async () =>
+      tauriCall<void>('omp_chat_close'),
 
   }
 
