@@ -58,6 +58,17 @@
         <button class="btn btn-ghost btn-xs" :class="{ 'text-warning': fastMode }" @click="toggleFastMode" :title="fastMode ? '快速模式: 开启' : '快速模式: 关闭'">
           <SvgIcon name="zap" size="14" />
         </button>
+        <!-- Task panel toggle -->
+        <button 
+          v-if="currentTasks.length > 0" 
+          class="btn btn-ghost btn-xs" 
+          :class="{ 'text-primary': showTaskPanel }" 
+          @click="showTaskPanel = !showTaskPanel" 
+          :title="showTaskPanel ? '隐藏任务面板' : '显示任务面板'"
+        >
+          <SvgIcon name="clipboardList" size="14" />
+          <span v-if="completedTasksCount > 0" class="text-[10px] text-success">{{ completedTasksCount }}</span>
+        </button>
         <!-- New chat -->
         <button class="btn btn-ghost btn-xs" @click="startNewChat" title="新对话 (Cmd+K)">
           <SvgIcon name="plus" size="14" />
@@ -251,6 +262,97 @@
         </div>
       </div>
 
+    <!-- Task Panel - Right floating panel for todo tasks -->
+    <Transition name="slide-right">
+      <div 
+        v-if="showTaskPanel && currentTasks.length > 0" 
+        class="absolute right-0 top-0 bottom-0 w-64 bg-base-100 border-l border-base-content/10 z-30 flex flex-col"
+      >
+        <!-- Panel header -->
+        <div class="flex items-center justify-between px-3 py-2 border-b border-base-content/10">
+          <div class="flex items-center gap-2">
+            <SvgIcon name="clipboardList" size="14" class="text-primary" />
+            <span class="text-sm font-medium text-base-content">任务列表</span>
+            <span class="badge badge-sm badge-primary">{{ currentTasks.length }}</span>
+          </div>
+          <button class="btn btn-ghost btn-xs btn-square" @click="showTaskPanel = false">
+            <SvgIcon name="close" size="12" />
+          </button>
+        </div>
+        
+        <!-- Task list by status -->
+        <div class="flex-1 overflow-y-auto p-2 space-y-3">
+          <!-- In Progress -->
+          <div v-if="tasksByStatus.inProgress.length > 0">
+            <div class="text-xs font-medium text-warning mb-1.5 flex items-center gap-1">
+              <SvgIcon name="loader" size="10" class="animate-spin" />
+              进行中 ({{ tasksByStatus.inProgress.length }})
+            </div>
+            <div class="space-y-1">
+              <div 
+                v-for="task in tasksByStatus.inProgress" 
+                :key="task.id"
+                class="px-2 py-1.5 bg-warning/10 border border-warning/20 rounded text-xs text-base-content/80"
+              >
+                {{ task.content }}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Pending -->
+          <div v-if="tasksByStatus.pending.length > 0">
+            <div class="text-xs font-medium text-base-content/50 mb-1.5 flex items-center gap-1">
+              <SvgIcon name="circle" size="10" />
+              待处理 ({{ tasksByStatus.pending.length }})
+            </div>
+            <div class="space-y-1">
+              <div 
+                v-for="task in tasksByStatus.pending" 
+                :key="task.id"
+                class="px-2 py-1.5 bg-base-200/30 border border-base-content/10 rounded text-xs text-base-content/70"
+              >
+                {{ task.content }}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Completed -->
+          <div v-if="tasksByStatus.completed.length > 0">
+            <div class="text-xs font-medium text-success mb-1.5 flex items-center gap-1">
+              <SvgIcon name="check" size="10" />
+              已完成 ({{ tasksByStatus.completed.length }})
+            </div>
+            <div class="space-y-1">
+              <div 
+                v-for="task in tasksByStatus.completed" 
+                :key="task.id"
+                class="px-2 py-1.5 bg-success/10 border border-success/20 rounded text-xs text-base-content/60 line-through"
+              >
+                {{ task.content }}
+              </div>
+            </div>
+          </div>
+          
+          <!-- Cancelled -->
+          <div v-if="tasksByStatus.cancelled.length > 0">
+            <div class="text-xs font-medium text-base-content/40 mb-1.5 flex items-center gap-1">
+              <SvgIcon name="x" size="10" />
+              已取消 ({{ tasksByStatus.cancelled.length }})
+            </div>
+            <div class="space-y-1">
+              <div 
+                v-for="task in tasksByStatus.cancelled" 
+                :key="task.id"
+                class="px-2 py-1.5 bg-base-200/20 border border-base-content/10 rounded text-xs text-base-content/40 line-through"
+              >
+                {{ task.content }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
+
       <!-- 输入区域 -->
       <ChatInput
         ref="chatInputRef"
@@ -269,8 +371,6 @@
         @modelChanged="onModelChanged"
         @commandMessage="handleCommandMessage"
       />
-    </div>
-
   </div>
 </template>
 
@@ -1238,6 +1338,17 @@ const completedTasksCount = computed(() => {
   return currentTasks.value.filter(t => t.status === 'completed').length;
 });
 
+// 按状态分组任务
+const tasksByStatus = computed(() => {
+  const tasks = currentTasks.value;
+  return {
+    inProgress: tasks.filter(t => t.status === 'in_progress'),
+    pending: tasks.filter(t => t.status === 'pending'),
+    completed: tasks.filter(t => t.status === 'completed'),
+    cancelled: tasks.filter(t => t.status === 'cancelled'),
+  };
+});
+
 // 计算会话统计
 const sessionStats = computed(() => {
   const userMessages = messages.value.filter(m => m.role === 'user');
@@ -1863,5 +1974,17 @@ watch(searchQuery, () => {
   0% { opacity: 0; }
   50% { opacity: 1; }
   100% { opacity: 0; }
+}
+
+/* Task panel slide transition */
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
 }
 </style>
