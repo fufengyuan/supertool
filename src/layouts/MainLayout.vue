@@ -104,6 +104,8 @@
       <!-- 主内容区（含标签栏） -->
       <div class="flex-1 flex flex-col overflow-hidden">
         <TabBar class="bg-base-100 border-b border-base-300 shrink-0" />
+        <!-- Agent 模式切换栏（仅 agent 标签页显示） -->
+        <AgentModeBar v-if="isAgentTab" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
           <!-- 每个标签页独立渲染 → 切换标签时全部保持挂载，v-show 显隐 -->
           <div
@@ -143,11 +145,13 @@
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import PageFind from '@/components/PageFind.vue'
 import TabBar from '@/components/TabBar.vue'
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import { useTabStore, VIEW_ID_TO_PATH, KNOWN_ROUTES } from '@/stores/tabStore'
+import { useAgentModeStore } from '@/stores/agentModeStore'
+import AgentModeBar from '@/components/AgentModeBar.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
 
@@ -200,6 +204,7 @@ const tabComponents: Record<string, Component> = {
   '/nginx': defineAsyncComponent(() => import('@/views/nginx/NginxManager.vue')),
   '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/chat/Chat.vue')),
+  '/agent/omp': defineAsyncComponent(() => import('@/views/agent/omp/OmpChat.vue')),
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
   '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
@@ -277,6 +282,14 @@ const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const tabStore = useTabStore()
+const agentModeStore = useAgentModeStore()
+
+/** 当前活跃标签页是否为 Agent 相关 */
+const isAgentTab = computed(() => {
+  const current = tabStore.activeTab
+  return current?.basePath === '/agent' ||
+         current?.basePath.startsWith('/agent/')
+})
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
@@ -300,6 +313,7 @@ const navGroups = {
   ],
   agent: [
     { path: '/agent/chat', icon: '💬', label: '对话', viewId: 'agent-chat' },
+    { path: '/agent/omp', icon: '⚡', label: 'OMP 终端', viewId: 'omp-terminal' },
     { path: '/agent/sessions', icon: '📜', label: '历史会话', viewId: 'agent-sessions' },
     { path: '/agent/skills', icon: '⚡', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '📚', label: '记忆', viewId: 'memory' },
@@ -376,6 +390,22 @@ let unlistenFns: (() => void)[] = []
 // 同步路由变化到标签页（内部导航自动创建/激活标签页）
 watch(() => route.fullPath, (newPath) => {
   tabStore.syncRoute(newPath)
+})
+
+// Agent 模式切换 → 路由重定向
+watch(() => agentModeStore.mode, (newMode) => {
+  if (newMode === 'omp') {
+    // 切换到 OMP 模式 → 导航到 OMP 终端
+    const currentPath = route.path
+    if (!currentPath.startsWith('/agent/omp')) {
+      router.push('/agent/omp')
+    }
+  } else {
+    // 切换到 Hermes 模式 → 如果当前在 OMP 页面，回到对话页
+    if (route.path === '/agent/omp') {
+      router.push('/agent/chat')
+    }
+  }
 })
 
 onMounted(async () => {

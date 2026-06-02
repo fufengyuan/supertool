@@ -2746,6 +2746,14 @@ export function getTauriAPI(): TauriAPI {
     // ============ Hermes Config (generic set) ============
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
+    // ============ OMP / Local Process ============
+    startLocalProcess: async (processId: string, command: string, args: string[], cwd?: string) =>
+      tauriCall('start_local_process', { processId, command, args, cwd }),
+    writeToLocalProcess: async (processId: string, data: string) =>
+      tauriCall('write_to_local_process', { processId, data }),
+    killLocalProcess: async (processId: string) =>
+      tauriCall('kill_local_process', { processId }),
+
   }
 
   return cachedAPI
