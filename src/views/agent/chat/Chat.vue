@@ -95,7 +95,7 @@ import { invoke } from '@tauri-apps/api/core';
 
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
-import ChatHeader from './ChatHeader.vue';
+import ChatHeader from './components/ChatHeader.vue';
 import ChatEmptyState from './components/ChatEmptyState.vue';
 import MessageList from './components/MessageList.vue';
 import ModelPicker from './ModelPicker.vue';

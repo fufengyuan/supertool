@@ -111,7 +111,7 @@ import hljs from 'highlight.js';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 import type { ChatBubbleMessage, Attachment } from '../types';
 
-export const APPROVAL_RE =
+const APPROVAL_RE =
   /⚠️.*dangerous|requires? (your )?approval|\/approve.*\/deny|do you want (me )?to (proceed|continue|run|execute)/i;
 
 const props = defineProps<{
