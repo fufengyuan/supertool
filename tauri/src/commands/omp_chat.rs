@@ -171,6 +171,30 @@ pub async fn omp_chat_close(
     Ok(())
 }
 
+/// 获取当前 ACP 会话列表
+#[tauri::command(rename_all = "camelCase")]
+pub async fn omp_chat_list_sessions(
+    state: tauri::State<'_, OmpChatState>,
+) -> Result<serde_json::Value, String> {
+    let client = {
+        let c = state.client.lock().await;
+        c.clone()
+    };
+    let client = client.ok_or("OMP not initialized")?;
+    client
+        .list_sessions(None)
+        .await
+        .map_err(|e| format!("list_sessions 失败: {e}"))
+}
+
+/// 获取 OMP 信息（二进制路径、版本等）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn omp_chat_info() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "binary": find_omp().unwrap_or_default(),
+    }))
+}
+
 /// 查找 omp 二进制
 fn find_omp() -> Result<String, String> {
     // 1) PATH 中的 omp
