@@ -1,22 +1,17 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- OMP mode overlay -->
-    <template v-if="isOmpMode">
-      <div class="flex-1 flex items-center justify-center">
-        <div class="text-center max-w-md px-6">
-          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-          <p class="text-sm font-medium text-base-content/50">OMP 配置文件</p>
-          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-            OMP 不使用 Hermes 的 profile 系统。OMP 配置通过 config.yaml 管理。
-          </p>
-        </div>
+    <div v-show="isOmpMode" class="flex-1 flex items-center justify-center">
+      <div class="text-center max-w-md px-6">
+        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
+        <p class="text-sm font-medium text-base-content/50">OMP 配置文件</p>
+        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
+          OMP 不使用 Hermes 的 profile 系统。OMP 配置通过 config.yaml 管理。
+        </p>
       </div>
-    </template>
+    </div>
 
-    <!-- Hermes mode -->
-    <template v-else>
-    <!-- Header -->
-    <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
+    <div v-show="!isOmpMode">
       <h1 class="text-sm font-medium">Agent Profiles</h1>
       <div class="flex items-center gap-2">
         <button class="btn btn-sm btn-ghost" @click="refreshProfiles">
@@ -275,7 +270,6 @@
       </div>
     </div>
   </div>
-  </template>
 </template>
 
 <script setup lang="ts">

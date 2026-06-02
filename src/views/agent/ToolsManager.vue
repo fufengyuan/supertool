@@ -1,20 +1,17 @@
 <template>
   <div class="h-full flex flex-col">
     <!-- OMP mode overlay -->
-    <template v-if="isOmpMode">
-      <div class="flex-1 flex items-center justify-center">
-        <div class="text-center max-w-md px-6">
-          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-          <p class="text-sm font-medium text-base-content/50">OMP 工具集</p>
-          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-            OMP 使用自己的 MCP 服务器和工具系统，不依赖 Hermes 的平台工具集配置。
-          </p>
-        </div>
+    <div v-show="isOmpMode" class="flex-1 flex items-center justify-center">
+      <div class="text-center max-w-md px-6">
+        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
+        <p class="text-sm font-medium text-base-content/50">OMP 工具集</p>
+        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
+          OMP 使用自己的 MCP 服务器和工具系统，不依赖 Hermes 的平台工具集配置。
+        </p>
       </div>
-    </template>
+    </div>
 
-    <!-- Hermes mode -->
-    <template v-else>
+    <div v-show="!isOmpMode">
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
       <h1 class="text-sm font-medium">工具集管理</h1>
@@ -92,7 +89,7 @@
       </div>
     </div>
   </div>
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">
