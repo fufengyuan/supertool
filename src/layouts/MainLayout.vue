@@ -150,7 +150,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import { useTabStore, VIEW_ID_TO_PATH, KNOWN_ROUTES } from '@/stores/tabStore'
-import { useAgentModeStore } from '@/stores/agentModeStore'
 import AgentModeBar from '@/components/AgentModeBar.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
@@ -204,7 +203,6 @@ const tabComponents: Record<string, Component> = {
   '/nginx': defineAsyncComponent(() => import('@/views/nginx/NginxManager.vue')),
   '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/chat/Chat.vue')),
-  '/agent/omp': defineAsyncComponent(() => import('@/views/agent/omp/OmpChat.vue')),
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
   '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
@@ -282,7 +280,6 @@ const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const tabStore = useTabStore()
-const agentModeStore = useAgentModeStore()
 
 /** 当前活跃标签页是否为 Agent 相关 */
 const isAgentTab = computed(() => {
@@ -313,7 +310,6 @@ const navGroups = {
   ],
   agent: [
     { path: '/agent/chat', icon: '💬', label: '对话', viewId: 'agent-chat' },
-    { path: '/agent/omp', icon: '⚡', label: 'OMP 终端', viewId: 'omp-terminal' },
     { path: '/agent/sessions', icon: '📜', label: '历史会话', viewId: 'agent-sessions' },
     { path: '/agent/skills', icon: '⚡', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '📚', label: '记忆', viewId: 'memory' },
@@ -392,21 +388,8 @@ watch(() => route.fullPath, (newPath) => {
   tabStore.syncRoute(newPath)
 })
 
-// Agent 模式切换 → 路由重定向
-watch(() => agentModeStore.mode, (newMode) => {
-  if (newMode === 'omp') {
-    // 切换到 OMP 模式 → 导航到 OMP 终端
-    const currentPath = route.path
-    if (!currentPath.startsWith('/agent/omp')) {
-      router.push('/agent/omp')
-    }
-  } else {
-    // 切换到 Hermes 模式 → 如果当前在 OMP 页面，回到对话页
-    if (route.path === '/agent/omp') {
-      router.push('/agent/chat')
-    }
-  }
-})
+// Agent 模式切换 → 仅在当前页面原地切换（不触发路由跳转）
+// Chat.vue 内部根据 agentModeStore.mode 切换后端（hermes / omp ACP）
 
 onMounted(async () => {
   const api = getTauriAPI()

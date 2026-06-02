@@ -57,7 +57,6 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/agent/skills': { label: '技能', viewId: 'skills', componentNames: ['SkillsBrowser'] },
   '/agent/memory': { label: '记忆', viewId: 'memory', componentNames: ['MemoryManager'] },
   '/agent/sessions': { label: '历史会话', viewId: 'agent-sessions', componentNames: ['SessionsPage'] },
-  '/agent/omp': { label: 'OMP 终端', viewId: 'omp-terminal', componentNames: ['OmpChat'] },
   '/agent/settings': { label: '设置', viewId: 'agent-settings', componentNames: ['SettingsPage'] },
   '/kanban':    { label: '看板',    viewId: 'kanban',           componentNames: ['KanbanBoard'] },
   '/alert':     { label: '告警',    viewId: 'alert',            componentNames: ['AlertView'] },
@@ -115,7 +114,6 @@ export const VIEW_ID_TO_PATH: Record<string, string> = {
   memory: '/agent/memory',
   'agent-sessions': '/agent/sessions',
   'agent-settings': '/agent/settings',
-  'omp-terminal': '/agent/omp',
 }
 
 // ============ Store ============
