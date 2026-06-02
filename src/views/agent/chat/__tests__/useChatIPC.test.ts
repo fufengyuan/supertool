@@ -89,7 +89,7 @@ describe('useChatIPC', () => {
     const lastMsg = updatedMessages[updatedMessages.length - 1]
     expect(lastMsg).toMatchObject({
       role: 'agent',
-      content: 'Helo', // appended
+      content: 'Hello', // appended
     })
   })
 
