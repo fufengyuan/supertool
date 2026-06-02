@@ -1107,10 +1107,13 @@ const selectSessionWithMessages = async (session: Session) => {
       for (const m of params.messages) {
         if (m.role === 'tool') {continue;} // tool 消息不单独显示，合并到 assistant
         
-        // 历史消息不需要显示思考内容（干扰视线）
+        // 提取历史消息的思考内容
+        const thinking = m.reasoning || m.reasoningContent || undefined;
+        
         const msg: Message = {
           role: m.role,
           content: m.content,
+          thinking,
           timestamp: m.timestamp,
           toolName: m.toolName,
           toolCalls: [],
@@ -1175,9 +1178,13 @@ const jumpToSearchResultWithMessages = async (result: SearchResult) => {
       for (const m of params.messages) {
         if (m.role === 'tool') {continue;}
         
+        // 提取历史消息的思考内容
+        const thinking = m.reasoning || m.reasoningContent || undefined;
+        
         const msg: Message = {
           role: m.role,
           content: m.content,
+          thinking,
           timestamp: m.timestamp,
           toolName: m.toolName,
           toolCalls: [],
