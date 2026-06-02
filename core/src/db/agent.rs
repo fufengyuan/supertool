@@ -139,7 +139,13 @@ pub fn list_hermes_sessions(limit: i32, offset: i32) -> Result<Vec<HermesSession
 
     let mut all_sessions: Vec<HermesSession> = Vec::new();
 
-    for (profile_name, db_path) in all_db_paths {
+    for (profile_name, db_path) in &all_db_paths {
+        // Only read from the root (default) profile for the main session list.
+        // Profile-specific worker sessions (coder/reviewer/tester) are managed
+        // separately and would pollute the user's view with untitled entries.
+        if profile_name != "default" {
+            continue;
+        }
         if let Ok(conn) = rusqlite::Connection::open(&db_path) {
             // Query sessions with preview, last_active, and end_reason for compression detection
             let query = r#"
