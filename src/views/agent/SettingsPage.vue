@@ -355,7 +355,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SettingsPage' })
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   IconRefresh,
@@ -382,7 +382,6 @@ import {
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
 import { useAgentModeStore } from '@/stores/agentModeStore'
-import { computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import type { HermesConfigInfo } from '@/types'
 
