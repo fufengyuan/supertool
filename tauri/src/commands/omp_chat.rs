@@ -86,7 +86,15 @@ pub async fn omp_chat_init(
                         "session_id": sid_for_task,
                     }));
                 }
-                _ => {}
+                supertool_omp::acp::AcpSessionUpdate::UserMessageChunk(_) => {
+                    log::debug!("[omp] user_message_chunk (skipped — already in UI)");
+                }
+                supertool_omp::acp::AcpSessionUpdate::PlanUpdate(plan) => {
+                    log::debug!("[omp] plan_update (not mapped to Chat GUI): {:?}", plan);
+                }
+                _ => {
+                    log::debug!("[omp] unhandled notification: {:?}", notif.update);
+                }
             }
         }
     });
