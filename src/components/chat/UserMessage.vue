@@ -20,11 +20,17 @@
             <span class="max-w-[200px] truncate">{{ pathItem.name }}</span>
           </div>
         </div>
-        <!-- Markdown 渲染用户消息 -->
+        <!-- Markdown 渲染用户消息 with search highlighting -->
         <VueMarkdown
+          v-if="!searchQuery"
           :source="displayContent"
           :options="mdOptions"
           class="prose prose-sm max-w-none text-base-content"
+        />
+        <div 
+          v-else 
+          class="prose prose-sm max-w-none text-base-content"
+          v-html="highlightedContent"
         />
       </div>
       <!-- 时间戳和操作按钮 - right-aligned -->
@@ -125,6 +131,13 @@ const props = defineProps<{
 }>();
 
 const displayContent = computed(() => props.getDisplayContent(props.message));
+
+const highlightedContent = computed(() => {
+  if (!props.searchQuery || !displayContent.value) {
+    return displayContent.value || '';
+  }
+  return props.highlightText(displayContent.value, props.searchQuery);
+});
 
 // Markdown 渲染配置（与 AssistantMessage 一致）
 const mdOptions = {

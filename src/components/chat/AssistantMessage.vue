@@ -32,7 +32,17 @@
           </span>
         </div>
         <!-- Markdown 渲染的消息内容 -->
-        <VueMarkdown v-if="message.content" :source="message.content" class="prose prose-sm max-w-none" :options="mdOptions" />
+        <VueMarkdown 
+          v-if="message.content && !searchQuery" 
+          :source="message.content" 
+          class="prose prose-sm max-w-none" 
+          :options="mdOptions" 
+        />
+        <div 
+          v-else-if="message.content" 
+          class="prose prose-sm max-w-none"
+          v-html="highlightedContent"
+        />
         
         <!-- 工具调用卡片 -->
         <div v-if="message.toolCalls && message.toolCalls.length > 0" class="space-y-1.5">
@@ -160,9 +170,11 @@ interface ToolIconInfo {
 const props = defineProps<{
   message: Message;
   messageIndex: number;
+  searchQuery?: string;
   formatTime: (ts: number) => string;
   getToolIcon: (name: string) => ToolIconInfo;
   formatArgsSummary: (args: Record<string, unknown>) => string;
+  highlightText: (text: string, query: string) => string;
   isThinkingExpanded: (idx: number) => boolean;
   onToggleThinking: (idx: number) => void;
   onRetry: (content: string) => void;
@@ -175,6 +187,13 @@ const hasContent = computed(() =>
   (props.message.toolCalls && props.message.toolCalls.length > 0) || 
   props.message.isStopped
 );
+
+const highlightedContent = computed(() => {
+  if (!props.searchQuery || !props.message.content) {
+    return props.message.content || '';
+  }
+  return props.highlightText(props.message.content, props.searchQuery);
+});
 
 const toggleThinking = () => props.onToggleThinking(props.messageIndex);
 const retryMessage = (content: string) => props.onRetry(content);

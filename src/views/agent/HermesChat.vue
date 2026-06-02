@@ -54,6 +54,17 @@
         <button v-else class="btn btn-ghost btn-xs" @click="pickContextFolder" title="设置工作目录">
           <SvgIcon name="folder" size="12" />
         </button>
+        
+        <!-- Search toggle -->
+        <button 
+          class="btn btn-ghost btn-xs" 
+          :class="{ 'text-primary': showSearchBox }"
+          @click="toggleSearchBox" 
+          title="搜索消息 (Cmd+F)"
+        >
+          <SvgIcon name="search" size="14" />
+        </button>
+        
         <!-- Fast mode toggle -->
         <button class="btn btn-ghost btn-xs" :class="{ 'text-warning': fastMode }" @click="toggleFastMode" :title="fastMode ? '快速模式: 开启' : '快速模式: 关闭'">
           <SvgIcon name="zap" size="14" />
@@ -79,6 +90,35 @@
         </button>
       </div>
     </div>
+
+    <!-- Search Box - Collapsible search input -->
+    <Transition name="slide-down">
+      <div 
+        v-if="showSearchBox" 
+        class="flex items-center gap-2 px-4 py-2 bg-base-200/30 border-b border-base-content/10"
+      >
+        <SvgIcon name="search" size="14" class="text-base-content/50" />
+        <input
+          ref="searchInputRef"
+          v-model="searchQuery"
+          type="text"
+          class="flex-1 bg-transparent text-sm text-base-content placeholder:text-base-content/40 outline-none"
+          placeholder="搜索消息..."
+          @input="searchMessages"
+          @keydown.escape="clearSearch"
+        />
+        <span v-if="searchQuery" class="text-xs text-base-content/40">
+          {{ filteredMessages.length }} / {{ messages.length }}
+        </span>
+        <button 
+          v-if="searchQuery" 
+          class="btn btn-ghost btn-xs btn-square" 
+          @click="clearSearch"
+        >
+          <SvgIcon name="close" size="12" />
+        </button>
+      </div>
+    </Transition>
 
       <!-- 消息列表 -->
       <div ref="messagesContainer" class="flex-1 min-w-0 overflow-y-auto overflow-x-hidden px-4 py-2 space-y-1" @scroll="handleScroll">
@@ -130,9 +170,11 @@
                 v-else
                 :message="(item as Message)"
                 :messageIndex="idx"
+                :searchQuery="searchQuery"
                 :formatTime="formatMessageTime"
                 :getToolIcon="getToolIcon"
                 :formatArgsSummary="formatArgsSummary"
+                :highlightText="highlightText"
                 :isThinkingExpanded="isThinkingExpanded"
                 :onToggleThinking="toggleThinkingExpand"
                 :onRetry="retryMessage"
@@ -714,7 +756,18 @@ const displayMessages = computed(() => {
 
 // 搜索状态
 const searchQuery = ref('');
+const showSearchBox = ref(false);
+const searchInputRef = ref<HTMLInputElement | null>(null);
 const filteredMessages = ref<Message[]>([]);
+
+const toggleSearchBox = () => {
+  showSearchBox.value = !showSearchBox.value;
+  if (showSearchBox.value) {
+    nextTick(() => searchInputRef.value?.focus());
+  } else {
+    clearSearch();
+  }
+};
 
 // 子会话折叠展开状态 (key: sessionId)
 const expandedChildSessions = ref<Set<string>>(new Set());
@@ -1407,6 +1460,13 @@ const handleGlobalKeydown = (e: KeyboardEvent) => {
     return;
   }
   
+  // Cmd/Ctrl + F: 搜索消息
+  if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+    e.preventDefault();
+    toggleSearchBox();
+    return;
+  }
+  
   // Home: 滚动到顶部
   if (e.key === 'Home' && messages.value.length > 0) {
     scrollToTop();
@@ -1985,6 +2045,18 @@ watch(searchQuery, () => {
 .slide-right-enter-from,
 .slide-right-leave-to {
   transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Search box slide transition */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.slide-down-enter-from,
+.slide-down-leave-to {
+  transform: translateY(-100%);
   opacity: 0;
 }
 </style>
