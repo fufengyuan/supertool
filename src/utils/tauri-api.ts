@@ -2747,12 +2747,14 @@ export function getTauriAPI(): TauriAPI {
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
     // ============ OMP / Local Process ============
-    startLocalProcess: async (processId: string, command: string, args: string[], cwd?: string) =>
-      tauriCall('start_local_process', { processId, command, args, cwd }),
-    writeToLocalProcess: async (processId: string, data: string) =>
-      tauriCall('write_to_local_process', { processId, data }),
-    killLocalProcess: async (processId: string) =>
-      tauriCall('kill_local_process', { processId }),
+    ompStart: async (sessionId: string, args: string[], cwd?: string) =>
+      tauriCall<string>('omp_start', { sessionId, args, cwd }),
+    ompWrite: async (sessionId: string, data: string) =>
+      tauriCall<void>('omp_write', { sessionId, data }),
+    ompStop: async (sessionId: string) =>
+      tauriCall<void>('omp_stop', { sessionId }),
+    ompIsRunning: async (sessionId: string) =>
+      tauriCall<boolean>('omp_is_running', { sessionId }),
 
   }
 

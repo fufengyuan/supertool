@@ -13,21 +13,21 @@
         <span>{{ isRunning ? '运行中' : '已停止' }}</span>
         <span v-if="isRunning" class="text-[#585b70]">|</span>
         <span v-if="isRunning" class="text-[#585b70]">
-          PID: {{ displayPid }}
+          Session: {{ displaySessionId }}
         </span>
       </div>
       <div class="flex items-center gap-2">
         <button
           v-if="!isRunning"
           class="px-2 py-0.5 text-[#89b4fa] hover:text-[#89b4fa]/80 transition-colors rounded"
-          @click="startProcess"
+          @click="startSession"
         >
           启动终端
         </button>
         <button
           v-else
           class="px-2 py-0.5 text-[#f38ba8] hover:text-[#f38ba8]/80 transition-colors rounded"
-          @click="killProcess"
+          @click="stopSession"
         >
           终止
         </button>
@@ -47,89 +47,83 @@ import { invoke } from '@tauri-apps/api/core'
 import { listen } from '@tauri-apps/api/event'
 
 const terminalContainer = ref<HTMLDivElement | null>(null)
-const processId = ref<string | null>(null)
+const sessionId = ref<string | null>(null)
 const isRunning = ref(false)
-const displayPid = computed(() => processId.value?.slice(0, 8) || '-')
-const generatedId = `omp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+const displaySessionId = computed(() => sessionId.value?.slice(0, 8) || '-')
 
 let term: Terminal | null = null
 let fitAddon: FitAddon | null = null
-let unlistenData: UnlistenFn | null = null
+let unlistenStdout: UnlistenFn | null = null
+let unlistenStderr: UnlistenFn | null = null
 let unlistenExit: UnlistenFn | null = null
 
-async function startProcess() {
-  const pid = generatedId
-  processId.value = pid
+async function startSession() {
   isRunning.value = true
 
   try {
-    await invoke('start_local_process', {
-      processId: pid,
-      command: '/bin/bash',
-      args: ['--login'],
+    const sid = await invoke<string>('omp_start', {
+      sessionId: '',
+      args: ['launch'],
       cwd: null as string | null,
     })
-    writeln('\x1b[1;32m终端已启动 (bash)\x1b[0m')
-    writeln('\x1b[1;33m提示：输入 omp --help 查看可用命令\x1b[0m')
+    sessionId.value = sid
+    writeln('\x1b[1;32mOMP 会话已启动 (omp launch)\x1b[0m')
+    writeln('\x1b[1;33m提示：输入 /help 查看可用命令\x1b[0m')
   } catch (e: any) {
     writeln(`\x1b[1;31m启动失败: ${e?.message || String(e)}\x1b[0m`)
     isRunning.value = false
-    processId.value = null
     return
   }
 
-  // 监听输出事件
-  try {
-    unlistenData = await listen<{
-      processId: string
-      data: string
-      stream: string
-    }>('local-process-data', (event) => {
-      const payload = event.payload
-      if (payload.processId !== pid) return
-      const line = payload.data || ''
-      if (line) {
-        term?.writeln(line)
-      }
-    })
+  const sid = sessionId.value
+  if (!sid) return
 
-    unlistenExit = await listen<{
-      processId: string
-      exitCode: number | null
-    }>('local-process-exit', (event) => {
-      const payload = event.payload
-      if (payload.processId !== pid) return
-      writeln(`\x1b[1;33m进程已退出 (exit code: ${payload.exitCode ?? '?'})\x1b[0m`)
+  // 监听 stdout
+  try {
+    unlistenStdout = await listen<{ sessionId: string; data: string }>('omp:stdout', (event) => {
+      if (event.payload.sessionId !== sid) return
+      const line = event.payload.data || ''
+      if (line) term?.writeln(line)
+    })
+  } catch { /* ignore */ }
+
+  // 监听 stderr
+  try {
+    unlistenStderr = await listen<{ sessionId: string; data: string }>('omp:stderr', (event) => {
+      if (event.payload.sessionId !== sid) return
+      const line = event.payload.data || ''
+      if (line) term?.writeln(`\x1b[1;31m${line}\x1b[0m`)
+    })
+  } catch { /* ignore */ }
+
+  // 监听退出
+  try {
+    unlistenExit = await listen<{ sessionId: string; exitCode: number | null }>('omp:exit', (event) => {
+      if (event.payload.sessionId !== sid) return
+      writeln(`\x1b[1;33m进程已退出 (exit: ${event.payload.exitCode ?? '?'})\x1b[0m`)
       isRunning.value = false
-      processId.value = null
+      sessionId.value = null
     })
-  } catch (e: any) {
-    writeln(`\x1b[1;31m监听失败: ${e?.message || String(e)}\x1b[0m`)
-    isRunning.value = false
-    processId.value = null
-  }
+  } catch { /* ignore */ }
 }
 
-async function writeToProcess(data: string) {
-  if (!processId.value || !isRunning.value) return
+async function writeToSession(data: string) {
+  if (!sessionId.value || !isRunning.value) return
   try {
-    await invoke('write_to_local_process', {
-      processId: processId.value,
-      data,
-    })
+    await invoke('omp_write', { sessionId: sessionId.value, data })
   } catch {
-    // Process may have exited
+    // session may have ended
   }
 }
 
-async function killProcess() {
-  if (!processId.value) return
+async function stopSession() {
+  if (!sessionId.value) return
   try {
-    await invoke('kill_local_process', { processId: processId.value })
+    await invoke('omp_stop', { sessionId: sessionId.value })
   } catch { /* ignore */ }
   isRunning.value = false
-  processId.value = null
-  writeln('\x1b[1;31m进程已终止\x1b[0m')
+  sessionId.value = null
+  writeln('\x1b[1;31m会话已终止\x1b[0m')
 }
 
 function writeln(text: string) {
@@ -138,19 +132,16 @@ function writeln(text: string) {
 
 function handleTerminalInput(data: string) {
   if (!isRunning.value) {
-    // If stopped, offer to restart on Enter
     if (data === '\r') {
-      startProcess()
+      startSession()
     }
     return
   }
-  writeToProcess(data)
+  writeToSession(data)
 }
 
 function fitTerminal() {
-  nextTick(() => {
-    fitAddon?.fit()
-  })
+  nextTick(() => fitAddon?.fit())
 }
 
 onMounted(() => {
@@ -196,25 +187,23 @@ onMounted(() => {
   fitAddon.fit()
 
   writeln('\x1b[1;36m╔══════════════════════════════════════╗')
-  writeln('\x1b[1;36m║      OMP Agent 终端 v1.0            ║')
+  writeln('\x1b[1;36m║      OMP 编码助手终端                ║')
   writeln('\x1b[1;36m║                                      ║')
-  writeln('\x1b[1;36m║  输入 omp launch 启动编码助手         ║')
-  writeln('\x1b[1;36m║  输入 omp --help 查看所有命令         ║')
+  writeln('\x1b[1;36m║  正在启动 omp launch...               ║')
   writeln('\x1b[1;36m╚══════════════════════════════════════╝\x1b[0m')
   writeln('')
 
-  // 自动启动终端
-  startProcess()
+  startSession()
 
-  // ResizeObserver for terminal fitting
   const observer = new ResizeObserver(() => fitTerminal())
   observer.observe(terminalContainer.value)
 })
 
 onUnmounted(() => {
-  unlistenData?.()
+  unlistenStdout?.()
+  unlistenStderr?.()
   unlistenExit?.()
-  killProcess()
+  stopSession()
   term?.dispose()
   term = null
   fitAddon = null
