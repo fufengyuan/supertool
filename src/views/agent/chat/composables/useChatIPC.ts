@@ -16,6 +16,7 @@ interface UseChatIPCArgs {
   toolProgress: Ref<string | null>;
   isLoading: Ref<boolean>;
   usage: Ref<UsageState | null>;
+  scrollToBottom?: () => void;
 }
 
 /**
@@ -29,6 +30,7 @@ export function useChatIPC({
   toolProgress,
   isLoading,
   usage,
+  scrollToBottom,
 }: UseChatIPCArgs): void {
   const cleanups: UnlistenFn[] = [];
 
@@ -63,6 +65,7 @@ export function useChatIPC({
           },
         ]);
       }
+      scrollToBottom?.();
     });
     cleanups.push(unlistenDelta);
 
@@ -84,6 +87,7 @@ export function useChatIPC({
             { ...m, text: m.text + chunk },
             ...prev.slice(i + 1),
           ]);
+          scrollToBottom?.();
           return;
         }
         insertAt = i;
@@ -98,6 +102,7 @@ export function useChatIPC({
         },
         ...prev.slice(insertAt),
       ]);
+      scrollToBottom?.();
     });
     cleanups.push(unlistenReasoning);
 
@@ -130,6 +135,7 @@ export function useChatIPC({
       };
       setMessages([...prev.slice(0, insertAt), toolCallMsg, ...prev.slice(insertAt)]);
       toolProgress.value = `🔧 ${payload.name}...`;
+      scrollToBottom?.();
     });
     cleanups.push(unlistenToolStart);
 
@@ -163,6 +169,7 @@ export function useChatIPC({
       };
       setMessages([...prev.slice(0, insertAt), toolResultMsg, ...prev.slice(insertAt)]);
       toolProgress.value = null;
+      scrollToBottom?.();
     });
     cleanups.push(unlistenToolComplete);
 
