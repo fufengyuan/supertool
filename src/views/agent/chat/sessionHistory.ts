@@ -161,3 +161,123 @@ export function reconcileStreamedWithDb(
 
   return result
 }
+
+// ── HermesMessage (backend) → ChatMessage (frontend) converter ──────────────
+
+/** Raw HermesMessage shape from backend agent_list_messages / agent_get_session. */
+export interface HermesMessage {
+  id: number
+  sessionId: string
+  role: string
+  content?: string | null
+  toolName?: string | null
+  toolCallId?: string | null
+  toolCalls?: string | null // JSON array string
+  timestamp?: number
+  finishReason?: string | null
+  reasoning?: string | null
+  reasoningContent?: string | null
+}
+
+/**
+ * Convert a raw HermesMessage array (from Tauri backend) into ChatMessage[]
+ * for the renderer. A single backend row may expand to multiple ChatMessages
+ * (e.g. assistant with reasoning + tool_calls + content → up to 3 items).
+ */
+export function hermesMessagesToChatMessages(raw: HermesMessage[]): ChatMessage[] {
+  const result: ChatMessage[] = []
+
+  for (const msg of raw) {
+    const role = msg.role || ''
+
+    // ── user message ──────────────────────────────────────────────────────
+    if (role === 'user') {
+      result.push({
+        id: `db-${msg.id}`,
+        role: 'user',
+        content: msg.content || '',
+        timestamp: msg.timestamp != null ? Math.floor(msg.timestamp) : undefined,
+      })
+      continue
+    }
+
+    // ── assistant message (may expand to reasoning + tool_calls + bubble) ─
+    if (role === 'assistant') {
+      // reasoning block
+      const reasoningText = msg.reasoning || msg.reasoningContent || ''
+      if (reasoningText) {
+        result.push({
+          id: `db-r-${msg.id}`,
+          kind: 'reasoning',
+          role: 'agent',
+          text: reasoningText,
+        })
+      }
+
+      // tool calls — parse JSON array string
+      if (msg.toolCalls) {
+        try {
+          const calls: any[] =
+            typeof msg.toolCalls === 'string'
+              ? JSON.parse(msg.toolCalls)
+              : msg.toolCalls
+          if (Array.isArray(calls)) {
+            for (let i = 0; i < calls.length; i++) {
+              const tc = calls[i]
+              const fn = tc.function || tc
+              result.push({
+                id: `db-tc-${msg.id}-${tc.id || i}`,
+                kind: 'tool_call',
+                role: 'agent',
+                callId: tc.id || `tc-${msg.id}-${i}`,
+                name: fn.name || '',
+                args:
+                  typeof fn.arguments === 'string'
+                    ? fn.arguments
+                    : JSON.stringify(fn.arguments || {}, null, 2),
+              })
+            }
+          }
+        } catch {
+          // skip malformed toolCalls
+        }
+      }
+
+      // content bubble (always append after tool_calls so render order matches streaming)
+      if (msg.content) {
+        result.push({
+          id: `db-${msg.id}`,
+          role: 'agent',
+          content: msg.content,
+          timestamp: msg.timestamp != null ? Math.floor(msg.timestamp) : undefined,
+        })
+      }
+
+      continue
+    }
+
+    // ── tool result ───────────────────────────────────────────────────────
+    if (role === 'tool') {
+      result.push({
+        id: `db-tr-${msg.id}`,
+        kind: 'tool_result',
+        role: 'agent',
+        callId: msg.toolCallId || `tr-${msg.id}`,
+        name: msg.toolName || '',
+        content: msg.content || '',
+      })
+      continue
+    }
+
+    // ── fallback: anything else with content → agent bubble ───────────────
+    if (msg.content) {
+      result.push({
+        id: `db-${msg.id}`,
+        role: 'agent',
+        content: msg.content,
+      })
+    }
+  }
+
+  return result
+}
