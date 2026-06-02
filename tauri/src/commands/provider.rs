@@ -84,13 +84,13 @@ impl Default for CredentialEntry {
 #[derive(Debug, Serialize, Deserialize)]
 struct AuthData {
     #[serde(default)]
-    version: String,
+    version: serde_json::Value,
     #[serde(default)]
     providers: HashMap<String, serde_json::Value>,
     #[serde(default)]
-    active_provider: String,
+    active_provider: serde_json::Value,
     #[serde(default)]
-    updated_at: String,
+    updated_at: serde_json::Value,
     #[serde(default)]
     credential_pool: HashMap<String, Vec<CredentialEntry>>,
 }
@@ -143,10 +143,10 @@ fn read_auth() -> Result<AuthData, String> {
     let path = auth_json_path();
     if !path.exists() {
         return Ok(AuthData {
-            version: String::new(),
+            version: json!(""),
             providers: HashMap::new(),
-            active_provider: String::new(),
-            updated_at: String::new(),
+            active_provider: json!(""),
+            updated_at: json!(""),
             credential_pool: HashMap::new(),
         });
     }
@@ -378,9 +378,9 @@ pub fn save_provider_credential(provider_id: String, api_key: String) -> Result<
         last_error_message: None,
         last_error_reset_at: None,
     };
-
-    auth.credential_pool.insert(provider_id.clone(), vec![entry]);
-    auth.updated_at = chrono::Utc::now().to_rfc3339();
+    auth.credential_pool
+        .insert(provider_id.clone(), vec![entry]);
+    auth.updated_at = json!(chrono::Utc::now().to_rfc3339());
 
     write_auth(&auth)?;
 
@@ -403,7 +403,7 @@ pub fn remove_provider_credential(provider_id: String) -> Result<serde_json::Val
     let provider_id = provider_id.trim().to_string();
 
     if auth.credential_pool.remove(&provider_id).is_some() {
-        auth.updated_at = chrono::Utc::now().to_rfc3339();
+        auth.updated_at = json!(chrono::Utc::now().to_rfc3339());
         write_auth(&auth)?;
         log::info!("[provider] Removed credential for provider: {}", provider_id);
     }
