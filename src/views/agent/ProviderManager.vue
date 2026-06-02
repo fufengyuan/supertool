@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-4xl mx-auto">
     <!-- OMP mode overlay -->
-    <template v-if="isOmpMode">
+    <div v-show="isOmpMode">
       <!-- Loading -->
       <div v-if="ompLoading" class="flex items-center justify-center py-20">
         <span class="loading loading-spinner loading-md text-primary" />
@@ -60,10 +60,9 @@
           </div>
         </div>
       </div>
-    </template>
+    </div>
 
-    <!-- Hermes mode -->
-    <template v-else>
+    <div v-show="!isOmpMode">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -201,7 +200,7 @@
       </div>
     </div>
   </div>
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">

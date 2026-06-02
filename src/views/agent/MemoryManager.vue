@@ -1,7 +1,7 @@
 <template>
   <div class="max-w-3xl mx-auto">
     <!-- OMP mode overlay -->
-    <template v-if="isOmpMode">
+    <div v-show="isOmpMode">
       <div class="flex items-center justify-between mb-6">
         <div>
           <h1 class="text-2xl font-bold">OMP 会话统计</h1>
@@ -24,10 +24,9 @@
           <div class="stat-title text-xs text-base-content/60 mt-1">消息</div>
         </div>
       </div>
-    </template>
+    </div>
 
-    <!-- Hermes mode -->
-    <template v-else>
+    <div v-show="!isOmpMode">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold">记忆管理</h1>
@@ -276,11 +275,11 @@
       </div>
     </div>
   </div>
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
