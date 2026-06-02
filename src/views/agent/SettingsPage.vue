@@ -355,7 +355,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SettingsPage' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   IconRefresh,
@@ -587,5 +587,9 @@ onMounted(async () => {
   if (isOmpMode.value) {
     await loadOmpInfo()
   }
+})
+
+watch(isOmpMode, (omp) => {
+  if (omp) { loadOmpInfo() }
 })
 </script>

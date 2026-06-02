@@ -407,6 +407,8 @@ function onResumeSession(sessionId: string) {
 watch(isOmpMode, (omp) => {
   if (omp) {
     loadOmpSessions()
+  } else {
+    refreshSessions()
   }
 })
 
