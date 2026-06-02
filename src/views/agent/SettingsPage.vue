@@ -297,6 +297,24 @@
         </div>
       </div>
 
+      <!-- OMP Info (in OMP mode) -->
+      <div v-if="isOmpMode && ompBinary" class="bg-base-100 border border-base-300 rounded-xl p-5">
+        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+          <IconCode :size="18" />
+          OMP Agent
+        </h2>
+        <div class="space-y-3 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">Binary</span>
+            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ ompBinary }}</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">ACP Protocol</span>
+            <span class="text-green-500 text-xs font-medium">✓ available</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Community -->
       <div class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-3 flex items-center gap-2">
@@ -363,11 +381,16 @@ import {
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
+import { useAgentModeStore } from '@/stores/agentModeStore'
+import { computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import type { HermesConfigInfo } from '@/types'
 
 const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
+const agentModeStore = useAgentModeStore()
+const isOmpMode = computed(() => agentModeStore.mode === 'omp')
+const ompBinary = ref('')
 
 const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 
@@ -548,9 +571,22 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
+async function loadOmpInfo() {
+  try {
+    const api = getTauriAPI()
+    const info = await api.ompChatInfo()
+    ompBinary.value = info?.binary || ''
+  } catch {
+    ompBinary.value = ''
+  }
+}
+
 onMounted(async () => {
   await loadAppVersion()
   await loadConfig()
   await loadApiStatus()
+  if (isOmpMode.value) {
+    await loadOmpInfo()
+  }
 })
 </script>

@@ -1975,6 +1975,13 @@ export interface TauriAPI {
   pauseCronJob: (jobId: string) => Promise<void>
   resumeCronJob: (jobId: string) => Promise<void>
   triggerCronJob: (jobId: string) => Promise<void>
+
+  // OMP Chat (ACP protocol)
+  ompChatInit: (cwd?: string) => Promise<void>
+  ompChatSend: (message: string) => Promise<void>
+  ompChatClose: () => Promise<void>
+  ompChatListSessions: () => Promise<unknown>
+  ompChatInfo: () => Promise<{ binary: string }>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2753,6 +2760,10 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<void>('omp_chat_send', { message }),
     ompChatClose: async () =>
       tauriCall<void>('omp_chat_close'),
+    ompChatListSessions: async () =>
+      tauriCall<unknown>('omp_chat_list_sessions'),
+    ompChatInfo: async () =>
+      tauriCall<{ binary: string }>('omp_chat_info'),
 
   }
 

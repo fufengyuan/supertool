@@ -252,7 +252,6 @@ impl AcpClient {
         Ok(())
     }
 
-    #[allow(unused)]
     pub async fn list_sessions(&self, cwd: Option<&str>) -> Result<serde_json::Value, AcpError> {
         let mut p = serde_json::json!({});
         if let Some(d) = cwd { p["cwd"] = serde_json::Value::String(d.to_string()); }
