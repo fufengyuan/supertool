@@ -322,6 +322,7 @@ onUnmounted(() => {
 
 const originalPath = ref('')
 const processedPath = ref('')
+const processedKey = ref(0) // bump on each successful process to bust browser cache
 const originalSize = ref(0)
 const processedSize = ref(0)
 const originalWidth = ref(0)
@@ -435,7 +436,7 @@ const originalUrl = computed(() => {
 
 const processedUrl = computed(() => {
   if (!processedPath.value) {return ''}
-  return convertFileSrc(processedPath.value)
+  return `${convertFileSrc(processedPath.value)}?k=${processedKey.value}`
 })
 
 // ============ Functions ============
@@ -579,6 +580,7 @@ async function processImage() {
     }
 
     processedPath.value = result
+    processedKey.value++
     // Try to get processed file size
     await getProcessedFileSize(result)
   } catch (e: any) {
