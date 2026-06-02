@@ -118,11 +118,6 @@ const routes = [
         component: () => import('../views/agent/chat/Chat.vue'),
       },
       {
-        path: 'agent/omp',
-        name: 'AgentOmp',
-        component: () => import('../views/agent/omp/OmpChat.vue'),
-      },
-      {
         path: 'agent/profiles',
         name: 'AgentProfiles',
         component: () => import('../views/agent/AgentProfiles.vue'),

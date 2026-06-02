@@ -2746,16 +2746,7 @@ export function getTauriAPI(): TauriAPI {
     // ============ Hermes Config (generic set) ============
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
-    // ============ OMP / Local Process ============
-    ompStart: async (sessionId: string, args: string[], cwd?: string) =>
-      tauriCall<string>('omp_start', { sessionId, args, cwd }),
-    ompWrite: async (sessionId: string, data: string) =>
-      tauriCall<void>('omp_write', { sessionId, data }),
-    ompStop: async (sessionId: string) =>
-      tauriCall<void>('omp_stop', { sessionId }),
-    ompIsRunning: async (sessionId: string) =>
-      tauriCall<boolean>('omp_is_running', { sessionId }),
-    // OMP Chat (ACP protocol)
+    // ============ OMP Chat (ACP protocol) ============
     ompChatInit: async (cwd?: string) =>
       tauriCall<void>('omp_chat_init', { cwd }),
     ompChatSend: async (message: string) =>

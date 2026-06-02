@@ -1,7 +1,6 @@
-use std::path::PathBuf;
 use std::sync::Arc;
 use supertool_omp::acp::AcpClient;
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 /// OMP 聊天状态（单例，存在 app state 中）
