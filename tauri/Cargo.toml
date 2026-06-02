@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "4.47.0"
+version = "4.47.1"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -19,6 +19,7 @@ tauri-plugin-opener = "2"
 
 # Database
 supertool-core = { path = "../core" }
+supertool-omp = { path = "../omp" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 mysql_async = "0.35"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }
