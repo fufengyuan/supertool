@@ -1,5 +1,20 @@
 <template>
   <div class="max-w-4xl mx-auto">
+    <!-- OMP mode overlay -->
+    <template v-if="isOmpMode">
+      <div class="flex items-center justify-center py-32">
+        <div class="text-center max-w-md px-6">
+          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
+          <p class="text-sm font-medium text-base-content/50">OMP 模型管理</p>
+          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
+            OMP 使用自身的模型配置（config.yaml），不依赖 Hermes 的模型管理。请在 OMP 配置文件中修改。
+          </p>
+        </div>
+      </div>
+    </template>
+
+    <!-- Hermes mode -->
+    <template v-else>
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -231,10 +246,13 @@
       </div>
     </div>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useAgentModeStore } from '@/stores/agentModeStore'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { invoke } from '@tauri-apps/api/core'
 import {
   IconRefresh,
@@ -265,6 +283,8 @@ interface ProviderGroup {
 
 const loading = ref(false)
 const error = ref('')
+const agentModeStore = useAgentModeStore()
+const isOmpMode = computed(() => agentModeStore.mode === 'omp')
 const successMsg = ref('')
 const defaultModel = ref('')
 const activeProvider = ref('')

@@ -1,5 +1,20 @@
 <template>
   <div class="max-w-3xl mx-auto">
+    <!-- OMP mode overlay -->
+    <template v-if="isOmpMode">
+      <div class="flex items-center justify-center py-32">
+        <div class="text-center max-w-md px-6">
+          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
+          <p class="text-sm font-medium text-base-content/50">OMP 记忆管理</p>
+          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
+            OMP 不使用 Hermes 的记忆系统。会话上下文由 OMP 内部管理。
+          </p>
+        </div>
+      </div>
+    </template>
+
+    <!-- Hermes mode -->
+    <template v-else>
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold">记忆管理</h1>
@@ -248,11 +263,14 @@
       </div>
     </div>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useAgentModeStore } from '@/stores/agentModeStore'
 import { getTauriAPI } from '@/utils/tauri-api'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import type { MemoryInfo, MemoryProviderResult, MemoryWriteResult } from '@/types'
 import {
   IconRefresh,
@@ -267,6 +285,8 @@ import {
 } from '@tabler/icons-vue'
 
 const api = getTauriAPI()
+const agentModeStore = useAgentModeStore()
+const isOmpMode = computed(() => agentModeStore.mode === 'omp')
 
 const loading = ref(true)
 const error = ref('')

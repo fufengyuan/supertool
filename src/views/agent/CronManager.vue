@@ -1,5 +1,20 @@
 <template>
   <div class="h-full flex flex-col">
+    <!-- OMP mode overlay -->
+    <template v-if="isOmpMode">
+      <div class="flex-1 flex items-center justify-center">
+        <div class="text-center max-w-md px-6">
+          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
+          <p class="text-sm font-medium text-base-content/50">OMP 定时任务</p>
+          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
+            OMP 不内置定时任务系统。如需自动化，请使用系统 cron 或 Hermes 的定时任务。
+          </p>
+        </div>
+      </div>
+    </template>
+
+    <!-- Hermes mode -->
+    <template v-else>
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
       <h1 class="text-sm font-medium">定时任务</h1>
@@ -194,10 +209,12 @@
       </template>
     </Modal>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import Modal from '@/components/ui/Modal.vue'
 import {
@@ -212,6 +229,9 @@ import {
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import type { CronJob } from '@/types'
+
+const agentModeStore = useAgentModeStore()
+const isOmpMode = computed(() => agentModeStore.mode === 'omp')
 
 const loading = ref(false)
 const jobs = ref<CronJob[]>([])
