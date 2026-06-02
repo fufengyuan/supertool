@@ -195,7 +195,6 @@ const tabComponents: Record<string, Component> = {
   '/logs': defineAsyncComponent(() => import('@/views/logs/LogAggregator.vue')),
   '/nginx': defineAsyncComponent(() => import('@/views/nginx/NginxManager.vue')),
   '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
-  '/agent': defineAsyncComponent(() => import('@/views/agent/AgentManager.vue')),
   '/agent/chat': defineAsyncComponent(() => import('@/views/agent/HermesChat.vue')),
   '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
   '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
@@ -290,9 +289,9 @@ const navGroups = {
     { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
   ],
   agent: [
-    { path: '/agent', icon: '🤖', label: 'Agent', viewId: 'agent' },
+    { path: '/agent/chat', icon: '💬', label: 'Chat', viewId: 'agent-chat' },
+    { path: '/agent/sessions', icon: '📋', label: 'Sessions', viewId: 'agent-sessions' },
     { path: '/agent/profiles', icon: '👥', label: 'Profiles', viewId: 'agent-profiles' },
-    { path: '/agent/sessions', icon: '💬', label: 'Sessions', viewId: 'agent-sessions' },
     { path: '/agent/skills', icon: '🧠', label: '技能', viewId: 'skills' },
     { path: '/agent/memory', icon: '🧠', label: '记忆', viewId: 'memory' },
     { path: '/agent/settings', icon: '⚙️', label: '设置', viewId: 'agent-settings' },
@@ -381,7 +380,7 @@ onMounted(async () => {
     const routeMap: Record<string, string> = {
       'dashboard': '/', 'todo': '/todo', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
-      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
+      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent/sessions', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
