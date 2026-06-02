@@ -1,0 +1,316 @@
+<template>
+  <div class="flex flex-col h-full bg-base-100">
+    <!-- Header -->
+    <ChatHeader
+      :session-id="hermesSessionId"
+      :usage="usage"
+      :fast-mode="fastMode"
+      :has-messages="messages.length > 0"
+      :context-folder="contextFolder"
+      :show-context-folder="true"
+      @pick-folder="pickContextFolder"
+      @clear-folder="clearContextFolder"
+      @toggle-fast="handleToggleFast"
+      @new-chat="startNewChat"
+      @clear="clearChat"
+    />
+
+    <!-- Messages area -->
+    <template v-if="messages.length > 0">
+      <MessageList
+        ref="messageListRef"
+        :messages="messages"
+        :is-loading="isLoading"
+        :tool-progress="toolProgress"
+        :on-approve="handleApprove"
+        :on-deny="handleDeny"
+      />
+    </template>
+    <template v-else>
+      <ChatEmptyState @select-suggestion="handleSuggestion" />
+    </template>
+
+    <!-- Input area -->
+    <div class="border-t border-base-content/10 bg-base-100/80 backdrop-blur-sm">
+      <!-- Approval mode indicator -->
+      <div
+        v-if="isApprovalMode"
+        class="px-4 py-1.5 bg-primary/10 border-t border-primary/20 flex items-center gap-2"
+      >
+        <SvgIcon name="clock" size="12" class="text-primary animate-pulse" />
+        <span class="text-xs text-primary/70">等待审批中...</span>
+      </div>
+
+      <div class="px-4 py-3">
+        <div class="max-w-3xl mx-auto">
+          <!-- Model picker row -->
+          <div class="flex items-center justify-between mb-2">
+            <ModelPicker
+              :current-model="currentModel"
+              :current-provider="currentProvider"
+              :current-base-url="currentBaseUrl"
+              :model-groups="modelGroups"
+              :display-model="displayModel"
+              @open="reload"
+              @select-model="handleSelectModel"
+            />
+            <div class="flex items-center gap-2 text-[10px] text-base-content/30">
+              <span
+                v-if="fastMode"
+                class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/10 text-warning/70"
+              >
+                <SvgIcon name="zap" size="8" />
+                优先模式
+              </span>
+              <span>⌘ ↵ 发送</span>
+            </div>
+          </div>
+
+          <!-- ChatInput -->
+          <SimpleChatInput
+            ref="chatInputRef"
+            :model-value="currentInput"
+            :is-loading="isLoading"
+            :is-approval-mode="isApprovalMode"
+            :placeholder="inputPlaceholder"
+            @update:model-value="currentInput = $event"
+            @send="handleSendInput"
+            @abort="handleAbort"
+            @approve="handleApprove"
+            @deny="handleDeny"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { open } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
+
+import SvgIcon from '@/components/ui/SvgIcon.vue';
+
+import ChatHeader from './ChatHeader.vue';
+import ChatEmptyState from './components/ChatEmptyState.vue';
+import MessageList from './components/MessageList.vue';
+import ModelPicker from './ModelPicker.vue';
+import SimpleChatInput from './SimpleChatInput.vue';
+
+import { useChatIPC } from './composables/useChatIPC';
+import { useChatActions } from './composables/useChatActions';
+import { useChatScroll } from './composables/useChatScroll';
+import { useFastMode } from './composables/useFastMode';
+import { useInputHistory } from './composables/useInputHistory';
+import { useModelConfig } from './composables/useModelConfig';
+import { useLocalCommands } from './composables/useLocalCommands';
+
+import type { ChatMessage, UsageState } from './types';
+
+// ── Core state ───────────────────────────────────────────────────────────────
+const messages = ref<ChatMessage[]>([]);
+const hermesSessionId = ref<string | null>(null);
+const isLoading = ref(false);
+const toolProgress = ref<string | null>(null);
+const usage = ref<UsageState | null>(null);
+const contextFolder = ref<string | null>(null);
+const currentInput = ref('');
+const chatInputRef = ref<{ clear: () => void; focus: () => void } | null>(null);
+const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+
+function setMessages(msgs: ChatMessage[]) {
+  messages.value = msgs;
+}
+
+// ── Helper: add an agent-side text message ────────────────────────────────────
+function addAgentMessage(content: string) {
+  setMessages([
+    ...messages.value,
+    { id: `agent-${Date.now()}`, role: 'agent', content },
+  ]);
+}
+
+function startNewChat() {
+  if (messages.value.length > 0 && !window.confirm('确认开始新对话？当前对话内容将保留。')) return;
+  messages.value = [];
+  hermesSessionId.value = null;
+  usage.value = null;
+  toolProgress.value = null;
+  currentInput.value = '';
+}
+
+function clearChat() {
+  if (!window.confirm('确认清空当前对话内容？')) return;
+  messages.value = [];
+  usage.value = null;
+  toolProgress.value = null;
+}
+
+// ── Local commands (must be set up before chat actions) ──────────────────────
+const localCommands = useLocalCommands({
+  usage,
+  setFastMode: async (next: boolean) => {
+    await invoke('hermes_set_config', {
+      key: 'agent.service_tier',
+      value: next ? 'fast' : 'normal',
+    });
+    fastMode.value = next;
+  },
+  onNewChat: startNewChat,
+  onClear: clearChat,
+  addAgentMessage,
+});
+
+// ── Chat IPC listeners ───────────────────────────────────────────────────────
+useChatIPC({
+  messages,
+  setMessages,
+  hermesSessionId,
+  toolProgress,
+  isLoading,
+  usage,
+});
+
+// ── Scroll management ────────────────────────────────────────────────────────
+const { scrollToBottom } = useChatScroll(messages);
+
+// ── Fast mode ────────────────────────────────────────────────────────────────
+const { fastMode, toggle: doToggleFast } = useFastMode();
+
+function handleToggleFast() {
+  doToggleFast();
+}
+
+// ── Input history ────────────────────────────────────────────────────────────
+const { push: pushHistory, recallPrev, recallNext } = useInputHistory({
+  currentInput,
+  applyText: (text: string) => {
+    currentInput.value = text;
+    chatInputRef.value?.focus();
+  },
+});
+
+// ── Model config ─────────────────────────────────────────────────────────────
+const {
+  currentModel,
+  currentProvider,
+  currentBaseUrl,
+  modelGroups,
+  displayModel,
+  reload,
+  selectModel,
+} = useModelConfig();
+
+// ── Chat actions (depends on localCommands, scrollToBottom, etc.) ────────────
+const {
+  handleSend: doSend,
+  handleAbort,
+  handleApprove,
+  handleDeny,
+} = useChatActions({
+  hermesSessionId,
+  messages,
+  setMessages,
+  isLoading,
+  onSessionStarted: scrollToBottom,
+  localCommands,
+  contextFolder,
+  scrollToBottom,
+  inputRef: chatInputRef,
+});
+
+// ── Derived ──────────────────────────────────────────────────────────────────
+const isApprovalMode = computed(() => {
+  if (messages.value.length === 0) return false;
+  const last = messages.value[messages.value.length - 1];
+  return last.kind === 'tool_call' && last.name === 'ask_user_question';
+});
+
+const inputPlaceholder = computed(() => {
+  if (isApprovalMode.value) return '输入回复内容或审批操作（/approve /deny）...';
+  if (isLoading.value) return 'Agent 正在处理...';
+  return '输入消息，Ctrl+Enter 发送...';
+});
+
+// ── Handlers ─────────────────────────────────────────────────────────────────
+async function handleSendInput() {
+  const text = currentInput.value.trim();
+  if (!text) return;
+
+  if (isApprovalMode.value) {
+    if (/^\/approve$/i.test(text)) {
+      chatInputRef.value?.clear();
+      handleApprove();
+    } else if (/^\/deny$/i.test(text)) {
+      chatInputRef.value?.clear();
+      handleDeny();
+    } else {
+      await doSend(text);
+      chatInputRef.value?.clear();
+    }
+  } else {
+    await doSend(text);
+    chatInputRef.value?.clear();
+  }
+
+  pushHistory(text);
+}
+
+function handleSuggestion(text: string) {
+  currentInput.value = text;
+  handleSendInput();
+}
+
+async function handleSelectModel(provider: string, model: string, baseUrl: string) {
+  await selectModel(provider, model, baseUrl);
+  try {
+    await invoke('agent_set_config', {
+      config: { provider, model, ...(baseUrl ? { baseUrl } : {}) },
+    });
+  } catch {
+    // Best-effort sync to backend
+  }
+}
+
+async function pickContextFolder() {
+  try {
+    const selected = await open({ directory: true });
+    if (typeof selected === 'string') {
+      contextFolder.value = selected;
+    }
+  } catch {
+    // User cancelled
+  }
+}
+
+function clearContextFolder() {
+  contextFolder.value = null;
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────────────
+function handleKeydown(e: KeyboardEvent) {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+    e.preventDefault();
+    handleSendInput();
+    return;
+  }
+
+  if (e.key === 'ArrowUp') {
+    const prev = recallPrev();
+    if (prev) e.preventDefault();
+  } else if (e.key === 'ArrowDown') {
+    const next = recallNext();
+    if (next) e.preventDefault();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+  chatInputRef.value?.focus();
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
+</script>

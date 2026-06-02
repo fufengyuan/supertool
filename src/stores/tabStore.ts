@@ -48,7 +48,7 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/logs':      { label: '日志聚合',viewId: 'log-aggregator',   componentNames: ['LogAggregator'] },
   '/nginx':     { label: 'Nginx',   viewId: 'nginx',            componentNames: ['NginxManager'] },
   '/database':  { label: '数据库',  viewId: 'database',         componentNames: ['DBManager'] },
-  '/agent':     { label: 'Agent',   viewId: 'agent',            componentNames: ['HermesChat'] },
+  '/agent':     { label: 'Agent',   viewId: 'agent',            componentNames: ['Chat'] },
   '/agent/profiles': { label: 'Profiles', viewId: 'agent-profiles', componentNames: ['AgentProfiles'] },
   '/agent/tools': { label: '工具', viewId: 'tools', componentNames: ['ToolsManager'] },
   '/agent/cron': { label: '定时任务', viewId: 'cron', componentNames: ['CronManager'] },

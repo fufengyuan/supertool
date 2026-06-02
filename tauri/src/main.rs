@@ -900,6 +900,16 @@ fn main() {
             commands::hermes_config::export_hermes_config,
             commands::hermes_config::import_hermes_config,
             commands::hermes_config::hermes_set_config,
+            // Hermes Gateway management
+            commands::hermes_gateway::gateway_status,
+            commands::hermes_gateway::gateway_start,
+            commands::hermes_gateway::gateway_stop,
+            commands::hermes_gateway::gateway_restart,
+            // Hermes Sessions management
+            commands::hermes_sessions::sessions_export,
+            commands::hermes_sessions::sessions_prune,
+            // Hermes Insights
+            commands::hermes_insights::get_insights,
             // Hermes Memory management
             commands::hermes_memory::read_memory,
             commands::hermes_memory::add_memory_entry,

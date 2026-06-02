@@ -290,7 +290,7 @@ describe('useSessionManager()', () => {
 
     it('should return early if confirm is cancelled', async () => {
       // confirmFn returns false → delete should be aborted
-      await sm.deleteSession('session_test_001', undefined, async () => false)
+      await sm.deleteSession('session_test_001', undefined)
 
       expect(mockedInvoke).not.toHaveBeenCalled()
     })
@@ -352,10 +352,15 @@ describe('useSessionManager()', () => {
     })
 
     it('should return early if confirm is cancelled', async () => {
-      // confirmFn returns false → delete should be aborted
+      // confirm returns false → delete should be aborted
+      // Mock window.confirm to return false
+      const originalConfirm = window.confirm
+      window.confirm = () => false
       sm.currentSessionId.value = 's_id'
 
-      await sm.deleteCurrentSession(undefined, async () => false)
+      await sm.deleteCurrentSession()
+
+      window.confirm = originalConfirm
 
       expect(mockedInvoke).not.toHaveBeenCalled()
     })

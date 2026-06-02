@@ -519,7 +519,7 @@ pub fn set_memory_provider(provider: String) -> MemoryWriteResult {
 }
 
 /// Read specified environment variables from the process
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn read_env_vars(keys: Vec<String>) -> HashMap<String, String> {
     let mut result = HashMap::new();
     for key in keys {
