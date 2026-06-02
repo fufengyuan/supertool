@@ -310,6 +310,7 @@ import { ref, computed, onUnmounted, watch, nextTick } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc } from '@tauri-apps/api/core'
+import { copyFile } from '@tauri-apps/plugin-fs'
 
 // ============ Cleanup ============
 
@@ -609,7 +610,7 @@ async function downloadImage() {
       filters: [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }],
     })
     if (destPath) {
-      await invoke('copy_file', { source: processedPath.value, destination: destPath as string })
+      await copyFile(processedPath.value, destPath as string)
       errorMsg.value = ''
     }
   } catch (e: any) {
