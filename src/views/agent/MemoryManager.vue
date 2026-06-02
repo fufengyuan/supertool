@@ -2,13 +2,26 @@
   <div class="max-w-3xl mx-auto">
     <!-- OMP mode overlay -->
     <template v-if="isOmpMode">
-      <div class="flex items-center justify-center py-32">
-        <div class="text-center max-w-md px-6">
-          <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-          <p class="text-sm font-medium text-base-content/50">OMP 记忆管理</p>
-          <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-            OMP 不使用 Hermes 的记忆系统。会话上下文由 OMP 内部管理。
-          </p>
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold">OMP 会话统计</h1>
+          <p class="text-sm text-base-content/60 mt-1">来自 OMP history.db</p>
+        </div>
+        <button class="btn btn-ghost btn-sm" @click="loadOmpStats" :disabled="ompLoading">
+          <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+        </button>
+      </div>
+      <div v-if="ompLoading" class="flex items-center justify-center py-16">
+        <span class="loading loading-spinner loading-md text-primary" />
+      </div>
+      <div v-else class="grid grid-cols-2 gap-4">
+        <div class="stat bg-base-100 rounded-lg p-4 border border-base-300">
+          <div class="stat-value text-2xl font-bold text-primary">{{ ompStats.sessions }}</div>
+          <div class="stat-title text-xs text-base-content/60 mt-1">会话</div>
+        </div>
+        <div class="stat bg-base-100 rounded-lg p-4 border border-base-300">
+          <div class="stat-value text-2xl font-bold text-secondary">{{ ompStats.messages }}</div>
+          <div class="stat-title text-xs text-base-content/60 mt-1">消息</div>
         </div>
       </div>
     </template>
@@ -267,9 +280,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useAgentModeStore } from '@/stores/agentModeStore'
+import { ref, computed, watch, onMounted } from 'vue'
 import { getTauriAPI } from '@/utils/tauri-api'
+import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import type { MemoryInfo, MemoryProviderResult, MemoryWriteResult } from '@/types'
 import {
@@ -287,6 +300,20 @@ import {
 const api = getTauriAPI()
 const agentModeStore = useAgentModeStore()
 const isOmpMode = computed(() => agentModeStore.mode === 'omp')
+const ompStats = ref({ sessions: 0, messages: 0 })
+const ompLoading = ref(false)
+
+async function loadOmpStats() {
+  ompLoading.value = true
+  try {
+    const api = getTauriAPI()
+    ompStats.value = await api.ompReadStats()
+  } catch {
+    ompStats.value = { sessions: 0, messages: 0 }
+  } finally {
+    ompLoading.value = false
+  }
+}
 
 const loading = ref(true)
 const error = ref('')
@@ -524,6 +551,15 @@ async function handleDeactivate(providerName: string) {
 }
 
 onMounted(() => {
-  loadData()
+  if (isOmpMode.value) {
+    loadOmpStats()
+  } else {
+    loadData()
+  }
+})
+
+watch(isOmpMode, (omp) => {
+  if (omp) { loadOmpStats() }
+  else { loadData() }
 })
 </script>

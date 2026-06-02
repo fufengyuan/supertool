@@ -195,6 +195,51 @@ pub async fn omp_chat_info() -> Result<serde_json::Value, String> {
     }))
 }
 
+/// 读取 OMP models.yaml（提供商 + 模型配置）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
+    let omp_home = dirs::home_dir()
+        .ok_or("Cannot find home dir")?
+        .join(".omp")
+        .join("agent");
+    let yaml_path = omp_home.join("models.yaml");
+    let json_path = omp_home.join("models.json");
+    // Try YAML first, then JSON (OMP auto-migrates .json → .yaml)
+    let content = std::fs::read_to_string(&yaml_path)
+        .or_else(|_| std::fs::read_to_string(&json_path))
+        .map_err(|e| format!("OMP config not found (run omp once): {e}"))?;
+    // Parse
+    if yaml_path.exists() {
+        serde_yaml::from_str::<serde_json::Value>(&content)
+            .map_err(|e| format!("parse models.yaml failed: {e}"))
+    } else {
+        serde_json::from_str::<serde_json::Value>(&content)
+            .map_err(|e| format!("parse models.json failed: {e}"))
+    }
+}
+
+/// 读取 OMP 历史会话统计（来自 history.db）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn omp_read_stats() -> Result<serde_json::Value, String> {
+    let omp_home = dirs::home_dir()
+        .ok_or("Cannot find home dir")?
+        .join(".omp")
+        .join("agent");
+    let db_path = omp_home.join("history.db");
+    if !db_path.exists() {
+        return Ok(serde_json::json!({"sessions": 0, "messages": 0}));
+    }
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("open history.db: {e}"))?;
+    let sessions: i64 = conn
+        .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
+        .unwrap_or(0);
+    let messages: i64 = conn
+        .query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))
+        .unwrap_or(0);
+    Ok(serde_json::json!({"sessions": sessions, "messages": messages}))
+}
+
 /// 查找 omp 二进制
 fn find_omp() -> Result<String, String> {
     // 1) PATH 中的 omp

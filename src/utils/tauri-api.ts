@@ -1982,6 +1982,8 @@ export interface TauriAPI {
   ompChatClose: () => Promise<void>
   ompChatListSessions: () => Promise<unknown>
   ompChatInfo: () => Promise<{ binary: string }>
+  ompReadModelsConfig: () => Promise<unknown>
+  ompReadStats: () => Promise<{ sessions: number; messages: number }>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2764,6 +2766,10 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<unknown>('omp_chat_list_sessions'),
     ompChatInfo: async () =>
       tauriCall<{ binary: string }>('omp_chat_info'),
+    ompReadModelsConfig: async () =>
+      tauriCall<unknown>('omp_read_models_config'),
+    ompReadStats: async () =>
+      tauriCall<{ sessions: number; messages: number }>('omp_read_stats'),
 
   }
 

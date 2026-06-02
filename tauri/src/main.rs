@@ -453,6 +453,8 @@ fn main() {
             commands::omp_chat::omp_chat_close,
             commands::omp_chat::omp_chat_list_sessions,
             commands::omp_chat::omp_chat_info,
+            commands::omp_chat::omp_read_models_config,
+            commands::omp_chat::omp_read_stats,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,
