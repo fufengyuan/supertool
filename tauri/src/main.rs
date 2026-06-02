@@ -8,6 +8,7 @@ use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
 use std::path::PathBuf;
 use supertool_omp::OmpManager;
+use commands::omp_chat::OmpChatState;
 
 use std::sync::OnceLock;
 use supertool_core::db::Database;
@@ -217,6 +218,7 @@ fn main() {
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
             app.manage(OmpManager::new(PathBuf::from("omp")));
+            app.manage(OmpChatState::new());
             // Auto-start LAN service for team collaboration
             crate::commands::lan::auto_start_lan(app.handle());
 
@@ -453,6 +455,10 @@ fn main() {
             commands::omp::omp_write,
             commands::omp::omp_stop,
             commands::omp::omp_is_running,
+            // OMP Chat commands (ACP protocol bridge)
+            commands::omp_chat::omp_chat_init,
+            commands::omp_chat::omp_chat_send,
+            commands::omp_chat::omp_chat_close,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,
