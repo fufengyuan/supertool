@@ -216,6 +216,11 @@ const paths: Record<string, string> = {
   crop: '<path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"/><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"/>',
   audio: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   close: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+
+  // === Chat specific ===
+  playerStop: '<rect x="6" y="6" width="12" height="12" rx="1" fill="currentColor"/>',
+  folderOpen: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2v1"/><line x1="2" y1="15" x2="22" y2="15"/>',
+  copy: '<rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
 }
 
 const iconPath = computed(() => {

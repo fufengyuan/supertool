@@ -70,7 +70,7 @@ function makeModelsResult(overrides: Record<string, unknown> = {}) {
 async function flushAll() {
   await nextTick()
   // Drain the microtask queue (resolved invoke promises, etc.)
-  await new Promise(resolve => queueMicrotask(resolve))
+  await new Promise<void>(resolve => queueMicrotask(() => resolve()))
   await nextTick()
 }
 

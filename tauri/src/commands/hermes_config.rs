@@ -750,9 +750,7 @@ pub fn hermes_set_config(key: String, value: serde_json::Value) -> Result<serde_
                 if let Some(i) = n.as_i64() {
                     serde_yaml::Value::Number(i.into())
                 } else if let Some(f) = n.as_f64() {
-                    serde_yaml::Number::from_f64(f)
-                        .map(serde_yaml::Value::Number)
-                        .unwrap_or(serde_yaml::Value::Null)
+                    serde_yaml::Value::Number(serde_yaml::Number::from(f))
                 } else {
                     serde_yaml::Value::Null
                 }

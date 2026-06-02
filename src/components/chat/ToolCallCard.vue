@@ -1,113 +1,85 @@
 <template>
-  <div class="flex flex-col">
-    <div 
-      class="flex items-center gap-2 px-2 py-1 bg-base-200/40 rounded-lg border border-base-content/10 cursor-pointer hover:bg-base-200/60 transition-colors"
-      @click="toggleExpanded"
-    >
-      <!-- 工具 emoji（Hermes API 返回） -->
-      <span v-if="tool.emoji" class="text-sm">{{ tool.emoji }}</span>
-      <SvgIcon v-else :name="iconName" size="12" class="text-base-content/50" />
-      
-      <!-- 工具名称 -->
-      <span class="text-base-content/70 text-xs font-medium">{{ titleText }}</span>
-      
-      <!-- 参数摘要 -->
-      <span v-if="summaryText" class="text-base-content/50 text-xs truncate flex-1">{{ summaryText }}</span>
-      
-      <!-- 状态标识 -->
-      <SvgIcon v-if="tool.status === 'completed'" name="check" size="10" class="text-success" />
-      <SvgIcon v-else-if="tool.status === 'running'" name="loader" size="10" class="text-base-content/40 animate-spin" />
-      <SvgIcon v-else-if="tool.status === 'error'" name="x" size="10" class="text-error" />
-      
-      <!-- 执行时长 -->
-      <span v-if="tool.durationMs" class="text-base-content/30 text-xs">{{ (tool.durationMs / 1000).toFixed(1) }}s</span>
-      
-      <!-- 展开/折叠按钮 -->
-      <SvgIcon 
-        v-if="tool.result && tool.status === 'completed'"
-        :name="expanded ? 'chevronDown' : 'chevronRight'" 
-        size="10" 
-        class="text-base-content/40"
-      />
+  <div
+    class="px-3 py-2 rounded-xl border transition-colors"
+    :class="statusClass"
+  >
+    <div class="flex items-center gap-2">
+      <!-- Status indicator -->
+      <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="statusDotClass" />
+
+      <!-- Tool name + label -->
+      <span class="text-xs font-medium truncate">
+        <template v-if="tool.emoji">{{ tool.emoji }} </template>
+        {{ tool.label || tool.name }}
+      </span>
+
+      <!-- Duration -->
+      <span v-if="tool.durationMs" class="text-[10px] text-base-content/30 ml-auto shrink-0">
+        {{ formatDuration(tool.durationMs) }}
+      </span>
     </div>
-    
-    <!-- 展开的结果内容 -->
-    <div v-if="expanded && tool.result" class="mt-1 ml-6 px-2 py-2 bg-base-300/30 rounded border border-base-content/10 text-xs">
-      <div v-if="isJson" v-html="highlightedResult" class="whitespace-pre-wrap font-mono" />
-      <div v-else class="whitespace-pre-wrap text-base-content/70">{{ tool.result }}</div>
+
+    <!-- Args (collapsible) -->
+    <div v-if="hasArgs" class="mt-1.5">
+      <button
+        class="flex items-center gap-1 text-[10px] text-base-content/40 hover:text-base-content/60 transition-colors"
+        @click="expanded = !expanded"
+      >
+        <SvgIcon :name="expanded ? 'chevronDown' : 'chevronRight'" size="8" />
+        <span>参数</span>
+      </button>
+      <pre
+        v-if="expanded"
+        class="mt-1 px-2 py-1.5 text-[10px] text-base-content/50 bg-base-200/30 rounded border border-base-content/5 overflow-x-auto whitespace-pre-wrap font-mono"
+      >{{ argsText }}</pre>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import hljs from 'highlight.js';
-import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { ref, computed } from 'vue'
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 
-interface ToolCall {
-  name: string;
-  args?: Record<string, unknown>;
-  result?: string;
-  status?: string;
-  durationMs?: number;
-  isSubAgent?: boolean;
-  label?: string;
-  emoji?: string;
+export interface ToolInfo {
+  name: string
+  args?: Record<string, unknown>
+  status?: string
+  durationMs?: number
+  emoji?: string
+  label?: string
 }
 
 const props = defineProps<{
-  tool: ToolCall;
-  icon?: string;
-  title?: string;
-  summary?: string;
-}>();
+  tool: ToolInfo
+}>()
 
-const expanded = ref(false);
+const expanded = ref(false)
 
-const iconName = computed(() => props.icon || (props.tool.isSubAgent ? 'bot' : 'tool'));
+const hasArgs = computed(() => {
+  return props.tool.args && Object.keys(props.tool.args).length > 0
+})
 
-const titleText = computed(() => {
-  if (props.tool.emoji && props.tool.label) {
-    return props.tool.label;
-  }
-  if (props.tool.label) {
-    return props.tool.label;
-  }
-  return props.title || (props.tool.isSubAgent ? '子 Agent' : props.tool.name);
-});
+const argsText = computed(() => {
+  if (!props.tool.args) return ''
+  return JSON.stringify(props.tool.args, null, 2)
+})
 
-const summaryText = computed(() => {
-  if (props.summary) {return props.summary;}
-  if (props.tool.isSubAgent) {
-    const args = props.tool.args as Record<string, unknown> | undefined;
-    const goal = args?.goal || args?.task || args?.prompt;
-    return goal ? String(goal).slice(0, 80) + '...' : '';
-  }
-  return '';
-});
+const isRunning = computed(() => props.tool.status === 'running')
+const isCompleted = computed(() => props.tool.status === 'completed' || !props.tool.status)
 
-const toggleExpanded = () => {
-  if (props.tool.result && props.tool.status === 'completed') {
-    expanded.value = !expanded.value;
-  }
-};
+const statusClass = computed(() => {
+  if (isRunning.value) return 'bg-info/5 border-info/20 text-info/80'
+  return 'bg-base-200/30 border-base-content/10 text-base-content/60'
+})
 
-const isJson = computed(() => {
-  if (!props.tool.result) {return false;}
-  try {
-    JSON.parse(props.tool.result);
-    return true;
-  } catch {
-    return false;
-  }
-});
+const statusDotClass = computed(() => {
+  if (isRunning.value) return 'bg-info animate-pulse'
+  return 'bg-success/60'
+})
 
-const highlightedResult = computed(() => {
-  if (!props.tool.result) {return '';}
-  if (isJson.value) {
-    const formatted = JSON.stringify(JSON.parse(props.tool.result), null, 2);
-    return hljs.highlight(formatted, { language: 'json' }).value;
-  }
-  return hljs.highlightAuto(props.tool.result).value;
-});
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`
+  const s = (ms / 1000).toFixed(1)
+  return `${s}s`
+}
 </script>

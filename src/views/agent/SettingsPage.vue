@@ -83,6 +83,63 @@
         </div>
       </div>
 
+      <!-- API Server -->
+      <div class="bg-base-100 border border-base-300 rounded-xl p-5">
+        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+          <IconServer :size="18" />
+          API Server
+        </h2>
+        <div class="space-y-3 text-sm">
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">状态</span>
+            <div class="flex items-center gap-2">
+              <span :class="apiRunning ? 'text-success' : 'text-base-content/50'" class="text-xs font-medium">
+                {{ apiRunning ? '运行中' : '未运行' }}
+              </span>
+              <button class="btn btn-ghost btn-xs" @click="loadApiStatus">
+                <IconRefresh :size="12" />
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">API Key</span>
+            <div class="flex items-center gap-2">
+              <code class="text-xs bg-base-200 px-2 py-1 rounded font-mono">{{ apiKeyDisplay }}</code>
+              <button class="btn btn-ghost btn-xs" @click="showApiKeyModal = true">
+                <IconKey :size="12" />
+                配置
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Key 配置弹窗 -->
+      <div v-if="showApiKeyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showApiKeyModal = false">
+        <div class="bg-base-100 rounded-xl p-5 w-full max-w-sm shadow-2xl">
+          <h3 class="text-lg font-bold mb-3">配置 Hermes API Key</h3>
+          <p class="text-xs text-base-content/60 mb-3">
+            API Key 用于 SuperTool 与 Hermes Gateway 之间的通信认证。
+          </p>
+          <div class="mb-4">
+            <label class="text-xs text-base-content/70 mb-1 block">API Key</label>
+            <input
+              v-model="newApiKey"
+              type="text"
+              class="input input-bordered input-sm w-full font-mono text-xs"
+              placeholder="输入自定义 API Key（留空自动生成）"
+            />
+          </div>
+          <div class="flex gap-2 justify-end">
+            <button class="btn btn-ghost btn-sm" @click="showApiKeyModal = false">取消</button>
+            <button class="btn btn-primary btn-sm" @click="saveApiKey" :disabled="savingApiKey">
+              <IconRefresh v-if="savingApiKey" :size="12" class="animate-spin" />
+              保存
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Export / Import -->
       <div class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
@@ -301,9 +358,12 @@ import {
   IconSend,
   IconExternalLink,
   IconCode,
+  IconServer,
+  IconKey,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
+import { invoke } from '@tauri-apps/api/core'
 import type { HermesConfigInfo } from '@/types'
 
 const { t, locale } = useI18n()
@@ -328,6 +388,14 @@ const showImport = ref(false)
 const importContent = ref('')
 const importError = ref('')
 const importLoading = ref(false)
+
+// API Server
+const apiRunning = ref(false)
+const currentApiKey = ref('')
+const apiKeyDisplay = ref('')
+const showApiKeyModal = ref(false)
+const newApiKey = ref('')
+const savingApiKey = ref(false)
 
 async function loadAppVersion() {
   try {
@@ -441,8 +509,48 @@ async function handleImport() {
   }
 }
 
+async function loadApiStatus() {
+  try {
+    const result = await invoke<{ installed: boolean; configured: boolean; running: boolean; api_key: string }>('agent_api_server_status')
+    apiRunning.value = result.running
+    currentApiKey.value = result.api_key || ''
+    if (currentApiKey.value && currentApiKey.value.length > 8) {
+      apiKeyDisplay.value = currentApiKey.value.slice(0, 4) + '...' + currentApiKey.value.slice(-4)
+    } else {
+      apiKeyDisplay.value = currentApiKey.value || '未配置'
+    }
+  } catch {
+    apiRunning.value = false
+    apiKeyDisplay.value = '未配置'
+  }
+}
+
+async function saveApiKey() {
+  savingApiKey.value = true
+  try {
+    const result = await invoke<{ success: boolean; apiKey: string }>('agent_configure_api_server', {
+      customKey: newApiKey.value || null,
+    })
+    if (result.success) {
+      currentApiKey.value = result.apiKey
+      if (result.apiKey.length > 8) {
+        apiKeyDisplay.value = result.apiKey.slice(0, 4) + '...' + result.apiKey.slice(-4)
+      } else {
+        apiKeyDisplay.value = result.apiKey
+      }
+      showApiKeyModal.value = false
+      newApiKey.value = ''
+      await loadApiStatus()
+    }
+  } catch (e) {
+    console.error('Failed to save API key:', e)
+  }
+  savingApiKey.value = false
+}
+
 onMounted(async () => {
   await loadAppVersion()
   await loadConfig()
+  await loadApiStatus()
 })
 </script>

@@ -73,7 +73,7 @@ fn save_image(img: &image::DynamicImage, output_path: &str) -> Result<(), String
 }
 
 /// 压缩图片为指定格式
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn image_compress(path: String, quality: u8, format: String) -> Result<String, String> {
     ensure_output_dir()?;
 
@@ -125,7 +125,7 @@ pub fn image_compress(path: String, quality: u8, format: String) -> Result<Strin
 }
 
 /// 调整图片尺寸
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn image_resize(
     path: String,
     width: Option<u32>,
@@ -184,7 +184,7 @@ pub fn image_resize(
 }
 
 /// 转换图片格式
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn image_convert(path: String, target_format: String) -> Result<String, String> {
     ensure_output_dir()?;
 
@@ -211,7 +211,7 @@ pub fn image_convert(path: String, target_format: String) -> Result<String, Stri
 }
 
 /// 裁剪图片
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn image_crop(
     path: String,
     x: u32,
@@ -255,7 +255,7 @@ pub fn image_crop(
 }
 
 /// 移除图片背景（调用 python3 -m rembg）
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn image_remove_bg(path: String) -> Result<String, String> {
     ensure_output_dir()?;
 

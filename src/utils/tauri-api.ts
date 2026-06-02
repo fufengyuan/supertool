@@ -2733,6 +2733,16 @@ export function getTauriAPI(): TauriAPI {
     gatewayStop: async () => tauriCall<GatewayResult>('gateway_stop'),
     gatewayRestart: async () => tauriCall<GatewayResult>('gateway_restart'),
 
+    // ============ Hermes Sessions ============
+    sessionsExport: async (output: string, source?: string, sessionId?: string) =>
+      tauriCall<GatewayResult>('sessions_export', { output, source, sessionId }),
+    sessionsPrune: async (olderThan?: number, source?: string, yes?: boolean) =>
+      tauriCall<GatewayResult>('sessions_prune', { olderThan, source, yes }),
+
+    // ============ Hermes Insights ============
+    getInsights: async (days?: number, source?: string) =>
+      tauriCall<GatewayResult>('get_insights', { days, source }),
+
     // ============ Hermes Config (generic set) ============
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 

@@ -110,12 +110,12 @@ const routes = [
       {
         path: 'agent',
         name: 'Agent',
-        component: () => import('../views/agent/AgentManager.vue'),
+        redirect: '/agent/sessions',
       },
       {
         path: 'agent/chat',
         name: 'AgentChat',
-        component: () => import('../views/agent/HermesChat.vue'),
+        component: () => import('../views/agent/chat/Chat.vue'),
       },
       {
         path: 'agent/profiles',

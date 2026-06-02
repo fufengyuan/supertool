@@ -193,12 +193,12 @@ fn run_command_direct(cmd: &str, args: &[&str]) -> Result<String, String> {
 
 // ── Tauri Commands ─────────────────────────────────────────────────────────
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn list_installed_skills() -> Vec<SkillInfo> {
     scan_skills_dir(&installed_skills_dir(), "installed")
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn list_bundled_skills() -> Vec<SkillInfo> {
     let bundled = scan_skills_dir(&bundled_skills_dir(), "bundled");
 
@@ -246,7 +246,7 @@ pub fn list_bundled_skills() -> Vec<SkillInfo> {
     result
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn get_skill_content(path: String) -> String {
     let skill_file = PathBuf::from(&path).join("SKILL.md");
     if !skill_file.exists() {
@@ -255,7 +255,7 @@ pub fn get_skill_content(path: String) -> String {
     std::fs::read_to_string(&skill_file).unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn install_skill(identifier: String) -> SkillCliResult {
     let hermes = hermes_cli_path();
     match run_command_direct(&hermes, &["skills", "install", &identifier, "--yes"]) {
@@ -270,7 +270,7 @@ pub fn install_skill(identifier: String) -> SkillCliResult {
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "camelCase")]
 pub fn uninstall_skill(identifier: String) -> SkillCliResult {
     let hermes = hermes_cli_path();
     match run_command_direct(&hermes, &["skills", "uninstall", &identifier]) {
