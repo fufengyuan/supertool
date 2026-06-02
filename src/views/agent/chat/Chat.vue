@@ -90,6 +90,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -110,6 +111,9 @@ import { useModelConfig } from './composables/useModelConfig';
 import { useLocalCommands } from './composables/useLocalCommands';
 
 import type { ChatMessage, UsageState } from './types';
+import { hermesMessagesToChatMessages } from './sessionHistory';
+
+const route = useRoute();
 
 // ── Core state ───────────────────────────────────────────────────────────────
 const messages = ref<ChatMessage[]>([]);
@@ -309,7 +313,30 @@ function handleKeydown(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => {
+async function loadSessionHistory() {
+  const sessionId = route.query.session as string | undefined;
+  if (!sessionId) return;
+  try {
+    hermesSessionId.value = sessionId;
+    isLoading.value = true;
+    const result = await invoke<{
+      success: boolean;
+      messages: any[];
+      sessionId: string;
+    }>('agent_list_messages', { sessionId });
+    if (result.success && result.messages?.length) {
+      const converted = hermesMessagesToChatMessages(result.messages);
+      setMessages(converted);
+    }
+  } catch (e) {
+    console.error('Failed to load session history:', e);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+onMounted(async () => {
+  await loadSessionHistory();
   document.addEventListener('keydown', handleKeydown);
   chatInputRef.value?.focus();
 });
