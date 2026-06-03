@@ -6,7 +6,7 @@ mod system_logger;
 mod tray_notification;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
-use commands::omp_chat::OmpChatState;
+use commands::claw_chat::ClawChatState;
 
 use std::sync::OnceLock;
 use supertool_core::db::Database;
@@ -215,7 +215,7 @@ fn main() {
             // LAN
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
-            app.manage(OmpChatState::new());
+            app.manage(ClawChatState::new());
             // Auto-start LAN service for team collaboration
             crate::commands::lan::auto_start_lan(app.handle());
 
@@ -447,14 +447,14 @@ fn main() {
             commands::terminal::resize_terminal,
             commands::terminal::close_terminal,
             commands::terminal::is_terminal_active,
-            // OMP Chat commands (ACP protocol bridge)
-            commands::omp_chat::omp_chat_init,
-            commands::omp_chat::omp_chat_send,
-            commands::omp_chat::omp_chat_close,
-            commands::omp_chat::omp_chat_list_sessions,
-            commands::omp_chat::omp_chat_info,
-            commands::omp_chat::omp_read_models_config,
-            commands::omp_chat::omp_read_stats,
+            // Claw Chat commands
+            commands::claw_chat::claw_chat_init,
+            commands::claw_chat::claw_chat_send,
+            commands::claw_chat::claw_chat_close,
+            commands::claw_chat::claw_chat_list_sessions,
+            commands::claw_chat::claw_chat_info,
+            commands::claw_chat::claw_read_models_config,
+            commands::claw_chat::claw_read_stats,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,

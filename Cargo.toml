@@ -1,5 +1,5 @@
 [workspace]
-members = ["tauri", "cli", "core", "omp", "llm-client"]
+members = ["tauri", "cli", "core", "claw-cli", "claw"]
 resolver = "2"
 
 [profile.dev]

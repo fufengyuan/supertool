@@ -1,32 +1,32 @@
 <template>
   <div class="max-w-3xl mx-auto">
-    <!-- OMP mode overlay -->
-    <div v-show="isOmpMode">
+    <!-- Claw mode overlay -->
+    <div v-show="isClawMode">
       <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-bold">OMP 会话统计</h1>
-          <p class="text-sm text-base-content/60 mt-1">来自 OMP history.db</p>
+          <h1 class="text-2xl font-bold">Claw 会话统计</h1>
+          <p class="text-sm text-base-content/60 mt-1">来自 Claw history.db</p>
         </div>
-        <button class="btn btn-ghost btn-sm" @click="loadOmpStats" :disabled="ompLoading">
-          <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+        <button class="btn btn-ghost btn-sm" @click="loadClawStats" :disabled="clawLoading">
+          <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
         </button>
       </div>
-      <div v-if="ompLoading" class="flex items-center justify-center py-16">
+      <div v-if="clawLoading" class="flex items-center justify-center py-16">
         <span class="loading loading-spinner loading-md text-primary" />
       </div>
       <div v-else class="grid grid-cols-2 gap-4">
         <div class="stat bg-base-100 rounded-lg p-4 border border-base-300">
-          <div class="stat-value text-2xl font-bold text-primary">{{ ompStats.sessions }}</div>
+          <div class="stat-value text-2xl font-bold text-primary">{{ clawStats.sessions }}</div>
           <div class="stat-title text-xs text-base-content/60 mt-1">会话</div>
         </div>
         <div class="stat bg-base-100 rounded-lg p-4 border border-base-300">
-          <div class="stat-value text-2xl font-bold text-secondary">{{ ompStats.messages }}</div>
+          <div class="stat-value text-2xl font-bold text-secondary">{{ clawStats.messages }}</div>
           <div class="stat-title text-xs text-base-content/60 mt-1">消息</div>
         </div>
       </div>
     </div>
 
-    <div v-show="!isOmpMode">
+    <div v-show="!isClawMode">
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold">记忆管理</h1>
@@ -298,19 +298,19 @@ import {
 
 const api = getTauriAPI()
 const agentModeStore = useAgentModeStore()
-const isOmpMode = computed(() => agentModeStore.mode === 'omp')
-const ompStats = ref({ sessions: 0, messages: 0 })
-const ompLoading = ref(false)
+const isClawMode = computed(() => agentModeStore.mode === 'claw')
+const clawStats = ref({ sessions: 0, messages: 0 })
+const clawLoading = ref(false)
 
-async function loadOmpStats() {
-  ompLoading.value = true
+async function loadClawStats() {
+  clawLoading.value = true
   try {
     const api = getTauriAPI()
-    ompStats.value = await api.ompReadStats()
+    clawStats.value = await api.clawReadStats()
   } catch {
-    ompStats.value = { sessions: 0, messages: 0 }
+    clawStats.value = { sessions: 0, messages: 0 }
   } finally {
-    ompLoading.value = false
+    clawLoading.value = false
   }
 }
 

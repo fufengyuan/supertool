@@ -1,5 +1,5 @@
 [package]
-name = "llm-client"
+name = "claw"
 version = "0.1.0"
 edition = "2021"
 description = "LLM API client — derived from claw-code api crate"

@@ -25,7 +25,7 @@ pub mod logs;
 pub mod mfa;
 pub mod nginx;
 pub mod notes;
-pub mod omp_chat;
+pub mod claw_chat;
 pub mod openvpn;
 pub mod provider;
 pub mod profile;

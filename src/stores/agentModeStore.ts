@@ -6,14 +6,14 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-export type AgentMode = 'hermes' | 'omp'
+export type AgentMode = 'hermes' | 'claw'
 
 const STORAGE_KEY = 'supertool:agentMode'
 
 function loadMode(): AgentMode {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'hermes' || stored === 'omp') return stored
+    if (stored === 'hermes' || stored === 'claw') return stored
   } catch { /* ignore */ }
   return 'hermes'
 }
@@ -26,7 +26,7 @@ export const useAgentModeStore = defineStore('agentMode', () => {
   }
 
   function toggle() {
-    mode.value = mode.value === 'hermes' ? 'omp' : 'hermes'
+    mode.value = mode.value === 'hermes' ? 'claw' : 'hermes'
   }
 
   // 持久化
