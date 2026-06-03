@@ -4,9 +4,7 @@ use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
-/// OMP 聊天状态（单例，存在 app state 中）
-///
-/// Replaced the old ACP subprocess approach with direct LLM API calls.
+/// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     client: Mutex<Option<Arc<LlmClient>>>,
     session_id: Mutex<Option<String>>,
@@ -23,11 +21,111 @@ impl ClawChatState {
     }
 }
 
+/// 从 Hermes config.yaml 读取 API key 和 base URL，设置到进程环境变量
+fn setup_env_from_hermes_config() -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
+    let config_path = home.join(".hermes").join("config.yaml");
+
+    if !config_path.exists() {
+        // 没有 Hermes config 也 OK — 让 LlmClient::from_env() 自己检查 env vars
+        return Ok(());
+    }
+
+    let content = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read {}: {}", config_path.display(), e))?;
+
+    let root: serde_yaml::Value = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse config.yaml: {e}"))?;
+
+    let model_section = match root.get("model") {
+        Some(v) => v,
+        None => return Ok(()),
+    };
+
+    let api_key = match model_section.get("api_key").and_then(|v| v.as_str()) {
+        Some(k) if !k.is_empty() => k.to_string(),
+        _ => return Ok(()),
+    };
+
+    let base_url = model_section
+        .get("base_url")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    let model = model_section
+        .get("default")
+        .and_then(|v| v.as_str())
+        .unwrap_or("claude-sonnet-4-6");
+
+    let provider = model_section
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+
+    log::info!(
+        "[claw_chat] Read Hermes config: model={}, provider={}, has_api_key={}, has_base_url={}",
+        model,
+        provider,
+        !api_key.is_empty(),
+        base_url.is_some(),
+    );
+
+    // 根据配置设置环境变量
+    // 优先级：provider: custom + base_url → OpenAI-compatible
+    //         模型名前缀 → 对应 provider
+    let canonical = model.to_ascii_lowercase();
+
+    // provider: custom 且设置了 base_url → 走 OpenAI-compatible
+    if provider == "custom" && base_url.is_some() {
+        unsafe { std::env::set_var("OPENAI_API_KEY", &api_key); }
+        if let Some(url) = &base_url {
+            unsafe { std::env::set_var("OPENAI_BASE_URL", url); }
+        }
+        unsafe { std::env::set_var("OPENAI_MODEL", model); }
+        log::info!(
+            "[claw_chat] Custom provider with base_url → using OpenAI-compatible client"
+        );
+    } else if canonical.starts_with("claude") || canonical.starts_with("anthropic/") {
+        // SAFETY: set_var is unsafe in edition 2024 (multithreading data race risk).
+        // We call this once during initialization before any concurrent access.
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", &api_key); }
+        if let Some(url) = &base_url {
+            unsafe { std::env::set_var("ANTHROPIC_BASE_URL", url); }
+        }
+        unsafe { std::env::set_var("ANTHROPIC_MODEL", model); }
+    } else if canonical.starts_with("openai/") || canonical.starts_with("gpt-") {
+        unsafe { std::env::set_var("OPENAI_API_KEY", &api_key); }
+        if let Some(url) = &base_url {
+            unsafe { std::env::set_var("OPENAI_BASE_URL", url); }
+        }
+        unsafe { std::env::set_var("OPENAI_MODEL", model); }
+    } else if canonical.starts_with("grok") {
+        unsafe { std::env::set_var("XAI_API_KEY", &api_key); }
+        if let Some(url) = &base_url {
+            unsafe { std::env::set_var("XAI_BASE_URL", url); }
+        }
+        unsafe { std::env::set_var("XAI_MODEL", model); }
+    } else {
+        // 未知模型名前缀 — 设置 ANTHROPIC_API_KEY 作为兜底
+        log::warn!(
+            "[claw_chat] Unknown model prefix '{}', defaulting to ANTHROPIC_API_KEY",
+            model
+        );
+        unsafe { std::env::set_var("ANTHROPIC_API_KEY", &api_key); }
+        if let Some(url) = &base_url {
+            unsafe { std::env::set_var("ANTHROPIC_BASE_URL", url); }
+        }
+        unsafe { std::env::set_var("ANTHROPIC_MODEL", model); }
+    }
+
+    Ok(())
+}
+
 /// 初始化 LLM 客户端连接
 ///
-/// 读取环境变量（ANTHROPIC_API_KEY 或 OPENAI_API_KEY），
-/// 创建 LlmClient 并存入 state。
-/// 不再需要查找 omp 二进制或启动子进程。
+/// 从 Hermes config.yaml 读取 api_key + base_url，设置到进程环境变量后
+/// 创建 LlmClient。不再依赖系统环境变量。
 ///
 /// 发送事件: `agent-session-created`
 #[tauri::command(rename_all = "camelCase")]
@@ -36,11 +134,14 @@ pub async fn claw_chat_init(
     state: tauri::State<'_, ClawChatState>,
     _cwd: Option<String>,
 ) -> Result<(), String> {
-    log::info!("[claw_chat] Initializing LLM client from environment");
+    log::info!("[claw_chat] Initializing LLM client from Hermes config");
+
+    // 从 Hermes config 读取 API key/base URL 并设置环境变量
+    setup_env_from_hermes_config()?;
 
     let client = LlmClient::from_env()?;
 
-    // Generate a session ID (UI tracking; no subprocess session)
+    // Generate a session ID (UI tracking)
     let session_id = uuid::Uuid::new_v4().to_string();
 
     log::info!(
@@ -75,6 +176,7 @@ pub async fn claw_chat_init(
 /// 实时 emit 事件给前端：
 /// - `agent-delta` — 文本增量
 /// - `agent-reasoning-delta` — 思考/推理增量
+/// - `agent-tool-start` — 工具调用开始
 /// - `agent-done` — 完成（含用量）
 /// - `agent-error` — 错误
 #[tauri::command(rename_all = "camelCase")]
@@ -89,10 +191,10 @@ pub async fn claw_chat_send(
         (c.clone(), s.clone())
     };
 
-    let client = client.ok_or("OMP not initialized")?;
+    let client = client.ok_or("Claw not initialized")?;
     let session_id = session_id.clone().ok_or("No session")?;
 
-    // Append user message to conversation history
+    // 保存用户消息到历史
     {
         let mut msgs = state.messages.lock().await;
         msgs.push(Message {
@@ -101,7 +203,6 @@ pub async fn claw_chat_send(
         });
     }
 
-    // Snapshot current messages for this request
     let messages: Vec<Message> = {
         let msgs = state.messages.lock().await;
         msgs.clone()
@@ -114,6 +215,8 @@ pub async fn claw_chat_send(
 
     let app_clone = app.clone();
     let sid = session_id.clone();
+    let has_received_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let has_received_usage_clone = has_received_usage.clone();
 
     client
         .send_streaming(&messages, move |event| {
@@ -136,17 +239,13 @@ pub async fn claw_chat_send(
                         }),
                     );
                 }
-                Ok(LlmStreamEvent::ToolCall {
-                    id,
-                    name,
-                    input,
-                }) => {
+                Ok(LlmStreamEvent::ToolCall { id, name, input }) => {
                     let _ = app_clone.emit(
-                        "agent-tool-call",
+                        "agent-tool-start",
                         serde_json::json!({
-                            "tool_call_id": id,
+                            "id": id,
                             "name": name,
-                            "arguments": input,
+                            "args": input,
                             "session_id": sid.clone(),
                         }),
                     );
@@ -155,7 +254,18 @@ pub async fn claw_chat_send(
                     input_tokens,
                     output_tokens,
                 }) => {
-                    // Usage is emitted as part of agent-done
+                    has_received_usage_clone.store(true, std::sync::atomic::Ordering::SeqCst);
+                    // 先发 usage 事件
+                    let _ = app_clone.emit(
+                        "agent-usage",
+                        serde_json::json!({
+                            "prompt_tokens": input_tokens,
+                            "completion_tokens": output_tokens,
+                            "total_tokens": input_tokens + output_tokens,
+                            "session_id": sid.clone(),
+                        }),
+                    );
+                    // 再发 done（信号流结束）
                     let _ = app_clone.emit(
                         "agent-done",
                         serde_json::json!({
@@ -168,6 +278,15 @@ pub async fn claw_chat_send(
                     );
                 }
                 Ok(LlmStreamEvent::Done) => {
+                    // 如果 Usage 已经发过 done 了，这里不再重复发
+                    if !has_received_usage_clone.load(std::sync::atomic::Ordering::SeqCst) {
+                        let _ = app_clone.emit(
+                            "agent-done",
+                            serde_json::json!({
+                                "session_id": sid.clone(),
+                            }),
+                        );
+                    }
                     log::info!("[claw_chat] Stream completed");
                 }
                 Err(err_msg) => {
@@ -185,6 +304,7 @@ pub async fn claw_chat_send(
         .await
         .map_err(|e| {
             log::error!("[claw_chat] send_streaming failed: {}", e);
+            // 发送流结束事件，让前端结束 loading
             let _ = app.emit(
                 "agent-error",
                 serde_json::json!({
@@ -199,8 +319,6 @@ pub async fn claw_chat_send(
 }
 
 /// 关闭会话（清理 state）
-///
-/// 旧版 ACP 需要关闭子进程；新版仅清理内存中的 state。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_close(
     state: tauri::State<'_, ClawChatState>,
@@ -223,7 +341,7 @@ pub async fn claw_chat_close(
     Ok(())
 }
 
-/// 获取当前会话列表（兼容性保留；直接 LLM 模式下无子进程会话）
+/// 获取当前会话列表
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_list_sessions(
     state: tauri::State<'_, ClawChatState>,
@@ -242,73 +360,144 @@ pub async fn claw_chat_list_sessions(
     }))
 }
 
-/// 获取 LLM 客户端信息（无 omp 二进制信息）
+/// 获取 Claw 客户端信息（从 Hermes config 读取）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
-    let anthropic_key = std::env::var("ANTHROPIC_API_KEY")
-        .ok()
-        .map(|_| true)
-        .unwrap_or(false);
-    let openai_key = std::env::var("OPENAI_API_KEY")
-        .ok()
-        .map(|_| true)
-        .unwrap_or(false);
-    let model = std::env::var("ANTHROPIC_MODEL")
-        .or_else(|_| std::env::var("OPENAI_MODEL"))
-        .unwrap_or_else(|_| "auto".into());
+    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
+    let config_path = home.join(".hermes").join("config.yaml");
+
+    let (api_key_found, base_url, model, provider) = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path).unwrap_or_default();
+        let root: serde_yaml::Value = serde_yaml::from_str(&content).unwrap_or_default();
+        let model_section = root.get("model");
+        let has_key = model_section
+            .and_then(|m| m.get("api_key"))
+            .and_then(|v| v.as_str())
+            .map(|k| !k.is_empty())
+            .unwrap_or(false);
+        let b_url = model_section
+            .and_then(|m| m.get("base_url"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let mdl = model_section
+            .and_then(|m| m.get("default"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let prov = model_section
+            .and_then(|m| m.get("provider"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        (has_key, b_url, mdl, prov)
+    } else {
+        (false, None, String::new(), String::new())
+    };
 
     Ok(serde_json::json!({
-        "mode": "direct-llm",
-        "anthropic_configured": anthropic_key,
-        "openai_configured": openai_key,
+        "mode": "claw",
+        "apiKeyConfigured": api_key_found,
+        "baseUrl": base_url,
         "model": model,
-        "provider": if anthropic_key { "anthropic" } else if openai_key { "openai" } else { "none" },
+        "provider": provider,
+        "configSource": "~/.hermes/config.yaml",
     }))
 }
 
-/// 读取 OMP models.yaml（提供商 + 模型配置）
-///
-/// 保持原样 — 与 OMP 配置集成，非 LLM 客户端功能。
+/// 读取模型配置（从 Hermes config.yaml）
+/// 返回基于 Hermes 配置的模型提供商列表
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
-    let omp_home = dirs::home_dir()
-        .ok_or("Cannot find home dir")?
-        .join(".omp")
-        .join("agent");
-    let yaml_path = omp_home.join("models.yaml");
-    let json_path = omp_home.join("models.json");
-    let content = std::fs::read_to_string(&yaml_path)
-        .or_else(|_| std::fs::read_to_string(&json_path))
-        .map_err(|e| format!("OMP config not found (run omp once): {e}"))?;
-    if yaml_path.exists() {
-        serde_yaml::from_str::<serde_json::Value>(&content)
-            .map_err(|e| format!("parse models.yaml failed: {e}"))
-    } else {
-        serde_json::from_str::<serde_json::Value>(&content)
-            .map_err(|e| format!("parse models.json failed: {e}"))
+    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
+    let config_path = home.join(".hermes").join("config.yaml");
+
+    if !config_path.exists() {
+        return Ok(serde_json::json!({"providers": {}, "error": "~/.hermes/config.yaml not found"}));
     }
+
+    let content = std::fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config: {e}"))?;
+    let root: serde_yaml::Value = serde_yaml::from_str(&content)
+        .map_err(|e| format!("Failed to parse config: {e}"))?;
+
+    let model_section = root.get("model");
+    let default_model = model_section
+        .and_then(|m| m.get("default"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let base_url = model_section
+        .and_then(|m| m.get("base_url"))
+        .and_then(|v| v.as_str());
+    let has_api_key = model_section
+        .and_then(|m| m.get("api_key"))
+        .and_then(|v| v.as_str())
+        .map(|k| !k.is_empty())
+        .unwrap_or(false);
+
+    // 从 models_dev_cache 获取完整模型列表（如果有）
+    let cache_path = home.join(".hermes").join("models_dev_cache.json");
+    let mut provider_models: Vec<serde_json::Value> = Vec::new();
+
+    if cache_path.exists() {
+        if let Ok(cache_content) = std::fs::read_to_string(&cache_path) {
+            if let Ok(cache) = serde_json::from_str::<serde_json::Value>(&cache_content) {
+                if let Some(obj) = cache.as_object() {
+                    for (prov_name, prov_entry) in obj {
+                        let models = prov_entry
+                            .get("models")
+                            .and_then(|m| m.as_object())
+                            .map(|m| m.keys().cloned().collect::<Vec<_>>())
+                            .unwrap_or_default();
+                        provider_models.push(serde_json::json!({
+                            "name": prov_name,
+                            "models": models,
+                            "apiKey": false,
+                            "baseUrl": "",
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    // 添加当前激活的 provider（从 Hermes config）
+    let active_provider = serde_json::json!({
+        "name": "Hermes Config",
+        "models": if !default_model.is_empty() {
+            vec![serde_json::json!({"id": default_model, "active": true})]
+        } else {
+            Vec::<serde_json::Value>::new()
+        },
+        "apiKey": has_api_key,
+        "baseUrl": base_url.unwrap_or(""),
+        "active": true,
+    });
+    provider_models.insert(0, active_provider);
+
+    Ok(serde_json::json!({
+        "providers": provider_models,
+        "source": "~/.hermes/config.yaml",
+    }))
 }
 
-/// 读取 OMP 历史会话统计（来自 history.db）
-///
-/// 保持原样 — 与 OMP 配置集成。
+/// 读取聊天统计（从 Hermes 状态）
+/// Claw 模式没有持久化会话，返回简单统计
 #[tauri::command(rename_all = "camelCase")]
-pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
-    let omp_home = dirs::home_dir()
-        .ok_or("Cannot find home dir")?
-        .join(".omp")
-        .join("agent");
-    let db_path = omp_home.join("history.db");
-    if !db_path.exists() {
-        return Ok(serde_json::json!({"sessions": 0, "messages": 0}));
-    }
-    let conn =
-        rusqlite::Connection::open(&db_path).map_err(|e| format!("open history.db: {e}"))?;
-    let sessions: i64 = conn
-        .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
-        .unwrap_or(0);
-    let messages: i64 = conn
-        .query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))
-        .unwrap_or(0);
-    Ok(serde_json::json!({"sessions": sessions, "messages": messages}))
+pub async fn claw_read_stats(
+    state: tauri::State<'_, ClawChatState>,
+) -> Result<serde_json::Value, String> {
+    let messages_count = {
+        let msgs = state.messages.lock().await;
+        msgs.len()
+    };
+    let session_active = {
+        let s = state.session_id.lock().await;
+        s.is_some()
+    };
+
+    Ok(serde_json::json!({
+        "sessions": if session_active { 1 } else { 0 },
+        "messages": messages_count,
+        "source": "claw",
+    }))
 }

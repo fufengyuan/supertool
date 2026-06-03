@@ -2025,13 +2025,10 @@ export interface TauriAPI {
   triggerCronJob: (jobId: string) => Promise<void>
 
   // OMP Chat (ACP protocol)
-  ompChatInit: (cwd?: string) => Promise<void>
-  ompChatSend: (message: string) => Promise<void>
-  ompChatClose: () => Promise<void>
-  ompChatListSessions: () => Promise<unknown>
-  ompChatInfo: () => Promise<{ binary: string }>
-  ompReadModelsConfig: () => Promise<unknown>
-  ompReadStats: () => Promise<{ sessions: number; messages: number }>
+  clawChatListSessions: () => Promise<unknown>
+  clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
+  clawReadModelsConfig: () => Promise<unknown>
+  clawReadStats: () => Promise<{ sessions: number; messages: number }>
 }
 
 let cachedAPI: TauriAPI | null = null

@@ -550,15 +550,15 @@ async function handleDeactivate(providerName: string) {
 }
 
 onMounted(() => {
-  if (isOmpMode.value) {
-    loadOmpStats()
+  if (isClawMode.value) {
+    loadClawStats()
   } else {
     loadData()
   }
 })
 
-watch(isOmpMode, (omp) => {
-  if (omp) { loadOmpStats() }
+watch(isClawMode, (omp) => {
+  if (omp) { loadClawStats() }
   else { loadData() }
 })
 </script>

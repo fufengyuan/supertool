@@ -298,19 +298,33 @@
       </div>
 
       <!-- Claw Info (in Claw mode) -->
-      <div v-if="isClawMode && clawBinary" class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <div v-if="isClawMode && clawInfo.model" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconCode :size="18" />
           Claw Agent
         </h2>
         <div class="space-y-3 text-sm">
           <div class="flex items-center justify-between">
-            <span class="text-base-content/70">Binary</span>
-            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawBinary }}</code>
+            <span class="text-base-content/70">Model</span>
+            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawInfo.model }}</code>
           </div>
           <div class="flex items-center justify-between">
-            <span class="text-base-content/70">ACP Protocol</span>
-            <span class="text-green-500 text-xs font-medium">✓ available</span>
+            <span class="text-base-content/70">Provider</span>
+            <span class="text-xs font-medium">{{ clawInfo.provider || 'auto' }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">API Key</span>
+            <span :class="clawInfo.apiKeyConfigured ? 'text-success' : 'text-error'" class="text-xs font-medium">
+              {{ clawInfo.apiKeyConfigured ? '已配置' : '未配置' }}
+            </span>
+          </div>
+          <div v-if="clawInfo.baseUrl" class="flex items-center justify-between">
+            <span class="text-base-content/70">Base URL</span>
+            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawInfo.baseUrl }}</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-base-content/70">Config Source</span>
+            <span class="text-xs text-base-content/50">{{ clawInfo.configSource || '环境变量' }}</span>
           </div>
         </div>
       </div>
@@ -570,13 +584,21 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
+const clawInfo = ref({ model: '', provider: '', apiKeyConfigured: false, baseUrl: '', configSource: '' })
+
 async function loadClawInfo() {
   try {
     const api = getTauriAPI()
     const info = await api.clawChatInfo()
-    clawBinary.value = info?.binary || ''
+    clawInfo.value = {
+      model: info?.model || '',
+      provider: info?.provider || '',
+      apiKeyConfigured: info?.apiKeyConfigured || false,
+      baseUrl: info?.baseUrl || '',
+      configSource: info?.configSource || '',
+    }
   } catch {
-    clawBinary.value = ''
+    clawInfo.value = { model: '', provider: '', apiKeyConfigured: false, baseUrl: '', configSource: '' }
   }
 }
 

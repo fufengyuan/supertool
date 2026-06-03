@@ -44,8 +44,56 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
   const currentProvider = ref('auto');
   const currentBaseUrl = ref('');
   const modelGroups = ref<ModelGroup[]>([]);
+  const isClawMode = ref(false);
+
+  /** 检查当前是否为 Claw 模式 */
+  function checkClawMode(): boolean {
+    try {
+      const stored = localStorage.getItem('supertool:agentMode');
+      return stored === 'claw';
+    } catch {
+      return false;
+    }
+  }
 
   const reload = async (): Promise<void> => {
+    isClawMode.value = checkClawMode();
+
+    if (isClawMode.value) {
+      // Claw 模式：从 claw_chat_info 读取配置
+      try {
+        const info = await invoke<{
+          model: string;
+          provider: string;
+          baseUrl: string | null;
+          apiKeyConfigured: boolean;
+          configSource: string;
+        }>('claw_chat_info');
+
+        currentModel.value = info.model || 'claude-sonnet-4-6';
+        currentProvider.value = info.provider || 'Hermes Config';
+        currentBaseUrl.value = info.baseUrl || '';
+        modelGroups.value = [{
+          provider: 'Hermes Config',
+          providerLabel: 'Hermes Config',
+          models: [{
+            provider: 'Hermes Config',
+            model: info.model || 'claude-sonnet-4-6',
+            label: info.model || 'claude-sonnet-4-6',
+            baseUrl: info.baseUrl || '',
+          }],
+        }];
+      } catch {
+        // Fallback
+        currentModel.value = 'claude-sonnet-4-6';
+        currentProvider.value = 'Hermes Config';
+        currentBaseUrl.value = '';
+        modelGroups.value = [];
+      }
+      return;
+    }
+
+    // Hermes 模式：从 hermes_config 加载
     try {
       const [mc, savedModels] = await Promise.all([
         invoke<{ model: string; provider: string; baseUrl: string }>(
@@ -73,6 +121,13 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
     model: string,
     baseUrl: string,
   ): Promise<void> => {
+    if (isClawMode.value) {
+      // Claw 模式：模型选择暂不持久化
+      currentModel.value = model;
+      currentProvider.value = provider;
+      currentBaseUrl.value = baseUrl;
+      return;
+    }
     const effectiveBaseUrl = provider === 'custom' ? baseUrl : '';
     await invoke('hermes_config_set_model', {
       provider,
