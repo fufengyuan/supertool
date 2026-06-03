@@ -1,4 +1,4 @@
-use claw_runtime::g004_conformance::{is_g004_contract_bundle_valid, validate_g004_contract_bundle};
+use runtime::g004_conformance::{is_g004_contract_bundle_valid, validate_g004_contract_bundle};
 use serde_json::{json, Value};
 
 fn valid_bundle() -> Value {

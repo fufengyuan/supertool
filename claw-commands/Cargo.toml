@@ -1,5 +1,5 @@
 [package]
-name = "claw-commands"
+name = "commands"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"
@@ -7,6 +7,6 @@ publish = false
 description = "Command handlers — derived from claw-code commands crate"
 
 [dependencies]
-claw-plugins = { path = "../claw-plugins" }
-claw-runtime = { path = "../claw-runtime" }
+plugins = { path = "../claw-plugins" }
+runtime = { path = "../claw-runtime" }
 serde_json = "1"

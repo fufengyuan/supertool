@@ -1,5 +1,5 @@
 [package]
-name = "claw-telemetry"
+name = "telemetry"
 version = "0.1.0"
 edition = "2021"
 license = "MIT"

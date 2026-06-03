@@ -7,7 +7,7 @@ pub mod telemetry {
 
 // Runtime: re-export real types from claw-runtime instead of stubs
 pub mod runtime {
-    pub use claw_runtime::{
+    pub use runtime::{
         clear_oauth_credentials, load_oauth_credentials, save_oauth_credentials,
         format_usd, pricing_for_model, ModelPricing, TokenUsage, UsageCostEstimate,
         ModelFamilyIdentity, OAuthRefreshRequest, OAuthTokenExchangeRequest, OAuthTokenSet,

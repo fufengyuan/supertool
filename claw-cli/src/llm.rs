@@ -47,10 +47,10 @@ pub enum LlmStreamEvent {
 
 /// A lightweight LLM API client that sends streaming requests.
 ///
-/// Wraps [`claw::ProviderClient`] and delegates every call to it.
+/// Wraps [`api::ProviderClient`] and delegates every call to it.
 #[derive(Debug, Clone)]
 pub struct LlmClient {
-    inner: Arc<claw::ProviderClient>,
+    inner: Arc<api::ProviderClient>,
     model: String,
 }
 
@@ -61,7 +61,7 @@ impl LlmClient {
     /// (or a sensible default), then delegates to `ProviderClient::from_model`.
     pub fn from_env() -> Result<Self, String> {
         let model = Self::resolve_model_from_env();
-        let client = claw::ProviderClient::from_model(&model)
+        let client = api::ProviderClient::from_model(&model)
             .map_err(|e| format!("Failed to create LLM client: {e}"))?;
         Ok(Self {
             inner: Arc::new(client),
@@ -71,7 +71,7 @@ impl LlmClient {
 
     /// Return the provider kind (as a debug-friendly string).
     #[must_use]
-    pub fn provider(&self) -> claw::ProviderKind {
+    pub fn provider(&self) -> api::ProviderKind {
         self.inner.provider_kind()
     }
 
@@ -103,34 +103,34 @@ impl LlmClient {
 
         loop {
             match stream.next_event().await {
-                Ok(Some(claw::StreamEvent::ContentBlockStart(
-                    claw::ContentBlockStartEvent {
+                Ok(Some(api::StreamEvent::ContentBlockStart(
+                    api::ContentBlockStartEvent {
                         content_block:
-                            claw::OutputContentBlock::Text { .. },
+                            api::OutputContentBlock::Text { .. },
                         ..
                     },
                 ))) => {
                     // Block start — no delta to emit yet.
                 }
-                Ok(Some(claw::StreamEvent::ContentBlockDelta(
-                    claw::ContentBlockDeltaEvent {
-                        delta: claw::ContentBlockDelta::TextDelta { text },
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::TextDelta { text },
                         ..
                     },
                 ))) => {
                     on_event(Ok(LlmStreamEvent::TextDelta { text }));
                 }
-                Ok(Some(claw::StreamEvent::ContentBlockDelta(
-                    claw::ContentBlockDeltaEvent {
-                        delta: claw::ContentBlockDelta::ThinkingDelta { thinking },
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::ThinkingDelta { thinking },
                         ..
                     },
                 ))) => {
                     on_event(Ok(LlmStreamEvent::ThinkingDelta { thinking }));
                 }
-                Ok(Some(claw::StreamEvent::ContentBlockDelta(
-                    claw::ContentBlockDeltaEvent {
-                        delta: claw::ContentBlockDelta::InputJsonDelta { partial_json },
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::InputJsonDelta { partial_json },
                         ..
                     },
                 ))) => {
@@ -144,10 +144,10 @@ impl LlmClient {
                             .unwrap_or_else(|_| serde_json::json!({ "raw": partial_json })),
                     }));
                 }
-                Ok(Some(claw::StreamEvent::ContentBlockStart(
-                    claw::ContentBlockStartEvent {
+                Ok(Some(api::StreamEvent::ContentBlockStart(
+                    api::ContentBlockStartEvent {
                         content_block:
-                            claw::OutputContentBlock::ToolUse {
+                            api::OutputContentBlock::ToolUse {
                                 ref id,
                                 ref name,
                                 ..
@@ -161,10 +161,10 @@ impl LlmClient {
                         input: serde_json::json!({}),
                     }));
                 }
-                Ok(Some(claw::StreamEvent::MessageDelta(
-                    claw::MessageDeltaEvent {
+                Ok(Some(api::StreamEvent::MessageDelta(
+                    api::MessageDeltaEvent {
                         usage:
-                            claw::Usage {
+                            api::Usage {
                                 input_tokens,
                                 output_tokens,
                                 ..
@@ -177,7 +177,7 @@ impl LlmClient {
                         output_tokens: u64::from(output_tokens),
                     }));
                 }
-                Ok(Some(claw::StreamEvent::MessageStop(_))) => {
+                Ok(Some(api::StreamEvent::MessageStop(_))) => {
                     on_event(Ok(LlmStreamEvent::Done));
                     return Ok(());
                 }
@@ -219,16 +219,16 @@ impl LlmClient {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Build a [`claw::MessageRequest`] from our simple Message slice.
-fn build_message_request(model: &str, messages: &[Message]) -> claw::MessageRequest {
-    claw::MessageRequest {
+/// Build a [`api::MessageRequest`] from our simple Message slice.
+fn build_message_request(model: &str, messages: &[Message]) -> api::MessageRequest {
+    api::MessageRequest {
         model: model.to_string(),
         max_tokens: 8192,
         messages: messages
             .iter()
-            .map(|m| claw::InputMessage {
+            .map(|m| api::InputMessage {
                 role: m.role.clone(),
-                content: vec![claw::InputContentBlock::Text {
+                content: vec![api::InputContentBlock::Text {
                     text: m.content.clone(),
                 }],
             })

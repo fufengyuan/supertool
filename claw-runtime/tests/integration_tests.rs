@@ -6,8 +6,8 @@
 
 use std::time::Duration;
 
-use claw_runtime::green_contract::{GreenContract, GreenContractOutcome, GreenLevel};
-use claw_runtime::{
+use runtime::green_contract::{GreenContract, GreenContractOutcome, GreenLevel};
+use runtime::{
     apply_policy, BranchFreshness, DiffScope, LaneBlocker, LaneContext, PolicyAction,
     PolicyCondition, PolicyEngine, PolicyRule, ReconcileReason, ReviewStatus, StaleBranchAction,
     StaleBranchPolicy,
@@ -289,10 +289,10 @@ fn fresh_approved_lane_gets_merge_action() {
 /// the resulting recovery state feed into policy decisions?
 #[test]
 fn worker_provider_failure_flows_through_recovery_to_policy() {
-    use claw_runtime::recovery_recipes::{
+    use runtime::recovery_recipes::{
         attempt_recovery, FailureScenario, RecoveryContext, RecoveryResult, RecoveryStep,
     };
-    use claw_runtime::worker_boot::{WorkerFailureKind, WorkerRegistry, WorkerStatus};
+    use runtime::worker_boot::{WorkerFailureKind, WorkerRegistry, WorkerStatus};
 
     // given — a worker that encounters a provider failure during session completion
     let registry = WorkerRegistry::new();
