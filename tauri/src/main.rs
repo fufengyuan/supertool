@@ -520,6 +520,11 @@ fn main() {
             commands::accounting::add_budget,
             commands::accounting::update_budget,
             commands::accounting::delete_budget,
+            commands::accounting::get_templates,
+            commands::accounting::add_template,
+            commands::accounting::update_template,
+            commands::accounting::delete_template,
+            commands::accounting::use_template,
             commands::accounting::upload_accounting_receipt,
             commands::accounting::get_accounting_receipt_file,
             // Log commands
