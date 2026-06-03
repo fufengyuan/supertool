@@ -3,15 +3,15 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{Duration, Instant};
 
-use claw::{
+use api::{
     max_tokens_for_model, model_family_identity_for, resolve_model_alias, ApiError,
     ContentBlockDelta, InputContentBlock, InputMessage, MessageRequest, MessageResponse,
     OutputContentBlock, ProviderClient, StreamEvent as ApiStreamEvent, ToolChoice, ToolDefinition,
     ToolResultContentBlock,
 };
-use claw_plugins::PluginTool;
+use plugins::PluginTool;
 use reqwest::blocking::Client;
-use claw_runtime::{
+use runtime::{
     check_freshness, dedupe_superseded_commit_events, edit_file_in_workspace, execute_bash,
     glob_search_in_workspace, grep_search_in_workspace, load_system_prompt,
     lsp_client::LspRegistry,
@@ -3369,7 +3369,7 @@ fn todo_store_path() -> Result<std::path::PathBuf, String> {
 
 fn resolve_skill_path(skill: &str) -> Result<std::path::PathBuf, String> {
     let cwd = std::env::current_dir().map_err(|error| error.to_string())?;
-    match claw_commands::resolve_skill_path(&cwd, skill) {
+    match commands::resolve_skill_path(&cwd, skill) {
         Ok(path) => Ok(path),
         Err(_) => resolve_skill_path_from_compat_roots(skill),
     }
@@ -5050,7 +5050,7 @@ fn push_prompt_cache_record(client: &ProviderClient, events: &mut Vec<AssistantE
 }
 
 fn prompt_cache_record_to_runtime_event(
-    record: claw::PromptCacheRecord,
+    record: api::PromptCacheRecord,
 ) -> Option<PromptCacheEvent> {
     let cache_break = record.cache_break?;
     Some(PromptCacheEvent {
@@ -5062,7 +5062,7 @@ fn prompt_cache_record_to_runtime_event(
     })
 }
 
-fn final_assistant_text(summary: &claw_runtime::TurnSummary) -> String {
+fn final_assistant_text(summary: &runtime::TurnSummary) -> String {
     summary
         .assistant_messages
         .last()
@@ -6101,7 +6101,7 @@ fn iso8601_timestamp() -> String {
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn execute_powershell(input: PowerShellInput) -> std::io::Result<claw_runtime::BashCommandOutput> {
+fn execute_powershell(input: PowerShellInput) -> std::io::Result<runtime::BashCommandOutput> {
     let _ = &input.description;
     if let Some(output) = workspace_test_branch_preflight(&input.command) {
         return Ok(output);
@@ -6142,7 +6142,7 @@ fn execute_shell_command(
     command: &str,
     timeout: Option<u64>,
     run_in_background: Option<bool>,
-) -> std::io::Result<claw_runtime::BashCommandOutput> {
+) -> std::io::Result<runtime::BashCommandOutput> {
     if run_in_background.unwrap_or(false) {
         let child = std::process::Command::new(shell)
             .arg("-NoProfile")
@@ -6153,7 +6153,7 @@ fn execute_shell_command(
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()?;
-        return Ok(claw_runtime::BashCommandOutput {
+        return Ok(runtime::BashCommandOutput {
             stdout: String::new(),
             stderr: String::new(),
             raw_output_path: None,
@@ -6188,7 +6188,7 @@ fn execute_shell_command(
         loop {
             if let Some(status) = child.try_wait()? {
                 let output = child.wait_with_output()?;
-                return Ok(claw_runtime::BashCommandOutput {
+                return Ok(runtime::BashCommandOutput {
                     stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
                     stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
                     raw_output_path: None,
@@ -6224,7 +6224,7 @@ Command exceeded timeout of {timeout_ms} ms",
                 };
                 let is_test = is_test_command(command);
                 let return_code_interpretation = if is_test { "test.hung" } else { "timeout" };
-                return Ok(claw_runtime::BashCommandOutput {
+                return Ok(runtime::BashCommandOutput {
                     stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
                     stderr,
                     raw_output_path: None,
@@ -6249,7 +6249,7 @@ Command exceeded timeout of {timeout_ms} ms",
     }
 
     let output = process.output()?;
-    Ok(claw_runtime::BashCommandOutput {
+    Ok(runtime::BashCommandOutput {
         stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
         stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
         raw_output_path: None,
@@ -6385,9 +6385,9 @@ mod tests {
         GlobalToolRegistry, LaneEventName, LaneFailureClass, ProviderRuntimeClient,
         SubagentToolExecutor,
     };
-    use claw::OutputContentBlock;
-    use claw_runtime::ProviderFallbackConfig;
-    use claw_runtime::{
+    use api::OutputContentBlock;
+    use runtime::ProviderFallbackConfig;
+    use runtime::{
         permission_enforcer::PermissionEnforcer, ApiRequest, AssistantEvent, ConversationRuntime,
         PermissionMode, PermissionPolicy, RuntimeError, Session, TaskPacket, ToolExecutor,
     };
@@ -7199,7 +7199,7 @@ mod tests {
                     "properties": { "text": { "type": "string" } },
                     "additionalProperties": false
                 }),
-                required_permission: claw_runtime::PermissionMode::ReadOnly,
+                required_permission: runtime::PermissionMode::ReadOnly,
             }])
             .expect("runtime tools should register");
 
@@ -7220,7 +7220,7 @@ mod tests {
             permissions,
             vec![(
                 "mcp__demo__echo".to_string(),
-                claw_runtime::PermissionMode::ReadOnly
+                runtime::PermissionMode::ReadOnly
             )]
         );
 
@@ -7228,13 +7228,13 @@ mod tests {
             "demo echo",
             5,
             Some(vec!["pending-server".to_string()]),
-            Some(claw_runtime::McpDegradedReport::new(
+            Some(runtime::McpDegradedReport::new(
                 vec!["demo".to_string()],
-                vec![claw_runtime::McpFailedServer {
+                vec![runtime::McpFailedServer {
                     server_name: "pending-server".to_string(),
-                    phase: claw_runtime::McpLifecyclePhase::ToolDiscovery,
-                    error: claw_runtime::McpErrorSurface::new(
-                        claw_runtime::McpLifecyclePhase::ToolDiscovery,
+                    phase: runtime::McpLifecyclePhase::ToolDiscovery,
+                    error: runtime::McpErrorSurface::new(
+                        runtime::McpLifecyclePhase::ToolDiscovery,
                         Some("pending-server".to_string()),
                         "tool discovery failed",
                         BTreeMap::new(),
@@ -8815,7 +8815,7 @@ mod tests {
         input_path: String,
     }
 
-    impl claw_runtime::ApiClient for MockSubagentApiClient {
+    impl runtime::ApiClient for MockSubagentApiClient {
         fn stream(&mut self, request: ApiRequest) -> Result<Vec<AssistantEvent>, RuntimeError> {
             self.calls += 1;
             match self.calls {
@@ -8880,7 +8880,7 @@ mod tests {
             .flat_map(|message| message.blocks.iter())
             .any(|block| matches!(
                 block,
-                claw_runtime::ContentBlock::ToolResult { output, .. }
+                runtime::ContentBlock::ToolResult { output, .. }
                     if output.contains("hello from child")
             )));
 
@@ -9829,11 +9829,11 @@ printf 'pwsh:%s' "$1"
     }
 
     fn read_only_registry() -> super::GlobalToolRegistry {
-        use claw_runtime::permission_enforcer::PermissionEnforcer;
-        use claw_runtime::PermissionPolicy;
+        use runtime::permission_enforcer::PermissionEnforcer;
+        use runtime::PermissionPolicy;
 
         let policy = mvp_tool_specs().into_iter().fold(
-            PermissionPolicy::new(claw_runtime::PermissionMode::ReadOnly),
+            PermissionPolicy::new(runtime::PermissionMode::ReadOnly),
             |policy, spec| policy.with_tool_requirement(spec.name, spec.required_permission),
         );
         let mut registry = super::GlobalToolRegistry::builtin();
@@ -9842,11 +9842,11 @@ printf 'pwsh:%s' "$1"
     }
 
     fn workspace_write_registry() -> super::GlobalToolRegistry {
-        use claw_runtime::permission_enforcer::PermissionEnforcer;
-        use claw_runtime::PermissionPolicy;
+        use runtime::permission_enforcer::PermissionEnforcer;
+        use runtime::PermissionPolicy;
 
         let policy = mvp_tool_specs().into_iter().fold(
-            PermissionPolicy::new(claw_runtime::PermissionMode::WorkspaceWrite),
+            PermissionPolicy::new(runtime::PermissionMode::WorkspaceWrite),
             |policy, spec| policy.with_tool_requirement(spec.name, spec.required_permission),
         );
         let mut registry = super::GlobalToolRegistry::builtin();
@@ -10144,7 +10144,7 @@ printf 'pwsh:%s' "$1"
 
     #[test]
     fn run_task_packet_creates_packet_backed_task() {
-        use claw_runtime::task_packet::TaskScope;
+        use runtime::task_packet::TaskScope;
         let result = run_task_packet(TaskPacket {
             objective: "Ship packetized runtime task".to_string(),
             scope: TaskScope::Module,
@@ -10157,7 +10157,7 @@ printf 'pwsh:%s' "$1"
                 "cargo test --workspace".to_string(),
             ],
             acceptance_criteria: vec!["task packet is accepted".to_string()],
-            resources: vec![claw_runtime::TaskResource {
+            resources: vec![runtime::TaskResource {
                 kind: "module".to_string(),
                 value: "runtime/task system".to_string(),
             }],

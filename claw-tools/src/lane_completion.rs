@@ -8,7 +8,7 @@
 //! - Tests passed (green status)
 //! - Code pushed (has output file)
 
-use claw_runtime::{
+use runtime::{
     evaluate, LaneBlocker, LaneContext, PolicyAction, PolicyCondition, PolicyEngine, PolicyRule,
     ReviewStatus,
 };
@@ -60,7 +60,7 @@ pub(crate) fn detect_lane_completion(
         branch_freshness: std::time::Duration::from_secs(0),
         blocker: LaneBlocker::None,
         review_status: ReviewStatus::Approved,
-        diff_scope: claw_runtime::DiffScope::Scoped,
+        diff_scope: runtime::DiffScope::Scoped,
         completed: true,
         reconciled: false,
         retry_count: 0,
@@ -98,7 +98,7 @@ pub(crate) fn evaluate_completed_lane(context: &LaneContext) -> Vec<PolicyAction
 #[cfg(test)]
 mod tests {
     use super::*;
-    use claw_runtime::{DiffScope, LaneBlocker};
+    use runtime::{DiffScope, LaneBlocker};
 
     fn test_output() -> AgentOutput {
         AgentOutput {
