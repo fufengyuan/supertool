@@ -245,13 +245,7 @@ pub async fn claw_chat_send(
                 }
                 Err(err_msg) => {
                     log::error!("[claw_chat] Stream error: {}", err_msg);
-                    let _ = app_clone.emit(
-                        "agent-error",
-                        serde_json::json!({
-                            "message": err_msg,
-                            "session_id": sid.clone(),
-                        }),
-                    );
+                    // Error will be caught by map_err below — no double emit
                 }
             }
         })

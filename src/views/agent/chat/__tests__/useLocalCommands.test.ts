@@ -12,6 +12,7 @@ import { useLocalCommands } from '../composables/useLocalCommands'
 
 function setup() {
   const usage = ref<UsageState | null>(null)
+  const fastMode = ref(false)
   const setFastMode = vi.fn().mockResolvedValue(undefined)
   const onNewChat = vi.fn()
   const onClear = vi.fn()
@@ -19,6 +20,7 @@ function setup() {
 
   const commands = useLocalCommands({
     usage,
+    fastMode,
     setFastMode,
     onNewChat,
     onClear,

@@ -1,4 +1,4 @@
-import { onUnmounted } from 'vue';
+import { onUnmounted, isRef } from 'vue';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import type { Ref } from 'vue';
@@ -17,7 +17,7 @@ interface UseChatIPCArgs {
   isLoading: Ref<boolean>;
   usage: Ref<UsageState | null>;
   scrollToBottom?: () => void;
-  isClawMode?: boolean;
+  isClawMode?: Ref<boolean> | boolean;
 }
 
 /**
@@ -32,9 +32,11 @@ export function useChatIPC({
   isLoading,
   usage,
   scrollToBottom,
-  isClawMode = false,
+  isClawMode: isClawModeArg = false,
 }: UseChatIPCArgs): void {
   const cleanups: UnlistenFn[] = [];
+  // Normalize: accept both Ref<boolean> and plain boolean
+  const getIsClawMode = () => isRef(isClawModeArg) ? isClawModeArg.value : isClawModeArg;
 
   const setup = async () => {
     // agent-delta: text content chunk
@@ -177,16 +179,16 @@ export function useChatIPC({
 
     // agent-done: stream finished
     const unlistenDone = await listen<{
-      response: string | null;
-      session_id: string;
-      message_count: number;
+      response?: string | null;
+      session_id?: string;
+      message_count?: number;
     }>('agent-done', async (event) => {
       const sessionId = event.payload?.session_id;
       if (sessionId) hermesSessionId.value = sessionId;
       toolProgress.value = null;
       isLoading.value = false;
       // In Claw mode, skip the Hermes DB merge — there's no Hermes backend
-      if (isClawMode) return;
+      if (getIsClawMode()) return;
       // End-of-stream DB merge
       if (!sessionId) return;
       try {
