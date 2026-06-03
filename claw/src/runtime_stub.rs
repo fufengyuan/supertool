@@ -151,3 +151,46 @@ pub fn save_oauth_credentials(_token: &OAuthTokenSet) -> std::io::Result<()> {
 pub fn clear_oauth_credentials() -> std::io::Result<()> {
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// ConfigLoader (minimal stub — used by #[cfg(test)] in providers/mod.rs)
+// ---------------------------------------------------------------------------
+
+use std::path::PathBuf;
+
+pub struct ConfigLoader {
+    _cwd: PathBuf,
+    _home: PathBuf,
+}
+
+impl ConfigLoader {
+    #[must_use]
+    pub fn new(cwd: &PathBuf, home: &PathBuf) -> Self {
+        Self {
+            _cwd: cwd.clone(),
+            _home: home.clone(),
+        }
+    }
+
+    pub fn load(&self) -> Result<EmptyConfig, String> {
+        Ok(EmptyConfig)
+    }
+}
+
+pub struct EmptyConfig;
+
+impl EmptyConfig {
+    #[must_use]
+    pub fn plugins(&self) -> PluginOverride {
+        PluginOverride
+    }
+}
+
+pub struct PluginOverride;
+
+impl PluginOverride {
+    #[must_use]
+    pub fn max_output_tokens(&self) -> Option<u32> {
+        None
+    }
+}

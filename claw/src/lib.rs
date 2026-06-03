@@ -13,7 +13,7 @@ pub mod telemetry {
 // Now copy claw-code's modules (with `use runtime::` and `use telemetry::` resolved)
 mod error;
 mod http_client;
-mod prompt_cache;
+pub mod prompt_cache;
 mod sse;
 mod types;
 pub mod providers;
@@ -25,7 +25,7 @@ pub use client::{
 };
 pub use error::ApiError;
 pub use http_client::{build_http_client, build_http_client_or_default, build_http_client_with, ProxyConfig};
-pub use providers::anthropic::{AnthropicClient, AuthSource};
+pub use providers::anthropic::{AnthropicClient, AnthropicClient as ApiClient, AuthSource};
 pub use providers::openai_compat::{
     build_chat_completion_request, check_request_body_size, estimate_request_body_size,
     flatten_tool_result_content, is_reasoning_model, model_rejects_is_error_field,

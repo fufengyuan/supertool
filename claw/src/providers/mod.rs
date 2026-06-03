@@ -803,6 +803,8 @@ pub(crate) fn dotenv_value(key: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
+    use crate::runtime;
+    use crate::runtime::ModelFamilyIdentity;
     use std::ffi::OsString;
     use std::sync::{Mutex, OnceLock};
 
