@@ -213,7 +213,7 @@
             :class="theme === 'system' ? 'border-primary bg-primary/5' : 'border-base-300 hover:border-base-content/30'"
             @click="setTheme('system')">
             <div class="w-full h-16 rounded-lg bg-gradient-to-br from-base-100 to-neutral flex items-center justify-center border border-base-300">
-              <IconMonitor :size="24" />
+              <IconDeviceDesktop :size="24" />
             </div>
             <span class="text-sm font-medium">System</span>
           </button>
