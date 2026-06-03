@@ -58,7 +58,7 @@
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconCode :size="18" />
           Claw Agent
-          <span class="text-xs text-base-content/40">~/.supertool/claw-config.json</span>
+          <span class="text-xs text-base-content/40">~/.claw/config.json</span>
         </h2>
 
         <div class="space-y-3">

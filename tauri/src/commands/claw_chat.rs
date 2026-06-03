@@ -23,14 +23,14 @@ impl ClawChatState {
 
 /// 从 SuperTool Claw 配置读取 API key 和 base URL，设置到进程环境变量
 ///
-/// 配置来源：`~/.supertool/claw-config.json`（前端 Settings 页面配置）
+/// 配置来源：`~/.claw/config.json`（前端 Settings 页面配置）
 /// 如果没有配置，回退到环境变量（兼容直接设置 ANTHROPIC_API_KEY 的场景）。
 fn setup_env_from_claw_config() -> Result<(), String> {
     let config = crate::commands::claw_config::read_claw_config()?;
 
     // 如果没有配置 api_key，回退到环境变量（让用户直接 export 也能工作）
     if config.api_key.is_empty() {
-        log::info!("[claw_chat] No claw-config.json api_key — falling back to env vars");
+        log::info!("[claw_chat] No ~/.claw/config.json api_key — falling back to env vars");
         return Ok(());
     }
 
@@ -308,7 +308,7 @@ pub async fn claw_chat_list_sessions(
     }))
 }
 
-/// 获取 Claw 客户端信息（从 SuperTool claw-config.json）
+/// 获取 Claw 客户端信息（从 ~/.claw/config.json）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
     let config = crate::commands::claw_config::read_claw_config()?;
@@ -323,7 +323,7 @@ pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
         "baseUrl": base_url,
         "model": model,
         "provider": provider,
-        "configSource": "~/.supertool/claw-config.json",
+        "configSource": "~/.claw/config.json",
     }))
 }
 
@@ -335,7 +335,7 @@ pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
 
     let mut providers: Vec<serde_json::Value> = Vec::new();
 
-    // 从 claw-config.json 构建当前配置的 provider
+    // 从 ~/.claw/config.json 构建当前配置的 provider
     if !config.api_key.is_empty() || !config.base_url.is_empty() {
         let provider_name = if config.provider.is_empty() {
             // 根据模型名推断 provider
@@ -369,7 +369,7 @@ pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
 
     Ok(serde_json::json!({
         "providers": providers,
-        "source": "~/.supertool/claw-config.json",
+        "source": "~/.claw/config.json",
     }))
 }
 

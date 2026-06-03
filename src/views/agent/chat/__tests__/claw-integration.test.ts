@@ -127,7 +127,7 @@ describe('TauriAPI Claw contracts', () => {
       model: 'claude-sonnet-4-6',
       provider: 'anthropic',
       baseUrl: null,
-      configSource: '~/.supertool/claw-config.json',
+      configSource: '~/.claw/config.json',
     })
 
     const { getTauriAPI } = await import('@/utils/tauri-api')
