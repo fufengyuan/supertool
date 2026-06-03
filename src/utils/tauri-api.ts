@@ -1146,9 +1146,7 @@ export function useAccountingAPI() {
       return res.data!
     },
     exportAccountingCSV: async (params?: Record<string, unknown>): Promise<any> => {
-      console.log("[API] exportAccountingCSV called with:", JSON.stringify(params).slice(0, 200))
       const res = await tauriInvoke<any>('export_accounting_csv', { params: params ?? {} })
-      console.log("[API] exportAccountingCSV result:", JSON.stringify(res).slice(0, 200))
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
@@ -2428,23 +2426,6 @@ export function getTauriAPI(): TauriAPI {
     // Project
     // Calculator
     getCalculatorHistory: async (_limit?: number): Promise<any> => { return []; },
-    // Accounting
-    checkBudgetAlerts: async (): Promise<any> => { return { success: true, alerts: [] }; },
-    getTemplates: async (): Promise<any> => { return { success: true, data: [] }; },
-    addTemplate: async (_template: Record<string, unknown>): Promise<any> => { return { success: true }; },
-    updateTemplate: async (_id: number | string, _template: Record<string, unknown>): Promise<any> => { return { success: true }; },
-    deleteTemplate: async (_id: number | string): Promise<any> => { return { success: true }; },
-    useTemplate: async (_id: number | string): Promise<any> => { return { success: true }; },
-    uploadAccountingReceipt: async (name: string, data: string): Promise<any> => {
-      const res = await tauriInvoke<any>('upload_accounting_receipt', { fileName: name, base64Data: data })
-      return res.success ? res.data : { success: false }
-    },
-    getAccountingReceiptFile: async (path: string): Promise<any> => {
-      const res = await tauriInvoke<any>('get_accounting_receipt_file', { filePath: path })
-      return res.success ? res.data : { success: false }
-    },
-    exportAccountingCSV: async (_params?: Record<string, unknown>): Promise<any> => { return { success: true, content: '' }; },
-    initDefaultAccountingCategories: async (): Promise<any> => { return { success: true }; },
     // DB
     dbTest: async (config: Record<string, unknown>): Promise<any> => {
       // 清理重复字段：前端 DBConfig 同时有 database/dbName 和 user/username
