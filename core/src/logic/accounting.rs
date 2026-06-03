@@ -773,7 +773,7 @@ impl super::CoreService {
             ));
         }
 
-        Ok(json!({"csv": csv}))
+        Ok(Value::String(csv))
     }
 
     pub async fn get_accounting_trend(&self, months: usize) -> Result<Value, String> {
