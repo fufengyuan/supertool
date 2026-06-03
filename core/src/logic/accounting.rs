@@ -180,7 +180,13 @@ impl super::CoreService {
                 let attachments_json: Option<String> = row.get("attachments_json").unwrap_or(None);
                 let attachments: serde_json::Value = match attachments_json {
                     Some(ref s) if !s.is_empty() && s != "[]" => {
-                        serde_json::from_str(s).unwrap_or(serde_json::json!([]))
+                        match serde_json::from_str::<serde_json::Value>(s) {
+                            Ok(val) => {
+                                if val.is_array() { val }
+                                else { serde_json::json!([]) }
+                            }
+                            Err(_) => serde_json::json!([])
+                        }
                     }
                     _ => serde_json::json!([])
                 };
