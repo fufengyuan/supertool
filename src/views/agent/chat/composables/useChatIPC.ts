@@ -17,6 +17,7 @@ interface UseChatIPCArgs {
   isLoading: Ref<boolean>;
   usage: Ref<UsageState | null>;
   scrollToBottom?: () => void;
+  isClawMode?: boolean;
 }
 
 /**
@@ -31,6 +32,7 @@ export function useChatIPC({
   isLoading,
   usage,
   scrollToBottom,
+  isClawMode = false,
 }: UseChatIPCArgs): void {
   const cleanups: UnlistenFn[] = [];
 
@@ -183,6 +185,8 @@ export function useChatIPC({
       if (sessionId) hermesSessionId.value = sessionId;
       toolProgress.value = null;
       isLoading.value = false;
+      // In Claw mode, skip the Hermes DB merge — there's no Hermes backend
+      if (isClawMode) return;
       // End-of-stream DB merge
       if (!sessionId) return;
       try {

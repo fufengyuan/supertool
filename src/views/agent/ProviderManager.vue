@@ -62,7 +62,7 @@
       </div>
     </div>
 
-    <div v-show="!isOmpMode">
+    <div v-show="!isClawMode">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -357,15 +357,15 @@ async function toggleVisibility(providerId: string) {
 }
 
 onMounted(() => {
-  if (isOmpMode.value) {
-    loadOmpConfig()
+  if (isClawMode.value) {
+    loadClawConfig()
   } else {
     loadProviders()
   }
 })
 
-watch(isOmpMode, (omp) => {
-  if (omp) { loadOmpConfig() }
+watch(isClawMode, (omp) => {
+  if (omp) { loadClawConfig() }
   else { loadProviders() }
 })
 </script>

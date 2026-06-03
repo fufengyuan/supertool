@@ -49,7 +49,7 @@
       </div>
     </div>
 
-    <div v-show="!isOmpMode">
+    <div v-show="!isClawMode">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -513,15 +513,15 @@ function clearSuccessAfterDelay() {
 }
 
 onMounted(() => {
-  if (isOmpMode.value) {
-    loadOmpModels()
+  if (isClawMode.value) {
+    loadClawModels()
   } else {
     loadModels()
   }
 })
 
-watch(isOmpMode, (omp) => {
-  if (omp) { loadOmpModels() }
+watch(isClawMode, (omp) => {
+  if (omp) { loadClawModels() }
   else { loadModels() }
 })
 
