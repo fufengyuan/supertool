@@ -346,6 +346,20 @@
             />
           </div>
 
+          <!-- Provider -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">
+              Provider
+              <span class="text-base-content/40">(可选，如 anthropic / openai)</span>
+            </label>
+            <input
+              v-model="clawForm.provider"
+              type="text"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="anthropic"
+            />
+          </div>
+
           <!-- Save -->
           <div class="flex items-center gap-3 pt-2">
             <button
@@ -617,7 +631,7 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
-const clawForm = ref({ apiKey: '', baseUrl: '', model: '' })
+const clawForm = ref({ apiKey: '', baseUrl: '', model: '', provider: '' })
 const clawInfoSaved = ref({ apiKey: '', baseUrl: '', model: '', provider: '' })
 const clawSaving = ref(false)
 const clawSaveMsg = ref('')
@@ -634,8 +648,10 @@ async function loadClawConfig() {
     }
     // 只在首次加载时填充表单（不覆盖用户正在编辑的内容）
     if (!clawForm.value.apiKey && info?.hasApiKey) {
+      clawForm.value.apiKey = info.apiKey || '' // masked key from backend
       clawForm.value.baseUrl = info.baseUrl || ''
       clawForm.value.model = info.model || 'claude-sonnet-4-6'
+      clawForm.value.provider = info.provider || ''
     }
   } catch {
     // Config not available yet
@@ -651,6 +667,7 @@ async function saveClawConfig() {
     if (clawForm.value.apiKey.trim()) params.apiKey = clawForm.value.apiKey.trim()
     if (clawForm.value.baseUrl.trim()) params.baseUrl = clawForm.value.baseUrl.trim()
     if (clawForm.value.model.trim()) params.model = clawForm.value.model.trim()
+    if (clawForm.value.provider.trim()) params.provider = clawForm.value.provider.trim()
     const result = await api.clawConfigSet(params as any)
     if (result?.success) {
       clawSaveMsg.value = '✅ 已保存'

@@ -2025,9 +2025,9 @@ export interface TauriAPI {
   triggerCronJob: (jobId: string) => Promise<void>
 
   // Claw Chat (direct LLM API)
-  clawChatInit: (params: { provider?: string; model?: string }) => Promise<void>
-  clawChatSend: (params: { sessionId: string; prompt: string }) => Promise<void>
-  clawChatClose: (params: { sessionId: string }) => Promise<void>
+  clawChatInit: (cwd?: string) => Promise<void>
+  clawChatSend: (message: string) => Promise<void>
+  clawChatClose: () => Promise<void>
   clawChatListSessions: () => Promise<unknown>
   clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
   clawReadModelsConfig: () => Promise<unknown>

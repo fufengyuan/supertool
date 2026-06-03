@@ -161,9 +161,13 @@ function clearChat() {
   toolProgress.value = null;
 }
 
+// ── Fast mode ────────────────────────────────────────────────────────────────
+const { fastMode, toggle: doToggleFast } = useFastMode();
+
 // ── Local commands (must be set up before chat actions) ──────────────────────
 const localCommands = useLocalCommands({
   usage,
+  fastMode,
   setFastMode: async (next: boolean) => {
     await invoke('hermes_set_config', {
       key: 'agent.service_tier',
@@ -188,11 +192,8 @@ useChatIPC({
   isLoading,
   usage,
   scrollToBottom,
-  isClawMode: isClawMode.value,
+  isClawMode,
 });
-
-// ── Fast mode ────────────────────────────────────────────────────────────────
-const { fastMode, toggle: doToggleFast } = useFastMode();
 
 function handleToggleFast() {
   doToggleFast();
@@ -365,6 +366,8 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 async function loadSessionHistory() {
+  // Claw mode: session history is managed by Claw runtime, not Hermes DB
+  if (isClawMode.value) return;
   const sessionId = route.query.session as string | undefined;
   if (!sessionId) return;
   try {

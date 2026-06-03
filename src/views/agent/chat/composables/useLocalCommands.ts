@@ -6,6 +6,7 @@ import type { UsageState } from '../types';
 
 interface UseLocalCommandsArgs {
   usage: Ref<UsageState | null>;
+  fastMode: Ref<boolean>;
   setFastMode: (next: boolean) => Promise<void>;
   onNewChat?: () => void;
   onClear: () => void;
@@ -30,6 +31,7 @@ function isLocallyHandled(text: string): boolean {
  */
 export function useLocalCommands({
   usage,
+  fastMode,
   setFastMode,
   onNewChat,
   onClear,
@@ -129,8 +131,7 @@ export function useLocalCommands({
       }
 
       case '/fast': {
-        const current = usageRef.value;
-        const isOn = current != null; // simplified check
+        const isOn = fastMode.value;
         const next = !isOn;
         await setFastMode(next);
         addAgentMessage(
