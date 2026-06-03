@@ -1,5 +1,6 @@
 use rusqlite::params;
 use serde_json::{Value, json};
+use chrono::Datelike;
 
 /// Accounting module — extracted from mod.rs
 ///
@@ -413,14 +414,14 @@ impl super::CoreService {
         let result = self.with_db(|db| {
             let mut stmt = db
                 .conn()
-                .prepare("SELECT * FROM budgets ORDER BY name")
+                .prepare("SELECT * FROM budgets ORDER BY category")
                 .map_err(|e| e.to_string())?;
             let rows = stmt
                 .query_map([], |row| {
                     Ok(json!({
                         "id": row.get::<_, String>("id")?,
-                        "name": row.get::<_, String>("name")?,
-                        "limit": row.get::<_, f64>("limit")?,
+                        "category": row.get::<_, String>("category")?,
+                        "amount": row.get::<_, f64>("amount")?,
                         "period": row.get::<_, String>("period")?,
                     }))
                 })
@@ -433,30 +434,30 @@ impl super::CoreService {
 
     pub async fn add_budget(&self, params: Value) -> Result<Value, String> {
         let id = uuid::Uuid::new_v4().to_string();
-        let name = params["name"].as_str().unwrap_or("").to_string();
-        let limit = params["limit"].as_f64().unwrap_or(0.0);
+        let category = params["category"].as_str().or_else(|| params["name"].as_str()).unwrap_or("").to_string();
+        let amount = params["amount"].as_f64().or_else(|| params["limit"].as_f64()).unwrap_or(0.0);
         let period = params["period"].as_str().unwrap_or("monthly").to_string();
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO budgets (id, name, \"limit\", period) VALUES (?1, ?2, ?3, ?4)",
-                    params![id, name, limit, period],
+                    "INSERT INTO budgets (id, category, amount, period) VALUES (?1, ?2, ?3, ?4)",
+                    params![id, category, amount, period],
                 )
                 .map_err(|e| e.to_string())
         })
         .map_err(|e| e.to_string())?;
-        Ok(json!({"id": id, "name": name}))
+        Ok(json!({"id": id, "category": category, "amount": amount}))
     }
 
     pub async fn update_budget(&self, id: &str, params: Value) -> Result<Value, String> {
-        let name = params["name"].as_str().unwrap_or("").to_string();
-        let limit = params["limit"].as_f64().unwrap_or(0.0);
+        let category = params["category"].as_str().or_else(|| params["name"].as_str()).unwrap_or("").to_string();
+        let amount = params["amount"].as_f64().or_else(|| params["limit"].as_f64()).unwrap_or(0.0);
         let period = params["period"].as_str().unwrap_or("monthly").to_string();
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "UPDATE budgets SET name=?2, \"limit\"=?3, period=?4 WHERE id=?1",
-                    params![id, name, limit, period],
+                    "UPDATE budgets SET category=?2, amount=?3, period=?4 WHERE id=?1",
+                    params![id, category, amount, period],
                 )
                 .map_err(|e| e.to_string())
         })
@@ -486,6 +487,16 @@ impl super::CoreService {
                         "id": row.get::<_, String>("id")?,
                         "name": row.get::<_, String>("name")?,
                         "content": row.get::<_, String>("content")?,
+                        "type": row.get::<_, String>("type")?,
+                        "category": row.get::<_, String>("category")?,
+                        "amount": row.get::<_, f64>("amount")?,
+                        "description": row.get::<_, String>("description")?,
+                        "entity": row.get::<_, String>("entity")?,
+                        "project": row.get::<_, String>("project")?,
+                        "supplier": row.get::<_, String>("supplier")?,
+                        "payment_method": row.get::<_, String>("payment_method")?,
+                        "tax_rate": row.get::<_, f64>("tax_rate")?,
+                        "use_count": row.get::<_, i64>("use_count")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?;
@@ -499,11 +510,21 @@ impl super::CoreService {
         let id = uuid::Uuid::new_v4().to_string();
         let name = params["name"].as_str().unwrap_or("").to_string();
         let content = params["content"].as_str().unwrap_or("").to_string();
+        let r#type = params["type"].as_str().unwrap_or("expense").to_string();
+        let category = params["category"].as_str().unwrap_or("").to_string();
+        let amount = params["amount"].as_f64().unwrap_or(0.0);
+        let description = params["description"].as_str().unwrap_or("").to_string();
+        let entity = params["entity"].as_str().unwrap_or("").to_string();
+        let project = params["project"].as_str().unwrap_or("").to_string();
+        let supplier = params["supplier"].as_str().unwrap_or("").to_string();
+        let payment_method = params["payment_method"].as_str().unwrap_or("").to_string();
+        let tax_rate = params["tax_rate"].as_f64().unwrap_or(0.0);
+        let now = chrono::Utc::now().to_rfc3339();
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO templates (id, name, content) VALUES (?1, ?2, ?3)",
-                    params![id, name, content],
+                    "INSERT INTO templates (id, name, content, type, category, amount, description, entity, project, supplier, payment_method, tax_rate, use_count, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 1, ?13)",
+                    params![id, name, content, r#type, category, amount, description, entity, project, supplier, payment_method, tax_rate, now],
                 )
                 .map_err(|e| e.to_string())
         })
@@ -514,11 +535,20 @@ impl super::CoreService {
     pub async fn update_template(&self, id: &str, params: Value) -> Result<Value, String> {
         let name = params["name"].as_str().unwrap_or("").to_string();
         let content = params["content"].as_str().unwrap_or("").to_string();
+        let r#type = params["type"].as_str().unwrap_or("expense").to_string();
+        let category = params["category"].as_str().unwrap_or("").to_string();
+        let amount = params["amount"].as_f64().unwrap_or(0.0);
+        let description = params["description"].as_str().unwrap_or("").to_string();
+        let entity = params["entity"].as_str().unwrap_or("").to_string();
+        let project = params["project"].as_str().unwrap_or("").to_string();
+        let supplier = params["supplier"].as_str().unwrap_or("").to_string();
+        let payment_method = params["payment_method"].as_str().unwrap_or("").to_string();
+        let tax_rate = params["tax_rate"].as_f64().unwrap_or(0.0);
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "UPDATE templates SET name=?2, content=?3 WHERE id=?1",
-                    params![id, name, content],
+                    "UPDATE templates SET name=?2, content=?3, type=?4, category=?5, amount=?6, description=?7, entity=?8, project=?9, supplier=?10, payment_method=?11, tax_rate=?12 WHERE id=?1",
+                    params![id, name, content, r#type, category, amount, description, entity, project, supplier, payment_method, tax_rate],
                 )
                 .map_err(|e| e.to_string())
         })
@@ -547,11 +577,203 @@ impl super::CoreService {
                     "id": row.get::<_, String>("id")?,
                     "name": row.get::<_, String>("name")?,
                     "content": row.get::<_, String>("content")?,
+                    "type": row.get::<_, String>("type")?,
+                    "category": row.get::<_, String>("category")?,
+                    "amount": row.get::<_, f64>("amount")?,
+                    "description": row.get::<_, String>("description")?,
+                    "entity": row.get::<_, String>("entity")?,
+                    "project": row.get::<_, String>("project")?,
+                    "supplier": row.get::<_, String>("supplier")?,
+                    "payment_method": row.get::<_, String>("payment_method")?,
+                    "tax_rate": row.get::<_, f64>("tax_rate")?,
+                    "use_count": row.get::<_, i64>("use_count")?,
                 }))
             })
             .map_err(|e| e.to_string())
         });
         Ok(result?)
+    }
+
+    pub async fn check_budget_alerts(&self) -> Result<Value, String> {
+        let now = chrono::Utc::now();
+        let month_start = format!("{}-{:02}-01", now.year(), now.month());
+        let next_month = if now.month() == 12 {
+            format!("{}-01-01", now.year() + 1)
+        } else {
+            format!("{}-{:02}-01", now.year(), now.month() + 1)
+        };
+
+        let result = self.with_db(|db| {
+            // Read all budgets
+            let mut stmt = db
+                .conn()
+                .prepare("SELECT category, amount, period FROM budgets")
+                .map_err(|e| e.to_string())?;
+            let budget_rows = stmt
+                .query_map([], |row| {
+                    Ok(json!({
+                        "category": row.get::<_, String>("category")?,
+                        "budget": row.get::<_, f64>("amount")?,
+                        "period": row.get::<_, String>("period")?,
+                    }))
+                })
+                .map_err(|e| e.to_string())?;
+            let budgets: Vec<Value> = budget_rows.filter_map(|r| r.ok()).collect();
+
+            let mut alerts: Vec<Value> = Vec::new();
+            for budget_val in &budgets {
+                let category = budget_val["category"].as_str().unwrap_or("").to_string();
+                let budget = budget_val["budget"].as_f64().unwrap_or(0.0);
+                let period = budget_val["period"].as_str().unwrap_or("");
+
+                if period == "monthly" && budget > 0.0 {
+                    // Calculate current month's spending for this category
+                    let spent: f64 = db
+                        .conn()
+                        .query_row(
+                            "SELECT COALESCE(SUM(amount), 0) FROM accounting_records WHERE category = ?1 AND date >= ?2 AND date < ?3 AND type = 'expense'",
+                            params![category, month_start, next_month],
+                            |row| row.get(0),
+                        )
+                        .unwrap_or(0.0);
+
+                    let percent = (spent / budget) * 100.0;
+                    let over = spent > budget;
+                    alerts.push(json!({
+                        "category": category,
+                        "budget": budget,
+                        "spent": spent,
+                        "percent": percent,
+                        "over": over,
+                    }));
+                }
+            }
+
+            Ok::<_, String>(alerts)
+        });
+        Ok(json!(result?))
+    }
+
+    pub async fn export_accounting_csv(&self, params: Value) -> Result<Value, String> {
+        let start_date = params["startDate"].as_str().unwrap_or("");
+        let end_date = params["endDate"].as_str().unwrap_or("");
+        let r#type = params["type"].as_str().unwrap_or("");
+        let category = params["category"].as_str().unwrap_or("");
+        let status = params["status"].as_str().unwrap_or("");
+        let search = params["search"].as_str().unwrap_or("");
+
+        let result = self.with_db(|db| {
+            // Build WHERE clauses with positional params (same as get_accounting_records)
+            let mut conditions: Vec<String> = Vec::new();
+            let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+            let mut idx = 1;
+
+            if !start_date.is_empty() {
+                conditions.push(format!("date >= ?{}", idx));
+                param_values.push(Box::new(start_date.to_string()));
+                idx += 1;
+            }
+            if !end_date.is_empty() {
+                conditions.push(format!("date <= ?{}", idx));
+                param_values.push(Box::new(end_date.to_string()));
+                idx += 1;
+            }
+            if !r#type.is_empty() {
+                conditions.push(format!("type = ?{}", idx));
+                param_values.push(Box::new(r#type.to_string()));
+                idx += 1;
+            }
+            if !category.is_empty() {
+                conditions.push(format!("category = ?{}", idx));
+                param_values.push(Box::new(category.to_string()));
+                idx += 1;
+            }
+            if !status.is_empty() {
+                conditions.push(format!("status = ?{}", idx));
+                param_values.push(Box::new(status.to_string()));
+                idx += 1;
+            }
+            if !search.is_empty() {
+                conditions.push(format!("(description LIKE ?{} OR supplier LIKE ?{})", idx, idx + 1));
+                let sp = format!("%{}%", search);
+                param_values.push(Box::new(sp.clone()));
+                param_values.push(Box::new(sp));
+            }
+
+            let where_clause = if conditions.is_empty() {
+                String::new()
+            } else {
+                format!("WHERE {}", conditions.join(" AND "))
+            };
+
+            let query_sql = format!(
+                "SELECT date, type, category, amount, description, status, entity, project, supplier, invoice_number, payment_method FROM accounting_records {} ORDER BY date DESC",
+                where_clause
+            );
+
+            let mut stmt = db.conn().prepare(&query_sql).map_err(|e| e.to_string())?;
+            let params_ref: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
+            let rows = stmt.query_map(params_ref.as_slice(), |row| {
+                Ok(json!({
+                    "date": row.get::<_, String>(0)?,
+                    "type": row.get::<_, String>(1)?,
+                    "category": row.get::<_, String>(2)?,
+                    "amount": row.get::<_, f64>(3)?,
+                    "description": row.get::<_, Option<String>>(4)?,
+                    "status": row.get::<_, Option<String>>(5)?,
+                    "entity": row.get::<_, Option<String>>(6)?,
+                    "project": row.get::<_, Option<String>>(7)?,
+                    "supplier": row.get::<_, Option<String>>(8)?,
+                    "invoice_number": row.get::<_, Option<String>>(9)?,
+                    "payment_method": row.get::<_, Option<String>>(10)?,
+                }))
+            }).map_err(|e| e.to_string())?;
+            let records: Vec<Value> = rows.filter_map(|r| r.ok()).collect();
+            Ok::<_, String>(records)
+        });
+        let records = result?;
+
+        // Build CSV
+        let mut csv = String::from("date,type,category,amount,description,status,entity,project,supplier,invoice_number,payment_method\n");
+        for rec in &records {
+            let date = rec["date"].as_str().unwrap_or("");
+            let r#type = rec["type"].as_str().unwrap_or("");
+            let category = rec["category"].as_str().unwrap_or("");
+            let amount = rec["amount"].as_f64().unwrap_or(0.0);
+            let description = rec["description"].as_str().unwrap_or("");
+            let status = rec["status"].as_str().unwrap_or("");
+            let entity = rec["entity"].as_str().unwrap_or("");
+            let project = rec["project"].as_str().unwrap_or("");
+            let supplier = rec["supplier"].as_str().unwrap_or("");
+            let invoice_number = rec["invoice_number"].as_str().unwrap_or("");
+            let payment_method = rec["payment_method"].as_str().unwrap_or("");
+
+            // Escape CSV fields (wrap in quotes if they contain comma or quotes)
+            let esc = |s: &str| -> String {
+                if s.contains(',') || s.contains('"') || s.contains('\n') {
+                    format!("\"{}\"", s.replace('"', "\"\""))
+                } else {
+                    s.to_string()
+                }
+            };
+
+            csv.push_str(&format!(
+                "{},{},{},{},{},{},{},{},{},{},{}\n",
+                esc(date),
+                esc(r#type),
+                esc(category),
+                amount,
+                esc(description),
+                esc(status),
+                esc(entity),
+                esc(project),
+                esc(supplier),
+                esc(invoice_number),
+                esc(payment_method),
+            ));
+        }
+
+        Ok(json!({"csv": csv}))
     }
 
     pub async fn get_accounting_trend(&self, months: usize) -> Result<Value, String> {

@@ -54,10 +54,10 @@ pub async fn get_accounting_categories(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn add_accounting_category(
     core: State<'_, CoreService>,
-    cat: serde_json::Value,
-) -> Result<serde_json::Value, String> {
+    category: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] add_accounting_category() called");
-    let result = core.add_accounting_category(cat).await?;
+    let result = core.add_accounting_category(category).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -101,6 +101,25 @@ pub async fn get_accounting_trend(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_accounting_trend() called");
     let result = core.get_accounting_trend(months.unwrap_or(12)).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn check_budget_alerts(
+    core: State<'_, CoreService>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] check_budget_alerts() called");
+    let result = core.check_budget_alerts().await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn export_accounting_csv(
+    core: State<'_, CoreService>,
+    params: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] export_accounting_csv() called");
+    let result = core.export_accounting_csv(params).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 

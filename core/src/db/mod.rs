@@ -649,6 +649,21 @@ pub fn init_db(conn: &Connection) -> Result<()> {
         "ALTER TABLE mfa_secrets ADD COLUMN account TEXT",
         [],
     );
+    // Migration: add category/amount columns to budgets (was name/limit)
+    let _ = conn.execute("ALTER TABLE budgets ADD COLUMN category TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE budgets ADD COLUMN amount REAL DEFAULT 0", []);
+    // Migration: add structured columns to templates (was just id/name/content)
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN type TEXT DEFAULT 'expense'", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN category TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN amount REAL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN description TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN entity TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN project TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN supplier TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN payment_method TEXT DEFAULT ''", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN tax_rate REAL DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN use_count INTEGER DEFAULT 0", []);
+    let _ = conn.execute("ALTER TABLE templates ADD COLUMN created_at TEXT DEFAULT ''", []);
     cicd_tables::init_cicd_tables(conn)?;
     lan::init_lan_tables(conn)?;
     Ok(())
