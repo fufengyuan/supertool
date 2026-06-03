@@ -341,7 +341,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import Modal from '@/components/ui/Modal.vue'
@@ -510,6 +510,11 @@ async function triggerJob(job: CronJob) {
     actionLoading.value = null
   }
 }
+
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawJobs() }
+  else { refresh() }
+})
 
 onMounted(() => {
   refresh()
