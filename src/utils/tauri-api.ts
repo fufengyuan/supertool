@@ -2034,6 +2034,19 @@ export interface TauriAPI {
   clawReadStats: () => Promise<{ sessions: number; messages: number }>
   clawConfigGet: () => Promise<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>
   clawConfigSet: (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) => Promise<{ success: boolean; message: string }>
+  // Claw Skills
+  clawListSkills: () => Promise<Array<{ name: string; category: string; description: string; path: string; source: string }>>
+  clawGetSkillContent: (path: string) => Promise<string>
+  // Claw Tools (MCP + Plugins)
+  clawListMcpServers: () => Promise<Array<{ name: string; command: string; args: string[]; required: boolean; timeoutMs: number | null }>>
+  clawListPlugins: () => Promise<Array<{ id: string; name: string; version: string; description: string; kind: string; installPath: string }>>
+  // Claw Cron
+  clawListCronJobs: () => Promise<Array<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>>
+  clawCreateCronJob: (params: { schedule: string; prompt: string; description?: string }) => Promise<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>
+  clawDeleteCronJob: (cronId: string) => Promise<void>
+  clawToggleCronJob: (cronId: string) => Promise<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>
+  // Claw Profiles
+  clawGetProfile: () => Promise<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2816,6 +2829,24 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>('claw_config_get'),
     clawConfigSet: async (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) =>
       tauriCall<{ success: boolean; message: string }>('claw_config_set', params),
+    clawListSkills: async () =>
+      tauriCall<Array<{ name: string; category: string; description: string; path: string; source: string }>>('claw_list_skills'),
+    clawGetSkillContent: async (path: string) =>
+      tauriCall<string>('claw_get_skill_content', { path }),
+    clawListMcpServers: async () =>
+      tauriCall<Array<{ name: string; command: string; args: string[]; required: boolean; timeoutMs: number | null }>>('claw_list_mcp_servers'),
+    clawListPlugins: async () =>
+      tauriCall<Array<{ id: string; name: string; version: string; description: string; kind: string; installPath: string }>>('claw_list_plugins'),
+    clawListCronJobs: async () =>
+      tauriCall<Array<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>>('claw_list_cron_jobs'),
+    clawCreateCronJob: async (params: { schedule: string; prompt: string; description?: string }) =>
+      tauriCall<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>('claw_create_cron_job', params),
+    clawDeleteCronJob: async (cronId: string) =>
+      tauriCall<void>('claw_delete_cron_job', { cronId }),
+    clawToggleCronJob: async (cronId: string) =>
+      tauriCall<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>('claw_toggle_cron_job', { cronId }),
+    clawGetProfile: async () =>
+      tauriCall<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>('claw_get_profile'),
 
   }
 

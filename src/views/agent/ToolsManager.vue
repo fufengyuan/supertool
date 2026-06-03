@@ -1,13 +1,76 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Claw mode overlay -->
-    <div v-show="isClawMode" class="flex-1 flex items-center justify-center">
-      <div class="text-center max-w-md px-6">
-        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-        <p class="text-sm font-medium text-base-content/50">Claw 工具管理</p>
-        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-          Claw 拥有独立的工具系统，当前尚未配置。
-        </p>
+    <!-- Claw mode -->
+    <div v-show="isClawMode" class="flex-1 flex flex-col overflow-y-auto p-4 space-y-6">
+      <!-- Header -->
+      <div class="flex items-center justify-between">
+        <h1 class="text-sm font-medium">Claw 工具管理</h1>
+        <button class="btn btn-sm btn-ghost" @click="loadClawTools">
+          <SvgIcon name="refresh" size="14" />
+        </button>
+      </div>
+
+      <!-- Claw MCP Servers -->
+      <div v-if="clawMcpServers.length > 0">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">
+          MCP 服务器 ({{ clawMcpServers.length }})
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            v-for="srv in clawMcpServers"
+            :key="srv.name"
+            class="bg-base-100 rounded-lg border border-base-content/10 p-3"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-sm font-medium">{{ srv.name }}</span>
+              <span
+                v-if="srv.required"
+                class="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-error/20 text-error"
+              >Required</span>
+            </div>
+            <p class="text-xs text-base-content/50 font-mono truncate">{{ srv.command }}</p>
+            <p v-if="srv.args && srv.args.length" class="text-xs text-base-content/40 mt-1 font-mono truncate">{{ srv.args.join(' ') }}</p>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="!clawLoading">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">
+          MCP 服务器
+        </h2>
+        <p class="text-xs text-base-content/40">未配置 MCP 服务器</p>
+      </div>
+
+      <!-- Claw Plugins -->
+      <div v-if="clawPlugins.length > 0">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">
+          插件 ({{ clawPlugins.length }})
+        </h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div
+            v-for="plugin in clawPlugins"
+            :key="plugin.id"
+            class="bg-base-100 rounded-lg border border-base-content/10 p-3"
+          >
+            <div class="flex items-center gap-2 mb-1">
+              <span class="text-sm font-medium">{{ plugin.name }}</span>
+              <span class="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-base-300 text-base-content/60">{{ plugin.kind }}</span>
+              <span class="text-[10px] text-base-content/40">v{{ plugin.version }}</span>
+            </div>
+            <p class="text-xs text-base-content/50 leading-relaxed">{{ plugin.description || '暂无描述' }}</p>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="!clawLoading">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">
+          插件
+        </h2>
+        <p class="text-xs text-base-content/40">未安装任何插件</p>
+      </div>
+
+      <!-- Loading -->
+      <div v-if="clawLoading" class="flex items-center justify-center py-12">
+        <span class="loading loading-spinner loading-sm text-base-content/40"></span>
+        <span class="text-xs text-base-content/40 ml-2">加载中...</span>
       </div>
     </div>
 
@@ -93,7 +156,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import {
@@ -124,6 +187,9 @@ const isClawMode = computed(() => agentModeStore.mode === 'claw')
 const toolsets = ref<ToolsetInfo[]>([])
 const mcpServers = ref<MCPServerInfo[]>([])
 const loading = ref(false)
+const clawMcpServers = ref<Array<{ name: string; command: string; args: string[]; required: boolean; timeoutMs: number | null }>>([])
+const clawPlugins = ref<Array<{ id: string; name: string; version: string; description: string; kind: string; installPath: string }>>([])
+const clawLoading = ref(false)
 
 const TOOLSET_ICONS: Record<string, any> = {
   web: IconWifi,
@@ -165,6 +231,23 @@ async function refresh() {
   }
 }
 
+async function loadClawTools() {
+  clawLoading.value = true
+  try {
+    const api = getTauriAPI()
+    const [servers, plugins] = await Promise.all([
+      api.clawListMcpServers(),
+      api.clawListPlugins(),
+    ])
+    clawMcpServers.value = servers
+    clawPlugins.value = plugins
+  } catch (e) {
+    console.error('[ToolsManager] Failed to load Claw tools:', e)
+  } finally {
+    clawLoading.value = false
+  }
+}
+
 async function toggleTool(tool: ToolsetInfo) {
   try {
     const api = getTauriAPI()
@@ -175,5 +258,8 @@ async function toggleTool(tool: ToolsetInfo) {
   }
 }
 
-onMounted(refresh)
+onMounted(() => {
+  refresh()
+  loadClawTools()
+})
 </script>
