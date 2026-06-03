@@ -1,0 +1,18 @@
+[package]
+name = "claw-tools"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+description = "Tool registry and execution — derived from claw-code tools crate"
+
+[dependencies]
+claw = { path = "../claw" }
+claw-commands = { path = "../claw-commands" }
+claw-plugins = { path = "../claw-plugins" }
+claw-runtime = { path = "../claw-runtime" }
+flate2 = "1"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread"] }
