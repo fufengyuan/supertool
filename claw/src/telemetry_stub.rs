@@ -36,7 +36,7 @@ impl ClientIdentity {
     }
 
     #[must_use]
-    pub fn with_runtime(self) -> Self {
+    pub fn with_runtime(self, _name: &str) -> Self {
         self
     }
 
@@ -123,9 +123,9 @@ impl Default for AnthropicRequestProfile {
 
 #[derive(Debug, Clone)]
 pub struct AnalyticsEvent {
-    namespace: String,
-    action: String,
-    properties: BTreeMap<String, Value>,
+    pub namespace: String,
+    pub action: String,
+    pub properties: BTreeMap<String, Value>,
 }
 
 impl AnalyticsEvent {
@@ -154,7 +154,7 @@ pub struct SessionTracer;
 
 impl SessionTracer {
     #[must_use]
-    pub fn new() -> Self {
+    pub fn new(_name: &str, _sink: std::sync::Arc<MemoryTelemetrySink>) -> Self {
         Self
     }
 
@@ -199,5 +199,72 @@ impl SessionTracer {
 impl Default for SessionTracer {
     fn default() -> Self {
         Self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TelemetryEvent (minimal — used by tests)
+// ---------------------------------------------------------------------------
+
+use std::sync::Mutex;
+
+#[derive(Debug, Clone)]
+pub enum TelemetryEvent {
+    HttpRequestStarted {
+        session_id: String,
+        attempt: u32,
+        method: String,
+        path: String,
+    },
+    HttpRequestSucceeded {
+        session_id: String,
+        attempt: u32,
+        method: String,
+        path: String,
+        status: u16,
+        request_id: Option<String>,
+    },
+    HttpRequestFailed {
+        session_id: String,
+        attempt: u32,
+        method: String,
+        path: String,
+        error: String,
+        retryable: bool,
+    },
+    Analytics(AnalyticsEvent),
+    SessionTrace(SessionTraceRecord),
+}
+
+#[derive(Debug, Clone)]
+pub struct SessionTraceRecord {
+    pub name: String,
+}
+
+pub trait TelemetrySink: Send + Sync {
+    fn record(&self, event: TelemetryEvent);
+}
+
+#[derive(Default)]
+pub struct MemoryTelemetrySink {
+    events: Mutex<Vec<TelemetryEvent>>,
+}
+
+impl MemoryTelemetrySink {
+    #[must_use]
+    pub fn events(&self) -> Vec<TelemetryEvent> {
+        self.events
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+}
+
+impl TelemetrySink for MemoryTelemetrySink {
+    fn record(&self, event: TelemetryEvent) {
+        self.events
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .push(event);
     }
 }
