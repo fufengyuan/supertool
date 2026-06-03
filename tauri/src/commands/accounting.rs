@@ -55,7 +55,7 @@ pub async fn get_accounting_categories(
 pub async fn add_accounting_category(
     core: State<'_, CoreService>,
     category: serde_json::Value,
-    ) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] add_accounting_category() called");
     let result = core.add_accounting_category(category).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
@@ -127,6 +127,54 @@ pub async fn export_accounting_csv(
 pub async fn get_budgets(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] get_budgets() called");
     let result = core.get_budgets().await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn get_templates(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] get_templates() called");
+    let result = core.get_templates().await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn add_template(
+    core: State<'_, CoreService>,
+    template: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] add_template() called");
+    let result = core.add_template(template).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn update_template(
+    core: State<'_, CoreService>,
+    id: String,
+    updates: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] update_template() called");
+    let result = core.update_template(&id, updates).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn delete_template(
+    core: State<'_, CoreService>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] delete_template() called");
+    let result = core.delete_template(&id).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn use_template(
+    core: State<'_, CoreService>,
+    id: String,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] use_template() called");
+    let result = core.use_template(&id).await?;
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
