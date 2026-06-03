@@ -1,17 +1,6 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Claw mode overlay -->
-    <div v-show="isClawMode" class="flex-1 flex items-center justify-center">
-      <div class="text-center max-w-md px-6">
-        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-        <p class="text-sm font-medium text-base-content/50">Claw 技能管理</p>
-        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-          Claw 不使用 Hermes 的技能系统。技能通过 Claw 自身的配置文件管理，不在此页面显示。
-        </p>
-      </div>
-    </div>
-
-    <div v-show="!isClawMode">
+    <div>
     <!-- Header -->
     <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
       <h1 class="text-sm font-medium">技能管理</h1>
