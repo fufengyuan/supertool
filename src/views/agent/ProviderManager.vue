@@ -19,7 +19,7 @@
         <div class="flex items-center justify-between mb-6">
           <div>
             <h1 class="text-2xl font-bold">Claw 模型提供商</h1>
-            <p class="text-sm text-base-content/60 mt-1">来自 ~/.supertool/claw-config.json</p>
+            <p class="text-sm text-base-content/60 mt-1">来自 ~/.hermes/config.yaml</p>
           </div>
           <button class="btn btn-ghost btn-sm" @click="loadClawConfig" :disabled="clawLoading">
             <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
@@ -237,7 +237,16 @@ async function loadClawConfig() {
   try {
     const api = getTauriAPI()
     const raw = await api.clawReadModelsConfig() as any
-    clawProviders.value = raw?.providers || {}
+    // Backend returns providers as array — convert to {name: provider} object for template
+    const list = raw?.providers || []
+    const map: Record<string, any> = {}
+    if (Array.isArray(list)) {
+      for (const p of list) { map[p.name || 'unknown'] = p }
+    } else {
+      // Fallback: already an object
+      Object.assign(map, list)
+    }
+    clawProviders.value = map
   } catch (e: any) {
     clawError.value = String(e?.message || e)
     clawProviders.value = {}
