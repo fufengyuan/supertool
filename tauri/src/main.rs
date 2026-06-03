@@ -455,6 +455,8 @@ fn main() {
             commands::claw_chat::claw_chat_info,
             commands::claw_chat::claw_read_models_config,
             commands::claw_chat::claw_read_stats,
+            commands::claw_config::claw_config_get,
+            commands::claw_config::claw_config_set,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,

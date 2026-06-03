@@ -2029,6 +2029,8 @@ export interface TauriAPI {
   clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
   clawReadModelsConfig: () => Promise<unknown>
   clawReadStats: () => Promise<{ sessions: number; messages: number }>
+  clawConfigGet: () => Promise<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>
+  clawConfigSet: (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) => Promise<{ success: boolean; message: string }>
 }
 
 let cachedAPI: TauriAPI | null = null
