@@ -437,7 +437,6 @@ const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
 const agentModeStore = useAgentModeStore()
 const isClawMode = computed(() => agentModeStore.mode === 'claw')
-const clawBinary = ref('')
 
 const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 
@@ -650,7 +649,7 @@ async function saveClawConfig() {
     const api = getTauriAPI()
     const params: Record<string, string> = {}
     if (clawForm.value.apiKey.trim()) params.apiKey = clawForm.value.apiKey.trim()
-    if (clawForm.value.baseUrl.trim() !== undefined) params.baseUrl = clawForm.value.baseUrl.trim()
+    if (clawForm.value.baseUrl.trim()) params.baseUrl = clawForm.value.baseUrl.trim()
     if (clawForm.value.model.trim()) params.model = clawForm.value.model.trim()
     const result = await api.clawConfigSet(params as any)
     if (result?.success) {

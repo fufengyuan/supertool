@@ -2006,7 +2006,7 @@ export interface TauriAPI {
   listProviders: () => Promise<ProviderListResult>
   saveProviderCredential: (providerId: string, apiKey: string) => Promise<ProviderSaveResult>
   removeProviderCredential: (providerId: string) => Promise<ProviderSaveResult>
-  startOauthFlow: (providerId: string) => Promise<ProviderSaveResult>
+  startOAuthFlow: (providerId: string) => Promise<ProviderSaveResult>
   pollOauthResult: (providerId: string) => Promise<ProviderSaveResult>
 
   // Hermes Skills
@@ -2024,7 +2024,10 @@ export interface TauriAPI {
   resumeCronJob: (jobId: string) => Promise<void>
   triggerCronJob: (jobId: string) => Promise<void>
 
-  // OMP Chat (ACP protocol)
+  // Claw Chat (direct LLM API)
+  clawChatInit: (params: { provider?: string; model?: string }) => Promise<void>
+  clawChatSend: (params: { sessionId: string; prompt: string }) => Promise<void>
+  clawChatClose: (params: { sessionId: string }) => Promise<void>
   clawChatListSessions: () => Promise<unknown>
   clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
   clawReadModelsConfig: () => Promise<unknown>
