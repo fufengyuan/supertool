@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useToast } from './useToast'
 import { getErrorMessage } from '../utils/helpers'
@@ -360,7 +359,7 @@ async function loadData() {
 
     const result = await getTauriAPI().getAccountingRecords(params)
     if (result) {
-      records.value = (result.records || []) as AccountingRecord[]
+      records.value = (result.records || []) as unknown as AccountingRecord[]
       totalRecords.value = result.total || 0
     }
   } catch (e: unknown) {
@@ -532,7 +531,7 @@ async function loadTemplates() {
   } catch (_e) { console.error('加载模板失败:', _e) }
 }
 
-function useTemplate(tpl: { id: string; name: string; type: string; category: string; amount: number; description: string; entity: string; project: string; supplier: string; payment_method: string }) {
+async function useTemplate(tpl: { id: string; name: string; type: string; category: string; amount: number; description: string; entity: string; project: string; supplier: string; payment_method: string }) {
   editingRecord.value = null
   form.value = {
     id: '', date: todayStr(), type: tpl.type as 'income' | 'expense', category: tpl.category,
@@ -543,8 +542,9 @@ function useTemplate(tpl: { id: string; name: string; type: string; category: st
   }
   showTemplates.value = false
   showRecordForm.value = true
-  const result = getTauriAPI().useTemplate?.(tpl.id)
-  if (result && typeof result === 'object' && 'success' in result && !(result as { success: boolean }).success) {
+  try {
+    await getTauriAPI().useTemplate?.(tpl.id)
+  } catch (_e) {
     toast.warning('模板使用计数更新失败')
   }
 }
@@ -652,7 +652,7 @@ function editRecord(record: AccountingRecord) {
     type: record.type as 'income' | 'expense',
     category: record.category,
     amount: record.amount,
-    description: record.description,
+    description: record.description || '',
     status: record.status,
     entity: record.entity || '',
     project: record.project || '',
@@ -876,7 +876,7 @@ async function exportCSV() {
     if (projectFilter.value) {params.project = projectFilter.value}
     if (searchQuery.value) {params.search = searchQuery.value}
 
-    const csvContent = await getTauriAPI().exportAccountingCSV(params)
+    const csvContent = await getTauriAPI().exportAccountingCSV(params as unknown as Record<string, unknown>)
     if (!csvContent) {
       toast.warning('没有可导出的数据')
       return
@@ -916,13 +916,9 @@ async function addNewCategory() {
 async function deleteCategory(id: string) {
   showConfirm('确定删除此分类？', async () => {
     try {
-      const result = await getTauriAPI().deleteAccountingCategory(id)
-      if (result?.success) {
-        toast.success('分类已删除')
-        await loadCategories()
-      } else {
-        toast.warning(result?.error || '删除失败')
-      }
+      await getTauriAPI().deleteAccountingCategory(id)
+      toast.success('分类已删除')
+      await loadCategories()
     } catch (e: unknown) {
       toast.error('删除失败: ' + getErrorMessage(e))
     }
