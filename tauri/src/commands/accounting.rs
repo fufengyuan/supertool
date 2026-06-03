@@ -120,6 +120,11 @@ pub async fn export_accounting_csv(
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] export_accounting_csv() called");
     let result = core.export_accounting_csv(params).await?;
+    log::info!(
+        "[Tauri CMD] export_accounting_csv() result type: is_string={}, is_object={}",
+        result.is_string(),
+        result.is_object()
+    );
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
