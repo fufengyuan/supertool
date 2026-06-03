@@ -297,34 +297,68 @@
         </div>
       </div>
 
-      <!-- Claw Info (in Claw mode) -->
-      <div v-if="isClawMode && clawInfo.model" class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <!-- Claw Configuration (in Claw mode) -->
+      <div v-if="isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconCode :size="18" />
           Claw Agent
+          <span class="text-xs text-base-content/40">~/.supertool/claw-config.json</span>
         </h2>
-        <div class="space-y-3 text-sm">
-          <div class="flex items-center justify-between">
-            <span class="text-base-content/70">Model</span>
-            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawInfo.model }}</code>
+
+        <div class="space-y-3">
+          <!-- API Key -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">API Key</label>
+            <input
+              v-model="clawForm.apiKey"
+              type="password"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="sk-..."
+              autocomplete="off"
+            />
+            <p v-if="clawInfoSaved.apiKey" class="text-[10px] text-base-content/40 mt-0.5">
+              已保存: {{ clawInfoSaved.apiKey }}
+            </p>
           </div>
-          <div class="flex items-center justify-between">
-            <span class="text-base-content/70">Provider</span>
-            <span class="text-xs font-medium">{{ clawInfo.provider || 'auto' }}</span>
+
+          <!-- Base URL -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">
+              Base URL
+              <span class="text-base-content/40">(可选，留空走官方 API)</span>
+            </label>
+            <input
+              v-model="clawForm.baseUrl"
+              type="url"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="https://api.openai.com/v1"
+            />
           </div>
-          <div class="flex items-center justify-between">
-            <span class="text-base-content/70">API Key</span>
-            <span :class="clawInfo.apiKeyConfigured ? 'text-success' : 'text-error'" class="text-xs font-medium">
-              {{ clawInfo.apiKeyConfigured ? '已配置' : '未配置' }}
+
+          <!-- Model -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">Model</label>
+            <input
+              v-model="clawForm.model"
+              type="text"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="claude-sonnet-4-6"
+            />
+          </div>
+
+          <!-- Save -->
+          <div class="flex items-center gap-3 pt-2">
+            <button
+              class="btn btn-primary btn-sm gap-1.5"
+              :disabled="clawSaving"
+              @click="saveClawConfig"
+            >
+              <SvgIcon name="save" :size="14" />
+              {{ clawSaving ? '保存中...' : '保存' }}
+            </button>
+            <span v-if="clawSaveMsg" class="text-xs" :class="clawSaveMsg.includes('✅') ? 'text-success' : 'text-error'">
+              {{ clawSaveMsg }}
             </span>
-          </div>
-          <div v-if="clawInfo.baseUrl" class="flex items-center justify-between">
-            <span class="text-base-content/70">Base URL</span>
-            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawInfo.baseUrl }}</code>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-base-content/70">Config Source</span>
-            <span class="text-xs text-base-content/50">{{ clawInfo.configSource || '环境变量' }}</span>
           </div>
         </div>
       </div>
@@ -584,22 +618,52 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
-const clawInfo = ref({ model: '', provider: '', apiKeyConfigured: false, baseUrl: '', configSource: '' })
+const clawForm = ref({ apiKey: '', baseUrl: '', model: '' })
+const clawInfoSaved = ref({ apiKey: '', baseUrl: '', model: '', provider: '' })
+const clawSaving = ref(false)
+const clawSaveMsg = ref('')
 
-async function loadClawInfo() {
+async function loadClawConfig() {
   try {
     const api = getTauriAPI()
-    const info = await api.clawChatInfo()
-    clawInfo.value = {
+    const info = await api.clawConfigGet()
+    clawInfoSaved.value = {
+      apiKey: info?.apiKey || '',
+      baseUrl: info?.baseUrl || '',
       model: info?.model || '',
       provider: info?.provider || '',
-      apiKeyConfigured: info?.apiKeyConfigured || false,
-      baseUrl: info?.baseUrl || '',
-      configSource: info?.configSource || '',
+    }
+    // 只在首次加载时填充表单（不覆盖用户正在编辑的内容）
+    if (!clawForm.value.apiKey && info?.hasApiKey) {
+      clawForm.value.baseUrl = info.baseUrl || ''
+      clawForm.value.model = info.model || 'claude-sonnet-4-6'
     }
   } catch {
-    clawInfo.value = { model: '', provider: '', apiKeyConfigured: false, baseUrl: '', configSource: '' }
+    // Config not available yet
   }
+}
+
+async function saveClawConfig() {
+  clawSaving.value = true
+  clawSaveMsg.value = ''
+  try {
+    const api = getTauriAPI()
+    const params: Record<string, string> = {}
+    if (clawForm.value.apiKey.trim()) params.apiKey = clawForm.value.apiKey.trim()
+    if (clawForm.value.baseUrl.trim() !== undefined) params.baseUrl = clawForm.value.baseUrl.trim()
+    if (clawForm.value.model.trim()) params.model = clawForm.value.model.trim()
+    const result = await api.clawConfigSet(params as any)
+    if (result?.success) {
+      clawSaveMsg.value = '✅ 已保存'
+      await loadClawConfig() // 刷新保存状态
+    } else {
+      clawSaveMsg.value = '❌ 保存失败'
+    }
+  } catch (e: any) {
+    clawSaveMsg.value = `❌ ${e?.message || String(e)}`
+  }
+  clawSaving.value = false
+  setTimeout(() => { clawSaveMsg.value = '' }, 3000)
 }
 
 onMounted(async () => {
@@ -607,11 +671,11 @@ onMounted(async () => {
   await loadConfig()
   await loadApiStatus()
   if (isClawMode.value) {
-    await loadClawInfo()
+    await loadClawConfig()
   }
 })
 
 watch(isClawMode, (claw) => {
-  if (claw) { loadClawInfo() }
+  if (claw) { loadClawConfig() }
 })
 </script>

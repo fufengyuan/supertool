@@ -21,102 +21,56 @@ impl ClawChatState {
     }
 }
 
-/// 从 Hermes config.yaml 读取 API key 和 base URL，设置到进程环境变量
-fn setup_env_from_hermes_config() -> Result<(), String> {
-    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
-    let config_path = home.join(".hermes").join("config.yaml");
+/// 从 SuperTool Claw 配置读取 API key 和 base URL，设置到进程环境变量
+///
+/// 配置来源：`~/.supertool/claw-config.json`（前端 Settings 页面配置）
+/// 如果没有配置，回退到环境变量（兼容直接设置 ANTHROPIC_API_KEY 的场景）。
+fn setup_env_from_claw_config() -> Result<(), String> {
+    let config = crate::commands::claw_config::read_claw_config()?;
 
-    if !config_path.exists() {
-        // 没有 Hermes config 也 OK — 让 LlmClient::from_env() 自己检查 env vars
+    // 如果没有配置 api_key，回退到环境变量（让用户直接 export 也能工作）
+    if config.api_key.is_empty() {
+        log::info!("[claw_chat] No claw-config.json api_key — falling back to env vars");
         return Ok(());
     }
 
-    let content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read {}: {}", config_path.display(), e))?;
-
-    let root: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| format!("Failed to parse config.yaml: {e}"))?;
-
-    let model_section = match root.get("model") {
-        Some(v) => v,
-        None => return Ok(()),
-    };
-
-    let api_key = match model_section.get("api_key").and_then(|v| v.as_str()) {
-        Some(k) if !k.is_empty() => k.to_string(),
-        _ => return Ok(()),
-    };
-
-    let base_url = model_section
-        .get("base_url")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string());
-
-    let model = model_section
-        .get("default")
-        .and_then(|v| v.as_str())
-        .unwrap_or("claude-sonnet-4-6");
-
-    let provider = model_section
-        .get("provider")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-
     log::info!(
-        "[claw_chat] Read Hermes config: model={}, provider={}, has_api_key={}, has_base_url={}",
-        model,
-        provider,
-        !api_key.is_empty(),
-        base_url.is_some(),
+        "[claw_chat] Read Claw config: model={}, has_api_key={}, base_url={}",
+        config.model,
+        !config.api_key.is_empty(),
+        config.base_url,
     );
 
     // 根据配置设置环境变量
-    // 优先级：provider: custom + base_url → OpenAI-compatible
-    //         模型名前缀 → 对应 provider
-    let canonical = model.to_ascii_lowercase();
+    // 优先级：有 base_url → OpenAI-compatible
+    //         无 base_url → 按模型名前缀路由
+    let has_base_url = !config.base_url.is_empty();
 
-    // provider: custom 且设置了 base_url → 走 OpenAI-compatible
-    if provider == "custom" && base_url.is_some() {
-        unsafe { std::env::set_var("OPENAI_API_KEY", &api_key); }
-        if let Some(url) = &base_url {
-            unsafe { std::env::set_var("OPENAI_BASE_URL", url); }
-        }
-        unsafe { std::env::set_var("OPENAI_MODEL", model); }
+    if has_base_url {
+        // 有 base_url → 走 OpenAI-compatible（兼容 OpenRouter / 代理 / 本地模型等）
+        unsafe { std::env::set_var("OPENAI_API_KEY", &config.api_key); }
+        unsafe { std::env::set_var("OPENAI_BASE_URL", &config.base_url); }
+        unsafe { std::env::set_var("OPENAI_MODEL", &config.model); }
         log::info!(
-            "[claw_chat] Custom provider with base_url → using OpenAI-compatible client"
+            "[claw_chat] Base URL set → using OpenAI-compatible client"
         );
-    } else if canonical.starts_with("claude") || canonical.starts_with("anthropic/") {
-        // SAFETY: set_var is unsafe in edition 2024 (multithreading data race risk).
-        // We call this once during initialization before any concurrent access.
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", &api_key); }
-        if let Some(url) = &base_url {
-            unsafe { std::env::set_var("ANTHROPIC_BASE_URL", url); }
-        }
-        unsafe { std::env::set_var("ANTHROPIC_MODEL", model); }
-    } else if canonical.starts_with("openai/") || canonical.starts_with("gpt-") {
-        unsafe { std::env::set_var("OPENAI_API_KEY", &api_key); }
-        if let Some(url) = &base_url {
-            unsafe { std::env::set_var("OPENAI_BASE_URL", url); }
-        }
-        unsafe { std::env::set_var("OPENAI_MODEL", model); }
-    } else if canonical.starts_with("grok") {
-        unsafe { std::env::set_var("XAI_API_KEY", &api_key); }
-        if let Some(url) = &base_url {
-            unsafe { std::env::set_var("XAI_BASE_URL", url); }
-        }
-        unsafe { std::env::set_var("XAI_MODEL", model); }
     } else {
-        // 未知模型名前缀 — 设置 ANTHROPIC_API_KEY 作为兜底
-        log::warn!(
-            "[claw_chat] Unknown model prefix '{}', defaulting to ANTHROPIC_API_KEY",
-            model
-        );
-        unsafe { std::env::set_var("ANTHROPIC_API_KEY", &api_key); }
-        if let Some(url) = &base_url {
-            unsafe { std::env::set_var("ANTHROPIC_BASE_URL", url); }
+        // 无 base_url → 按模型名前缀路由
+        let canonical = config.model.to_ascii_lowercase();
+        if canonical.starts_with("claude") || canonical.starts_with("anthropic/") {
+            unsafe { std::env::set_var("ANTHROPIC_API_KEY", &config.api_key); }
+            unsafe { std::env::set_var("ANTHROPIC_MODEL", &config.model); }
+        } else if canonical.starts_with("openai/") || canonical.starts_with("gpt-") {
+            unsafe { std::env::set_var("OPENAI_API_KEY", &config.api_key); }
+            unsafe { std::env::set_var("OPENAI_MODEL", &config.model); }
+        } else if canonical.starts_with("grok") {
+            unsafe { std::env::set_var("XAI_API_KEY", &config.api_key); }
+            unsafe { std::env::set_var("XAI_MODEL", &config.model); }
+        } else {
+            // 未知前缀 → Anthropic 兜底
+            unsafe { std::env::set_var("ANTHROPIC_API_KEY", &config.api_key); }
+            unsafe { std::env::set_var("ANTHROPIC_MODEL", &config.model); }
         }
-        unsafe { std::env::set_var("ANTHROPIC_MODEL", model); }
     }
 
     Ok(())
@@ -134,10 +88,10 @@ pub async fn claw_chat_init(
     state: tauri::State<'_, ClawChatState>,
     _cwd: Option<String>,
 ) -> Result<(), String> {
-    log::info!("[claw_chat] Initializing LLM client from Hermes config");
+    log::info!("[claw_chat] Initializing LLM client from Claw config");
 
-    // 从 Hermes config 读取 API key/base URL 并设置环境变量
-    setup_env_from_hermes_config()?;
+    // 从 SuperTool Claw 配置读取 API key/base URL 并设置环境变量
+    setup_env_from_claw_config()?;
 
     let client = LlmClient::from_env()?;
 
@@ -360,39 +314,14 @@ pub async fn claw_chat_list_sessions(
     }))
 }
 
-/// 获取 Claw 客户端信息（从 Hermes config 读取）
+/// 获取 Claw 客户端信息（从 SuperTool claw-config.json）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
-    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
-    let config_path = home.join(".hermes").join("config.yaml");
-
-    let (api_key_found, base_url, model, provider) = if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path).unwrap_or_default();
-        let root: serde_yaml::Value = serde_yaml::from_str(&content).unwrap_or_default();
-        let model_section = root.get("model");
-        let has_key = model_section
-            .and_then(|m| m.get("api_key"))
-            .and_then(|v| v.as_str())
-            .map(|k| !k.is_empty())
-            .unwrap_or(false);
-        let b_url = model_section
-            .and_then(|m| m.get("base_url"))
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let mdl = model_section
-            .and_then(|m| m.get("default"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        let prov = model_section
-            .and_then(|m| m.get("provider"))
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        (has_key, b_url, mdl, prov)
-    } else {
-        (false, None, String::new(), String::new())
-    };
+    let config = crate::commands::claw_config::read_claw_config()?;
+    let api_key_found = !config.api_key.is_empty();
+    let model = config.model.clone();
+    let provider = config.provider.clone();
+    let base_url = if config.base_url.is_empty() { None } else { Some(config.base_url) };
 
     Ok(serde_json::json!({
         "mode": "claw",
@@ -400,7 +329,7 @@ pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
         "baseUrl": base_url,
         "model": model,
         "provider": provider,
-        "configSource": "~/.hermes/config.yaml",
+        "configSource": "~/.supertool/claw-config.json",
     }))
 }
 
