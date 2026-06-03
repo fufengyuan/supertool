@@ -258,6 +258,11 @@ async function toggleTool(tool: ToolsetInfo) {
   }
 }
 
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawTools() }
+  else { refresh() }
+})
+
 onMounted(() => {
   refresh()
   loadClawTools()

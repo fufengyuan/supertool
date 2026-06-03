@@ -10,6 +10,7 @@ use std::path::PathBuf;
 
 /// A skill entry presented to the frontend
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct SkillInfo {
     pub name: String,
     pub category: String,

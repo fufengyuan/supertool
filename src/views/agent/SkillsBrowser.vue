@@ -203,7 +203,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { getTauriAPI } from '@/utils/tauri-api'
@@ -335,6 +335,11 @@ async function loadClawSkills() {
   }
   clawLoading.value = false
 }
+
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawSkills() }
+  else { loadAll() }
+})
 
 onMounted(() => {
   if (isClawMode.value) {
