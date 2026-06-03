@@ -239,15 +239,15 @@ const SLASH_COMMAND_SPECS: &[SlashCommandSpec] = &[
     SlashCommandSpec {
         name: "agents",
         aliases: &[],
-        summary: "List configured agents",
-        argument_hint: Some("[list|help]"),
+        summary: "List, show, or create configured agents",
+        argument_hint: Some("[list|show <name>|create <name>|help]"),
         resume_supported: true,
     },
     SlashCommandSpec {
         name: "skills",
         aliases: &["skill"],
-        summary: "List, install, or invoke available skills",
-        argument_hint: Some("[list|install <path>|help|<skill> [args]]"),
+        summary: "List, install, uninstall, or invoke available skills",
+        argument_hint: Some("[list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"),
         resume_supported: true,
     },
     SlashCommandSpec {
@@ -1767,13 +1767,25 @@ fn parse_list_or_help_args(
     args: Option<String>,
 ) -> Result<Option<String>, SlashCommandParseError> {
     match normalize_optional_args(args.as_deref()) {
-        None | Some("list" | "help" | "-h" | "--help") => Ok(args),
+        None
+        | Some(
+            "list" | "help" | "-h" | "--help" | "show" | "info" | "describe" | "create",
+        ) => Ok(args),
+        Some(value)
+            if value.starts_with("list ")
+                || value.starts_with("show ")
+                || value.starts_with("info ")
+                || value.starts_with("describe ")
+                || value.starts_with("create ") =>
+        {
+            Ok(args)
+        }
         Some(unexpected) => Err(command_error(
             &format!(
-                "Unexpected arguments for /{command}: {unexpected}. Use /{command}, /{command} list, or /{command} help."
+                "Unexpected arguments for /{command}: {unexpected}. Use /{command}, /{command} list, /{command} show <name>, /{command} create <name>, or /{command} help."
             ),
             command,
-            &format!("/{command} [list|help]"),
+            &format!("/{command} [list|show <name>|create <name>|help]"),
         )),
     }
 }
@@ -1785,14 +1797,6 @@ fn parse_skills_args(args: Option<&str>) -> Result<Option<String>, SlashCommandP
 
     if matches!(args, "list" | "help" | "-h" | "--help") {
         return Ok(Some(args.to_string()));
-    }
-
-    if args == "install" {
-        return Err(command_error(
-            "Usage: /skills install <path>",
-            "skills",
-            "/skills install <path>",
-        ));
     }
 
     if let Some(target) = args.strip_prefix("install").map(str::trim) {
@@ -2196,6 +2200,30 @@ struct InstalledSkill {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct UninstalledSkill {
+    invocation_name: String,
+    registry_root: PathBuf,
+    removed_path: PathBuf,
+    available_names: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum SkillUninstallOutcome {
+    Removed(UninstalledSkill),
+    Missing {
+        requested: String,
+        registry_root: PathBuf,
+        available_names: Vec<String>,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CreatedAgent {
+    name: String,
+    path: PathBuf,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum SkillInstallSource {
     Directory { root: PathBuf, prompt_path: PathBuf },
     MarkdownFile { path: PathBuf },
@@ -2422,10 +2450,32 @@ pub fn handle_agents_slash_command(args: Option<&str>, cwd: &Path) -> std::io::R
             }
             Ok(render_agents_report(&matched))
         }
+        Some("create") => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "missing_argument: agents create requires an agent name.\nUsage: claw agents create <name>",
+        )),
+        Some(args) if args.starts_with("create ") => {
+            let mut parts = args.split_whitespace();
+            let _ = parts.next();
+            let Some(name) = parts.next() else {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "missing_argument: agents create requires an agent name.\nUsage: claw agents create <name>",
+                ));
+            };
+            if let Some(extra) = parts.next() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("unexpected extra arguments after agent name\nUsage: claw agents create <name>\nUnexpected extra: '{extra}'"),
+                ));
+            }
+            let agent = create_agent(name, cwd)?;
+            Ok(render_agent_create_report(&agent))
+        }
         Some(args) if is_help_arg(args) => Ok(render_agents_usage(None)),
         Some(args) => Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!("unknown agents subcommand: {args}.\nSupported: list, show, help"),
+            format!("unknown agents subcommand: {args}.\nSupported: list, show, create, help"),
         )),
     }
 }
@@ -2522,10 +2572,32 @@ pub fn handle_agents_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
             }
             Ok(render_agents_report_json_with_action(cwd, &matched, "show"))
         }
+        Some("create") => Ok(render_agents_missing_argument_json("create", "agent_name")),
+        Some(args) if args.starts_with("create ") => {
+            let mut parts = args.split_whitespace();
+            let _ = parts.next();
+            let Some(name) = parts.next() else {
+                return Ok(render_agents_missing_argument_json("create", "agent_name"));
+            };
+            if let Some(extra) = parts.next() {
+                return Ok(json!({
+                    "kind": "agents",
+                    "action": "create",
+                    "status": "error",
+                    "error_kind": "unexpected_extra_args",
+                    "unexpected": extra,
+                    "hint": format!("Usage: claw agents create <name>\nUnexpected extra: '{extra}'"),
+                }));
+            }
+            match create_agent(name, cwd) {
+                Ok(agent) => Ok(render_agent_create_report_json(&agent)),
+                Err(error) => Ok(render_agent_create_error_json(name, &error)),
+            }
+        }
         Some(args) if is_help_arg(args) => Ok(render_agents_usage_json(None)),
         Some(args) => Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            format!("unknown agents subcommand: {args}.\nSupported: list, show, help"),
+            format!("unknown agents subcommand: {args}.\nSupported: list, show, create, help"),
         )),
     }
 }
@@ -2627,14 +2699,52 @@ pub fn handle_skills_slash_command(args: Option<&str>, cwd: &Path) -> std::io::R
             }
             Ok(render_skills_report(&matched))
         }
-        Some("install") => Ok(render_skills_usage(Some("install"))),
+        Some("install") => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "missing_argument: skills install requires an install source.\nUsage: claw skills install <path>",
+        )),
         Some(args) if args.starts_with("install ") => {
             let target = args["install ".len()..].trim();
             if target.is_empty() {
-                return Ok(render_skills_usage(Some("install")));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "missing_argument: skills install requires an install source.\nUsage: claw skills install <path>",
+                ));
             }
             let install = install_skill(target, cwd)?;
             Ok(render_skill_install_report(&install))
+        }
+        Some("uninstall" | "remove" | "delete") => Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "missing_argument: skills uninstall requires a skill name.\nUsage: claw skills uninstall <name>",
+        )),
+        Some(args)
+            if args.starts_with("uninstall ")
+                || args.starts_with("remove ")
+                || args.starts_with("delete ") =>
+        {
+            let (_, target) = args.split_once(' ').unwrap_or_default();
+            let target = target.trim();
+            if target.is_empty() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    "missing_argument: skills uninstall requires a skill name.\nUsage: claw skills uninstall <name>",
+                ));
+            }
+            match uninstall_skill(target)? {
+                SkillUninstallOutcome::Removed(skill) => Ok(render_skill_uninstall_report(&skill)),
+                SkillUninstallOutcome::Missing {
+                    requested,
+                    available_names,
+                    ..
+                } => Err(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "skill '{requested}' not found\nAvailable skills: {}\nRun `claw skills list` to see available skills.",
+                        format_optional_list(&available_names)
+                    ),
+                )),
+            }
         }
         Some(args) if is_help_arg(args) => Ok(render_skills_usage(None)),
         Some(args) => Ok(render_skills_usage(Some(args))),
@@ -2734,14 +2844,58 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
             }
             Ok(render_skills_report_json_with_action(&matched, "show"))
         }
-        Some("install") => Ok(render_skills_usage_json(Some("install"))),
+        Some("install") => Ok(render_skills_missing_argument_json(
+            "install",
+            "install_source",
+            "Usage: claw skills install <path>",
+        )),
         Some(args) if args.starts_with("install ") => {
             let target = args["install ".len()..].trim();
             if target.is_empty() {
-                return Ok(render_skills_usage_json(Some("install")));
+                return Ok(render_skills_missing_argument_json(
+                    "install",
+                    "install_source",
+                    "Usage: claw skills install <path>",
+                ));
             }
-            let install = install_skill(target, cwd)?;
-            Ok(render_skill_install_report_json(&install))
+            match install_skill(target, cwd) {
+                Ok(install) => Ok(render_skill_install_report_json(&install)),
+                Err(error) => Ok(render_skill_install_error_json(target, &error)),
+            }
+        }
+        Some("uninstall" | "remove" | "delete") => Ok(render_skills_missing_argument_json(
+            "uninstall",
+            "skill_name",
+            "Usage: claw skills uninstall <name>",
+        )),
+        Some(args)
+            if args.starts_with("uninstall ")
+                || args.starts_with("remove ")
+                || args.starts_with("delete ") =>
+        {
+            let (_, target) = args.split_once(' ').unwrap_or_default();
+            let target = target.trim();
+            if target.is_empty() {
+                return Ok(render_skills_missing_argument_json(
+                    "uninstall",
+                    "skill_name",
+                    "Usage: claw skills uninstall <name>",
+                ));
+            }
+            match uninstall_skill(target)? {
+                SkillUninstallOutcome::Removed(skill) => {
+                    Ok(render_skill_uninstall_report_json(&skill))
+                }
+                SkillUninstallOutcome::Missing {
+                    requested,
+                    registry_root,
+                    available_names,
+                } => Ok(render_skill_uninstall_missing_json(
+                    &requested,
+                    &registry_root,
+                    &available_names,
+                )),
+            }
         }
         Some(args) if is_help_arg(args) => Ok(render_skills_usage_json(None)),
         Some(args) => Ok(render_skills_usage_json(Some(args))),
@@ -2751,9 +2905,11 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
 #[must_use]
 pub fn classify_skills_slash_command(args: Option<&str>) -> SkillSlashDispatch {
     match normalize_optional_args(args) {
-        None | Some("list" | "help" | "-h" | "--help" | "show" | "info" | "describe") => {
-            SkillSlashDispatch::Local
-        }
+        None
+        | Some(
+            "list" | "help" | "-h" | "--help" | "show" | "info" | "describe" | "install"
+            | "uninstall" | "remove" | "delete",
+        ) => SkillSlashDispatch::Local,
         Some(args)
             if args
                 .split_whitespace()
@@ -2761,7 +2917,12 @@ pub fn classify_skills_slash_command(args: Option<&str>) -> SkillSlashDispatch {
         {
             SkillSlashDispatch::Local
         }
-        Some(args) if args == "install" || args.starts_with("install ") => {
+        Some(args)
+            if args.starts_with("install ")
+                || args.starts_with("uninstall ")
+                || args.starts_with("remove ")
+                || args.starts_with("delete ") =>
+        {
             SkillSlashDispatch::Local
         }
         Some(args)
@@ -2806,7 +2967,7 @@ pub fn resolve_skill_invocation(
                         message.push_str(&names.join(", "));
                     }
                 }
-                message.push_str("\n  Usage: /skills [list|install <path>|help|<skill> [args]]");
+                message.push_str("\n  Usage: /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]");
                 return Err(message);
             }
         }
@@ -3461,6 +3622,103 @@ fn install_skill_into(
     })
 }
 
+fn uninstall_skill(target: &str) -> std::io::Result<SkillUninstallOutcome> {
+    let registry_root = default_skill_install_root()?;
+    let requested = sanitize_skill_invocation_name(target).unwrap_or_else(|| {
+        target
+            .trim()
+            .trim_start_matches('/')
+            .trim_start_matches('$')
+            .to_ascii_lowercase()
+    });
+    let available_names = installed_skill_names(&registry_root)?;
+    let matched_name = available_names
+        .iter()
+        .find(|name| name.eq_ignore_ascii_case(&requested))
+        .cloned();
+
+    let Some(invocation_name) = matched_name else {
+        return Ok(SkillUninstallOutcome::Missing {
+            requested,
+            registry_root,
+            available_names,
+        });
+    };
+
+    let removed_path = registry_root.join(&invocation_name);
+    if removed_path.is_dir() {
+        fs::remove_dir_all(&removed_path)?;
+    } else {
+        fs::remove_file(&removed_path)?;
+    }
+    let available_names = available_names
+        .into_iter()
+        .filter(|name| !name.eq_ignore_ascii_case(&invocation_name))
+        .collect();
+
+    Ok(SkillUninstallOutcome::Removed(UninstalledSkill {
+        invocation_name,
+        registry_root,
+        removed_path,
+        available_names,
+    }))
+}
+
+fn installed_skill_names(registry_root: &Path) -> std::io::Result<Vec<String>> {
+    let entries = match fs::read_dir(registry_root) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(error) => return Err(error),
+    };
+    let mut names = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let path = entry.path();
+        if path.is_dir() && path.join("SKILL.md").is_file() {
+            names.push(entry.file_name().to_string_lossy().to_string());
+        } else if path
+            .extension()
+            .is_some_and(|extension| extension.to_string_lossy().eq_ignore_ascii_case("md"))
+        {
+            if let Some(stem) = path.file_stem() {
+                names.push(stem.to_string_lossy().to_string());
+            }
+        }
+    }
+    names.sort();
+    Ok(names)
+}
+
+fn create_agent(name: &str, cwd: &Path) -> std::io::Result<CreatedAgent> {
+    let Some(name) = sanitize_skill_invocation_name(name) else {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "invalid_agent_name: agent name must contain at least one alphanumeric character",
+        ));
+    };
+    let root = cwd.join(".claw").join("agents");
+    let path = root.join(format!("{name}.toml"));
+    if path.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            format!(
+                "agent_already_exists: agent '{name}' already exists at {}",
+                path.display()
+            ),
+        ));
+    }
+
+    fs::create_dir_all(&root)?;
+    fs::write(
+        &path,
+        format!(
+            "name = \"{name}\"\ndescription = \"Describe when to use this agent.\"\nmodel_reasoning_effort = \"medium\"\n"
+        ),
+    )?;
+
+    Ok(CreatedAgent { name, path })
+}
+
 fn default_skill_install_root() -> std::io::Result<PathBuf> {
     if let Ok(claw_config_home) = env::var("CLAW_CONFIG_HOME") {
         return Ok(PathBuf::from(claw_config_home).join("skills"));
@@ -3902,6 +4160,59 @@ fn render_agents_report_json_with_action(
     })
 }
 
+fn render_agents_missing_argument_json(action: &str, argument: &str) -> Value {
+    json!({
+        "kind": "agents",
+        "action": action,
+        "status": "error",
+        "error_kind": "missing_argument",
+        "argument": argument,
+        "hint": "Usage: claw agents create <name>",
+    })
+}
+
+fn render_agent_create_report(agent: &CreatedAgent) -> String {
+    format!(
+        "Agents\n  Result           created {}\n  Path             {}\n  Format           TOML",
+        agent.name,
+        agent.path.display()
+    )
+}
+
+fn render_agent_create_report_json(agent: &CreatedAgent) -> Value {
+    json!({
+        "kind": "agents",
+        "status": "ok",
+        "action": "create",
+        "result": "created",
+        "name": &agent.name,
+        "path": agent.path.display().to_string(),
+        "format": "toml",
+    })
+}
+
+fn render_agent_create_error_json(name: &str, error: &std::io::Error) -> Value {
+    let message = error.to_string();
+    let error_kind = if message.starts_with("invalid_agent_name:") {
+        "invalid_agent_name"
+    } else if message.starts_with("agent_already_exists:")
+        || error.kind() == std::io::ErrorKind::AlreadyExists
+    {
+        "agent_already_exists"
+    } else {
+        "agent_create_failed"
+    };
+    json!({
+        "kind": "agents",
+        "status": "error",
+        "action": "create",
+        "error_kind": error_kind,
+        "name": name,
+        "message": message,
+        "hint": "Use `claw agents create <name>` with a simple alphanumeric, dash, underscore, or dot name.",
+    })
+}
+
 fn agent_detail(agent: &AgentSummary) -> String {
     let mut parts = vec![agent.name.clone()];
     if let Some(description) = &agent.description {
@@ -4017,6 +4328,102 @@ fn render_skill_install_report_json(skill: &InstalledSkill) -> Value {
         "registry_root": skill.registry_root.display().to_string(),
         "installed_path": skill.installed_path.display().to_string(),
     })
+}
+
+fn render_skills_missing_argument_json(action: &str, argument: &str, hint: &str) -> Value {
+    json!({
+        "kind": "skills",
+        "action": action,
+        "status": "error",
+        "error_kind": "missing_argument",
+        "argument": argument,
+        "hint": hint,
+    })
+}
+
+fn render_skill_install_error_json(target: &str, error: &std::io::Error) -> Value {
+    let source_kind = skill_install_source_kind(target);
+    json!({
+        "kind": "skills",
+        "action": "install",
+        "status": "error",
+        "error_kind": "invalid_install_source",
+        "source": target,
+        "source_kind": source_kind,
+        "reason": io_error_reason(error),
+        "message": format!("invalid install source: {error}"),
+        "hint": match source_kind {
+            "url" => "Remote skill install is not supported yet; pass a local directory containing SKILL.md or a markdown file.",
+            "name" => "Skill install expects a local path, not a registry name. Pass a directory containing SKILL.md or a markdown file.",
+            _ => "Check that the path exists and is a directory containing SKILL.md or a markdown file.",
+        },
+    })
+}
+
+fn render_skill_uninstall_report(skill: &UninstalledSkill) -> String {
+    format!(
+        "Skills\n  Result           uninstalled {}\n  Registry         {}\n  Removed path     {}\n  Remaining        {}",
+        skill.invocation_name,
+        skill.registry_root.display(),
+        skill.removed_path.display(),
+        format_optional_list(&skill.available_names)
+    )
+}
+
+fn render_skill_uninstall_report_json(skill: &UninstalledSkill) -> Value {
+    json!({
+        "kind": "skills",
+        "status": "ok",
+        "action": "uninstall",
+        "result": "removed",
+        "removed": &skill.invocation_name,
+        "skills_dir": skill.registry_root.display().to_string(),
+        "removed_path": skill.removed_path.display().to_string(),
+        "available_names": &skill.available_names,
+    })
+}
+
+fn render_skill_uninstall_missing_json(
+    requested: &str,
+    registry_root: &Path,
+    available_names: &[String],
+) -> Value {
+    json!({
+        "kind": "skills",
+        "status": "error",
+        "action": "uninstall",
+        "error_kind": "skill_not_found",
+        "requested": requested,
+        "skills_dir": registry_root.display().to_string(),
+        "available_names": available_names,
+        "message": format!("skill '{requested}' not found"),
+        "hint": "Run `claw skills list` to see available skills.",
+    })
+}
+
+fn skill_install_source_kind(source: &str) -> &'static str {
+    let trimmed = source.trim();
+    if trimmed.contains("://") {
+        "url"
+    } else if Path::new(trimmed).is_absolute()
+        || trimmed.starts_with('.')
+        || trimmed.contains('/')
+        || trimmed.contains('\\')
+    {
+        "path"
+    } else {
+        "name"
+    }
+}
+
+fn io_error_reason(error: &std::io::Error) -> &'static str {
+    match error.kind() {
+        std::io::ErrorKind::NotFound => "not_found",
+        std::io::ErrorKind::AlreadyExists => "already_exists",
+        std::io::ErrorKind::PermissionDenied => "permission_denied",
+        std::io::ErrorKind::InvalidInput => "invalid",
+        _ => "io_error",
+    }
 }
 
 fn render_mcp_summary_report(
@@ -4188,8 +4595,10 @@ fn help_path_from_args(args: &str) -> Option<Vec<&str>> {
 fn render_agents_usage(unexpected: Option<&str>) -> String {
     let mut lines = vec![
         "Agents".to_string(),
-        "  Usage            /agents [list|help]".to_string(),
-        "  Direct CLI       claw agents".to_string(),
+        "  Usage            /agents [list|show <name>|create <name>|help]".to_string(),
+        "  Direct CLI       claw agents [list|show <name>|create <name>|help]".to_string(),
+        "  Format           TOML files (.toml); create scaffolds .claw/agents/<name>.toml"
+            .to_string(),
         "  Sources          .claw/agents, ~/.claw/agents, $CLAW_CONFIG_HOME/agents".to_string(),
     ];
     if let Some(args) = unexpected {
@@ -4205,8 +4614,10 @@ fn render_agents_usage_json(unexpected: Option<&str>) -> Value {
         "ok": unexpected.is_none(),
         "status": if unexpected.is_some() { "error" } else { "ok" },
         "usage": {
-            "slash_command": "/agents [list|help]",
-            "direct_cli": "claw agents [list|help]",
+            "slash_command": "/agents [list|show <name>|create <name>|help]",
+            "direct_cli": "claw agents [list|show <name>|create <name>|help]",
+            "format": "toml",
+            "create": "claw agents create <name>",
             "sources": [".claw/agents", "~/.claw/agents", "$CLAW_CONFIG_HOME/agents"],
         },
         "unexpected": unexpected,
@@ -4216,9 +4627,10 @@ fn render_agents_usage_json(unexpected: Option<&str>) -> Value {
 fn render_skills_usage(unexpected: Option<&str>) -> String {
     let mut lines = vec![
         "Skills".to_string(),
-        "  Usage            /skills [list|install <path>|help|<skill> [args]]".to_string(),
+        "  Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]".to_string(),
         "  Alias            /skill".to_string(),
-        "  Direct CLI       claw skills [list|install <path>|help|<skill> [args]]".to_string(),
+        "  Direct CLI       claw skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]".to_string(),
+        "  Lifecycle        install <path>, uninstall <name>".to_string(),
         "  Invoke           /skills help overview -> $help overview".to_string(),
         "  Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills".to_string(),
         "  Sources          .claw/skills, .omc/skills, .agents/skills, .codex/skills, .claude/skills, ~/.claw/skills, ~/.omc/skills, ~/.claude/skills/omc-learned, ~/.codex/skills, ~/.claude/skills, legacy /commands".to_string(),
@@ -4236,9 +4648,10 @@ fn render_skills_usage_json(unexpected: Option<&str>) -> Value {
         "ok": unexpected.is_none(),
         "status": if unexpected.is_some() { "error" } else { "ok" },
         "usage": {
-            "slash_command": "/skills [list|install <path>|help|<skill> [args]]",
+            "slash_command": "/skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]",
             "aliases": ["/skill"],
-            "direct_cli": "claw skills [list|install <path>|help|<skill> [args]]",
+            "direct_cli": "claw skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]",
+            "lifecycle": ["install <path>", "uninstall <name>"],
             "invoke": "/skills help overview -> $help overview",
             "install_root": "$CLAW_CONFIG_HOME/skills or ~/.claw/skills",
             "sources": [
@@ -5113,16 +5526,17 @@ mod tests {
     #[test]
     fn rejects_invalid_agents_arguments() {
         // given
-        let agents_input = "/agents show planner";
+        let agents_input = "/agents frobnicate";
 
         // when
         let agents_error = parse_error_message(agents_input);
 
         // then
         assert!(agents_error.contains(
-            "Unexpected arguments for /agents: show planner. Use /agents, /agents list, or /agents help."
+            "Unexpected arguments for /agents: frobnicate. Use /agents, /agents list, /agents show <name>, /agents create <name>, or /agents help."
         ));
-        assert!(agents_error.contains("  Usage            /agents [list|help]"));
+        assert!(agents_error
+            .contains("  Usage            /agents [list|show <name>|create <name>|help]"));
     }
 
     #[test]
@@ -5140,6 +5554,13 @@ mod tests {
             let arg = format!("{prefix}plan");
             assert_eq!(
                 classify_skills_slash_command(Some(&arg)),
+                SkillSlashDispatch::Local,
+                "`skills {arg}` must be Local, not Invoke"
+            );
+        }
+        for arg in ["uninstall", "uninstall plan", "remove plan", "delete plan"] {
+            assert_eq!(
+                classify_skills_slash_command(Some(arg)),
                 SkillSlashDispatch::Local,
                 "`skills {arg}` must be Local, not Invoke"
             );
@@ -5169,6 +5590,10 @@ mod tests {
         );
         assert_eq!(
             classify_skills_slash_command(Some("install ./skill-pack")),
+            SkillSlashDispatch::Local
+        );
+        assert_eq!(
+            classify_skills_slash_command(Some("uninstall help")),
             SkillSlashDispatch::Local
         );
     }
@@ -5263,8 +5688,10 @@ mod tests {
             "/plugin [list|install <path>|enable <name>|disable <name>|uninstall <id>|update <id>]"
         ));
         assert!(help.contains("aliases: /plugins, /marketplace"));
-        assert!(help.contains("/agents [list|help]"));
-        assert!(help.contains("/skills [list|install <path>|help|<skill> [args]]"));
+        assert!(help.contains("/agents [list|show <name>|create <name>|help]"));
+        assert!(help.contains(
+            "/skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+        ));
         assert!(help.contains("aliases: /skill"));
         assert!(!help.contains("/login"));
         assert!(!help.contains("/logout"));
@@ -5609,10 +6036,27 @@ mod tests {
 
     #[test]
     fn renders_agents_reports_as_json() {
+        let _guard = env_guard();
         let workspace = temp_dir("agents-json-workspace");
         let project_agents = workspace.join(".codex").join("agents");
         let user_home = temp_dir("agents-json-home");
         let user_agents = user_home.join(".codex").join("agents");
+        let isolated_home = temp_dir("agents-json-isolated-home");
+        let config_home = temp_dir("agents-json-config-home");
+        let codex_home = temp_dir("agents-json-codex-home");
+        let claude_config = temp_dir("agents-json-claude-config");
+        fs::create_dir_all(&isolated_home).expect("isolated home");
+        fs::create_dir_all(&config_home).expect("config home");
+        fs::create_dir_all(&codex_home).expect("codex home");
+        fs::create_dir_all(&claude_config).expect("claude config");
+        let original_home = std::env::var_os("HOME");
+        let original_claw_config_home = std::env::var_os("CLAW_CONFIG_HOME");
+        let original_codex_home = std::env::var_os("CODEX_HOME");
+        let original_claude_config_dir = std::env::var_os("CLAUDE_CONFIG_DIR");
+        std::env::set_var("HOME", &isolated_home);
+        std::env::set_var("CLAW_CONFIG_HOME", &config_home);
+        std::env::set_var("CODEX_HOME", &codex_home);
+        std::env::set_var("CLAUDE_CONFIG_DIR", &claude_config);
 
         write_agent(
             &project_agents,
@@ -5664,7 +6108,10 @@ mod tests {
         assert_eq!(help["kind"], "agents");
         assert_eq!(help["action"], "help");
         assert_eq!(help["status"], "ok");
-        assert_eq!(help["usage"]["direct_cli"], "claw agents [list|help]");
+        assert_eq!(
+            help["usage"]["direct_cli"],
+            "claw agents [list|show <name>|create <name>|help]"
+        );
 
         // `show <name>` is now valid. Known agent returns ok with matching entry.
         let show_planner = handle_agents_slash_command_json(Some("show planner"), &workspace)
@@ -5686,6 +6133,14 @@ mod tests {
 
         let _ = fs::remove_dir_all(workspace);
         let _ = fs::remove_dir_all(user_home);
+        restore_env_var("HOME", original_home);
+        restore_env_var("CLAW_CONFIG_HOME", original_claw_config_home);
+        restore_env_var("CODEX_HOME", original_codex_home);
+        restore_env_var("CLAUDE_CONFIG_DIR", original_claude_config_dir);
+        let _ = fs::remove_dir_all(isolated_home);
+        let _ = fs::remove_dir_all(config_home);
+        let _ = fs::remove_dir_all(codex_home);
+        let _ = fs::remove_dir_all(claude_config);
     }
 
     #[test]
@@ -5816,7 +6271,7 @@ mod tests {
         assert_eq!(help["usage"]["aliases"][0], "/skill");
         assert_eq!(
             help["usage"]["direct_cli"],
-            "claw skills [list|install <path>|help|<skill> [args]]"
+            "claw skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
         );
 
         let _ = fs::remove_dir_all(workspace);
@@ -5829,13 +6284,20 @@ mod tests {
 
         let agents_help =
             super::handle_agents_slash_command(Some("help"), &cwd).expect("agents help");
-        assert!(agents_help.contains("Usage            /agents [list|help]"));
-        assert!(agents_help.contains("Direct CLI       claw agents"));
+        assert!(
+            agents_help.contains("Usage            /agents [list|show <name>|create <name>|help]")
+        );
+        assert!(agents_help
+            .contains("Direct CLI       claw agents [list|show <name>|create <name>|help]"));
+        assert!(agents_help.contains(
+            "Format           TOML files (.toml); create scaffolds .claw/agents/<name>.toml"
+        ));
         assert!(agents_help
             .contains("Sources          .claw/agents, ~/.claw/agents, $CLAW_CONFIG_HOME/agents"));
 
         // `show <name>` is now valid. For an agent that doesn't exist it returns Err(NotFound).
-        let agents_show_missing = super::handle_agents_slash_command(Some("show planner"), &cwd);
+        let agents_show_missing =
+            super::handle_agents_slash_command(Some("show definitely-missing-agent-431"), &cwd);
         assert!(
             agents_show_missing.is_err(),
             "show of a missing agent should Err"
@@ -5854,9 +6316,11 @@ mod tests {
 
         let skills_help =
             super::handle_skills_slash_command(Some("--help"), &cwd).expect("skills help");
-        assert!(skills_help
-            .contains("Usage            /skills [list|install <path>|help|<skill> [args]]"));
+        assert!(skills_help.contains(
+            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+        ));
         assert!(skills_help.contains("Alias            /skill"));
+        assert!(skills_help.contains("Lifecycle        install <path>, uninstall <name>"));
         assert!(skills_help.contains("Invoke           /skills help overview -> $help overview"));
         assert!(skills_help.contains("Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills"));
         assert!(skills_help.contains(".omc/skills"));
@@ -5870,15 +6334,17 @@ mod tests {
 
         let skills_install_help = super::handle_skills_slash_command(Some("install --help"), &cwd)
             .expect("nested skills help");
-        assert!(skills_install_help
-            .contains("Usage            /skills [list|install <path>|help|<skill> [args]]"));
+        assert!(skills_install_help.contains(
+            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+        ));
         assert!(skills_install_help.contains("Alias            /skill"));
         assert!(skills_install_help.contains("Unexpected       install"));
 
         let skills_unknown_help =
             super::handle_skills_slash_command(Some("show --help"), &cwd).expect("skills help");
-        assert!(skills_unknown_help
-            .contains("Usage            /skills [list|install <path>|help|<skill> [args]]"));
+        assert!(skills_unknown_help.contains(
+            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+        ));
         assert!(skills_unknown_help.contains("Unexpected       show"));
 
         let skills_help_json =
