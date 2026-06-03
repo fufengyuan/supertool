@@ -1,5 +1,5 @@
 [workspace]
-members = ["tauri", "cli", "core", "claw-cli", "claw"]
+members = ["tauri", "cli", "core", "claw-cli", "claw", "claw-plugins", "claw-telemetry", "claw-runtime", "claw-commands", "claw-tools"]
 resolver = "2"
 
 [profile.dev]

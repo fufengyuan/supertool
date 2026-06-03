@@ -1,13 +1,18 @@
-// Stub modules that replace claw-code's runtime/telemetry dependencies
-pub mod runtime_stub;
+// Telemetry stub (kept as-is — telemetry API differs from upstream)
 pub mod telemetry_stub;
 
-// --- Redirect claw-code imports to our stubs ---
-pub mod runtime {
-    pub use crate::runtime_stub::*;
-}
 pub mod telemetry {
     pub use crate::telemetry_stub::*;
+}
+
+// Runtime: re-export real types from claw-runtime instead of stubs
+pub mod runtime {
+    pub use claw_runtime::{
+        clear_oauth_credentials, load_oauth_credentials, save_oauth_credentials,
+        format_usd, pricing_for_model, ModelPricing, TokenUsage, UsageCostEstimate,
+        ModelFamilyIdentity, OAuthRefreshRequest, OAuthTokenExchangeRequest, OAuthTokenSet,
+        OAuthConfig, ConfigLoader,
+    };
 }
 
 // Now copy claw-code's modules (with `use runtime::` and `use telemetry::` resolved)
@@ -19,6 +24,7 @@ mod types;
 pub mod providers;
 mod client;
 
+pub use prompt_cache::PromptCacheRecord;
 pub use client::{
     oauth_token_is_expired, read_base_url, read_xai_base_url, resolve_saved_oauth_token,
     resolve_startup_auth_source, MessageStream, OAuthTokenSet, ProviderClient,
