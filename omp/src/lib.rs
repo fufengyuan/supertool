@@ -4,7 +4,7 @@
 //! terminating OMP CLI (`omp`) subprocesses.  No Tauri dependency;
 //! events are delivered via a generic [`EventHandler`] callback.
 
-pub mod acp;
+pub mod llm;
 
 use std::collections::HashMap;
 use std::path::PathBuf;

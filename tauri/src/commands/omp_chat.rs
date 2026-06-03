@@ -1,12 +1,16 @@
 use std::sync::Arc;
-use supertool_omp::acp::AcpClient;
+
+use supertool_omp::llm::{LlmClient, LlmStreamEvent, Message};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 /// OMP 聊天状态（单例，存在 app state 中）
+///
+/// Replaced the old ACP subprocess approach with direct LLM API calls.
 pub struct OmpChatState {
-    client: Mutex<Option<Arc<AcpClient>>>,
+    client: Mutex<Option<Arc<LlmClient>>>,
     session_id: Mutex<Option<String>>,
+    messages: Mutex<Vec<Message>>,
 }
 
 impl OmpChatState {
@@ -14,109 +18,65 @@ impl OmpChatState {
         Self {
             client: Mutex::new(None),
             session_id: Mutex::new(None),
+            messages: Mutex::new(Vec::new()),
         }
     }
 }
 
-/// 初始化 OMP 连接 + 创建 session
-/// 发送事件: omp:ready
+/// 初始化 LLM 客户端连接
+///
+/// 读取环境变量（ANTHROPIC_API_KEY 或 OPENAI_API_KEY），
+/// 创建 LlmClient 并存入 state。
+/// 不再需要查找 omp 二进制或启动子进程。
+///
+/// 发送事件: `agent-session-created`
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_chat_init(
     app: AppHandle,
     state: tauri::State<'_, OmpChatState>,
-    cwd: Option<String>,
+    _cwd: Option<String>,
 ) -> Result<(), String> {
-    // 查找 omp 二进制
-    let omp_path = find_omp().map_err(|e| format!("找不到 omp 命令: {e}"))?;
+    log::info!("[omp_chat] Initializing LLM client from environment");
 
-    let client = AcpClient::spawn(&omp_path, cwd.as_deref())
-        .await
-        .map_err(|e| format!("启动 omp acp 失败: {e}"))?;
+    let client = LlmClient::from_env()?;
 
-    client.initialize().await.map_err(|e| format!("initialize 失败: {e}"))?;
-    client.authenticate().await.map_err(|e| format!("authenticate 失败: {e}"))?;
+    // Generate a session ID (UI tracking; no subprocess session)
+    let session_id = uuid::Uuid::new_v4().to_string();
 
-    let workdir = cwd.unwrap_or_else(|| {
-        std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|_| ".".into())
-    });
+    log::info!(
+        "[omp_chat] LLM client initialized: provider={:?}, model={}",
+        client.provider(),
+        client.model(),
+    );
 
-    let session_id = client
-        .new_session(&workdir)
-        .await
-        .map_err(|e| format!("new_session 失败: {e}"))?;
-    let sid = session_id.clone();
-
-    // 订阅通知 → 转为 Chat GUI 事件
-    let mut rx = client.subscribe();
-    let app_emit = app.clone();
-    let sid_for_task = session_id.clone();
-    tokio::spawn(async move {
-        while let Ok(notif) = rx.recv().await {
-            if notif.session_id != sid_for_task {
-                continue;
-            }
-            match notif.update {
-                supertool_omp::acp::AcpSessionUpdate::MessageChunk(text) => {
-                    let _ = app_emit.emit("agent-delta", serde_json::json!({
-                        "text": text,
-                        "session_id": sid_for_task,
-                    }));
-                }
-                supertool_omp::acp::AcpSessionUpdate::ThoughtChunk(text) => {
-                    let _ = app_emit.emit("agent-reasoning-delta", serde_json::json!({
-                        "text": text,
-                        "session_id": sid_for_task,
-                    }));
-                }
-                supertool_omp::acp::AcpSessionUpdate::ToolCall { id, name, raw_input } => {
-                    let _ = app_emit.emit("agent-tool-call", serde_json::json!({
-                        "tool_call_id": id,
-                        "name": name,
-                        "arguments": raw_input,
-                        "session_id": sid_for_task,
-                    }));
-                }
-                supertool_omp::acp::AcpSessionUpdate::ToolCallResult { id, content, is_error } => {
-                    let _ = app_emit.emit("agent-tool-result", serde_json::json!({
-                        "tool_call_id": id,
-                        "content": content,
-                        "is_error": is_error,
-                        "session_id": sid_for_task,
-                    }));
-                }
-                supertool_omp::acp::AcpSessionUpdate::UserMessageChunk(_) => {
-                    log::debug!("[omp] user_message_chunk (skipped — already in UI)");
-                }
-                supertool_omp::acp::AcpSessionUpdate::PlanUpdate(plan) => {
-                    log::debug!("[omp] plan_update (not mapped to Chat GUI): {:?}", plan);
-                }
-                _ => {
-                    log::debug!("[omp] unhandled notification: {:?}", notif.update);
-                }
-            }
-        }
-    });
-
-    // 存入 state
+    // Store in state
     {
         let mut c = state.client.lock().await;
         *c = Some(Arc::new(client));
     }
     {
         let mut s = state.session_id.lock().await;
-        *s = Some(session_id);
+        *s = Some(session_id.clone());
     }
 
-    let _ = app.emit("agent-session-created", serde_json::json!({
-        "session_id": sid,
-    }));
+    let _ = app.emit(
+        "agent-session-created",
+        serde_json::json!({
+            "session_id": session_id,
+        }),
+    );
 
     Ok(())
 }
 
-/// 发送消息到 OMP（streaming 事件通过 agent-delta 等自动到达）
+/// 发送消息到 LLM（streaming via SSE → Tauri events）
+///
+/// 构建消息数组，调用 `LlmClient::send_streaming()`，
+/// 实时 emit 事件给前端：
+/// - `agent-delta` — 文本增量
+/// - `agent-reasoning-delta` — 思考/推理增量
+/// - `agent-done` — 完成（含用量）
+/// - `agent-error` — 错误
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_chat_send(
     app: AppHandle,
@@ -130,42 +90,122 @@ pub async fn omp_chat_send(
     };
 
     let client = client.ok_or("OMP not initialized")?;
-    let session_id = session_id.ok_or("No session")?;
+    let session_id = session_id.clone().ok_or("No session")?;
 
-    // 发送 prompt，流式通知已通过 subscriber 自动 emit
-    let result = client
-        .prompt(&session_id, &message)
+    // Append user message to conversation history
+    {
+        let mut msgs = state.messages.lock().await;
+        msgs.push(Message {
+            role: "user".to_string(),
+            content: message.clone(),
+        });
+    }
+
+    // Snapshot current messages for this request
+    let messages: Vec<Message> = {
+        let msgs = state.messages.lock().await;
+        msgs.clone()
+    };
+
+    log::info!(
+        "[omp_chat] Sending streaming request ({} messages)",
+        messages.len()
+    );
+
+    let app_clone = app.clone();
+    let sid = session_id.clone();
+
+    client
+        .send_streaming(&messages, move |event| {
+            match event {
+                Ok(LlmStreamEvent::TextDelta { text }) => {
+                    let _ = app_clone.emit(
+                        "agent-delta",
+                        serde_json::json!({
+                            "text": text,
+                            "session_id": sid.clone(),
+                        }),
+                    );
+                }
+                Ok(LlmStreamEvent::ThinkingDelta { thinking }) => {
+                    let _ = app_clone.emit(
+                        "agent-reasoning-delta",
+                        serde_json::json!({
+                            "text": thinking,
+                            "session_id": sid.clone(),
+                        }),
+                    );
+                }
+                Ok(LlmStreamEvent::ToolCall {
+                    id,
+                    name,
+                    input,
+                }) => {
+                    let _ = app_clone.emit(
+                        "agent-tool-call",
+                        serde_json::json!({
+                            "tool_call_id": id,
+                            "name": name,
+                            "arguments": input,
+                            "session_id": sid.clone(),
+                        }),
+                    );
+                }
+                Ok(LlmStreamEvent::Usage {
+                    input_tokens,
+                    output_tokens,
+                }) => {
+                    // Usage is emitted as part of agent-done
+                    let _ = app_clone.emit(
+                        "agent-done",
+                        serde_json::json!({
+                            "session_id": sid.clone(),
+                            "usage": {
+                                "input_tokens": input_tokens,
+                                "output_tokens": output_tokens,
+                            },
+                        }),
+                    );
+                }
+                Ok(LlmStreamEvent::Done) => {
+                    log::info!("[omp_chat] Stream completed");
+                }
+                Err(err_msg) => {
+                    log::error!("[omp_chat] Stream error: {}", err_msg);
+                    let _ = app_clone.emit(
+                        "agent-error",
+                        serde_json::json!({
+                            "message": err_msg,
+                            "session_id": sid.clone(),
+                        }),
+                    );
+                }
+            }
+        })
         .await
-        .map_err(|e| format!("prompt 失败: {e}"))?;
-
-    // 发送完成事件 + 用量
-    let _ = app.emit("agent-done", serde_json::json!({
-        "session_id": session_id,
-        "usage": {
-            "input_tokens": result.input_tokens,
-            "output_tokens": result.output_tokens,
-        },
-    }));
+        .map_err(|e| {
+            log::error!("[omp_chat] send_streaming failed: {}", e);
+            let _ = app.emit(
+                "agent-error",
+                serde_json::json!({
+                    "message": e,
+                    "session_id": session_id.clone(),
+                }),
+            );
+            format!("send failed: {e}")
+        })?;
 
     Ok(())
 }
 
-/// 关闭 OMP session + 断开连接
+/// 关闭会话（清理 state）
+///
+/// 旧版 ACP 需要关闭子进程；新版仅清理内存中的 state。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_chat_close(
     state: tauri::State<'_, OmpChatState>,
 ) -> Result<(), String> {
-    let (client, session_id) = {
-        let c = state.client.lock().await;
-        let s = state.session_id.lock().await;
-        (c.clone(), s.clone())
-    };
-
-    if let Some(client) = client {
-        if let Some(sid) = session_id {
-            let _ = client.close_session(&sid).await;
-        }
-    }
+    log::info!("[omp_chat] Closing session");
 
     {
         let mut c = state.client.lock().await;
@@ -175,35 +215,60 @@ pub async fn omp_chat_close(
         let mut s = state.session_id.lock().await;
         *s = None;
     }
+    {
+        let mut msgs = state.messages.lock().await;
+        msgs.clear();
+    }
 
     Ok(())
 }
 
-/// 获取当前 ACP 会话列表
+/// 获取当前会话列表（兼容性保留；直接 LLM 模式下无子进程会话）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_chat_list_sessions(
     state: tauri::State<'_, OmpChatState>,
 ) -> Result<serde_json::Value, String> {
-    let client = {
-        let c = state.client.lock().await;
-        c.clone()
+    let session_id = {
+        let s = state.session_id.lock().await;
+        s.clone()
     };
-    let client = client.ok_or("OMP not initialized")?;
-    client
-        .list_sessions(None)
-        .await
-        .map_err(|e| format!("list_sessions 失败: {e}"))
+
+    Ok(serde_json::json!({
+        "sessions": if session_id.is_some() {
+            vec![serde_json::json!({"sessionId": session_id})]
+        } else {
+            Vec::<serde_json::Value>::new()
+        }
+    }))
 }
 
-/// 获取 OMP 信息（二进制路径、版本等）
+/// 获取 LLM 客户端信息（无 omp 二进制信息）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_chat_info() -> Result<serde_json::Value, String> {
+    let anthropic_key = std::env::var("ANTHROPIC_API_KEY")
+        .ok()
+        .map(|_| true)
+        .unwrap_or(false);
+    let openai_key = std::env::var("OPENAI_API_KEY")
+        .ok()
+        .map(|_| true)
+        .unwrap_or(false);
+    let model = std::env::var("ANTHROPIC_MODEL")
+        .or_else(|_| std::env::var("OPENAI_MODEL"))
+        .unwrap_or_else(|_| "auto".into());
+
     Ok(serde_json::json!({
-        "binary": find_omp().unwrap_or_default(),
+        "mode": "direct-llm",
+        "anthropic_configured": anthropic_key,
+        "openai_configured": openai_key,
+        "model": model,
+        "provider": if anthropic_key { "anthropic" } else if openai_key { "openai" } else { "none" },
     }))
 }
 
 /// 读取 OMP models.yaml（提供商 + 模型配置）
+///
+/// 保持原样 — 与 OMP 配置集成，非 LLM 客户端功能。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
     let omp_home = dirs::home_dir()
@@ -212,11 +277,9 @@ pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
         .join("agent");
     let yaml_path = omp_home.join("models.yaml");
     let json_path = omp_home.join("models.json");
-    // Try YAML first, then JSON (OMP auto-migrates .json → .yaml)
     let content = std::fs::read_to_string(&yaml_path)
         .or_else(|_| std::fs::read_to_string(&json_path))
         .map_err(|e| format!("OMP config not found (run omp once): {e}"))?;
-    // Parse
     if yaml_path.exists() {
         serde_yaml::from_str::<serde_json::Value>(&content)
             .map_err(|e| format!("parse models.yaml failed: {e}"))
@@ -227,6 +290,8 @@ pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
 }
 
 /// 读取 OMP 历史会话统计（来自 history.db）
+///
+/// 保持原样 — 与 OMP 配置集成。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn omp_read_stats() -> Result<serde_json::Value, String> {
     let omp_home = dirs::home_dir()
@@ -237,8 +302,8 @@ pub async fn omp_read_stats() -> Result<serde_json::Value, String> {
     if !db_path.exists() {
         return Ok(serde_json::json!({"sessions": 0, "messages": 0}));
     }
-    let conn = rusqlite::Connection::open(&db_path)
-        .map_err(|e| format!("open history.db: {e}"))?;
+    let conn =
+        rusqlite::Connection::open(&db_path).map_err(|e| format!("open history.db: {e}"))?;
     let sessions: i64 = conn
         .query_row("SELECT COUNT(*) FROM sessions", [], |r| r.get(0))
         .unwrap_or(0);
@@ -246,24 +311,4 @@ pub async fn omp_read_stats() -> Result<serde_json::Value, String> {
         .query_row("SELECT COUNT(*) FROM messages", [], |r| r.get(0))
         .unwrap_or(0);
     Ok(serde_json::json!({"sessions": sessions, "messages": messages}))
-}
-
-/// 查找 omp 二进制
-fn find_omp() -> Result<String, String> {
-    // 1) PATH 中的 omp
-    if let Ok(path) = std::env::var("PATH") {
-        for dir in path.split(':') {
-            let candidate = format!("{dir}/omp");
-            if std::path::Path::new(&candidate).exists() {
-                return Ok(candidate);
-            }
-        }
-    }
-    // 2) 常见的安装位置
-    for candidate in &["/usr/local/bin/omp", "/opt/homebrew/bin/omp", "/home/linuxbrew/.linuxbrew/bin/omp"] {
-        if std::path::Path::new(candidate).exists() {
-            return Ok(candidate.to_string());
-        }
-    }
-    Err("omp not found in PATH".into())
 }
