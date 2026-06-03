@@ -514,6 +514,8 @@ fn main() {
             commands::accounting::delete_accounting_category,
             commands::accounting::get_accounting_stats,
             commands::accounting::get_accounting_trend,
+            commands::accounting::check_budget_alerts,
+            commands::accounting::export_accounting_csv,
             commands::accounting::get_budgets,
             commands::accounting::add_budget,
             commands::accounting::update_budget,
