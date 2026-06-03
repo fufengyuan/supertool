@@ -53,6 +53,86 @@
 
     <!-- ==================== General Tab ==================== -->
     <div v-if="tab === 'general'" class="space-y-4">
+      <!-- Claw Configuration (Claw mode only) -->
+      <div v-if="isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
+        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+          <IconCode :size="18" />
+          Claw Agent
+          <span class="text-xs text-base-content/40">~/.supertool/claw-config.json</span>
+        </h2>
+
+        <div class="space-y-3">
+          <!-- API Key -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">API Key</label>
+            <input
+              v-model="clawForm.apiKey"
+              type="password"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="sk-..."
+              autocomplete="off"
+            />
+            <p v-if="clawInfoSaved.apiKey" class="text-[10px] text-base-content/40 mt-0.5">
+              已保存: {{ clawInfoSaved.apiKey }}
+            </p>
+          </div>
+
+          <!-- Base URL -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">
+              Base URL
+              <span class="text-base-content/40">(可选，留空走官方 API)</span>
+            </label>
+            <input
+              v-model="clawForm.baseUrl"
+              type="url"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="https://api.openai.com/v1"
+            />
+          </div>
+
+          <!-- Model -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">Model</label>
+            <input
+              v-model="clawForm.model"
+              type="text"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="claude-sonnet-4-6"
+            />
+          </div>
+
+          <!-- Provider -->
+          <div>
+            <label class="text-xs font-medium text-base-content/70 mb-1 block">
+              Provider
+              <span class="text-base-content/40">(可选，如 anthropic / openai)</span>
+            </label>
+            <input
+              v-model="clawForm.provider"
+              type="text"
+              class="input input-bordered input-sm w-full text-xs"
+              placeholder="anthropic"
+            />
+          </div>
+
+          <!-- Save -->
+          <div class="flex items-center gap-3 pt-2">
+            <button
+              class="btn btn-primary btn-sm gap-1.5"
+              :disabled="clawSaving"
+              @click="saveClawConfig"
+            >
+              <SvgIcon name="save" :size="14" />
+              {{ clawSaving ? '保存中...' : '保存' }}
+            </button>
+            <span v-if="clawSaveMsg" class="text-xs" :class="clawSaveMsg.includes('✅') ? 'text-success' : 'text-error'">
+              {{ clawSaveMsg }}
+            </span>
+          </div>
+        </div>
+      </div>
+
       <!-- Hermes Config Info -->
       <div class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
@@ -297,85 +377,6 @@
         </div>
       </div>
 
-      <!-- Claw Configuration (in Claw mode) -->
-      <div v-if="isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
-        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
-          <IconCode :size="18" />
-          Claw Agent
-          <span class="text-xs text-base-content/40">~/.supertool/claw-config.json</span>
-        </h2>
-
-        <div class="space-y-3">
-          <!-- API Key -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">API Key</label>
-            <input
-              v-model="clawForm.apiKey"
-              type="password"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="sk-..."
-              autocomplete="off"
-            />
-            <p v-if="clawInfoSaved.apiKey" class="text-[10px] text-base-content/40 mt-0.5">
-              已保存: {{ clawInfoSaved.apiKey }}
-            </p>
-          </div>
-
-          <!-- Base URL -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">
-              Base URL
-              <span class="text-base-content/40">(可选，留空走官方 API)</span>
-            </label>
-            <input
-              v-model="clawForm.baseUrl"
-              type="url"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="https://api.openai.com/v1"
-            />
-          </div>
-
-          <!-- Model -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">Model</label>
-            <input
-              v-model="clawForm.model"
-              type="text"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="claude-sonnet-4-6"
-            />
-          </div>
-
-          <!-- Provider -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">
-              Provider
-              <span class="text-base-content/40">(可选，如 anthropic / openai)</span>
-            </label>
-            <input
-              v-model="clawForm.provider"
-              type="text"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="anthropic"
-            />
-          </div>
-
-          <!-- Save -->
-          <div class="flex items-center gap-3 pt-2">
-            <button
-              class="btn btn-primary btn-sm gap-1.5"
-              :disabled="clawSaving"
-              @click="saveClawConfig"
-            >
-              <SvgIcon name="save" :size="14" />
-              {{ clawSaving ? '保存中...' : '保存' }}
-            </button>
-            <span v-if="clawSaveMsg" class="text-xs" :class="clawSaveMsg.includes('✅') ? 'text-success' : 'text-error'">
-              {{ clawSaveMsg }}
-            </span>
-          </div>
-        </div>
-      </div>
 
       <!-- Community -->
       <div class="bg-base-100 border border-base-300 rounded-xl p-5">
