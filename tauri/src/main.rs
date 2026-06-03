@@ -457,6 +457,16 @@ fn main() {
             commands::claw_chat::claw_read_stats,
             commands::claw_config::claw_config_get,
             commands::claw_config::claw_config_set,
+            // Claw Skills commands
+            commands::claw_skills::claw_list_skills,
+            commands::claw_skills::claw_get_skill_content,
+            commands::claw_tools::claw_list_mcp_servers,
+            commands::claw_tools::claw_list_plugins,
+            commands::claw_cron::claw_list_cron_jobs,
+            commands::claw_cron::claw_create_cron_job,
+            commands::claw_cron::claw_delete_cron_job,
+            commands::claw_cron::claw_toggle_cron_job,
+            commands::claw_profiles::claw_get_profile,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,

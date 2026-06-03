@@ -1,14 +1,51 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Claw mode overlay -->
-    <div v-show="isClawMode" class="flex-1 flex items-center justify-center">
-      <div class="text-center max-w-md px-6">
-        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-        <p class="text-sm font-medium text-base-content/50">Claw 配置文件</p>
-        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-          Claw 拥有独立的配置文件系统，当前尚未配置。
-        </p>
+    <!-- Claw mode: Profile overview -->
+    <div v-show="isClawMode" class="flex-1 overflow-y-auto">
+      <div class="px-4 py-3 border-b border-base-content/10 flex items-center justify-between">
+        <h1 class="text-sm font-medium">Claw 配置概览</h1>
+        <button class="btn btn-sm btn-ghost" @click="loadClawProfile" :disabled="clawLoading">
+          <SvgIcon name="refresh" size="14" />
+        </button>
       </div>
+      <div v-if="clawLoading" class="flex items-center justify-center py-12">
+        <span class="loading loading-spinner loading-sm"></span>
+      </div>
+      <div v-else-if="clawProfile" class="p-4 space-y-4">
+        <!-- Config home -->
+        <div class="bg-base-100 rounded-lg border border-base-content/10 p-4">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">配置目录</h3>
+          <p class="text-sm font-mono text-base-content/80">{{ clawProfile.configHome }}</p>
+        </div>
+        <!-- Stats grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div class="bg-base-100 rounded-lg border border-base-content/10 p-3 text-center">
+            <div class="text-2xl font-bold text-primary">{{ clawProfile.mcpServerCount }}</div>
+            <div class="text-xs text-base-content/50 mt-1">MCP 服务器</div>
+          </div>
+          <div class="bg-base-100 rounded-lg border border-base-content/10 p-3 text-center">
+            <div class="text-2xl font-bold text-secondary">{{ clawProfile.pluginCount }}</div>
+            <div class="text-xs text-base-content/50 mt-1">已安装插件</div>
+          </div>
+          <div class="bg-base-100 rounded-lg border border-base-content/10 p-3 text-center">
+            <div class="text-2xl font-bold" :class="clawProfile.hasPermissions ? 'text-success' : 'text-base-content/30'">{{ clawProfile.hasPermissions ? '✓' : '—' }}</div>
+            <div class="text-xs text-base-content/50 mt-1">权限规则</div>
+          </div>
+          <div class="bg-base-100 rounded-lg border border-base-content/10 p-3 text-center">
+            <div class="text-2xl font-bold" :class="clawProfile.hasHooks ? 'text-success' : 'text-base-content/30'">{{ clawProfile.hasHooks ? '✓' : '—' }}</div>
+            <div class="text-xs text-base-content/50 mt-1">Hooks</div>
+          </div>
+        </div>
+        <!-- Raw settings -->
+        <div v-if="clawProfile.rawSettings" class="bg-base-100 rounded-lg border border-base-content/10 p-4">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">settings.json</h3>
+          <pre class="text-xs text-base-content/70 overflow-x-auto max-h-64 overflow-y-auto">{{ JSON.stringify(clawProfile.rawSettings, null, 2) }}</pre>
+        </div>
+        <div v-else class="bg-base-100 rounded-lg border border-base-content/10 p-4 text-center">
+          <p class="text-sm text-base-content/40">尚未创建 settings.json</p>
+        </div>
+      </div>
+      <div v-else class="text-center py-12 text-base-content/30 text-sm">加载失败</div>
     </div>
 
     <div v-show="!isClawMode">
@@ -277,6 +314,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import { invoke } from '@tauri-apps/api/core';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
+import { getTauriAPI } from '@/utils/tauri-api';
 
 interface HermesProfile {
   name: string;
@@ -290,6 +328,22 @@ interface HermesProfile {
 
 const agentModeStore = useAgentModeStore()
 const isClawMode = computed(() => agentModeStore.mode === 'claw')
+
+// Claw profile state
+const clawProfile = ref<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null } | null>(null)
+const clawLoading = ref(false)
+
+async function loadClawProfile() {
+  clawLoading.value = true
+  try {
+    const api = getTauriAPI()
+    clawProfile.value = await api.clawGetProfile()
+  } catch (e) {
+    console.error('Failed to load Claw profile:', e)
+  } finally {
+    clawLoading.value = false
+  }
+}
 
 // State
 const profiles = ref<HermesProfile[]>([]);
@@ -456,5 +510,5 @@ async function dryRunDispatch() {
   }
 }
 
-onMounted(refreshProfiles);
+onMounted(() => { refreshProfiles(); if (isClawMode.value) loadClawProfile(); });
 </script>

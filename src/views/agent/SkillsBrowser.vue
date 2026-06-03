@@ -1,13 +1,47 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Claw mode overlay -->
-    <div v-show="isClawMode" class="flex-1 flex items-center justify-center">
-      <div class="text-center max-w-md px-6">
-        <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-        <p class="text-sm font-medium text-base-content/50">Claw 技能管理</p>
-        <p class="text-xs text-base-content/30 mt-2 leading-relaxed">
-          Claw 拥有独立的技能系统，当前尚未配置。
-        </p>
+    <!-- Claw Mode -->
+    <div v-show="isClawMode" class="flex-1 flex flex-col overflow-hidden">
+      <!-- Claw Header -->
+      <div class="flex items-center justify-between px-4 py-2 border-b border-base-content/10">
+        <h1 class="text-sm font-medium">Claw 技能管理</h1>
+        <button class="btn btn-sm btn-ghost" @click="loadClawSkills" :disabled="clawLoading">
+          <SvgIcon name="refresh" size="14" />
+        </button>
+      </div>
+
+      <!-- Claw Loading -->
+      <div v-if="clawLoading" class="flex-1 flex items-center justify-center">
+        <div class="loading-spinner" />
+      </div>
+
+      <!-- Claw Empty -->
+      <div v-else-if="clawSkills.length === 0" class="flex-1 flex items-center justify-center text-sm text-base-content/30">
+        暂无技能
+      </div>
+
+      <!-- Claw Skill Cards -->
+      <div v-else class="flex-1 overflow-y-auto p-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <div
+            v-for="skill in clawSkills"
+            :key="skill.path"
+            class="bg-base-100 rounded-lg border border-base-content/10 p-3 hover:border-primary/30 transition-colors cursor-pointer flex flex-col"
+          >
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <SvgIcon name="brain" size="18" class="shrink-0 text-base-content/70" />
+                <span class="text-sm font-medium truncate">{{ skill.name }}</span>
+              </div>
+            </div>
+            <p class="text-xs text-base-content/50 leading-relaxed line-clamp-2 mb-2">{{ skill.description || '暂无描述' }}</p>
+            <div class="mt-auto">
+              <span
+                class="text-[10px] font-medium px-1.5 py-0.5 rounded bg-base-200 text-base-content/60"
+              >{{ skill.category }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -195,6 +229,8 @@ const bundledSkills = ref<SkillInfo[]>([])
 const actionInProgress = ref<string | null>(null)
 const detailSkill = ref<SkillInfo | null>(null)
 const detailContent = ref('')
+const clawSkills = ref<SkillInfo[]>([])
+const clawLoading = ref(false)
 
 async function loadAll() {
   loading.value = true
@@ -288,7 +324,23 @@ async function handleUninstall(skill: SkillInfo) {
   actionInProgress.value = null
 }
 
+async function loadClawSkills() {
+  clawLoading.value = true
+  error.value = ''
+  try {
+    const api = getTauriAPI()
+    clawSkills.value = await api.clawListSkills() as SkillInfo[]
+  } catch (e: any) {
+    error.value = e?.message || '加载失败'
+  }
+  clawLoading.value = false
+}
+
 onMounted(() => {
-  loadAll()
+  if (isClawMode.value) {
+    loadClawSkills()
+  } else {
+    loadAll()
+  }
 })
 </script>
