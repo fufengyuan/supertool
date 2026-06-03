@@ -235,7 +235,7 @@ pub fn resolve_model_alias(model: &str) -> String {
 #[must_use]
 pub fn metadata_for_model(model: &str) -> Option<ProviderMetadata> {
     let canonical = resolve_model_alias(model);
-    if canonical.starts_with("claude") {
+    if canonical.starts_with("claude") || canonical.starts_with("anthropic/") {
         return Some(ProviderMetadata {
             provider: ProviderKind::Anthropic,
             auth_env: "ANTHROPIC_API_KEY",
@@ -640,6 +640,14 @@ pub fn model_token_limit(model: &str) -> Option<ModelTokenLimit> {
         "kimi-k2.5" | "kimi-k1.5" => Some(ModelTokenLimit {
             max_output_tokens: 16_384,
             context_window_tokens: 256_000,
+        }),
+        "qwen-max" => Some(ModelTokenLimit {
+            max_output_tokens: 8_192,
+            context_window_tokens: 131_072,
+        }),
+        "qwen-plus" => Some(ModelTokenLimit {
+            max_output_tokens: 8_192,
+            context_window_tokens: 131_072,
         }),
         _ => None,
     }
@@ -1645,8 +1653,12 @@ NO_EQUALS_LINE
             "canonical base message should still lead the rendered error: {rendered}"
         );
         assert!(
-            rendered.contains(" — hint: I see OPENAI_API_KEY is set"),
+            rendered.contains("I see OPENAI_API_KEY is set"),
             "rendered error should carry the env-driven hint: {rendered}"
+        );
+        assert!(
+            rendered.contains('\n'),
+            "rendered error must use newline separator (#754): {rendered}"
         );
     }
 
