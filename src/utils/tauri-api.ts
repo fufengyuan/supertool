@@ -1146,7 +1146,9 @@ export function useAccountingAPI() {
       return res.data!
     },
     exportAccountingCSV: async (params?: Record<string, unknown>): Promise<any> => {
+      console.log("[API] exportAccountingCSV called with:", JSON.stringify(params).slice(0, 200))
       const res = await tauriInvoke<any>('export_accounting_csv', { params: params ?? {} })
+      console.log("[API] exportAccountingCSV result:", JSON.stringify(res).slice(0, 200))
       if (!res.success) {throw new Error(res.error)}
       return res.data!
     },
