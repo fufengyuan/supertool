@@ -17,9 +17,9 @@
       />
     </button>
 
-    <!-- 右侧：omp 状态指示 -->
+    <!-- 右侧：claw 状态指示 -->
     <span
-      v-if="mode === 'omp'"
+      v-if="mode === 'claw'"
       class="ml-auto mr-3 text-[10px] text-base-content/30"
     >
       终端模式
@@ -36,6 +36,6 @@ const mode = computed(() => agentModeStore.mode)
 
 const items: { label: string; value: AgentMode }[] = [
   { label: 'Hermes', value: 'hermes' },
-  { label: 'OMP', value: 'omp' },
+  { label: 'Claw', value: 'claw' },
 ]
 </script>

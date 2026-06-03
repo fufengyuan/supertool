@@ -19,7 +19,7 @@ tauri-plugin-opener = "2"
 
 # Database
 supertool-core = { path = "../core" }
-supertool-omp = { path = "../omp" }
+supertool-claw = { path = "../claw-cli" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 mysql_async = "0.35"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }

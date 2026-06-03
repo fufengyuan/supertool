@@ -297,16 +297,16 @@
         </div>
       </div>
 
-      <!-- OMP Info (in OMP mode) -->
-      <div v-if="isOmpMode && ompBinary" class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <!-- Claw Info (in Claw mode) -->
+      <div v-if="isClawMode && clawBinary" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconCode :size="18" />
-          OMP Agent
+          Claw Agent
         </h2>
         <div class="space-y-3 text-sm">
           <div class="flex items-center justify-between">
             <span class="text-base-content/70">Binary</span>
-            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ ompBinary }}</code>
+            <code class="text-xs bg-base-200 px-2 py-1 rounded truncate max-w-[240px]">{{ clawBinary }}</code>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-base-content/70">ACP Protocol</span>
@@ -388,8 +388,8 @@ import type { HermesConfigInfo } from '@/types'
 const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
 const agentModeStore = useAgentModeStore()
-const isOmpMode = computed(() => agentModeStore.mode === 'omp')
-const ompBinary = ref('')
+const isClawMode = computed(() => agentModeStore.mode === 'claw')
+const clawBinary = ref('')
 
 const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 
@@ -570,13 +570,13 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
-async function loadOmpInfo() {
+async function loadClawInfo() {
   try {
     const api = getTauriAPI()
-    const info = await api.ompChatInfo()
-    ompBinary.value = info?.binary || ''
+    const info = await api.clawChatInfo()
+    clawBinary.value = info?.binary || ''
   } catch {
-    ompBinary.value = ''
+    clawBinary.value = ''
   }
 }
 
@@ -584,12 +584,12 @@ onMounted(async () => {
   await loadAppVersion()
   await loadConfig()
   await loadApiStatus()
-  if (isOmpMode.value) {
-    await loadOmpInfo()
+  if (isClawMode.value) {
+    await loadClawInfo()
   }
 })
 
-watch(isOmpMode, (omp) => {
-  if (omp) { loadOmpInfo() }
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawInfo() }
 })
 </script>

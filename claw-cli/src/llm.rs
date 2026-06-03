@@ -1,8 +1,8 @@
-//! LLM streaming client module — thin wrapper over the `llm-client` crate.
+//! LLM streaming client module — thin wrapper over the `claw` crate.
 //!
-//! Preserves the same public API as the old hand-written `llm.rs` so the
-//! `omp_chat` command keeps working without changes.  Under the hood every
-//! call is delegated to the upstream-derived `llm_client` crate.
+//! Preserves the same public API so the Tauri chat commands keep working
+//! without changes.  Under the hood every call is delegated to the claw
+//! crate (derived from claw-code).
 
 use std::sync::Arc;
 
@@ -47,10 +47,10 @@ pub enum LlmStreamEvent {
 
 /// A lightweight LLM API client that sends streaming requests.
 ///
-/// Wraps [`llm_client::ProviderClient`] and delegates every call to it.
+/// Wraps [`claw::ProviderClient`] and delegates every call to it.
 #[derive(Debug, Clone)]
 pub struct LlmClient {
-    inner: Arc<llm_client::ProviderClient>,
+    inner: Arc<claw::ProviderClient>,
     model: String,
 }
 
@@ -61,7 +61,7 @@ impl LlmClient {
     /// (or a sensible default), then delegates to `ProviderClient::from_model`.
     pub fn from_env() -> Result<Self, String> {
         let model = Self::resolve_model_from_env();
-        let client = llm_client::ProviderClient::from_model(&model)
+        let client = claw::ProviderClient::from_model(&model)
             .map_err(|e| format!("Failed to create LLM client: {e}"))?;
         Ok(Self {
             inner: Arc::new(client),
@@ -71,7 +71,7 @@ impl LlmClient {
 
     /// Return the provider kind (as a debug-friendly string).
     #[must_use]
-    pub fn provider(&self) -> llm_client::ProviderKind {
+    pub fn provider(&self) -> claw::ProviderKind {
         self.inner.provider_kind()
     }
 
@@ -103,34 +103,34 @@ impl LlmClient {
 
         loop {
             match stream.next_event().await {
-                Ok(Some(llm_client::StreamEvent::ContentBlockStart(
-                    llm_client::ContentBlockStartEvent {
+                Ok(Some(claw::StreamEvent::ContentBlockStart(
+                    claw::ContentBlockStartEvent {
                         content_block:
-                            llm_client::OutputContentBlock::Text { .. },
+                            claw::OutputContentBlock::Text { .. },
                         ..
                     },
                 ))) => {
                     // Block start — no delta to emit yet.
                 }
-                Ok(Some(llm_client::StreamEvent::ContentBlockDelta(
-                    llm_client::ContentBlockDeltaEvent {
-                        delta: llm_client::ContentBlockDelta::TextDelta { text },
+                Ok(Some(claw::StreamEvent::ContentBlockDelta(
+                    claw::ContentBlockDeltaEvent {
+                        delta: claw::ContentBlockDelta::TextDelta { text },
                         ..
                     },
                 ))) => {
                     on_event(Ok(LlmStreamEvent::TextDelta { text }));
                 }
-                Ok(Some(llm_client::StreamEvent::ContentBlockDelta(
-                    llm_client::ContentBlockDeltaEvent {
-                        delta: llm_client::ContentBlockDelta::ThinkingDelta { thinking },
+                Ok(Some(claw::StreamEvent::ContentBlockDelta(
+                    claw::ContentBlockDeltaEvent {
+                        delta: claw::ContentBlockDelta::ThinkingDelta { thinking },
                         ..
                     },
                 ))) => {
                     on_event(Ok(LlmStreamEvent::ThinkingDelta { thinking }));
                 }
-                Ok(Some(llm_client::StreamEvent::ContentBlockDelta(
-                    llm_client::ContentBlockDeltaEvent {
-                        delta: llm_client::ContentBlockDelta::InputJsonDelta { partial_json },
+                Ok(Some(claw::StreamEvent::ContentBlockDelta(
+                    claw::ContentBlockDeltaEvent {
+                        delta: claw::ContentBlockDelta::InputJsonDelta { partial_json },
                         ..
                     },
                 ))) => {
@@ -144,10 +144,10 @@ impl LlmClient {
                             .unwrap_or_else(|_| serde_json::json!({ "raw": partial_json })),
                     }));
                 }
-                Ok(Some(llm_client::StreamEvent::ContentBlockStart(
-                    llm_client::ContentBlockStartEvent {
+                Ok(Some(claw::StreamEvent::ContentBlockStart(
+                    claw::ContentBlockStartEvent {
                         content_block:
-                            llm_client::OutputContentBlock::ToolUse {
+                            claw::OutputContentBlock::ToolUse {
                                 ref id,
                                 ref name,
                                 ..
@@ -161,10 +161,10 @@ impl LlmClient {
                         input: serde_json::json!({}),
                     }));
                 }
-                Ok(Some(llm_client::StreamEvent::MessageDelta(
-                    llm_client::MessageDeltaEvent {
+                Ok(Some(claw::StreamEvent::MessageDelta(
+                    claw::MessageDeltaEvent {
                         usage:
-                            llm_client::Usage {
+                            claw::Usage {
                                 input_tokens,
                                 output_tokens,
                                 ..
@@ -177,7 +177,7 @@ impl LlmClient {
                         output_tokens: u64::from(output_tokens),
                     }));
                 }
-                Ok(Some(llm_client::StreamEvent::MessageStop(_))) => {
+                Ok(Some(claw::StreamEvent::MessageStop(_))) => {
                     on_event(Ok(LlmStreamEvent::Done));
                     return Ok(());
                 }
@@ -219,16 +219,16 @@ impl LlmClient {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Build a [`llm_client::MessageRequest`] from our simple Message slice.
-fn build_message_request(model: &str, messages: &[Message]) -> llm_client::MessageRequest {
-    llm_client::MessageRequest {
+/// Build a [`claw::MessageRequest`] from our simple Message slice.
+fn build_message_request(model: &str, messages: &[Message]) -> claw::MessageRequest {
+    claw::MessageRequest {
         model: model.to_string(),
         max_tokens: 8192,
         messages: messages
             .iter()
-            .map(|m| llm_client::InputMessage {
+            .map(|m| claw::InputMessage {
                 role: m.role.clone(),
-                content: vec![llm_client::InputContentBlock::Text {
+                content: vec![claw::InputContentBlock::Text {
                     text: m.content.clone(),
                 }],
             })

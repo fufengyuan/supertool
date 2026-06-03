@@ -1,19 +1,19 @@
 use std::sync::Arc;
 
-use supertool_omp::llm::{LlmClient, LlmStreamEvent, Message};
+use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 /// OMP 聊天状态（单例，存在 app state 中）
 ///
 /// Replaced the old ACP subprocess approach with direct LLM API calls.
-pub struct OmpChatState {
+pub struct ClawChatState {
     client: Mutex<Option<Arc<LlmClient>>>,
     session_id: Mutex<Option<String>>,
     messages: Mutex<Vec<Message>>,
 }
 
-impl OmpChatState {
+impl ClawChatState {
     pub fn new() -> Self {
         Self {
             client: Mutex::new(None),
@@ -31,12 +31,12 @@ impl OmpChatState {
 ///
 /// 发送事件: `agent-session-created`
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_chat_init(
+pub async fn claw_chat_init(
     app: AppHandle,
-    state: tauri::State<'_, OmpChatState>,
+    state: tauri::State<'_, ClawChatState>,
     _cwd: Option<String>,
 ) -> Result<(), String> {
-    log::info!("[omp_chat] Initializing LLM client from environment");
+    log::info!("[claw_chat] Initializing LLM client from environment");
 
     let client = LlmClient::from_env()?;
 
@@ -44,7 +44,7 @@ pub async fn omp_chat_init(
     let session_id = uuid::Uuid::new_v4().to_string();
 
     log::info!(
-        "[omp_chat] LLM client initialized: provider={:?}, model={}",
+        "[claw_chat] LLM client initialized: provider={:?}, model={}",
         client.provider(),
         client.model(),
     );
@@ -78,9 +78,9 @@ pub async fn omp_chat_init(
 /// - `agent-done` — 完成（含用量）
 /// - `agent-error` — 错误
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_chat_send(
+pub async fn claw_chat_send(
     app: AppHandle,
-    state: tauri::State<'_, OmpChatState>,
+    state: tauri::State<'_, ClawChatState>,
     message: String,
 ) -> Result<(), String> {
     let (client, session_id) = {
@@ -108,7 +108,7 @@ pub async fn omp_chat_send(
     };
 
     log::info!(
-        "[omp_chat] Sending streaming request ({} messages)",
+        "[claw_chat] Sending streaming request ({} messages)",
         messages.len()
     );
 
@@ -168,10 +168,10 @@ pub async fn omp_chat_send(
                     );
                 }
                 Ok(LlmStreamEvent::Done) => {
-                    log::info!("[omp_chat] Stream completed");
+                    log::info!("[claw_chat] Stream completed");
                 }
                 Err(err_msg) => {
-                    log::error!("[omp_chat] Stream error: {}", err_msg);
+                    log::error!("[claw_chat] Stream error: {}", err_msg);
                     let _ = app_clone.emit(
                         "agent-error",
                         serde_json::json!({
@@ -184,7 +184,7 @@ pub async fn omp_chat_send(
         })
         .await
         .map_err(|e| {
-            log::error!("[omp_chat] send_streaming failed: {}", e);
+            log::error!("[claw_chat] send_streaming failed: {}", e);
             let _ = app.emit(
                 "agent-error",
                 serde_json::json!({
@@ -202,10 +202,10 @@ pub async fn omp_chat_send(
 ///
 /// 旧版 ACP 需要关闭子进程；新版仅清理内存中的 state。
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_chat_close(
-    state: tauri::State<'_, OmpChatState>,
+pub async fn claw_chat_close(
+    state: tauri::State<'_, ClawChatState>,
 ) -> Result<(), String> {
-    log::info!("[omp_chat] Closing session");
+    log::info!("[claw_chat] Closing session");
 
     {
         let mut c = state.client.lock().await;
@@ -225,8 +225,8 @@ pub async fn omp_chat_close(
 
 /// 获取当前会话列表（兼容性保留；直接 LLM 模式下无子进程会话）
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_chat_list_sessions(
-    state: tauri::State<'_, OmpChatState>,
+pub async fn claw_chat_list_sessions(
+    state: tauri::State<'_, ClawChatState>,
 ) -> Result<serde_json::Value, String> {
     let session_id = {
         let s = state.session_id.lock().await;
@@ -244,7 +244,7 @@ pub async fn omp_chat_list_sessions(
 
 /// 获取 LLM 客户端信息（无 omp 二进制信息）
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_chat_info() -> Result<serde_json::Value, String> {
+pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
     let anthropic_key = std::env::var("ANTHROPIC_API_KEY")
         .ok()
         .map(|_| true)
@@ -270,7 +270,7 @@ pub async fn omp_chat_info() -> Result<serde_json::Value, String> {
 ///
 /// 保持原样 — 与 OMP 配置集成，非 LLM 客户端功能。
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
+pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
     let omp_home = dirs::home_dir()
         .ok_or("Cannot find home dir")?
         .join(".omp")
@@ -293,7 +293,7 @@ pub async fn omp_read_models_config() -> Result<serde_json::Value, String> {
 ///
 /// 保持原样 — 与 OMP 配置集成。
 #[tauri::command(rename_all = "camelCase")]
-pub async fn omp_read_stats() -> Result<serde_json::Value, String> {
+pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
     let omp_home = dirs::home_dir()
         .ok_or("Cannot find home dir")?
         .join(".omp")

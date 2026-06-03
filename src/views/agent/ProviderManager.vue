@@ -1,33 +1,33 @@
 <template>
   <div class="max-w-4xl mx-auto">
-    <!-- OMP mode overlay -->
-    <div v-show="isOmpMode">
+    <!-- Claw mode overlay -->
+    <div v-show="isClawMode">
       <!-- Loading -->
-      <div v-if="ompLoading" class="flex items-center justify-center py-20">
+      <div v-if="clawLoading" class="flex items-center justify-center py-20">
         <span class="loading loading-spinner loading-md text-primary" />
       </div>
       <!-- Error (config not found) -->
-      <div v-else-if="ompError" class="flex items-center justify-center py-20">
+      <div v-else-if="clawError" class="flex items-center justify-center py-20">
         <div class="text-center max-w-md px-6">
           <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-          <p class="text-sm font-medium text-base-content/50">OMP 模型提供商</p>
-          <p class="text-xs text-base-content/30 mt-2">{{ ompError }}</p>
+          <p class="text-sm font-medium text-base-content/50">Claw 模型提供商</p>
+          <p class="text-xs text-base-content/30 mt-2">{{ clawError }}</p>
         </div>
       </div>
-      <!-- OMP providers -->
+      <!-- Claw providers -->
       <div v-else>
         <div class="flex items-center justify-between mb-6">
           <div>
-            <h1 class="text-2xl font-bold">OMP 模型提供商</h1>
+            <h1 class="text-2xl font-bold">Claw 模型提供商</h1>
             <p class="text-sm text-base-content/60 mt-1">来自 ~/.omp/agent/models.yaml</p>
           </div>
-          <button class="btn btn-ghost btn-sm" @click="loadOmpConfig" :disabled="ompLoading">
-            <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+          <button class="btn btn-ghost btn-sm" @click="loadClawConfig" :disabled="clawLoading">
+            <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
           </button>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
-            v-for="(prov, name) in ompProviders"
+            v-for="(prov, name) in clawProviders"
             :key="name"
             class="bg-base-100 border border-base-300 rounded-xl p-4 hover:border-primary/30 transition-colors"
           >
@@ -226,23 +226,23 @@ import type { ProviderInfo } from '@/types'
 const loading = ref(false)
 const error = ref('')
 const agentModeStore = useAgentModeStore()
-const isOmpMode = computed(() => agentModeStore.mode === 'omp')
-const ompProviders = ref<Record<string, any>>({})
-const ompLoading = ref(false)
-const ompError = ref('')
+const isClawMode = computed(() => agentModeStore.mode === 'claw')
+const clawProviders = ref<Record<string, any>>({})
+const clawLoading = ref(false)
+const clawError = ref('')
 
-async function loadOmpConfig() {
-  ompLoading.value = true
-  ompError.value = ''
+async function loadClawConfig() {
+  clawLoading.value = true
+  clawError.value = ''
   try {
     const api = getTauriAPI()
-    const raw = await api.ompReadModelsConfig() as any
-    ompProviders.value = raw?.providers || {}
+    const raw = await api.clawReadModelsConfig() as any
+    clawProviders.value = raw?.providers || {}
   } catch (e: any) {
-    ompError.value = String(e?.message || e)
-    ompProviders.value = {}
+    clawError.value = String(e?.message || e)
+    clawProviders.value = {}
   } finally {
-    ompLoading.value = false
+    clawLoading.value = false
   }
 }
 const providers = ref<ProviderInfo[]>([])

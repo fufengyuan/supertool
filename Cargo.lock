@@ -738,6 +738,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8d4a3bb8b1e0c1050499d1815f5ab16d04f0959b233085fb31653fbfc9d98f9"
 
 [[package]]
+name = "claw"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
 name = "cmake"
 version = "0.1.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2907,17 +2918,6 @@ name = "litemap"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92daf443525c4cce67b150400bc2316076100ce0b3686209eb8cf3c31612e6f0"
-
-[[package]]
-name = "llm-client"
-version = "0.1.0"
-dependencies = [
- "log",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "tokio",
-]
 
 [[package]]
 name = "lock_api"
@@ -5332,8 +5332,8 @@ dependencies = [
  "shellexpand",
  "socket2 0.5.10",
  "ssh2",
+ "supertool-claw",
  "supertool-core",
- "supertool-omp",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -5348,6 +5348,15 @@ dependencies = [
  "tun2",
  "uuid",
  "zip",
+]
+
+[[package]]
+name = "supertool-claw"
+version = "0.1.0"
+dependencies = [
+ "claw",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -5387,19 +5396,6 @@ dependencies = [
  "tun2",
  "uuid",
  "zip",
-]
-
-[[package]]
-name = "supertool-omp"
-version = "0.1.0"
-dependencies = [
- "futures-util",
- "llm-client",
- "log",
- "serde",
- "serde_json",
- "tokio",
- "uuid",
 ]
 
 [[package]]

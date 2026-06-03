@@ -2795,21 +2795,21 @@ export function getTauriAPI(): TauriAPI {
     // ============ Hermes Config (generic set) ============
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
-    // ============ OMP Chat (ACP protocol) ============
-    ompChatInit: async (cwd?: string) =>
-      tauriCall<void>('omp_chat_init', { cwd }),
-    ompChatSend: async (message: string) =>
-      tauriCall<void>('omp_chat_send', { message }),
-    ompChatClose: async () =>
-      tauriCall<void>('omp_chat_close'),
-    ompChatListSessions: async () =>
-      tauriCall<unknown>('omp_chat_list_sessions'),
-    ompChatInfo: async () =>
-      tauriCall<{ binary: string }>('omp_chat_info'),
-    ompReadModelsConfig: async () =>
-      tauriCall<unknown>('omp_read_models_config'),
-    ompReadStats: async () =>
-      tauriCall<{ sessions: number; messages: number }>('omp_read_stats'),
+    // ============ Claw Chat (ACP protocol) ============
+    clawChatInit: async (cwd?: string) =>
+      tauriCall<void>('claw_chat_init', { cwd }),
+    clawChatSend: async (message: string) =>
+      tauriCall<void>('claw_chat_send', { message }),
+    clawChatClose: async () =>
+      tauriCall<void>('claw_chat_close'),
+    clawChatListSessions: async () =>
+      tauriCall<unknown>('claw_chat_list_sessions'),
+    clawChatInfo: async () =>
+      tauriCall<{ binary: string }>('claw_chat_info'),
+    clawReadModelsConfig: async () =>
+      tauriCall<unknown>('claw_read_models_config'),
+    clawReadStats: async () =>
+      tauriCall<{ sessions: number; messages: number }>('claw_read_stats'),
 
   }
 

@@ -1,28 +1,28 @@
 <template>
   <div class="max-w-4xl mx-auto">
-    <!-- OMP mode overlay -->
-    <div v-show="isOmpMode">
-      <div v-if="ompLoading" class="flex items-center justify-center py-20">
+    <!-- Claw mode overlay -->
+    <div v-show="isClawMode">
+      <div v-if="clawLoading" class="flex items-center justify-center py-20">
         <span class="loading loading-spinner loading-md text-primary" />
       </div>
-      <div v-else-if="ompError" class="flex items-center justify-center py-20">
+      <div v-else-if="clawError" class="flex items-center justify-center py-20">
         <div class="text-center max-w-md px-6">
           <SvgIcon name="terminal" :size="40" class="mx-auto text-base-content/20 mb-4" />
-          <p class="text-sm font-medium text-base-content/50">OMP 模型管理</p>
-          <p class="text-xs text-base-content/30 mt-2">{{ ompError }}</p>
+          <p class="text-sm font-medium text-base-content/50">Claw 模型管理</p>
+          <p class="text-xs text-base-content/30 mt-2">{{ clawError }}</p>
         </div>
       </div>
       <div v-else>
         <div class="flex items-center justify-between mb-6">
           <div>
-            <h1 class="text-2xl font-bold">OMP 模型管理</h1>
+            <h1 class="text-2xl font-bold">Claw 模型管理</h1>
             <p class="text-sm text-base-content/60 mt-1">来自 ~/.omp/agent/models.yaml</p>
           </div>
-          <button class="btn btn-ghost btn-sm" @click="loadOmpModels" :disabled="ompLoading">
-            <IconRefresh :size="16" :class="{ 'animate-spin': ompLoading }" />
+          <button class="btn btn-ghost btn-sm" @click="loadClawModels" :disabled="clawLoading">
+            <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
           </button>
         </div>
-        <div v-for="(prov, name) in ompProviders" :key="name" class="mb-6">
+        <div v-for="(prov, name) in clawProviders" :key="name" class="mb-6">
           <h2 class="text-base font-semibold mb-3 flex items-center gap-2">
             <IconCloud :size="18" />
             {{ name }}
@@ -321,23 +321,23 @@ interface ProviderGroup {
 const loading = ref(false)
 const error = ref('')
 const agentModeStore = useAgentModeStore()
-const isOmpMode = computed(() => agentModeStore.mode === 'omp')
-const ompProviders = ref<Record<string, any>>({})
-const ompLoading = ref(false)
-const ompError = ref('')
+const isClawMode = computed(() => agentModeStore.mode === 'claw')
+const clawProviders = ref<Record<string, any>>({})
+const clawLoading = ref(false)
+const clawError = ref('')
 
-async function loadOmpModels() {
-  ompLoading.value = true
-  ompError.value = ''
+async function loadClawModels() {
+  clawLoading.value = true
+  clawError.value = ''
   try {
     const api = getTauriAPI()
-    const raw = await api.ompReadModelsConfig() as any
-    ompProviders.value = raw?.providers || {}
+    const raw = await api.clawReadModelsConfig() as any
+    clawProviders.value = raw?.providers || {}
   } catch (e: any) {
-    ompError.value = String(e?.message || e)
-    ompProviders.value = {}
+    clawError.value = String(e?.message || e)
+    clawProviders.value = {}
   } finally {
-    ompLoading.value = false
+    clawLoading.value = false
   }
 }
 const successMsg = ref('')
