@@ -59,6 +59,7 @@
             v-for="s in clawSessions"
             :key="s.sessionId"
             class="group w-full text-left rounded-lg p-3 transition-colors hover:bg-base-200 border-l-2 border-l-transparent"
+            @click="onResumeClawSession(s.sessionId)"
           >
             <div class="flex items-start justify-between gap-3">
               <span class="text-sm font-medium text-base-content truncate leading-snug">
@@ -392,6 +393,14 @@ function onNewChat() {
 }
 
 function onResumeSession(sessionId: string) {
+  router.push({ path: '/agent/chat', query: { session: sessionId } })
+}
+
+function onResumeClawSession(sessionId: string) {
+  // Ensure Claw mode is active before navigating
+  if (!isClawMode.value) {
+    agentModeStore.setMode('claw')
+  }
   router.push({ path: '/agent/chat', query: { session: sessionId } })
 }
 

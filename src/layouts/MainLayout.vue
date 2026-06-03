@@ -389,7 +389,7 @@ watch(() => route.fullPath, (newPath) => {
 })
 
 // Agent 模式切换 → 仅在当前页面原地切换（不触发路由跳转）
-// Chat.vue 内部根据 agentModeStore.mode 切换后端（hermes / omp ACP）
+// Chat.vue 内部根据 agentModeStore.mode 切换后端（hermes / claw）
 
 onMounted(async () => {
   const api = getTauriAPI()
