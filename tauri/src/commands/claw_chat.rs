@@ -327,79 +327,49 @@ pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
     }))
 }
 
-/// 读取模型配置（从 Hermes config.yaml）
-/// 返回基于 Hermes 配置的模型提供商列表
+/// 读取模型配置（从 Claw 自己的配置）
+/// 返回当前配置的提供商和模型信息
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
-    let home = dirs::home_dir().ok_or("Cannot find home dir")?;
-    let config_path = home.join(".hermes").join("config.yaml");
+    let config = crate::commands::claw_config::read_claw_config()?;
 
-    if !config_path.exists() {
-        return Ok(serde_json::json!({"providers": {}, "error": "~/.hermes/config.yaml not found"}));
-    }
+    let mut providers: Vec<serde_json::Value> = Vec::new();
 
-    let content = std::fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config: {e}"))?;
-    let root: serde_yaml::Value = serde_yaml::from_str(&content)
-        .map_err(|e| format!("Failed to parse config: {e}"))?;
-
-    let model_section = root.get("model");
-    let default_model = model_section
-        .and_then(|m| m.get("default"))
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let base_url = model_section
-        .and_then(|m| m.get("base_url"))
-        .and_then(|v| v.as_str());
-    let has_api_key = model_section
-        .and_then(|m| m.get("api_key"))
-        .and_then(|v| v.as_str())
-        .map(|k| !k.is_empty())
-        .unwrap_or(false);
-
-    // 从 models_dev_cache 获取完整模型列表（如果有）
-    let cache_path = home.join(".hermes").join("models_dev_cache.json");
-    let mut provider_models: Vec<serde_json::Value> = Vec::new();
-
-    if cache_path.exists() {
-        if let Ok(cache_content) = std::fs::read_to_string(&cache_path) {
-            if let Ok(cache) = serde_json::from_str::<serde_json::Value>(&cache_content) {
-                if let Some(obj) = cache.as_object() {
-                    for (prov_name, prov_entry) in obj {
-                        let models = prov_entry
-                            .get("models")
-                            .and_then(|m| m.as_object())
-                            .map(|m| m.keys().cloned().collect::<Vec<_>>())
-                            .unwrap_or_default();
-                        provider_models.push(serde_json::json!({
-                            "name": prov_name,
-                            "models": models,
-                            "apiKey": false,
-                            "baseUrl": "",
-                        }));
-                    }
-                }
+    // 从 claw-config.json 构建当前配置的 provider
+    if !config.api_key.is_empty() || !config.base_url.is_empty() {
+        let provider_name = if config.provider.is_empty() {
+            // 根据模型名推断 provider
+            if config.model.starts_with("claude") || config.model.starts_with("anthropic/") {
+                "Anthropic"
+            } else if config.model.starts_with("gpt") || config.model.starts_with("openai/") {
+                "OpenAI"
+            } else if config.model.starts_with("grok") {
+                "xAI"
+            } else if config.model.starts_with("qwen") {
+                "DashScope"
+            } else {
+                "Custom"
             }
-        }
-    }
-
-    // 添加当前激活的 provider（从 Hermes config）
-    let active_provider = serde_json::json!({
-        "name": "Hermes Config",
-        "models": if !default_model.is_empty() {
-            vec![serde_json::json!({"id": default_model, "active": true})]
         } else {
-            Vec::<serde_json::Value>::new()
-        },
-        "apiKey": has_api_key,
-        "baseUrl": base_url.unwrap_or(""),
-        "active": true,
-    });
-    provider_models.insert(0, active_provider);
+            &config.provider
+        };
+
+        providers.push(serde_json::json!({
+            "name": provider_name,
+            "models": if !config.model.is_empty() {
+                vec![serde_json::json!({"id": &config.model, "active": true})]
+            } else {
+                Vec::<serde_json::Value>::new()
+            },
+            "apiKey": !config.api_key.is_empty(),
+            "baseUrl": &config.base_url,
+            "active": true,
+        }));
+    }
 
     Ok(serde_json::json!({
-        "providers": provider_models,
-        "source": "~/.hermes/config.yaml",
+        "providers": providers,
+        "source": "~/.supertool/claw-config.json",
     }))
 }
 
