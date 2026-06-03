@@ -260,13 +260,25 @@ function pushUser(content: string) {
   ])
 }
 
-/** Claw 模式：初始化连接 */
+/** Claw 模式：初始化连接（可恢复历史会话） */
 async function ensureClawChat() {
   if (clawInitialized.value) return
   try {
-    await invoke('claw_chat_init', { cwd: null as string | null })
+    const sessionId = route.query.session as string | undefined
+    const result = await invoke<{
+      sessionId: string;
+      restored: boolean;
+      messageCount: number;
+    }>('claw_chat_init', {
+      sessionId: sessionId || null,
+      cwd: null as string | null,
+    })
     clawInitialized.value = true
-    addAgentMessage('Claw 编码助手已就绪')
+    if (result.restored && result.messageCount > 0) {
+      // Restored history — don't show ready message
+    } else {
+      addAgentMessage('Claw 编码助手已就绪')
+    }
   } catch (e: any) {
     addAgentMessage(`Claw 初始化失败: ${e?.message || String(e)}`)
     isLoading.value = false
@@ -397,9 +409,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
-  // Claw 清理
-  if (clawInitialized.value) {
-    invoke('claw_chat_close').catch(() => {});
-  }
+  // Don't close Claw session on unmount — preserve messages for navigation
 });
 </script>

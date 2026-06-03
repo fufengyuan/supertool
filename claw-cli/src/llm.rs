@@ -13,7 +13,7 @@ use serde::Serialize;
 // ---------------------------------------------------------------------------
 
 /// A single message in the conversation history.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
 pub struct Message {
     pub role: String,
     pub content: String,
