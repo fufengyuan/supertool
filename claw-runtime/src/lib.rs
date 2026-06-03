@@ -39,6 +39,7 @@ mod report_schema;
 pub mod sandbox;
 mod session;
 pub mod session_control;
+pub mod trident;
 pub use session_control::SessionStore;
 mod sse;
 pub mod stale_base;
@@ -64,12 +65,13 @@ pub use compact::{
     get_compact_continuation_message, should_compact, CompactionConfig, CompactionResult,
 };
 pub use config::{
-    ConfigEntry, ConfigError, ConfigLoader, ConfigSource, McpConfigCollection,
+    suppress_config_warnings_for_json_mode, ConfigEntry, ConfigError, ConfigFileReport,
+    ConfigFileStatus, ConfigInspection, ConfigLoader, ConfigSource, McpConfigCollection,
     McpManagedProxyServerConfig, McpOAuthConfig, McpRemoteServerConfig, McpSdkServerConfig,
     McpServerConfig, McpStdioServerConfig, McpTransport, McpWebSocketServerConfig, OAuthConfig,
-    ProviderFallbackConfig, ResolvedPermissionMode, RuntimeConfig, RuntimeFeatureConfig,
-    RuntimeHookConfig, RuntimePermissionRuleConfig, RuntimePluginConfig, ScopedMcpServerConfig,
-    CLAW_SETTINGS_SCHEMA_NAME,
+    ProviderFallbackConfig, ResolvedPermissionMode, RulesImportConfig, RuntimeConfig,
+    RuntimeFeatureConfig, RuntimeHookCommand, RuntimeHookConfig, RuntimePermissionRuleConfig,
+    RuntimePluginConfig, ScopedMcpServerConfig, CLAW_SETTINGS_SCHEMA_NAME,
 };
 pub use config_validate::{
     check_unsupported_format, format_diagnostics, validate_config_file, ConfigDiagnostic,
