@@ -97,7 +97,8 @@ fn parse_skill_frontmatter(content: &str) -> (String, String) {
 
 fn trim_to_120(s: &str) -> String {
     if s.len() > 120 {
-        format!("{}...", &s[..117])
+        let truncated: String = s.chars().take(117).collect();
+        format!("{}...", truncated)
     } else {
         s.to_string()
     }
