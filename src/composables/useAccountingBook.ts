@@ -866,8 +866,10 @@ function closePreview() {
 
 // Export
 async function exportCSV() {
+  console.log("[AccountingBook] exportCSV() called")
   try {
     const range = getDateRange()
+    console.log("[AccountingBook] exportCSV range:", range)
     const params: AccountingRecordsQuery = { startDate: range.startDate, endDate: range.endDate, page: 1, pageSize: 99999 }
     if (typeFilter.value !== 'all') {params.type = typeFilter.value}
     if (categoryFilter.value !== 'all') {params.category = categoryFilter.value}
@@ -876,8 +878,12 @@ async function exportCSV() {
     if (entityFilter.value) {params.entity = entityFilter.value}
     if (projectFilter.value) {params.project = projectFilter.value}
     if (searchQuery.value) {params.search = searchQuery.value}
+    console.log("[AccountingBook] exportCSV params:", params)
 
-    const csvContent = await getTauriAPI().exportAccountingCSV(params as unknown as Record<string, unknown>)
+    const api = getTauriAPI()
+    console.log("[AccountingBook] exportCSV api.exportAccountingCSV exists:", !!api.exportAccountingCSV)
+
+    const csvContent = await api.exportAccountingCSV(params as unknown as Record<string, unknown>)
     if (!csvContent) {
       toast.warning('没有可导出的数据')
       return
