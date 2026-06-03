@@ -1078,12 +1078,12 @@ export function useAccountingAPI() {
       const res = await tauriInvoke<string>('delete_accounting_category', { id })
       if (!res.success) {throw new Error(res.error)}
     },
-    getAccountingStats: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('get_accounting_stats')
+    getAccountingStats: async (params?: Record<string, unknown>): Promise<any> => {
+      const res = await tauriInvoke<any>('get_accounting_stats', { params: params ?? {} })
       return res.success ? (res.data ?? {}) : {}
     },
-    getAccountingTrend: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('get_accounting_trend')
+    getAccountingTrend: async (months?: number): Promise<any> => {
+      const res = await tauriInvoke<any>('get_accounting_trend', { months: months ?? 12 })
       return res.success ? (res.data ?? []) : []
     },
     getBudgets: async (): Promise<Budget[]> => {
@@ -1092,11 +1092,8 @@ export function useAccountingAPI() {
     },
     addBudget: async (budget: Partial<Budget>): Promise<Budget> => {
       const full = {
-        id: budget.id ?? crypto.randomUUID(), categoryId: budget.category ?? '',
-        amount: budget.amount ?? 0, period: budget.period ?? 'month',
-        startDate: budget.startDate ?? '', endDate: budget.endDate ?? '',
-        createdAt: budget.createdAt ?? new Date().toISOString(),
-        updatedAt: budget.updatedAt ?? new Date().toISOString(),
+        category: budget.category ?? '',
+        amount: budget.amount ?? 0,
       }
       const res = await tauriInvoke<Budget>('add_budget', { budget: full })
       if (!res.success) {throw new Error(res.error)}
@@ -1110,6 +1107,48 @@ export function useAccountingAPI() {
     deleteBudget: async (id: string): Promise<void> => {
       const res = await tauriInvoke<string>('delete_budget', { id })
       if (!res.success) {throw new Error(res.error)}
+    },
+    checkBudgetAlerts: async (): Promise<any> => {
+      const res = await tauriInvoke<any>('check_budget_alerts')
+      return res.success ? (res.data ?? {}) : {}
+    },
+    getTemplates: async (): Promise<any> => {
+      const res = await tauriInvoke<any>('get_templates')
+      return res.success ? (res.data ?? []) : []
+    },
+    addTemplate: async (template: Record<string, unknown>): Promise<any> => {
+      const res = await tauriInvoke<any>('add_template', { template })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
+    },
+    updateTemplate: async (id: string, updates: Record<string, unknown>): Promise<any> => {
+      const res = await tauriInvoke<any>('update_template', { id, updates })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
+    },
+    deleteTemplate: async (id: string): Promise<void> => {
+      const res = await tauriInvoke<string>('delete_template', { id })
+      if (!res.success) {throw new Error(res.error)}
+    },
+    useTemplate: async (id: string): Promise<any> => {
+      const res = await tauriInvoke<any>('use_template', { id })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
+    },
+    uploadAccountingReceipt: async (name: string, data: string): Promise<any> => {
+      const res = await tauriInvoke<any>('upload_accounting_receipt', { fileName: name, base64Data: data })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
+    },
+    getAccountingReceiptFile: async (filePath: string): Promise<any> => {
+      const res = await tauriInvoke<any>('get_accounting_receipt_file', { filePath })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
+    },
+    exportAccountingCSV: async (params?: Record<string, unknown>): Promise<any> => {
+      const res = await tauriInvoke<any>('export_accounting_csv', { params: params ?? {} })
+      if (!res.success) {throw new Error(res.error)}
+      return res.data!
     },
   }
 }
@@ -1552,12 +1591,21 @@ export interface TauriAPI {
   addAccountingCategory: (cat: Partial<AccountingCategory>) => Promise<AccountingCategory>
   updateAccountingCategory: (id: string, updates: Partial<AccountingCategory>) => Promise<AccountingCategory>
   deleteAccountingCategory: (id: string) => Promise<void>
-  getAccountingStats: () => Promise<any>
-  getAccountingTrend: () => Promise<any>
+  getAccountingStats: (params?: Record<string, unknown>) => Promise<any>
+  getAccountingTrend: (months?: number) => Promise<any>
   getBudgets: () => Promise<Budget[]>
   addBudget: (budget: Partial<Budget>) => Promise<Budget>
   updateBudget: (id: string, updates: Partial<Budget>) => Promise<Budget>
   deleteBudget: (id: string) => Promise<void>
+  checkBudgetAlerts: () => Promise<any>
+  getTemplates: () => Promise<any>
+  addTemplate: (template: Record<string, unknown>) => Promise<any>
+  updateTemplate: (id: string, updates: Record<string, unknown>) => Promise<any>
+  deleteTemplate: (id: string) => Promise<void>
+  useTemplate: (id: string) => Promise<any>
+  uploadAccountingReceipt: (name: string, data: string) => Promise<any>
+  getAccountingReceiptFile: (filePath: string) => Promise<any>
+  exportAccountingCSV: (params?: Record<string, unknown>) => Promise<any>
   // Logs
   getLogPresets: () => Promise<LogPreset[]>
   logPresetsGetAll: () => Promise<LogPreset[]>
@@ -2154,6 +2202,15 @@ export function getTauriAPI(): TauriAPI {
     addBudget: accounting.addBudget,
     updateBudget: accounting.updateBudget,
     deleteBudget: accounting.deleteBudget,
+    checkBudgetAlerts: accounting.checkBudgetAlerts,
+    getTemplates: accounting.getTemplates,
+    addTemplate: accounting.addTemplate,
+    updateTemplate: accounting.updateTemplate,
+    deleteTemplate: accounting.deleteTemplate,
+    useTemplate: accounting.useTemplate,
+    uploadAccountingReceipt: accounting.uploadAccountingReceipt,
+    getAccountingReceiptFile: accounting.getAccountingReceiptFile,
+    exportAccountingCSV: accounting.exportAccountingCSV,
     // Logs
     getLogPresets: logs.getLogPresets,
     logPresetsGetAll: logs.getLogPresets,
