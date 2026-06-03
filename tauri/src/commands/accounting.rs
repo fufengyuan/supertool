@@ -234,15 +234,22 @@ pub async fn upload_accounting_receipt(
     );
     let file_path = receipt_dir.join(&safe_name);
 
-    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &base64_data)
+    let clean_data = if let Some(pos) = base64_data.find(',') {
+        base64_data[pos + 1..].to_string()
+    } else {
+        base64_data.clone()
+    };
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &clean_data)
         .map_err(|e| e.to_string())?;
 
-    std::fs::write(&file_path, bytes).map_err(|e| e.to_string())?;
+    std::fs::write(&file_path, &bytes).map_err(|e| e.to_string())?;
 
+    let is_pdf = ext.eq_ignore_ascii_case("pdf");
     Ok(serde_json::json!({
-        "success": true,
         "path": file_path.to_string_lossy(),
         "name": file_name,
+        "type": if is_pdf { "pdf" } else { "image" },
+        "size": bytes.len() as i64,
     }))
 }
 
