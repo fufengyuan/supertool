@@ -1,5 +1,5 @@
 /**
- * agentModeStore — Agent 模式切换（hermes / omp）
+ * agentModeStore — Agent 模式切换（hermes / claw）
  *
  * 所有 Agent 页面共享同一个模式状态，保存在 localStorage 中。
  */

@@ -557,8 +557,8 @@ onMounted(() => {
   }
 })
 
-watch(isClawMode, (omp) => {
-  if (omp) { loadClawStats() }
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawStats() }
   else { loadData() }
 })
 </script>

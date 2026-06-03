@@ -2794,7 +2794,7 @@ export function getTauriAPI(): TauriAPI {
     // ============ Hermes Config (generic set) ============
     hermesSetConfig: async (key: string, value: unknown) => tauriCall('hermes_set_config', { key, value }),
 
-    // ============ Claw Chat (ACP protocol) ============
+    // ============ Claw Chat (direct LLM API) ============
     clawChatInit: async (cwd?: string) =>
       tauriCall<void>('claw_chat_init', { cwd }),
     clawChatSend: async (message: string) =>
@@ -2804,11 +2804,15 @@ export function getTauriAPI(): TauriAPI {
     clawChatListSessions: async () =>
       tauriCall<unknown>('claw_chat_list_sessions'),
     clawChatInfo: async () =>
-      tauriCall<{ binary: string }>('claw_chat_info'),
+      tauriCall<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>('claw_chat_info'),
     clawReadModelsConfig: async () =>
       tauriCall<unknown>('claw_read_models_config'),
     clawReadStats: async () =>
       tauriCall<{ sessions: number; messages: number }>('claw_read_stats'),
+    clawConfigGet: async () =>
+      tauriCall<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>('claw_config_get'),
+    clawConfigSet: async (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) =>
+      tauriCall<{ success: boolean; message: string }>('claw_config_set', params),
 
   }
 
