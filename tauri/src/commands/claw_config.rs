@@ -1,6 +1,6 @@
 //! Claw Agent configuration — read/write API key, base URL, model.
 //!
-//! Persists to `~/.supertool/claw-config.json`.
+//! Persists to `~/.claw/config.json`.
 
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
@@ -29,8 +29,8 @@ fn default_model() -> String {
 fn config_path() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".supertool")
-        .join("claw-config.json")
+        .join(".claw")
+        .join("config.json")
 }
 
 /// 读取 Claw 配置
@@ -42,7 +42,7 @@ pub fn read_claw_config() -> Result<ClawConfig, String> {
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse claw-config.json: {e}"))
+        .map_err(|e| format!("Failed to parse ~/.claw/config.json: {e}"))
 }
 
 /// 写入 Claw 配置
