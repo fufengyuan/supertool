@@ -334,12 +334,14 @@ const clawProfile = ref<{ configHome: string; settingsExists: boolean; mcpServer
 const clawLoading = ref(false)
 
 async function loadClawProfile() {
+  console.log('[AgentProfiles] 👤 loadClawProfile() called');
   clawLoading.value = true
   try {
     const api = getTauriAPI()
     clawProfile.value = await api.clawGetProfile()
+    console.log('[AgentProfiles] 📨 clawGetProfile returned:', clawProfile.value ? 'OK' : 'null');
   } catch (e) {
-    console.error('Failed to load Claw profile:', e)
+    console.error('[AgentProfiles] ❌ Failed to load Claw profile:', e)
   } finally {
     clawLoading.value = false
   }
@@ -510,9 +512,14 @@ async function dryRunDispatch() {
   }
 }
 
-onMounted(() => { refreshProfiles(); if (isClawMode.value) loadClawProfile(); });
+onMounted(() => {
+  console.log(`[AgentProfiles] 🚀 onMounted: isClawMode=${isClawMode.value}`);
+  refreshProfiles();
+  if (isClawMode.value) loadClawProfile();
+});
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[AgentProfiles] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawProfile(); }
   else { refreshProfiles(); }
 });

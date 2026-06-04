@@ -325,23 +325,28 @@ async function handleUninstall(skill: SkillInfo) {
 }
 
 async function loadClawSkills() {
+  console.log('[SkillsBrowser] 📚 loadClawSkills() called');
   clawLoading.value = true
   error.value = ''
   try {
     const api = getTauriAPI()
     clawSkills.value = await api.clawListSkills() as SkillInfo[]
+    console.log(`[SkillsBrowser] 📨 clawListSkills returned: ${clawSkills.value?.length ?? 0} skills`);
   } catch (e: any) {
+    console.error('[SkillsBrowser] ❌ clawListSkills failed:', e);
     error.value = e?.message || '加载失败'
   }
   clawLoading.value = false
 }
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[SkillsBrowser] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawSkills() }
   else { loadAll() }
 })
 
 onMounted(() => {
+  console.log(`[SkillsBrowser] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   if (isClawMode.value) {
     loadClawSkills()
   } else {

@@ -511,12 +511,14 @@ async function triggerJob(job: CronJob) {
   }
 }
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[CronManager] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawJobs() }
   else { refresh() }
 })
 
 onMounted(() => {
+  console.log(`[CronManager] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   refresh()
   loadClawJobs()
 })
@@ -559,12 +561,15 @@ function clawShowSuccess(msg: string) {
 }
 
 async function loadClawJobs() {
+  console.log('[CronManager] ⏰ loadClawJobs() called');
   clawLoading.value = true
   clawErrorMsg.value = ''
   try {
     const api = getTauriAPI()
     clawJobs.value = await api.clawListCronJobs()
+    console.log(`[CronManager] 📨 clawListCronJobs returned: ${clawJobs.value?.length ?? 0} jobs`);
   } catch (e: any) {
+    console.error('[CronManager] ❌ clawListCronJobs failed:', e);
     clawShowError(e?.message || '加载失败')
   } finally {
     clawLoading.value = false
