@@ -417,7 +417,11 @@ async function loadSessionHistory() {
 }
 
 onMounted(async () => {
-  await loadSessionHistory();
+  if (isClawMode.value) {
+    await ensureClawChat();
+  } else {
+    await loadSessionHistory();
+  }
   document.addEventListener('keydown', handleKeydown);
   chatInputRef.value?.focus();
 });
