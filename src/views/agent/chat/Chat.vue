@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -132,6 +132,21 @@ const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 // Claw 模式状态
 const clawInitialized = ref(false);
 const isClawMode = computed(() => agentModeStore.mode === 'claw');
+
+// 监听模式切换：清空消息、重新初始化
+watch(() => agentModeStore.mode, async (newMode) => {
+  messages.value = [];
+  usage.value = null;
+  toolProgress.value = null;
+  hermesSessionId.value = null;
+
+  if (newMode === 'claw') {
+    clawInitialized.value = false;
+    await ensureClawChat();
+  } else {
+    await loadSessionHistory();
+  }
+});
 
 function setMessages(msgs: ChatMessage[]) {
   messages.value = msgs;
