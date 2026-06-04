@@ -396,7 +396,7 @@ pub async fn claw_chat_send(
 
     let has_received_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let has_received_usage_clone = has_received_usage.clone();
-    let assistant_reply = Arc::new(Mutex::new(String::new()));
+    let assistant_reply = Arc::new(std::sync::Mutex::new(String::new()));
     let assistant_reply_clone = assistant_reply.clone();
 
     let sid_stream = sid.clone();
@@ -405,7 +405,7 @@ pub async fn claw_chat_send(
         .send_streaming(&prompt_messages, move |event| {
             match event {
                 Ok(LlmStreamEvent::TextDelta { text }) => {
-                    let mut reply = assistant_reply_clone.blocking_lock();
+                    let mut reply = assistant_reply_clone.lock().unwrap();
                     reply.push_str(&text);
                     let _ = app_clone.emit(
                         "agent-delta",
@@ -504,7 +504,10 @@ pub async fn claw_chat_send(
         })?;
 
     // ── Persist assistant reply to Session ──
-    let reply_text = assistant_reply.lock().await;
+    let reply_text = {
+        let guard = assistant_reply.lock().unwrap();
+        guard.clone()
+    };
     if !reply_text.is_empty() {
         let assistant_msg =
             ConversationMessage::assistant(vec![ContentBlock::Text {
