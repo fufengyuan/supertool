@@ -232,6 +232,7 @@ async function refresh() {
 }
 
 async function loadClawTools() {
+  console.log('[ToolsManager] 🔧 loadClawTools() called');
   clawLoading.value = true
   try {
     const api = getTauriAPI()
@@ -241,8 +242,9 @@ async function loadClawTools() {
     ])
     clawMcpServers.value = servers
     clawPlugins.value = plugins
+    console.log(`[ToolsManager] 📨 MCP servers: ${servers?.length ?? 0}, plugins: ${plugins?.length ?? 0}`);
   } catch (e) {
-    console.error('[ToolsManager] Failed to load Claw tools:', e)
+    console.error('[ToolsManager] ❌ loadClawTools failed:', e)
   } finally {
     clawLoading.value = false
   }
@@ -258,12 +260,14 @@ async function toggleTool(tool: ToolsetInfo) {
   }
 }
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[ToolsManager] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawTools() }
   else { refresh() }
 })
 
 onMounted(() => {
+  console.log(`[ToolsManager] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   refresh()
   loadClawTools()
 })

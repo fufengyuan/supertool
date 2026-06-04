@@ -232,11 +232,13 @@ const clawLoading = ref(false)
 const clawError = ref('')
 
 async function loadClawConfig() {
+  console.log('[ProviderManager] 📦 loadClawConfig() called');
   clawLoading.value = true
   clawError.value = ''
   try {
     const api = getTauriAPI()
     const raw = await api.clawReadModelsConfig() as any
+    console.log('[ProviderManager] 📨 clawReadModelsConfig returned:', JSON.stringify(raw).slice(0, 300));
     // Backend returns providers as array — convert to {name: provider} object for template
     const list = raw?.providers || []
     const map: Record<string, any> = {}
@@ -366,6 +368,7 @@ async function toggleVisibility(providerId: string) {
 }
 
 onMounted(() => {
+  console.log(`[ProviderManager] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   if (isClawMode.value) {
     loadClawConfig()
   } else {
@@ -373,7 +376,8 @@ onMounted(() => {
   }
 })
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[ProviderManager] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawConfig() }
   else { loadProviders() }
 })

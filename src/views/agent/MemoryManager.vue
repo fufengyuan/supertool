@@ -303,11 +303,14 @@ const clawStats = ref({ sessions: 0, messages: 0 })
 const clawLoading = ref(false)
 
 async function loadClawStats() {
+  console.log('[MemoryManager] 🧠 loadClawStats() called');
   clawLoading.value = true
   try {
     const api = getTauriAPI()
     clawStats.value = await api.clawReadStats()
-  } catch {
+    console.log('[MemoryManager] 📨 clawReadStats returned:', clawStats.value);
+  } catch (e) {
+    console.error('[MemoryManager] ❌ clawReadStats failed:', e);
     clawStats.value = { sessions: 0, messages: 0 }
   } finally {
     clawLoading.value = false
@@ -550,6 +553,7 @@ async function handleDeactivate(providerName: string) {
 }
 
 onMounted(() => {
+  console.log(`[MemoryManager] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   if (isClawMode.value) {
     loadClawStats()
   } else {
@@ -557,7 +561,8 @@ onMounted(() => {
   }
 })
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[MemoryManager] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) { loadClawStats() }
   else { loadData() }
 })
