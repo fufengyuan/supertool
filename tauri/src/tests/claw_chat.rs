@@ -279,7 +279,10 @@ async fn test_chat_state_machine() {
                 e.contains("401")
                     || e.contains("auth")
                     || e.contains("key")
-                    || e.contains("send failed"),
+                    || e.contains("send failed")
+                    || e.contains("Failed to start stream")
+                    || e.contains("forbidden")
+                    || e.contains("Forbidden"),
                 "Error should mention cause: got: {e}"
             );
             println!("[chat] ⚠️  Expected stream error (no valid key?): {e}");

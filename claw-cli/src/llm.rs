@@ -45,6 +45,22 @@ pub enum LlmStreamEvent {
 // LlmClient — thin wrapper
 // ---------------------------------------------------------------------------
 
+/// Result of a single LLM API turn (one request-response cycle).
+pub struct TurnResult {
+    pub text: String,
+    pub reasoning: String,
+    pub tool_calls: Vec<(String, String, serde_json::Value)>, // (id, name, input)
+    pub usage: Option<(u64, u64)>,
+}
+
+/// A complete tool call accumulated from streaming events.
+#[derive(Debug)]
+struct AccumulatingToolCall {
+    id: String,
+    name: String,
+    input: String,
+}
+
 /// A lightweight LLM API client that sends streaming requests.
 ///
 /// Wraps [`api::ProviderClient`] and delegates every call to it.
@@ -73,6 +89,12 @@ impl LlmClient {
     #[must_use]
     pub fn provider(&self) -> api::ProviderKind {
         self.inner.provider_kind()
+    }
+
+    /// Return the inner ProviderClient for direct access.
+    #[must_use]
+    pub fn inner(&self) -> &api::ProviderClient {
+        &self.inner
     }
 
     /// Return the model name.
@@ -321,6 +343,152 @@ impl LlmClient {
                 }
             })
     }
+
+    /// Send a turn with optional tools and an event callback.
+    ///
+    /// Builds a `MessageRequest` with the given messages, system prompt, and
+    /// tool definitions, streams the response, and returns a `TurnResult`
+    /// (text, reasoning, tool_calls, usage).
+    ///
+    /// The optional `on_event` callback is called synchronously for each
+    /// streaming event (`TextDelta`, `ThinkingDelta`, complete `ToolCall`,
+    /// `Usage`, `Done`) and can be used to forward events to the GUI.
+    pub async fn send_turn<F>(
+        &self,
+        messages: Vec<api::InputMessage>,
+        system_prompt: Option<&str>,
+        tools: Option<Vec<api::ToolDefinition>>,
+        max_tokens: Option<u32>,
+        reasoning_effort: Option<String>,
+        on_event: Option<F>,
+    ) -> Result<TurnResult, String>
+    where
+        F: Fn(LlmStreamEvent),
+    {
+        let request = api::MessageRequest {
+            model: self.model.clone(),
+            max_tokens: max_tokens.unwrap_or(8192),
+            messages,
+            system: system_prompt.map(|s| s.to_string()),
+            tools,
+            tool_choice: None,
+            stream: true,
+            temperature: None,
+            top_p: None,
+            frequency_penalty: None,
+            presence_penalty: None,
+            stop: None,
+            reasoning_effort,
+            extra_body: std::collections::BTreeMap::new(),
+        };
+
+        let mut stream = self
+            .inner
+            .stream_message(&request)
+            .await
+            .map_err(|e| format!("Failed to start stream: {e}"))?;
+
+        let mut text = String::new();
+        let mut reasoning = String::new();
+        let mut pending_tool: Option<AccumulatingToolCall> = None;
+        let mut tool_calls: Vec<(String, String, serde_json::Value)> = Vec::new();
+        let mut usage: Option<(u64, u64)> = None;
+
+        loop {
+            match stream.next_event().await {
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::TextDelta { text: chunk },
+                        ..
+                    },
+                ))) => {
+                    text.push_str(&chunk);
+                    if let Some(ref cb) = on_event {
+                        cb(LlmStreamEvent::TextDelta { text: chunk });
+                    }
+                }
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::ThinkingDelta { thinking },
+                        ..
+                    },
+                ))) => {
+                    reasoning.push_str(&thinking);
+                    if let Some(ref cb) = on_event {
+                        cb(LlmStreamEvent::ThinkingDelta { thinking });
+                    }
+                }
+                Ok(Some(api::StreamEvent::ContentBlockStart(
+                    api::ContentBlockStartEvent {
+                        content_block: api::OutputContentBlock::ToolUse { ref id, ref name, .. },
+                        ..
+                    },
+                ))) => {
+                    // Start accumulating a new tool call
+                    if pending_tool.is_some() {
+                        // Flush previous incomplete tool
+                        let prev = pending_tool.take().unwrap();
+                        let input: serde_json::Value =
+                            serde_json::from_str(&prev.input).unwrap_or(serde_json::json!({}));
+                        tool_calls.push((prev.id, prev.name, input));
+                    }
+                    pending_tool = Some(AccumulatingToolCall {
+                        id: id.clone(),
+                        name: name.clone(),
+                        input: String::new(),
+                    });
+                }
+                Ok(Some(api::StreamEvent::ContentBlockDelta(
+                    api::ContentBlockDeltaEvent {
+                        delta: api::ContentBlockDelta::InputJsonDelta { partial_json },
+                        ..
+                    },
+                ))) => {
+                    if let Some(ref mut tool) = pending_tool {
+                        tool.input.push_str(&partial_json);
+                    }
+                }
+                Ok(Some(api::StreamEvent::MessageDelta(
+                    api::MessageDeltaEvent {
+                        usage:
+                            api::Usage {
+                                input_tokens,
+                                output_tokens,
+                                ..
+                            },
+                        ..
+                    },
+                ))) => {
+                    usage = Some((u64::from(input_tokens), u64::from(output_tokens)));
+                    if let Some(ref cb) = on_event {
+                        cb(LlmStreamEvent::Usage {
+                            input_tokens: u64::from(input_tokens),
+                            output_tokens: u64::from(output_tokens),
+                        });
+                    }
+                }
+                Ok(Some(api::StreamEvent::MessageStop(_))) | Ok(None) => {
+                    // Finalize any pending tool call
+                    if let Some(tool) = pending_tool.take() {
+                        let input: serde_json::Value =
+                            serde_json::from_str(&tool.input).unwrap_or(serde_json::json!({}));
+                        tool_calls.push((tool.id, tool.name, input));
+                    }
+                    if let Some(ref cb) = on_event {
+                        cb(LlmStreamEvent::Done);
+                    }
+                    return Ok(TurnResult {
+                        text,
+                        reasoning,
+                        tool_calls,
+                        usage,
+                    });
+                }
+                Ok(Some(_)) => {} // Ignore other events
+                Err(e) => return Err(format!("Stream error: {e}")),
+            }
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -364,13 +532,14 @@ pub fn build_chat_request(
     messages: Vec<api::InputMessage>,
     max_tokens: Option<u32>,
     reasoning_effort: Option<String>,
+    tools: Option<Vec<api::ToolDefinition>>,
 ) -> api::MessageRequest {
     api::MessageRequest {
         model: model.to_string(),
         max_tokens: max_tokens.unwrap_or(8192),
         messages,
         system: system_prompt.map(|s| s.to_string()),
-        tools: None,
+        tools,
         tool_choice: None,
         stream: true,
         temperature: None,
