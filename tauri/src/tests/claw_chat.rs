@@ -221,7 +221,7 @@ async fn test_chat_state_machine() {
         s.as_ref().unwrap().messages.clone()
     });
 
-    let reply_text = Arc::new(Mutex::new(String::new()));
+    let reply_text = Arc::new(std::sync::Mutex::new(String::new()));
     let reply_clone = reply_text.clone();
     let has_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let has_usage_clone = has_usage.clone();
@@ -232,7 +232,7 @@ async fn test_chat_state_machine() {
             .send_streaming(&prompt, move |event| {
                 match event {
                     Ok(LlmStreamEvent::TextDelta { text }) => {
-                        let mut r = reply_clone.blocking_lock();
+                        let mut r = reply_clone.lock().unwrap();
                         r.push_str(&text);
                     }
                     Ok(LlmStreamEvent::Usage { .. }) => {
@@ -246,7 +246,7 @@ async fn test_chat_state_machine() {
 
     match result {
         Ok(()) => {
-            let reply = reply_text.lock().await;
+            let reply = reply_text.lock().unwrap();
             let usage = has_usage.load(std::sync::atomic::Ordering::SeqCst);
             println!(
                 "[chat] ✅ Stream complete! Reply={} chars, usage={}",
@@ -337,7 +337,7 @@ async fn test_real_api_returns_text_after_thinking() {
         content: "在吗".to_string(),
     }];
 
-    let text_deltas = Arc::new(Mutex::new(Vec::<String>::new()));
+    let text_deltas = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
     let thinking_count = Arc::new(AtomicU64::new(0));
     let text_count = Arc::new(AtomicU64::new(0));
     let done_received = Arc::new(AtomicU64::new(0));
@@ -352,7 +352,7 @@ async fn test_real_api_returns_text_after_thinking() {
             match event {
                 Ok(LlmStreamEvent::TextDelta { text }) => {
                     tc.fetch_add(1, Ordering::SeqCst);
-                    td.blocking_lock().push(text);
+                    td.lock().unwrap().push(text);
                 }
                 Ok(LlmStreamEvent::ThinkingDelta { .. }) => {
                     thc.fetch_add(1, Ordering::SeqCst);
@@ -369,7 +369,7 @@ async fn test_real_api_returns_text_after_thinking() {
     let text_count = text_count.load(Ordering::SeqCst);
     let thinking_count = thinking_count.load(Ordering::SeqCst);
     let done_count = done_received.load(Ordering::SeqCst);
-    let text_content: String = text_deltas.lock().await.iter().cloned().collect();
+    let text_content: String = text_deltas.lock().unwrap().iter().cloned().collect();
 
     println!("=== Real API Event Results ===");
     println!("TextDelta count: {text_count}");
@@ -612,9 +612,9 @@ async fn test_send_turn_with_tools() {
         }],
     }];
 
-    let text_chunks = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
-    let tool_calls_seen = Arc::new(tokio::sync::Mutex::new(Vec::<(String, String, serde_json::Value)>::new()));
-    let thinking_chunks = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+    let text_chunks = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let tool_calls_seen = Arc::new(std::sync::Mutex::new(Vec::<(String, String, serde_json::Value)>::new()));
+    let thinking_chunks = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
 
     let tc = text_chunks.clone();
     let tcs = tool_calls_seen.clone();
@@ -628,13 +628,13 @@ async fn test_send_turn_with_tools() {
             None, // reasoning_effort
             Some(move |event| match event {
                 LlmStreamEvent::TextDelta { text } => {
-                    tc.blocking_lock().push(text);
+                    tc.lock().unwrap().push(text);
                 }
                 LlmStreamEvent::ThinkingDelta { thinking } => {
-                    thc.blocking_lock().push(thinking);
+                    thc.lock().unwrap().push(thinking);
                 }
                 LlmStreamEvent::ToolCall { id, name, input } => {
-                    tcs.blocking_lock().push((id, name, input));
+                    tcs.lock().unwrap().push((id, name, input));
                 }
                 _ => {}
             }),
@@ -642,9 +642,9 @@ async fn test_send_turn_with_tools() {
         .await
         .expect("send_turn should succeed");
 
-    let text = text_chunks.lock().await;
-    let tool_calls = tool_calls_seen.lock().await;
-    let thinking = thinking_chunks.lock().await;
+    let text = text_chunks.lock().unwrap();
+    let tool_calls = tool_calls_seen.lock().unwrap();
+    let thinking = thinking_chunks.lock().unwrap();
 
     println!("\n=== send_turn Results ===");
     println!("Text chunks: {}", text.len());
@@ -821,4 +821,351 @@ fn test_build_tool_definitions() {
     }
 
     println!("✅ build_tool_definitions test passed: {} tools", defs.len());
+}
+
+
+// ── Integration test: full tool loop against real API ──────────────
+//
+// Exercises the full claw-chat tool loop against a real LLM:
+//   send_turn -> tool_calls -> execute_tool -> send_turn -> final answer
+//
+// This validates:
+//   1. Tool definitions reach the model correctly
+//   2. Model returns tool_calls (not just text)
+//   3. Tools execute and return results
+//   4. Model receives tool results and produces coherent final answer
+//   5. Session files are persisted with full message chain
+#[tokio::test(flavor = "multi_thread")]
+#[ignore] // Requires valid API key in ~/.claw/config.json
+async fn integration_full_tool_loop() {
+    use crate::commands::claw_chat::{
+        build_tool_definitions, session_to_input_messages, setup_env_from_claw_config,
+        turn_result_to_assistant_message,
+    };
+    use runtime::{ConversationMessage, Session};
+    use supertool_claw::llm::LlmClient;
+    use tools;
+
+    // 1. Setup
+    setup_env_from_claw_config().expect("setup env from claw config");
+    let client = LlmClient::from_env().expect("create LLM client");
+    eprintln!("[test] Provider: {:?}, Model: {}", client.provider(), client.model());
+
+    // 2. Create temp session with persistence
+    let session_dir = std::path::PathBuf::from("/tmp/_claw_integration_test");
+    std::fs::create_dir_all(&session_dir).ok();
+    let session_path = session_dir.join("session.json");
+    let mut session = Session::new().with_persistence_path(&session_path);
+
+    // 3. Set workspace for tool execution
+    std::env::set_current_dir("/tmp").expect("set cwd");
+
+    // 4. Build tool definitions
+    let tool_defs = build_tool_definitions();
+    eprintln!("[test] {} tools loaded", tool_defs.len());
+
+    // 5. Initial user message
+    session
+        .push_user_text("Please use the bash tool to run this exact command: echo hello_from_claw. Then tell me the output.")
+        .expect("push user text");
+
+    let system_prompt = "You are a coding assistant with file system and bash tools. Always use tools when asked to run commands or read files.";
+    let mut iteration = 0;
+
+    // 6. Tool loop (max 5 iterations)
+    loop {
+        iteration += 1;
+        assert!(iteration <= 5, "Too many iterations — possible infinite loop");
+
+        let input_messages = session_to_input_messages(&session.messages);
+        eprintln!("[test] === Iteration {iteration}: {} input messages ===", input_messages.len());
+
+        let result = client
+            .send_turn(
+                input_messages,
+                Some(system_prompt),
+                Some(tool_defs.clone()),
+                None,
+                Some(|event| match event {
+                    supertool_claw::llm::LlmStreamEvent::TextDelta { text } => {
+                        eprint!("{text}");
+                    }
+                    supertool_claw::llm::LlmStreamEvent::ToolCall { id, name, input } => {
+                        eprintln!("\n[test] Tool call: {name} (id={id}) input={input}");
+                    }
+                    supertool_claw::llm::LlmStreamEvent::Usage { input_tokens, output_tokens } => {
+                        eprintln!("\n[test] Usage: in={input_tokens} out={output_tokens}");
+                    }
+                    _ => {}
+                }),
+            )
+            .await
+            .expect("send_turn should succeed");
+
+        eprintln!(
+            "\n[test] Response: text={} chars, tools={}, reasoning={}",
+            result.text.len(),
+            result.tool_calls.len(),
+            result.reasoning.len()
+        );
+
+        // Push assistant message to session
+        let assistant_msg = turn_result_to_assistant_message(&result);
+        session.push_message(assistant_msg).expect("push assistant");
+
+        // If no tool calls, we're done
+        if result.tool_calls.is_empty() {
+            eprintln!("[test] No more tool calls — loop complete after {iteration} iterations");
+            eprintln!("[test] Final text: {}", result.text.chars().take(500).collect::<String>());
+            break;
+        }
+
+        // Execute each tool
+        for (tool_id, tool_name, tool_input) in &result.tool_calls {
+            eprintln!("[test] Executing tool: {tool_name} (id={tool_id})");
+
+            let start = std::time::Instant::now();
+            // tools::execute_tool internally creates a tokio runtime (bash tool),
+            // so we must run it outside the async context via spawn_blocking.
+            let tn = tool_name.clone();
+            let ti = tool_input.clone();
+            let (output, is_error) = tokio::task::spawn_blocking(move || {
+                tools::execute_tool(&tn, &ti)
+            })
+            .await
+            .expect("spawn_blocking panicked")
+            .map(|o| (o, false))
+            .unwrap_or_else(|e| (e, true));
+            eprintln!(
+                "[test] Tool {} {}: {} chars ({:?})",
+                tool_name,
+                if is_error { "FAILED" } else { "OK" },
+                output.len(),
+                start.elapsed()
+            );
+
+            let truncated = if output.len() > 50_000 {
+                format!("{}...\n[Truncated from {} chars]", &output[..50_000], output.len())
+            } else {
+                output
+            };
+
+            let tool_msg = ConversationMessage::tool_result(tool_id, tool_name, truncated, is_error);
+            session.push_message(tool_msg).expect("push tool result");
+        }
+    }
+
+    // 7. Persist session
+    session.save_to_path(&session_path).expect("save session");
+
+    // 8. Verify session file (JSONL format — one JSON object per line)
+    assert!(session_path.exists(), "session file should exist");
+    let raw = std::fs::read_to_string(&session_path).expect("read session");
+    let lines: Vec<&str> = raw.lines().filter(|l| !l.trim().is_empty()).collect();
+    eprintln!("[test] Session persisted: {} JSONL lines in {}", lines.len(), session_path.display());
+    assert!(lines.len() >= 4, "Expected at least 4 JSONL lines, got {}", lines.len());
+
+    // Parse each line to verify valid JSON
+    let mut roles: Vec<String> = Vec::new();
+    for (i, line) in lines.iter().enumerate() {
+        let val: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(e) => panic!("Line {} is not valid JSON: {}", i, e),
+        };
+        if let Some(msg) = val.get("message") {
+            if let Some(role) = msg.get("role").and_then(|r| r.as_str()) {
+                roles.push(role.to_string());
+            }
+        }
+    }
+    eprintln!("[test] Roles: {:?}", roles);
+    assert!(roles.iter().any(|r| r == "user"), "Should have user message");
+    assert!(roles.iter().any(|r| r == "tool"), "Should have tool result");
+    assert!(roles.iter().any(|r| r == "assistant"), "Should have assistant message");
+
+    let _ = std::fs::remove_dir_all(&session_dir);
+    eprintln!("[test] Integration test PASSED");
+}
+
+
+/// Verify claw_agent_system_prompt includes Hermes skills.
+#[test]
+fn test_claw_agent_system_prompt_includes_skills() {
+    use crate::commands::claw_chat::claw_agent_system_prompt;
+    let prompt = claw_agent_system_prompt(200 * 1024);
+    assert!(prompt.len() > 1000, "System prompt should be substantial, got {} chars", prompt.len());
+    assert!(prompt.contains("Hermes Skills"), "System prompt should contain Hermes Skills section");
+    println!("✅ System prompt: {} chars", prompt.len());
+}
+
+/// Integration test: verify skills appear in system prompt and model uses them.
+
+/// Integration test: verify CLAUDE.md memory is loaded and used by the model.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore] // Requires real API key
+async fn integration_claude_md_memory_is_used() {
+    use crate::commands::claw_chat::{
+        build_tool_definitions, session_to_input_messages, setup_env_from_claw_config,
+        turn_result_to_assistant_message,
+    };
+    use runtime::{ConversationMessage, Session};
+    use supertool_claw::llm::LlmClient;
+    use tools;
+
+    setup_env_from_claw_config().expect("setup env");
+    let client = LlmClient::from_env().expect("create LLM client");
+    eprintln!("[test] Provider: {:?}, Model: {}", client.provider(), client.model());
+
+    // Create a temporary workspace with a CLAUDE.md
+    let workspace = std::path::PathBuf::from("/tmp/_claw_memory_test");
+    std::fs::create_dir_all(&workspace).ok();
+    let claude_md = workspace.join("CLAUDE.md");
+    let test_memory = "# Project Memory\n\nThis project uses a custom convention:\n- All functions must be prefixed with `myapp_`\n- The database is PostgreSQL 15\n- The team color is #FF5733\n- Never use `SELECT *` in queries\n";
+    std::fs::write(&claude_md, test_memory).expect("write CLAUDE.md");
+
+    // Init git repo
+    let _ = std::process::Command::new("git")
+        .args(["init"])
+        .current_dir(&workspace)
+        .output();
+
+    std::env::set_current_dir(&workspace).expect("set cwd");
+
+    let mut session = Session::new();
+    let tool_defs = build_tool_definitions();
+
+    session
+        .push_user_text("What is the team color and what prefix should all functions use? Answer briefly.")
+        .expect("push user text");
+
+    let system_prompt = crate::commands::claw_chat::claw_agent_system_prompt(200 * 1024);
+    eprintln!("[test] System prompt length: {} chars", system_prompt.len());
+    eprintln!("[test] Contains 'myapp_': {}", system_prompt.contains("myapp_"));
+    eprintln!("[test] Contains 'FF5733': {}", system_prompt.contains("FF5733"));
+
+    // Tool loop
+    let mut final_text = String::new();
+    for iteration in 0..5 {
+        let input_messages = session_to_input_messages(&session.messages);
+        eprintln!("[test] Iteration {}: {} messages", iteration + 1, input_messages.len());
+
+        let result = client
+            .send_turn(
+                input_messages,
+                Some(&system_prompt),
+                Some(tool_defs.clone()),
+                None,
+                Some(|event| match event {
+                    supertool_claw::llm::LlmStreamEvent::TextDelta { text } => {
+                        eprint!("{text}");
+                    }
+                    supertool_claw::llm::LlmStreamEvent::ToolCall { id: _, name, input } => {
+                        eprintln!("\n[test] Tool: {}({})", name, input.to_string().chars().take(100).collect::<String>());
+                    }
+                    _ => {}
+                }),
+            )
+            .await
+            .expect("send_turn");
+
+        eprintln!("\n[test] text={} chars, tools={}", result.text.len(), result.tool_calls.len());
+
+        let assistant_msg = turn_result_to_assistant_message(&result);
+        session.push_message(assistant_msg).expect("push");
+
+        if result.tool_calls.is_empty() {
+            final_text = result.text.clone();
+            break;
+        }
+
+        for (tool_id, tool_name, tool_input) in &result.tool_calls {
+            let tn = tool_name.clone();
+            let ti = tool_input.clone();
+            let output = tokio::task::spawn_blocking(move || tools::execute_tool(&tn, &ti))
+                .await
+                .unwrap()
+                .unwrap_or_else(|e| e);
+            let truncated = if output.len() > 2000 { format!("{}...", &output[..2000]) } else { output };
+            let tool_msg = ConversationMessage::tool_result(tool_id, tool_name, truncated, false);
+            session.push_message(tool_msg).expect("push tool result");
+        }
+    }
+
+    eprintln!("\n[test] Final: {}", final_text);
+    assert!(!final_text.is_empty(), "Should get a response");
+
+    let text = final_text.to_lowercase();
+    let has_info = text.contains("ff5733") || text.contains("myapp_") || text.contains("myapp");
+    assert!(has_info, "Response should reference CLAUDE.md content. Got: {}", final_text);
+
+    eprintln!("\n[test] CLAUDE.md memory test PASSED");
+    let _ = std::fs::remove_dir_all(&workspace);
+}
+
+/// Verify load_hermes_skills returns content with skill index.
+#[test]
+fn test_load_hermes_skills_includes_index() {
+    use crate::commands::claw_chat::load_hermes_skills;
+    let result = load_hermes_skills(200 * 1024);
+    assert!(result.contains("Hermes Skills"), "Should contain 'Hermes Skills' header");
+    assert!(result.contains("software-development") || result.contains("github"),
+        "Should contain at least one coding skill category");
+    println!("load_hermes_skills returned {} chars", result.len());
+}
+
+/// Integration test: verify skills appear in system prompt and model uses them.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn integration_skills_in_prompt_are_used() {
+    use crate::commands::claw_chat::{
+        build_tool_definitions, load_hermes_skills, session_to_input_messages,
+        setup_env_from_claw_config, turn_result_to_assistant_message,
+    };
+    use runtime::{ConversationMessage, Session};
+    use supertool_claw::llm::LlmClient;
+    use tools;
+
+    setup_env_from_claw_config().expect("setup env");
+    let client = LlmClient::from_env().expect("create LLM client");
+
+    let skills = load_hermes_skills(200 * 1024);
+    assert!(skills.contains("Hermes Skills"), "Skills should be loaded");
+
+    let mut session = Session::new();
+    let tool_defs = build_tool_definitions();
+
+    session
+        .push_user_text("You have a GitHub skill loaded in your system prompt. Summarize in 3 bullet points what the GitHub skill says about creating pull requests. Do NOT use any tools.")
+        .expect("push user text");
+
+    let system_prompt = crate::commands::claw_chat::claw_agent_system_prompt(200 * 1024);
+    let mut final_text = String::new();
+
+    for _ in 0..5 {
+        let input_messages = session_to_input_messages(&session.messages);
+        let result = client
+            .send_turn(input_messages, Some(&system_prompt), Some(tool_defs.clone()), None,
+                Some(|event| match event {
+                    supertool_claw::llm::LlmStreamEvent::TextDelta { text } => { eprint!("{text}"); }
+                    _ => {}
+                }))
+            .await
+            .expect("send_turn");
+        session.push_message(turn_result_to_assistant_message(&result)).expect("push");
+        if result.tool_calls.is_empty() {
+            final_text = result.text.clone();
+            break;
+        }
+        for (tool_id, tool_name, tool_input) in &result.tool_calls {
+            let tn = tool_name.clone(); let ti = tool_input.clone();
+            let output = tokio::task::spawn_blocking(move || tools::execute_tool(&tn, &ti)).await.unwrap().unwrap_or_else(|e| e);
+            session.push_message(ConversationMessage::tool_result(tool_id, tool_name, output, false)).expect("push");
+        }
+    }
+
+    assert!(!final_text.is_empty(), "Should get a response");
+    let text = final_text.to_lowercase();
+    assert!(text.contains("pull request") || text.contains("github") || text.contains("branch"),
+        "Response should reference GitHub skill. Got: {}", final_text);
+    println!("\nSkills test PASSED");
 }

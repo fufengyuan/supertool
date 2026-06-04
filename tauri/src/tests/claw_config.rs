@@ -69,6 +69,7 @@ fn test_claw_config_set_preserves_unspecified_fields() {
         None,
         Some("test-model".to_string()),
         None,
+        None, None, None, None, None, None,
     ).expect("set should succeed");
     assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
     let after = read_claw_config().unwrap_or_default();
@@ -115,6 +116,7 @@ fn test_claw_config_get_returns_raw_key_not_masked() {
     claw_config_set(
         Some("sk-test-raw-key-12345-abcdef".to_string()),
         None, None, None,
+        None, None, None, None, None, None,
     ).expect("set should succeed");
 
     // Read back — MUST be the raw key, NOT masked as "sk-t...cdef"
@@ -141,6 +143,7 @@ fn test_claw_config_get_returns_raw_key_when_only_asterisks() {
     claw_config_set(
         Some("***".to_string()),
         None, None, None,
+        None, None, None, None, None, None,
     ).expect("set should succeed");
 
     let result = claw_config_get().unwrap();
@@ -164,6 +167,7 @@ fn test_setup_env_from_claw_config_sets_raw_not_masked() {
         Some("https://test.api.com/v1".to_string()),
         Some("test-model".to_string()),
         None,
+        None, None, None, None, None, None,
     ).expect("set should succeed");
 
     // This should set env vars with the RAW key, not a masked version

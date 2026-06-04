@@ -2032,8 +2032,8 @@ export interface TauriAPI {
   clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
   clawReadModelsConfig: () => Promise<unknown>
   clawReadStats: () => Promise<{ sessions: number; messages: number }>
-  clawConfigGet: () => Promise<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>
-  clawConfigSet: (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) => Promise<{ success: boolean; message: string }>
+  clawConfigGet: () => Promise<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string; maxIterations: number; skillBytesCap: number; maxRetries: number; reasoningEffort: string; toolOutputTruncation: number; autoCompaction: boolean }>
+  clawConfigSet: (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string; maxIterations?: number; skillBytesCap?: number; maxRetries?: number; reasoningEffort?: string; toolOutputTruncation?: number; autoCompaction?: boolean }) => Promise<{ success: boolean; message: string }>
   // Claw Skills
   clawListSkills: () => Promise<Array<{ name: string; category: string; description: string; path: string; source: string }>>
   clawGetSkillContent: (path: string) => Promise<string>
@@ -2826,8 +2826,8 @@ export function getTauriAPI(): TauriAPI {
     clawReadStats: async () =>
       tauriCall<{ sessions: number; messages: number }>('claw_read_stats'),
     clawConfigGet: async () =>
-      tauriCall<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string }>('claw_config_get'),
-    clawConfigSet: async (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string }) =>
+      tauriCall<{ apiKey: string; hasApiKey: boolean; baseUrl: string; model: string; provider: string; maxIterations: number; skillBytesCap: number; maxRetries: number; reasoningEffort: string; toolOutputTruncation: number; autoCompaction: boolean }>('claw_config_get'),
+    clawConfigSet: async (params: { apiKey?: string; baseUrl?: string; model?: string; provider?: string; maxIterations?: number; skillBytesCap?: number; maxRetries?: number; reasoningEffort?: string; toolOutputTruncation?: number; autoCompaction?: boolean }) =>
       tauriCall<{ success: boolean; message: string }>('claw_config_set', params),
     clawListSkills: async () =>
       tauriCall<Array<{ name: string; category: string; description: string; path: string; source: string }>>('claw_list_skills'),

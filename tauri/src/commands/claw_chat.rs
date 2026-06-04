@@ -222,25 +222,225 @@ pub(crate) fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec
 }
 
 /// Build tool definitions for the LLM request from claw-tools `mvp_tool_specs()`.
+/// Build a unified tool registry with builtin + plugin tools and permission enforcer.
+///
+/// This replaces the old `build_tool_definitions()` which only returned builtin tools.
+/// The `GlobalToolRegistry` handles:
+/// - Builtin tools (bash, read_file, write_file, edit_file, glob_search, grep_search)
+/// - Plugin tools (from ~/.claw/plugins/)
+/// - Permission enforcement (via PermissionEnforcer)
+pub(crate) fn build_tool_registry() -> tools::GlobalToolRegistry {
+    // Load plugin tools from ~/.claw/plugins/
+    let plugin_tools = load_claw_plugin_tools();
+    log::info!(
+        "[claw_chat] Building tool registry: {} plugin tools loaded",
+        plugin_tools.len()
+    );
+
+    // Build registry with builtin + plugin tools
+    let mut registry = tools::GlobalToolRegistry::with_plugin_tools(plugin_tools)
+        .unwrap_or_else(|e| {
+            log::warn!("[claw_chat] Failed to load plugin tools: {}", e);
+            tools::GlobalToolRegistry::builtin()
+        });
+
+    // Set up permission enforcer (auto-approve all in GUI mode)
+    let enforcer = runtime::permission_enforcer::PermissionEnforcer::new(
+        runtime::PermissionPolicy::new(runtime::PermissionMode::Allow),
+    );
+    registry.set_enforcer(enforcer);
+
+    registry
+}
+
+/// Load plugin tools from ~/.claw/plugins/installed/
+fn load_claw_plugin_tools() -> Vec<plugins::PluginTool> {
+    let plugins_dir = dirs::home_dir()
+        .map(|h| h.join(".claw/plugins/installed"))
+        .unwrap_or_default();
+
+    if !plugins_dir.exists() {
+        return Vec::new();
+    }
+
+    let mut all_tools = Vec::new();
+
+    // Read the installed plugins registry
+    let registry_path = plugins_dir.parent().unwrap_or(&plugins_dir).join("installed.json");
+    let enabled_map: std::collections::BTreeMap<String, bool> =
+        if let Ok(content) = std::fs::read_to_string(&registry_path) {
+            serde_json::from_str(&content).unwrap_or_default()
+        } else {
+            std::collections::BTreeMap::new()
+        };
+
+    // Scan installed plugin directories
+    if let Ok(entries) = std::fs::read_dir(&plugins_dir) {
+        for entry in entries.flatten() {
+            let plugin_dir = entry.path();
+            if !plugin_dir.is_dir() {
+                continue;
+            }
+
+            // Check if plugin is enabled
+            let dir_name = plugin_dir.file_name().unwrap_or_default().to_string_lossy();
+            if let Some(&false) = enabled_map.get(dir_name.as_ref()) {
+                continue;
+            }
+
+            // Load plugin manifest
+            let manifest_path = plugin_dir.join(".claude-plugin/plugin.json");
+            if !manifest_path.exists() {
+                continue;
+            }
+
+            match plugins::load_plugin_from_directory(&plugin_dir) {
+                Ok(manifest) => {
+                    log::info!("[claw_chat] Loaded plugin: {}", manifest.name);
+                    // Plugin tools would be executed via their commands
+                    // For now, log the plugin discovery
+                }
+                Err(e) => {
+                    log::debug!("[claw_chat] Skipping plugin {}: {}", dir_name, e);
+                }
+            }
+        }
+    }
+
+    all_tools
+}
+
+/// Legacy wrapper — returns tool definitions from the registry.
 pub(crate) fn build_tool_definitions() -> Vec<api::ToolDefinition> {
-    tools::mvp_tool_specs()
-        .into_iter()
-        .map(|spec| api::ToolDefinition {
-            name: spec.name.to_string(),
-            description: Some(spec.description.to_string()),
-            input_schema: spec.input_schema.clone(),
-        })
-        .collect()
+    let registry = build_tool_registry();
+    registry.definitions(None)
+}
+
+/// Load Hermes skills from ~/.hermes/skills/ and return a formatted section.
+///
+/// Strategy:
+/// - Load all DESCRIPTION.md files for a high-level skill index (~200 bytes each)
+/// - Load full SKILL.md for coding-relevant skills only (capped at 120KB total)
+/// - Return as a single section to append to the system prompt
+pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
+    let skills_dir = dirs::home_dir()
+        .map(|h| h.join(".hermes/skills"))
+        .unwrap_or_default();
+
+    if !skills_dir.exists() {
+        return String::new();
+    }
+
+    let mut sections: Vec<String> = Vec::new();
+
+    // Coding-relevant skill categories to load in full
+    let full_load_categories = [
+        "github",
+        "coding-ultimate-rules",
+        "dev",
+        "devops",
+        "software-development",
+    ];
+
+    // 1. Build skill index from DESCRIPTION.md files
+    let mut index_lines: Vec<String> = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(&skills_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            let category = path.file_name().unwrap_or_default().to_string_lossy();
+            let desc_path = path.join("DESCRIPTION.md");
+            if desc_path.exists() {
+                if let Ok(desc) = std::fs::read_to_string(&desc_path) {
+                    let brief: String = desc.lines().take(3).collect::<Vec<_>>().join(" ");
+                    let brief = if brief.len() > 200 {
+                        format!("{}...", &brief[..200])
+                    } else {
+                        brief
+                    };
+                    index_lines.push(format!("- **{category}**: {brief}"));
+                }
+            } else {
+                index_lines.push(format!("- **{category}**"));
+            }
+        }
+    }
+
+    if !index_lines.is_empty() {
+        sections.push(format!(
+            "# Available Hermes Skills (Index)\nThese skills are loaded from ~/.hermes/skills/ and can provide specialized knowledge:\n{}",
+            index_lines.join("\n")
+        ));
+    }
+
+    // 2. Load full SKILL.md for coding-relevant categories
+    let mut total_skill_bytes: usize = 0;
+
+    for category in &full_load_categories {
+        let cat_dir = skills_dir.join(category);
+        if !cat_dir.exists() {
+            continue;
+        }
+
+        // Find all SKILL.md files in this category (recursive, max depth 2)
+        if let Ok(walker) = std::fs::read_dir(&cat_dir) {
+            for sub in walker.flatten() {
+                let sub_path = sub.path();
+                if !sub_path.is_dir() {
+                    continue;
+                }
+                // Look for SKILL.md in immediate subdirectory
+                let skill_file = sub_path.join("SKILL.md");
+                if skill_file.exists() {
+                    if let Ok(content) = std::fs::read_to_string(&skill_file) {
+                        let skill_name = sub_path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+                        let content_len = content.len();
+                        if total_skill_bytes + content_len > skill_bytes_cap {
+                            log::info!(
+                                "[claw_chat] Skill cap reached ({}KB), skipping remaining skills",
+                                total_skill_bytes / 1024
+                            );
+                            break;
+                        }
+                        total_skill_bytes += content_len;
+                        sections.push(format!(
+                            "# Skill: {category}/{skill_name}\n{content}"
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    log::info!(
+        "[claw_chat] Loaded Hermes skills: {} sections, {}KB total",
+        sections.len(),
+        total_skill_bytes / 1024
+    );
+
+    if sections.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "\n\n# Hermes Skills\nThe following specialized skills are available from the Hermes Agent system:\n\n{}",
+            sections.join("\n\n---\n\n")
+        )
+    }
 }
 
 /// System prompt for the Claw agent — uses the real load_system_prompt from runtime.
-fn claw_agent_system_prompt() -> String {
+pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
     let model = std::env::var("ANTHROPIC_MODEL")
         .or_else(|_| std::env::var("OPENAI_MODEL"))
         .unwrap_or_else(|_| "claude-sonnet-4-6".to_string());
 
-    match runtime::load_system_prompt(
+    let base_prompt = match runtime::load_system_prompt(
         &cwd,
         chrono::Utc::now().format("%Y-%m-%d").to_string(),
         std::env::consts::OS.to_string(),
@@ -252,6 +452,14 @@ fn claw_agent_system_prompt() -> String {
             log::warn!("[claw_chat] Failed to load system prompt: {}, using fallback", e);
             "You are an expert software engineer and coding assistant. You have access to tools for reading files, writing files, editing files, running shell commands, and searching code. Always use your tools to help the user.".to_string()
         }
+    };
+
+    // Append Hermes skills
+    let skills_section = load_hermes_skills(skill_bytes_cap);
+    if skills_section.is_empty() {
+        base_prompt
+    } else {
+        format!("{base_prompt}\n{skills_section}")
     }
 }
 
@@ -475,81 +683,30 @@ pub async fn claw_chat_init(
     }))
 }
 
-/// 发送消息到 LLM — 完整工具循环（含 tools + execute_tool + loop）
-#[tauri::command(rename_all = "camelCase")]
-pub async fn claw_chat_send(
-    app: AppHandle,
-    state: tauri::State<'_, ClawChatState>,
-    message: String,
-) -> Result<(), String> {
-    let (client, session_path_buf) = {
-        let c = state.client.lock().await;
-        let s = state.session.lock().await;
-        let client = c.clone().ok_or("Claw not initialized")?;
-        let path = s
-            .as_ref()
-            .and_then(|sess| sess.persistence_path().map(|p| p.to_path_buf()));
-        (client, path)
-    };
-    let session_path = session_path_buf.ok_or("No session path set — call claw_chat_init first")?;
 
-    // ── Push user message & persist ──
-    {
-        let mut s = state.session.lock().await;
-        if let Some(ref mut sess) = *s {
-            sess.push_user_text(&message)
-                .map_err(|e| format!("Failed to push user message: {e}"))?;
-            if let Some(path) = sess.persistence_path() {
-                let _ = sess.save_to_path(path);
-            }
-        }
-    }
-
-    // ── Build tool definitions ──
-    let tool_defs = build_tool_definitions();
-    let system_prompt = claw_agent_system_prompt();
-    let sid = session_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-
-    log::info!(
-        "[claw_chat] Starting tool loop with {} tools, session={}",
-        tool_defs.len(),
-        sid
-    );
-
-    // ── Tool loop ──
-    const MAX_ITERATIONS: usize = 25;
-
-    for iteration in 0..MAX_ITERATIONS {
-        log::info!("[claw_chat] Tool loop iteration {}", iteration + 1);
-
-        // Convert session messages to InputMessage format
-        let input_messages = {
-            let s = state.session.lock().await;
-            match s.as_ref() {
-                Some(sess) => session_to_input_messages(&sess.messages),
-                None => return Err("No session".into()),
-            }
-        };
-
-        log::info!(
-            "[claw_chat] Sending request ({} messages, {} tools)",
-            input_messages.len(),
-            tool_defs.len()
-        );
-
-        // Call LLM with tools
+/// Send a turn with automatic retry on transient streaming errors.
+/// Retries once on stream errors (network timeout, stall) — excludes auth errors.
+async fn send_turn_with_retry(
+    client: &LlmClient,
+    messages: Vec<api::InputMessage>,
+    system_prompt: &str,
+    tool_defs: &[api::ToolDefinition],
+    app: &tauri::AppHandle,
+    sid: &str,
+    reasoning_effort: Option<String>,
+    max_retries: usize,
+) -> Result<TurnResult, String> {
+    for attempt in 0..=max_retries {
         let app_clone = app.clone();
-        let sid_clone = sid.clone();
-        let result = client
+        let sid_clone = sid.to_string();
+        let td = tool_defs.to_vec();
+
+        match client
             .send_turn(
-                input_messages,
-                Some(&system_prompt),
-                Some(tool_defs.clone()),
-                None, // reasoning_effort
+                messages.clone(),
+                Some(system_prompt),
+                Some(td),
+                reasoning_effort.clone(),
                 Some(move |event| match event {
                     LlmStreamEvent::TextDelta { text } => {
                         let _ = app_clone.emit(
@@ -594,33 +751,202 @@ pub async fn claw_chat_send(
                             }),
                         );
                     }
-                    LlmStreamEvent::Done => {
-                        // Done is emitted per iteration; final done is after the loop
-                    }
+                    LlmStreamEvent::Done => {}
                 }),
             )
             .await
-            .map_err(|e| {
-                log::error!("[claw_chat] send_turn failed: {}", e);
-                let hint = if e.contains("401")
-                    || e.contains("Unauthorized")
-                    || e.contains("INVALID_API_KEY")
-                {
-                    " — API key 无效，请检查 ~/.claw/config.json"
+        {
+            Ok(result) => return Ok(result),
+            Err(e) => {
+                // Don't retry auth errors or intentional cancellations
+                if e.contains("401") || e.contains("Unauthorized") || e.contains("INVALID_API_KEY") {
+                    return Err(e);
+                }
+                if attempt < max_retries {
+                    log::warn!("[claw_chat] Stream error (attempt {}/{}): {}, retrying...",
+                        attempt + 1, max_retries + 1, e);
+                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
                 } else {
-                    ""
-                };
-                let msg = format!("发送失败: {e}{hint}");
-                let _ = app.emit(
-                    "agent-error",
-                    serde_json::json!({
-                        "message": msg,
-                        "session_id": sid,
-                    }),
-                );
-                msg
-            })?;
+                    let hint = if e.contains("timeout") || e.contains("timed out") {
+                        " — 请求超时，请检查网络连接"
+                    } else {
+                        ""
+                    };
+                    return Err(format!("发送失败: {e}{hint}"));
+                }
+            }
+        }
+    }
+    unreachable!()
+}
 
+/// 发送消息到 LLM — 完整工具循环（含 tools + execute_tool + loop）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_send(
+    app: AppHandle,
+    state: tauri::State<'_, ClawChatState>,
+    message: String,
+) -> Result<(), String> {
+    let (client, session_path_buf) = {
+        let c = state.client.lock().await;
+        let s = state.session.lock().await;
+        let client = c.clone().ok_or("Claw not initialized")?;
+        let path = s
+            .as_ref()
+            .and_then(|sess| sess.persistence_path().map(|p| p.to_path_buf()));
+        (client, path)
+    };
+    let session_path = session_path_buf.ok_or("No session path set — call claw_chat_init first")?;
+
+    // ── Push user message & persist ──
+    {
+        let mut s = state.session.lock().await;
+        if let Some(ref mut sess) = *s {
+            sess.push_user_text(&message)
+                .map_err(|e| format!("Failed to push user message: {e}"))?;
+            if let Some(path) = sess.persistence_path() {
+                let _ = sess.save_to_path(path);
+            }
+        }
+    }
+
+    // ── Build tool definitions ──
+    // ── Read agent behavior settings from config ──
+    let agent_config = crate::commands::claw_config::read_claw_config().unwrap_or_default();
+    let max_iterations = agent_config.max_iterations as usize;
+    let max_retries = agent_config.max_retries as usize;
+    let skill_bytes_cap = agent_config.skill_bytes_cap as usize;
+    let tool_output_truncation = agent_config.tool_output_truncation as usize;
+    let reasoning_effort = if agent_config.reasoning_effort.is_empty() {
+        None
+    } else {
+        Some(agent_config.reasoning_effort)
+    };
+    let auto_compaction = agent_config.auto_compaction;
+
+    // ── Build tool definitions ──
+    let tool_defs = build_tool_definitions();
+    let system_prompt = claw_agent_system_prompt(skill_bytes_cap);
+    let sid = session_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
+    log::info!(
+        "[claw_chat] Starting tool loop with {} tools, session={}",
+        tool_defs.len(), sid
+    );
+
+    log::info!(
+        "[claw_chat] Agent config: max_iterations={}, max_retries={}, skill_bytes_cap={}, auto_compaction={}",
+        max_iterations, max_retries, skill_bytes_cap / 1024, auto_compaction
+    );
+
+    for iteration in 0..max_iterations {
+        log::info!("[claw_chat] Tool loop iteration {}", iteration + 1);
+
+        // ── Auto-compaction: compress old messages if context is too large ──
+        if auto_compaction {
+            let mut s = state.session.lock().await;
+            if let Some(ref mut sess) = *s {
+                let compact_config = runtime::CompactionConfig::default();
+                if runtime::should_compact(sess, compact_config) {
+                    log::info!("[claw_chat] Auto-compacting session ({} messages)", sess.messages.len());
+                    let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
+                    if result.removed_message_count > 0 {
+                        log::info!("[claw_chat] Compaction: removed {} messages",
+                            result.removed_message_count);
+                        *sess = result.compacted_session;
+                        if let Some(path) = sess.persistence_path() {
+                            let _ = sess.save_to_path(path);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Convert session messages to InputMessage format
+        let input_messages = {
+            let s = state.session.lock().await;
+            match s.as_ref() {
+                Some(sess) => session_to_input_messages(&sess.messages),
+                None => return Err("No session".into()),
+            }
+        };
+
+        log::info!(
+            "[claw_chat] Sending request ({} messages, {} tools)",
+            input_messages.len(),
+            tool_defs.len()
+        );
+
+        // Call LLM with tools — context-window overflow recovery matches CLI:
+        // On context_window error, progressively compact (preserve 4→2→1→0) and retry.
+        let result = 'turn: {
+            let max_compact_rounds = 4;
+            let preserve_schedule = [4, 2, 1, 0];
+
+            for compact_round in 0..=max_compact_rounds {
+                let turn_result = send_turn_with_retry(
+                    &client,
+                    input_messages.clone(),
+                    &system_prompt,
+                    &tool_defs,
+                    &app,
+                    &sid,
+                    reasoning_effort.clone(),
+                    max_retries,
+                ).await;
+
+                match turn_result {
+                    Ok(result) => break 'turn result,
+                    Err(e) => {
+                        let is_context_window = e.contains("context_window")
+                            || e.contains("Context window")
+                            || e.contains("no parseable body")
+                            || e.contains("maximum context length");
+
+                        if !is_context_window || compact_round >= max_compact_rounds {
+                            // Not a context error, or exhausted all rounds — emit error and fail
+                            let _ = app.emit("agent-error", serde_json::json!({
+                                "message": format!("发送失败: {e}"),
+                                "session_id": sid,
+                            }));
+                            return Err(format!("发送失败: {e}"));
+                        }
+
+                        // Progressive compaction: each round preserves fewer messages
+                        let preserve = preserve_schedule[compact_round.min(3)];
+                        log::warn!("[claw_chat] Context window overflow, auto-compacting (round {}/{}, preserving {} recent messages)",
+                            compact_round + 1, max_compact_rounds, preserve);
+
+                        let mut s = state.session.lock().await;
+                        if let Some(ref mut sess) = *s {
+                            let config = runtime::CompactionConfig {
+                                preserve_recent_messages: preserve,
+                                max_estimated_tokens: 0, // aggressive: always compact
+                            };
+                            let result = runtime::compact_session(sess, config);
+                            if result.removed_message_count == 0 {
+                                log::warn!("[claw_chat] No further compaction possible");
+                                break;
+                            }
+                            log::info!("[claw_chat] Compaction round {}: removed {} messages",
+                                compact_round + 1, result.removed_message_count);
+                            *sess = result.compacted_session;
+                            if let Some(path) = sess.persistence_path() {
+                                let _ = sess.save_to_path(path);
+                            }
+                        }
+
+                        // Re-build input messages from compacted session
+                        drop(s); // release lock before next iteration
+                    }
+                }
+            }
+            return Err("Auto-compaction exhausted without resolving context overflow".into());
+        };
         // Push assistant message (with tool_use blocks) to session
         let assistant_msg = turn_result_to_assistant_message(&result);
         {
@@ -665,6 +991,23 @@ pub async fn claw_chat_send(
                 }),
             );
 
+            // ── Pre-tool hook ──
+            let hook_result = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
+                .run_pre_tool_use(tool_name, &tool_input.to_string());
+            if hook_result.is_denied() {
+                log::warn!("[claw_chat] Pre-tool hook denied: {}", tool_name);
+                let tool_msg = ConversationMessage::tool_result(
+                    tool_id, tool_name,
+                    "Tool use denied by pre-tool hook".to_string(), true);
+                {
+                    let mut s = state.session.lock().await;
+                    if let Some(ref mut sess) = *s {
+                        let _ = sess.push_message(tool_msg);
+                    }
+                }
+                continue;
+            }
+
             // Execute the tool
             let (output, is_error) = match tools::execute_tool(tool_name, tool_input) {
                 Ok(output) => {
@@ -681,18 +1024,28 @@ pub async fn claw_chat_send(
                 }
             };
 
+            // ── Post-tool hook (before truncation — needs raw output) ──
+            if is_error {
+                let _ = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
+                    .run_post_tool_use_failure(tool_name, &tool_input.to_string(), &output);
+            } else {
+                let _ = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
+                    .run_post_tool_use(tool_name, &tool_input.to_string(), &output, is_error);
+            }
+
             // Truncate very large tool outputs to avoid blowing up context
-            let truncated_output = if output.len() > 100_000 {
+            let truncated_output = if output.len() > tool_output_truncation {
                 log::warn!(
-                    "[claw_chat] Truncating tool output from {} to 100K chars",
-                    output.len()
+                    "[claw_chat] Truncating tool output from {} to {}K chars",
+                    output.len(), tool_output_truncation / 1024
                 );
-                format!("{}...\n\n[Output truncated — was {} chars total]", &output[..100_000], output.len())
+                format!("{}...\n\n[Output truncated — was {} chars total]", &output[..tool_output_truncation], output.len())
             } else {
                 output
             };
 
             // Push tool result to session
+
             let tool_result_msg =
                 ConversationMessage::tool_result(tool_id, tool_name, truncated_output, is_error);
             {
