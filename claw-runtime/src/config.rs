@@ -182,6 +182,7 @@ pub struct RuntimeHookConfig {
     pre_tool_use: Vec<RuntimeHookCommand>,
     post_tool_use: Vec<RuntimeHookCommand>,
     post_tool_use_failure: Vec<RuntimeHookCommand>,
+    invalid_hooks: Vec<RuntimeInvalidHookConfig>,
 }
 
 /// A hook command plus optional tool matcher from object-style hook config.
@@ -189,6 +190,16 @@ pub struct RuntimeHookConfig {
 pub struct RuntimeHookCommand {
     command: String,
     matcher: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuntimeInvalidHookConfig {
+    pub event: String,
+    pub index: Option<usize>,
+    pub hook_index: Option<usize>,
+    pub kind: String,
+    pub error_field: String,
+    pub reason: String,
 }
 
 /// Raw permission rule lists grouped by allow, deny, and ask behavior.
@@ -207,9 +218,19 @@ pub struct RuntimePermissionRuleConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct McpConfigCollection {
     servers: BTreeMap<String, ScopedMcpServerConfig>,
+    invalid_servers: Vec<McpInvalidServerConfig>,
+    total_configured: usize,
 }
 
-/// MCP server config paired with the scope that defined it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpInvalidServerConfig {
+    pub name: String,
+    pub scope: ConfigSource,
+    pub path: PathBuf,
+    pub error_field: String,
+    pub reason: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopedMcpServerConfig {
     pub required: bool,
@@ -386,7 +407,7 @@ impl ConfigLoader {
     pub fn load(&self) -> Result<RuntimeConfig, ConfigError> {
         let mut merged = BTreeMap::new();
         let mut loaded_entries = Vec::new();
-        let mut mcp_servers = BTreeMap::new();
+        let mut mcp = McpConfigCollection::default();
         let mut all_warnings = Vec::new();
 
         for entry in self.discover() {
@@ -405,7 +426,7 @@ impl ConfigLoader {
             }
             all_warnings.extend(validation.warnings);
             validate_optional_hooks_config(&parsed.object, &entry.path)?;
-            merge_mcp_servers(&mut mcp_servers, entry.source, &parsed.object, &entry.path)?;
+            merge_mcp_servers(&mut mcp, entry.source, &parsed.object, &entry.path)?;
             deep_merge_objects(&mut merged, &parsed.object);
             loaded_entries.push(entry);
         }
@@ -414,7 +435,7 @@ impl ConfigLoader {
             emit_config_warning_once(&warning.to_string());
         }
 
-        build_runtime_config(merged, loaded_entries, mcp_servers)
+        build_runtime_config(merged, loaded_entries, mcp)
     }
 
     /// Like [`load`] but also returns the list of validation warnings collected during
@@ -425,7 +446,7 @@ impl ConfigLoader {
     pub fn load_collecting_warnings(&self) -> Result<(RuntimeConfig, Vec<String>), ConfigError> {
         let mut merged = BTreeMap::new();
         let mut loaded_entries = Vec::new();
-        let mut mcp_servers = BTreeMap::new();
+        let mut mcp = McpConfigCollection::default();
         let mut all_warnings: Vec<String> = Vec::new();
 
         for entry in self.discover() {
@@ -444,12 +465,12 @@ impl ConfigLoader {
             }
             all_warnings.extend(validation.warnings.iter().map(|w| w.to_string()));
             validate_optional_hooks_config(&parsed.object, &entry.path)?;
-            merge_mcp_servers(&mut mcp_servers, entry.source, &parsed.object, &entry.path)?;
+            merge_mcp_servers(&mut mcp, entry.source, &parsed.object, &entry.path)?;
             deep_merge_objects(&mut merged, &parsed.object);
             loaded_entries.push(entry);
         }
 
-        let config = build_runtime_config(merged, loaded_entries, mcp_servers)?;
+        let config = build_runtime_config(merged, loaded_entries, mcp)?;
         Ok((config, all_warnings))
     }
 
@@ -462,7 +483,7 @@ impl ConfigLoader {
     pub fn inspect_collecting_warnings(&self) -> ConfigInspection {
         let mut merged = BTreeMap::new();
         let mut loaded_entries = Vec::new();
-        let mut mcp_servers = BTreeMap::new();
+        let mut mcp = McpConfigCollection::default();
         let mut warnings = Vec::new();
         let mut files = Vec::new();
         let mut load_error = None;
@@ -546,7 +567,7 @@ impl ConfigLoader {
             }
 
             if let Err(error) =
-                merge_mcp_servers(&mut mcp_servers, entry.source, &parsed.object, &entry.path)
+                merge_mcp_servers(&mut mcp, entry.source, &parsed.object, &entry.path)
             {
                 let detail = error.to_string();
                 load_error.get_or_insert_with(|| detail.clone());
@@ -567,7 +588,7 @@ impl ConfigLoader {
 
         annotate_config_file_precedence(&mut files);
 
-        let runtime_config = match build_runtime_config(merged, loaded_entries, mcp_servers) {
+        let runtime_config = match build_runtime_config(merged, loaded_entries, mcp) {
             Ok(config) => Some(config),
             Err(error) => {
                 load_error.get_or_insert_with(|| error.to_string());
@@ -703,16 +724,14 @@ fn collect_config_key_paths_for_value(prefix: &str, value: &JsonValue, keys: &mu
 fn build_runtime_config(
     merged: BTreeMap<String, JsonValue>,
     loaded_entries: Vec<ConfigEntry>,
-    mcp_servers: BTreeMap<String, ScopedMcpServerConfig>,
+    mcp: McpConfigCollection,
 ) -> Result<RuntimeConfig, ConfigError> {
     let merged_value = JsonValue::Object(merged.clone());
 
     let feature_config = RuntimeFeatureConfig {
         hooks: parse_optional_hooks_config(&merged_value)?,
         plugins: parse_optional_plugin_config(&merged_value)?,
-        mcp: McpConfigCollection {
-            servers: mcp_servers,
-        },
+        mcp,
         oauth: parse_optional_oauth_config(&merged_value, "merged settings.oauth")?,
         model: parse_optional_model(&merged_value),
         aliases: parse_optional_aliases(&merged_value)?,
@@ -1190,6 +1209,7 @@ impl RuntimeHookConfig {
             pre_tool_use,
             post_tool_use,
             post_tool_use_failure,
+            invalid_hooks: Vec::new(),
         }
     }
 
@@ -1227,6 +1247,8 @@ impl RuntimeHookConfig {
             &mut self.post_tool_use_failure,
             other.post_tool_use_failure_entries(),
         );
+        self.invalid_hooks
+            .extend(other.invalid_hooks.iter().cloned());
     }
 
     #[must_use]
@@ -1237,6 +1259,25 @@ impl RuntimeHookConfig {
     #[must_use]
     pub fn post_tool_use_failure_entries(&self) -> &[RuntimeHookCommand] {
         &self.post_tool_use_failure
+    }
+
+    #[must_use]
+    pub fn invalid_hooks(&self) -> &[RuntimeInvalidHookConfig] {
+        &self.invalid_hooks
+    }
+
+    #[must_use]
+    pub fn invalid_count(&self) -> usize {
+        self.invalid_hooks.len()
+    }
+
+    #[must_use]
+    pub fn has_invalid_hooks(&self) -> bool {
+        !self.invalid_hooks.is_empty()
+    }
+
+    pub fn push_invalid_hook(&mut self, invalid: RuntimeInvalidHookConfig) {
+        self.invalid_hooks.push(invalid);
     }
 }
 
@@ -1331,6 +1372,31 @@ impl McpConfigCollection {
     }
 
     #[must_use]
+    pub fn invalid_servers(&self) -> &[McpInvalidServerConfig] {
+        &self.invalid_servers
+    }
+
+    #[must_use]
+    pub fn total_configured(&self) -> usize {
+        self.total_configured
+    }
+
+    #[must_use]
+    pub fn valid_count(&self) -> usize {
+        self.servers.len()
+    }
+
+    #[must_use]
+    pub fn invalid_count(&self) -> usize {
+        self.invalid_servers.len()
+    }
+
+    #[must_use]
+    pub fn has_invalid_servers(&self) -> bool {
+        !self.invalid_servers.is_empty()
+    }
+
+    #[must_use]
     pub fn get(&self, name: &str) -> Option<&ScopedMcpServerConfig> {
         self.servers.get(name)
     }
@@ -1421,7 +1487,7 @@ fn read_optional_json_object(path: &Path) -> Result<OptionalConfigFile, ConfigEr
 }
 
 fn merge_mcp_servers(
-    target: &mut BTreeMap<String, ScopedMcpServerConfig>,
+    target: &mut McpConfigCollection,
     source: ConfigSource,
     root: &BTreeMap<String, JsonValue>,
     path: &Path,
@@ -1430,25 +1496,144 @@ fn merge_mcp_servers(
         return Ok(());
     };
     let servers = expect_object(mcp_servers, &format!("{}: mcpServers", path.display()))?;
+    target.total_configured += servers.len();
     for (name, value) in servers {
-        let parsed = parse_mcp_server_config(
-            name,
-            value,
-            &format!("{}: mcpServers.{name}", path.display()),
-        )?;
-        target.insert(
+        let context = format!("{}: mcpServers.{name}", path.display());
+        let Ok(object) = expect_object(value, &context) else {
+            let error = expect_object(value, &context).expect_err("object parse must fail");
+            target.servers.remove(name);
+            target
+                .invalid_servers
+                .push(mcp_invalid_server(name, source, path, &context, &error));
+            continue;
+        };
+        let required = match optional_bool(object, "required", &context) {
+            Ok(required) => required.unwrap_or(false),
+            Err(error) => {
+                target.servers.remove(name);
+                target
+                    .invalid_servers
+                    .push(mcp_invalid_server(name, source, path, &context, &error));
+                continue;
+            }
+        };
+        if let Err(error) = validate_mcp_server_keys(name, object, &context) {
+            target.servers.remove(name);
+            target
+                .invalid_servers
+                .push(mcp_invalid_server(name, source, path, &context, &error));
+            continue;
+        }
+        let parsed = match parse_mcp_server_config(name, value, &context) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                target.servers.remove(name);
+                target
+                    .invalid_servers
+                    .push(mcp_invalid_server(name, source, path, &context, &error));
+                continue;
+            }
+        };
+        target.servers.insert(
             name.clone(),
             ScopedMcpServerConfig {
-                required: optional_bool(
-                    expect_object(value, &format!("{}: mcpServers.{name}", path.display()))?,
-                    "required",
-                    &format!("{}: mcpServers.{name}", path.display()),
-                )?
-                .unwrap_or(false),
+                required,
                 scope: source,
                 config: parsed,
             },
         );
+    }
+    Ok(())
+}
+
+fn mcp_invalid_server(
+    name: &str,
+    source: ConfigSource,
+    path: &Path,
+    context: &str,
+    error: &ConfigError,
+) -> McpInvalidServerConfig {
+    let reason = config_error_detail(error);
+    McpInvalidServerConfig {
+        name: name.to_string(),
+        scope: source,
+        path: path.to_path_buf(),
+        error_field: mcp_error_field(name, context, &reason),
+        reason,
+    }
+}
+
+fn config_error_detail(error: &ConfigError) -> String {
+    match error {
+        ConfigError::Io(error) => error.to_string(),
+        ConfigError::Parse(reason) => reason.clone(),
+    }
+}
+
+fn mcp_error_field(name: &str, context: &str, reason: &str) -> String {
+    if let Some(field) = reason
+        .split("missing string field ")
+        .nth(1)
+        .and_then(|tail| tail.split_whitespace().next())
+    {
+        return field
+            .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+            .to_string();
+    }
+    if let Some(field) = reason
+        .split("field ")
+        .nth(1)
+        .and_then(|tail| tail.split_whitespace().next())
+    {
+        return field
+            .trim_matches(|ch: char| !ch.is_ascii_alphanumeric() && ch != '_')
+            .to_string();
+    }
+    reason
+        .split_once(context)
+        .and_then(|(_, tail)| tail.trim_start_matches('.').split(':').next())
+        .filter(|field| !field.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| format!("mcpServers.{name}"))
+}
+
+fn validate_mcp_server_keys(
+    server_name: &str,
+    object: &BTreeMap<String, JsonValue>,
+    context: &str,
+) -> Result<(), ConfigError> {
+    let server_type =
+        optional_string(object, "type", context)?.unwrap_or_else(|| infer_mcp_server_type(object));
+    let allowed = match server_type {
+        "stdio" => &[
+            "type",
+            "command",
+            "args",
+            "env",
+            "toolCallTimeoutMs",
+            "required",
+        ][..],
+        "sse" | "http" => &[
+            "type",
+            "url",
+            "headers",
+            "headersHelper",
+            "oauth",
+            "required",
+        ][..],
+        "ws" => &["type", "url", "headers", "headersHelper", "required"][..],
+        "sdk" => &["type", "name", "required"][..],
+        "claudeai-proxy" => &["type", "url", "id", "required"][..],
+        other => {
+            return Err(ConfigError::Parse(format!(
+                "{context}: unsupported MCP server type for {server_name}: {other}"
+            )));
+        }
+    };
+    if let Some(key) = object.keys().find(|key| !allowed.contains(&key.as_str())) {
+        return Err(ConfigError::Parse(format!(
+            "{context}: unknown MCP server field {key}"
+        )));
     }
     Ok(())
 }
@@ -1482,14 +1667,217 @@ fn parse_optional_hooks_config_object(
         return Ok(RuntimeHookConfig::default());
     };
     let hooks = expect_object(hooks_value, context)?;
-    Ok(RuntimeHookConfig {
-        pre_tool_use: optional_hook_command_array(hooks, "PreToolUse", context)?
-            .unwrap_or_default(),
-        post_tool_use: optional_hook_command_array(hooks, "PostToolUse", context)?
-            .unwrap_or_default(),
-        post_tool_use_failure: optional_hook_command_array(hooks, "PostToolUseFailure", context)?
-            .unwrap_or_default(),
-    })
+    Ok(parse_hooks_object_partial(hooks, context))
+}
+
+fn parse_hooks_object_partial(
+    hooks: &BTreeMap<String, JsonValue>,
+    context: &str,
+) -> RuntimeHookConfig {
+    let mut config = RuntimeHookConfig::default();
+    parse_hook_event_partial(
+        &mut config,
+        hooks,
+        "PreToolUse",
+        context,
+        |config, command| {
+            config.pre_tool_use.push(command);
+        },
+    );
+    parse_hook_event_partial(
+        &mut config,
+        hooks,
+        "PostToolUse",
+        context,
+        |config, command| {
+            config.post_tool_use.push(command);
+        },
+    );
+    parse_hook_event_partial(
+        &mut config,
+        hooks,
+        "PostToolUseFailure",
+        context,
+        |config, command| {
+            config.post_tool_use_failure.push(command);
+        },
+    );
+    for event in hooks.keys().filter(|event| !is_supported_hook_event(event)) {
+        config.push_invalid_hook(RuntimeInvalidHookConfig {
+            event: event.clone(),
+            index: None,
+            hook_index: None,
+            kind: "unknown_hook_event".to_string(),
+            error_field: event.clone(),
+            reason: format!("{context}: unknown hook event {event}"),
+        });
+    }
+    config
+}
+
+fn is_supported_hook_event(event: &str) -> bool {
+    matches!(event, "PreToolUse" | "PostToolUse" | "PostToolUseFailure")
+}
+
+fn parse_hook_event_partial(
+    config: &mut RuntimeHookConfig,
+    hooks: &BTreeMap<String, JsonValue>,
+    event: &str,
+    context: &str,
+    mut push_command: impl FnMut(&mut RuntimeHookConfig, RuntimeHookCommand),
+) {
+    let Some(value) = hooks.get(event) else {
+        return;
+    };
+    let Some(array) = value.as_array() else {
+        config.push_invalid_hook(RuntimeInvalidHookConfig {
+            event: event.to_string(),
+            index: None,
+            hook_index: None,
+            kind: "invalid_hooks_config".to_string(),
+            error_field: event.to_string(),
+            reason: format!("{context}: field {event} must be an array"),
+        });
+        return;
+    };
+
+    for (index, item) in array.iter().enumerate() {
+        if let Some(command) = item.as_str() {
+            if command.trim().is_empty() {
+                config.push_invalid_hook(RuntimeInvalidHookConfig {
+                    event: event.to_string(),
+                    index: Some(index),
+                    hook_index: None,
+                    kind: "invalid_hooks_config".to_string(),
+                    error_field: "command".to_string(),
+                    reason: format!("{context}: field {event}[{index}] must be a non-empty string"),
+                });
+            } else {
+                push_command(config, RuntimeHookCommand::new(command.to_string()));
+            }
+            continue;
+        }
+
+        let Some(entry) = item.as_object() else {
+            config.push_invalid_hook(RuntimeInvalidHookConfig {
+                event: event.to_string(),
+                index: Some(index),
+                hook_index: None,
+                kind: "invalid_hooks_config".to_string(),
+                error_field: event.to_string(),
+                reason: format!(
+                    "{context}: field {event}[{index}] must be a string or hook object"
+                ),
+            });
+            continue;
+        };
+
+        let matcher = match optional_hook_matcher(entry, context, event, index) {
+            Ok(matcher) => matcher,
+            Err(error) => {
+                config.push_invalid_hook(runtime_invalid_hook(
+                    event,
+                    Some(index),
+                    None,
+                    "matcher",
+                    error,
+                ));
+                continue;
+            }
+        };
+        let Some(hook_array) = entry.get("hooks").and_then(JsonValue::as_array) else {
+            config.push_invalid_hook(RuntimeInvalidHookConfig {
+                event: event.to_string(),
+                index: Some(index),
+                hook_index: None,
+                kind: "invalid_hooks_config".to_string(),
+                error_field: "hooks".to_string(),
+                reason: format!("{context}: field {event}[{index}].hooks must be an array"),
+            });
+            continue;
+        };
+        for (hook_index, hook) in hook_array.iter().enumerate() {
+            let Some(hook_object) = hook.as_object() else {
+                config.push_invalid_hook(RuntimeInvalidHookConfig {
+                    event: event.to_string(),
+                    index: Some(index),
+                    hook_index: Some(hook_index),
+                    kind: "invalid_hooks_config".to_string(),
+                    error_field: "hooks".to_string(),
+                    reason: format!(
+                        "{context}: field {event}[{index}].hooks[{hook_index}] must be an object"
+                    ),
+                });
+                continue;
+            };
+            if let Some(hook_type) = hook_object.get("type") {
+                let Some(hook_type) = hook_type.as_str() else {
+                    config.push_invalid_hook(RuntimeInvalidHookConfig {
+                        event: event.to_string(),
+                        index: Some(index),
+                        hook_index: Some(hook_index),
+                        kind: "invalid_hooks_config".to_string(),
+                        error_field: "type".to_string(),
+                        reason: format!(
+                            "{context}: field {event}[{index}].hooks[{hook_index}].type must be a string"
+                        ),
+                    });
+                    continue;
+                };
+                if hook_type != "command" {
+                    config.push_invalid_hook(RuntimeInvalidHookConfig {
+                        event: event.to_string(),
+                        index: Some(index),
+                        hook_index: Some(hook_index),
+                        kind: "invalid_hooks_config".to_string(),
+                        error_field: "type".to_string(),
+                        reason: format!(
+                            "{context}: field {event}[{index}].hooks[{hook_index}].type must be \"command\""
+                        ),
+                    });
+                    continue;
+                }
+            }
+            let Some(command) = hook_object
+                .get("command")
+                .and_then(JsonValue::as_str)
+                .filter(|command| !command.trim().is_empty())
+            else {
+                config.push_invalid_hook(RuntimeInvalidHookConfig {
+                    event: event.to_string(),
+                    index: Some(index),
+                    hook_index: Some(hook_index),
+                    kind: "invalid_hooks_config".to_string(),
+                    error_field: "command".to_string(),
+                    reason: format!(
+                        "{context}: field {event}[{index}].hooks[{hook_index}].command must be a non-empty string"
+                    ),
+                });
+                continue;
+            };
+            push_command(
+                config,
+                RuntimeHookCommand::with_matcher(command.to_string(), matcher.clone()),
+            );
+        }
+    }
+}
+
+fn runtime_invalid_hook(
+    event: &str,
+    index: Option<usize>,
+    hook_index: Option<usize>,
+    error_field: &str,
+    error: ConfigError,
+) -> RuntimeInvalidHookConfig {
+    RuntimeInvalidHookConfig {
+        event: event.to_string(),
+        index,
+        hook_index,
+        kind: "invalid_hooks_config".to_string(),
+        error_field: error_field.to_string(),
+        reason: config_error_detail(&error),
+    }
 }
 
 fn validate_optional_hooks_config(
@@ -1719,7 +2107,7 @@ fn parse_mcp_server_config(
         optional_string(object, "type", context)?.unwrap_or_else(|| infer_mcp_server_type(object));
     match server_type {
         "stdio" => Ok(McpServerConfig::Stdio(McpStdioServerConfig {
-            command: expect_string(object, "command", context)?.to_string(),
+            command: expect_non_empty_string(object, "command", context)?.to_string(),
             args: optional_string_array(object, "args", context)?.unwrap_or_default(),
             env: optional_string_map(object, "env", context)?.unwrap_or_default(),
             tool_call_timeout_ms: optional_u64(object, "toolCallTimeoutMs", context)?,
@@ -1792,6 +2180,20 @@ fn expect_object<'a>(
     value
         .as_object()
         .ok_or_else(|| ConfigError::Parse(format!("{context}: expected JSON object")))
+}
+
+fn expect_non_empty_string<'a>(
+    object: &'a BTreeMap<String, JsonValue>,
+    key: &str,
+    context: &str,
+) -> Result<&'a str, ConfigError> {
+    let value = expect_string(object, key, context)?;
+    if value.trim().is_empty() {
+        return Err(ConfigError::Parse(format!(
+            "{context}: field {key} must be a non-empty string"
+        )));
+    }
+    Ok(value)
 }
 
 fn expect_string<'a>(
@@ -1940,77 +2342,6 @@ fn optional_string_array(
         }
         None => Ok(None),
     }
-}
-
-fn optional_hook_command_array(
-    object: &BTreeMap<String, JsonValue>,
-    key: &str,
-    context: &str,
-) -> Result<Option<Vec<RuntimeHookCommand>>, ConfigError> {
-    let Some(value) = object.get(key) else {
-        return Ok(None);
-    };
-    let Some(array) = value.as_array() else {
-        return Err(ConfigError::Parse(format!(
-            "{context}: field {key} must be an array"
-        )));
-    };
-
-    let mut commands = Vec::new();
-    for (index, item) in array.iter().enumerate() {
-        if let Some(command) = item.as_str() {
-            commands.push(RuntimeHookCommand::new(command.to_string()));
-            continue;
-        }
-
-        let Some(entry) = item.as_object() else {
-            return Err(ConfigError::Parse(format!(
-                "{context}: field {key}[{index}] must be a string or hook object"
-            )));
-        };
-        let matcher = optional_hook_matcher(entry, context, key, index)?;
-        let hooks = entry
-            .get("hooks")
-            .and_then(JsonValue::as_array)
-            .ok_or_else(|| {
-                ConfigError::Parse(format!(
-                    "{context}: field {key}[{index}].hooks must be an array"
-                ))
-            })?;
-        for (hook_index, hook) in hooks.iter().enumerate() {
-            let Some(hook_object) = hook.as_object() else {
-                return Err(ConfigError::Parse(format!(
-                    "{context}: field {key}[{index}].hooks[{hook_index}] must be an object"
-                )));
-            };
-            if let Some(hook_type) = hook_object.get("type") {
-                let Some(hook_type) = hook_type.as_str() else {
-                    return Err(ConfigError::Parse(format!(
-                        "{context}: field {key}[{index}].hooks[{hook_index}].type must be a string"
-                    )));
-                };
-                if hook_type != "command" {
-                    return Err(ConfigError::Parse(format!(
-                        "{context}: field {key}[{index}].hooks[{hook_index}].type must be \"command\""
-                    )));
-                }
-            }
-            let command = hook_object
-                .get("command")
-                .and_then(JsonValue::as_str)
-                .filter(|command| !command.trim().is_empty())
-                .ok_or_else(|| {
-                    ConfigError::Parse(format!(
-                        "{context}: field {key}[{index}].hooks[{hook_index}].command must be a non-empty string"
-                    ))
-                })?;
-            commands.push(RuntimeHookCommand::with_matcher(
-                command.to_string(),
-                matcher.clone(),
-            ));
-        }
-    }
-    Ok(Some(commands))
 }
 
 fn optional_hook_matcher(
@@ -2262,7 +2593,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_object_style_hook_entries_without_command() {
+    fn records_object_style_hook_entries_without_command_441() {
         let root = temp_dir();
         let cwd = root.join("project");
         let home = root.join("home").join(".claw");
@@ -2274,12 +2605,20 @@ mod tests {
         )
         .expect("write settings");
 
-        let error = ConfigLoader::new(&cwd, &home)
+        let loaded = ConfigLoader::new(&cwd, &home)
             .load()
-            .expect_err("config should reject malformed hook entry");
+            .expect("config should load valid siblings and record malformed hook entry");
 
-        assert!(error
-            .to_string()
+        assert!(loaded.hooks().pre_tool_use().is_empty());
+        assert_eq!(loaded.hooks().invalid_count(), 1);
+        assert_eq!(
+            loaded.hooks().invalid_hooks()[0].kind,
+            "invalid_hooks_config"
+        );
+        assert_eq!(loaded.hooks().invalid_hooks()[0].event, "PreToolUse");
+        assert_eq!(loaded.hooks().invalid_hooks()[0].error_field, "command");
+        assert!(loaded.hooks().invalid_hooks()[0]
+            .reason
             .contains("command must be a non-empty string"));
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
@@ -2843,7 +3182,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_mcp_server_shapes() {
+    fn records_invalid_mcp_server_shapes_without_rejecting_config_440() {
         // given
         let root = temp_dir();
         let cwd = root.join("project");
@@ -2857,14 +3196,68 @@ mod tests {
         .expect("write broken settings");
 
         // when
-        let error = ConfigLoader::new(&cwd, &home)
+        let loaded = ConfigLoader::new(&cwd, &home)
             .load()
-            .expect_err("config should fail");
+            .expect("invalid MCP entries should not block otherwise loadable config");
 
         // then
-        assert!(error
-            .to_string()
+        assert!(loaded.mcp().servers().is_empty());
+        assert_eq!(loaded.mcp().total_configured(), 1);
+        assert_eq!(loaded.mcp().invalid_count(), 1);
+        let invalid = &loaded.mcp().invalid_servers()[0];
+        assert_eq!(invalid.name, "broken");
+        assert_eq!(invalid.error_field, "url");
+        assert!(invalid
+            .reason
             .contains("mcpServers.broken: missing string field url"));
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn loads_valid_mcp_servers_and_collects_all_invalid_siblings_440() {
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{
+              "mcpServers": {
+                "valid-server": {"command": "/bin/echo", "args": ["hello"]},
+                "missing-command": {"args": ["arg-only"]},
+                "empty-command": {"command": ""},
+                "wrong-type-command": {"command": 42},
+                "extra-unknown-field": {"command": "/bin/echo", "extra": true}
+              }
+            }"#,
+        )
+        .expect("write mixed settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("valid MCP entries should load beside invalid siblings");
+
+        assert_eq!(loaded.mcp().total_configured(), 5);
+        assert_eq!(loaded.mcp().valid_count(), 1);
+        assert_eq!(loaded.mcp().invalid_count(), 4);
+        assert!(loaded.mcp().get("valid-server").is_some());
+        let invalid_names = loaded
+            .mcp()
+            .invalid_servers()
+            .iter()
+            .map(|server| server.name.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            invalid_names,
+            vec![
+                "empty-command",
+                "extra-unknown-field",
+                "missing-command",
+                "wrong-type-command",
+            ]
+        );
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
@@ -2968,7 +3361,7 @@ mod tests {
     }
 
     #[test]
-    fn rejects_invalid_hook_entries_before_merge() {
+    fn loads_valid_hook_entries_and_records_invalid_siblings_441() {
         // given
         let root = temp_dir();
         let cwd = root.join("project");
@@ -2988,19 +3381,21 @@ mod tests {
         )
         .expect("write invalid project settings");
 
-        // when
-        let error = ConfigLoader::new(&cwd, &home)
+        let loaded = ConfigLoader::new(&cwd, &home)
             .load()
-            .expect_err("config should fail");
+            .expect("config should load valid hook entries and record invalid siblings");
 
-        // then — config validation now catches the mixed array before the hooks parser
-        let rendered = error.to_string();
-        assert!(
-            rendered.contains("hooks.PreToolUse")
-                && rendered.contains("must be an array of strings"),
-            "expected validation error for hooks.PreToolUse, got: {rendered}"
+        assert_eq!(loaded.hooks().pre_tool_use(), &["project".to_string()]);
+        assert_eq!(loaded.hooks().invalid_count(), 1);
+        assert_eq!(loaded.hooks().invalid_hooks()[0].event, "PreToolUse");
+        assert_eq!(
+            loaded.hooks().invalid_hooks()[0].kind,
+            "invalid_hooks_config"
         );
-        assert!(!rendered.contains("merged settings.hooks"));
+        assert_eq!(loaded.hooks().invalid_hooks()[0].index, Some(1));
+        assert!(loaded.hooks().invalid_hooks()[0]
+            .reason
+            .contains("must be a string or hook object"));
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
@@ -3143,7 +3538,7 @@ mod tests {
     }
 
     #[test]
-    fn validates_wrong_type_for_known_field_with_field_path() {
+    fn hook_event_wrong_type_is_recorded_without_config_failure_441() {
         // given
         let root = temp_dir();
         let cwd = root.join("project");
@@ -3157,29 +3552,145 @@ mod tests {
         )
         .expect("write user settings");
 
-        // when
-        let error = ConfigLoader::new(&cwd, &home)
+        let loaded = ConfigLoader::new(&cwd, &home)
             .load()
-            .expect_err("config should fail");
+            .expect("config should record malformed hook event without failing");
 
-        // then
-        let rendered = error.to_string();
-        assert!(
-            rendered.contains(&user_settings.display().to_string()),
-            "error should include file path, got: {rendered}"
+        assert!(loaded.hooks().pre_tool_use().is_empty());
+        assert_eq!(loaded.hooks().invalid_count(), 1);
+        assert_eq!(loaded.hooks().invalid_hooks()[0].event, "PreToolUse");
+        assert_eq!(
+            loaded.hooks().invalid_hooks()[0].kind,
+            "invalid_hooks_config"
         );
+        assert_eq!(loaded.hooks().invalid_hooks()[0].index, None);
+        assert!(loaded.hooks().invalid_hooks()[0]
+            .reason
+            .contains("field PreToolUse must be an array"));
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn collects_all_invalid_hook_siblings_instead_of_halting_at_first_441() {
+        // ROADMAP #441 finding (c): first-error-only halting means users must fix
+        // one hook at a time. After #441 partial fix, all invalid entries in the
+        // same config are collected.
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"hooks":{"PreToolUse":[42],"PostToolUse":"not-an-array","InvalidEvent":["cmd"]}}"#,
+        )
+        .expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should collect all invalid hooks without halting at first");
+
+        assert!(loaded.hooks().pre_tool_use().is_empty());
+        assert!(loaded.hooks().post_tool_use().is_empty());
+        // Three distinct invalid entries: 42, wrong type, unknown event
+        assert_eq!(loaded.hooks().invalid_count(), 3);
+
+        let invalid = loaded.hooks().invalid_hooks();
+        // PreToolUse[0]=42
+        assert_eq!(invalid[0].event, "PreToolUse");
+        assert_eq!(invalid[0].index, Some(0));
+        assert_eq!(invalid[0].kind, "invalid_hooks_config");
+        // PostToolUse wrong type
+        assert_eq!(invalid[1].event, "PostToolUse");
+        assert_eq!(invalid[1].index, None);
+        assert_eq!(invalid[1].kind, "invalid_hooks_config");
+        // Unknown event
+        assert_eq!(invalid[2].event, "InvalidEvent");
+        assert_eq!(invalid[2].index, None);
+        assert_eq!(invalid[2].kind, "unknown_hook_event");
+        assert!(invalid[2]
+            .reason
+            .contains("unknown hook event InvalidEvent"));
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn unknown_hook_events_recorded_with_correct_kind_441() {
+        // ROADMAP #441 finding (a): unknown event names like Stop/Notification
+        // should not reject entire hooks config; they are recorded as invalid.
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"hooks":{"PreToolUse":["valid-cmd"],"Stop":"not-an-array","Notification":[{}]}}"#,
+        )
+        .expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("config should load valid hooks and record unknown event siblings");
+
+        // Valid PreToolUse hook should load
+        assert_eq!(loaded.hooks().pre_tool_use(), &["valid-cmd".to_string()]);
+        // Stop and Notification are unknown events; each gets one invalid entry
+        // Notification:[{}] also has an empty-object entry issue but since we
+        // don't parse unknown events, only the unknown-event invalid is recorded
+        let invalid = loaded.hooks().invalid_hooks();
         assert!(
-            rendered.contains("hooks"),
-            "error should include field path component 'hooks', got: {rendered}"
+            invalid.len() >= 2,
+            "expected at least 2 invalid hooks, got {}",
+            invalid.len()
         );
-        assert!(
-            rendered.contains("PreToolUse"),
-            "error should describe the type mismatch, got: {rendered}"
+
+        let stop = invalid
+            .iter()
+            .find(|h| h.event == "Stop")
+            .expect("Stop invalid hook");
+        assert_eq!(stop.kind, "unknown_hook_event");
+        assert_eq!(stop.index, None);
+        assert!(stop.reason.contains("unknown hook event Stop"));
+
+        let notif = invalid
+            .iter()
+            .find(|h| h.event == "Notification")
+            .expect("Notification invalid hook");
+        assert_eq!(notif.kind, "unknown_hook_event");
+
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn documented_claude_code_hook_format_loads_without_error_441() {
+        // ROADMAP #441: the Claude Code documented hook format
+        // {"hooks":{"PreToolUse":[{"matcher":"Read","hooks":[{"type":"command","command":"..."}]}]}}
+        // must load without config_load_error.
+        let root = temp_dir();
+        let cwd = root.join("project");
+        let home = root.join("home").join(".claw");
+        fs::create_dir_all(&home).expect("home config dir");
+        fs::create_dir_all(&cwd).expect("project dir");
+        fs::write(
+            home.join("settings.json"),
+            r#"{"hooks":{"PreToolUse":[{"matcher":"Read","hooks":[{"type":"command","command":"/bin/echo pretool"}]}]}}"#,
+        )
+        .expect("write settings");
+
+        let loaded = ConfigLoader::new(&cwd, &home)
+            .load()
+            .expect("Claude Code documented hook format must load without error");
+
+        assert_eq!(
+            loaded.hooks().pre_tool_use(),
+            &["/bin/echo pretool".to_string()]
         );
-        assert!(
-            rendered.contains("array"),
-            "error should describe the expected type, got: {rendered}"
-        );
+        assert_eq!(loaded.hooks().invalid_count(), 0);
+        let entries = loaded.hooks().pre_tool_use_entries();
+        assert_eq!(entries[0].matcher(), Some("Read"));
 
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }

@@ -69,6 +69,18 @@ pub struct ContextFile {
     pub content: String,
 }
 
+impl ContextFile {
+    #[must_use]
+    pub fn source(&self) -> &'static str {
+        instruction_file_source(&self.path)
+    }
+
+    #[must_use]
+    pub fn char_count(&self) -> usize {
+        self.content.chars().count()
+    }
+}
+
 /// Project-local context injected into the rendered system prompt.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ProjectContext {
@@ -256,22 +268,36 @@ pub fn prepend_bullets(items: Vec<String>) -> Vec<String> {
     items.into_iter().map(|item| format!(" - {item}")).collect()
 }
 
+fn instruction_file_source(path: &Path) -> &'static str {
+    let file_name = path.file_name().and_then(|name| name.to_str());
+    let parent_name = path
+        .parent()
+        .and_then(|parent| parent.file_name())
+        .and_then(|name| name.to_str());
+
+    match (parent_name, file_name) {
+        (Some(".claw"), Some("CLAUDE.md")) => "claw_claude_md",
+        (Some(".claude"), Some("CLAUDE.md")) => "claude_claude_md",
+        (_, Some("CLAUDE.md")) => "claude_md",
+        (_, Some("CLAW.md")) => "claw_md",
+        (_, Some("AGENTS.md")) => "agents_md",
+        (_, Some("CLAUDE.local.md")) => "claude_local_md",
+        (Some(".claw"), Some("instructions.md")) => "claw_instructions",
+        _ => "rule_file",
+    }
+}
 fn discover_instruction_files(
     cwd: &Path,
     rules_import: &RulesImportConfig,
 ) -> std::io::Result<Vec<ContextFile>> {
-    let mut directories = Vec::new();
-    let mut cursor = Some(cwd);
-    while let Some(dir) = cursor {
-        directories.push(dir.to_path_buf());
-        cursor = dir.parent();
-    }
+    let mut directories = instruction_discovery_dirs(cwd);
     directories.reverse();
 
     let mut files = Vec::new();
     for dir in directories {
         for candidate in [
             dir.join("CLAUDE.md"),
+            dir.join("CLAW.md"),
             dir.join("AGENTS.md"),
             dir.join("CLAUDE.local.md"),
             dir.join(".claw").join("CLAUDE.md"),
@@ -285,6 +311,32 @@ fn discover_instruction_files(
         push_framework_imports(&mut files, &dir, rules_import)?
     }
     Ok(dedupe_instruction_files(files))
+}
+
+fn instruction_discovery_dirs(cwd: &Path) -> Vec<PathBuf> {
+    let boundary = nearest_git_root(cwd).unwrap_or_else(|| cwd.to_path_buf());
+    let mut directories = Vec::new();
+    let mut cursor = Some(cwd);
+    while let Some(dir) = cursor {
+        directories.push(dir.to_path_buf());
+        if dir == boundary {
+            break;
+        }
+        cursor = dir.parent();
+    }
+    directories
+}
+
+fn nearest_git_root(cwd: &Path) -> Option<PathBuf> {
+    let mut cursor = Some(cwd);
+    while let Some(dir) = cursor {
+        let git_marker = dir.join(".git");
+        if git_marker.is_dir() || git_marker.is_file() {
+            return Some(dir.to_path_buf());
+        }
+        cursor = dir.parent();
+    }
+    None
 }
 
 fn push_context_file(files: &mut Vec<ContextFile>, path: PathBuf) -> std::io::Result<()> {
@@ -430,7 +482,7 @@ fn render_project_context(project_context: &ProjectContext) -> String {
     ];
     if !project_context.instruction_files.is_empty() {
         bullets.push(format!(
-            "Claude instruction files discovered: {}.",
+            "Project instruction files discovered: {}.",
             project_context.instruction_files.len()
         ));
     }
@@ -465,7 +517,7 @@ fn render_project_context(project_context: &ProjectContext) -> String {
 }
 
 fn render_instruction_files(files: &[ContextFile]) -> String {
-    let mut sections = vec!["# Claude instructions".to_string()];
+    let mut sections = vec!["# Project instructions".to_string()];
     let mut remaining_chars = MAX_TOTAL_INSTRUCTION_CHARS;
     for file in files {
         if remaining_chars == 0 {
@@ -574,15 +626,30 @@ pub fn load_system_prompt(
     model_family: ModelFamilyIdentity,
 ) -> Result<Vec<String>, PromptBuildError> {
     let cwd = cwd.into();
+    let (sections, _) =
+        load_system_prompt_with_context(cwd, current_date, os_name, os_version, model_family)?;
+    Ok(sections)
+}
+
+/// Loads config and project context, then renders the system prompt text plus metadata.
+pub fn load_system_prompt_with_context(
+    cwd: impl Into<PathBuf>,
+    current_date: impl Into<String>,
+    os_name: impl Into<String>,
+    os_version: impl Into<String>,
+    model_family: ModelFamilyIdentity,
+) -> Result<(Vec<String>, ProjectContext), PromptBuildError> {
+    let cwd = cwd.into();
     let config = ConfigLoader::default_for(&cwd).load()?;
     let project_context =
         discover_with_git_and_rules_import(&cwd, current_date.into(), config.rules_import())?;
-    Ok(SystemPromptBuilder::new()
+    let sections = SystemPromptBuilder::new()
         .with_os(os_name, os_version)
         .with_model_family(model_family)
-        .with_project_context(project_context)
+        .with_project_context(project_context.clone())
         .with_runtime_config(config)
-        .build())
+        .build();
+    Ok((sections, project_context))
 }
 
 fn render_config_section(config: &RuntimeConfig) -> String {
@@ -766,6 +833,7 @@ mod tests {
         let root = temp_dir();
         let nested = root.join("apps").join("api");
         fs::create_dir_all(nested.join(".claw")).expect("nested claw dir");
+        fs::create_dir(root.join(".git")).expect("git boundary");
         fs::write(root.join("CLAUDE.md"), "root instructions").expect("write root instructions");
         fs::write(root.join("CLAUDE.local.md"), "local instructions")
             .expect("write local instructions");
@@ -844,10 +912,11 @@ mod tests {
     }
 
     #[test]
-    fn discovers_claude_agents_and_dot_claude_instruction_files_together() {
+    fn discovers_claude_claw_agents_and_dot_claude_instruction_files_together() {
         let root = temp_dir();
         fs::create_dir_all(root.join(".claude")).expect("dot claude dir");
         fs::write(root.join("CLAUDE.md"), "claude instructions").expect("write CLAUDE.md");
+        fs::write(root.join("CLAW.md"), "claw instructions").expect("write CLAW.md");
         fs::write(root.join("AGENTS.md"), "agents instructions").expect("write AGENTS.md");
         fs::write(
             root.join(".claude").join("CLAUDE.md"),
@@ -857,8 +926,18 @@ mod tests {
 
         let context = ProjectContext::discover(&root, "2026-03-31").expect("context should load");
         let rendered = render_instruction_files(&context.instruction_files);
+        let sources = context
+            .instruction_files
+            .iter()
+            .map(ContextFile::source)
+            .collect::<Vec<_>>();
 
+        assert_eq!(
+            sources,
+            vec!["claude_md", "claw_md", "agents_md", "claude_claude_md"]
+        );
         assert!(rendered.contains("claude instructions"));
+        assert!(rendered.contains("claw instructions"));
         assert!(rendered.contains("agents instructions"));
         assert!(rendered.contains("dot claude instructions"));
         fs::remove_dir_all(root).expect("cleanup temp dir");
@@ -869,6 +948,7 @@ mod tests {
         let root = temp_dir();
         let nested = root.join("apps").join("api");
         fs::create_dir_all(&nested).expect("nested dir");
+        fs::create_dir(root.join(".git")).expect("git boundary");
         fs::write(root.join("CLAUDE.md"), "same rules\n\n").expect("write root");
         fs::write(nested.join("CLAUDE.md"), "same rules\n").expect("write nested");
 
@@ -878,6 +958,50 @@ mod tests {
             normalize_instruction_content(&context.instruction_files[0].content),
             "same rules"
         );
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn discovery_stops_at_git_root_boundary_439() {
+        let root = temp_dir();
+        let repo = root.join("repo");
+        let nested = repo.join("subproj").join("deep").join("nest");
+        fs::create_dir_all(&nested).expect("nested dir");
+        fs::create_dir(repo.join(".git")).expect("git boundary");
+        fs::write(root.join("CLAUDE.md"), "PARENT_CLAUDE").expect("write parent");
+        fs::write(repo.join("CLAUDE.md"), "REPO_CLAUDE").expect("write repo");
+        fs::write(repo.join("subproj").join("CLAUDE.md"), "CHILD_CLAUDE").expect("write child");
+        fs::write(
+            repo.join("subproj").join("deep").join("CLAUDE.md"),
+            "DEEP_CLAUDE",
+        )
+        .expect("write deep");
+
+        let context = ProjectContext::discover(&nested, "2026-03-31").expect("context should load");
+        let rendered = render_instruction_files(&context.instruction_files);
+
+        assert!(!rendered.contains("PARENT_CLAUDE"));
+        assert!(rendered.contains("REPO_CLAUDE"));
+        assert!(rendered.contains("CHILD_CLAUDE"));
+        assert!(rendered.contains("DEEP_CLAUDE"));
+        assert_eq!(context.instruction_files.len(), 3);
+        fs::remove_dir_all(root).expect("cleanup temp dir");
+    }
+
+    #[test]
+    fn discovery_without_git_root_stays_cwd_local_439() {
+        let root = temp_dir();
+        let nested = root.join("scratch");
+        fs::create_dir_all(&nested).expect("nested dir");
+        fs::write(root.join("CLAUDE.md"), "PARENT_CLAUDE").expect("write parent");
+        fs::write(nested.join("CLAUDE.md"), "SCRATCH_CLAUDE").expect("write scratch");
+
+        let context = ProjectContext::discover(&nested, "2026-03-31").expect("context should load");
+        let rendered = render_instruction_files(&context.instruction_files);
+
+        assert!(!rendered.contains("PARENT_CLAUDE"));
+        assert!(rendered.contains("SCRATCH_CLAUDE"));
+        assert_eq!(context.instruction_files.len(), 1);
         fs::remove_dir_all(root).expect("cleanup temp dir");
     }
 
@@ -1218,7 +1342,7 @@ mod tests {
 
         assert!(prompt.contains("# System"));
         assert!(prompt.contains("# Project context"));
-        assert!(prompt.contains("# Claude instructions"));
+        assert!(prompt.contains("# Project instructions"));
         assert!(prompt.contains("Project rules"));
         assert!(prompt.contains("permissionMode"));
         assert!(prompt.contains(SYSTEM_PROMPT_DYNAMIC_BOUNDARY));
@@ -1263,7 +1387,7 @@ mod tests {
             path: PathBuf::from("/tmp/project/CLAUDE.md"),
             content: "Project rules".to_string(),
         }]);
-        assert!(rendered.contains("# Claude instructions"));
+        assert!(rendered.contains("# Project instructions"));
         assert!(rendered.contains("scope: /tmp/project"));
         assert!(rendered.contains("Project rules"));
     }
