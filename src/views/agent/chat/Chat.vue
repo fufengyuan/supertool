@@ -90,7 +90,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 
@@ -116,7 +116,10 @@ import { hermesMessagesToChatMessages } from './sessionHistory';
 import { useAgentModeStore } from '@/stores/agentModeStore';
 
 const route = useRoute();
+const router = useRouter();
 const agentModeStore = useAgentModeStore();
+
+console.log(`[Chat] 🏗️ Setup script running, initial route: ${route.fullPath}, query.session=${route.query.session}`);
 
 // ── Core state ───────────────────────────────────────────────────────────────
 const messages = ref<ChatMessage[]>([]);
@@ -150,10 +153,13 @@ watch(() => agentModeStore.mode, async (newMode, oldMode) => {
 });
 
 // 监听路由 query 变化（用户在 Sessions 页面点击会话后导航到这里）
+// 使用 deep watch 确保 query 变化能被捕获
 watch(
-  () => route.query.session,
-  async (newSessionId, oldSessionId) => {
-    console.log(`[Chat] 🔀 Route session changed: ${oldSessionId} → ${newSessionId}, isClawMode=${isClawMode.value}`);
+  () => ({ ...route.query }),
+  async (newQuery, oldQuery) => {
+    const newSessionId = newQuery.session as string | undefined;
+    const oldSessionId = oldQuery?.session as string | undefined;
+    console.log(`[Chat] 🔀 Route query changed: session ${oldSessionId} → ${newSessionId}, isClawMode=${isClawMode.value}, fullPath=${route.fullPath}`);
     // 仅当确实变化且组件已挂载时处理
     if (newSessionId === oldSessionId) return;
     if (isClawMode.value) {
@@ -169,6 +175,7 @@ watch(
       await loadSessionHistory();
     }
   },
+  { deep: true },
 );
 
 function setMessages(msgs: ChatMessage[]) {
