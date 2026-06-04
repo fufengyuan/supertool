@@ -41,7 +41,21 @@ fn session_path(id: &str) -> PathBuf {
 /// Load a persisted session by ID.
 fn load_session(id: &str) -> Option<Session> {
     let path = session_path(id);
-    Session::load_from_path(&path).ok()
+    log::info!("[claw_chat] load_session({}): looking for {}", id, path.display());
+    if !path.exists() {
+        log::warn!("[claw_chat] load_session({}): file not found at {}", id, path.display());
+        return None;
+    }
+    match Session::load_from_path(&path) {
+        Ok(session) => {
+            log::info!("[claw_chat] load_session({}): OK, {} messages", id, session.messages.len());
+            Some(session)
+        }
+        Err(e) => {
+            log::error!("[claw_chat] load_session({}): FAILED to parse: {}", id, e);
+            None
+        }
+    }
 }
 
 /// List all persisted sessions by reading their JSONL meta record (first line).
@@ -599,6 +613,7 @@ pub async fn claw_chat_init(
     setup_env_from_claw_config()?;
 
     // ── Session ──
+    log::info!("[claw_chat] claw_chat_init: session_id={:?}", session_id);
     let (sid, restored_count) = if let Some(ref existing) = session_id {
         if let Some(loaded) = load_session(existing) {
             let count = loaded.messages.len();
@@ -674,6 +689,11 @@ pub async fn claw_chat_init(
     } else {
         Vec::new()
     };
+
+    log::info!(
+        "[claw_chat] claw_chat_init returning: sid={}, restored={}, message_count={}, restored_messages={}",
+        sid, restored_count > 0, restored_count, restored_messages.len()
+    );
 
     Ok(serde_json::json!({
         "sessionId": sid,
@@ -1122,7 +1142,9 @@ pub async fn claw_chat_close(
 pub async fn claw_chat_list_sessions(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<serde_json::Value, String> {
+    log::info!("[claw_chat] claw_chat_list_sessions called");
     let mut sessions = list_sessions_info();
+    log::info!("[claw_chat] list_sessions_info returned {} sessions", sessions.len());
 
     // 如果有活跃会话且不在磁盘列表中，加上
     let active_sid = {

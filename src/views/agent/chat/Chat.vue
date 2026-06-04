@@ -134,7 +134,8 @@ const clawInitialized = ref(false);
 const isClawMode = computed(() => agentModeStore.mode === 'claw');
 
 // 监听模式切换：清空消息、重新初始化
-watch(() => agentModeStore.mode, async (newMode) => {
+watch(() => agentModeStore.mode, async (newMode, oldMode) => {
+  console.log(`[Chat] 🔄 Mode changed: ${oldMode} → ${newMode}`);
   messages.value = [];
   usage.value = null;
   toolProgress.value = null;
@@ -152,6 +153,7 @@ watch(() => agentModeStore.mode, async (newMode) => {
 watch(
   () => route.query.session,
   async (newSessionId, oldSessionId) => {
+    console.log(`[Chat] 🔀 Route session changed: ${oldSessionId} → ${newSessionId}, isClawMode=${isClawMode.value}`);
     // 仅当确实变化且组件已挂载时处理
     if (newSessionId === oldSessionId) return;
     if (isClawMode.value) {
@@ -298,9 +300,14 @@ function pushUser(content: string) {
 
 /** Claw 模式：初始化连接（可恢复历史会话） */
 async function ensureClawChat() {
-  if (clawInitialized.value) return
+  console.log(`[Chat] 🐾 ensureClawChat() called, clawInitialized=${clawInitialized.value}`);
+  if (clawInitialized.value) {
+    console.log('[Chat] ⏭ Claw already initialized, skipping');
+    return;
+  }
   try {
     const sessionId = route.query.session as string | undefined
+    console.log(`[Chat] 🐾 claw_chat_init sessionId=${sessionId}`);
     const result = await invoke<{
       sessionId: string;
       restored: boolean;
@@ -311,6 +318,7 @@ async function ensureClawChat() {
       cwd: null as string | null,
     })
     clawInitialized.value = true
+    console.log(`[Chat] 🐾 claw_chat_init result: sessionId=${result.sessionId}, restored=${result.restored}, messages=${result.messages?.length ?? 0}`);
     if (result.restored && result.messages?.length > 0) {
       const converted: ChatMessage[] = result.messages.map((m, i) => ({
         id: `msg-${Date.now()}-${i}`,
@@ -420,30 +428,47 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 async function loadSessionHistory() {
+  console.log(`[Chat] 📥 loadSessionHistory() called, isClawMode=${isClawMode.value}, route.query.session=${route.query.session}`);
   // Claw mode: session history is managed by Claw runtime, not Hermes DB
-  if (isClawMode.value) return;
+  if (isClawMode.value) {
+    console.log('[Chat] ⏭ Skipping loadSessionHistory in Claw mode');
+    return;
+  }
   const sessionId = route.query.session as string | undefined;
-  if (!sessionId) return;
+  if (!sessionId) {
+    console.log('[Chat] ⏭ No sessionId in route query, skipping');
+    return;
+  }
   try {
     hermesSessionId.value = sessionId;
     isLoading.value = true;
+    console.log(`[Chat] 📡 Calling agent_list_messages(sessionId=${sessionId})`);
     const result = await invoke<{
       success: boolean;
       messages: any[];
       sessionId: string;
     }>('agent_list_messages', { sessionId });
+    console.log(`[Chat] 📨 agent_list_messages returned: success=${result.success}, messages=${result.messages?.length ?? 0}`);
+    if (result.messages?.length > 0) {
+      console.log('[Chat] 📝 First message sample:', JSON.stringify(result.messages[0]).slice(0, 200));
+    }
     if (result.success && result.messages?.length) {
       const converted = hermesMessagesToChatMessages(result.messages);
+      console.log(`[Chat] 🔄 hermesMessagesToChatMessages → ${converted.length} ChatMessages`);
       setMessages(converted);
+      console.log(`[Chat] ✅ Messages set, current count: ${messages.value.length}`);
+    } else {
+      console.log('[Chat] ⚠️ No messages to display (success=' + result.success + ', count=' + (result.messages?.length ?? 0) + ')');
     }
   } catch (e) {
-    console.error('Failed to load session history:', e);
+    console.error('[Chat] ❌ Failed to load session history:', e);
   } finally {
     isLoading.value = false;
   }
 }
 
 onMounted(async () => {
+  console.log(`[Chat] 🚀 onMounted: isClawMode=${isClawMode.value}, route.query.session=${route.query.session}, messages.length=${messages.value.length}`);
   if (isClawMode.value) {
     await ensureClawChat();
   } else {

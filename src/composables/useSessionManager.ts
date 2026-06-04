@@ -66,9 +66,11 @@ export function useSessionManager() {
    * 刷新会话列表
    */
   const refreshSessions = async () => {
+    console.log('[SessionManager] 🔄 refreshSessions() called');
     loadingSessions.value = true;
     try {
       const result = await invoke<{ sessions: Session[]; total: number }>('agent_list_sessions', { limit: 50 });
+      console.log(`[SessionManager] 📨 agent_list_sessions returned: ${result.sessions?.length ?? 0} sessions, total=${result.total}`);
       // 按 lastActive 降序排序（最近活跃的在前）
       sessions.value = result.sessions.sort((a, b) => {
         const aTime = a.lastActive || a.startedAt || 0;
@@ -90,6 +92,7 @@ export function useSessionManager() {
     session: Session,
     onLoadMessages?: (params: MessageLoadParams) => Promise<void> | void
   ) => {
+    console.log(`[SessionManager] 🔀 selectSession(${session.id}), hasCallback=${!!onLoadMessages}`);
     // CRITICAL: Resolve compression tip transparently
     // If the session has been compressed, use the latest continuation session_id
     let effectiveSessionId = session.id;
@@ -113,15 +116,17 @@ export function useSessionManager() {
     // 如果提供了消息加载回调，调用它
     if (onLoadMessages) {
       try {
+        console.log(`[SessionManager] 📡 Calling agent_list_messages(sessionId=${effectiveSessionId})`);
         const result = await invoke<{ success: boolean; messages: any[]; sessionId: string }>(
           'agent_list_messages',
           { sessionId: effectiveSessionId }
         );
+        console.log(`[SessionManager] 📨 agent_list_messages returned: success=${result.success}, messages=${result.messages?.length ?? 0}`);
         if (result.success && result.messages) {
           await onLoadMessages({ sessionId: effectiveSessionId, messages: result.messages });
         }
       } catch (e) {
-        console.error('Failed to load messages:', e);
+        console.error('[SessionManager] ❌ Failed to load messages:', e);
       }
     }
   };
