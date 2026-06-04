@@ -358,3 +358,144 @@ async fn test_ipc_read_models() {
 // ── 移除含 AppHandle 命令的 IPC 测试（init/send/close）
 // MockRuntime 不支持 AppHandle 的 CommandArg 解析
 // 这些命令已在 test_chat_state_machine（真实 LLM 调用）中覆盖
+
+// ── session_messages_to_json ────────────────────────────────────────────
+
+#[test]
+fn test_session_messages_to_json_empty() {
+    let result = session_messages_to_json(&[]);
+    assert!(result.is_empty(), "empty messages → empty JSON array");
+}
+
+#[test]
+fn test_session_messages_to_json_converts_user_and_agent() {
+    use runtime::MessageRole;
+    let messages = vec![
+        ConversationMessage {
+            role: MessageRole::User,
+            blocks: vec![ContentBlock::Text { text: "Hello".into() }],
+            usage: None,
+        },
+        ConversationMessage {
+            role: MessageRole::Assistant,
+            blocks: vec![
+                ContentBlock::Text { text: "Hi there!".into() },
+                ContentBlock::Thinking {
+                    thinking: "let me think...".into(),
+                    signature: None,
+                },
+            ],
+            usage: None,
+        },
+    ];
+    let result = session_messages_to_json(&messages);
+    assert_eq!(result.len(), 2);
+    assert_eq!(result[0]["role"], "user");
+    assert_eq!(result[0]["content"], "Hello");
+    assert_eq!(result[1]["role"], "agent");
+    // Both text + thinking blocks joined
+    assert!(result[1]["content"].as_str().unwrap().contains("Hi there!"));
+    assert!(result[1]["content"].as_str().unwrap().contains("let me think..."));
+}
+
+#[test]
+fn test_session_messages_to_json_tool_role() {
+    use runtime::MessageRole;
+    let messages = vec![ConversationMessage {
+        role: MessageRole::Tool,
+        blocks: vec![ContentBlock::Text { text: "tool result".into() }],
+        usage: None,
+    }];
+    let result = session_messages_to_json(&messages);
+    assert_eq!(result[0]["role"], "tool");
+}
+
+#[test]
+fn test_session_messages_to_json_thinking_only() {
+    use runtime::MessageRole;
+    let messages = vec![ConversationMessage {
+        role: MessageRole::Assistant,
+        blocks: vec![ContentBlock::Thinking {
+            thinking: "just thinking".into(),
+            signature: None,
+        }],
+        usage: None,
+    }];
+    let result = session_messages_to_json(&messages);
+    assert_eq!(result[0]["content"], "just thinking");
+}
+
+// ── list_sessions_info title extraction ─────────────────────────────────
+
+#[test]
+fn test_session_title_extracted_from_first_message() {
+    let sess_dir = sessions_dir();
+    std::fs::create_dir_all(&sess_dir).unwrap();
+    let session_path = sess_dir.join("test_sess_title.json");
+
+    // Write JSONL: meta line + user message + assistant message
+    let meta = r#"{"session_id":"sess_title","created_at_ms":1717500000000,"updated_at_ms":1717500001000,"type":"session_meta","version":1}"#;
+    let msg1 = r#"{"message":{"blocks":[{"text":"What is the meaning of life?","type":"text"}],"role":"user"},"type":"message"}"#;
+    let msg2 = r#"{"message":{"blocks":[{"text":"42","type":"text"}],"role":"assistant"},"type":"message"}"#;
+    std::fs::write(&session_path, format!("{meta}\n{msg1}\n{msg2}\n")).unwrap();
+
+    let sessions = list_sessions_info();
+    let found = sessions.iter().find(|s| s["sessionId"] == "sess_title");
+    assert!(found.is_some(), "session should be found");
+    let session = found.unwrap();
+    assert_eq!(session["title"], "What is the meaning of life?");
+    assert_eq!(session["messageCount"], 2);
+
+    let _ = std::fs::remove_file(&session_path);
+}
+
+#[test]
+fn test_session_title_empty_when_no_messages() {
+    let sess_dir = sessions_dir();
+    std::fs::create_dir_all(&sess_dir).unwrap();
+    let session_path = sess_dir.join("test_sess_empty.json");
+
+    let meta = r#"{"session_id":"sess_empty","created_at_ms":1717500000000,"updated_at_ms":1717500000000,"type":"session_meta","version":1}"#;
+    std::fs::write(&session_path, format!("{meta}\n")).unwrap();
+
+    let sessions = list_sessions_info();
+    let found = sessions.iter().find(|s| s["sessionId"] == "sess_empty");
+    assert!(found.is_some(), "session should be found");
+    let session = found.unwrap();
+    assert!(session.get("title").and_then(|t| t.as_str()).is_none()
+        || session["title"].as_str().unwrap_or("").is_empty(),
+        "empty session should have no title");
+
+    let _ = std::fs::remove_file(&session_path);
+}
+
+#[test]
+fn test_session_title_truncated_to_60_chars() {
+    let sess_dir = sessions_dir();
+    std::fs::create_dir_all(&sess_dir).unwrap();
+    let session_path = sess_dir.join("test_sess_long.json");
+
+    let long_text = "a".repeat(100);
+    let meta = r#"{"session_id":"sess_long","created_at_ms":1717500000000,"updated_at_ms":1717500001000,"type":"session_meta","version":1}"#;
+    let msg = format!(r#"{{"message":{{"blocks":[{{"text":"{long_text}","type":"text"}}],"role":"user"}},"type":"message"}}"#);
+    std::fs::write(&session_path, format!("{meta}\n{msg}\n")).unwrap();
+
+    let sessions = list_sessions_info();
+    let found = sessions.iter().find(|s| s["sessionId"] == "sess_long");
+    assert!(found.is_some());
+    let title = found.unwrap()["title"].as_str().unwrap();
+    assert_eq!(title.len(), 63); // 60 chars + "..."
+    assert!(title.ends_with("..."), "long title should be truncated with ...");
+
+    let _ = std::fs::remove_file(&session_path);
+}
+
+// ── sessions_dir ────────────────────────────────────────────────────────
+
+#[test]
+fn test_sessions_dir_is_under_claw() {
+    let dir = sessions_dir();
+    let path_str = dir.to_string_lossy();
+    assert!(path_str.contains(".claw"), "sessions_dir should be ~/.claw/sessions/");
+    assert!(path_str.ends_with("sessions"), "sessions_dir should end with /sessions");
+}
