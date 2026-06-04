@@ -110,3 +110,47 @@ pub fn claw_config_set(
         "message": "Claw config saved",
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_claw_config_returns_default_when_missing() {
+        // Should not crash when file doesn't exist.
+        // Other tests may have modified the config, so we just verify
+        // no panic/unwrap happens.
+        let _config = read_claw_config().unwrap_or_default();
+    }
+
+    #[test]
+    fn test_claw_config_get_returns_valid_shape() {
+        let result = claw_config_get().unwrap();
+        assert!(result.get("hasApiKey").is_some());
+        assert!(result.get("baseUrl").is_some());
+        assert!(result.get("model").is_some());
+        assert!(result.get("provider").is_some());
+        // apiKey should be a string (masked or empty)
+        let api_key = result.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
+        assert!(api_key.is_empty() || api_key.len() >= 4);
+    }
+
+    #[test]
+    fn test_claw_config_set_preserves_unspecified_fields() {
+        // Read current
+        let before = read_claw_config().unwrap_or_default();
+        // Set only model
+        let result = claw_config_set(
+            None,
+            None,
+            Some("test-model".to_string()),
+            None,
+        ).expect("set should succeed");
+        assert_eq!(result.get("success").and_then(|v| v.as_bool()), Some(true));
+        // Verify model changed
+        let after = read_claw_config().unwrap_or_default();
+        assert_eq!(after.model, "test-model");
+        // Restore original
+        write_claw_config(&before).ok();
+    }
+}

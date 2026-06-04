@@ -491,3 +491,226 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
         "source": "claw",
     }))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test that list_session_files returns valid shape
+    #[test]
+    fn test_list_sessions_returns_array() {
+        let sessions = list_session_files();
+        for s in &sessions {
+            assert!(s.get("sessionId").and_then(|v| v.as_str()).is_some());
+            assert!(s.get("createdAt").is_some());
+        }
+    }
+
+    /// Test that save/load session round-trips correctly
+    #[test]
+    fn test_save_and_load_session() {
+        let id = uuid::Uuid::new_v4().to_string();
+        let msgs = vec![
+            Message {
+                role: "user".to_string(),
+                content: "Hello".to_string(),
+            },
+            Message {
+                role: "assistant".to_string(),
+                content: "Hi there!".to_string(),
+            },
+        ];
+
+        save_session(&id, &msgs);
+
+        let loaded = load_session(&id).expect("should load saved session");
+        assert_eq!(loaded.session_id, id);
+        assert_eq!(loaded.messages.len(), 2);
+        assert_eq!(loaded.messages[0].content, "Hello");
+        assert_eq!(loaded.messages[1].content, "Hi there!");
+
+        // Cleanup
+        let _ = std::fs::remove_file(session_file(&id));
+    }
+
+    /// Test setup_env_from_claw_config reads config and sets env vars
+    #[test]
+    fn test_setup_env_works_with_valid_config() {
+        // Read current config and verify it sets env vars
+        let config = crate::commands::claw_config::read_claw_config().unwrap_or_default();
+        if !config.api_key.is_empty() {
+            setup_env_from_claw_config().expect("setup should succeed");
+            let env_key = std::env::var("OPENAI_API_KEY")
+                .or_else(|_| std::env::var("ANTHROPIC_API_KEY"))
+                .or_else(|_| std::env::var("XAI_API_KEY"));
+            assert!(env_key.is_ok(), "setup should set API_KEY env var");
+        }
+        // Without a valid config, setup should still return Ok (just logs)
+    }
+
+    /// Test that claw_chat_info returns valid shape
+    #[tokio::test]
+    async fn test_claw_chat_info_returns_valid_shape() {
+        let info = claw_chat_info().await.unwrap();
+        assert!(info.get("mode").and_then(|v| v.as_str()) == Some("claw"));
+        assert!(info.get("apiKeyConfigured").is_some());
+        assert!(info.get("model").is_some());
+        assert!(info.get("provider").is_some());
+        assert!(info.get("configSource").is_some());
+    }
+
+    /// Test that claw_read_models_config returns valid shape
+    #[tokio::test]
+    async fn test_claw_read_models_config_returns_valid_shape() {
+        let result = claw_read_models_config().await.unwrap();
+        assert!(result.get("providers").is_some());
+        assert!(result.get("source").is_some());
+        // providers should be an array
+        let providers = result.get("providers").and_then(|v| v.as_array()).unwrap();
+        for p in providers {
+            assert!(p.get("name").is_some());
+            assert!(p.get("active").is_some());
+        }
+    }
+
+    /// Test that claw_read_stats returns valid shape
+    #[tokio::test]
+    async fn test_claw_read_stats_returns_valid_shape() {
+        let stats = claw_read_stats().await.unwrap();
+        assert!(stats.get("sessions").and_then(|v| v.as_u64()).is_some());
+        assert!(stats.get("messages").and_then(|v| v.as_u64()).is_some());
+        assert_eq!(stats.get("source").and_then(|v| v.as_str()), Some("claw"));
+    }
+
+    /// Integration test: init → list → send → close via ClawChatState directly
+    ///
+    /// Tests the ClawChatState state machine without the full Tauri runtime.
+    /// Uses setup_env_from_claw_config() and directly creates an LlmClient.
+    /// If no API key is configured, gracefully skips the send test.
+    #[tokio::test]
+    async fn test_chat_state_machine() {
+        // Setup: read config and set env vars
+        if let Err(e) = setup_env_from_claw_config() {
+            println!("[SKIP] No Claw config found: {e}");
+            return;
+        }
+
+        // Create LLM client
+        let client = match LlmClient::from_env() {
+            Ok(c) => Arc::new(c),
+            Err(e) => {
+                println!("[SKIP] Cannot create LLM client: {e}");
+                return;
+            }
+        };
+
+        let state = ClawChatState::new();
+        let sid = uuid::Uuid::new_v4().to_string();
+
+        // Store client and session
+        {
+            let mut c = state.client.lock().await;
+            *c = Some(client);
+        }
+        {
+            let mut s = state.session_id.lock().await;
+            *s = Some(sid.clone());
+        }
+
+        // Verify session_id was stored
+        {
+            let s = state.session_id.lock().await;
+            assert_eq!(s.as_deref(), Some(sid.as_str()));
+        }
+
+        // Send a message
+        let send_result = {
+            let client = state.client.lock().await.clone().unwrap();
+            let messages = vec![
+                Message {
+                    role: "user".to_string(),
+                    content: "Say 'hello' and nothing else".to_string(),
+                },
+            ];
+
+            let assistant_reply = Arc::new(Mutex::new(String::new()));
+            let reply_clone = assistant_reply.clone();
+            let has_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let has_usage_clone = has_usage.clone();
+
+            let result = client
+                .send_streaming(&messages, move |event| {
+                    match event {
+                        Ok(LlmStreamEvent::TextDelta { text }) => {
+                            let mut r = reply_clone.blocking_lock();
+                            r.push_str(&text);
+                        }
+                        Ok(LlmStreamEvent::Usage { .. }) => {
+                            has_usage_clone.store(true, std::sync::atomic::Ordering::SeqCst);
+                        }
+                        Ok(LlmStreamEvent::Done) => {
+                            if !has_usage_clone.load(std::sync::atomic::Ordering::SeqCst) {
+                                // done without usage
+                            }
+                        }
+                        _ => {}
+                    }
+                })
+                .await;
+
+            (result, assistant_reply, has_usage)
+        };
+
+        match send_result.0 {
+            Ok(()) => {
+                let reply = send_result.1.lock().await;
+                let usage = send_result.2.load(std::sync::atomic::Ordering::SeqCst);
+                println!(
+                    "[chat] ✅ Stream complete! Reply length={}, has_usage={}",
+                    reply.len(),
+                    usage
+                );
+                assert!(!reply.is_empty(), "Assistant should have replied");
+                assert!(usage, "Should have received usage info");
+
+                // Persist
+                {
+                    let mut msgs = state.messages.lock().await;
+                    msgs.push(Message {
+                        role: "user".to_string(),
+                        content: "Say 'hello' and nothing else".to_string(),
+                    });
+                    msgs.push(Message {
+                        role: "assistant".to_string(),
+                        content: reply.clone(),
+                    });
+                    save_session(&sid, &msgs);
+                }
+
+                // Verify persistence
+                let loaded = load_session(&sid);
+                assert!(loaded.is_some(), "session should be persisted");
+                if let Some(s) = loaded {
+                    assert!(s.messages.len() >= 2);
+                    assert_eq!(s.messages[0].role, "user");
+                    assert_eq!(s.messages[1].role, "assistant");
+                }
+            }
+            Err(e) => {
+                // Without valid API key, expect meaningful error
+                assert!(
+                    e.contains("401") || e.contains("auth") || e.contains("key") || e.contains("send failed"),
+                    "Error should mention the cause: got: {e}"
+                );
+                println!("[chat] ⚠️  Expected stream error (no valid API key): {e}");
+            }
+        }
+
+        // Cleanup: persist and remove session file
+        {
+            let msgs = state.messages.lock().await;
+            save_session(&sid, &msgs);
+        }
+        let _ = std::fs::remove_file(session_file(&sid));
+    }
+}
