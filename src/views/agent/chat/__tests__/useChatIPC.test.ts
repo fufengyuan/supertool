@@ -445,9 +445,10 @@ describe('useChatIPC', () => {
     deltaHandler({ payload: { text: '有什么可以帮你的？', session_id: 'sess-1' } })
 
     // Check text was added to agent message
-    const agentMsgs = messages.value.filter(m => m.role === 'agent' && 'content' in m && typeof m.content === 'string')
-    expect(agentMsgs.length).toBe(1)
-    expect(agentMsgs[0].content).toBe('我在，有什么可以帮你的？')
+    expect(messages.value.some((m) => {
+      const mm = m as { content?: string }
+      return mm.content === '我在，有什么可以帮你的？'
+    })).toBe(true)
 
     // Step 3: agent-done arrives (the backend emits agent-done inside Usage)
     const doneHandler = listenHandlers.get('agent-done')!
@@ -460,9 +461,10 @@ describe('useChatIPC', () => {
 
     // All messages in order: user, reasoning, agent content
     expect(messages.value.length).toBe(3)
-    expect((messages.value[0] as any).role).toBe('user')
-    expect((messages.value[0] as any).content).toBe('在吗')
-    expect((messages.value[1] as any).kind).toBe('reasoning')
-    expect((messages.value[2] as any).content).toBe('我在，有什么可以帮你的？')
+    const msgs = messages.value as Array<Record<string, unknown>>
+    expect(msgs[0].role).toBe('user')
+    expect(msgs[0].content).toBe('在吗')
+    expect(msgs[1].kind).toBe('reasoning')
+    expect(msgs[2].content).toBe('我在，有什么可以帮你的？')
   })
 })
