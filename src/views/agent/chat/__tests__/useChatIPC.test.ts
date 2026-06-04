@@ -360,4 +360,109 @@ describe('useChatIPC', () => {
     useChatIPC(args)
     await flushPromises()
   })
+
+  // ── Claw mode agent-done ─────────────────────────────────────────────
+
+  it('agent-done sets isLoading=false in Claw mode (real useChatIPC handler)', async () => {
+    const args = setup()
+    const { isLoading } = args
+    isLoading.value = true
+
+    // Pass isClawMode = true (as a ref, matching Chat.vue usage)
+    useChatIPC({ ...args, isClawMode: ref(true) })
+    await flushPromises()
+
+    const handler = listenHandlers.get('agent-done')
+    expect(handler).toBeDefined()
+
+    // Simulate agent-done event with the exact payload shape the backend sends
+    handler!({
+      payload: {
+        session_id: 'claw-sess-123',
+      },
+    })
+
+    // CRITICAL: isLoading must become false in Claw mode
+    expect(isLoading.value).toBe(false)
+  })
+
+  it('agent-done sets isLoading=false and does NOT call agent_list_messages in Claw mode', async () => {
+    const args = setup()
+    const { isLoading } = args
+    isLoading.value = true
+
+    const mockInvoke = vi.fn()
+    vi.mocked(await import('@tauri-apps/api/core')).invoke = mockInvoke
+
+    useChatIPC({ ...args, isClawMode: ref(true) })
+    await flushPromises()
+
+    const handler = listenHandlers.get('agent-done')
+    handler!({
+      payload: {
+        session_id: 'claw-sess-456',
+      },
+    })
+
+    // Must not call agent_list_messages (Claw has no Hermes DB)
+    expect(mockInvoke).not.toHaveBeenCalledWith('agent_list_messages', expect.anything())
+    expect(isLoading.value).toBe(false)
+  })
+
+  // ── FULL CLAW CONVERSATION FLOW ──────────────────────────────────────
+  // Tests that simulate a complete Claw conversation from user sending
+  // a message through reasoning, text chunks, completion, matching how
+  // the real claw_chat_send emits events.
+
+  it('full Claw conversation: reasoning + text + done correctly updates state', async () => {
+    const args = setup()
+    const { isLoading, messages, setMessages } = args
+    isLoading.value = true
+
+    useChatIPC({ ...args, isClawMode: ref(true) })
+    await flushPromises()
+
+    // Simulate pushUser(text) that Chat.vue does before clawSend
+    setMessages([{
+      id: 'user-1',
+      role: 'user',
+      content: '在吗',
+    }])
+
+    // Step 1: Reasoning chunks arrive (agent-reasoning-delta)
+    const reasoningHandler = listenHandlers.get('agent-reasoning-delta')!
+    reasoningHandler({ payload: { text: '我们需要理解用户的问题。', session_id: 'sess-1' } })
+    reasoningHandler({ payload: { text: '用户说"在吗"是询问是否在线。', session_id: 'sess-1' } })
+
+    // Check reasoning was added
+    const reasoningMsgs = messages.value.filter(m => 'kind' in m && m.kind === 'reasoning')
+    expect(reasoningMsgs.length).toBe(1)
+    expect(reasoningMsgs[0].text).toContain('我们需要理解用户的问题。')
+
+    // Step 2: Text delta arrives (agent-delta)
+    const deltaHandler = listenHandlers.get('agent-delta')!
+    deltaHandler({ payload: { text: '我在，', session_id: 'sess-1' } })
+    deltaHandler({ payload: { text: '有什么可以帮你的？', session_id: 'sess-1' } })
+
+    // Check text was added to agent message
+    const agentMsgs = messages.value.filter(m => m.role === 'agent' && 'content' in m && typeof m.content === 'string')
+    expect(agentMsgs.length).toBe(1)
+    expect(agentMsgs[0].content).toBe('我在，有什么可以帮你的？')
+
+    // Step 3: agent-done arrives (the backend emits agent-done inside Usage)
+    const doneHandler = listenHandlers.get('agent-done')!
+    doneHandler({
+      payload: { session_id: 'sess-1' },
+    })
+
+    // FINAL STATE CHECK: isLoading must be false
+    expect(isLoading.value).toBe(false)
+
+    // All messages in order: user, reasoning, agent content
+    expect(messages.value.length).toBe(3)
+    expect((messages.value[0] as any).role).toBe('user')
+    expect((messages.value[0] as any).content).toBe('在吗')
+    expect((messages.value[1] as any).kind).toBe('reasoning')
+    expect((messages.value[2] as any).content).toBe('我在，有什么可以帮你的？')
+  })
 })
