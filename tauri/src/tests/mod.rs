@@ -8,6 +8,18 @@ pub mod agent;
 pub mod claw_chat;
 pub mod claw_tools;
 
+pub mod alert;
+pub mod claw_config;
+pub mod claw_cron;
+pub mod claw_profiles;
+pub mod claw_skills;
+pub mod database;
+pub mod hermes_config;
+pub mod hermes_cron;
+pub mod hermes_memory;
+pub mod hermes_skills;
+pub mod provider;
+
 // ── Shared IPC helpers ──────────────────────────────────────────────────────
 
 use tauri::{
