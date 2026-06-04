@@ -257,6 +257,8 @@ const clawSessions = ref<{ sessionId: string; createdAt: string | null; messageC
 const clawLoading = ref(false)
 const clawError = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
+let instanceId = Math.random().toString(36).slice(2, 8)
+console.log(`[SessionsPage] 🏗️ Instance created: ${instanceId}`)
 
 async function loadClawSessions() {
   console.log('[SessionsPage] 🐾 loadClawSessions() called');
