@@ -25,7 +25,7 @@ impl ClawChatState {
 
 // ── Session persistence (uses claw-code's Session API) ──────────────────
 
-fn sessions_dir() -> PathBuf {
+pub(crate) fn sessions_dir() -> PathBuf {
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
         .join(".claw")
@@ -80,9 +80,15 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                             serde_json::from_str::<serde_json::Value>(line).ok()
                         })
                         .and_then(|v| {
-                            v.get("content")
-                                .and_then(|c| c.as_str())
-                                .map(|c| c.trim().to_string())
+                            // Try the actual session JSONL format first:
+                            // {"message":{"blocks":[{"text":"...","type":"text"}],"role":"user"},"type":"message"}
+                            v.get("message")
+                                .and_then(|msg| msg.get("blocks"))
+                                .and_then(|blocks| blocks.as_array())
+                                .and_then(|arr| arr.first())
+                                .and_then(|block| block.get("text"))
+                                .and_then(|t| t.as_str())
+                                .map(|t| t.trim().to_string())
                         })
                         .filter(|c| !c.is_empty())
                         .map(|c| {
@@ -114,7 +120,7 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
 }
 
 /// Convert session messages to a simplified JSON array for the front-end.
-fn session_messages_to_json(messages: &[ConversationMessage]) -> Vec<serde_json::Value> {
+pub(crate) fn session_messages_to_json(messages: &[ConversationMessage]) -> Vec<serde_json::Value> {
     messages
         .iter()
         .map(|cm| {
