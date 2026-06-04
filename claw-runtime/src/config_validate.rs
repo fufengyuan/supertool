@@ -118,10 +118,7 @@ impl FieldType {
             Self::StringArray => value
                 .as_array()
                 .is_some_and(|arr| arr.iter().all(|v| v.as_str().is_some())),
-            Self::HookArray => value.as_array().is_some_and(|arr| {
-                arr.iter()
-                    .all(|entry| entry.as_str().is_some() || entry.as_object().is_some())
-            }),
+            Self::HookArray => true,
             Self::RulesImport => {
                 value.as_str().is_some()
                     || value
@@ -439,8 +436,56 @@ fn validate_object_keys(
     result
 }
 
+/// Emit deprecation warnings for bare string hook entries in the hooks object.
+/// Legacy `["command-string"]` arrays still load but suggest migration to the
+/// structured `{matcher, hooks:[{type, command}]}` form.
+fn validate_hook_entry_format(
+    hooks: &BTreeMap<String, JsonValue>,
+    source: &str,
+    path_display: &str,
+) -> ValidationResult {
+    let mut result = ValidationResult {
+        errors: Vec::new(),
+        warnings: Vec::new(),
+    };
+    for spec in HOOKS_FIELDS {
+        let Some(value) = hooks.get(spec.name) else {
+            continue;
+        };
+        let Some(array) = value.as_array() else {
+            continue;
+        };
+        for item in array {
+            if item.as_str().is_some() {
+                result.warnings.push(ConfigDiagnostic {
+                    path: path_display.to_string(),
+                    field: format!("hooks.{}", spec.name),
+                    line: find_key_line(source, spec.name),
+                    kind: DiagnosticKind::Deprecated {
+                        replacement: "object-style hook entries with hooks:[{type:\"command\",command:\"...\"}]",
+                    },
+                });
+                // One deprecation warning per event is enough
+                break;
+            }
+        }
+    }
+    result
+}
+
 fn suggest_field(input: &str, candidates: &[&str]) -> Option<String> {
     let input_lower = input.to_ascii_lowercase();
+    // #461: prefix-aware matching — if input is a prefix of a candidate,
+    // treat it as distance 0 (perfect prefix match) to avoid edit-distance
+    // misranking (e.g., "mcp" → "env" instead of "mcpServers").
+    let prefix_match = candidates
+        .iter()
+        .filter(|c| c.to_ascii_lowercase().starts_with(&input_lower))
+        .min_by_key(|c| c.len())
+        .map(|name| name.to_string());
+    if prefix_match.is_some() {
+        return prefix_match;
+    }
     candidates
         .iter()
         .filter_map(|candidate| {
@@ -510,6 +555,7 @@ pub fn validate_config_file(
             source,
             &path_display,
         ));
+        result.merge(validate_hook_entry_format(hooks, source, &path_display));
     }
     if let Some(permissions) = object.get("permissions").and_then(JsonValue::as_object) {
         result.merge(validate_object_keys(
@@ -714,7 +760,7 @@ mod tests {
     #[test]
     fn validates_nested_hooks_keys() {
         // given
-        let source = r#"{"hooks": {"PreToolUse": ["cmd"], "BadHook": ["x"]}}"#;
+        let source = r#"{"hooks": {"PreToolUse": [{"hooks":[{"type":"command","command":"cmd"}]}], "BadHook": ["x"]}}"#;
         let parsed = JsonValue::parse(source).expect("valid json");
         let object = parsed.as_object().expect("object");
 
@@ -723,7 +769,12 @@ mod tests {
 
         // then
         assert!(result.errors.is_empty());
-        assert_eq!(result.warnings.len(), 1);
+        assert_eq!(
+            result.warnings.len(),
+            1,
+            "expected only the unknown key warning, got {:?}",
+            result.warnings
+        );
         assert_eq!(result.warnings[0].field, "hooks.BadHook");
     }
 
@@ -739,15 +790,14 @@ mod tests {
     }
 
     #[test]
-    fn rejects_wrong_hook_entry_types() {
+    fn allows_wrong_hook_entry_types_for_partial_runtime_validation_441() {
         let source = r#"{"hooks":{"PreToolUse":[42]}}"#;
         let parsed = JsonValue::parse(source).expect("valid json");
         let object = parsed.as_object().expect("object");
 
         let result = validate_config_file(object, source, &test_path());
 
-        assert_eq!(result.errors.len(), 1);
-        assert_eq!(result.errors[0].field, "hooks.PreToolUse");
+        assert!(result.errors.is_empty(), "{:?}", result.errors);
     }
 
     #[test]
@@ -847,7 +897,7 @@ mod tests {
         // given
         let source = r#"{
   "model": "opus",
-  "hooks": {"PreToolUse": ["guard"]},
+  "hooks": {"PreToolUse": [{"hooks":[{"type":"command","command":"guard"}]}]},
   "permissions": {"defaultMode": "plan", "allow": ["Read"]},
   "mcpServers": {},
   "sandbox": {"enabled": false}

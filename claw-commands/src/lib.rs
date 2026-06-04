@@ -6,8 +6,9 @@ use std::path::{Path, PathBuf};
 
 use plugins::{PluginError, PluginLoadFailure, PluginManager, PluginSummary};
 use runtime::{
-    compact_session, CompactionConfig, ConfigLoader, ConfigSource, McpOAuthConfig, McpServerConfig,
-    RuntimeConfig, ScopedMcpServerConfig, Session,
+    compact_session, CompactionConfig, ConfigLoader, ConfigSource, McpConfigCollection,
+    McpInvalidServerConfig, McpOAuthConfig, McpServerConfig, RuntimeConfig, ScopedMcpServerConfig,
+    Session,
 };
 use serde_json::{json, Value};
 
@@ -2146,7 +2147,7 @@ impl DefinitionSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct AgentSummary {
+pub(crate) struct AgentSummary {
     name: String,
     description: Option<String>,
     model: Option<String>,
@@ -2155,6 +2156,20 @@ struct AgentSummary {
     shadowed_by: Option<DefinitionSource>,
     // #728: on-disk path so `agents show` can surface the file path
     path: Option<PathBuf>,
+}
+
+/// An agent definition file that could not be loaded.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct InvalidAgentConfig {
+    pub(crate) path: PathBuf,
+    pub(crate) reason: String,
+}
+
+/// Loaded agent definitions plus any invalid entries that were skipped.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct AgentCollection {
+    pub(crate) agents: Vec<AgentSummary>,
+    pub(crate) invalid_agents: Vec<InvalidAgentConfig>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -2166,6 +2181,23 @@ struct SkillSummary {
     origin: SkillOrigin,
     // #729: on-disk path parity with AgentSummary
     path: Option<PathBuf>,
+    // #445: directory name for detecting name/dir mismatch
+    dir_name: Option<String>,
+}
+
+/// A skill where the frontmatter name differs from the directory name.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SkillMetadataDrift {
+    pub(crate) dir_name: String,
+    pub(crate) frontmatter_name: String,
+    pub(crate) path: PathBuf,
+}
+
+/// Loaded skill definitions plus any metadata drift entries.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct SkillCollection {
+    pub(crate) skills: Vec<SkillSummary>,
+    pub(crate) metadata_drift: Vec<SkillMetadataDrift>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -2493,8 +2525,8 @@ pub fn handle_agents_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
     match normalize_optional_args(args) {
         None | Some("list") => {
             let roots = discover_definition_roots(cwd, "agents");
-            let agents = load_agents_from_roots(&roots)?;
-            Ok(render_agents_report_json(cwd, &agents))
+            let collection = load_agents_from_roots_with_invalids(&roots)?;
+            Ok(render_agents_report_json(cwd, &collection))
         }
         Some(args) if args.starts_with("list ") => {
             let filter = args["list ".len()..].trim().to_lowercase();
@@ -2511,17 +2543,26 @@ pub fn handle_agents_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                 }));
             }
             let roots = discover_definition_roots(cwd, "agents");
-            let agents = load_agents_from_roots(&roots)?;
-            let filtered: Vec<_> = agents
+            let collection = load_agents_from_roots_with_invalids(&roots)?;
+            let filtered_agents: Vec<_> = collection
+                .agents
                 .into_iter()
                 .filter(|a| a.name.to_lowercase().contains(&filter))
                 .collect();
-            Ok(render_agents_report_json(cwd, &filtered))
+            let filtered_collection = AgentCollection {
+                agents: filtered_agents,
+                invalid_agents: collection.invalid_agents,
+            };
+            Ok(render_agents_report_json(cwd, &filtered_collection))
         }
         Some("show" | "info" | "describe") => {
             let roots = discover_definition_roots(cwd, "agents");
-            let agents = load_agents_from_roots(&roots)?;
-            Ok(render_agents_report_json_with_action(cwd, &agents, "show"))
+            let collection = load_agents_from_roots_with_invalids(&roots)?;
+            Ok(render_agents_report_json_with_action(
+                cwd,
+                &collection,
+                "show",
+            ))
         }
         Some(args)
             if args.starts_with("show ")
@@ -2552,8 +2593,9 @@ pub fn handle_agents_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                 }));
             }
             let roots = discover_definition_roots(cwd, "agents");
-            let agents = load_agents_from_roots(&roots)?;
-            let matched: Vec<_> = agents
+            let collection = load_agents_from_roots_with_invalids(&roots)?;
+            let matched: Vec<_> = collection
+                .agents
                 .into_iter()
                 .filter(|a| a.name.to_lowercase() == name)
                 .collect();
@@ -2570,7 +2612,15 @@ pub fn handle_agents_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                     "hint": "Run `claw agents list` to see available agents.",
                 }));
             }
-            Ok(render_agents_report_json_with_action(cwd, &matched, "show"))
+            let matched_collection = AgentCollection {
+                agents: matched,
+                invalid_agents: collection.invalid_agents,
+            };
+            Ok(render_agents_report_json_with_action(
+                cwd,
+                &matched_collection,
+                "show",
+            ))
         }
         Some("create") => Ok(render_agents_missing_argument_json("create", "agent_name")),
         Some(args) if args.starts_with("create ") => {
@@ -2765,8 +2815,8 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
     match normalize_optional_args(args) {
         None | Some("list") => {
             let roots = discover_skill_roots(cwd);
-            let skills = load_skills_from_roots(&roots)?;
-            Ok(render_skills_report_json_with_action(&skills, "list"))
+            let collection = load_skills_from_roots_with_drift(&roots)?;
+            Ok(render_skills_report_json_with_action(&collection, "list"))
         }
         Some(args) if args.starts_with("list ") => {
             let filter = args["list ".len()..].trim().to_lowercase();
@@ -2783,17 +2833,25 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                 }));
             }
             let roots = discover_skill_roots(cwd);
-            let skills = load_skills_from_roots(&roots)?;
-            let filtered: Vec<_> = skills
+            let collection = load_skills_from_roots_with_drift(&roots)?;
+            let filtered_skills: Vec<_> = collection
+                .skills
                 .into_iter()
                 .filter(|s| s.name.to_lowercase().contains(&filter))
                 .collect();
-            Ok(render_skills_report_json_with_action(&filtered, "list"))
+            let filtered_collection = SkillCollection {
+                skills: filtered_skills,
+                metadata_drift: collection.metadata_drift,
+            };
+            Ok(render_skills_report_json_with_action(
+                &filtered_collection,
+                "list",
+            ))
         }
         Some("show" | "info" | "describe") => {
             let roots = discover_skill_roots(cwd);
-            let skills = load_skills_from_roots(&roots)?;
-            Ok(render_skills_report_json_with_action(&skills, "show"))
+            let collection = load_skills_from_roots_with_drift(&roots)?;
+            Ok(render_skills_report_json_with_action(&collection, "show"))
         }
         Some(args)
             if args.starts_with("show ")
@@ -2824,8 +2882,9 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                 }));
             }
             let roots = discover_skill_roots(cwd);
-            let skills = load_skills_from_roots(&roots)?;
-            let matched: Vec<_> = skills
+            let collection = load_skills_from_roots_with_drift(&roots)?;
+            let matched: Vec<_> = collection
+                .skills
                 .into_iter()
                 .filter(|s| s.name.to_lowercase() == name)
                 .collect();
@@ -2842,7 +2901,14 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
                     "hint": "Run `claw skills list` to see available skills.",
                 }));
             }
-            Ok(render_skills_report_json_with_action(&matched, "show"))
+            let matched_collection = SkillCollection {
+                skills: matched,
+                metadata_drift: collection.metadata_drift,
+            };
+            Ok(render_skills_report_json_with_action(
+                &matched_collection,
+                "show",
+            ))
         }
         Some("install") => Ok(render_skills_missing_argument_json(
             "install",
@@ -3064,24 +3130,16 @@ fn render_mcp_report_for(
     }
 
     match normalize_optional_args(args) {
-        None | Some("list") => {
-            // #144: degrade gracefully on config parse failure (same contract
-            // as #143 for `status`). Text mode prepends a "Config load error"
-            // block before the MCP list; the list falls back to empty.
-            match loader.load() {
-                Ok(runtime_config) => Ok(render_mcp_summary_report(
-                    cwd,
-                    runtime_config.mcp().servers(),
-                )),
-                Err(err) => {
-                    let empty = std::collections::BTreeMap::new();
-                    Ok(format!(
-                        "Config load error\n  Status           fail\n  Summary          runtime config failed to load; reporting partial MCP view\n  Details          {err}\n  Hint             `claw doctor` classifies config parse errors; fix the listed field and rerun\n\n{}",
-                        render_mcp_summary_report(cwd, &empty)
-                    ))
-                }
+        None | Some("list") => match loader.load() {
+            Ok(runtime_config) => Ok(render_mcp_summary_report(cwd, runtime_config.mcp())),
+            Err(err) => {
+                let empty = McpConfigCollection::default();
+                Ok(format!(
+                    "Config load error\n  Status           fail\n  Summary          runtime config failed to load; reporting partial MCP view\n  Details          {err}\n  Hint             `claw doctor` classifies config parse errors; fix the listed field and rerun\n\n{}",
+                    render_mcp_summary_report(cwd, &empty)
+                ))
             }
-        }
+        },
         Some(args) if is_help_arg(args) => Ok(render_mcp_usage(None)),
         Some("show") => Ok(render_mcp_missing_argument_text("show")),
         Some(args) if args.split_whitespace().next() == Some("show") => {
@@ -3100,7 +3158,7 @@ fn render_mcp_report_for(
                 Ok(runtime_config) => Ok(render_mcp_server_report(
                     cwd,
                     server_name,
-                    runtime_config.mcp().get(server_name),
+                    runtime_config.mcp(),
                 )),
                 Err(err) => Ok(format!(
                     "Config load error\n  Status           fail\n  Summary          runtime config failed to load; cannot resolve `{server_name}`\n  Details          {err}\n  Hint             `claw doctor` classifies config parse errors; fix the listed field and rerun"
@@ -3162,35 +3220,38 @@ fn render_mcp_report_json_for(
     }
 
     match normalize_optional_args(args) {
-        None | Some("list") => {
-            // #144: match #143's degraded envelope contract. On config parse
-            // failure, emit top-level `status: "degraded"` with
-            // `config_load_error`, empty servers[], and exit 0. On clean
-            // runs, the existing serializer adds `status: "ok"` below.
-            match load_runtime_config_without_stderr_warnings(loader) {
-                Ok(runtime_config) => {
-                    let mut value =
-                        render_mcp_summary_report_json(cwd, runtime_config.mcp().servers());
-                    if let Some(map) = value.as_object_mut() {
-                        map.insert("status".to_string(), Value::String("ok".to_string()));
-                        map.insert("config_load_error".to_string(), Value::Null);
-                    }
-                    Ok(value)
+        None | Some("list") => match load_runtime_config_without_stderr_warnings(loader) {
+            Ok(runtime_config) => {
+                let mut value = render_mcp_summary_report_json(cwd, runtime_config.mcp());
+                if let Some(map) = value.as_object_mut() {
+                    map.insert(
+                        "status".to_string(),
+                        Value::String(
+                            if runtime_config.mcp().has_invalid_servers() {
+                                "degraded"
+                            } else {
+                                "ok"
+                            }
+                            .to_string(),
+                        ),
+                    );
+                    map.insert("config_load_error".to_string(), Value::Null);
                 }
-                Err(err) => {
-                    let empty = std::collections::BTreeMap::new();
-                    let mut value = render_mcp_summary_report_json(cwd, &empty);
-                    if let Some(map) = value.as_object_mut() {
-                        map.insert("status".to_string(), Value::String("degraded".to_string()));
-                        map.insert(
-                            "config_load_error".to_string(),
-                            Value::String(err.to_string()),
-                        );
-                    }
-                    Ok(value)
-                }
+                Ok(value)
             }
-        }
+            Err(err) => {
+                let empty = McpConfigCollection::default();
+                let mut value = render_mcp_summary_report_json(cwd, &empty);
+                if let Some(map) = value.as_object_mut() {
+                    map.insert("status".to_string(), Value::String("degraded".to_string()));
+                    map.insert(
+                        "config_load_error".to_string(),
+                        Value::String(err.to_string()),
+                    );
+                }
+                Ok(value)
+            }
+        },
         Some(args) if is_help_arg(args) => Ok(render_mcp_usage_json(None)),
         Some("show") => Ok(render_mcp_missing_argument_json("show")),
         Some(args) if args.split_whitespace().next() == Some("show") => {
@@ -3205,16 +3266,21 @@ fn render_mcp_report_json_for(
             // #144: same degradation pattern for show action.
             match load_runtime_config_without_stderr_warnings(loader) {
                 Ok(runtime_config) => {
-                    let mut value = render_mcp_server_report_json(
-                        cwd,
-                        server_name,
-                        runtime_config.mcp().get(server_name),
-                    );
+                    let mut value =
+                        render_mcp_server_report_json(cwd, server_name, runtime_config.mcp());
                     if let Some(map) = value.as_object_mut() {
-                        // Only override status to "ok" if the server was found;
-                        // render_mcp_server_report_json already sets status:"error" for not-found.
                         if map.get("found") == Some(&Value::Bool(true)) {
-                            map.insert("status".to_string(), Value::String("ok".to_string()));
+                            map.insert(
+                                "status".to_string(),
+                                Value::String(
+                                    if runtime_config.mcp().has_invalid_servers() {
+                                        "degraded"
+                                    } else {
+                                        "ok"
+                                    }
+                                    .to_string(),
+                                ),
+                            );
                         }
                         map.insert("config_load_error".to_string(), Value::Null);
                     }
@@ -3242,7 +3308,15 @@ fn render_mcp_report_json_for(
                 "use `claw mcp show <server>` to inspect a server",
             ))
         }
-        Some(args) => Ok(render_mcp_usage_json(Some(args))),
+        Some(args) => {
+            // #681: unsupported mutation verbs (add, remove, delete, enable, disable)
+            // and other unknown sub-actions return a typed error instead of help with exit 0.
+            let verb = args.split_whitespace().next().unwrap_or(args);
+            Ok(render_mcp_unsupported_action_json(
+                args,
+                &format!("`{verb}` is not a supported MCP sub-action; supported actions: list, show, help"),
+            ))
+        }
     }
 }
 
@@ -3901,30 +3975,69 @@ fn push_unique_skill_root(
 fn load_agents_from_roots(
     roots: &[(DefinitionSource, PathBuf)],
 ) -> std::io::Result<Vec<AgentSummary>> {
+    let collection = load_agents_from_roots_with_invalids(roots)?;
+    Ok(collection.agents)
+}
+
+/// Load agent definitions from all roots, collecting both valid agents and
+/// invalid entries (wrong extension, broken frontmatter, etc.).
+fn load_agents_from_roots_with_invalids(
+    roots: &[(DefinitionSource, PathBuf)],
+) -> std::io::Result<AgentCollection> {
     let mut agents = Vec::new();
+    let mut invalid_agents = Vec::new();
     let mut active_sources = BTreeMap::<String, DefinitionSource>::new();
 
     for (source, root) in roots {
         let mut root_agents = Vec::new();
         for entry in fs::read_dir(root)? {
             let entry = entry?;
-            if entry.path().extension().is_none_or(|ext| ext != "toml") {
-                continue;
+            let path = entry.path();
+            let ext = path.extension().and_then(|e| e.to_str());
+            match ext {
+                Some("toml") => {
+                    let contents = fs::read_to_string(&path)?;
+                    let fallback_name = path.file_stem().map_or_else(
+                        || entry.file_name().to_string_lossy().to_string(),
+                        |stem| stem.to_string_lossy().to_string(),
+                    );
+                    root_agents.push(AgentSummary {
+                        name: parse_toml_string(&contents, "name").unwrap_or(fallback_name),
+                        description: parse_toml_string(&contents, "description"),
+                        model: parse_toml_string(&contents, "model"),
+                        reasoning_effort: parse_toml_string(&contents, "model_reasoning_effort"),
+                        source: *source,
+                        shadowed_by: None,
+                        path: Some(path),
+                    });
+                }
+                Some("md") => {
+                    let contents = fs::read_to_string(&path)?;
+                    let (name, description, model, reasoning_effort) =
+                        parse_agent_frontmatter(&contents);
+                    if name.is_none() && description.is_none() {
+                        invalid_agents.push(InvalidAgentConfig {
+                            path,
+                            reason: "Markdown agent file has no YAML frontmatter with name or description fields".to_string(),
+                        });
+                        continue;
+                    }
+                    let fallback_name = path.file_stem().map_or_else(
+                        || entry.file_name().to_string_lossy().to_string(),
+                        |stem| stem.to_string_lossy().to_string(),
+                    );
+                    root_agents.push(AgentSummary {
+                        name: name.unwrap_or(fallback_name),
+                        description,
+                        model,
+                        reasoning_effort,
+                        source: *source,
+                        shadowed_by: None,
+                        path: Some(path),
+                    });
+                }
+                _ => continue,
             }
-            let contents = fs::read_to_string(entry.path())?;
-            let fallback_name = entry.path().file_stem().map_or_else(
-                || entry.file_name().to_string_lossy().to_string(),
-                |stem| stem.to_string_lossy().to_string(),
-            );
-            root_agents.push(AgentSummary {
-                name: parse_toml_string(&contents, "name").unwrap_or(fallback_name),
-                description: parse_toml_string(&contents, "description"),
-                model: parse_toml_string(&contents, "model"),
-                reasoning_effort: parse_toml_string(&contents, "model_reasoning_effort"),
-                source: *source,
-                shadowed_by: None,
-                path: Some(entry.path()),
-            });
         }
         root_agents.sort_by(|left, right| left.name.cmp(&right.name));
 
@@ -3939,11 +4052,22 @@ fn load_agents_from_roots(
         }
     }
 
-    Ok(agents)
+    Ok(AgentCollection {
+        agents,
+        invalid_agents,
+    })
 }
 
 fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSummary>> {
+    let collection = load_skills_from_roots_with_drift(roots)?;
+    Ok(collection.skills)
+}
+
+/// Load skill definitions from all roots, collecting metadata drift entries
+/// where the frontmatter name differs from the directory name.
+fn load_skills_from_roots_with_drift(roots: &[SkillRoot]) -> std::io::Result<SkillCollection> {
     let mut skills = Vec::new();
+    let mut metadata_drift = Vec::new();
     let mut active_sources = BTreeMap::<String, DefinitionSource>::new();
 
     for root in roots {
@@ -3960,15 +4084,26 @@ fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSumma
                         continue;
                     }
                     let contents = fs::read_to_string(skill_path)?;
+                    let dir_name = entry.file_name().to_string_lossy().to_string();
                     let (name, description) = parse_skill_frontmatter(&contents);
+                    // #445: detect name/dir mismatch
+                    if let Some(ref frontmatter_name) = name {
+                        if frontmatter_name != &dir_name {
+                            metadata_drift.push(SkillMetadataDrift {
+                                dir_name: dir_name.clone(),
+                                frontmatter_name: frontmatter_name.clone(),
+                                path: entry.path(),
+                            });
+                        }
+                    }
                     root_skills.push(SkillSummary {
-                        name: name
-                            .unwrap_or_else(|| entry.file_name().to_string_lossy().to_string()),
+                        name: name.unwrap_or_else(|| dir_name.clone()),
                         description,
                         source: root.source,
                         shadowed_by: None,
                         origin: root.origin,
                         path: Some(entry.path()),
+                        dir_name: Some(dir_name),
                     });
                 }
                 SkillOrigin::LegacyCommandsDir => {
@@ -4001,6 +4136,7 @@ fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSumma
                         shadowed_by: None,
                         origin: root.origin,
                         path: Some(markdown_path),
+                        dir_name: None,
                     });
                 }
             }
@@ -4018,7 +4154,10 @@ fn load_skills_from_roots(roots: &[SkillRoot]) -> std::io::Result<Vec<SkillSumma
         }
     }
 
-    Ok(skills)
+    Ok(SkillCollection {
+        skills,
+        metadata_drift,
+    })
 }
 
 fn parse_toml_string(contents: &str, key: &str) -> Option<String> {
@@ -4090,6 +4229,63 @@ fn unquote_frontmatter_value(value: &str) -> String {
         .to_string()
 }
 
+/// Parse agent metadata from YAML frontmatter in `.md` agent files.
+/// Returns (name, description, model, reasoning_effort) extracted from
+/// the `---`-delimited YAML block at the top of the file.
+fn parse_agent_frontmatter(
+    contents: &str,
+) -> (
+    Option<String>,
+    Option<String>,
+    Option<String>,
+    Option<String>,
+) {
+    let mut lines = contents.lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return (None, None, None, None);
+    }
+
+    let mut name = None;
+    let mut description = None;
+    let mut model = None;
+    let mut reasoning_effort = None;
+    for line in lines {
+        let trimmed = line.trim();
+        if trimmed == "---" {
+            break;
+        }
+        if let Some(value) = trimmed.strip_prefix("name:") {
+            let value = unquote_frontmatter_value(value.trim());
+            if !value.is_empty() {
+                name = Some(value);
+            }
+            continue;
+        }
+        if let Some(value) = trimmed.strip_prefix("description:") {
+            let value = unquote_frontmatter_value(value.trim());
+            if !value.is_empty() {
+                description = Some(value);
+            }
+            continue;
+        }
+        if let Some(value) = trimmed.strip_prefix("model:") {
+            let value = unquote_frontmatter_value(value.trim());
+            if !value.is_empty() {
+                model = Some(value);
+            }
+            continue;
+        }
+        if let Some(value) = trimmed.strip_prefix("model_reasoning_effort:") {
+            let value = unquote_frontmatter_value(value.trim());
+            if !value.is_empty() {
+                reasoning_effort = Some(value);
+            }
+        }
+    }
+
+    (name, description, model, reasoning_effort)
+}
+
 fn render_agents_report(agents: &[AgentSummary]) -> String {
     if agents.is_empty() {
         return "No agents found.".to_string();
@@ -4132,31 +4328,42 @@ fn render_agents_report(agents: &[AgentSummary]) -> String {
     lines.join("\n").trim_end().to_string()
 }
 
-fn render_agents_report_json(cwd: &Path, agents: &[AgentSummary]) -> Value {
-    render_agents_report_json_with_action(cwd, agents, "list")
+fn render_agents_report_json(cwd: &Path, collection: &AgentCollection) -> Value {
+    render_agents_report_json_with_action(cwd, collection, "list")
 }
 
 fn render_agents_report_json_with_action(
     cwd: &Path,
-    agents: &[AgentSummary],
+    collection: &AgentCollection,
     action: &str,
 ) -> Value {
+    let agents = &collection.agents;
+    let invalid_agents = &collection.invalid_agents;
     let active = agents
         .iter()
         .filter(|agent| agent.shadowed_by.is_none())
         .count();
+    let has_invalids = !invalid_agents.is_empty();
+    let status = if has_invalids { "degraded" } else { "ok" };
     json!({
         "kind": "agents",
-        "status": "ok",
+        "status": status,
         "action": action,
         "working_directory": cwd.display().to_string(),
         "count": agents.len(),
+        "valid_count": agents.len(),
+        "invalid_count": invalid_agents.len(),
         "summary": {
             "total": agents.len(),
             "active": active,
             "shadowed": agents.len().saturating_sub(active),
         },
         "agents": agents.iter().map(agent_summary_json).collect::<Vec<_>>(),
+        "invalid_agents": invalid_agents.iter().map(|invalid| json!({
+            "path": invalid.path.display().to_string(),
+            "reason": &invalid.reason,
+            "valid": false,
+        })).collect::<Vec<_>>(),
     })
 }
 
@@ -4276,21 +4483,34 @@ fn render_skills_report(skills: &[SkillSummary]) -> String {
     lines.join("\n").trim_end().to_string()
 }
 
-fn render_skills_report_json_with_action(skills: &[SkillSummary], action: &str) -> Value {
+fn render_skills_report_json_with_action(collection: &SkillCollection, action: &str) -> Value {
+    let skills = &collection.skills;
+    let metadata_drift = &collection.metadata_drift;
     let active = skills
         .iter()
         .filter(|skill| skill.shadowed_by.is_none())
         .count();
+    let has_drift = !metadata_drift.is_empty();
+    let status = if has_drift { "degraded" } else { "ok" };
+    // #410: add `count` field for polymorphic consumption parity with agents list
     json!({
         "kind": "skills",
-        "status": "ok",
+        "status": status,
         "action": action,
+        "count": skills.len(),
+        "valid_count": skills.len(),
+        "metadata_drift_count": metadata_drift.len(),
         "summary": {
             "total": skills.len(),
             "active": active,
             "shadowed": skills.len().saturating_sub(active),
         },
         "skills": skills.iter().map(skill_summary_json).collect::<Vec<_>>(),
+        "metadata_drift": metadata_drift.iter().map(|drift| json!({
+            "dir_name": &drift.dir_name,
+            "frontmatter_name": &drift.frontmatter_name,
+            "path": drift.path.display().to_string(),
+        })).collect::<Vec<_>>(),
     })
 }
 
@@ -4426,55 +4646,81 @@ fn io_error_reason(error: &std::io::Error) -> &'static str {
     }
 }
 
-fn render_mcp_summary_report(
-    cwd: &Path,
-    servers: &BTreeMap<String, ScopedMcpServerConfig>,
-) -> String {
+fn render_mcp_summary_report(cwd: &Path, mcp: &McpConfigCollection) -> String {
+    let servers = mcp.servers();
     let mut lines = vec![
         "MCP".to_string(),
         format!("  Working directory {}", cwd.display()),
-        format!("  Configured servers {}", servers.len()),
+        format!("  Configured servers {}", mcp.valid_count()),
+        format!("  Total entries     {}", mcp.total_configured()),
+        format!("  Invalid entries   {}", mcp.invalid_count()),
     ];
     if servers.is_empty() {
-        lines.push("  No MCP servers configured.".to_string());
-        return lines.join("\n");
+        lines.push("  No valid MCP servers configured.".to_string());
     }
 
-    lines.push(String::new());
-    for (name, server) in servers {
-        lines.push(format!(
-            "  {name:<16} {transport:<13} {scope:<7} {summary}",
-            transport = mcp_transport_label(&server.config),
-            scope = config_source_label(server.scope),
-            summary = mcp_server_summary(&server.config)
-        ));
+    if !servers.is_empty() {
+        lines.push(String::new());
+        for (name, server) in servers {
+            lines.push(format!(
+                "  {name:<16} {transport:<13} {scope:<7} {summary}",
+                transport = mcp_transport_label(&server.config),
+                scope = config_source_label(server.scope),
+                summary = mcp_server_summary(&server.config)
+            ));
+        }
+    }
+
+    if !mcp.invalid_servers().is_empty() {
+        lines.push(String::new());
+        lines.push("  Invalid MCP servers".to_string());
+        for invalid in mcp.invalid_servers() {
+            lines.push(format!("    - {}: {}", invalid.name, invalid.reason));
+        }
     }
 
     lines.join("\n")
 }
 
-fn render_mcp_summary_report_json(
-    cwd: &Path,
-    servers: &BTreeMap<String, ScopedMcpServerConfig>,
-) -> Value {
+fn render_mcp_summary_report_json(cwd: &Path, mcp: &McpConfigCollection) -> Value {
     json!({
         "kind": "mcp",
         "action": "list",
+        "count": mcp.valid_count(),
         "working_directory": cwd.display().to_string(),
-        "configured_servers": servers.len(),
-        "servers": servers
+        "configured_servers": mcp.valid_count(),
+        "total_configured": mcp.total_configured(),
+        "valid_count": mcp.valid_count(),
+        "invalid_count": mcp.invalid_count(),
+        "invalid_servers": invalid_mcp_servers_json(mcp.invalid_servers()),
+        "servers": mcp
+            .servers()
             .iter()
             .map(|(name, server)| mcp_server_json(name, server))
             .collect::<Vec<_>>(),
     })
 }
 
-fn render_mcp_server_report(
-    cwd: &Path,
-    server_name: &str,
-    server: Option<&ScopedMcpServerConfig>,
-) -> String {
-    let Some(server) = server else {
+fn invalid_mcp_servers_json(invalid_servers: &[McpInvalidServerConfig]) -> Value {
+    Value::Array(
+        invalid_servers
+            .iter()
+            .map(|server| {
+                json!({
+                    "name": &server.name,
+                    "scope": config_source_json(server.scope),
+                    "path": server.path.display().to_string(),
+                    "error_field": &server.error_field,
+                    "reason": &server.reason,
+                    "valid": false,
+                })
+            })
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn render_mcp_server_report(cwd: &Path, server_name: &str, mcp: &McpConfigCollection) -> String {
+    let Some(server) = mcp.get(server_name) else {
         return format!(
             "MCP\n  Working directory {}\n  Result            server `{server_name}` is not configured",
             cwd.display()
@@ -4552,9 +4798,9 @@ fn render_mcp_server_report(
 fn render_mcp_server_report_json(
     cwd: &Path,
     server_name: &str,
-    server: Option<&ScopedMcpServerConfig>,
+    mcp: &McpConfigCollection,
 ) -> Value {
-    match server {
+    match mcp.get(server_name) {
         Some(server) => json!({
             "kind": "mcp",
             "action": "show",
@@ -4562,6 +4808,10 @@ fn render_mcp_server_report_json(
             "working_directory": cwd.display().to_string(),
             "found": true,
             "server": mcp_server_json(server_name, server),
+            "total_configured": mcp.total_configured(),
+            "valid_count": mcp.valid_count(),
+            "invalid_count": mcp.invalid_count(),
+            "invalid_servers": invalid_mcp_servers_json(mcp.invalid_servers()),
         }),
         None => json!({
             "kind": "mcp",
@@ -4574,6 +4824,10 @@ fn render_mcp_server_report_json(
             "message": format!("server `{server_name}` is not configured"),
             // #761: hint so callers know how to enumerate configured MCP servers
             "hint": "Run `claw mcp list` to see configured servers.",
+            "total_configured": mcp.total_configured(),
+            "valid_count": mcp.valid_count(),
+            "invalid_count": mcp.invalid_count(),
+            "invalid_servers": invalid_mcp_servers_json(mcp.invalid_servers()),
         }),
     }
 }
@@ -4618,7 +4872,7 @@ fn render_agents_usage_json(unexpected: Option<&str>) -> Value {
             "direct_cli": "claw agents [list|show <name>|create <name>|help]",
             "format": "toml",
             "create": "claw agents create <name>",
-            "sources": [".claw/agents", "~/.claw/agents", "$CLAW_CONFIG_HOME/agents"],
+            "sources": [".claw/agents", "~/.claw/agents", "~/.codex/agents", "$CLAW_CONFIG_HOME/agents"],
         },
         "unexpected": unexpected,
     })
@@ -4748,7 +5002,7 @@ fn render_mcp_usage_json(unexpected: Option<&str>) -> Value {
         "usage": {
             "slash_command": "/mcp [list|show <server>|help]",
             "direct_cli": "claw mcp [list|show <server>|help]",
-            "sources": [".claw/settings.json", ".claw/settings.local.json"],
+            "sources": [".claw.json", ".claw/settings.json", ".claw/settings.local.json"],
         },
         "unexpected": unexpected,
     })
@@ -4967,6 +5221,7 @@ fn mcp_server_details_json(config: &McpServerConfig) -> Value {
 fn mcp_server_json(name: &str, server: &ScopedMcpServerConfig) -> Value {
     json!({
         "name": name,
+        "valid": true,
         "required": server.required,
         "scope": config_source_json(server.scope),
         "transport": mcp_transport_json(&server.config),
@@ -5092,7 +5347,7 @@ mod tests {
         render_agents_report_json, render_mcp_report_json_for, render_plugins_report,
         render_plugins_report_with_failures, render_skills_report, render_slash_command_help,
         render_slash_command_help_detail, resolve_skill_path, resume_supported_slash_commands,
-        slash_command_specs, suggest_slash_commands, validate_slash_command_input,
+        slash_command_specs, suggest_slash_commands, validate_slash_command_input, AgentCollection,
         DefinitionSource, SkillOrigin, SkillRoot, SkillSlashDispatch, SlashCommand,
     };
     use plugins::{
@@ -6086,7 +6341,10 @@ mod tests {
         ];
         let report = render_agents_report_json(
             &workspace,
-            &load_agents_from_roots(&roots).expect("agent roots should load"),
+            &AgentCollection {
+                agents: load_agents_from_roots(&roots).expect("agent roots should load"),
+                invalid_agents: Vec::new(),
+            },
         );
 
         assert_eq!(report["kind"], "agents");
@@ -6239,7 +6497,10 @@ mod tests {
             },
         ];
         let report = super::render_skills_report_json_with_action(
-            &load_skills_from_roots(&roots).expect("skills should load"),
+            &super::SkillCollection {
+                skills: load_skills_from_roots(&roots).expect("skills should load"),
+                metadata_drift: Vec::new(),
+            },
             "list",
         );
         assert_eq!(report["kind"], "skills");
@@ -6612,19 +6873,16 @@ mod tests {
         let help =
             render_mcp_report_json_for(&loader, &workspace, Some("help")).expect("mcp help json");
         assert_eq!(help["action"], "help");
-        assert_eq!(help["usage"]["sources"][0], ".claw/settings.json");
+        assert_eq!(help["usage"]["sources"][0], ".claw.json");
 
         let _ = fs::remove_dir_all(workspace);
         let _ = fs::remove_dir_all(config_home);
     }
 
     #[test]
-    fn mcp_degrades_gracefully_on_malformed_mcp_config_144() {
-        // #144: mirror of #143's partial-success contract for `claw mcp`.
-        // Previously `mcp` hard-failed on any config parse error, hiding
-        // well-formed servers and forcing claws to fall back to `doctor`.
-        // Now `mcp` emits a degraded envelope instead: exit 0, status:
-        // "degraded", config_load_error populated, servers[] empty.
+    fn mcp_loads_valid_servers_and_reports_invalid_siblings_440() {
+        // #440: invalid sibling MCP entries must not drop valid servers, and
+        // the JSON envelope must expose all rejected entries for one-pass repair.
         let _guard = env_guard();
         let workspace = temp_dir("mcp-degrades-144");
         let config_home = temp_dir("mcp-degrades-144-cfg");
@@ -6654,17 +6912,19 @@ mod tests {
             Some("degraded"),
             "top-level status should be 'degraded': {list}"
         );
-        let err = list["config_load_error"]
+        assert!(list["config_load_error"].is_null());
+        assert_eq!(list["configured_servers"], 1);
+        assert_eq!(list["total_configured"], 2);
+        assert_eq!(list["valid_count"], 1);
+        assert_eq!(list["invalid_count"], 1);
+        assert_eq!(list["servers"][0]["name"], "everything");
+        assert_eq!(list["servers"][0]["valid"], true);
+        assert_eq!(list["invalid_servers"][0]["name"], "missing-command");
+        assert!(list["invalid_servers"][0]["reason"]
             .as_str()
-            .expect("config_load_error must be a string on degraded runs");
-        assert!(
-            err.contains("mcpServers.missing-command"),
-            "config_load_error should name the malformed field path: {err}"
-        );
-        assert_eq!(list["configured_servers"], 0);
-        assert!(list["servers"].as_array().unwrap().is_empty());
+            .is_some_and(|reason| reason.contains("missing string field command")));
 
-        // show action: should also degrade (not hard-fail).
+        // show action still resolves valid siblings while carrying validation metadata.
         let show = render_mcp_report_json_for(&loader, &workspace, Some("show everything"))
             .expect("mcp show should not hard-fail on config parse errors (#144)");
         assert_eq!(show["kind"], "mcp");
@@ -6674,7 +6934,11 @@ mod tests {
             Some("degraded"),
             "show action should also report status: 'degraded': {show}"
         );
-        assert!(show["config_load_error"].is_string());
+        assert!(show["config_load_error"].is_null());
+        assert_eq!(show["found"], true);
+        assert_eq!(show["server"]["name"], "everything");
+        assert_eq!(show["server"]["valid"], true);
+        assert_eq!(show["invalid_count"], 1);
 
         // Clean path: status: "ok", config_load_error: null.
         let clean_ws = temp_dir("mcp-degrades-144-clean");
