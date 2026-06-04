@@ -148,6 +148,27 @@ watch(() => agentModeStore.mode, async (newMode) => {
   }
 });
 
+// 监听路由 query 变化（用户在 Sessions 页面点击会话后导航到这里）
+watch(
+  () => route.query.session,
+  async (newSessionId, oldSessionId) => {
+    // 仅当确实变化且组件已挂载时处理
+    if (newSessionId === oldSessionId) return;
+    if (isClawMode.value) {
+      // Claw 模式：重新初始化 session
+      clawInitialized.value = false;
+      messages.value = [];
+      usage.value = null;
+      toolProgress.value = null;
+      hermesSessionId.value = null;
+      await ensureClawChat();
+    } else {
+      // Hermes 模式：加载对应 session 的消息
+      await loadSessionHistory();
+    }
+  },
+);
+
 function setMessages(msgs: ChatMessage[]) {
   messages.value = msgs;
 }
