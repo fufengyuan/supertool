@@ -1687,7 +1687,7 @@ mod tests {
         build_chat_completion_request, chat_completions_endpoint, is_reasoning_model,
         model_requires_reasoning_content_in_history, normalize_finish_reason, normalize_response,
         openai_tool_choice, parse_tool_arguments, OpenAiCompatClient, OpenAiCompatConfig,
-        StreamState,
+        OpenAiSseParser, StreamState,
     };
     use crate::error::ApiError;
     use crate::types::{
@@ -2727,5 +2727,63 @@ mod tests {
         assert_eq!(super::strip_routing_prefix("kimi/kimi-k2.5"), "kimi-k2.5");
         assert_eq!(super::strip_routing_prefix("kimi-k2.5"), "kimi-k2.5"); // no prefix, unchanged
         assert_eq!(super::strip_routing_prefix("kimi/kimi-k1.5"), "kimi-k1.5");
+    }
+
+    /// Test: full SSE frame parsing + event ingestion with reasoning then content.
+    #[test]
+    fn relay_sse_parse_reasoning_then_content() {
+        let mut parser = OpenAiSseParser::with_context("OpenAI", "claude-sonnet-4-6");
+
+        let events = parser
+            .push(
+                br#"data: {"id":"c1","choices":[{"index":0,"delta":{"reasoning_content":"Let me think..."}}]}
+
+"#,
+            )
+            .expect("frame1");
+        assert_eq!(events.len(), 1);
+
+        let mut state = super::StreamState::new("claude-sonnet-4-6".to_string());
+        let mut output = Vec::new();
+        for chunk in events {
+            output.extend(state.ingest_chunk(chunk).expect("chunk1"));
+        }
+
+        let events2 = parser
+            .push(
+                br#"data: {"id":"c2","choices":[{"index":0,"delta":{"content":"The answer is 42."},"finish_reason":"stop"}]}
+
+"#,
+            )
+            .expect("frame2");
+        assert_eq!(events2.len(), 1);
+        for chunk in events2 {
+            output.extend(state.ingest_chunk(chunk).expect("chunk2"));
+        }
+
+        output.extend(state.finish().expect("finish"));
+
+        let mut reasoning = 0u32;
+        let mut content = 0u32;
+        for ev in &output {
+            match ev {
+                super::StreamEvent::ContentBlockDelta(
+                    super::ContentBlockDeltaEvent {
+                        delta: super::ContentBlockDelta::ThinkingDelta { .. },
+                        ..
+                    },
+                ) => reasoning += 1,
+                super::StreamEvent::ContentBlockDelta(
+                    super::ContentBlockDeltaEvent {
+                        delta: super::ContentBlockDelta::TextDelta { .. },
+                        ..
+                    },
+                ) => content += 1,
+                _ => {}
+            }
+        }
+
+        assert!(reasoning > 0, "MUST produce ThinkingDelta, got {reasoning}");
+        assert!(content > 0, "MUST produce TextDelta, got {content}");
     }
 }
