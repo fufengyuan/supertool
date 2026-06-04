@@ -232,11 +232,9 @@ import { useSessionManager } from '@/composables/useSessionManager'
 import type { Session } from '@/composables/useSessionManager'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
-import { useTabStore } from '@/stores/tabStore'
 
 const router = useRouter()
 const agentModeStore = useAgentModeStore()
-const tabStore = useTabStore()
 
 const isClawMode = computed(() => agentModeStore.mode === 'claw')
 
@@ -402,13 +400,11 @@ function onClearSearch() {
 function onNewChat() {
   console.log('[SessionsPage] 🆕 onNewChat()');
   router.push('/agent/chat')
-  tabStore.syncRoute('/agent/chat')
 }
 
 function onResumeSession(sessionId: string) {
   console.log(`[SessionsPage] 🔀 onResumeSession(${sessionId})`);
   router.push({ path: '/agent/chat', query: { session: sessionId } })
-  tabStore.syncRoute('/agent/chat')
 }
 
 function onResumeClawSession(sessionId: string) {
@@ -418,7 +414,6 @@ function onResumeClawSession(sessionId: string) {
     agentModeStore.setMode('claw')
   }
   router.push({ path: '/agent/chat', query: { session: sessionId } })
-  tabStore.syncRoute('/agent/chat')
 }
 
 // --- Mode switch ---
