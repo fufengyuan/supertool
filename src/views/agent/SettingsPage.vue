@@ -134,7 +134,7 @@
       </div>
 
       <!-- Hermes Config Info -->
-      <div class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <div v-if="!isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconSettings :size="18" />
           {{ t('agentSettings.general.hermesHome') }}
@@ -164,7 +164,7 @@
       </div>
 
       <!-- API Server -->
-      <div class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <div v-if="!isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconServer :size="18" />
           API Server
@@ -221,7 +221,7 @@
       </div>
 
       <!-- Export / Import -->
-      <div class="bg-base-100 border border-base-300 rounded-xl p-5">
+      <div v-if="!isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
           <IconFileExport :size="18" />
           {{ t('agentSettings.exportImport.export') }} / {{ t('agentSettings.exportImport.import') }}
@@ -248,7 +248,7 @@
       </div>
 
       <!-- Import Modal -->
-      <div v-if="showImport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showImport = false">
+      <div v-if="!isClawMode && showImport" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showImport = false">
         <div class="bg-base-100 rounded-xl p-5 w-full max-w-lg max-h-[80vh] overflow-y-auto shadow-2xl">
           <h3 class="text-base font-semibold mb-3">{{ t('agentSettings.exportImport.import') }}</h3>
           <p class="text-xs text-base-content/60 mb-3">{{ t('agentSettings.exportImport.importHint') }}</p>
