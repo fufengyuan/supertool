@@ -103,3 +103,82 @@ pub fn claw_toggle_cron_job(cron_id: String) -> Result<CronJobInfo, String> {
     save_store(&store)?;
     Ok(result)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_list_cron_jobs_returns_array() {
+        let jobs = claw_list_cron_jobs();
+        // Should always return an array (possibly empty)
+        assert!(jobs.iter().all(|j| !j.id.is_empty()));
+        // Verify camelCase serialization
+        if let Some(job) = jobs.first() {
+            let json = serde_json::to_value(job).unwrap();
+            // These fields must be camelCase for the frontend
+            assert!(json.get("lastRun").is_some(), "field should be 'lastRun' not 'last_run'");
+            assert!(json.get("runCount").is_some(), "field should be 'runCount' not 'run_count'");
+            assert!(json.get("schedule").is_some());
+            assert!(json.get("prompt").is_some());
+            assert!(json.get("enabled").is_some());
+        }
+    }
+
+    #[test]
+    fn test_create_and_delete_cron_job() {
+        // Create
+        let job = claw_create_cron_job(
+            "*/5 * * * *".to_string(),
+            "test ping".to_string(),
+            Some("unit test".to_string()),
+        ).expect("create should succeed");
+        assert_eq!(job.schedule, "*/5 * * * *");
+        assert_eq!(job.prompt, "test ping");
+        assert_eq!(job.description, "unit test");
+        assert!(job.enabled);
+        assert!(job.run_count == 0);
+
+        // Verify listed
+        let jobs = claw_list_cron_jobs();
+        assert!(jobs.iter().any(|j| j.id == job.id));
+
+        // Toggle
+        let toggled = claw_toggle_cron_job(job.id.clone()).expect("toggle should succeed");
+        assert!(!toggled.enabled);
+
+        // Re-toggle
+        let toggled_again = claw_toggle_cron_job(job.id.clone()).expect("re-toggle should succeed");
+        assert!(toggled_again.enabled);
+
+        // Delete
+        claw_delete_cron_job(job.id.clone()).expect("delete should succeed");
+
+        // Verify gone
+        let jobs_after = claw_list_cron_jobs();
+        assert!(jobs_after.iter().all(|j| j.id != job.id));
+    }
+
+    #[test]
+    fn test_delete_nonexistent_returns_error() {
+        let result = claw_delete_cron_job("nonexistent_id".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_toggle_nonexistent_returns_error() {
+        let result = claw_toggle_cron_job("nonexistent_id".to_string());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_create_without_description() {
+        let job = claw_create_cron_job(
+            "0 0 * * *".to_string(),
+            "daily".to_string(),
+            None,
+        ).expect("create without desc should succeed");
+        assert_eq!(job.description, "");
+        claw_delete_cron_job(job.id).ok();
+    }
+}

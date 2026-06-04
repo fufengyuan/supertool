@@ -131,3 +131,35 @@ pub fn claw_list_plugins() -> Vec<PluginInfo> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_list_mcp_servers_returns_array() {
+        let servers = claw_list_mcp_servers();
+        for srv in &servers {
+            assert!(!srv.name.is_empty());
+        }
+        if let Some(srv) = servers.first() {
+            let json = serde_json::to_value(srv).unwrap();
+            assert!(json.get("timeoutMs").is_some(), "field should be 'timeoutMs' not 'timeout_ms'");
+        }
+    }
+
+    #[test]
+    fn test_list_plugins_returns_array() {
+        let plugins = claw_list_plugins();
+        for p in &plugins {
+            assert!(!p.id.is_empty());
+            assert!(!p.name.is_empty());
+        }
+        if let Some(p) = plugins.first() {
+            let json = serde_json::to_value(p).unwrap();
+            assert!(json.get("installPath").is_some(), "field should be 'installPath' not 'install_path'");
+            assert!(json.get("name").is_some());
+            assert!(json.get("version").is_some());
+        }
+    }
+}

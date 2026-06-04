@@ -68,3 +68,23 @@ pub fn claw_get_profile() -> ClawProfileInfo {
         raw_settings,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_profile_returns_config_home() {
+        let profile = claw_get_profile();
+        assert!(!profile.config_home.is_empty());
+        assert!(profile.config_home.ends_with(".claw"));
+        // Verify camelCase serialization
+        let json = serde_json::to_value(&profile).unwrap();
+        assert!(json.get("configHome").is_some(), "field should be 'configHome' not 'config_home'");
+        assert!(json.get("mcpServerCount").is_some(), "field should be 'mcpServerCount' not 'mcp_server_count'");
+        assert!(json.get("pluginCount").is_some(), "field should be 'pluginCount' not 'plugin_count'");
+        assert!(json.get("hasPermissions").is_some(), "field should be 'hasPermissions' not 'has_permissions'");
+        assert!(json.get("hasHooks").is_some(), "field should be 'hasHooks' not 'has_hooks'");
+        assert!(json.get("rawSettings").is_some(), "field should be 'rawSettings' not 'raw_settings'");
+    }
+}
