@@ -4,6 +4,8 @@ mod commands;
 mod lan;
 mod system_logger;
 mod tray_notification;
+#[cfg(test)]
+mod tests;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
 use commands::claw_chat::ClawChatState;
