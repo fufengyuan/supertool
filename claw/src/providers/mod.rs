@@ -340,17 +340,17 @@ pub fn provider_diagnostics_for_model(model: &str) -> ProviderDiagnostics {
 
 #[must_use]
 pub fn detect_provider_kind(model: &str) -> ProviderKind {
-    if let Some(metadata) = metadata_for_model(model) {
-        return metadata.provider;
-    }
     // When OPENAI_BASE_URL is set, the user explicitly configured an
-    // OpenAI-compatible endpoint. Prefer it over the Anthropic fallback
-    // even when the model name has no recognized prefix — this is the
-    // common case for local providers (Ollama, LM Studio, vLLM, etc.)
-    // where model names like "qwen2.5-coder:7b" don't match any prefix.
+    // OpenAI-compatible endpoint (relay/proxy/self-hosted). This check goes
+    // BEFORE metadata_for_model so that a custom base URL wins over model-
+    // name-based routing — essential for third-party relay services that
+    // speak the OpenAI API format but are called with Claude model names.
     if std::env::var_os("OPENAI_BASE_URL").is_some() && openai_compat::has_api_key("OPENAI_API_KEY")
     {
         return ProviderKind::OpenAi;
+    }
+    if let Some(metadata) = metadata_for_model(model) {
+        return metadata.provider;
     }
     if anthropic::has_auth_from_env_or_saved().unwrap_or(false) {
         return ProviderKind::Anthropic;
