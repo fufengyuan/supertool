@@ -310,7 +310,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import { invoke } from '@tauri-apps/api/core';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
@@ -511,4 +511,9 @@ async function dryRunDispatch() {
 }
 
 onMounted(() => { refreshProfiles(); if (isClawMode.value) loadClawProfile(); });
+
+watch(isClawMode, (claw) => {
+  if (claw) { loadClawProfile(); }
+  else { refreshProfiles(); }
+});
 </script>
