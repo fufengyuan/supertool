@@ -908,16 +908,30 @@ pub async fn claw_chat_send(
             let preserve_schedule = [4, 2, 1, 0];
 
             for compact_round in 0..=max_compact_rounds {
-                let turn_result = send_turn_with_retry(
-                    &client,
-                    input_messages.clone(),
-                    &system_prompt,
-                    &tool_defs,
-                    &app,
-                    &sid,
-                    reasoning_effort.clone(),
-                    max_retries,
-                ).await;
+                // Wrap each LLM call with a 120-second timeout to prevent indefinite hangs
+                let turn_result = match tokio::time::timeout(
+                    std::time::Duration::from_secs(120),
+                    send_turn_with_retry(
+                        &client,
+                        input_messages.clone(),
+                        &system_prompt,
+                        &tool_defs,
+                        &app,
+                        &sid,
+                        reasoning_effort.clone(),
+                        max_retries,
+                    ),
+                ).await {
+                    Ok(result) => result,
+                    Err(_) => {
+                        log::error!("[claw_chat] LLM request timed out after 120s");
+                        let _ = app.emit("agent-error", serde_json::json!({
+                            "message": "LLM 请求超时（120秒），请检查网络连接后重试",
+                            "session_id": sid,
+                        }));
+                        return Err("LLM 请求超时（120秒）".into());
+                    }
+                };
 
                 match turn_result {
                     Ok(result) => break 'turn result,
