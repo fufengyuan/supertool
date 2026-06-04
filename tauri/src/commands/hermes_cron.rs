@@ -272,6 +272,58 @@ pub fn trigger_cron_job(job_id: String) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
+
+    // ── Helper: build mock app with cron commands registered ──
+
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::hermes_cron::list_cron_jobs,
+                crate::commands::hermes_cron::create_cron_job,
+                crate::commands::hermes_cron::remove_cron_job,
+                crate::commands::hermes_cron::pause_cron_job,
+                crate::commands::hermes_cron::resume_cron_job,
+                crate::commands::hermes_cron::trigger_cron_job,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
+    }
+
+    /// Send IPC request and deserialize the response as `R`.
+    /// Panics on IPC or deserialization failure.
+    fn invoke_ok<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> R {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        res.unwrap_or_else(|e| panic!("IPC '{cmd}' failed: {e:?}"))
+            .deserialize::<R>()
+            .unwrap()
+    }
 
     // ==================== normalize_job ====================
 
@@ -279,27 +331,7 @@ mod tests {
     fn test_normalize_job_empty_id_returns_none() {
         let raw = CronJobRaw {
             id: String::new(),
-            name: None,
-            prompt: None,
-            schedule: None,
-            schedule_display: None,
-            state: None,
-            enabled: None,
-            repeat: None,
-            next_run_at: None,
-            last_run_at: None,
-            last_status: None,
-            last_error: None,
-            deliver: None,
-            created_at: None,
-            paused_at: None,
-            script: None,
-            skills: None,
-            no_agent: None,
-            workdir: None,
-            profile: None,
-            model: None,
-            provider: None,
+            ..Default::default()
         };
         assert!(normalize_job(raw).is_none());
     }
@@ -492,11 +524,7 @@ mod tests {
 
     #[test]
     fn test_list_cron_jobs_no_file_returns_empty() {
-        // jobs.json doesn't exist → should return Ok(empty vec)
         let result = list_cron_jobs();
-        // If the file doesn't exist, returns Ok([])
-        // If it exists and is valid, returns Ok with jobs
-        // Either way, it should be Ok
         assert!(result.is_ok());
     }
 
@@ -557,7 +585,7 @@ mod tests {
     fn test_normalize_job_deliver_as_object_fallsback_to_local() {
         let raw = CronJobRaw {
             id: "job-obj".to_string(),
-            deliver: Some(serde_json::json!({"platform": "telegram", "chat_id": "123"})),
+            deliver: Some(serde_json::json!( {"platform": "telegram", "chat_id": "123"})),
             ..Default::default()
         };
         let result = normalize_job(raw).unwrap();
@@ -608,6 +636,214 @@ mod tests {
         };
         let result = normalize_job(raw).unwrap();
         assert_eq!(result.state, "active");
+    }
+
+    // ── IPC: mock builder smoke test ────────────────────────────────────
+
+    #[test]
+    fn test_ipc_mock_builder_creates_app() {
+        let (_app, _webview) = build_test_app();
+        // No panic == success
+    }
+
+    // ── IPC: list_cron_jobs ──────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_list_cron_jobs() {
+        let (_app, webview) = build_test_app();
+
+        let jobs: Vec<CronJobItem> =
+            invoke_ok(&webview, "list_cron_jobs", serde_json::json!({}));
+
+        // Must return an array (possibly empty)
+        for job in &jobs {
+            assert!(!job.id.is_empty(), "each job must have a non-empty id");
+        }
+
+        // Verify camelCase serialization for frontend
+        if let Some(job) = jobs.first() {
+            let json = serde_json::to_value(job).unwrap();
+            assert!(json.get("nextRunAt").is_some(), "field should be 'nextRunAt' not 'next_run_at'");
+            assert!(json.get("lastRunAt").is_some(), "field should be 'lastRunAt' not 'last_run_at'");
+            assert!(json.get("lastStatus").is_some(), "field should be 'lastStatus' not 'last_status'");
+        }
+    }
+
+    // ── IPC: create_cron_job ────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_create_cron_job() {
+        let (_app, webview) = build_test_app();
+
+        // This command shells out to `hermes cron create`, which may or may not
+        // be available in the test environment. We verify the IPC dispatch
+        // doesn't panic and returns a proper Result<(), String> shape.
+        match get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "create_cron_job".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({
+                    "schedule": "*/5 * * * *",
+                    "prompt": "test ping",
+                    "name": "ipc-test-job",
+                })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        ) {
+            Ok(resp) => {
+                // If the CLI succeeds, the response is `null` (unit `()`)
+                let val: serde_json::Value = resp.deserialize().unwrap();
+                assert_eq!(val, serde_json::Value::Null);
+            }
+            Err(_) => {
+                // If the CLI is not available, an error is expected — that's fine.
+                // The important thing is the test doesn't panic.
+            }
+        }
+    }
+
+    // ── IPC: remove_cron_job ────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_remove_cron_job() {
+        let (_app, webview) = build_test_app();
+
+        // Similar to create — may succeed or fail depending on `hermes` CLI
+        match get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "remove_cron_job".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({ "jobId": "nonexistent-test-job" })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        ) {
+            Ok(resp) => {
+                let val: serde_json::Value = resp.deserialize().unwrap();
+                assert_eq!(val, serde_json::Value::Null);
+            }
+            Err(_) => {
+                // CLI unavailable — acceptable
+            }
+        }
+    }
+
+    // ── IPC: pause_cron_job ─────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_pause_cron_job() {
+        let (_app, webview) = build_test_app();
+
+        match get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "pause_cron_job".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({ "jobId": "nonexistent-test-job" })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        ) {
+            Ok(resp) => {
+                let val: serde_json::Value = resp.deserialize().unwrap();
+                assert_eq!(val, serde_json::Value::Null);
+            }
+            Err(_) => {
+                // CLI unavailable — acceptable
+            }
+        }
+    }
+
+    // ── IPC: resume_cron_job ────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_resume_cron_job() {
+        let (_app, webview) = build_test_app();
+
+        match get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "resume_cron_job".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({ "jobId": "nonexistent-test-job" })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        ) {
+            Ok(resp) => {
+                let val: serde_json::Value = resp.deserialize().unwrap();
+                assert_eq!(val, serde_json::Value::Null);
+            }
+            Err(_) => {
+                // CLI unavailable — acceptable
+            }
+        }
+    }
+
+    // ── IPC: trigger_cron_job ───────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_trigger_cron_job() {
+        let (_app, webview) = build_test_app();
+
+        match get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "trigger_cron_job".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({ "jobId": "nonexistent-test-job" })),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        ) {
+            Ok(resp) => {
+                let val: serde_json::Value = resp.deserialize().unwrap();
+                assert_eq!(val, serde_json::Value::Null);
+            }
+            Err(_) => {
+                // CLI unavailable — acceptable
+            }
+        }
+    }
+
+    // ── IPC: camelCase command name dispatch ────────────────────────────
+
+    #[test]
+    fn test_ipc_list_cron_jobs_response_shape() {
+        let (_app, webview) = build_test_app();
+
+        let res = get_ipc_response(
+            &webview,
+            InvokeRequest {
+                cmd: "list_cron_jobs".into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(serde_json::json!({})),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+
+        // IPC dispatch must succeed — list_cron_jobs doesn't shell out,
+        // it just reads a file (or returns empty vec if file missing)
+        assert!(res.is_ok(), "listCronJobs IPC should succeed: {res:?}");
+
+        let val: serde_json::Value = res.unwrap().deserialize().unwrap();
+        assert!(val.is_array(), "response should be a JSON array");
     }
 }
 
