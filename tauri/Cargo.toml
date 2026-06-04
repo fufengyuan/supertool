@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "4.57.1"
+version = "4.58.0"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -23,6 +23,7 @@ supertool-claw = { path = "../claw-cli" }
 api = { path = "../claw" }
 runtime = { path = "../claw-runtime" }
 tools = { path = "../claw-tools" }
+plugins = { path = "../claw-plugins" }
 rusqlite = { version = "0.32", features = ["bundled"] }
 mysql_async = "0.35"
 tokio-postgres = { version = "0.7", features = ["with-chrono-0_4"] }

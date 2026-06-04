@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 /// Claw 配置结构
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClawConfig {
     /// API Key
     pub api_key: String,
@@ -19,10 +19,63 @@ pub struct ClawConfig {
     /// Provider label (for display only, routing is automatic)
     #[serde(default)]
     pub provider: String,
+
+    // ── Agent behavior settings ──
+
+    /// Maximum tool loop iterations per turn (default: 25, CLI: usize::MAX)
+    #[serde(default = "default_max_iterations")]
+    pub max_iterations: u32,
+    /// Maximum bytes for Hermes skills injection into system prompt (default: 200KB)
+    #[serde(default = "default_skill_bytes_cap")]
+    pub skill_bytes_cap: u32,
+    /// Maximum retries on transient streaming errors (default: 1)
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
+    /// Reasoning effort level: "low", "medium", "high", or empty (default)
+    #[serde(default)]
+    pub reasoning_effort: String,
+    /// Tool output truncation threshold in chars (default: 100000)
+    #[serde(default = "default_tool_output_truncation")]
+    pub tool_output_truncation: u32,
+    /// Enable auto-compaction of old messages when context is large (default: true)
+    #[serde(default = "default_auto_compaction")]
+    pub auto_compaction: bool,
+}
+
+impl Default for ClawConfig {
+    fn default() -> Self {
+        Self {
+            api_key: String::new(),
+            base_url: String::new(),
+            model: default_model(),
+            provider: String::new(),
+            max_iterations: default_max_iterations(),
+            skill_bytes_cap: default_skill_bytes_cap(),
+            max_retries: default_max_retries(),
+            reasoning_effort: String::new(),
+            tool_output_truncation: default_tool_output_truncation(),
+            auto_compaction: default_auto_compaction(),
+        }
+    }
 }
 
 fn default_model() -> String {
     "claude-sonnet-4-6".to_string()
+}
+fn default_max_iterations() -> u32 {
+    25
+}
+fn default_skill_bytes_cap() -> u32 {
+    200 * 1024 // 200KB
+}
+fn default_max_retries() -> u32 {
+    1
+}
+fn default_tool_output_truncation() -> u32 {
+    100_000 // 100K chars
+}
+fn default_auto_compaction() -> bool {
+    true
 }
 
 /// 配置文件路径
@@ -73,6 +126,12 @@ pub fn claw_config_get() -> Result<serde_json::Value, String> {
         "baseUrl": config.base_url,
         "model": config.model,
         "provider": config.provider,
+        "maxIterations": config.max_iterations,
+        "skillBytesCap": config.skill_bytes_cap,
+        "maxRetries": config.max_retries,
+        "reasoningEffort": config.reasoning_effort,
+        "toolOutputTruncation": config.tool_output_truncation,
+        "autoCompaction": config.auto_compaction,
     }))
 }
 
@@ -83,6 +142,12 @@ pub fn claw_config_set(
     base_url: Option<String>,
     model: Option<String>,
     provider: Option<String>,
+    max_iterations: Option<u32>,
+    skill_bytes_cap: Option<u32>,
+    max_retries: Option<u32>,
+    reasoning_effort: Option<String>,
+    tool_output_truncation: Option<u32>,
+    auto_compaction: Option<bool>,
 ) -> Result<serde_json::Value, String> {
     let mut config = read_claw_config()?;
 
@@ -97,6 +162,24 @@ pub fn claw_config_set(
     }
     if let Some(p) = provider {
         config.provider = p;
+    }
+    if let Some(v) = max_iterations {
+        config.max_iterations = v.clamp(1, 200);
+    }
+    if let Some(v) = skill_bytes_cap {
+        config.skill_bytes_cap = v.clamp(10 * 1024, 2 * 1024 * 1024); // 10KB - 2MB
+    }
+    if let Some(v) = max_retries {
+        config.max_retries = v.min(10);
+    }
+    if let Some(v) = reasoning_effort {
+        config.reasoning_effort = v;
+    }
+    if let Some(v) = tool_output_truncation {
+        config.tool_output_truncation = v.clamp(10_000, 10_000_000); // 10K - 10M chars
+    }
+    if let Some(v) = auto_compaction {
+        config.auto_compaction = v;
     }
 
     write_claw_config(&config)?;
