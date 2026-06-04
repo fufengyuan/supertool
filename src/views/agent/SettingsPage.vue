@@ -647,12 +647,17 @@ async function loadClawConfig() {
       model: info?.model || '',
       provider: info?.provider || '',
     }
-    // 预填 API key（后端返回的就是原始 key，不是脱敏的）
+    // 预填 API key（后端返回的就是原始 key，不在后端脱敏）
     if (info?.hasApiKey) {
       clawForm.value.apiKey = info.apiKey || ''
       clawForm.value.baseUrl = info.baseUrl || ''
       clawForm.value.model = info.model || 'claude-sonnet-4-6'
       clawForm.value.provider = info.provider || ''
+    }
+    // 检测 key 是否已损坏（含 ... 的脱敏格式或 ***）
+    if (info?.apiKey && (info.apiKey.includes('...') || info.apiKey === '****' || info.apiKey === '***')) {
+      console.warn('[claw] Detected corrupted/masked API key on disk — user needs to re-enter it')
+      clawForm.value.apiKey = ''
     }
   } catch {
     // Config not available yet
@@ -665,7 +670,11 @@ async function saveClawConfig() {
   try {
     const api = getTauriAPI()
     const params: Record<string, string> = {}
-    if (clawForm.value.apiKey.trim()) params.apiKey = clawForm.value.apiKey.trim()
+    // 安全检测：如果 key 包含 '...'（脱敏格式），跳过保存
+    // 避免因后端脱敏导致真实 key 被覆盖（见 claw_config_get 注释）
+    if (clawForm.value.apiKey.trim() && !clawForm.value.apiKey.includes('...')) {
+      params.apiKey = clawForm.value.apiKey.trim()
+    }
     if (clawForm.value.baseUrl.trim()) params.baseUrl = clawForm.value.baseUrl.trim()
     if (clawForm.value.model.trim()) params.model = clawForm.value.model.trim()
     if (clawForm.value.provider.trim()) params.provider = clawForm.value.provider.trim()

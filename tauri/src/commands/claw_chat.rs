@@ -294,7 +294,16 @@ pub async fn claw_chat_init(
     };
 
     // ── LLM Client ──
-    let client = LlmClient::from_env().map_err(|e| format!("LLM init failed: {e}"))?;
+    let client = LlmClient::from_env().map_err(|e| {
+        let hint = if e.contains("401") || e.contains("Unauthorized") || e.contains("INVALID_API_KEY") {
+            " — 请检查 ~/.claw/config.json 中的 API key 是否有效（当前可能是脱敏后的值）"
+        } else if e.contains("timeout") || e.contains("timed out") {
+            " — API 请求超时，请检查中转站地址是否可达"
+        } else {
+            ""
+        };
+        format!("LLM 客户端初始化失败: {e}{hint}")
+    })?;
     log::info!(
         "[claw_chat] LLM client initialized: provider={:?}, model={}",
         client.provider(),
@@ -464,20 +473,34 @@ pub async fn claw_chat_send(
                 }
                 Err(err_msg) => {
                     log::error!("[claw_chat] Stream error: {}", err_msg);
+                    // Surface stream errors to the frontend immediately
+                    let _ = app_clone.emit(
+                        "agent-error",
+                        serde_json::json!({
+                            "message": format!("API 流错误: {}", err_msg),
+                            "session_id": sid_stream.clone(),
+                        }),
+                    );
                 }
             }
         })
         .await
         .map_err(|e| {
             log::error!("[claw_chat] send_streaming failed: {}", e);
+            let hint = if e.contains("401") || e.contains("Unauthorized") || e.contains("INVALID_API_KEY") {
+                " — API key 无效，请检查 ~/.claw/config.json"
+            } else {
+                ""
+            };
+            let msg = format!("发送失败: {e}{hint}");
             let _ = app.emit(
                 "agent-error",
                 serde_json::json!({
-                    "message": e,
+                    "message": msg,
                     "session_id": sid_err.clone(),
                 }),
             );
-            format!("send failed: {e}")
+            msg
         })?;
 
     // ── Persist assistant reply to Session ──

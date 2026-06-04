@@ -64,15 +64,11 @@ pub fn write_claw_config(config: &ClawConfig) -> Result<(), String> {
 pub fn claw_config_get() -> Result<serde_json::Value, String> {
     let config = read_claw_config()?;
     Ok(serde_json::json!({
-        "apiKey": if config.api_key.is_empty() { String::new() } else {
-            // 脱敏：只显示前后各4个字符
-            let key = &config.api_key;
-            if key.len() > 8 {
-                format!("{}...{}", &key[..4], &key[key.len()-4..])
-            } else {
-                "****".to_string()
-            }
-        },
+        // !!! CRITICAL: return the RAW key, NEVER mask it in the backend !!!
+        // Backend masking caused a hard-to-find bug: the frontend saves
+        // the masked key back to disk, corrupting the real key.
+        // The frontend is responsible for display-level masking only.
+        "apiKey": config.api_key,
         "hasApiKey": !config.api_key.is_empty(),
         "baseUrl": config.base_url,
         "model": config.model,

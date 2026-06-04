@@ -56,7 +56,10 @@ fn test_claw_config_get_returns_valid_shape() {
     assert!(result.get("model").is_some());
     assert!(result.get("provider").is_some());
     let api_key = result.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
-    assert!(api_key.is_empty() || api_key.len() >= 4);
+    // The key is the raw value from disk — it can be any string (empty, '***', or a real key)
+    // The old assertion `len >= 4` was from the backend masking era (4 asterisks).
+    // Now that we return the raw key, just verify it's a valid string.
+    assert!(result.get("apiKey").and_then(|v| v.as_str()).is_some(), "apiKey is a string");
 }
 #[test]
 fn test_claw_config_set_preserves_unspecified_fields() {
@@ -99,5 +102,83 @@ fn test_ipc_config_set() {
     let after = read_claw_config().unwrap_or_default();
     assert_eq!(after.model, "ipc-test-model");
         // Restore
+    write_claw_config(&before).ok();
+}
+
+// ── API key masking regression tests ──────────────────────────────────
+
+#[test]
+fn test_claw_config_get_returns_raw_key_not_masked() {
+    let before = read_claw_config().unwrap_or_default();
+
+    // Save a known key
+    claw_config_set(
+        Some("sk-test-raw-key-12345-abcdef".to_string()),
+        None, None, None,
+    ).expect("set should succeed");
+
+    // Read back — MUST be the raw key, NOT masked as "sk-t...cdef"
+    let result = claw_config_get().unwrap();
+    let api_key = result.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
+    assert_eq!(api_key, "sk-test-raw-key-12345-abcdef",
+        "CRITICAL: claw_config_get returned masked key '{}' instead of raw key. \
+         This will cause the frontend to save the masked key back to disk, \
+         corrupting the user's real API key.",
+        api_key,
+    );
+
+    // Cleanup
+    write_claw_config(&before).ok();
+}
+
+#[test]
+fn test_claw_config_get_returns_raw_key_when_only_asterisks() {
+    let before = read_claw_config().unwrap_or_default();
+
+    // Simulate the corrupted state: file has "***" literally
+    // This happened when the previous backend masking returned "***" and the
+    // frontend saved it back
+    claw_config_set(
+        Some("***".to_string()),
+        None, None, None,
+    ).expect("set should succeed");
+
+    let result = claw_config_get().unwrap();
+    let api_key = result.get("apiKey").and_then(|v| v.as_str()).unwrap_or("");
+    // Must return "***" as-is, not "****" (4 asterisks from old masking logic)
+    assert_eq!(api_key, "***",
+        "claw_config_get must return raw '***' not '{}'", api_key,
+    );
+
+    // Cleanup
+    write_claw_config(&before).ok();
+}
+
+#[test]
+fn test_setup_env_from_claw_config_sets_raw_not_masked() {
+    let before = read_claw_config().unwrap_or_default();
+
+    // Save a known key
+    claw_config_set(
+        Some("sk-env-test-key-67890".to_string()),
+        Some("https://test.api.com/v1".to_string()),
+        Some("test-model".to_string()),
+        None,
+    ).expect("set should succeed");
+
+    // This should set env vars with the RAW key, not a masked version
+    crate::commands::claw_chat::setup_env_from_claw_config()
+        .expect("setup_env should succeed");
+
+    let env_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+    assert_eq!(env_key, "sk-env-test-key-67890",
+        "CRITICAL: setup_env set masked key '{}' instead of raw key",
+        env_key,
+    );
+
+    let env_url = std::env::var("OPENAI_BASE_URL").unwrap_or_default();
+    assert_eq!(env_url, "https://test.api.com/v1", "base URL should match");
+
+    // Cleanup
     write_claw_config(&before).ok();
 }

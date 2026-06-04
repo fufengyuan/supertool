@@ -8,6 +8,7 @@ use crate::tests::invoke_ipc;
 use runtime::{ContentBlock, ConversationMessage, MessageRole, Session};
 use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message};
 use serde_json::json;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -312,6 +313,83 @@ async fn test_ipc_info() {
     assert!(result.get("provider").is_some(), "provider field");
     assert!(result.get("apiKeyConfigured").is_some(), "apiKeyConfigured");
     assert!(result.get("configSource").and_then(|v| v.as_str()).is_some(), "configSource is a string");
+}
+
+// ── Real API integration test ────────────────────────────────────────────
+
+/// Tests that the real API returns TextDelta events after ThinkingDelta when
+/// the user sends "在吗" through the actual Claw configuration.
+/// SKIP by default unless --include-ignored is passed (requires real API key).
+#[tokio::test]
+#[ignore]
+async fn test_real_api_returns_text_after_thinking() {
+    use crate::commands::claw_chat::setup_env_from_claw_config;
+    setup_env_from_claw_config().expect("setup env from claw config");
+
+    let client = LlmClient::from_env().expect("create LlmClient from env");
+    log::info!("Provider: {:?}, Model: {}", client.provider(), client.model());
+
+    let messages = vec![Message {
+        role: "user".to_string(),
+        content: "在吗".to_string(),
+    }];
+
+    let text_deltas = Arc::new(Mutex::new(Vec::<String>::new()));
+    let thinking_count = Arc::new(AtomicU64::new(0));
+    let text_count = Arc::new(AtomicU64::new(0));
+    let done_received = Arc::new(AtomicU64::new(0));
+
+    let td = text_deltas.clone();
+    let tc = text_count.clone();
+    let thc = thinking_count.clone();
+    let dr = done_received.clone();
+
+    client
+        .send_streaming(&messages, move |event| {
+            match event {
+                Ok(LlmStreamEvent::TextDelta { text }) => {
+                    tc.fetch_add(1, Ordering::SeqCst);
+                    td.blocking_lock().push(text);
+                }
+                Ok(LlmStreamEvent::ThinkingDelta { .. }) => {
+                    thc.fetch_add(1, Ordering::SeqCst);
+                }
+                Ok(LlmStreamEvent::Done) => {
+                    dr.fetch_add(1, Ordering::SeqCst);
+                }
+                _ => {}
+            }
+        })
+        .await
+        .expect("send_streaming should succeed");
+
+    let text_count = text_count.load(Ordering::SeqCst);
+    let thinking_count = thinking_count.load(Ordering::SeqCst);
+    let done_count = done_received.load(Ordering::SeqCst);
+    let text_content: String = text_deltas.lock().await.iter().cloned().collect();
+
+    println!("=== Real API Event Results ===");
+    println!("TextDelta count: {text_count}");
+    println!("ThinkingDelta count: {thinking_count}");
+    println!("Done events: {done_count}");
+    println!("Text content ({chars}): {text_content}",
+        chars = text_content.len(),
+        text_content = if text_content.len() > 200 {
+            format!("{}...", &text_content[..200])
+        } else {
+            text_content.clone()
+        }
+    );
+
+    // The CRITICAL assertion: there MUST be TextDelta events with actual content
+    assert!(
+        text_count > 0 && !text_content.trim().is_empty(),
+        "REGRESSION: Real API returned {text_count} TextDelta events with {len} chars of text. \
+         The final answer was lost after thinking!\n\
+         ThinkingDelta count: {thinking_count}",
+        len = text_content.len()
+    );
+    assert!(done_count > 0, "Must receive Done event");
 }
 
 /// 检查：claw_chat_list_sessions 通过 IPC 返回 sessions 数组
