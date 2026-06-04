@@ -103,22 +103,14 @@
 
       <!-- 主内容区（含标签栏） -->
       <div class="flex-1 flex flex-col overflow-hidden">
-        <TabBar class="bg-base-100 border-b border-base-300 shrink-0" />
-        <!-- Agent 模式切换栏（仅 agent 标签页显示） -->
+        <!-- Agent 模式切换栏（仅 agent 路由显示） -->
         <AgentModeBar v-if="isAgentTab" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
-          <!-- 每个标签页独立渲染 → 切换标签时全部保持挂载，v-show 显隐 -->
-          <div
-            v-for="tab in tabStore.tabs"
-            :key="tab.id"
-            v-show="tab.id === tabStore.activeTabId"
-            class="h-full"
-          >
-            <component :is="resolveComponent(tab.currentPath)" :key="tab.currentPath" />
-          </div>
-          <div v-if="tabStore.tabs.length === 0" class="flex items-center justify-center h-full text-base-content/30 text-sm">
-            请从左侧导航栏打开页面
-          </div>
+          <router-view v-slot="{ Component }">
+            <keep-alive :include="keepAliveList">
+              <component :is="Component" :key="String($route.fullPath)" />
+            </keep-alive>
+          </router-view>
         </main>
       </div>
 
@@ -144,12 +136,10 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import PageFind from '@/components/PageFind.vue'
-import TabBar from '@/components/TabBar.vue'
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
-import { useTabStore, VIEW_ID_TO_PATH, KNOWN_ROUTES } from '@/stores/tabStore'
 import AgentModeBar from '@/components/AgentModeBar.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
@@ -188,60 +178,6 @@ import {
   IconBuildingStore,
 } from '@tabler/icons-vue'
 
-import { defineAsyncComponent, type Component } from 'vue'
-
-// 标签页 → 视图组件映射（异步懒加载）
-const tabComponents: Record<string, Component> = {
-  '/': defineAsyncComponent(() => import('@/views/dashboard/Dashboard.vue')),
-  '/todo': defineAsyncComponent(() => import('@/views/todo/TodoList.vue')),
-  '/weekly': defineAsyncComponent(() => import('@/views/weekly/WeeklyReport.vue')),
-  '/projects': defineAsyncComponent(() => import('@/views/projects/ProjectList.vue')),
-  '/accounting': defineAsyncComponent(() => import('@/views/accounting/AccountingBook.vue')),
-  '/servers': defineAsyncComponent(() => import('@/views/server/ServerManager.vue')),
-  '/cicd': defineAsyncComponent(() => import('@/views/cicd/CiCdConfig.vue')),
-  '/logs': defineAsyncComponent(() => import('@/views/logs/LogAggregator.vue')),
-  '/nginx': defineAsyncComponent(() => import('@/views/nginx/NginxManager.vue')),
-  '/database': defineAsyncComponent(() => import('@/views/db/DBManager.vue')),
-  '/agent/chat': defineAsyncComponent(() => import('@/views/agent/chat/Chat.vue')),
-  '/agent/profiles': defineAsyncComponent(() => import('@/views/agent/AgentProfiles.vue')),
-  '/agent/skills': defineAsyncComponent(() => import('@/views/agent/SkillsBrowser.vue')),
-  '/agent/memory': defineAsyncComponent(() => import('@/views/agent/MemoryManager.vue')),
-  '/agent/sessions': defineAsyncComponent(() => import('@/views/agent/SessionsPage.vue')),
-  '/agent/settings': defineAsyncComponent(() => import('@/views/agent/SettingsPage.vue')),
-  '/agent/tools': defineAsyncComponent(() => import('@/views/agent/ToolsManager.vue')),
-  '/agent/cron': defineAsyncComponent(() => import('@/views/agent/CronManager.vue')),
-  '/agent/providers': defineAsyncComponent(() => import('@/views/agent/ProviderManager.vue')),
-  '/agent/models': defineAsyncComponent(() => import('@/views/agent/ModelsPage.vue')),
-  '/kanban': defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue')),
-  '/alert': defineAsyncComponent(() => import('@/views/alert/AlertView.vue')),
-  '/devtools': defineAsyncComponent(() => import('@/views/devtools/DevTools.vue')),
-  '/notes': defineAsyncComponent(() => import('@/views/notes/NoteManager.vue')),
-  '/git': defineAsyncComponent(() => import('@/views/git/GitRepoList.vue')),
-  '/mfa': defineAsyncComponent(() => import('@/views/mfa/MfaManager.vue')),
-  '/vpn': defineAsyncComponent(() => import('@/views/vpn/VPNManager.vue')),
-  '/backup': defineAsyncComponent(() => import('@/views/backup/DataBackup.vue')),
-  '/disk-cleaner': defineAsyncComponent(() => import('@/components/DiskCleaner.vue')),
-  '/image': defineAsyncComponent(() => import('@/views/image/ImageProcessor.vue')),
-  '/report': defineAsyncComponent(() => import('@/views/reports/TodoReport.vue')),
-  '/settings': defineAsyncComponent(() => import('@/views/settings/SettingsView.vue')),
-}
-
-/** 根据路径查找最匹配的视图组件（精确匹配 → 逐级回退 → 看板） */
-function resolveComponent(path: string): Component {
-  // 去掉 query params
-  const cleanPath = path.split('?')[0].split('#')[0]
-  const tryPath = (p: string) => tabComponents[p]
-  // 精确路径
-  if (tryPath(cleanPath)) {return tabComponents[cleanPath]}
-  // 逐级回退（/agent/chat → /agent → /）
-  const segs = cleanPath.split('/').filter(Boolean)
-  for (let len = segs.length - 1; len >= 0; len--) {
-    const p = '/' + segs.slice(0, len).join('/')
-    if (tryPath(p)) {return tabComponents[p]}
-  }
-  return tabComponents['/']
-}
-
 const iconMap: Record<string, any> = {
   'dashboard': IconLayoutDashboard,
   'todo': IconChecklist,
@@ -279,14 +215,12 @@ const iconMap: Record<string, any> = {
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
-const tabStore = useTabStore()
 
-/** 当前活跃标签页是否为 Agent 相关 */
-const isAgentTab = computed(() => {
-  const current = tabStore.activeTab
-  return current?.basePath === '/agent' ||
-         current?.basePath.startsWith('/agent/')
-})
+/** 当前路由是否为 Agent 相关 */
+const isAgentTab = computed(() => route.path.startsWith('/agent'))
+
+/** keep-alive 缓存的组件名列表 */
+const keepAliveList = ['Chat', 'SessionsPage', 'MemoryManager']
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
@@ -337,15 +271,8 @@ const navGroups = {
   ],
 }
 
-function onNavClick(viewId: string, path: string) {
+function onNavClick(viewId: string, _path: string) {
   appStore.recordNavClick(viewId)
-  const routeInfo = KNOWN_ROUTES[path]
-  if (routeInfo) {
-    tabStore.openOrActivate(path, routeInfo.label, routeInfo.viewId)
-  } else {
-    tabStore.syncRoute(path)
-  }
-  // router-link 已处理导航，无需再次 router.push
 }
 
 async function toggleLan() {
@@ -383,14 +310,6 @@ function openGlobalSearch() {
 
 let unlistenFns: (() => void)[] = []
 
-// 同步路由变化到标签页（内部导航自动创建/激活标签页）
-watch(() => route.fullPath, (newPath) => {
-  tabStore.syncRoute(newPath)
-})
-
-// Agent 模式切换 → 仅在当前页面原地切换（不触发路由跳转）
-// Chat.vue 内部根据 agentModeStore.mode 切换后端（hermes / claw）
-
 onMounted(async () => {
   const api = getTauriAPI()
   try {
@@ -398,9 +317,6 @@ onMounted(async () => {
     isDark.value = theme === 'dark'
     document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
   } catch {}
-
-  // 为当前路由打开标签页
-  tabStore.syncRoute(route.fullPath)
 
   const unlistenNav = await api.onMenuNav((view: string) => {
     const routeMap: Record<string, string> = {
@@ -410,17 +326,10 @@ onMounted(async () => {
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
-      'skills': '/agent/skills',
-      'agent-sessions': '/agent/sessions',
+      'skills': '/agent/skills', 'agent-sessions': '/agent/sessions',
     }
     const path = routeMap[view]
-    if (path) {
-      const routeInfo = KNOWN_ROUTES[path]
-      if (routeInfo) {
-        tabStore.openOrActivate(path, routeInfo.label, routeInfo.viewId)
-      }
-      router.push(path)
-    }
+    if (path) router.push(path)
   }).catch(() => () => {})
   unlistenFns.push(unlistenNav as () => void)
 })

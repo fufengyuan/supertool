@@ -18,7 +18,6 @@ import GlobalSearch from '@/components/GlobalSearch.vue'
 import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
 import { useAppStore } from '@/stores/appStore'
-import { useTabStore, KNOWN_ROUTES } from '@/stores/tabStore'
 
 const isDark = ref(false)
 const showAboutDialog = ref(false)
@@ -28,7 +27,6 @@ const router = useRouter()
 const route = useRoute()
 const routeKey = computed(() => `${route.path}?${JSON.stringify(route.query)}`)
 const appStore = useAppStore()
-const tabStore = useTabStore()
 
 async function onQuickSwitchSelect(viewId: string) {
   // Navigate via router
@@ -53,10 +51,6 @@ async function onQuickSwitchSelect(viewId: string) {
   }
   const path = routeMap[viewId]
   if (path) {
-    const routeInfo = KNOWN_ROUTES[path]
-    if (routeInfo) {
-      tabStore.openOrActivate(path, routeInfo.label, routeInfo.viewId)
-    }
     router.push(path)
   }
 }
