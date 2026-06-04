@@ -72,12 +72,33 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         .get("updated_at_ms")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
+                    // Read the first message (after meta line) for a title preview
+                    let preview: Option<String> = content
+                        .lines()
+                        .nth(1)
+                        .and_then(|line| {
+                            serde_json::from_str::<serde_json::Value>(line).ok()
+                        })
+                        .and_then(|v| {
+                            v.get("content")
+                                .and_then(|c| c.as_str())
+                                .map(|c| c.trim().to_string())
+                        })
+                        .filter(|c| !c.is_empty())
+                        .map(|c| {
+                            if c.len() > 60 {
+                                format!("{}...", &c[..60])
+                            } else {
+                                c
+                            }
+                        });
                     // Count message lines in the JSONL file
                     let message_count = content.lines().skip(1).count();
                     sessions.push(serde_json::json!({
                         "sessionId": session_id,
                         "createdAt": format_ts(created_at_ms),
                         "messageCount": message_count,
+                        "title": preview,
                     }));
                 }
             }
@@ -90,6 +111,35 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
         tb.cmp(ta)
     });
     sessions
+}
+
+/// Convert session messages to a simplified JSON array for the front-end.
+fn session_messages_to_json(messages: &[ConversationMessage]) -> Vec<serde_json::Value> {
+    messages
+        .iter()
+        .map(|cm| {
+            let role = match cm.role {
+                MessageRole::User => "user",
+                MessageRole::Assistant => "agent",
+                MessageRole::System => "system",
+                MessageRole::Tool => "tool",
+            };
+            let text = cm
+                .blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::Text { text } => Some(text.clone()),
+                    ContentBlock::Thinking { thinking, .. } => Some(thinking.clone()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            serde_json::json!({
+                "role": role,
+                "content": text,
+            })
+        })
+        .collect()
 }
 
 /// Format a Unix-epoch millis timestamp to RFC 3339 for the frontend.
@@ -214,9 +264,9 @@ pub async fn claw_chat_init(
             let new_id = uuid::Uuid::new_v4().to_string();
             let path = session_path(&new_id);
             std::fs::create_dir_all(path.parent().unwrap()).ok();
+            // Don't save to disk yet — defer until first message
             let session = Session::new()
                 .with_persistence_path(&path);
-            let _ = session.save_to_path(&path);
             {
                 let mut s = state.session.lock().await;
                 *s = Some(session);
@@ -227,8 +277,9 @@ pub async fn claw_chat_init(
         let new_id = uuid::Uuid::new_v4().to_string();
         let path = session_path(&new_id);
         std::fs::create_dir_all(path.parent().unwrap()).ok();
-        let session = Session::new().with_persistence_path(&path);
-        let _ = session.save_to_path(&path);
+        // Don't save to disk yet — defer until first message
+        let session = Session::new()
+            .with_persistence_path(&path);
         {
             let mut s = state.session.lock().await;
             *s = Some(session);
@@ -257,10 +308,20 @@ pub async fn claw_chat_init(
         }),
     );
 
+    let restored_messages = if restored_count > 0 {
+        let s = state.session.lock().await;
+        s.as_ref()
+            .map(|sess| session_messages_to_json(&sess.messages))
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
     Ok(serde_json::json!({
         "sessionId": sid,
         "restored": restored_count > 0,
         "messageCount": restored_count,
+        "messages": restored_messages,
     }))
 }
 
@@ -283,12 +344,16 @@ pub async fn claw_chat_send(
     let session_path =
         session_path_buf.ok_or("No session path set — call claw_chat_init first")?;
 
-    // ── Push user message & auto-persist ──
+    // ── Push user message & persist ──
     {
         let mut s = state.session.lock().await;
         if let Some(ref mut sess) = *s {
             sess.push_user_text(&message)
                 .map_err(|e| format!("Failed to push user message: {e}"))?;
+            // Persist immediately so user message is saved even if stream fails
+            if let Some(path) = sess.persistence_path() {
+                let _ = sess.save_to_path(path);
+            }
         }
     }
 

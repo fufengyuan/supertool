@@ -63,7 +63,7 @@
           >
             <div class="flex items-start justify-between gap-3">
               <span class="text-sm font-medium text-base-content truncate leading-snug">
-                Session {{ s.sessionId.slice(-6) }}
+                {{ s.title || `Session ${s.sessionId.slice(-6)}` }}
               </span>
               <span class="text-xs text-base-content/40 shrink-0 mt-0.5">
                 {{ formatDate(s.createdAt) }}
@@ -71,7 +71,9 @@
             </div>
             <div class="flex items-center gap-1.5 mt-2">
               <span class="badge badge-sm badge-outline badge-primary/50 text-[10px]">Claw</span>
-              <span class="badge badge-sm badge-ghost text-[10px]">active</span>
+              <span v-if="s.messageCount > 0" class="badge badge-sm badge-ghost text-[10px]">
+                {{ s.messageCount }} msg{{ s.messageCount > 1 ? 's' : '' }}
+              </span>
             </div>
           </button>
         </div>
@@ -249,7 +251,7 @@ const {
 } = useSessionManager()
 
 // Claw session state
-const clawSessions = ref<{ sessionId: string; createdAt: string | null }[]>([])
+const clawSessions = ref<{ sessionId: string; createdAt: string | null; messageCount: number; title: string | null }[]>([])
 const clawLoading = ref(false)
 const clawError = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
@@ -258,10 +260,12 @@ async function loadClawSessions() {
   clawLoading.value = true
   clawError.value = ''
   try {
-    const raw = await invoke<{ sessions: { sessionId: string; createdAt?: string }[] }>('claw_chat_list_sessions')
+    const raw = await invoke<{ sessions: { sessionId: string; createdAt?: string; messageCount?: number; title?: string | null }[] }>('claw_chat_list_sessions')
     clawSessions.value = (raw?.sessions || []).map(s => ({
       sessionId: s.sessionId,
       createdAt: s.createdAt || null,
+      messageCount: s.messageCount || 0,
+      title: s.title || null,
     }))
   } catch (e: any) {
     clawError.value = e?.message || String(e)

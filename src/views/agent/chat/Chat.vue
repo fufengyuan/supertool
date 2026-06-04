@@ -284,13 +284,19 @@ async function ensureClawChat() {
       sessionId: string;
       restored: boolean;
       messageCount: number;
+      messages: Array<{ role: string; content: string }>;
     }>('claw_chat_init', {
       sessionId: sessionId || null,
       cwd: null as string | null,
     })
     clawInitialized.value = true
-    if (result.restored && result.messageCount > 0) {
-      // Restored history — don't show ready message
+    if (result.restored && result.messages?.length > 0) {
+      const converted: ChatMessage[] = result.messages.map((m, i) => ({
+        id: `msg-${Date.now()}-${i}`,
+        role: m.role === 'user' ? 'user' : 'agent',
+        content: m.content,
+      }))
+      setMessages(converted)
     } else {
       addAgentMessage('Claw 编码助手已就绪')
     }
