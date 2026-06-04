@@ -1,6 +1,9 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use runtime::{
+    ContentBlock, ConversationMessage, MessageRole, Session,
+};
 use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
@@ -8,21 +11,19 @@ use tokio::sync::Mutex;
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     client: Mutex<Option<Arc<LlmClient>>>,
-    session_id: Mutex<Option<String>>,
-    messages: Mutex<Vec<Message>>,
+    session: Mutex<Option<Session>>,
 }
 
 impl ClawChatState {
     pub fn new() -> Self {
         Self {
             client: Mutex::new(None),
-            session_id: Mutex::new(None),
-            messages: Mutex::new(Vec::new()),
+            session: Mutex::new(None),
         }
     }
 }
 
-// ── Session persistence ──────────────────────────────────────────────────
+// ── Session persistence (uses claw-code's Session API) ──────────────────
 
 fn sessions_dir() -> PathBuf {
     dirs::home_dir()
@@ -31,39 +32,18 @@ fn sessions_dir() -> PathBuf {
         .join("sessions")
 }
 
-fn session_file(id: &str) -> PathBuf {
+fn session_path(id: &str) -> PathBuf {
     sessions_dir().join(format!("{id}.json"))
 }
 
-#[derive(serde::Serialize, serde::Deserialize)]
-struct PersistedSession {
-    session_id: String,
-    created_at: String,
-    messages: Vec<Message>,
+/// Load a persisted session by ID.
+fn load_session(id: &str) -> Option<Session> {
+    let path = session_path(id);
+    Session::load_from_path(&path).ok()
 }
 
-fn save_session(id: &str, messages: &[Message]) {
-    let dir = sessions_dir();
-    let _ = std::fs::create_dir_all(&dir);
-    let file = session_file(id);
-    let now = chrono::Utc::now().to_rfc3339();
-    let session = PersistedSession {
-        session_id: id.to_string(),
-        created_at: now,
-        messages: messages.to_vec(),
-    };
-    if let Ok(json) = serde_json::to_string_pretty(&session) {
-        let _ = std::fs::write(&file, json);
-    }
-}
-
-fn load_session(id: &str) -> Option<PersistedSession> {
-    let file = session_file(id);
-    let content = std::fs::read_to_string(&file).ok()?;
-    serde_json::from_str(&content).ok()
-}
-
-fn list_session_files() -> Vec<serde_json::Value> {
+/// List all persisted sessions by reading their JSONL meta record (first line).
+fn list_sessions_info() -> Vec<serde_json::Value> {
     let dir = sessions_dir();
     if !dir.exists() {
         return Vec::new();
@@ -72,25 +52,54 @@ fn list_session_files() -> Vec<serde_json::Value> {
     if let Ok(entries) = std::fs::read_dir(&dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("json") {
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    if let Ok(session) = serde_json::from_str::<PersistedSession>(&content) {
-                        sessions.push(serde_json::json!({
-                            "sessionId": session.session_id,
-                            "createdAt": session.created_at,
-                            "messageCount": session.messages.len(),
-                        }));
-                    }
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
+            }
+            // Read the first line (meta record) for session info
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                let first_line = content.lines().next().unwrap_or("");
+                if let Ok(meta) = serde_json::from_str::<serde_json::Value>(first_line) {
+                    let session_id = meta
+                        .get("session_id")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    let created_at_ms = meta
+                        .get("created_at_ms")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let _updated_at_ms = meta
+                        .get("updated_at_ms")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    // Count message lines in the JSONL file
+                    let message_count = content.lines().skip(1).count();
+                    sessions.push(serde_json::json!({
+                        "sessionId": session_id,
+                        "createdAt": format_ts(created_at_ms),
+                        "messageCount": message_count,
+                    }));
                 }
             }
         }
     }
+    // Newest first by created_at_ms
     sessions.sort_by(|a, b| {
         let ta = a.get("createdAt").and_then(|v| v.as_str()).unwrap_or("");
         let tb = b.get("createdAt").and_then(|v| v.as_str()).unwrap_or("");
-        tb.cmp(ta) // newest first
+        tb.cmp(ta)
     });
     sessions
+}
+
+/// Format a Unix-epoch millis timestamp to RFC 3339 for the frontend.
+fn format_ts(ms: u64) -> String {
+    use chrono::TimeZone;
+    chrono::Utc
+        .timestamp_millis_opt(ms as i64)
+        .single()
+        .map(|dt| dt.to_rfc3339())
+        .unwrap_or_default()
 }
 
 // ── Config ───────────────────────────────────────────────────────────────
@@ -138,9 +147,47 @@ fn setup_env_from_claw_config() -> Result<(), String> {
     Ok(())
 }
 
-// ── Commands ─────────────────────────────────────────────────────────────
+// ── ConversationMessage ↔ LlmClient::Message conversion ─────────────────
 
-/// 初始化 LLM 客户端。如果提供了 session_id，则从磁盘恢复历史消息。
+/// Convert claw-code's `ConversationMessage` to the flat `Message` format
+/// that `LlmClient::send_streaming` expects.
+fn to_prompt_messages(session_messages: &[ConversationMessage]) -> Vec<Message> {
+    session_messages
+        .iter()
+        .map(|cm| {
+            let role = match cm.role {
+                MessageRole::System => "system",
+                MessageRole::User => "user",
+                MessageRole::Assistant => "assistant",
+                MessageRole::Tool => "tool",
+            }
+            .to_string();
+
+            // Flatten blocks into a single text string
+            let content: String = cm
+                .blocks
+                .iter()
+                .map(|b| match b {
+                    ContentBlock::Text { text } => text.clone(),
+                    ContentBlock::Thinking { thinking, .. } => thinking.clone(),
+                    ContentBlock::ToolUse { id, name, input } => {
+                        format!("[ToolUse: {name}({id})] {input}")
+                    }
+                    ContentBlock::ToolResult {
+                        tool_name, output, ..
+                    } => format!("[ToolResult: {tool_name}] {output}"),
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            Message { role, content }
+        })
+        .collect()
+}
+
+// ── Tauri Commands ──────────────────────────────────────────────────────
+
+/// 初始化 LLM 客户端和 Session。如果提供了 session_id，则从磁盘恢复。
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_init(
     app: AppHandle,
@@ -151,48 +198,54 @@ pub async fn claw_chat_init(
     log::info!("[claw_chat] Initializing LLM client from Claw config");
 
     setup_env_from_claw_config()?;
-    let client = LlmClient::from_env()?;
 
-    // 决定 session ID：恢复旧的 or 创建新的
-    let sid = if let Some(ref existing) = session_id {
-        if load_session(existing).is_some() {
-            log::info!("[claw_chat] Restoring session {}", existing);
-            existing.clone()
+    // ── Session ──
+    let (sid, restored_count) = if let Some(ref existing) = session_id {
+        if let Some(loaded) = load_session(existing) {
+            let count = loaded.messages.len();
+            log::info!("[claw_chat] Restored session {} ({} messages)", existing, count);
+            {
+                let mut s = state.session.lock().await;
+                *s = Some(loaded);
+            }
+            (existing.clone(), count)
         } else {
-            log::info!("[claw_chat] Session {} not found, creating new", existing);
-            uuid::Uuid::new_v4().to_string()
+            log::info!("[claw_chat] Session {} not found on disk, creating new", existing);
+            let new_id = uuid::Uuid::new_v4().to_string();
+            let path = session_path(&new_id);
+            std::fs::create_dir_all(path.parent().unwrap()).ok();
+            let session = Session::new()
+                .with_persistence_path(&path);
+            let _ = session.save_to_path(&path);
+            {
+                let mut s = state.session.lock().await;
+                *s = Some(session);
+            }
+            (new_id, 0)
         }
     } else {
-        uuid::Uuid::new_v4().to_string()
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let path = session_path(&new_id);
+        std::fs::create_dir_all(path.parent().unwrap()).ok();
+        let session = Session::new().with_persistence_path(&path);
+        let _ = session.save_to_path(&path);
+        {
+            let mut s = state.session.lock().await;
+            *s = Some(session);
+        }
+        (new_id, 0)
     };
 
+    // ── LLM Client ──
+    let client = LlmClient::from_env().map_err(|e| format!("LLM init failed: {e}"))?;
     log::info!(
         "[claw_chat] LLM client initialized: provider={:?}, model={}",
         client.provider(),
         client.model(),
     );
-
-    // Store client
     {
         let mut c = state.client.lock().await;
         *c = Some(Arc::new(client));
-    }
-
-    // Restore messages from disk if available
-    let restored_count;
-    {
-        let mut s = state.session_id.lock().await;
-        *s = Some(sid.clone());
-    }
-    {
-        let mut msgs = state.messages.lock().await;
-        if let Some(persisted) = load_session(&sid) {
-            restored_count = persisted.messages.len();
-            *msgs = persisted.messages;
-        } else {
-            restored_count = 0;
-            msgs.clear();
-        }
     }
 
     let _ = app.emit(
@@ -218,56 +271,67 @@ pub async fn claw_chat_send(
     state: tauri::State<'_, ClawChatState>,
     message: String,
 ) -> Result<(), String> {
-    let (client, session_id) = {
+    let (client, session_path_buf) = {
         let c = state.client.lock().await;
-        let s = state.session_id.lock().await;
-        (c.clone(), s.clone())
+        let s = state.session.lock().await;
+        let client = c.clone().ok_or("Claw not initialized")?;
+        let path = s
+            .as_ref()
+            .and_then(|sess| sess.persistence_path().map(|p| p.to_path_buf()));
+        (client, path)
     };
+    let session_path =
+        session_path_buf.ok_or("No session path set — call claw_chat_init first")?;
 
-    let client = client.ok_or("Claw not initialized")?;
-    let session_id = session_id.clone().ok_or("No session")?;
-
-    // 保存用户消息到历史
+    // ── Push user message & auto-persist ──
     {
-        let mut msgs = state.messages.lock().await;
-        msgs.push(Message {
-            role: "user".to_string(),
-            content: message.clone(),
-        });
+        let mut s = state.session.lock().await;
+        if let Some(ref mut sess) = *s {
+            sess.push_user_text(&message)
+                .map_err(|e| format!("Failed to push user message: {e}"))?;
+        }
     }
 
-    let messages: Vec<Message> = {
-        let msgs = state.messages.lock().await;
-        msgs.clone()
+    // ── Convert session messages to prompt format ──
+    let prompt_messages: Vec<Message> = {
+        let s = state.session.lock().await;
+        match s.as_ref() {
+            Some(sess) => to_prompt_messages(&sess.messages),
+            None => return Err("No session".into()),
+        }
     };
 
     log::info!(
         "[claw_chat] Sending streaming request ({} messages)",
-        messages.len()
+        prompt_messages.len()
     );
 
+    // ── Stream to Tauri events ──
     let app_clone = app.clone();
-    let sid = session_id.clone();
-    // Collect assistant reply during streaming, save after completion
+    let sid = session_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_string();
+
     let has_received_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let has_received_usage_clone = has_received_usage.clone();
     let assistant_reply = Arc::new(Mutex::new(String::new()));
     let assistant_reply_clone = assistant_reply.clone();
 
+    let sid_stream = sid.clone();
+    let sid_err = sid.clone();
     client
-        .send_streaming(&messages, move |event| {
+        .send_streaming(&prompt_messages, move |event| {
             match event {
                 Ok(LlmStreamEvent::TextDelta { text }) => {
-                    // Accumulate for persistence
-                    {
-                        let mut reply = assistant_reply_clone.blocking_lock();
-                        reply.push_str(&text);
-                    }
+                    let mut reply = assistant_reply_clone.blocking_lock();
+                    reply.push_str(&text);
                     let _ = app_clone.emit(
                         "agent-delta",
                         serde_json::json!({
                             "text": text,
-                            "session_id": sid.clone(),
+                            "session_id": sid_stream.clone(),
                         }),
                     );
                 }
@@ -276,7 +340,7 @@ pub async fn claw_chat_send(
                         "agent-reasoning-delta",
                         serde_json::json!({
                             "text": thinking,
-                            "session_id": sid.clone(),
+                            "session_id": sid_stream.clone(),
                         }),
                     );
                 }
@@ -287,7 +351,7 @@ pub async fn claw_chat_send(
                             "id": id,
                             "name": name,
                             "args": input,
-                            "session_id": sid.clone(),
+                            "session_id": sid_stream.clone(),
                         }),
                     );
                 }
@@ -302,13 +366,13 @@ pub async fn claw_chat_send(
                             "prompt_tokens": input_tokens,
                             "completion_tokens": output_tokens,
                             "total_tokens": input_tokens + output_tokens,
-                            "session_id": sid.clone(),
+                            "session_id": sid_stream.clone(),
                         }),
                     );
                     let _ = app_clone.emit(
                         "agent-done",
                         serde_json::json!({
-                            "session_id": sid.clone(),
+                            "session_id": sid_stream.clone(),
                             "usage": {
                                 "input_tokens": input_tokens,
                                 "output_tokens": output_tokens,
@@ -321,7 +385,7 @@ pub async fn claw_chat_send(
                         let _ = app_clone.emit(
                             "agent-done",
                             serde_json::json!({
-                                "session_id": sid.clone(),
+                                "session_id": sid_stream.clone(),
                             }),
                         );
                     }
@@ -339,43 +403,49 @@ pub async fn claw_chat_send(
                 "agent-error",
                 serde_json::json!({
                     "message": e,
-                    "session_id": session_id.clone(),
+                    "session_id": sid_err.clone(),
                 }),
             );
             format!("send failed: {e}")
         })?;
 
-    // Stream 完成后：将 assistant 回复保存到 messages 并持久化到磁盘
+    // ── Persist assistant reply to Session ──
     let reply_text = assistant_reply.lock().await;
     if !reply_text.is_empty() {
-        let mut msgs = state.messages.lock().await;
-        msgs.push(Message {
-            role: "assistant".to_string(),
-            content: reply_text.clone(),
-        });
-        save_session(&session_id, &msgs);
+        let assistant_msg =
+            ConversationMessage::assistant(vec![ContentBlock::Text {
+                text: reply_text.clone(),
+            }]);
+        let mut s = state.session.lock().await;
+        if let Some(ref mut sess) = *s {
+            sess.push_message(assistant_msg)
+                .map_err(|e| format!("Failed to push assistant message: {e}"))?;
+            // Full snapshot after each turn
+            let _ = sess.save_to_path(&session_path);
+        }
     }
 
     Ok(())
 }
 
-/// 关闭会话（仅断开 LLM 连接，保留消息历史）
+/// 关闭会话（仅断开 LLM 连接，保留 session 持久化）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_close(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<(), String> {
     log::info!("[claw_chat] Closing session (preserving messages)");
 
-    // 先持久化当前消息
+    // Final save
     {
-        let sid = state.session_id.lock().await.clone();
-        let msgs = state.messages.lock().await;
-        if let Some(ref id) = sid {
-            save_session(id, &msgs);
+        let s = state.session.lock().await;
+        if let Some(ref sess) = *s {
+            if let Some(path) = sess.persistence_path() {
+                let _ = sess.save_to_path(path);
+            }
         }
     }
 
-    // 断开 LLM 连接但保留 session_id 和 messages
+    // Drop LLM client, keep session
     {
         let mut c = state.client.lock().await;
         *c = None;
@@ -389,19 +459,20 @@ pub async fn claw_chat_close(
 pub async fn claw_chat_list_sessions(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<serde_json::Value, String> {
-    // 合并磁盘上的历史会话 + 当前活跃会话
-    let mut sessions = list_session_files();
+    let mut sessions = list_sessions_info();
 
     // 如果有活跃会话且不在磁盘列表中，加上
     let active_sid = {
-        let s = state.session_id.lock().await;
-        s.clone()
+        let s = state.session.lock().await;
+        s.as_ref().map(|sess| sess.session_id.clone())
     };
-    if let Some(ref sid) = active_sid {
-        if !sessions.iter().any(|s| s.get("sessionId").and_then(|v| v.as_str()) == Some(sid)) {
+    if let Some(ref sid) = active_sid.as_deref() {
+        if !sessions.iter().any(|s| {
+            s.get("sessionId").and_then(|v| v.as_str()) == Some(sid)
+        }) {
             let msg_count = {
-                let msgs = state.messages.lock().await;
-                msgs.len()
+                let s = state.session.lock().await;
+                s.as_ref().map(|sess| sess.messages.len()).unwrap_or(0)
             };
             sessions.push(serde_json::json!({
                 "sessionId": sid,
@@ -422,7 +493,11 @@ pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
     let api_key_found = !config.api_key.is_empty();
     let model = config.model.clone();
     let provider = config.provider.clone();
-    let base_url = if config.base_url.is_empty() { None } else { Some(config.base_url) };
+    let base_url = if config.base_url.is_empty() {
+        None
+    } else {
+        Some(config.base_url)
+    };
 
     Ok(serde_json::json!({
         "mode": "claw",
@@ -480,10 +555,11 @@ pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
 /// 读取聊天统计
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
-    let sessions = list_session_files();
-    let total_messages: usize = sessions.iter()
-        .filter_map(|s| s.get("messageCount").and_then(|v| v.as_u64()).map(|n| n as usize))
-        .sum();
+    let sessions = list_sessions_info();
+    let total_messages: usize = sessions
+        .iter()
+        .filter_map(|s| s.get("messageCount").and_then(|v| v.as_u64()))
+        .sum::<u64>() as usize;
 
     Ok(serde_json::json!({
         "sessions": sessions.len(),
@@ -496,47 +572,70 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
 mod tests {
     use super::*;
 
-    /// Test that list_session_files returns valid shape
     #[test]
     fn test_list_sessions_returns_array() {
-        let sessions = list_session_files();
+        let sessions = list_sessions_info();
         for s in &sessions {
-            assert!(s.get("sessionId").and_then(|v| v.as_str()).is_some());
+            let sid = s.get("sessionId").and_then(|v| v.as_str());
+            assert!(sid.is_some() && !sid.unwrap().is_empty(), "sessionId should be non-empty");
             assert!(s.get("createdAt").is_some());
         }
     }
 
-    /// Test that save/load session round-trips correctly
     #[test]
-    fn test_save_and_load_session() {
-        let id = uuid::Uuid::new_v4().to_string();
-        let msgs = vec![
-            Message {
-                role: "user".to_string(),
-                content: "Hello".to_string(),
-            },
-            Message {
-                role: "assistant".to_string(),
-                content: "Hi there!".to_string(),
-            },
-        ];
+    fn test_session_save_and_load_round_trip() {
+        let dir = std::env::temp_dir().join("claw_test_sessions");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test_session.json");
 
-        save_session(&id, &msgs);
+        // Create and save session
+        let mut session = Session::new().with_persistence_path(&path);
+        session
+            .push_user_text("Hello")
+            .expect("push_user_text should succeed");
+        session
+            .push_message(ConversationMessage::assistant(vec![ContentBlock::Text {
+                text: "Hi there!".to_string(),
+            }]))
+            .expect("push assistant should succeed");
+        session.save_to_path(&path).expect("save_to_path should succeed");
 
-        let loaded = load_session(&id).expect("should load saved session");
-        assert_eq!(loaded.session_id, id);
-        assert_eq!(loaded.messages.len(), 2);
-        assert_eq!(loaded.messages[0].content, "Hello");
-        assert_eq!(loaded.messages[1].content, "Hi there!");
+        // Load and verify
+        let loaded = Session::load_from_path(&path).expect("load_from_path should succeed");
+        assert_eq!(loaded.messages.len(), 2, "should have 2 messages");
+        assert_eq!(
+            loaded.messages[0].role,
+            MessageRole::User,
+            "first message should be user"
+        );
+        assert_eq!(
+            loaded.messages[1].role,
+            MessageRole::Assistant,
+            "second message should be assistant"
+        );
 
         // Cleanup
-        let _ = std::fs::remove_file(session_file(&id));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
-    /// Test setup_env_from_claw_config reads config and sets env vars
+    #[test]
+    fn test_to_prompt_messages_converts_correctly() {
+        let cms = vec![
+            ConversationMessage::user_text("Hello"),
+            ConversationMessage::assistant(vec![ContentBlock::Text {
+                text: "World".to_string(),
+            }]),
+        ];
+        let msgs = to_prompt_messages(&cms);
+        assert_eq!(msgs.len(), 2);
+        assert_eq!(msgs[0].role, "user");
+        assert_eq!(msgs[0].content, "Hello");
+        assert_eq!(msgs[1].role, "assistant");
+        assert_eq!(msgs[1].content, "World");
+    }
+
     #[test]
     fn test_setup_env_works_with_valid_config() {
-        // Read current config and verify it sets env vars
         let config = crate::commands::claw_config::read_claw_config().unwrap_or_default();
         if !config.api_key.is_empty() {
             setup_env_from_claw_config().expect("setup should succeed");
@@ -545,27 +644,23 @@ mod tests {
                 .or_else(|_| std::env::var("XAI_API_KEY"));
             assert!(env_key.is_ok(), "setup should set API_KEY env var");
         }
-        // Without a valid config, setup should still return Ok (just logs)
     }
 
-    /// Test that claw_chat_info returns valid shape
     #[tokio::test]
     async fn test_claw_chat_info_returns_valid_shape() {
         let info = claw_chat_info().await.unwrap();
-        assert!(info.get("mode").and_then(|v| v.as_str()) == Some("claw"));
+        assert_eq!(info.get("mode").and_then(|v| v.as_str()), Some("claw"));
         assert!(info.get("apiKeyConfigured").is_some());
         assert!(info.get("model").is_some());
         assert!(info.get("provider").is_some());
         assert!(info.get("configSource").is_some());
     }
 
-    /// Test that claw_read_models_config returns valid shape
     #[tokio::test]
     async fn test_claw_read_models_config_returns_valid_shape() {
         let result = claw_read_models_config().await.unwrap();
         assert!(result.get("providers").is_some());
         assert!(result.get("source").is_some());
-        // providers should be an array
         let providers = result.get("providers").and_then(|v| v.as_array()).unwrap();
         for p in providers {
             assert!(p.get("name").is_some());
@@ -573,7 +668,6 @@ mod tests {
         }
     }
 
-    /// Test that claw_read_stats returns valid shape
     #[tokio::test]
     async fn test_claw_read_stats_returns_valid_shape() {
         let stats = claw_read_stats().await.unwrap();
@@ -582,20 +676,16 @@ mod tests {
         assert_eq!(stats.get("source").and_then(|v| v.as_str()), Some("claw"));
     }
 
-    /// Integration test: init → list → send → close via ClawChatState directly
-    ///
-    /// Tests the ClawChatState state machine without the full Tauri runtime.
-    /// Uses setup_env_from_claw_config() and directly creates an LlmClient.
-    /// If no API key is configured, gracefully skips the send test.
+    /// Integration test: init → send → close via ClawChatState
+    /// Gracefully skips if no API key is configured.
     #[tokio::test]
     async fn test_chat_state_machine() {
-        // Setup: read config and set env vars
+        // Setup env
         if let Err(e) = setup_env_from_claw_config() {
             println!("[SKIP] No Claw config found: {e}");
             return;
         }
 
-        // Create LLM client
         let client = match LlmClient::from_env() {
             Ok(c) => Arc::new(c),
             Err(e) => {
@@ -604,42 +694,38 @@ mod tests {
             }
         };
 
-        let state = ClawChatState::new();
-        let sid = uuid::Uuid::new_v4().to_string();
+        // Create a session in temp dir
+        let dir = std::env::temp_dir().join("claw_test_chat");
+        let _ = std::fs::create_dir_all(&dir);
+        let path = dir.join("test_chat.json");
+        let mut session = Session::new().with_persistence_path(&path);
+        session.save_to_path(&path).ok();
 
-        // Store client and session
+        let state = ClawChatState::new();
         {
             let mut c = state.client.lock().await;
             *c = Some(client);
         }
         {
-            let mut s = state.session_id.lock().await;
-            *s = Some(sid.clone());
+            let mut s = state.session.lock().await;
+            *s = Some(session);
         }
 
-        // Verify session_id was stored
-        {
-            let s = state.session_id.lock().await;
-            assert_eq!(s.as_deref(), Some(sid.as_str()));
-        }
+        // Send
+        let prompt = to_prompt_messages(&{
+            let s = state.session.lock().await;
+            s.as_ref().unwrap().messages.clone()
+        });
 
-        // Send a message
-        let send_result = {
+        let reply_text = Arc::new(Mutex::new(String::new()));
+        let reply_clone = reply_text.clone();
+        let has_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let has_usage_clone = has_usage.clone();
+
+        let result = {
             let client = state.client.lock().await.clone().unwrap();
-            let messages = vec![
-                Message {
-                    role: "user".to_string(),
-                    content: "Say 'hello' and nothing else".to_string(),
-                },
-            ];
-
-            let assistant_reply = Arc::new(Mutex::new(String::new()));
-            let reply_clone = assistant_reply.clone();
-            let has_usage = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let has_usage_clone = has_usage.clone();
-
-            let result = client
-                .send_streaming(&messages, move |event| {
+            client
+                .send_streaming(&prompt, move |event| {
                     match event {
                         Ok(LlmStreamEvent::TextDelta { text }) => {
                             let mut r = reply_clone.blocking_lock();
@@ -648,69 +734,55 @@ mod tests {
                         Ok(LlmStreamEvent::Usage { .. }) => {
                             has_usage_clone.store(true, std::sync::atomic::Ordering::SeqCst);
                         }
-                        Ok(LlmStreamEvent::Done) => {
-                            if !has_usage_clone.load(std::sync::atomic::Ordering::SeqCst) {
-                                // done without usage
-                            }
-                        }
                         _ => {}
                     }
                 })
-                .await;
-
-            (result, assistant_reply, has_usage)
+                .await
         };
 
-        match send_result.0 {
+        match result {
             Ok(()) => {
-                let reply = send_result.1.lock().await;
-                let usage = send_result.2.load(std::sync::atomic::Ordering::SeqCst);
+                let reply = reply_text.lock().await;
+                let usage = has_usage.load(std::sync::atomic::Ordering::SeqCst);
                 println!(
-                    "[chat] ✅ Stream complete! Reply length={}, has_usage={}",
+                    "[chat] ✅ Stream complete! Reply={} chars, usage={}",
                     reply.len(),
                     usage
                 );
-                assert!(!reply.is_empty(), "Assistant should have replied");
-                assert!(usage, "Should have received usage info");
+                assert!(!reply.is_empty(), "should have reply");
+                assert!(usage, "should have usage info");
 
                 // Persist
-                {
-                    let mut msgs = state.messages.lock().await;
-                    msgs.push(Message {
-                        role: "user".to_string(),
-                        content: "Say 'hello' and nothing else".to_string(),
-                    });
-                    msgs.push(Message {
-                        role: "assistant".to_string(),
-                        content: reply.clone(),
-                    });
-                    save_session(&sid, &msgs);
+                let mut s = state.session.lock().await;
+                if let Some(ref mut sess) = *s {
+                    sess.push_user_text("Say 'hello'").ok();
+                    sess.push_message(ConversationMessage::assistant(vec![
+                        ContentBlock::Text {
+                            text: reply.clone(),
+                        },
+                    ]))
+                    .ok();
+                    sess.save_to_path(&path).ok();
                 }
+                drop(s);
 
-                // Verify persistence
-                let loaded = load_session(&sid);
-                assert!(loaded.is_some(), "session should be persisted");
-                if let Some(s) = loaded {
-                    assert!(s.messages.len() >= 2);
-                    assert_eq!(s.messages[0].role, "user");
-                    assert_eq!(s.messages[1].role, "assistant");
-                }
+                // Verify
+                let loaded = Session::load_from_path(&path).expect("should load");
+                assert!(loaded.messages.len() >= 2);
             }
             Err(e) => {
-                // Without valid API key, expect meaningful error
                 assert!(
-                    e.contains("401") || e.contains("auth") || e.contains("key") || e.contains("send failed"),
-                    "Error should mention the cause: got: {e}"
+                    e.contains("401")
+                        || e.contains("auth")
+                        || e.contains("key")
+                        || e.contains("send failed"),
+                    "Error should mention cause: got: {e}"
                 );
-                println!("[chat] ⚠️  Expected stream error (no valid API key): {e}");
+                println!("[chat] ⚠️  Expected stream error (no valid key?): {e}");
             }
         }
 
-        // Cleanup: persist and remove session file
-        {
-            let msgs = state.messages.lock().await;
-            save_session(&sid, &msgs);
-        }
-        let _ = std::fs::remove_file(session_file(&sid));
+        // Cleanup
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
