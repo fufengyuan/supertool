@@ -647,9 +647,9 @@ async function loadClawConfig() {
       model: info?.model || '',
       provider: info?.provider || '',
     }
-    // 不预填 API key（脱敏值会覆盖真实 key），仅填其他字段
+    // 预填 API key（后端返回的就是原始 key，不是脱敏的）
     if (info?.hasApiKey) {
-      clawForm.value.apiKey = ''
+      clawForm.value.apiKey = info.apiKey || ''
       clawForm.value.baseUrl = info.baseUrl || ''
       clawForm.value.model = info.model || 'claude-sonnet-4-6'
       clawForm.value.provider = info.provider || ''
