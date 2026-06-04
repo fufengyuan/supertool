@@ -257,10 +257,12 @@ const clawError = ref('')
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
 async function loadClawSessions() {
+  console.log('[SessionsPage] 🐾 loadClawSessions() called');
   clawLoading.value = true
   clawError.value = ''
   try {
     const raw = await invoke<{ sessions: { sessionId: string; createdAt?: string; messageCount?: number; title?: string | null }[] }>('claw_chat_list_sessions')
+    console.log(`[SessionsPage] 📨 claw_chat_list_sessions returned: ${raw?.sessions?.length ?? 0} sessions`);
     clawSessions.value = (raw?.sessions || []).map(s => ({
       sessionId: s.sessionId,
       createdAt: s.createdAt || null,
@@ -268,6 +270,7 @@ async function loadClawSessions() {
       title: s.title || null,
     }))
   } catch (e: any) {
+    console.error('[SessionsPage] ❌ loadClawSessions failed:', e);
     clawError.value = e?.message || String(e)
     clawSessions.value = []
   } finally {
@@ -397,10 +400,12 @@ function onNewChat() {
 }
 
 function onResumeSession(sessionId: string) {
+  console.log(`[SessionsPage] 🔀 onResumeSession(${sessionId})`);
   router.push({ path: '/agent/chat', query: { session: sessionId } })
 }
 
 function onResumeClawSession(sessionId: string) {
+  console.log(`[SessionsPage] 🐾 onResumeClawSession(${sessionId}), isClawMode=${isClawMode.value}`);
   // Ensure Claw mode is active before navigating
   if (!isClawMode.value) {
     agentModeStore.setMode('claw')
@@ -410,7 +415,8 @@ function onResumeClawSession(sessionId: string) {
 
 // --- Mode switch ---
 
-watch(isClawMode, (claw) => {
+watch(isClawMode, (claw, oldClaw) => {
+  console.log(`[SessionsPage] 🔄 Mode changed: ${oldClaw} → ${claw}`);
   if (claw) {
     loadClawSessions()
   } else {
@@ -429,6 +435,7 @@ function onWindowFocus() {
 }
 
 onMounted(async () => {
+  console.log(`[SessionsPage] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   if (isClawMode.value) {
     await loadClawSessions()
   } else {

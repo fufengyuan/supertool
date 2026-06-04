@@ -39,11 +39,13 @@ export function useChatIPC({
   const getIsClawMode = () => isRef(isClawModeArg) ? isClawModeArg.value : isClawModeArg;
 
   const setup = async () => {
+    console.log('[ChatIPC] 🔧 Setting up IPC listeners...');
     // agent-delta: text content chunk
     const unlistenDelta = await listen<{
       text: string | null;
       session_id: string | null;
     }>('agent-delta', (event) => {
+      console.log('[ChatIPC] 📨 agent-delta:', event.payload?.text?.slice(0, 80), 'session:', event.payload?.session_id);
       const chunk = event.payload?.text;
       if (!chunk) return;
       const prev = messages.value;
@@ -78,6 +80,7 @@ export function useChatIPC({
       text: string | null;
       session_id: string | null;
     }>('agent-reasoning-delta', (event) => {
+      console.log('[ChatIPC] 📨 agent-reasoning-delta:', event.payload?.text?.slice(0, 80));
       const chunk = event.payload?.text;
       if (!chunk) return;
       const prev = messages.value;
@@ -117,6 +120,7 @@ export function useChatIPC({
       args: unknown;
       session_id: string | null;
     }>('agent-tool-start', (event) => {
+      console.log('[ChatIPC] 📨 agent-tool-start:', event.payload?.name, 'id:', event.payload?.id);
       const payload = event.payload;
       const prev = messages.value;
       const callId = payload.id || `tc-${Date.now()}`;
@@ -151,6 +155,7 @@ export function useChatIPC({
       duration_ms: number;
       session_id: string | null;
     }>('agent-tool-complete', (event) => {
+      console.log('[ChatIPC] 📨 agent-tool-complete:', event.payload?.name, 'result:', event.payload?.result);
       const payload = event.payload;
       const prev = messages.value;
       const callId = payload.id || '';
@@ -183,6 +188,7 @@ export function useChatIPC({
       session_id?: string;
       message_count?: number;
     }>('agent-done', async (event) => {
+      console.log('[ChatIPC] 📨 agent-done:', event.payload);
       const sessionId = event.payload?.session_id;
       if (sessionId) hermesSessionId.value = sessionId;
       toolProgress.value = null;
@@ -213,6 +219,7 @@ export function useChatIPC({
       message: string;
       session_id: string | null;
     }>('agent-error', (event) => {
+      console.log('[ChatIPC] 📨 agent-error:', event.payload?.message);
       setMessages([
         ...messages.value,
         {

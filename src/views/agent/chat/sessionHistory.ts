@@ -185,6 +185,7 @@ export interface HermesMessage {
  * (e.g. assistant with reasoning + tool_calls + content → up to 3 items).
  */
 export function hermesMessagesToChatMessages(raw: HermesMessage[]): ChatMessage[] {
+  console.log(`[SessionHistory] hermesMessagesToChatMessages: input ${raw.length} messages`);
   const result: ChatMessage[] = []
 
   for (const msg of raw) {
@@ -279,5 +280,6 @@ export function hermesMessagesToChatMessages(raw: HermesMessage[]): ChatMessage[
     }
   }
 
+  console.log(`[SessionHistory] hermesMessagesToChatMessages: output ${result.length} messages`);
   return result
 }
