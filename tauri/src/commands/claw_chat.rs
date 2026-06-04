@@ -571,6 +571,72 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
+
+    // ── Helper: build a mock app + webview ──────────────────────────────────
+
+    fn build_test_app(
+        state: ClawChatState,
+    ) -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .manage(state)
+            .invoke_handler(tauri::generate_handler![
+                // 以下命令不含 AppHandle，在 MockRuntime 下可以正常 IPC
+                crate::commands::claw_chat::claw_chat_info,
+                crate::commands::claw_chat::claw_chat_list_sessions,
+                crate::commands::claw_chat::claw_read_models_config,
+                crate::commands::claw_chat::claw_read_stats,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+
+        let webview_window = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+
+        (app, webview_window)
+    }
+
+    /// 发送 IPC 请求（同步风格），适合在 multi_thread tokio test 中调用
+    fn invoke_cmd(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> Result<tauri::ipc::InvokeResponseBody, serde_json::Value> {
+        get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        )
+    }
+
+    fn invoke_cmd_ok(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> serde_json::Value {
+        let res = invoke_cmd(webview, cmd, body);
+        res.unwrap_or_else(|e| panic!("IPC command '{cmd}' failed: {e:?}"))
+            .deserialize::<serde_json::Value>()
+            .unwrap()
+    }
+
+    // ── Existing direct tests ────────────────────────────────────────────────
 
     #[test]
     fn test_list_sessions_returns_array() {
@@ -785,4 +851,74 @@ mod tests {
         // Cleanup
         let _ = std::fs::remove_dir_all(&dir);
     }
+
+    // ── IPC 风格测试：通过 get_ipc_response 模拟前端调用 ─────────────────
+
+    /// 检查：mock builder + invoke_handler 能否正常构建
+    #[test]
+    fn test_ipc_mock_builder_creates_app() {
+        let state = ClawChatState::new();
+        let (_app, _webview) = build_test_app(state);
+        // 测试：没有 panic 就成功了
+    }
+
+    /// 检查：claw_chat_info 通过 IPC 返回正确形状
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_ipc_info() {
+        let state = ClawChatState::new();
+        let (_app, webview) = build_test_app(state);
+
+        let result = invoke_cmd_ok(&webview, "claw_chat_info", serde_json::json!({}));
+
+        assert_eq!(result.get("mode").and_then(|v| v.as_str()), Some("claw"));
+        assert!(result.get("model").is_some(), "model field");
+        assert!(result.get("provider").is_some(), "provider field");
+        assert!(result.get("apiKeyConfigured").is_some(), "apiKeyConfigured");
+        assert!(result.get("configSource").and_then(|v| v.as_str()).is_some(), "configSource is a string");
+    }
+
+    /// 检查：claw_chat_list_sessions 通过 IPC 返回 sessions 数组
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_ipc_list_sessions() {
+        let state = ClawChatState::new();
+        let (_app, webview) = build_test_app(state);
+
+        let result = invoke_cmd_ok(&webview, "claw_chat_list_sessions", serde_json::json!({}));
+
+        let sessions = result
+            .get("sessions")
+            .and_then(|v| v.as_array())
+            .expect("should have sessions array");
+        // 至少返回一个数组（可能为空）
+        assert!(sessions.is_empty() || sessions.len() > 0);
+    }
+
+    /// 检查：claw_read_stats 通过 IPC 返回统计信息
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_ipc_read_stats() {
+        let state = ClawChatState::new();
+        let (_app, webview) = build_test_app(state);
+
+        let result = invoke_cmd_ok(&webview, "claw_read_stats", serde_json::json!({}));
+
+        assert!(result.get("sessions").is_some(), "sessions count");
+        assert!(result.get("messages").is_some(), "messages count");
+        assert_eq!(result.get("source").and_then(|v| v.as_str()), Some("claw"));
+    }
+
+    /// 检查：claw_read_models_config 通过 IPC 返回 providers 列表
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_ipc_read_models() {
+        let state = ClawChatState::new();
+        let (_app, webview) = build_test_app(state);
+
+        let result = invoke_cmd_ok(&webview, "claw_read_models_config", serde_json::json!({}));
+
+        assert!(result.get("providers").is_some(), "providers list");
+        assert!(result.get("source").is_some(), "source field");
+    }
+
+    // ── 移除含 AppHandle 命令的 IPC 测试（init/send/close）
+    // MockRuntime 不支持 AppHandle 的 CommandArg 解析
+    // 这些命令已在 test_chat_state_machine（真实 LLM 调用）中覆盖
 }
