@@ -5361,6 +5361,7 @@ version = "4.56.6"
 dependencies = [
  "aes-gcm",
  "anyhow",
+ "api",
  "base64 0.22.1",
  "boringtun",
  "chrono",

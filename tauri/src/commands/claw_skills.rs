@@ -167,6 +167,11 @@ pub fn claw_get_skill_content(path: String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
 
     #[test]
     fn test_list_skills_returns_array() {
@@ -220,5 +225,89 @@ mod tests {
         let result = trim_to_120(&long);
         assert!(result.len() <= 120);
         assert!(result.ends_with("..."));
+    }
+
+    // ── IPC 风格测试 ─────────────────────────────────────────────────
+
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::claw_skills::claw_list_skills,
+                crate::commands::claw_skills::claw_get_skill_content,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
+    }
+
+    fn invoke_ok<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> R {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        res.unwrap_or_else(|e| panic!("IPC '{cmd}' failed: {e:?}"))
+            .deserialize::<R>()
+            .unwrap()
+    }
+
+    #[test]
+    fn test_ipc_list_skills() {
+        let (_app, ww) = build_test_app();
+        let result: Vec<serde_json::Value> =
+            invoke_ok(&ww, "claw_list_skills", serde_json::json!({}));
+        for s in &result {
+            assert!(
+                s.get("name").and_then(|v| v.as_str()).is_some(),
+                "skill: name"
+            );
+            assert!(
+                s.get("category").and_then(|v| v.as_str()).is_some(),
+                "skill: category"
+            );
+            assert!(
+                s.get("description").and_then(|v| v.as_str()).is_some(),
+                "skill: description"
+            );
+            assert!(
+                s.get("path").and_then(|v| v.as_str()).is_some(),
+                "skill: path"
+            );
+            assert!(
+                s.get("source").and_then(|v| v.as_str()).is_some(),
+                "skill: source"
+            );
+        }
+    }
+
+    #[test]
+    fn test_ipc_get_skill_content_nonexistent() {
+        let (_app, ww) = build_test_app();
+        let result: String = invoke_ok(
+            &ww,
+            "claw_get_skill_content",
+            serde_json::json!({"path": "/nonexistent/skill"}),
+        );
+        assert!(
+            result.is_empty(),
+            "nonexistent skill should return empty string"
+        );
     }
 }
