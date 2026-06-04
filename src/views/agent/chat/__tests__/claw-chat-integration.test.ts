@@ -183,7 +183,7 @@ describe('Chat.vue — Claw initialization & session restore', () => {
   it('mode switch watcher resets messages and reinitializes Claw', async () => {
     const messages = ref<any[]>([{ id: 'old', role: 'agent', content: 'old' }])
     const usage = ref<any>({ promptTokens: 10 })
-    const toolProgress = ref('working...')
+    const toolProgress = ref<string | null>('working...')
     const clawInitialized = ref(false)
     let initCalls = 0
 
@@ -357,13 +357,15 @@ describe('Chat.vue — Claw initialization & session restore', () => {
     expect(clawSessions[1].messageCount).toBe(0)
   })
 
-  // ── Settings: saveClawConfig preserves key when field is empty ───────
+  // ── Settings: saveClawConfig preserves key when field is empty or masked ──
   it('saveClawConfig does not overwrite key when field is empty', async () => {
     const clawForm = { apiKey: '', baseUrl: 'https://relay.com/v1', model: 'claude-sonnet-4-6', provider: '' }
 
-    // Simulate saveClawConfig
+    // Simulate saveClawConfig with masked-key safety
     const params: Record<string, string> = {}
-    if (clawForm.apiKey.trim()) params.apiKey = clawForm.apiKey.trim()
+    if (clawForm.apiKey.trim() && !clawForm.apiKey.includes('...')) {
+      params.apiKey = clawForm.apiKey.trim()
+    }
     if (clawForm.baseUrl.trim()) params.baseUrl = clawForm.baseUrl.trim()
     if (clawForm.model.trim()) params.model = clawForm.model.trim()
     if (clawForm.provider.trim()) params.provider = clawForm.provider.trim()
@@ -373,28 +375,103 @@ describe('Chat.vue — Claw initialization & session restore', () => {
     expect(params).toHaveProperty('model')
   })
 
-  // ── Settings: loadClawConfig pre-fills API key when hasApiKey ────────
-  it('loadClawConfig pre-fills API key when hasApiKey is true', async () => {
+  it('saveClawConfig skips masked key containing ... to prevent corruption', async () => {
+    const clawForm = { apiKey: 'sk-t...5678', baseUrl: 'https://relay.com/v1', model: 'claude-sonnet-4-6', provider: '' }
+
+    const params: Record<string, string> = {}
+    if (clawForm.apiKey.trim() && !clawForm.apiKey.includes('...')) {
+      params.apiKey = clawForm.apiKey.trim()
+    }
+    if (clawForm.baseUrl.trim()) params.baseUrl = clawForm.baseUrl.trim()
+    if (clawForm.model.trim()) params.model = clawForm.model.trim()
+    if (clawForm.provider.trim()) params.provider = clawForm.provider.trim()
+
+    // Masked key with '...' must NOT be included — prevents corrupting the real key
+    expect(params).not.toHaveProperty('apiKey')
+    expect(params).toHaveProperty('baseUrl')
+  })
+
+  it('saveClawConfig includes real key (no ...)', async () => {
+    const clawForm = { apiKey: 'sk-real-key-12345', baseUrl: 'https://relay.com/v1', model: 'claude-sonnet-4-6', provider: '' }
+
+    const params: Record<string, string> = {}
+    if (clawForm.apiKey.trim() && !clawForm.apiKey.includes('...')) {
+      params.apiKey = clawForm.apiKey.trim()
+    }
+    if (clawForm.baseUrl.trim()) params.baseUrl = clawForm.baseUrl.trim()
+    if (clawForm.model.trim()) params.model = clawForm.model.trim()
+    if (clawForm.provider.trim()) params.provider = clawForm.provider.trim()
+
+    expect(params.apiKey).toBe('sk-real-key-12345')
+    expect(params).toHaveProperty('baseUrl')
+  })
+
+  // ── Settings: loadClawConfig detects corrupted keys ──────────────────
+  it('loadClawConfig clears form when key contains ... (corrupted)', async () => {
     const info = {
-      apiKey: 'sk-real-key-12345',
+      apiKey: 'sk-t...5678',
       hasApiKey: true,
       baseUrl: 'https://relay.com/v1',
       model: 'claude-sonnet-4-6',
       provider: '',
     }
 
-    // Simulate loadClawConfig
-    const clawForm = { apiKey: '', baseUrl: '', model: '', provider: '' }
+    // Simulate loadClawConfig with corrupted-key detection
+    let clawForm = { apiKey: '', baseUrl: '', model: '', provider: '' }
     if (info?.hasApiKey) {
       clawForm.apiKey = info.apiKey || ''
       clawForm.baseUrl = info.baseUrl || ''
       clawForm.model = info.model || 'claude-sonnet-4-6'
       clawForm.provider = info.provider || ''
     }
+    // Corruption detection
+    if (info?.apiKey && (info.apiKey.includes('...') || info.apiKey === '****' || info.apiKey === '***')) {
+      clawForm = { ...clawForm, apiKey: '' }
+    }
 
-    expect(clawForm.apiKey).toBe('sk-real-key-12345') // key IS pre-filled
+    expect(clawForm.apiKey).toBe('') // corrupted key cleared
     expect(clawForm.baseUrl).toBe('https://relay.com/v1')
     expect(clawForm.model).toBe('claude-sonnet-4-6')
+  })
+
+  it('loadClawConfig clears form when key is *** (corrupted)', async () => {
+    const info = {
+      apiKey: '***',
+      hasApiKey: true,
+      baseUrl: 'https://relay.com/v1',
+      model: 'claude-sonnet-4-6',
+      provider: '',
+    }
+
+    let clawForm = { apiKey: '***', baseUrl: 'https://relay.com/v1', model: 'claude-sonnet-4-6', provider: '' }
+    if (info?.apiKey && (info.apiKey.includes('...') || info.apiKey === '****' || info.apiKey === '***')) {
+      clawForm = { ...clawForm, apiKey: '' }
+    }
+
+    expect(clawForm.apiKey).toBe('') // corrupted *** key cleared
+  })
+
+  it('loadClawConfig pre-fills valid API key', async () => {
+    const info = {
+      apiKey: 'sk-valid-key-abcdef',
+      hasApiKey: true,
+      baseUrl: 'https://relay.com/v1',
+      model: 'claude-sonnet-4-6',
+      provider: '',
+    }
+
+    let clawForm = { apiKey: '', baseUrl: '', model: '', provider: '' }
+    if (info?.hasApiKey) {
+      clawForm.apiKey = info.apiKey || ''
+      clawForm.baseUrl = info.baseUrl || ''
+      clawForm.model = info.model || 'claude-sonnet-4-6'
+      clawForm.provider = info.provider || ''
+    }
+    if (info?.apiKey && (info.apiKey.includes('...') || info.apiKey === '****' || info.apiKey === '***')) {
+      clawForm = { ...clawForm, apiKey: '' }
+    }
+
+    expect(clawForm.apiKey).toBe('sk-valid-key-abcdef') // valid key pre-filled
   })
 
   // ── loadClawConfig does NOT clear key when hasApiKey is false ────────

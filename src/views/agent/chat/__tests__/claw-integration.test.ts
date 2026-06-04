@@ -136,7 +136,7 @@ describe('TauriAPI Claw contracts', () => {
 
     expect(result.mode).toBe('claw')
     expect(result.apiKeyConfigured).toBe(true)
-    expect(result.configSource).toContain('claw-config')
+    expect(result.configSource).toContain('.claw/config.json')
   })
 
   it('clawChatListSessions returns array', async () => {
@@ -286,11 +286,11 @@ describe('Chat.vue loadSessionHistory guard', () => {
   })
 })
 
-// ── claw_config_get redaction ───────────────────────────────────────────────
-describe('clawConfigGet API key redaction', () => {
-  it('redacts long API keys (backend returns masked value)', async () => {
+// ── claw_config_get API key: backend returns raw key (no masking) ────────────
+describe('clawConfigGet returns raw API key', () => {
+  it('returns the full API key as-is (no backend masking)', async () => {
     mockInvoke.mockResolvedValueOnce({
-      apiKey: 'sk-c3...9d0e',
+      apiKey: 'sk-c3-real-key-9d0e',
       hasApiKey: true,
       baseUrl: '',
       model: 'claude-sonnet-4-6',
@@ -301,14 +301,14 @@ describe('clawConfigGet API key redaction', () => {
     const api = getTauriAPI()
     const result = await api.clawConfigGet()
 
-    // Backend redacts the key — API passes through
-    expect(result.apiKey).toContain('...')
+    // Backend returns RAW key — frontend just passes it through
+    expect(result.apiKey).toBe('sk-c3-real-key-9d0e')
     expect(result.hasApiKey).toBe(true)
   })
 
-  it('returns **** for short keys', async () => {
+  it('returns *** literally when that is the stored value', async () => {
     mockInvoke.mockResolvedValueOnce({
-      apiKey: '****',
+      apiKey: '***',
       hasApiKey: true,
       baseUrl: '',
       model: 'claude-sonnet-4-6',
@@ -319,7 +319,7 @@ describe('clawConfigGet API key redaction', () => {
     const api = getTauriAPI()
     const result = await api.clawConfigGet()
 
-    expect(result.apiKey).toBe('****')
+    expect(result.apiKey).toBe('***')
   })
 
   it('returns empty string when no key configured', async () => {
