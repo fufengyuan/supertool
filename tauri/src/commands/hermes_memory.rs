@@ -592,6 +592,12 @@ mod tests {
     use super::*;
     use std::sync::Mutex;
     use std::fs;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
+    use serde_json::json;
 
     /// Serial helper so parallel test runs don't clobber each other's env vars.
     static TEST_MUTEX: Mutex<()> = Mutex::new(());
@@ -1305,5 +1311,381 @@ mod tests {
 
         unsafe { remove_env_var("HONCHO_API_KEY"); }
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    // ── IPC-style tests via get_ipc_response ────────────────
+
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::hermes_memory::read_memory,
+                crate::commands::hermes_memory::add_memory_entry,
+                crate::commands::hermes_memory::update_memory_entry,
+                crate::commands::hermes_memory::remove_memory_entry,
+                crate::commands::hermes_memory::write_user_profile,
+                crate::commands::hermes_memory::list_memory_providers,
+                crate::commands::hermes_memory::set_memory_provider,
+                crate::commands::hermes_memory::read_env_vars,
+                crate::commands::hermes_memory::save_env_var,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
+    }
+
+    fn invoke_ipc<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> Result<R, String> {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        match res {
+            Ok(response) => response
+                .deserialize::<R>()
+                .map_err(|e| format!("deserialize error: {e:?}")),
+            Err(e) => Err(format!("IPC error: {e:?}")),
+        }
+    }
+
+    #[test]
+    fn test_ipc_mock_builder_creates_app() {
+        with_temp_home(|_tmp| {
+            let (_app, _ww) = build_test_app();
+            // No panic = success
+        });
+    }
+
+    #[test]
+    fn test_ipc_read_memory_returns_defaults() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value =
+                invoke_ipc(&ww, "read_memory", json!({}))
+                    .expect("read_memory should succeed");
+            assert_eq!(result["memory"]["exists"], false);
+            assert_eq!(result["memory"]["content"], "");
+            assert!(result["memory"]["entries"].as_array().unwrap().is_empty());
+            assert_eq!(
+                result["memory"]["charLimit"],
+                serde_json::json!(MEMORY_CHAR_LIMIT)
+            );
+            assert_eq!(result["user"]["exists"], false);
+            assert_eq!(
+                result["user"]["charLimit"],
+                serde_json::json!(USER_CHAR_LIMIT)
+            );
+            assert_eq!(result["stats"]["totalSessions"], 0);
+            assert_eq!(result["stats"]["totalMessages"], 0);
+        });
+    }
+
+    #[test]
+    fn test_ipc_add_memory_entry_and_read_back() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+
+            // Add an entry via IPC
+            let add_result: serde_json::Value = invoke_ipc(
+                &ww,
+                "add_memory_entry",
+                json!({"content": "hello via IPC"}),
+            )
+            .expect("add_memory_entry should succeed");
+            assert_eq!(add_result["success"], true);
+
+            // Read back via IPC to verify persistence
+            let info: serde_json::Value =
+                invoke_ipc(&ww, "read_memory", json!({}))
+                    .expect("read_memory should succeed");
+            let entries = info["memory"]["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0]["content"], "hello via IPC");
+        });
+    }
+
+    #[test]
+    fn test_ipc_add_memory_entry_rejects_oversized() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let oversized = "X".repeat(MEMORY_CHAR_LIMIT + 1);
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "add_memory_entry",
+                json!({"content": oversized}),
+            )
+            .expect("add_memory_entry should return a value");
+            assert_eq!(result["success"], false);
+            let err = result["error"].as_str().unwrap_or("");
+            assert!(err.contains("limit"), "error should mention limit, got: {err}");
+        });
+    }
+
+    #[test]
+    fn test_ipc_update_memory_entry_via_ipc() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+
+            // Add first entry
+            invoke_ipc::<serde_json::Value>(
+                &ww,
+                "add_memory_entry",
+                json!({"content": "original"}),
+            )
+            .expect("add should succeed");
+
+            // Update via IPC
+            let upd: serde_json::Value = invoke_ipc(
+                &ww,
+                "update_memory_entry",
+                json!({"index": 0, "content": "updated"}),
+            )
+            .expect("update should succeed");
+            assert_eq!(upd["success"], true);
+
+            // Verify
+            let info: serde_json::Value =
+                invoke_ipc(&ww, "read_memory", json!({}))
+                    .expect("read_memory should succeed");
+            assert_eq!(info["memory"]["entries"][0]["content"], "updated");
+        });
+    }
+
+    #[test]
+    fn test_ipc_update_nonexistent_entry_fails() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "update_memory_entry",
+                json!({"index": 0, "content": "nope"}),
+            )
+            .expect("update should return a value");
+            assert_eq!(result["success"], false);
+            assert_eq!(result["error"], "Entry not found");
+        });
+    }
+
+    #[test]
+    fn test_ipc_remove_memory_entry_via_ipc() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+
+            // Add two entries
+            invoke_ipc::<serde_json::Value>(
+                &ww,
+                "add_memory_entry",
+                json!({"content": "first"}),
+            )
+            .expect("add first");
+            invoke_ipc::<serde_json::Value>(
+                &ww,
+                "add_memory_entry",
+                json!({"content": "second"}),
+            )
+            .expect("add second");
+
+            // Remove the second
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "remove_memory_entry",
+                json!({"index": 1}),
+            )
+            .expect("remove should succeed");
+            assert_eq!(result["success"], true);
+
+            // Verify only first remains
+            let info: serde_json::Value =
+                invoke_ipc(&ww, "read_memory", json!({}))
+                    .expect("read_memory should succeed");
+            let entries = info["memory"]["entries"].as_array().unwrap();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0]["content"], "first");
+        });
+    }
+
+    #[test]
+    fn test_ipc_write_user_profile_via_ipc() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "write_user_profile",
+                json!({"content": "IPC user profile"}),
+            )
+            .expect("write_user_profile should succeed");
+            assert_eq!(result["success"], true);
+
+            // Verify via read_memory IPC
+            let info: serde_json::Value =
+                invoke_ipc(&ww, "read_memory", json!({}))
+                    .expect("read_memory should succeed");
+            assert_eq!(info["user"]["content"], "IPC user profile");
+        });
+    }
+
+    #[test]
+    fn test_ipc_list_memory_providers_returns_six() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "list_memory_providers",
+                json!({}),
+            )
+            .expect("list_memory_providers should succeed");
+            let providers = result["providers"].as_array().unwrap();
+            assert_eq!(providers.len(), 6);
+            assert_eq!(providers[0]["name"], "honcho");
+            assert_eq!(providers[5]["name"], "byterover");
+            assert_eq!(result["activeProvider"], "");
+            assert_eq!(result["memoryEnabled"], true);
+        });
+    }
+
+    #[test]
+    fn test_ipc_set_memory_provider_via_ipc() {
+        with_temp_home(|tmp| {
+            // Need config.yaml first
+            let cfg_file = tmp.join("config.yaml");
+            fs::write(&cfg_file, "memory:\n  provider: honcho\n").unwrap();
+
+            let (_app, ww) = build_test_app();
+
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "set_memory_provider",
+                json!({"provider": "mem0"}),
+            )
+            .expect("set_memory_provider should succeed");
+            assert_eq!(result["success"], true);
+
+            // Verify via list_memory_providers IPC
+            let providers: serde_json::Value = invoke_ipc(
+                &ww,
+                "list_memory_providers",
+                json!({}),
+            )
+            .expect("list should succeed");
+            assert_eq!(providers["activeProvider"], "mem0");
+        });
+    }
+
+    #[test]
+    fn test_ipc_set_memory_provider_fails_without_config() {
+        with_temp_home(|_tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "set_memory_provider",
+                json!({"provider": "mem0"}),
+            )
+            .expect("set_memory_provider should return a value");
+            assert_eq!(result["success"], false);
+            let err = result["error"].as_str().unwrap_or("");
+            assert!(
+                err.contains("Config file not found"),
+                "expected Config file not found, got: {err}"
+            );
+        });
+    }
+
+    #[test]
+    fn test_ipc_read_env_vars_from_process() {
+        let _lock = lock_test();
+        unsafe { set_env_var("IPC_TEST_KEY", "ipc-test-value"); }
+        // No with_temp_home needed — read_env_vars reads from process env
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value = invoke_ipc(
+            &ww,
+            "read_env_vars",
+            json!({"keys": ["IPC_TEST_KEY", "NONEXISTENT_KEY"]}),
+        )
+        .expect("read_env_vars should succeed");
+        assert_eq!(result["IPC_TEST_KEY"], "ipc-test-value");
+        assert_eq!(result["NONEXISTENT_KEY"], "");
+        unsafe { remove_env_var("IPC_TEST_KEY"); }
+    }
+
+    #[test]
+    fn test_ipc_save_env_var_writes_file() {
+        with_temp_home(|tmp| {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "save_env_var",
+                json!({"key": "MY_VAR", "value": "my_value"}),
+            )
+            .expect("save_env_var should succeed");
+            assert_eq!(result["success"], true);
+
+            let env_file = tmp.join(".env");
+            assert!(env_file.exists());
+            let content = fs::read_to_string(&env_file).unwrap();
+            assert!(
+                content.contains("MY_VAR=my_value"),
+                "expected .env to contain MY_VAR=my_value, got: {content}"
+            );
+        });
+    }
+
+    #[test]
+    fn test_ipc_save_env_var_updates_existing() {
+        with_temp_home(|tmp| {
+            let env_file = tmp.join(".env");
+            fs::write(&env_file, "export OLD_VAR=old_value\n").unwrap();
+
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "save_env_var",
+                json!({"key": "OLD_VAR", "value": "new_value"}),
+            )
+            .expect("save_env_var should succeed");
+            assert_eq!(result["success"], true);
+
+            let content = fs::read_to_string(&env_file).unwrap();
+            assert!(content.contains("OLD_VAR=new_value"));
+            assert!(!content.contains("OLD_VAR=old_value"));
+        });
+    }
+
+    #[test]
+    fn test_ipc_save_env_var_removes_by_empty_value() {
+        with_temp_home(|tmp| {
+            let env_file = tmp.join(".env");
+            fs::write(&env_file, "export TO_REMOVE=some_value\n").unwrap();
+
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "save_env_var",
+                json!({"key": "TO_REMOVE", "value": ""}),
+            )
+            .expect("save_env_var should succeed");
+            assert_eq!(result["success"], true);
+
+            let content = fs::read_to_string(&env_file).unwrap();
+            assert!(
+                content.contains("(removed)"),
+                "expected commented-out line, got: {content}"
+            );
+        });
     }
 }

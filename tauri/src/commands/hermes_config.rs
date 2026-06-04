@@ -813,6 +813,12 @@ fn read_config_yaml() -> Result<serde_yaml::Value, String> {
 mod tests {
     use super::*;
     use std::sync::Mutex;
+    use serde_json::json;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
 
     /// Global lock to prevent concurrent temp config writes
     static CONFIG_LOCK: Mutex<()> = Mutex::new(());
@@ -849,6 +855,62 @@ mod tests {
             std::fs::write(&config_path, &orig).expect("Failed to restore config");
         } else {
             std::fs::remove_file(&config_path).ok();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // IPC test helpers — tauri::test mock app + invoke_ipc wrapper
+    // ══════════════════════════════════════════════════════════════════════════
+
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::hermes_config::agent_api_server_status,
+                crate::commands::hermes_config::agent_configure_api_server,
+                crate::commands::hermes_config::list_toolsets,
+                crate::commands::hermes_config::set_toolset_enabled,
+                crate::commands::hermes_config::list_mcp_servers,
+                crate::commands::hermes_config::get_hermes_config_info,
+                crate::commands::hermes_config::export_hermes_config,
+                crate::commands::hermes_config::import_hermes_config,
+                crate::commands::hermes_config::hermes_set_config,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
+    }
+
+    /// Invoke an IPC command and deserialize the result.
+    /// Returns `Err` if the IPC call itself failed (command returned `Err`, or
+    /// deserialization failed).
+    fn invoke_ipc<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> Result<R, String> {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        match res {
+            Ok(response) => response
+                .deserialize::<R>()
+                .map_err(|e| format!("deserialize error: {e:?}")),
+            Err(e) => Err(format!("IPC error: {e:?}")),
         }
     }
 
@@ -1609,5 +1671,139 @@ mod tests {
                 assert!(!servers.iter().any(|s| s["name"] == "broken"), "broken entry should be filtered out");
             },
         );
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // IPC-style tests via tauri::test::get_ipc_response
+    // ══════════════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_ipc_list_toolsets() {
+        // IPC call to list_toolsets should route correctly and return 16 toolsets
+        with_temp_config("model:\n  default: gpt-4\n", || {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value =
+                invoke_ipc(&ww, "list_toolsets", json!({})).expect("list_toolsets IPC should succeed");
+            let toolsets = result["toolsets"].as_array().unwrap();
+            assert_eq!(toolsets.len(), 16);
+            for ts in toolsets {
+                assert!(
+                    ts["enabled"].as_bool().unwrap(),
+                    "{} should be enabled",
+                    ts["key"].as_str().unwrap()
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn test_ipc_list_mcp_servers() {
+        // IPC call to list_mcp_servers should return correctly typed servers
+        with_temp_config(
+            "mcp_servers:\n  time:\n    command: uvx\n    args:\n      - mcp-server-time\n  my-api:\n    url: http://localhost:8080\n",
+            || {
+                let (_app, ww) = build_test_app();
+                let result: serde_json::Value =
+                    invoke_ipc(&ww, "list_mcp_servers", json!({})).expect("list_mcp_servers IPC should succeed");
+                let servers = result["mcp_servers"].as_array().unwrap();
+                assert_eq!(servers.len(), 2);
+
+                let time = servers.iter().find(|s| s["name"] == "time").unwrap();
+                assert_eq!(time["type"], "stdio");
+
+                let api = servers.iter().find(|s| s["name"] == "my-api").unwrap();
+                assert_eq!(api["type"], "http");
+            },
+        );
+    }
+
+    #[test]
+    fn test_ipc_set_toolset_enabled() {
+        // IPC call to set_toolset_enabled should route params correctly
+        with_temp_config("platform_toolsets:\n  cli:\n    - web\n", || {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "set_toolset_enabled",
+                json!({"key": "terminal", "enabled": true}),
+            )
+            .expect("set_toolset_enabled IPC should succeed");
+            assert_eq!(result["success"], true);
+        });
+    }
+
+    #[test]
+    fn test_ipc_get_hermes_config_info() {
+        // IPC call to get_hermes_config_info should return expected shape
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value =
+            invoke_ipc(&ww, "get_hermes_config_info", json!({}))
+                .expect("get_hermes_config_info IPC should succeed");
+        assert!(result["hermesHome"].is_string());
+        assert!(result["configExists"].is_boolean());
+        assert!(result["installed"].is_boolean());
+    }
+
+    #[test]
+    fn test_ipc_export_hermes_config() {
+        // IPC call to export_hermes_config should return content
+        with_temp_config("model:\n  default: gpt-4\n", || {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value =
+                invoke_ipc(&ww, "export_hermes_config", json!({}))
+                    .expect("export_hermes_config IPC should succeed");
+            assert_eq!(result["success"], true);
+            assert!(result["content"].is_string());
+            assert!(result["content"].as_str().unwrap().contains("gpt-4"));
+        });
+    }
+
+    #[test]
+    fn test_ipc_import_hermes_config() {
+        // IPC call to import_hermes_config with valid YAML
+        with_temp_config("", || {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "import_hermes_config",
+                json!({"content": "model:\n  default: claude-3\n"}),
+            )
+            .expect("import_hermes_config IPC should succeed");
+            assert_eq!(result["success"], true);
+
+            // Verify the config was actually written
+            let path = config_path();
+            let content = std::fs::read_to_string(&path).unwrap();
+            assert!(content.contains("claude-3"));
+        });
+    }
+
+    #[test]
+    fn test_ipc_hermes_set_config() {
+        // IPC call to hermes_set_config with dot-notation key
+        with_temp_config("model:\n  default: gpt-4\n", || {
+            let (_app, ww) = build_test_app();
+            let result: serde_json::Value = invoke_ipc(
+                &ww,
+                "hermes_set_config",
+                json!({"key": "agent.service_tier", "value": "fast"}),
+            )
+            .expect("hermes_set_config IPC should succeed");
+            assert_eq!(result["success"], true);
+            assert_eq!(result["key"], "agent.service_tier");
+        });
+    }
+
+    #[test]
+    fn test_ipc_agent_api_server_status() {
+        // IPC call to agent_api_server_status should return status shape
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value =
+            invoke_ipc(&ww, "agent_api_server_status", json!({}))
+                .expect("agent_api_server_status IPC should succeed");
+        assert!(result["installed"].is_boolean());
+        assert!(result["configured"].is_boolean());
+        assert!(result["running"].is_boolean());
+        assert!(result["needsRestart"].is_boolean());
     }
 }

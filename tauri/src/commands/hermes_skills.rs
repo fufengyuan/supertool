@@ -289,8 +289,55 @@ pub fn uninstall_skill(identifier: String) -> SkillCliResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
 
-    // ── trim_to_120 ──────────────────────────────────────────────────────────
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::hermes_skills::list_installed_skills,
+                crate::commands::hermes_skills::list_bundled_skills,
+                crate::commands::hermes_skills::get_skill_content,
+                crate::commands::hermes_skills::install_skill,
+                crate::commands::hermes_skills::uninstall_skill,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
+    }
+
+    fn invoke_ok<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> R {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        res.unwrap_or_else(|e| panic!("IPC '{cmd}' failed: {e:?}"))
+            .deserialize::<R>()
+            .unwrap()
+    }
+
+    // ── Pure-logic: trim_to_120 ──────────────────────────────────────────────
 
     #[test]
     fn test_trim_to_120_short_string() {
@@ -325,7 +372,7 @@ mod tests {
         assert_eq!(result, s);
     }
 
-    // ── parse_skill_frontmatter ──────────────────────────────────────────────
+    // ── Pure-logic: parse_skill_frontmatter ──────────────────────────────────
 
     #[test]
     fn test_parse_frontmatter_with_valid_yaml() {
@@ -426,7 +473,7 @@ description: "{}"
         assert_eq!(desc, "Some description here.");
     }
 
-    // ── SkillInfo struct ─────────────────────────────────────────────────────
+    // ── Pure-logic: SkillInfo struct ─────────────────────────────────────────
 
     #[test]
     fn test_skill_info_serialization() {
@@ -450,7 +497,7 @@ description: "{}"
         assert_eq!(skill.source, "bundled");
     }
 
-    // ── SkillCliResult struct ────────────────────────────────────────────────
+    // ── Pure-logic: SkillCliResult struct ────────────────────────────────────
 
     #[test]
     fn test_skill_cli_result_success() {
@@ -475,7 +522,7 @@ description: "{}"
         assert!(json.contains("\"error\":\"command not found\""));
     }
 
-    // ── Directory resolution ─────────────────────────────────────────────────
+    // ── Pure-logic: Directory resolution ─────────────────────────────────────
 
     #[test]
     fn test_installed_skills_dir_ends_correctly() {
@@ -491,7 +538,7 @@ description: "{}"
         assert!(path_str.ends_with(".hermes/hermes-agent/skills"));
     }
 
-    // ── scan_skills_dir with temp dirs ───────────────────────────────────────
+    // ── Pure-logic: scan_skills_dir with temp dirs ───────────────────────────
 
     #[test]
     fn test_scan_skills_dir_non_existent() {
@@ -577,11 +624,131 @@ description: "{}"
         let _ = std::fs::remove_dir_all(&base);
     }
 
-    // ── hermes_cli_path ──────────────────────────────────────────────────────
+    // ── Pure-logic: hermes_cli_path ──────────────────────────────────────────
 
     #[test]
     fn test_hermes_cli_path_returns_string() {
         let path = hermes_cli_path();
         assert!(!path.is_empty());
+    }
+
+    // ── IPC: list_installed_skills ───────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_list_installed_skills() {
+        let (_app, ww) = build_test_app();
+        let result: Vec<serde_json::Value> =
+            invoke_ok(&ww, "list_installed_skills", serde_json::json!({}));
+        // Should at least be an array (possibly empty if no skills installed)
+        for skill in &result {
+            assert!(
+                skill.get("name").and_then(|v| v.as_str()).is_some(),
+                "skill: name"
+            );
+            assert!(
+                skill.get("category").and_then(|v| v.as_str()).is_some(),
+                "skill: category"
+            );
+            assert!(
+                skill.get("source").and_then(|v| v.as_str()).is_some(),
+                "skill: source"
+            );
+            assert!(
+                skill.get("path").and_then(|v| v.as_str()).is_some(),
+                "skill: path"
+            );
+        }
+    }
+
+    // ── IPC: list_bundled_skills ─────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_list_bundled_skills() {
+        let (_app, ww) = build_test_app();
+        let result: Vec<serde_json::Value> =
+            invoke_ok(&ww, "list_bundled_skills", serde_json::json!({}));
+        // Should at least be an array (possibly empty if no bundles exist)
+        for skill in &result {
+            assert!(
+                skill.get("name").and_then(|v| v.as_str()).is_some(),
+                "skill: name"
+            );
+            assert!(
+                skill.get("category").and_then(|v| v.as_str()).is_some(),
+                "skill: category"
+            );
+            assert!(
+                skill.get("source").and_then(|v| v.as_str()).is_some(),
+                "skill: source"
+            );
+        }
+    }
+
+    // ── IPC: get_skill_content ───────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_get_skill_content() {
+        let (_app, ww) = build_test_app();
+
+        // Create a temp skill directory with a SKILL.md
+        let tmp = std::env::temp_dir().join(format!("ipc_skill_test_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(tmp.join("SKILL.md"), "# Test Skill\n\nHello world!").unwrap();
+
+        let content: String = invoke_ok(
+            &ww,
+            "get_skill_content",
+            serde_json::json!({ "path": tmp.to_string_lossy() }),
+        );
+        assert_eq!(content, "# Test Skill\n\nHello world!");
+
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_ipc_get_skill_content_nonexistent() {
+        let (_app, ww) = build_test_app();
+        let content: String = invoke_ok(
+            &ww,
+            "get_skill_content",
+            serde_json::json!({ "path": "/tmp/__no_such_skill_test__" }),
+        );
+        assert_eq!(content, "");
+    }
+
+    // ── IPC: install_skill ───────────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_install_skill() {
+        let (_app, ww) = build_test_app();
+        let result: SkillCliResult = invoke_ok(
+            &ww,
+            "install_skill",
+            serde_json::json!({ "identifier": "test-skill" }),
+        );
+        // May succeed or fail depending on whether `hermes` CLI is available;
+        // but must return a valid SkillCliResult
+        assert!(
+            result.success || result.error.is_some(),
+            "expected either success or error"
+        );
+    }
+
+    // ── IPC: uninstall_skill ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_ipc_uninstall_skill() {
+        let (_app, ww) = build_test_app();
+        let result: SkillCliResult = invoke_ok(
+            &ww,
+            "uninstall_skill",
+            serde_json::json!({ "identifier": "test-skill" }),
+        );
+        // May succeed or fail depending on whether `hermes` CLI is available
+        assert!(
+            result.success || result.error.is_some(),
+            "expected either success or error"
+        );
     }
 }

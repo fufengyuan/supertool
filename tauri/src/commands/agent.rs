@@ -198,79 +198,282 @@ pub fn clean_temp_dir(max_age_hours: Option<u64>) -> Result<serde_json::Value, S
 }
 
 // ============================================================================
-// Unit Tests - Simulating frontend IPC calls
+// Unit Tests — IPC-style tests via tauri::test::get_ipc_response
 // ============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tauri::{
+        ipc::{CallbackFn, InvokeBody},
+        test::{get_ipc_response, mock_builder, mock_context, noop_assets},
+        webview::InvokeRequest,
+    };
 
-    /// Test agent_installed command - simulates frontend invoke("agentInstalled")
-    #[test]
-    fn test_agent_installed() {
-        let result = agent_installed();
-        assert!(result.is_ok());
-
-        let json = result.unwrap();
-        assert_eq!(json["success"], true);
-        assert!(json["installed"].is_boolean());
+    fn build_test_app() -> (
+        tauri::App<tauri::test::MockRuntime>,
+        tauri::WebviewWindow<tauri::test::MockRuntime>,
+    ) {
+        let app = mock_builder()
+            .invoke_handler(tauri::generate_handler![
+                crate::commands::agent::agent_installed,
+                crate::commands::agent::agent_get_compression_tip,
+                crate::commands::agent::agent_list_messages,
+                crate::commands::agent::agent_get_stats,
+                crate::commands::agent::agent_list_sessions,
+                crate::commands::agent::agent_delete_session,
+                crate::commands::agent::agent_rename_session,
+                crate::commands::agent::agent_get_session,
+                crate::commands::agent::agent_search_sessions,
+                crate::commands::agent::save_temp_file,
+                crate::commands::agent::clean_temp_dir,
+            ])
+            .build(mock_context(noop_assets()))
+            .expect("mock app should build");
+        let ww = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("webview window should build");
+        (app, ww)
     }
 
-    /// Test agent_list_messages command - simulates frontend invoke("agentListMessages", { sessionId })
-    #[test]
-    fn test_agent_list_messages() {
-        let result = agent_list_messages("test-session-id".to_string());
-        if result.is_ok() {
-            let json = result.unwrap();
-            assert_eq!(json["success"], true);
-            assert!(json["messages"].is_array());
-            assert_eq!(json["sessionId"], "test-session-id");
+    /// Invoke an IPC command and deserialize the result.
+    /// Returns `Err` if the IPC call itself failed (command returned `Err`, or
+    /// deserialization failed). Tests that expect the command to always succeed
+    /// should `.expect()` on this; tests against real Hermes data that may not
+    /// be present should use `if let Ok(v) = …`.
+    fn invoke_ipc<R: serde::de::DeserializeOwned>(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> Result<R, String> {
+        let res = get_ipc_response(
+            webview,
+            InvokeRequest {
+                cmd: cmd.into(),
+                callback: CallbackFn(0),
+                error: CallbackFn(1),
+                url: "tauri://localhost".parse().unwrap(),
+                body: InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: tauri::test::INVOKE_KEY.to_string(),
+            },
+        );
+        match res {
+            Ok(response) => response
+                .deserialize::<R>()
+                .map_err(|e| format!("deserialize error: {e:?}")),
+            Err(e) => Err(format!("IPC error: {e:?}")),
         }
     }
 
-    /// Test agent_get_stats command - simulates frontend invoke("agentGetStats")
+    // ── IPC tests ─────────────────────────────────────────────────────────
+
     #[test]
-    fn test_agent_get_stats() {
-        let result = agent_get_stats();
-        if result.is_ok() {
-            let json = result.unwrap();
-            assert_eq!(json["success"], true);
-            assert!(json["stats"].is_object());
+    fn test_ipc_agent_installed() {
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value =
+            invoke_ipc(&ww, "agent_installed", json!({})).expect("agent_installed should succeed");
+        assert_eq!(result["success"], true);
+        assert!(result["installed"].is_boolean());
+    }
+
+    #[test]
+    fn test_ipc_agent_get_compression_tip() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_get_compression_tip",
+            json!({"sessionId": "test-session-id"}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert_eq!(v["originalSessionId"], "test-session-id");
+            assert!(v["tipSessionId"].is_string());
         }
     }
 
-    /// Test all commands return JSON with success field
     #[test]
-    fn test_all_commands_return_json_with_success() {
-        let tests: Vec<(String, Result<serde_json::Value, String>)> = vec![
-            ("agent_installed".to_string(), agent_installed()),
-            (
-                "agent_list_messages".to_string(),
-                agent_list_messages("test".to_string()),
-            ),
-            ("agent_get_stats".to_string(), agent_get_stats()),
-        ];
-
-        for (name, result) in tests {
-            if let Ok(json) = result {
-                assert_eq!(
-                    json["success"], true,
-                    "Command {} should have success=true",
-                    name
-                );
-            }
+    fn test_ipc_agent_list_messages() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_list_messages",
+            json!({"sessionId": "test-session-id"}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["messages"].is_array());
+            assert_eq!(v["sessionId"], "test-session-id");
         }
     }
 
-    /// Test camelCase response keys
     #[test]
-    fn test_camel_case_response_keys() {
-        let json = agent_installed().unwrap();
-        assert!(json.get("success").is_some());
-
-        let messages_json = agent_list_messages("test".to_string());
-        if let Ok(json) = messages_json {
-            assert!(json.get("sessionId").is_some());
+    fn test_ipc_agent_get_stats() {
+        let (_app, ww) = build_test_app();
+        let result: Result<serde_json::Value, String> =
+            invoke_ipc(&ww, "agent_get_stats", json!({}));
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["stats"].is_object());
         }
+    }
+
+    #[test]
+    fn test_ipc_agent_list_sessions() {
+        let (_app, ww) = build_test_app();
+        let result: Result<serde_json::Value, String> =
+            invoke_ipc(&ww, "agent_list_sessions", json!({}));
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["sessions"].is_array());
+            assert!(v["total"].is_number());
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_list_sessions_with_limit() {
+        let (_app, ww) = build_test_app();
+        let result: Result<serde_json::Value, String> =
+            invoke_ipc(&ww, "agent_list_sessions", json!({"limit": 5}));
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["sessions"].is_array());
+            assert!(v["total"].is_number());
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_delete_session() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_delete_session",
+            json!({"sessionId": "test-session-id"}),
+        );
+        // May fail if session doesn't exist, but response should still parse
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert_eq!(v["sessionId"], "test-session-id");
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_rename_session() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_rename_session",
+            json!({"sessionId": "test-session-id", "newTitle": "Renamed Session"}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert_eq!(v["sessionId"], "test-session-id");
+            assert_eq!(v["newTitle"], "Renamed Session");
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_get_session() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_get_session",
+            json!({"sessionId": "test-session-id"}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert_eq!(v["sessionId"], "test-session-id");
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_search_sessions() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_search_sessions",
+            json!({"query": "test"}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["results"].is_array());
+            assert!(v["total"].is_number());
+            assert_eq!(v["query"], "test");
+        }
+    }
+
+    #[test]
+    fn test_ipc_agent_search_sessions_with_limit() {
+        let (_app, ww) = build_test_app();
+        let result = invoke_ipc::<serde_json::Value>(
+            &ww,
+            "agent_search_sessions",
+            json!({"query": "test", "limit": 3}),
+        );
+        if let Ok(v) = result {
+            assert_eq!(v["success"], true);
+            assert!(v["results"].is_array());
+            assert!(v["total"].is_number());
+            assert_eq!(v["query"], "test");
+        }
+    }
+
+    #[test]
+    fn test_ipc_save_temp_file() {
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value = invoke_ipc(
+            &ww,
+            "save_temp_file",
+            json!({"base64Data": "aGVsbG8gd29ybGQ=", "fileName": "test.txt"}),
+        )
+        .expect("save_temp_file should succeed");
+        assert_eq!(result["success"], true);
+        let data = result["data"]
+            .as_object()
+            .expect("data field should be an object");
+        assert!(data.contains_key("path"), "data should contain path");
+        let path = data["path"]
+            .as_str()
+            .expect("path should be a string");
+        assert!(!path.is_empty(), "path should not be empty");
+        // Clean up
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn test_ipc_save_temp_file_bad_base64() {
+        let (_app, ww) = build_test_app();
+        // Invalid base64 causes command to return Err(...), which Tauri
+        // converts to an IPC error response (not a JSON with success=false)
+        let result: Result<serde_json::Value, String> = invoke_ipc(
+            &ww,
+            "save_temp_file",
+            json!({"base64Data": "!!!invalid!!!", "fileName": "bad.txt"}),
+        );
+        assert!(result.is_err(), "bad base64 should produce IPC error");
+    }
+
+    #[test]
+    fn test_ipc_clean_temp_dir() {
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value = invoke_ipc(
+            &ww,
+            "clean_temp_dir",
+            json!({"maxAgeHours": 1}),
+        )
+        .expect("clean_temp_dir should succeed");
+        assert_eq!(result["success"], true);
+        assert!(result["deleted"].is_number());
+        assert_eq!(result["maxAgeHours"], 1);
+    }
+
+    #[test]
+    fn test_ipc_clean_temp_dir_default() {
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value =
+            invoke_ipc(&ww, "clean_temp_dir", json!({})).expect("clean_temp_dir should succeed");
+        assert_eq!(result["success"], true);
+        assert!(result["deleted"].is_number());
+        assert_eq!(result["maxAgeHours"], 24);
     }
 }
