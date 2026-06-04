@@ -164,7 +164,7 @@ fn format_ts(ms: u64) -> String {
 
 /// Convert runtime `ConversationMessage` to `api::InputMessage` for the tool loop.
 /// Handles all block types: Text, Thinking, ToolUse, ToolResult.
-fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec<api::InputMessage> {
+pub(crate) fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec<api::InputMessage> {
     messages
         .iter()
         .filter_map(|cm| {
@@ -222,7 +222,7 @@ fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec<api::Input
 }
 
 /// Build tool definitions for the LLM request from claw-tools `mvp_tool_specs()`.
-fn build_tool_definitions() -> Vec<api::ToolDefinition> {
+pub(crate) fn build_tool_definitions() -> Vec<api::ToolDefinition> {
     tools::mvp_tool_specs()
         .into_iter()
         .map(|spec| api::ToolDefinition {
@@ -233,13 +233,30 @@ fn build_tool_definitions() -> Vec<api::ToolDefinition> {
         .collect()
 }
 
-/// System prompt for the Claw agent.
+/// System prompt for the Claw agent — uses the real load_system_prompt from runtime.
 fn claw_agent_system_prompt() -> String {
-    "You are an expert software engineer and coding assistant. You have access to tools for reading files, writing files, editing files, running shell commands, and searching code. Always use your tools to help the user — don't just describe what to do, actually do it. When executing tools, provide clear explanations of what you're doing and why.".to_string()
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
+    let model = std::env::var("ANTHROPIC_MODEL")
+        .or_else(|_| std::env::var("OPENAI_MODEL"))
+        .unwrap_or_else(|_| "claude-sonnet-4-6".to_string());
+
+    match runtime::load_system_prompt(
+        &cwd,
+        chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        std::env::consts::OS.to_string(),
+        "26.5".to_string(),
+        api::model_family_identity_for(&model),
+    ) {
+        Ok(sections) => sections.join("\n\n"),
+        Err(e) => {
+            log::warn!("[claw_chat] Failed to load system prompt: {}, using fallback", e);
+            "You are an expert software engineer and coding assistant. You have access to tools for reading files, writing files, editing files, running shell commands, and searching code. Always use your tools to help the user.".to_string()
+        }
+    }
 }
 
 /// Convert a TurnResult to a runtime ConversationMessage (assistant turn).
-fn turn_result_to_assistant_message(result: &TurnResult) -> ConversationMessage {
+pub(crate) fn turn_result_to_assistant_message(result: &TurnResult) -> ConversationMessage {
     let mut blocks: Vec<ContentBlock> = Vec::new();
     if !result.reasoning.is_empty() {
         blocks.push(ContentBlock::Thinking {
@@ -532,7 +549,6 @@ pub async fn claw_chat_send(
                 input_messages,
                 Some(&system_prompt),
                 Some(tool_defs.clone()),
-                None, // max_tokens
                 None, // reasoning_effort
                 Some(move |event| match event {
                     LlmStreamEvent::TextDelta { text } => {

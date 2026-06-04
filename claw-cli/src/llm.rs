@@ -358,7 +358,6 @@ impl LlmClient {
         messages: Vec<api::InputMessage>,
         system_prompt: Option<&str>,
         tools: Option<Vec<api::ToolDefinition>>,
-        max_tokens: Option<u32>,
         reasoning_effort: Option<String>,
         on_event: Option<F>,
     ) -> Result<TurnResult, String>
@@ -367,11 +366,11 @@ impl LlmClient {
     {
         let request = api::MessageRequest {
             model: self.model.clone(),
-            max_tokens: max_tokens.unwrap_or(8192),
+            max_tokens: api::max_tokens_for_model(&self.model),
             messages,
             system: system_prompt.map(|s| s.to_string()),
             tools,
-            tool_choice: None,
+            tool_choice: Some(api::ToolChoice::Auto),
             stream: true,
             temperature: None,
             top_p: None,

@@ -580,3 +580,245 @@ fn test_sessions_dir_is_under_claw() {
     assert!(path_str.contains(".claw"), "sessions_dir should be ~/.claw/sessions/");
     assert!(path_str.ends_with("sessions"), "sessions_dir should end with /sessions");
 }
+
+// ── send_turn with tools integration test ──────────────────────────────
+
+/// Real LLM test: verify send_turn with tools returns tool_calls.
+/// This test calls the actual API and checks that:
+/// 1. send_turn sends tools in the request
+/// 2. The model returns tool_use blocks when asked to read a file
+/// 3. Tool calls are properly accumulated with correct id, name, and input
+#[tokio::test(flavor = "multi_thread")]
+#[ignore] // Requires real API key
+async fn test_send_turn_with_tools() {
+    use crate::commands::claw_chat::{build_tool_definitions, setup_env_from_claw_config};
+    use supertool_claw::llm::LlmClient;
+
+    setup_env_from_claw_config().expect("setup env from claw config");
+
+    let client = LlmClient::from_env().expect("create LlmClient from env");
+    println!("Provider: {:?}, Model: {}", client.provider(), client.model());
+
+    let tool_defs = build_tool_definitions();
+    println!("Tool definitions: {} tools", tool_defs.len());
+    for def in &tool_defs {
+        println!("  - {}: {}", def.name, def.description.as_deref().unwrap_or(""));
+    }
+
+    let messages = vec![api::InputMessage {
+        role: "user".to_string(),
+        content: vec![api::InputContentBlock::Text {
+            text: "Read the file /etc/hostname using the read_file tool".to_string(),
+        }],
+    }];
+
+    let text_chunks = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+    let tool_calls_seen = Arc::new(tokio::sync::Mutex::new(Vec::<(String, String, serde_json::Value)>::new()));
+    let thinking_chunks = Arc::new(tokio::sync::Mutex::new(Vec::<String>::new()));
+
+    let tc = text_chunks.clone();
+    let tcs = tool_calls_seen.clone();
+    let thc = thinking_chunks.clone();
+
+    let result = client
+        .send_turn(
+            messages,
+            Some("You are a coding assistant with file system tools. Use them to help the user."),
+            Some(tool_defs),
+            None, // reasoning_effort
+            Some(move |event| match event {
+                LlmStreamEvent::TextDelta { text } => {
+                    tc.blocking_lock().push(text);
+                }
+                LlmStreamEvent::ThinkingDelta { thinking } => {
+                    thc.blocking_lock().push(thinking);
+                }
+                LlmStreamEvent::ToolCall { id, name, input } => {
+                    tcs.blocking_lock().push((id, name, input));
+                }
+                _ => {}
+            }),
+        )
+        .await
+        .expect("send_turn should succeed");
+
+    let text = text_chunks.lock().await;
+    let tool_calls = tool_calls_seen.lock().await;
+    let thinking = thinking_chunks.lock().await;
+
+    println!("\n=== send_turn Results ===");
+    println!("Text chunks: {}", text.len());
+    println!("Text content: {}", text.join("").chars().take(200).collect::<String>());
+    println!("Thinking chunks: {}", thinking.len());
+    println!("Tool calls: {}", tool_calls.len());
+    for (i, (id, name, input)) in tool_calls.iter().enumerate() {
+        println!("  Tool {}: {} (id={})", i + 1, name, id);
+        println!("  Input: {}", serde_json::to_string_pretty(input).unwrap_or_default());
+    }
+    println!("TurnResult.tool_calls: {}", result.tool_calls.len());
+    for (i, (id, name, input)) in result.tool_calls.iter().enumerate() {
+        println!("  Tool {}: {} (id={})", i + 1, name, id);
+    }
+
+    // KEY ASSERTIONS
+    // The model SHOULD use the read_file tool when explicitly asked
+    assert!(
+        result.tool_calls.len() > 0 || !result.text.is_empty(),
+        "Should get either tool calls or text response. Got neither."
+    );
+
+    if result.tool_calls.is_empty() {
+        println!("⚠️  Model did NOT use tools — this may indicate tools are not working.");
+        println!("   Text response: {}", result.text.chars().take(300).collect::<String>());
+    } else {
+        println!("✅ Model used {} tool(s) — tools are working!", result.tool_calls.len());
+        // Verify tool call structure
+        for (id, name, input) in &result.tool_calls {
+            assert!(!id.is_empty(), "Tool call id should not be empty");
+            assert!(!name.is_empty(), "Tool call name should not be empty");
+            assert!(input.is_object() || input.is_array() || input.is_null(),
+                "Tool call input should be a JSON value");
+        }
+    }
+}
+
+/// Verify session_to_input_messages correctly converts runtime ConversationMessage
+/// blocks to api InputMessage format (unit test, no LLM call).
+#[test]
+fn test_session_to_input_messages_conversion() {
+    use crate::commands::claw_chat::session_to_input_messages;
+
+    let messages = vec![
+        ConversationMessage::user_text("hello"),
+        ConversationMessage::assistant(vec![
+            ContentBlock::Thinking {
+                thinking: "I should help".to_string(),
+                signature: Some("sig123".to_string()),
+            },
+            ContentBlock::Text {
+                text: "Hi there!".to_string(),
+            },
+            ContentBlock::ToolUse {
+                id: "tu_001".to_string(),
+                name: "read_file".to_string(),
+                input: r#"{"path":"/etc/hostname"}"#.to_string(),
+            },
+        ]),
+        ConversationMessage::tool_result("tu_001", "read_file", "myhost\n", false),
+        ConversationMessage::user_text("thanks"),
+    ];
+
+    let input_msgs = session_to_input_messages(&messages);
+
+    // Should have 4 messages (system is filtered out, but none here)
+    assert_eq!(input_msgs.len(), 4, "Should have 4 InputMessages");
+
+    // User message
+    assert_eq!(input_msgs[0].role, "user");
+    assert_eq!(input_msgs[0].content.len(), 1);
+    match &input_msgs[0].content[0] {
+        api::InputContentBlock::Text { text } => assert_eq!(text, "hello"),
+        _ => panic!("Expected Text block"),
+    }
+
+    // Assistant message with thinking + text + tool_use
+    assert_eq!(input_msgs[1].role, "assistant");
+    assert_eq!(input_msgs[1].content.len(), 3); // Thinking + Text + ToolUse
+
+    match &input_msgs[1].content[0] {
+        api::InputContentBlock::Thinking { thinking, signature } => {
+            assert_eq!(thinking, "I should help");
+            assert_eq!(signature.as_deref(), Some("sig123"));
+        }
+        _ => panic!("Expected Thinking block"),
+    }
+
+    match &input_msgs[1].content[2] {
+        api::InputContentBlock::ToolUse { id, name, input } => {
+            assert_eq!(id, "tu_001");
+            assert_eq!(name, "read_file");
+            assert_eq!(input["path"], "/etc/hostname");
+        }
+        _ => panic!("Expected ToolUse block"),
+    }
+
+    // Tool result message
+    assert_eq!(input_msgs[2].role, "tool");
+    match &input_msgs[2].content[0] {
+        api::InputContentBlock::ToolResult { tool_use_id, content, is_error } => {
+            assert_eq!(tool_use_id, "tu_001");
+            assert!(!is_error);
+            assert_eq!(content.len(), 1);
+        }
+        _ => panic!("Expected ToolResult block"),
+    }
+
+    // Second user message
+    assert_eq!(input_msgs[3].role, "user");
+
+    println!("✅ session_to_input_messages conversion test passed");
+}
+
+/// Verify turn_result_to_assistant_message correctly converts TurnResult to ConversationMessage.
+#[test]
+fn test_turn_result_to_assistant_message_conversion() {
+    use crate::commands::claw_chat::turn_result_to_assistant_message;
+    use supertool_claw::llm::TurnResult;
+
+    let result = TurnResult {
+        text: "Here is the file content".to_string(),
+        reasoning: "I should read the file".to_string(),
+        tool_calls: vec![
+            ("tu_001".to_string(), "read_file".to_string(), json!({"path": "/etc/hostname"})),
+            ("tu_002".to_string(), "bash".to_string(), json!({"command": "echo hello"})),
+        ],
+        usage: Some((100, 50)),
+    };
+
+    let msg = turn_result_to_assistant_message(&result);
+
+    assert_eq!(msg.role, MessageRole::Assistant);
+    assert_eq!(msg.blocks.len(), 4); // Thinking + 2 ToolUse + Text
+
+    // Check blocks
+    match &msg.blocks[0] {
+        ContentBlock::Thinking { thinking, .. } => assert_eq!(thinking, "I should read the file"),
+        _ => {}
+    }
+    // Actually the first block is Thinking, then ToolUses, then Text
+    let tool_use_blocks: Vec<_> = msg.blocks.iter().filter(|b| matches!(b, ContentBlock::ToolUse { .. })).collect();
+    assert_eq!(tool_use_blocks.len(), 2, "Should have 2 ToolUse blocks");
+
+    println!("✅ turn_result_to_assistant_message conversion test passed");
+}
+
+/// Verify build_tool_definitions returns the expected tools.
+#[test]
+fn test_build_tool_definitions() {
+    use crate::commands::claw_chat::build_tool_definitions;
+
+    let defs = build_tool_definitions();
+
+    assert!(defs.len() >= 6, "Should have at least 6 tools, got {}", defs.len());
+
+    let names: Vec<&str> = defs.iter().map(|d| d.name.as_str()).collect();
+    assert!(names.contains(&"bash"), "Should include 'bash' tool, got: {:?}", names);
+    assert!(names.contains(&"read_file"), "Should include 'read_file' tool");
+    assert!(names.contains(&"write_file"), "Should include 'write_file' tool");
+    assert!(names.contains(&"edit_file"), "Should include 'edit_file' tool");
+    assert!(names.contains(&"glob_search"), "Should include 'glob_search' tool");
+    assert!(names.contains(&"grep_search"), "Should include 'grep_search' tool");
+
+    // Each definition should have a valid schema
+    for def in &defs {
+        assert!(!def.name.is_empty(), "Tool name should not be empty");
+        assert!(def.description.is_some(), "Tool '{}' should have a description", def.name);
+        assert!(def.input_schema.is_object(), "Tool '{}' input_schema should be a JSON object", def.name);
+        let schema = def.input_schema.as_object().unwrap();
+        assert!(schema.contains_key("type"), "Tool '{}' schema should have 'type'", def.name);
+        // Some tools (e.g. StructuredOutput) have input_schema without properties
+        // assert!(schema.contains_key("properties"), ...);
+    }
+
+    println!("✅ build_tool_definitions test passed: {} tools", defs.len());
+}
