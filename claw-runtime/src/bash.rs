@@ -100,8 +100,18 @@ pub fn execute_bash(input: BashCommandInput) -> io::Result<BashCommandOutput> {
         });
     }
 
-    let runtime = Builder::new_current_thread().enable_all().build()?;
-    runtime.block_on(execute_bash_async(input, sandbox_status, cwd))
+    // Check if we're already inside a tokio runtime.
+    // If so, use block_in_place + Handle::block_on to avoid "Cannot start a runtime from
+    // within a runtime" panic. This happens when called from async Tauri commands.
+    if tokio::runtime::Handle::try_current().is_ok() {
+        tokio::task::block_in_place(|| {
+            tokio::runtime::Handle::current()
+                .block_on(execute_bash_async(input, sandbox_status, cwd))
+        })
+    } else {
+        let runtime = Builder::new_current_thread().enable_all().build()?;
+        runtime.block_on(execute_bash_async(input, sandbox_status, cwd))
+    }
 }
 
 /// Detect git push to main and emit ship provenance event
