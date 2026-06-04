@@ -647,9 +647,9 @@ async function loadClawConfig() {
       model: info?.model || '',
       provider: info?.provider || '',
     }
-    // 只在首次加载时填充表单（不覆盖用户正在编辑的内容）
-    if (!clawForm.value.apiKey && info?.hasApiKey) {
-      clawForm.value.apiKey = info.apiKey || '' // masked key from backend
+    // 不预填 API key（脱敏值会覆盖真实 key），仅填其他字段
+    if (info?.hasApiKey) {
+      clawForm.value.apiKey = ''
       clawForm.value.baseUrl = info.baseUrl || ''
       clawForm.value.model = info.model || 'claude-sonnet-4-6'
       clawForm.value.provider = info.provider || ''
