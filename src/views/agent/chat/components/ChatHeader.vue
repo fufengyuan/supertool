@@ -61,6 +61,14 @@
       <button
         v-if="hasMessages"
         class="btn btn-ghost btn-xs"
+        title="Fork session"
+        @click="$emit('fork')"
+      >
+        <SvgIcon name="copy" size="14" />
+      </button>
+      <button
+        v-if="hasMessages"
+        class="btn btn-ghost btn-xs"
         title="Clear chat"
         @click="$emit('clear')"
       >
@@ -92,6 +100,7 @@ defineEmits<{
   newChat: [];
   clear: [];
   compact: [];
+  fork: [];
 }>();
 
 function folderName(p: string): string {

@@ -15,6 +15,7 @@
       @new-chat="startNewChat"
       @clear="clearChat"
       @compact="handleCompact"
+      @fork="handleFork"
     />
 
     <!-- Messages area -->
@@ -438,6 +439,15 @@ async function handleSelectModel(provider: string, model: string, baseUrl: strin
   } catch {
     // Best-effort sync to backend
   }
+  // Claw mode: also update active session model
+  if (isClawMode.value && hermesSessionId.value) {
+    try {
+      const api = getTauriAPI();
+      await api.clawChatSetModel(hermesSessionId.value, model);
+    } catch (e) {
+      console.warn('[Chat] Failed to set session model:', e);
+    }
+  }
 }
 
 async function pickContextFolder() {
@@ -473,6 +483,20 @@ async function handleCompact() {
     addAgentMessage(`❌ 压缩失败: ${e?.message || String(e)}`);
   } finally {
     compacting.value = false;
+  }
+}
+
+async function handleFork() {
+  if (!hermesSessionId.value) return;
+  const branchName = prompt('分支名称（可选）:', '');
+  // Cancel = null, empty = ok (no name)
+  if (branchName === null) return;
+  try {
+    const tauri = getTauriAPI();
+    const result = await tauri.clawChatFork(hermesSessionId.value, branchName || null);
+    addAgentMessage(`🔀 已派生新会话: ${result.newSessionId.slice(-8)}${result.branchName ? ` (分支: ${result.branchName})` : ''}`);
+  } catch (e: any) {
+    addAgentMessage(`❌ 派生失败: ${e?.message || String(e)}`);
   }
 }
 

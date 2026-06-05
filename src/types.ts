@@ -632,3 +632,8 @@ export interface SetPermissionModeResult {
   success: boolean
   mode: string
 }
+
+export interface ForkResult {
+  newSessionId: string
+  branchName: string | null
+}

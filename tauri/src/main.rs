@@ -459,6 +459,8 @@ fn main() {
             commands::claw_chat::claw_read_models_config,
             commands::claw_chat::claw_read_stats,
             commands::claw_compact::claw_chat_compact,
+            commands::claw_session::claw_chat_set_model,
+            commands::claw_session::claw_chat_fork,
             commands::claw_config::claw_config_get,
             commands::claw_config::claw_config_set,
             commands::claw_config::claw_get_permission_mode,

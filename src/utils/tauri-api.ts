@@ -19,7 +19,7 @@ import type {
   CronJob,
   ProviderInfo, ProviderListResult, ProviderSaveResult,
   OAuthFlowResult, OAuthPollResult,
-  AgentInfo, CompactResult, McpHealthStatus, PermissionModeResult, SetPermissionModeResult,
+  AgentInfo, CompactResult, McpHealthStatus, PermissionModeResult, SetPermissionModeResult, ForkResult,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -2056,6 +2056,10 @@ export interface TauriAPI {
   // Claw Agents
   clawListAgents: () => Promise<AgentInfo[]>
 
+  // Claw Session
+  clawChatSetModel: (sessionId: string, model: string) => Promise<void>
+  clawChatFork: (sessionId: string, branchName?: string | null) => Promise<ForkResult>
+
   // Claw MCP Health
   clawMcpHealth: () => Promise<Record<string, McpHealthStatus>>
 
@@ -2872,6 +2876,12 @@ export function getTauriAPI(): TauriAPI {
     // ============ Claw Agents ============
     clawListAgents: async () =>
       tauriCall<AgentInfo[]>('claw_list_agents'),
+
+    // ============ Claw Session ============
+    clawChatSetModel: async (sessionId: string, model: string) =>
+      tauriCall<void>('claw_chat_set_model', { sessionId, model }),
+    clawChatFork: async (sessionId: string, branchName?: string | null) =>
+      tauriCall<ForkResult>('claw_chat_fork', { sessionId, branchName }),
 
     // ============ Claw MCP Health ============
     clawMcpHealth: async () =>
