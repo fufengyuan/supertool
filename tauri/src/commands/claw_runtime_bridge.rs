@@ -15,6 +15,7 @@ use runtime::{
     ApiClient, ApiRequest, AssistantEvent, RuntimeError, TokenUsage, ToolError, ToolExecutor,
 };
 use supertool_claw::llm::{LlmClient, LlmStreamEvent, TurnResult};
+use tauri::{AppHandle, Emitter};
 
 /// Adapter that implements the upstream [`ApiClient`] trait by wrapping
 /// SuperTool's async [`LlmClient`].
@@ -125,7 +126,43 @@ impl ToolExecutor for TauriToolExecutor {
     fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError> {
         let input_value: serde_json::Value =
             serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({ "raw": input }));
-        tools::execute_tool(tool_name, &input_value).map_err(|e| ToolError::new(e))
+        tools::execute_tool(tool_name, &input_value).map_err(ToolError::new)
+    }
+}
+
+/// Reports hook lifecycle events to the frontend via Tauri IPC events.
+/// Implements upstream `HookProgressReporter` so the GUI shows pre/post hook activity.
+pub(crate) struct TauriHookReporter {
+    app: AppHandle,
+    session_id: String,
+}
+
+impl TauriHookReporter {
+    pub(crate) fn new(app: AppHandle, session_id: String) -> Self {
+        Self { app, session_id }
+    }
+}
+
+impl runtime::HookProgressReporter for TauriHookReporter {
+    fn on_event(&mut self, event: &runtime::HookProgressEvent) {
+        use runtime::HookProgressEvent;
+        let (phase, hook, tool_name) = match event {
+            HookProgressEvent::Started { event, tool_name, .. } => {
+                ("started", event.as_str(), tool_name.clone())
+            }
+            HookProgressEvent::Completed { event, tool_name, .. } => {
+                ("completed", event.as_str(), tool_name.clone())
+            }
+            HookProgressEvent::Cancelled { event, tool_name, .. } => {
+                ("completed", event.as_str(), tool_name.clone())
+            }
+        };
+        let _ = self.app.emit("agent-hook-progress", serde_json::json!({
+            "phase": phase,
+            "hook": hook,
+            "tool_name": tool_name,
+            "session_id": self.session_id,
+        }));
     }
 }
 
@@ -133,6 +170,7 @@ impl ToolExecutor for TauriToolExecutor {
 pub(crate) struct TurnEmit {
     pub assistant_text: String,
     pub tool_calls: Vec<(String, String, String)>, // (id, name, input)
+    pub tool_errors: Vec<(String, bool)>,           // (id, is_error)
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub auto_compaction_removed: Option<usize>,
@@ -142,6 +180,15 @@ pub(crate) struct TurnEmit {
 pub(crate) fn turn_summary_to_emit(summary: &runtime::TurnSummary) -> TurnEmit {
     let mut assistant_text = String::new();
     let mut tool_calls = Vec::new();
+    let mut tool_errors = Vec::new();
+
+    for msg in &summary.tool_results {
+        for block in &msg.blocks {
+            if let runtime::ContentBlock::ToolResult { tool_use_id, is_error, .. } = block {
+                tool_errors.push((tool_use_id.clone(), *is_error));
+            }
+        }
+    }
 
     for msg in &summary.assistant_messages {
         for block in &msg.blocks {
@@ -161,6 +208,7 @@ pub(crate) fn turn_summary_to_emit(summary: &runtime::TurnSummary) -> TurnEmit {
     TurnEmit {
         assistant_text,
         tool_calls,
+        tool_errors,
         input_tokens: summary.usage.input_tokens as u64,
         output_tokens: summary.usage.output_tokens as u64,
         auto_compaction_removed: summary.auto_compaction.map(|a| a.removed_message_count),
