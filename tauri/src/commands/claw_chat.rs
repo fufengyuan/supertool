@@ -198,32 +198,65 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
 }
 
 /// Convert session messages to a simplified JSON array for the front-end.
+/// Includes text, thinking, tool_use, and tool_result blocks.
 pub(crate) fn session_messages_to_json(messages: &[ConversationMessage]) -> Vec<serde_json::Value> {
-    messages
-        .iter()
-        .map(|cm| {
-            let role = match cm.role {
-                MessageRole::User => "user",
-                MessageRole::Assistant => "agent",
-                MessageRole::System => "system",
-                MessageRole::Tool => "tool",
-            };
-            let text = cm
-                .blocks
-                .iter()
-                .filter_map(|block| match block {
-                    ContentBlock::Text { text } => Some(text.clone()),
-                    ContentBlock::Thinking { thinking, .. } => Some(thinking.clone()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-            serde_json::json!({
+    let mut result = Vec::new();
+    for cm in messages {
+        let role = match cm.role {
+            MessageRole::User => "user",
+            MessageRole::Assistant => "agent",
+            MessageRole::System => "system",
+            MessageRole::Tool => "tool",
+        };
+
+        // Extract text content
+        let text: String = cm
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
+                ContentBlock::Text { text } => Some(text.as_str()),
+                ContentBlock::Thinking { thinking, .. } => Some(thinking.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        // Only emit if there's text content (tool-only messages are handled separately)
+        if !text.is_empty() {
+            result.push(serde_json::json!({
                 "role": role,
                 "content": text,
-            })
-        })
-        .collect()
+            }));
+        }
+
+        // Emit tool_use blocks as separate messages
+        for block in &cm.blocks {
+            if let ContentBlock::ToolUse { id, name, input } = block {
+                result.push(serde_json::json!({
+                    "role": "agent",
+                    "kind": "tool_call",
+                    "callId": id,
+                    "name": name,
+                    "args": input,
+                }));
+            }
+        }
+
+        // Emit tool_result blocks as separate messages
+        for block in &cm.blocks {
+            if let ContentBlock::ToolResult { tool_use_id, tool_name, output, is_error } = block {
+                result.push(serde_json::json!({
+                    "role": "agent",
+                    "kind": "tool_result",
+                    "callId": tool_use_id,
+                    "name": tool_name,
+                    "content": output,
+                    "isError": is_error,
+                }));
+            }
+        }
+    }
+    result
 }
 
 /// Format a Unix-epoch millis timestamp to RFC 3339 for the frontend.
