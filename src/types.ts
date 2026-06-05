@@ -591,3 +591,44 @@ export interface GatewayResult {
   output: string
   error: string
 }
+
+// ============ Claw Agents ============
+
+export interface AgentInfo {
+  name: string
+  description: string
+  model: string
+  path: string
+  config: Record<string, unknown> | null
+}
+
+// ============ Claw Compact ============
+
+export interface CompactResult {
+  sessionId: string
+  removedMessageCount: number
+  summary: string
+}
+
+// ============ Claw MCP Health ============
+
+export interface McpHealthStatus {
+  name: string
+  status: 'ok' | 'error' | 'unknown'
+  command: string
+  transport: string
+  details: Record<string, unknown> | null
+  errorMessage: string | null
+}
+
+// ============ Claw Permission Mode ============
+
+export interface PermissionModeResult {
+  mode: string
+  configured: boolean
+}
+
+export interface SetPermissionModeResult {
+  success: boolean
+  mode: string
+}

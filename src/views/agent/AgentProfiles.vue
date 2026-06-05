@@ -44,6 +44,64 @@
         <div v-else class="bg-base-100 rounded-lg border border-base-content/10 p-4 text-center">
           <p class="text-sm text-base-content/40">尚未创建 settings.json</p>
         </div>
+
+        <!-- Agent Configuration List -->
+        <div class="bg-base-100 rounded-lg border border-base-content/10 p-4">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">Agent 配置</h3>
+            <button class="btn btn-xs btn-ghost" @click="loadClawAgents" :disabled="agentsLoading">
+              <SvgIcon name="refresh" size="12" />
+            </button>
+          </div>
+          <div v-if="agentsLoading" class="flex items-center justify-center py-4">
+            <span class="loading loading-spinner loading-xs"></span>
+          </div>
+          <div v-else-if="agentsError" class="text-xs text-error/70 py-2">{{ agentsError }}</div>
+          <div v-else-if="agents.length === 0" class="text-xs text-base-content/40 py-2 text-center">暂无 agent 配置</div>
+          <div v-else class="space-y-2 max-h-48 overflow-y-auto">
+            <div
+              v-for="agent in agents"
+              :key="agent.name"
+              class="flex items-start justify-between p-2 rounded hover:bg-base-200/50 transition-colors"
+            >
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium truncate">{{ agent.name }}</div>
+                <div v-if="agent.description" class="text-[10px] text-base-content/50 truncate">{{ agent.description }}</div>
+                <div v-if="agent.model" class="text-[10px] text-base-content/40 mt-0.5">模型: {{ agent.model }}</div>
+              </div>
+              <div class="text-[10px] text-base-content/30 ml-2 truncate max-w-[120px]" :title="agent.path">
+                {{ agent.path.split('/').pop() || agent.path }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Permission Mode Selector -->
+        <div class="bg-base-100 rounded-lg border border-base-content/10 p-4">
+          <h3 class="text-xs font-semibold uppercase tracking-wider text-base-content/60 mb-3">权限模式</h3>
+          <div class="flex items-center gap-2">
+            <select
+              v-model="permissionMode"
+              class="select select-sm select-bordered flex-1"
+              :disabled="permissionModeLoading"
+              @change="setPermissionMode"
+            >
+              <option value="ask">Ask (每次询问)</option>
+              <option value="allow">Allow (自动允许)</option>
+              <option value="deny">Deny (自动拒绝)</option>
+            </select>
+            <button
+              class="btn btn-xs btn-ghost"
+              :class="{ 'loading': permissionModeLoading }"
+              :disabled="permissionModeLoading"
+              @click="loadPermissionMode"
+            >
+              <SvgIcon name="refresh" size="12" />
+            </button>
+          </div>
+          <div v-if="permissionModeError" class="text-xs text-error/70 mt-2">{{ permissionModeError }}</div>
+          <div v-if="permissionModeSaved" class="text-xs text-success/70 mt-2">已保存</div>
+        </div>
       </div>
       <div v-else class="text-center py-12 text-base-content/30 text-sm">加载失败</div>
     </div>
@@ -326,6 +384,14 @@ interface HermesProfile {
   isDefault: boolean;
 }
 
+interface AgentInfo {
+  name: string;
+  description: string;
+  model: string;
+  path: string;
+  config?: unknown;
+}
+
 const agentModeStore = useAgentModeStore()
 const isClawMode = computed(() => agentModeStore.mode === 'claw')
 
@@ -334,16 +400,72 @@ const clawProfile = ref<{ configHome: string; settingsExists: boolean; mcpServer
 const clawLoading = ref(false)
 
 async function loadClawProfile() {
-  console.log('[AgentProfiles] 👤 loadClawProfile() called');
   clawLoading.value = true
   try {
     const api = getTauriAPI()
     clawProfile.value = await api.clawGetProfile()
-    console.log('[AgentProfiles] 📨 clawGetProfile returned:', clawProfile.value ? 'OK' : 'null');
   } catch (e) {
     console.error('[AgentProfiles] ❌ Failed to load Claw profile:', e)
   } finally {
     clawLoading.value = false
+  }
+}
+
+// Claw agent list state
+const agents = ref<AgentInfo[]>([])
+const agentsLoading = ref(false)
+const agentsError = ref<string | null>(null)
+
+async function loadClawAgents() {
+  agentsLoading.value = true
+  agentsError.value = null
+  try {
+    const api = getTauriAPI()
+    agents.value = await api.clawListAgents()
+  } catch (e) {
+    agentsError.value = String(e)
+    console.error('[AgentProfiles] ❌ Failed to load agents:', e)
+  } finally {
+    agentsLoading.value = false
+  }
+}
+
+// Permission mode state
+const permissionMode = ref('ask')
+const permissionModeLoading = ref(false)
+const permissionModeError = ref<string | null>(null)
+const permissionModeSaved = ref(false)
+
+async function loadPermissionMode() {
+  permissionModeLoading.value = true
+  permissionModeError.value = null
+  permissionModeSaved.value = false
+  try {
+    const api = getTauriAPI()
+    const result = await api.clawGetPermissionMode()
+    permissionMode.value = result.mode || 'ask'
+  } catch (e) {
+    permissionModeError.value = String(e)
+    console.error('[AgentProfiles] ❌ Failed to load permission mode:', e)
+  } finally {
+    permissionModeLoading.value = false
+  }
+}
+
+async function setPermissionMode() {
+  permissionModeLoading.value = true
+  permissionModeError.value = null
+  permissionModeSaved.value = false
+  try {
+    const api = getTauriAPI()
+    await api.clawSetPermissionMode(permissionMode.value)
+    permissionModeSaved.value = true
+    setTimeout(() => { permissionModeSaved.value = false }, 3000)
+  } catch (e) {
+    permissionModeError.value = String(e)
+    console.error('[AgentProfiles] ❌ Failed to set permission mode:', e)
+  } finally {
+    permissionModeLoading.value = false
   }
 }
 
@@ -386,8 +508,8 @@ function getWorkload(name: string): number {
 }
 
 function gatewayClass(status?: string): string {
-  if (status === 'running') {return 'text-success';}
-  if (status === 'stopped') {return 'text-base-content/50';}
+  if (status === 'running') return 'text-success';
+  if (status === 'stopped') return 'text-base-content/50';
   return 'text-warning';
 }
 
@@ -401,7 +523,7 @@ async function setDefault(name: string) {
 }
 
 async function deleteProfile(name: string) {
-  if (!confirm(`确定删除 Profile "${name}"？`)) {return;}
+  if (!confirm(`确定删除 Profile "${name}"？`)) return;
   try {
     await invoke('profile_delete', { name });
     await refreshProfiles();
@@ -411,7 +533,7 @@ async function deleteProfile(name: string) {
 }
 
 async function createProfile() {
-  if (!newProfile.value.name.trim()) {return;}
+  if (!newProfile.value.name.trim()) return;
   try {
     await invoke('profile_create', {
       name: newProfile.value.name.trim(),
@@ -426,11 +548,8 @@ async function createProfile() {
 }
 
 async function editDescription(name: string) {
-  // Fetch current description first
   try {
-    console.log('Fetching description for:', name);
     const d = await invoke<string>('profile_get_description', { name });
-    console.log('Got description:', d);
     editDescriptionText.value = d || '';
   } catch (e) {
     console.error('Failed to get description:', e);
@@ -440,7 +559,7 @@ async function editDescription(name: string) {
 }
 
 async function saveDescription() {
-  if (!editingProfile.value) {return;}
+  if (!editingProfile.value) return;
   try {
     await invoke('profile_describe', {
       name: editingProfile.value,
@@ -459,7 +578,7 @@ function openSetModel(name: string, currentModel?: string) {
 }
 
 async function saveModel() {
-  if (!settingModelProfile.value) {return;}
+  if (!settingModelProfile.value) return;
   try {
     await invoke('profile_set_model', {
       name: settingModelProfile.value,
@@ -505,7 +624,6 @@ async function manualDispatch() {
 async function dryRunDispatch() {
   try {
     const result = await invoke('kanban_dispatch', { dryRun: true, maxSpawns: null });
-    console.log('Dry run result:', result);
     alert(JSON.stringify(result, null, 2));
   } catch (e) {
     console.error('Failed to dry run:', e);
@@ -513,13 +631,11 @@ async function dryRunDispatch() {
 }
 
 onMounted(() => {
-  console.log(`[AgentProfiles] 🚀 onMounted: isClawMode=${isClawMode.value}`);
   refreshProfiles();
   if (isClawMode.value) loadClawProfile();
 });
 
-watch(isClawMode, (claw, oldClaw) => {
-  console.log(`[AgentProfiles] 🔄 Mode changed: ${oldClaw} → ${claw}`);
+watch(isClawMode, (claw) => {
   if (claw) { loadClawProfile(); }
   else { refreshProfiles(); }
 });

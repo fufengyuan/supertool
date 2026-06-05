@@ -51,6 +51,16 @@
       <button
         v-if="hasMessages"
         class="btn btn-ghost btn-xs"
+        :class="{ 'loading': compacting }"
+        :disabled="compacting"
+        title="Compact session (summarize older messages)"
+        @click="$emit('compact')"
+      >
+        <SvgIcon v-if="!compacting" name="compress" size="14" />
+      </button>
+      <button
+        v-if="hasMessages"
+        class="btn btn-ghost btn-xs"
         title="Clear chat"
         @click="$emit('clear')"
       >
@@ -72,6 +82,7 @@ const props = defineProps<{
   hasMessages: boolean;
   contextFolder: string | null;
   showContextFolder: boolean;
+  compacting?: boolean;
 }>();
 
 defineEmits<{
@@ -80,6 +91,7 @@ defineEmits<{
   toggleFast: [];
   newChat: [];
   clear: [];
+  compact: [];
 }>();
 
 function folderName(p: string): string {

@@ -191,3 +191,101 @@ pub fn claw_config_set(
         "message": "Claw config saved",
     }))
 }
+
+// ── Permission Mode ──────────────────────────────────────────────────────
+
+/// Valid permission mode values.
+const PERMISSION_MODES: &[&str] = &["allow", "ask", "deny"];
+
+/// Tauri command: get the current permission mode from settings.json.
+///
+/// Reads `permissions.mode` from `~/.claw/settings.json`. Returns
+/// the mode string or the default "ask" if not set.
+#[tauri::command(rename_all = "camelCase")]
+pub fn claw_get_permission_mode() -> Result<serde_json::Value, String> {
+    let path = config_path();
+    if !path.exists() {
+        return Ok(serde_json::json!({
+            "mode": "ask",
+            "configured": false,
+        }));
+    }
+
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+
+    let value: serde_json::Value = serde_json::from_str(&content)
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))?;
+
+    let mode = value
+        .get("permissions")
+        .and_then(|p| p.as_object())
+        .and_then(|p| p.get("mode"))
+        .and_then(|m| m.as_str())
+        .unwrap_or("ask")
+        .to_string();
+
+    Ok(serde_json::json!({
+        "mode": mode,
+        "configured": mode != "ask",
+    }))
+}
+
+/// Tauri command: set the permission mode in settings.json.
+///
+/// Writes `permissions.mode` to `~/.claw/settings.json`, preserving
+/// all existing settings. Supports: "allow", "ask", "deny".
+#[tauri::command(rename_all = "camelCase")]
+pub fn claw_set_permission_mode(mode: String) -> Result<serde_json::Value, String> {
+    if !PERMISSION_MODES.contains(&mode.as_str()) {
+        return Err(format!(
+            "Invalid permission mode '{}'. Supported: {}",
+            mode,
+            PERMISSION_MODES.join(", ")
+        ));
+    }
+
+    let path = config_path();
+
+    // Read existing settings.json or start with empty object
+    let mut value: serde_json::Value = if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+        serde_json::from_str(&content)
+            .unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Set permissions.mode
+    let permissions = value
+        .as_object_mut()
+        .ok_or("settings.json root must be an object")?;
+    permissions
+        .entry("permissions")
+        .or_insert(serde_json::json!({}))
+        .as_object_mut()
+        .ok_or("'permissions' must be an object")?
+        .insert("mode".to_string(), serde_json::Value::String(mode.clone()));
+
+    // Write back
+    let parent = path.parent().unwrap_or(&path);
+    std::fs::create_dir_all(parent)
+        .map_err(|e| format!("Failed to create directory: {e}"))?;
+
+    let content = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize: {e}"))?;
+    std::fs::write(&path, &content)
+        .map_err(|e| format!("Failed to write {}: {}", path.display(), e))?;
+
+    log::info!(
+        "[claw_config] Permission mode set to '{}' in {}",
+        mode,
+        path.display()
+    );
+
+    Ok(serde_json::json!({
+        "success": true,
+        "mode": mode,
+    }))
+}

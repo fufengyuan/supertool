@@ -19,6 +19,7 @@ import type {
   CronJob,
   ProviderInfo, ProviderListResult, ProviderSaveResult,
   OAuthFlowResult, OAuthPollResult,
+  AgentInfo, CompactResult, McpHealthStatus, PermissionModeResult, SetPermissionModeResult,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -2048,6 +2049,19 @@ export interface TauriAPI {
   clawToggleCronJob: (cronId: string) => Promise<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>
   // Claw Profiles
   clawGetProfile: () => Promise<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>
+
+  // Claw Compact
+  clawChatCompact: (sessionId: string) => Promise<CompactResult>
+
+  // Claw Agents
+  clawListAgents: () => Promise<AgentInfo[]>
+
+  // Claw MCP Health
+  clawMcpHealth: () => Promise<Record<string, McpHealthStatus>>
+
+  // Claw Permission Mode
+  clawGetPermissionMode: () => Promise<PermissionModeResult>
+  clawSetPermissionMode: (mode: string) => Promise<SetPermissionModeResult>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2850,6 +2864,24 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<{ id: string; schedule: string; prompt: string; description: string; enabled: boolean; lastRun: string | null; runCount: number }>('claw_toggle_cron_job', { cronId }),
     clawGetProfile: async () =>
       tauriCall<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>('claw_get_profile'),
+
+    // ============ Claw Compact ============
+    clawChatCompact: async (sessionId: string) =>
+      tauriCall<CompactResult>('claw_chat_compact', { sessionId }),
+
+    // ============ Claw Agents ============
+    clawListAgents: async () =>
+      tauriCall<AgentInfo[]>('claw_list_agents'),
+
+    // ============ Claw MCP Health ============
+    clawMcpHealth: async () =>
+      tauriCall<Record<string, McpHealthStatus>>('claw_mcp_health'),
+
+    // ============ Claw Permission Mode ============
+    clawGetPermissionMode: async () =>
+      tauriCall<PermissionModeResult>('claw_get_permission_mode'),
+    clawSetPermissionMode: async (mode: string) =>
+      tauriCall<SetPermissionModeResult>('claw_set_permission_mode', { mode }),
 
   }
 
