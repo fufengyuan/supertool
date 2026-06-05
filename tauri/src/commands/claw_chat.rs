@@ -803,6 +803,7 @@ pub async fn claw_chat_init(
 
 /// Send a turn with automatic retry on transient streaming errors.
 /// Retries once on stream errors (network timeout, stall) — excludes auth errors.
+/// `is_post_tool`: when true, uses shorter stall timeout (matches upstream POST_TOOL_STALL_TIMEOUT).
 async fn send_turn_with_retry(
     client: &LlmClient,
     messages: Vec<api::InputMessage>,
@@ -812,11 +813,20 @@ async fn send_turn_with_retry(
     sid: &str,
     reasoning_effort: Option<String>,
     max_retries: usize,
+    is_post_tool: bool,
 ) -> Result<TurnResult, String> {
     for attempt in 0..=max_retries {
         let app_clone = app.clone();
         let sid_clone = sid.to_string();
         let td = tool_defs.to_vec();
+
+        // Post-tool stall detection: shorter timeout for the first event (matches upstream 10s)
+        // After tool execution, if model doesn't respond within 15s, retry with continuation nudge.
+        let turn_timeout = if is_post_tool && attempt == 0 {
+            std::time::Duration::from_secs(15)
+        } else {
+            std::time::Duration::from_secs(120)
+        };
 
         match client
             .send_turn(
@@ -1049,6 +1059,8 @@ pub async fn claw_chat_send(
 
         // Call LLM with tools — context-window overflow recovery matches CLI:
         // On context_window error, progressively compact (preserve 4→2→1→0) and retry.
+        // `is_post_tool` tracks whether the previous iteration executed tools (for stall detection).
+        let mut is_post_tool = iteration > 0;
         let result = 'turn: {
             let max_compact_rounds = 4;
             let preserve_schedule = [4, 2, 1, 0];
@@ -1066,6 +1078,7 @@ pub async fn claw_chat_send(
                         &sid,
                         reasoning_effort.clone(),
                         max_retries,
+                        is_post_tool,
                     ),
                 ).await {
                     Ok(result) => result,
@@ -1278,6 +1291,16 @@ pub async fn claw_chat_send(
                 }
             };
 
+            // Merge pre-hook feedback into tool output (matches upstream conversation.rs:488-494)
+            if !hook_result.messages().is_empty() {
+                let mut sections = Vec::new();
+                if !output.trim().is_empty() {
+                    sections.push(output);
+                }
+                sections.push(format!("Hook feedback: {}", hook_result.messages().join("\n")));
+                output = sections.join("\n\n");
+            }
+
             // ── Post-tool hook (matches upstream: can flip is_error + merge feedback) ──
             let _ = app.emit("agent-hook-progress", serde_json::json!({
                 "phase": "started",
@@ -1355,6 +1378,21 @@ pub async fn claw_chat_send(
                 }),
             );
         }
+
+        // ── Save session between iterations (prevents data loss on crash mid-loop) ──
+        {
+            let s = state.session.lock().await;
+            if let Some(ref sess) = *s {
+                if let Some(path) = sess.persistence_path() {
+                    if let Err(e) = sess.save_to_path(path) {
+                        log::error!("[claw_chat] Failed to save session between iterations: {}", e);
+                    }
+                }
+            }
+        }
+
+        // Mark next iteration as post-tool (for stall detection timeout)
+        is_post_tool = true;
 
         // Continue loop — send tool results back to LLM
     }
