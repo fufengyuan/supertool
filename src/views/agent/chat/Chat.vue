@@ -384,6 +384,9 @@ async function clawSend(text: string) {
     if (result?.autoCompaction && result.autoCompaction > 0) {
       console.log(`[Chat] ⚠️ Session compacted: ${result.autoCompaction} messages removed`)
     }
+    // Reset loading state — agent-done event also resets this,
+    // but we do it here as safety net in case event doesn't fire
+    isLoading.value = false
   } catch (e: any) {
     addAgentMessage(`发送失败: ${e?.message || String(e)}`)
     isLoading.value = false

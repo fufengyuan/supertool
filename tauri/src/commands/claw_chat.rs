@@ -845,15 +845,12 @@ pub async fn claw_chat_send(
     // ── Read agent behavior settings from config ──
     let agent_config = crate::commands::claw_config::read_claw_config().unwrap_or_default();
     let max_iterations = agent_config.max_iterations as usize;
-    let max_retries = agent_config.max_retries as usize;
     let skill_bytes_cap = agent_config.skill_bytes_cap as usize;
-    let tool_output_truncation = agent_config.tool_output_truncation as usize;
     let reasoning_effort = if agent_config.reasoning_effort.is_empty() {
         None
     } else {
         Some(agent_config.reasoning_effort)
     };
-    let auto_compaction = agent_config.auto_compaction;
 
     // ── Build tool definitions ──
     let tool_defs = build_tool_definitions();
@@ -937,6 +934,9 @@ pub async fn claw_chat_send(
                 let mut s = state.session.lock().await;
                 *s = Some(session);
             }
+            // NOTE: Don't emit agent-error here — frontend clawSend catch block
+            // already handles the error and shows it to the user.
+            // Emitting agent-error would cause duplicate error messages.
             return Err(e);
         }
     };
