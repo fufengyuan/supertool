@@ -80,10 +80,12 @@ fn default_auto_compaction() -> bool {
 
 /// 配置文件路径
 fn config_path() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".claw")
-        .join("config.json")
+    // Use upstream's config_home (supports CLAW_CONFIG_HOME env var)
+    let config_home = std::env::var_os("CLAW_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| dirs::home_dir().map(|h| h.join(".claw")))
+        .unwrap_or_else(|| PathBuf::from("~/.claw"));
+    config_home.join("settings.json")
 }
 
 /// 读取 Claw 配置
