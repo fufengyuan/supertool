@@ -119,8 +119,6 @@ const route = useRoute();
 const router = useRouter();
 const agentModeStore = useAgentModeStore();
 
-console.log(`[Chat] 🏗️ Setup script running, initial route: ${route.fullPath}, query.session=${route.query.session}`);
-
 // ── Core state ───────────────────────────────────────────────────────────────
 const messages = ref<ChatMessage[]>([]);
 const hermesSessionId = ref<string | null>(null);
@@ -159,8 +157,6 @@ watch(
   async (newQuery, oldQuery) => {
     const newSessionId = newQuery.session as string | undefined;
     const oldSessionId = oldQuery?.session as string | undefined;
-    console.log(`[Chat] 🔀 Route query changed: session ${oldSessionId} → ${newSessionId}, isClawMode=${isClawMode.value}, fullPath=${route.fullPath}`);
-    // 仅当确实变化且组件已挂载时处理
     if (newSessionId === oldSessionId) return;
     if (isClawMode.value) {
       // Claw 模式：重新初始化 session
@@ -308,28 +304,25 @@ function pushUser(content: string) {
 
 /** Claw 模式：初始化连接（可恢复历史会话） */
 async function ensureClawChat() {
-  console.log(`[Chat] 🐾 ensureClawChat() called, clawInitialized=${clawInitialized.value}`);
-  if (clawInitialized.value) {
-    console.log('[Chat] ⏭ Claw already initialized, skipping');
-    return;
-  }
+  if (clawInitialized.value) return;
   try {
     const sessionId = route.query.session as string | undefined
-    console.log(`[Chat] 🐾 claw_chat_init sessionId=${sessionId}`);
     const result = await invoke<{
       sessionId: string;
       restored: boolean;
       messageCount: number;
-      messages: Array<{ role: string; content: string }>;
+      messages: Array<{ role: string; content: string; kind?: string; callId?: string; name?: string; args?: any }>;
     }>('claw_chat_init', {
       sessionId: sessionId || null,
       cwd: null as string | null,
     })
     clawInitialized.value = true
-    console.log(`[Chat] 🐾 claw_chat_init result: sessionId=${result.sessionId}, restored=${result.restored}, messages=${result.messages?.length ?? 0}`);
+
     if (result.restored && result.messages?.length > 0) {
+      // Reset usage when switching to a restored session
+      usage.value = null;
+      console.log(`[Chat] 🐾 Restoring ${result.messages.length} messages from session ${result.sessionId}`);
       const converted: ChatMessage[] = result.messages.map((m: any, i: number) => {
-        // Handle tool_call and tool_result kinds from session_messages_to_json
         if (m.kind === 'tool_call') {
           return {
             id: `tc-${m.callId || Date.now()}-${i}`,
@@ -350,7 +343,6 @@ async function ensureClawChat() {
             content: m.content || '',
           }
         }
-        // Default: text message
         return {
           id: `msg-${Date.now()}-${i}`,
           role: m.role === 'user' ? 'user' : 'agent',
@@ -359,6 +351,9 @@ async function ensureClawChat() {
       })
       setMessages(converted)
     } else {
+      // New session — reset all state
+      messages.value = [];
+      usage.value = null;
       addAgentMessage('Claw 编码助手已就绪')
     }
   } catch (e: any) {
@@ -474,47 +469,28 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 async function loadSessionHistory() {
-  console.log(`[Chat] 📥 loadSessionHistory() called, isClawMode=${isClawMode.value}, route.query.session=${route.query.session}`);
-  // Claw mode: session history is managed by Claw runtime, not Hermes DB
-  if (isClawMode.value) {
-    console.log('[Chat] ⏭ Skipping loadSessionHistory in Claw mode');
-    return;
-  }
+  if (isClawMode.value) return;
   const sessionId = route.query.session as string | undefined;
-  if (!sessionId) {
-    console.log('[Chat] ⏭ No sessionId in route query, skipping');
-    return;
-  }
+  if (!sessionId) return;
   try {
     hermesSessionId.value = sessionId;
     isLoading.value = true;
-    console.log(`[Chat] 📡 Calling agent_list_messages(sessionId=${sessionId})`);
     const result = await invoke<{
       success: boolean;
       messages: any[];
       sessionId: string;
     }>('agent_list_messages', { sessionId });
-    console.log(`[Chat] 📨 agent_list_messages returned: success=${result.success}, messages=${result.messages?.length ?? 0}`);
-    if (result.messages?.length > 0) {
-      console.log('[Chat] 📝 First message sample:', JSON.stringify(result.messages[0]).slice(0, 200));
-    }
     if (result.success && result.messages?.length) {
-      const converted = hermesMessagesToChatMessages(result.messages);
-      console.log(`[Chat] 🔄 hermesMessagesToChatMessages → ${converted.length} ChatMessages`);
-      setMessages(converted);
-      console.log(`[Chat] ✅ Messages set, current count: ${messages.value.length}`);
-    } else {
-      console.log('[Chat] ⚠️ No messages to display (success=' + result.success + ', count=' + (result.messages?.length ?? 0) + ')');
+      setMessages(hermesMessagesToChatMessages(result.messages));
     }
   } catch (e) {
-    console.error('[Chat] ❌ Failed to load session history:', e);
+    console.error('[Chat] Failed to load session history:', e);
   } finally {
     isLoading.value = false;
   }
 }
 
 onMounted(async () => {
-  console.log(`[Chat] 🚀 onMounted: isClawMode=${isClawMode.value}, route.query.session=${route.query.session}, messages.length=${messages.value.length}`);
   if (isClawMode.value) {
     await ensureClawChat();
   } else {

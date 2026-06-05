@@ -97,7 +97,7 @@ pub fn read_claw_config() -> Result<ClawConfig, String> {
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
     serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse ~/.claw/config.json: {e}"))
+        .map_err(|e| format!("Failed to parse {}: {e}", path.display()))
 }
 
 /// 写入 Claw 配置
