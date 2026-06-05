@@ -50,25 +50,6 @@ fn estimate_cost(input_tokens: u64, output_tokens: u64, model: &str) -> f64 {
 /// Cumulative token usage tracker — mirrors upstream UsageTracker in runtime/src/usage.rs.
 /// Tracks input/output tokens across all API calls in a turn for cost estimation and
 /// auto-compaction threshold checks.
-struct LocalUsageTracker {
-    cumulative_input_tokens: u64,
-    cumulative_output_tokens: u64,
-}
-
-impl LocalUsageTracker {
-    fn new() -> Self {
-        Self { cumulative_input_tokens: 0, cumulative_output_tokens: 0 }
-    }
-
-    fn record(&mut self, input_tokens: u64, output_tokens: u64) {
-        self.cumulative_input_tokens += input_tokens;
-        self.cumulative_output_tokens += output_tokens;
-    }
-
-    fn input_tokens(&self) -> u64 { self.cumulative_input_tokens }
-    fn total_tokens(&self) -> u64 { self.cumulative_input_tokens + self.cumulative_output_tokens }
-}
-
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
@@ -596,31 +577,6 @@ pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
     }
 }
 
-/// Convert a TurnResult to a runtime ConversationMessage (assistant turn).
-pub(crate) fn turn_result_to_assistant_message(result: &TurnResult) -> ConversationMessage {
-    let mut blocks: Vec<ContentBlock> = Vec::new();
-    if !result.reasoning.is_empty() {
-        blocks.push(ContentBlock::Thinking {
-            thinking: result.reasoning.clone(),
-            signature: None,
-        });
-    }
-    for (id, name, input) in &result.tool_calls {
-        let input_str = serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string());
-        blocks.push(ContentBlock::ToolUse {
-            id: id.clone(),
-            name: name.clone(),
-            input: input_str,
-        });
-    }
-    if !result.text.is_empty() || blocks.is_empty() {
-        blocks.push(ContentBlock::Text {
-            text: result.text.clone(),
-        });
-    }
-    ConversationMessage::assistant(blocks)
-}
-
 // ── Config ───────────────────────────────────────────────────────────────
 
 /// 从 ~/.claw/config.json 读取 API key 和 base URL，设置到进程环境变量
@@ -823,110 +779,6 @@ pub async fn claw_chat_init(
 }
 
 
-/// Send a turn with automatic retry on transient streaming errors.
-/// Retries once on stream errors (network timeout, stall) — excludes auth errors.
-/// `is_post_tool`: when true, uses shorter stall timeout (matches upstream POST_TOOL_STALL_TIMEOUT).
-async fn send_turn_with_retry(
-    client: &LlmClient,
-    messages: Vec<api::InputMessage>,
-    system_prompt: &str,
-    tool_defs: &[api::ToolDefinition],
-    app: &tauri::AppHandle,
-    sid: &str,
-    reasoning_effort: Option<String>,
-    max_retries: usize,
-    is_post_tool: bool,
-) -> Result<TurnResult, String> {
-    for attempt in 0..=max_retries {
-        let app_clone = app.clone();
-        let sid_clone = sid.to_string();
-        let td = tool_defs.to_vec();
-
-        // Post-tool stall detection: the outer tokio::time::timeout (120s) in claw_chat_send
-        // provides the safety net. The `is_post_tool` flag enables shorter first-attempt timeout
-        // when the caller wraps this in a tighter timeout (matches upstream POST_TOOL_STALL_TIMEOUT).
-        let _ = is_post_tool; // flag used by caller for outer timeout selection
-
-        match client
-            .send_turn(
-                messages.clone(),
-                Some(system_prompt),
-                Some(td),
-                reasoning_effort.clone(),
-                Some(move |event| match event {
-                    LlmStreamEvent::TextDelta { text } => {
-                        let _ = app_clone.emit(
-                            "agent-delta",
-                            serde_json::json!({
-                                "text": text,
-                                "session_id": sid_clone,
-                            }),
-                        );
-                    }
-                    LlmStreamEvent::ThinkingDelta { thinking } => {
-                        let _ = app_clone.emit(
-                            "agent-reasoning-delta",
-                            serde_json::json!({
-                                "text": thinking,
-                                "session_id": sid_clone,
-                            }),
-                        );
-                    }
-                    LlmStreamEvent::ToolCall { id, name, input } => {
-                        let _ = app_clone.emit(
-                            "agent-tool-start",
-                            serde_json::json!({
-                                "id": id,
-                                "name": name,
-                                "args": input,
-                                "session_id": sid_clone,
-                            }),
-                        );
-                    }
-                    LlmStreamEvent::Usage {
-                        input_tokens,
-                        output_tokens,
-                    } => {
-                        let _ = app_clone.emit(
-                            "agent-usage",
-                            serde_json::json!({
-                                "prompt_tokens": input_tokens,
-                                "completion_tokens": output_tokens,
-                                "total_tokens": input_tokens + output_tokens,
-                                "session_id": sid_clone,
-                            }),
-                        );
-                    }
-                    LlmStreamEvent::Done => {}
-                }),
-            )
-            .await
-        {
-            Ok(result) => return Ok(result),
-            Err(e) => {
-                // Don't retry auth errors or intentional cancellations
-                if e.contains("401") || e.contains("Unauthorized") || e.contains("INVALID_API_KEY") {
-                    return Err(e);
-                }
-                if attempt < max_retries {
-                    log::warn!("[claw_chat] Stream error (attempt {}/{}): {}, retrying...",
-                        attempt + 1, max_retries + 1, e);
-                    tokio::time::sleep(std::time::Duration::from_millis(1500)).await;
-                } else {
-                    let hint = if e.contains("timeout") || e.contains("timed out") {
-                        " — 请求超时，请检查网络连接"
-                    } else {
-                        ""
-                    };
-                    return Err(format!("发送失败: {e}{hint}"));
-                }
-            }
-        }
-    }
-    unreachable!()
-}
-
-/// 发送消息到 LLM — 完整工具循环（含 tools + execute_tool + loop）
 #[tauri::command(rename_all = "camelCase")]
 pub async fn claw_chat_send(
     app: AppHandle,
@@ -985,453 +837,130 @@ pub async fn claw_chat_send(
         tool_defs.len(), sid
     );
 
-    // Reset abort signal for this turn
-    state.hook_abort.store(false, Ordering::SeqCst);
-    let abort_signal = state.hook_abort.clone();
-
-    // Track cumulative usage across all tool loop iterations (mirrors upstream UsageTracker)
-    let mut usage_tracker = LocalUsageTracker::new();
-    let mut auto_compaction_event: Option<usize> = None;
+    // ── Take session and run via ConversationRuntime ──
+    // ConversationRuntime is !Send (contains Box<dyn HookProgressReporter>),
+    // so all runtime creation + run_turn + into_session must happen inside
+    // block_in_place, which runs synchronously without Send requirements.
+    let taken_session = {
+        let mut s = state.session.lock().await;
+        s.take().ok_or("No session — call claw_chat_init first")?
+    };
+    let sid = session_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("unknown")
+        .to_string();
 
     log::info!(
-        "[claw_chat] Agent config: max_iterations={}, max_retries={}, skill_bytes_cap={}, auto_compaction={}",
-        max_iterations, max_retries, skill_bytes_cap / 1024, auto_compaction
+        "[claw_chat] Starting ConversationRuntime::run_turn(), session={}, max_iterations={}",
+        sid, max_iterations
     );
 
-    // HookRunner: create once per turn, reuse for all tool calls (matches upstream ConversationRuntime)
-    let hook_runner = load_hook_runner();
+    let model_name = agent_config.model.clone();
+    let max_iters = max_iterations;
 
-    for iteration in 0..max_iterations {
-        log::info!("[claw_chat] Tool loop iteration {}", iteration + 1);
-
-        // Convert session messages to InputMessage format
-        let input_messages = {
-            let s = state.session.lock().await;
-            match s.as_ref() {
-                Some(sess) => session_to_input_messages(&sess.messages),
-                None => return Err("No session".into()),
-            }
-        };
-
-        log::info!(
-            "[claw_chat] Sending request ({} messages, {} tools)",
-            input_messages.len(), tool_defs.len()
+    // block_in_place runs synchronously — !Send types stay in this stack frame
+    let (summary, session) = tokio::task::block_in_place(move || {
+        let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
+            client,
+            tool_defs,
+            reasoning_effort,
+            model_name.clone(),
         );
+        let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::default();
+        let permission_policy = runtime::PermissionPolicy::new(runtime::PermissionMode::Allow);
 
-        // Call LLM with tools — context-window overflow recovery matches CLI:
-        // On context_window error, progressively compact (preserve 4→2→1→0) and retry.
-        // `is_post_tool` tracks whether the previous iteration executed tools (for stall detection).
-        let mut is_post_tool = iteration > 0;
-        let result = 'turn: {
-            let max_compact_rounds = 4;
-            let preserve_schedule = [4, 2, 1, 0];
+        let mut rt = runtime::ConversationRuntime::new(
+            taken_session,
+            api_client,
+            tool_executor,
+            permission_policy,
+            vec![system_prompt], // Vec<String> as expected by upstream
+        )
+        .with_max_iterations(max_iters);
 
-            for compact_round in 0..=max_compact_rounds {
-                // Wrap each LLM call with a 120-second timeout to prevent indefinite hangs
-                let turn_result = match tokio::time::timeout(
-                    std::time::Duration::from_secs(120),
-                    send_turn_with_retry(
-                        &client,
-                        input_messages.clone(),
-                        &system_prompt,
-                        &tool_defs,
-                        &app,
-                        &sid,
-                        reasoning_effort.clone(),
-                        max_retries,
-                        is_post_tool,
-                    ),
-                ).await {
-                    Ok(result) => result,
-                    Err(_) => {
-                        log::error!("[claw_chat] LLM request timed out after 120s");
-                        let _ = app.emit("agent-error", serde_json::json!({
-                            "message": "LLM 请求超时（120秒），请检查网络连接后重试",
-                            "session_id": sid,
-                        }));
-                        return Err("LLM 请求超时（120秒）".into());
-                    }
-                };
+        let result = rt.run_turn(message, None);
+        let session = rt.into_session();
 
-                match turn_result {
-                    Ok(result) => break 'turn result,
-                    Err(e) => {
-                        let is_context_window = e.contains("context_window")
-                            || e.contains("Context window")
-                            || e.contains("no parseable body")
-                            || e.contains("maximum context length");
-
-                        if !is_context_window || compact_round >= max_compact_rounds {
-                            // Not a context error, or exhausted all rounds — emit error and fail
-                            let _ = app.emit("agent-error", serde_json::json!({
-                                "message": format!("发送失败: {e}"),
-                                "session_id": sid,
-                            }));
-                            return Err(format!("发送失败: {e}"));
-                        }
-
-                        // Progressive compaction: each round preserves fewer messages
-                        let preserve = preserve_schedule[compact_round.min(3)];
-                        log::warn!("[claw_chat] Context window overflow, auto-compacting (round {}/{}, preserving {} recent messages)",
-                            compact_round + 1, max_compact_rounds, preserve);
-
-                        let mut s = state.session.lock().await;
-                        if let Some(ref mut sess) = *s {
-                            let config = runtime::CompactionConfig {
-                                preserve_recent_messages: preserve,
-                                max_estimated_tokens: 0, // aggressive: always compact
-                            };
-                            let result = runtime::compact_session(sess, config);
-                            if result.removed_message_count == 0 {
-                                log::warn!("[claw_chat] No further compaction possible");
-                                break;
-                            }
-                            log::info!("[claw_chat] Compaction round {}: removed {} messages",
-                                compact_round + 1, result.removed_message_count);
-                            *sess = result.compacted_session;
-                            if let Some(path) = sess.persistence_path() {
-                                if let Err(e) = sess.save_to_path(path) {
-                                    log::error!("[claw_chat] Failed to save session after context overflow compaction: {}", e);
-                                }
-                            }
-                        }
-
-                        // Re-build input messages from compacted session
-                        drop(s); // release lock before next iteration
-                    }
-                }
-            }
-            return Err("Auto-compaction exhausted without resolving context overflow".into());
-        };
-        // Push assistant message (with tool_use blocks) to session
-        let assistant_msg = turn_result_to_assistant_message(&result);
-        {
-            let mut s = state.session.lock().await;
-            if let Some(ref mut sess) = *s {
-                sess.push_message(assistant_msg)
-                    .map_err(|e| format!("Failed to push assistant message: {e}"))?;
-            }
+        match result {
+            Ok(s) => (Ok(s), session),
+            Err(e) => (Err(format!("Conversation failed: {e}")), session),
         }
+    });
 
-        // Accumulate usage from this turn (mirrors upstream usage_tracker.record())
-        if let Some((input_t, output_t)) = result.usage {
-            usage_tracker.record(input_t, output_t);
-        }
+    let summary = summary?;
+    log::info!(
+        "[claw_chat] run_turn completed: {} iterations, {} tools",
+        summary.iterations,
+        summary.tool_results.len()
+    );
 
-        // ── Auto-compaction: check after usage recording (matches upstream maybe_auto_compact) ──
-        if auto_compaction {
-            let auto_compact_threshold: u64 = 100_000;
-            if usage_tracker.input_tokens() >= auto_compact_threshold {
-                let mut s = state.session.lock().await;
-                if let Some(ref mut sess) = *s {
-                    let compact_config = runtime::CompactionConfig::default();
-                    if runtime::should_compact(sess, compact_config) {
-                        log::info!(
-                            "[claw_chat] Auto-compacting ({} msgs, {} input tokens >= {})",
-                            sess.messages.len(), usage_tracker.input_tokens(), auto_compact_threshold
-                        );
-                        let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
-                        if result.removed_message_count > 0 {
-                            log::info!("[claw_chat] Compaction: removed {} messages", result.removed_message_count);
-                            *sess = result.compacted_session;
-                            if let Some(path) = sess.persistence_path() {
-                                if let Err(e) = sess.save_to_path(path) {
-                                    log::error!("[claw_chat] Failed to save session after compaction: {}", e);
-                                }
-                            }
-                            auto_compaction_event = Some(result.removed_message_count);
+    // ── Emit results to frontend (batch mode — previous real-time streaming removed) ──
+    let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
 
-                            // Session health probe after compaction (matches upstream conversation.rs:301)
-                            let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
-                            let probe_result = tokio::task::spawn_blocking(move || {
-                                tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
-                            }).await;
-                            match probe_result {
-                                Ok(Ok(_)) => log::info!("[claw_chat] Health probe passed"),
-                                Ok(Err(e)) => {
-                                    log::warn!("[claw_chat] Health probe failed: {}", e);
-                                    let _ = app.emit("agent-error", serde_json::json!({
-                                        "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
-                                        "session_id": sid,
-                                    }));
-                                }
-                                Err(e) => log::warn!("[claw_chat] Health probe panicked: {}", e),
-                            }
-                            let _ = app.emit("agent-compaction", serde_json::json!({
-                                "removed_messages": result.removed_message_count,
-                                "session_id": sid,
-                            }));
-                        }
-                    }
-                }
-            }
-        }
-
-        log::info!(
-            "[claw_chat] LLM responded: text={} chars, reasoning={} chars, tools={}",
-            result.text.len(), result.reasoning.len(), result.tool_calls.len()
+    if !emit.assistant_text.is_empty() {
+        let _ = app.emit(
+            "agent-delta",
+            serde_json::json!({
+                "text": emit.assistant_text,
+                "session_id": sid,
+            }),
         );
-
-        // If no tool calls, we're done
-        if result.tool_calls.is_empty() {
-            break;
-        }
-
-        // ── Execute tools ──
-        for (tool_id, tool_name, tool_input) in &result.tool_calls {
-            // Check abort signal before each tool (matches upstream HookAbortSignal)
-            if abort_signal.load(Ordering::SeqCst) {
-                log::warn!("[claw_chat] Abort signal set — stopping tool loop");
-                let _ = app.emit("agent-error", serde_json::json!({
-                    "message": "对话已取消",
-                    "session_id": sid,
-                }));
-                return Ok(());
-            }
-
-            log::info!("[claw_chat] Executing tool: {} (id={})", tool_name, tool_id);
-
-            // Set workspace directory before each tool call
-            {
-                let ws = state.workspace.lock().await;
-                if let Some(ref workspace_path) = *ws {
-                    let _ = std::env::set_current_dir(workspace_path);
-                }
-            }
-
-            let _ = app.emit(
-                "agent-tool-start",
-                serde_json::json!({
-                    "id": tool_id,
-                    "name": tool_name,
-                    "args": tool_input,
-                    "session_id": sid,
-                }),
-            );
-
-            // ── Pre-tool hook (matches upstream three-state: cancelled/failed/denied) ──
-            // Emit hook-start progress event
-            let _ = app.emit("agent-hook-progress", serde_json::json!({
-                "phase": "started",
-                "hook": "pre-tool-use",
-                "tool_name": tool_name,
+    }
+    for (tool_id, tool_name, tool_input) in &emit.tool_calls {
+        let _ = app.emit(
+            "agent-tool-start",
+            serde_json::json!({
+                "id": tool_id,
+                "name": tool_name,
+                "args": serde_json::from_str(tool_input).unwrap_or(serde_json::json!({})),
                 "session_id": sid,
-            }));
-
-            let hook_result = hook_runner.run_pre_tool_use(tool_name, &tool_input.to_string());
-
-            // Apply hook-modified input if provided (upstream: pre_hook_result.updated_input())
-            let effective_tool_input: serde_json::Value = if let Some(updated) = hook_result.updated_input() {
-                log::info!("[claw_chat] Pre-hook modified input for {}: {}", tool_name, &updated[..updated.len().min(100)]);
-                serde_json::from_str(updated).unwrap_or_else(|_| serde_json::json!({"raw": updated}))
-            } else {
-                tool_input.clone()
-            };
-
-            // Emit hook-completed for successful pre-hook
-            let _ = app.emit("agent-hook-progress", serde_json::json!({
-                "phase": "completed",
-                "hook": "pre-tool-use",
-                "tool_name": tool_name,
-                "result": "approved",
+            }),
+        );
+        let _ = app.emit(
+            "agent-tool-complete",
+            serde_json::json!({
+                "id": tool_id,
+                "name": tool_name,
+                "result": "success",
                 "session_id": sid,
-            }));
-
-            // Three-state check: cancelled / failed / denied (matches upstream conversation.rs:421-456)
-            if hook_result.is_cancelled() || hook_result.is_failed() || hook_result.is_denied() {
-                let reason = if !hook_result.messages().is_empty() {
-                    hook_result.messages().join("\n")
-                } else if hook_result.is_cancelled() {
-                    format!("PreToolUse hook cancelled tool `{tool_name}`")
-                } else if hook_result.is_failed() {
-                    format!("PreToolUse hook failed for tool `{tool_name}`")
-                } else {
-                    format!("PreToolUse hook denied tool `{tool_name}`")
-                };
-                log::warn!("[claw_chat] Pre-tool hook rejected {}: {}", tool_name, reason);
-
-                // Emit hook-completed event
-                let _ = app.emit("agent-hook-progress", serde_json::json!({
-                    "phase": "completed",
-                    "hook": "pre-tool-use",
-                    "tool_name": tool_name,
-                    "result": "rejected",
-                    "session_id": sid,
-                }));
-
-                let tool_msg = ConversationMessage::tool_result(
-                    tool_id, tool_name, reason, true);
-                {
-                    let mut s = state.session.lock().await;
-                    if let Some(ref mut sess) = *s {
-                        let _ = sess.push_message(tool_msg);
-                    }
-                }
-                continue;
-            }
-
-            // Execute the tool — use spawn_blocking to avoid tokio runtime nesting.
-            // upstream CLI runs tools in std::thread::spawn (no tokio runtime),
-            // we must do the equivalent via spawn_blocking since claw_chat_send is async.
-            let tn = tool_name.to_string();
-            let ti = effective_tool_input.clone();
-            let (mut output, mut is_error) = match tokio::task::spawn_blocking(move || {
-                tools::execute_tool(&tn, &ti)
-            })
-            .await
-            {
-                Ok(Ok(output)) => {
-                    log::info!(
-                        "[claw_chat] Tool {} completed: {} chars",
-                        tool_name,
-                        output.len()
-                    );
-                    (output, false)
-                }
-                Ok(Err(e)) => {
-                    log::error!("[claw_chat] Tool {} failed: {}", tool_name, e);
-                    (e, true)
-                }
-                Err(join_err) => {
-                    log::error!("[claw_chat] Tool {} panicked: {}", tool_name, join_err);
-                    (format!("Tool panicked: {join_err}"), true)
-                }
-            };
-
-            // Merge pre-hook feedback into tool output (matches upstream conversation.rs:488-494)
-            if !hook_result.messages().is_empty() {
-                let mut sections = Vec::new();
-                if !output.trim().is_empty() {
-                    sections.push(output);
-                }
-                sections.push(format!("Hook feedback: {}", hook_result.messages().join("\n")));
-                output = sections.join("\n\n");
-            }
-
-            // ── Post-tool hook (matches upstream: can flip is_error + merge feedback) ──
-            let _ = app.emit("agent-hook-progress", serde_json::json!({
-                "phase": "started",
-                "hook": "post-tool-use",
-                "tool_name": tool_name,
-                "session_id": sid,
-            }));
-
-            let mut post_hook_result = if is_error {
-                hook_runner.run_post_tool_use_failure(tool_name, &effective_tool_input.to_string(), &output)
-            } else {
-                hook_runner.run_post_tool_use(tool_name, &effective_tool_input.to_string(), &output, false)
-            };
-            // If post-hook denies/fails/cancels, mark output as error (upstream conversation.rs:482-487)
-            if post_hook_result.is_denied() || post_hook_result.is_failed() || post_hook_result.is_cancelled() {
-                is_error = true;
-            }
-            // Merge hook feedback into output (upstream conversation.rs:488-494)
-            if !post_hook_result.messages().is_empty() {
-                let label = if is_error { "Hook feedback (error)" } else { "Hook feedback" };
-                let mut sections = Vec::new();
-                if !output.trim().is_empty() {
-                    sections.push(output);
-                }
-                sections.push(format!("{label}: {}", post_hook_result.messages().join("\n")));
-                output = sections.join("\n\n");
-            }
-
-            // Emit post-hook completed event
-            let post_hook_status = if post_hook_result.is_denied() || post_hook_result.is_failed() || post_hook_result.is_cancelled() {
-                "rejected"
-            } else {
-                "completed"
-            };
-            let _ = app.emit("agent-hook-progress", serde_json::json!({
-                "phase": "completed",
-                "hook": "post-tool-use",
-                "tool_name": tool_name,
-                "result": post_hook_status,
-                "session_id": sid,
-            }));
-
-            // Truncate very large tool outputs — UTF-8 safe boundary
-            let truncated_output = if output.len() > tool_output_truncation {
-                log::warn!(
-                    "[claw_chat] Truncating tool output from {} to {}K chars",
-                    output.len(), tool_output_truncation / 1024
-                );
-                let safe_end = output.floor_char_boundary(tool_output_truncation);
-                format!("{}...\n\n[Output truncated — was {} chars total]", &output[..safe_end], output.len())
-            } else {
-                output
-            };
-
-            // Push tool result to session
-
-            let tool_result_msg =
-                ConversationMessage::tool_result(tool_id, tool_name, truncated_output, is_error);
-            {
-                let mut s = state.session.lock().await;
-                if let Some(ref mut sess) = *s {
-                    sess.push_message(tool_result_msg)
-                        .map_err(|e| format!("Failed to push tool result: {e}"))?;
-                }
-            }
-
-            let _ = app.emit(
-                "agent-tool-complete",
-                serde_json::json!({
-                    "id": tool_id,
-                    "name": tool_name,
-                    "result": if is_error { "error" } else { "success" },
-                    "duration_ms": 0,
-                    "session_id": sid,
-                }),
-            );
-        }
-
-        // ── Save session between iterations (prevents data loss on crash mid-loop) ──
-        {
-            let s = state.session.lock().await;
-            if let Some(ref sess) = *s {
-                if let Some(path) = sess.persistence_path() {
-                    if let Err(e) = sess.save_to_path(path) {
-                        log::error!("[claw_chat] Failed to save session between iterations: {}", e);
-                    }
-                }
-            }
-        }
-
-        // Mark next iteration as post-tool (for stall detection timeout)
-        is_post_tool = true;
-
-        // Continue loop — send tool results back to LLM
+            }),
+        );
     }
 
-    // ── Emit agent-done ──
-    let cost = estimate_cost(usage_tracker.input_tokens(), usage_tracker.total_tokens() - usage_tracker.input_tokens(), &agent_config.model);
+    let cost = estimate_cost(emit.input_tokens, emit.output_tokens, &agent_config.model);
+    let total_tokens = emit.input_tokens + emit.output_tokens;
+    if total_tokens > 0 {
+        let _ = app.emit(
+            "agent-usage",
+            serde_json::json!({
+                "prompt_tokens": emit.input_tokens,
+                "completion_tokens": emit.output_tokens,
+                "total_tokens": total_tokens,
+                "cost": cost,
+                "session_id": sid,
+            }),
+        );
+    }
     let _ = app.emit(
         "agent-done",
         serde_json::json!({
             "session_id": sid,
             "usage": {
-                "prompt_tokens": usage_tracker.input_tokens(),
-                "completion_tokens": usage_tracker.total_tokens() - usage_tracker.input_tokens(),
-                "total_tokens": usage_tracker.total_tokens(),
+                "prompt_tokens": emit.input_tokens,
+                "completion_tokens": emit.output_tokens,
+                "total_tokens": total_tokens,
                 "cost": cost,
             },
-            "auto_compaction": auto_compaction_event,
+            "auto_compaction": emit.auto_compaction_removed,
         }),
     );
 
-    // ── Emit final agent-usage with cumulative totals + cost ──
-    if usage_tracker.total_tokens() > 0 {
-        let _ = app.emit("agent-usage", serde_json::json!({
-            "prompt_tokens": usage_tracker.input_tokens(),
-            "completion_tokens": usage_tracker.total_tokens() - usage_tracker.input_tokens(),
-            "total_tokens": usage_tracker.total_tokens(),
-            "cost": cost,
-            "session_id": sid,
-        }));
+    // ── Save session ──
+    {
+        let mut s = state.session.lock().await;
+        *s = Some(session);
     }
-
-    // ── Persist final session (error propagation — matches upstream persist_session) ──
     {
         let s = state.session.lock().await;
         if let Some(ref sess) = *s {
@@ -1442,7 +971,7 @@ pub async fn claw_chat_send(
         }
     }
 
-    log::info!("[claw_chat] Tool loop completed for session={}", sid);
+    log::info!("[claw_chat] Turn completed for session={}", sid);
     Ok(())
 }
 
