@@ -149,7 +149,12 @@ impl PermissionPolicy {
             .iter()
             .map(|rule| PermissionRule::parse(rule))
             .collect();
-        self.denied_tools = config.denied_tools().to_vec();
+        // #94: normalize denied tool names to lowercase to match runtime convention
+        self.denied_tools = config
+            .denied_tools()
+            .iter()
+            .map(|t| t.to_lowercase())
+            .collect();
         self
     }
 
@@ -375,7 +380,8 @@ impl PermissionRule {
                     let matcher = parse_rule_matcher(content);
                     return Self {
                         raw: trimmed.to_string(),
-                        tool_name: tool_name.to_string(),
+                        // #94: normalize tool name to lowercase to match runtime convention
+                        tool_name: tool_name.to_lowercase(),
                         matcher,
                     };
                 }
@@ -384,7 +390,8 @@ impl PermissionRule {
 
         Self {
             raw: trimmed.to_string(),
-            tool_name: trimmed.to_string(),
+            // #94: normalize tool name to lowercase to match runtime convention
+            tool_name: trimmed.to_lowercase(),
             matcher: PermissionRuleMatcher::Any,
         }
     }

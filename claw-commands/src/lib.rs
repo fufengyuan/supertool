@@ -1572,7 +1572,10 @@ fn parse_clear_args(args: &[&str]) -> Result<bool, SlashCommandParseError> {
 fn parse_config_section(args: &[&str]) -> Result<Option<String>, SlashCommandParseError> {
     let section = optional_single_arg("config", args, "[env|hooks|model|plugins]")?;
     if let Some(section) = section {
-        if matches!(section.as_str(), "env" | "hooks" | "model" | "plugins") {
+        if matches!(
+            section.as_str(),
+            "env" | "hooks" | "model" | "plugins" | "help"
+        ) {
             return Ok(Some(section));
         }
         return Err(command_error(
@@ -2311,13 +2314,15 @@ pub fn handle_plugins_slash_command(
                 });
             };
             let plugin = resolve_plugin_target(manager, target)?;
+            let already_enabled = plugin.enabled;
             manager.enable(&plugin.metadata.id)?;
             Ok(PluginsCommandResult {
                 message: format!(
-                    "Plugins\n  Result           enabled {}\n  Name             {}\n  Version          {}\n  Status           enabled",
-                    plugin.metadata.id, plugin.metadata.name, plugin.metadata.version
+                    "Plugins\n  Result           {}\n  Name             {}\n  Version          {}\n  Status           enabled",
+                    if already_enabled { "already enabled" } else { "enabled" },
+                    plugin.metadata.name, plugin.metadata.version
                 ),
-                reload_runtime: true,
+                reload_runtime: !already_enabled,
             })
         }
         Some("disable") => {
@@ -2328,13 +2333,15 @@ pub fn handle_plugins_slash_command(
                 });
             };
             let plugin = resolve_plugin_target(manager, target)?;
+            let already_disabled = !plugin.enabled;
             manager.disable(&plugin.metadata.id)?;
             Ok(PluginsCommandResult {
                 message: format!(
-                    "Plugins\n  Result           disabled {}\n  Name             {}\n  Version          {}\n  Status           disabled",
-                    plugin.metadata.id, plugin.metadata.name, plugin.metadata.version
+                    "Plugins\n  Result           {}\n  Name             {}\n  Version          {}\n  Status           disabled",
+                    if already_disabled { "already disabled" } else { "disabled" },
+                    plugin.metadata.name, plugin.metadata.version
                 ),
-                reload_runtime: true,
+                reload_runtime: !already_disabled,
             })
         }
         Some("remove") | Some("uninstall") => {
@@ -2753,15 +2760,26 @@ pub fn handle_skills_slash_command(args: Option<&str>, cwd: &Path) -> std::io::R
             std::io::ErrorKind::InvalidInput,
             "missing_argument: skills install requires an install source.\nUsage: claw skills install <path>",
         )),
+        // #95: support --project flag for project-level install
         Some(args) if args.starts_with("install ") => {
-            let target = args["install ".len()..].trim();
+            let rest = args["install ".len()..].trim();
+            let (target, project_flag) = if let Some(t) = rest.strip_prefix("--project") {
+                (t.trim_start().trim_start_matches('=').trim(), true)
+            } else {
+                (rest, false)
+            };
             if target.is_empty() {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidInput,
-                    "missing_argument: skills install requires an install source.\nUsage: claw skills install <path>",
+                    "missing_argument: skills install requires an install source.\nUsage: claw skills install [--project] <path>",
                 ));
             }
-            let install = install_skill(target, cwd)?;
+            let install = if project_flag {
+                let project_root = cwd.join(".claw").join("skills");
+                install_skill_into(target, cwd, &project_root)?
+            } else {
+                install_skill(target, cwd)?
+            };
             Ok(render_skill_install_report(&install))
         }
         Some("uninstall" | "remove" | "delete") => Err(std::io::Error::new(
@@ -2915,16 +2933,28 @@ pub fn handle_skills_slash_command_json(args: Option<&str>, cwd: &Path) -> std::
             "install_source",
             "Usage: claw skills install <path>",
         )),
+        // #95: support --project flag for project-level install
         Some(args) if args.starts_with("install ") => {
-            let target = args["install ".len()..].trim();
+            let rest = args["install ".len()..].trim();
+            let (target, project_flag) = if let Some(t) = rest.strip_prefix("--project") {
+                (t.trim_start().trim_start_matches('=').trim(), true)
+            } else {
+                (rest, false)
+            };
             if target.is_empty() {
                 return Ok(render_skills_missing_argument_json(
                     "install",
                     "install_source",
-                    "Usage: claw skills install <path>",
+                    "Usage: claw skills install [--project] <path>",
                 ));
             }
-            match install_skill(target, cwd) {
+            let result = if project_flag {
+                let project_root = cwd.join(".claw").join("skills");
+                install_skill_into(target, cwd, &project_root)
+            } else {
+                install_skill(target, cwd)
+            };
+            match result {
                 Ok(install) => Ok(render_skill_install_report_json(&install)),
                 Err(error) => Ok(render_skill_install_error_json(target, &error)),
             }
@@ -4881,12 +4911,12 @@ fn render_agents_usage_json(unexpected: Option<&str>) -> Value {
 fn render_skills_usage(unexpected: Option<&str>) -> String {
     let mut lines = vec![
         "Skills".to_string(),
-        "  Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]".to_string(),
+        "  Usage            /skills [list|show <name>|install [--project] <path>|uninstall <name>|help|<skill> [args]]".to_string(),
         "  Alias            /skill".to_string(),
-        "  Direct CLI       claw skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]".to_string(),
+        "  Direct CLI       claw skills [list|show <name>|install [--project] <path>|uninstall <name>|help|<skill> [args]]".to_string(),
         "  Lifecycle        install <path>, uninstall <name>".to_string(),
         "  Invoke           /skills help overview -> $help overview".to_string(),
-        "  Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills".to_string(),
+        "  Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills (use --project for .claw/skills)".to_string(),
         "  Sources          .claw/skills, .omc/skills, .agents/skills, .codex/skills, .claude/skills, ~/.claw/skills, ~/.omc/skills, ~/.claude/skills/omc-learned, ~/.codex/skills, ~/.claude/skills, legacy /commands".to_string(),
     ];
     if let Some(args) = unexpected {
@@ -5190,31 +5220,48 @@ fn mcp_oauth_json(oauth: Option<&McpOAuthConfig>) -> Value {
 }
 
 fn mcp_server_details_json(config: &McpServerConfig) -> Value {
+    // #90: redact sensitive fields — args/url/headers_helper can contain
+    // credentials. Show structure without leaking secrets.
     match config {
         McpServerConfig::Stdio(config) => json!({
             "command": &config.command,
-            "args": &config.args,
+            "args_count": config.args.len(),
             "env_keys": config.env.keys().cloned().collect::<Vec<_>>(),
             "tool_call_timeout_ms": config.tool_call_timeout_ms,
         }),
-        McpServerConfig::Sse(config) | McpServerConfig::Http(config) => json!({
-            "url": &config.url,
-            "header_keys": config.headers.keys().cloned().collect::<Vec<_>>(),
-            "headers_helper": &config.headers_helper,
-            "oauth": mcp_oauth_json(config.oauth.as_ref()),
-        }),
-        McpServerConfig::Ws(config) => json!({
-            "url": &config.url,
-            "header_keys": config.headers.keys().cloned().collect::<Vec<_>>(),
-            "headers_helper": &config.headers_helper,
-        }),
+        McpServerConfig::Sse(config) | McpServerConfig::Http(config) => {
+            let redacted_url = redact_url(&config.url);
+            json!({
+                "url": redacted_url,
+                "header_keys": config.headers.keys().cloned().collect::<Vec<_>>(),
+                "headers_helper_configured": config.headers_helper.is_some(),
+                "oauth": mcp_oauth_json(config.oauth.as_ref()),
+            })
+        }
+        McpServerConfig::Ws(config) => {
+            let redacted_url = redact_url(&config.url);
+            json!({
+                "url": redacted_url,
+                "header_keys": config.headers.keys().cloned().collect::<Vec<_>>(),
+                "headers_helper_configured": config.headers_helper.is_some(),
+            })
+        }
         McpServerConfig::Sdk(config) => json!({
             "name": &config.name,
         }),
         McpServerConfig::ManagedProxy(config) => json!({
-            "url": &config.url,
+            "url": redact_url(&config.url),
             "id": &config.id,
         }),
+    }
+}
+
+fn redact_url(url: &str) -> String {
+    // #90: strip query params which may contain tokens, keep scheme+host+path
+    if let Some(query_start) = url.find('?') {
+        format!("{}?...", &url[..query_start])
+    } else {
+        url.to_string()
     }
 }
 
@@ -6578,12 +6625,13 @@ mod tests {
         let skills_help =
             super::handle_skills_slash_command(Some("--help"), &cwd).expect("skills help");
         assert!(skills_help.contains(
-            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+            "Usage            /skills [list|show <name>|install [--project] <path>|uninstall <name>|help|<skill> [args]]"
         ));
         assert!(skills_help.contains("Alias            /skill"));
         assert!(skills_help.contains("Lifecycle        install <path>, uninstall <name>"));
         assert!(skills_help.contains("Invoke           /skills help overview -> $help overview"));
-        assert!(skills_help.contains("Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills"));
+        // #95: install root now mentions --project flag
+        assert!(skills_help.contains("Install root     $CLAW_CONFIG_HOME/skills or ~/.claw/skills (use --project for .claw/skills)"));
         assert!(skills_help.contains(".omc/skills"));
         assert!(skills_help.contains(".agents/skills"));
         assert!(skills_help.contains("~/.claude/skills/omc-learned"));
@@ -6596,7 +6644,7 @@ mod tests {
         let skills_install_help = super::handle_skills_slash_command(Some("install --help"), &cwd)
             .expect("nested skills help");
         assert!(skills_install_help.contains(
-            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+            "Usage            /skills [list|show <name>|install [--project] <path>|uninstall <name>|help|<skill> [args]]"
         ));
         assert!(skills_install_help.contains("Alias            /skill"));
         assert!(skills_install_help.contains("Unexpected       install"));
@@ -6604,7 +6652,7 @@ mod tests {
         let skills_unknown_help =
             super::handle_skills_slash_command(Some("show --help"), &cwd).expect("skills help");
         assert!(skills_unknown_help.contains(
-            "Usage            /skills [list|show <name>|install <path>|uninstall <name>|help|<skill> [args]]"
+            "Usage            /skills [list|show <name>|install [--project] <path>|uninstall <name>|help|<skill> [args]]"
         ));
         assert!(skills_unknown_help.contains("Unexpected       show"));
 
@@ -7071,7 +7119,7 @@ mod tests {
         let disable = handle_plugins_slash_command(Some("disable"), Some("demo"), &mut manager)
             .expect("disable command should succeed");
         assert!(disable.reload_runtime);
-        assert!(disable.message.contains("disabled demo@external"));
+        assert!(disable.message.contains("Result           disabled"));
         assert!(disable.message.contains("Name             demo"));
         assert!(disable.message.contains("Status           disabled"));
 
@@ -7083,7 +7131,7 @@ mod tests {
         let enable = handle_plugins_slash_command(Some("enable"), Some("demo"), &mut manager)
             .expect("enable command should succeed");
         assert!(enable.reload_runtime);
-        assert!(enable.message.contains("enabled demo@external"));
+        assert!(enable.message.contains("Result           enabled"));
         assert!(enable.message.contains("Name             demo"));
         assert!(enable.message.contains("Status           enabled"));
 
