@@ -126,14 +126,20 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
             if file_stem.is_empty() {
                 continue;
             }
-            // Read the first line (meta record) for session info
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                let first_line = content.lines().next().unwrap_or("");
+            // Read the first 2 lines (meta record + first message) for session info
+            // Uses BufReader to avoid loading entire file into memory
+            if let Ok(file) = std::fs::File::open(&path) {
+                use std::io::{BufRead, BufReader};
+                let reader = BufReader::new(file);
+                let mut lines = reader.lines();
+                let first_line = lines.next().and_then(|l| l.ok()).unwrap_or_default();
+                let second_line = lines.next().and_then(|l| l.ok()).unwrap_or_default();
+
                 #[allow(unused_assignments)]
                 let mut created_at_ms: u64 = 0;
                 #[allow(unused_assignments)]
                 let mut title: Option<String> = None;
-                if let Ok(meta) = serde_json::from_str::<serde_json::Value>(first_line) {
+                if let Ok(meta) = serde_json::from_str::<serde_json::Value>(&first_line) {
                     created_at_ms = meta
                         .get("created_at_ms")
                         .and_then(|v| v.as_u64())
@@ -142,44 +148,47 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         .get("updated_at_ms")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
-                    // Read the first message (after meta line) for a title preview
-                    title = content
-                        .lines()
-                        .nth(1)
-                        .and_then(|line| {
-                            serde_json::from_str::<serde_json::Value>(line).ok()
-                        })
-                        .and_then(|v| {
-                            // Try the actual session JSONL format first:
-                            // {"message":{"blocks":[{"text":"...","type":"text"}],"role":"user"},"type":"message"}
-                            v.get("message")
-                                .and_then(|msg| msg.get("blocks"))
-                                .and_then(|blocks| blocks.as_array())
-                                .and_then(|arr| arr.first())
-                                .and_then(|block| block.get("text"))
-                                .and_then(|t| t.as_str())
-                                .map(|t| t.trim().to_string())
-                        })
-                        .filter(|c| !c.is_empty())
-                        .map(|c| {
-                            if c.len() > 60 {
-                                // Unicode-safe truncation
-                                let safe_end = c.floor_char_boundary(60);
-                                format!("{}...", &c[..safe_end])
-                            } else {
-                                c
+                    // Extract title from first message
+                    if !second_line.is_empty() {
+                        title = serde_json::from_str::<serde_json::Value>(&second_line)
+                            .ok()
+                            .and_then(|v| {
+                                v.get("message")
+                                    .and_then(|msg| msg.get("blocks"))
+                                    .and_then(|blocks| blocks.as_array())
+                                    .and_then(|arr| arr.first())
+                                    .and_then(|block| block.get("text"))
+                                    .and_then(|t| t.as_str())
+                                    .map(|t| t.trim().to_string())
+                            })
+                            .filter(|c| !c.is_empty())
+                            .map(|c| {
+                                if c.len() > 60 {
+                                    let safe_end = c.floor_char_boundary(60);
+                                    format!("{}...", &c[..safe_end])
+                                } else {
+                                    c
+                                }
+                            });
+                    }
+                    // Count remaining lines (message count = total - 1 meta line)
+                    let mut message_count: usize = 0;
+                    let mut model: Option<String> = None;
+                    for line_result in lines {
+                        if let Ok(line) = line_result {
+                            message_count += 1;
+                            // Check first assistant message for model name
+                            if model.is_none() {
+                                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&line) {
+                                    if let Some(msg) = v.get("message") {
+                                        if msg.get("role").and_then(|r| r.as_str()) == Some("assistant") {
+                                            model = v.get("model").and_then(|m| m.as_str()).map(String::from);
+                                        }
+                                    }
+                                }
                             }
-                        });
-                    // Count message lines in the JSONL file
-                    let message_count = content.lines().skip(1).count();
-                    // Extract model from first assistant message (if any)
-                    let model = content.lines().skip(1)
-                        .find_map(|line| {
-                            let v: serde_json::Value = serde_json::from_str(line).ok()?;
-                            let msg = v.get("message")?;
-                            if msg.get("role")?.as_str()? == "assistant" { Some(v) } else { None }
-                        })
-                        .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from));
+                        }
+                    }
                     sessions.push(serde_json::json!({
                         "sessionId": file_stem,
                         "createdAt": format_ts(created_at_ms),
@@ -835,6 +844,10 @@ pub async fn claw_chat_send(
     }
 
     // block_in_place runs synchronously — !Send types stay in this stack frame
+    // Clone for use inside block_in_place (move closure takes ownership)
+    let app_hook = app.clone();
+    let sid_hook = sid.clone();
+
     let (summary, session) = tokio::task::block_in_place(move || {
         let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
             client,
@@ -853,7 +866,10 @@ pub async fn claw_chat_send(
             vec![system_prompt], // Vec<String> as expected by upstream
         )
         .with_max_iterations(max_iters)
-        .with_hook_abort_signal(hook_abort_signal);
+        .with_hook_abort_signal(hook_abort_signal)
+        .with_hook_progress_reporter(Box::new(
+            crate::commands::claw_runtime_bridge::TauriHookReporter::new(app_hook, sid_hook),
+        ));
 
         let result = rt.run_turn(message, None);
         let session = rt.into_session();
@@ -907,12 +923,18 @@ pub async fn claw_chat_send(
                 "session_id": sid,
             }),
         );
+        // Look up is_error from tool execution results
+        let is_error = emit.tool_errors.iter()
+            .find(|(id, _)| id == tool_id)
+            .map(|(_, err)| *err)
+            .unwrap_or(false);
         let _ = app.emit(
             "agent-tool-complete",
             serde_json::json!({
                 "id": tool_id,
                 "name": tool_name,
-                "result": "success",
+                "result": if is_error { "error" } else { "success" },
+                "isError": is_error,
                 "session_id": sid,
             }),
         );
