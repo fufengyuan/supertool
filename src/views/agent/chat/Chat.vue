@@ -328,11 +328,35 @@ async function ensureClawChat() {
     clawInitialized.value = true
     console.log(`[Chat] 🐾 claw_chat_init result: sessionId=${result.sessionId}, restored=${result.restored}, messages=${result.messages?.length ?? 0}`);
     if (result.restored && result.messages?.length > 0) {
-      const converted: ChatMessage[] = result.messages.map((m, i) => ({
-        id: `msg-${Date.now()}-${i}`,
-        role: m.role === 'user' ? 'user' : 'agent',
-        content: m.content,
-      }))
+      const converted: ChatMessage[] = result.messages.map((m: any, i: number) => {
+        // Handle tool_call and tool_result kinds from session_messages_to_json
+        if (m.kind === 'tool_call') {
+          return {
+            id: `tc-${m.callId || Date.now()}-${i}`,
+            kind: 'tool_call',
+            role: 'agent',
+            callId: m.callId || '',
+            name: m.name || '',
+            args: typeof m.args === 'string' ? m.args : JSON.stringify(m.args || {}, null, 2),
+          }
+        }
+        if (m.kind === 'tool_result') {
+          return {
+            id: `tr-${m.callId || Date.now()}-${i}`,
+            kind: 'tool_result',
+            role: 'agent',
+            callId: m.callId || '',
+            name: m.name || '',
+            content: m.content || '',
+          }
+        }
+        // Default: text message
+        return {
+          id: `msg-${Date.now()}-${i}`,
+          role: m.role === 'user' ? 'user' : 'agent',
+          content: m.content || '',
+        }
+      })
       setMessages(converted)
     } else {
       addAgentMessage('Claw 编码助手已就绪')
