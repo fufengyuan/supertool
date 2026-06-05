@@ -30,6 +30,7 @@ pub mod claw_config;
 pub mod claw_cron;
 pub mod claw_profiles;
 pub mod claw_runtime_bridge;
+pub mod claw_session;
 pub mod claw_skills;
 pub mod claw_tools;
 pub mod claw_agents;
