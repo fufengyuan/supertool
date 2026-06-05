@@ -187,19 +187,20 @@ fn format_ts(ms: u64) -> String {
 /// Convert runtime `ConversationMessage` to `api::InputMessage` for the tool loop.
 /// Handles all block types: Text, Thinking, ToolUse, ToolResult.
 pub(crate) fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec<api::InputMessage> {
+    // Match upstream convert_messages(): System|User|Tool → "user", Assistant → "assistant".
+    // OpenAI-compatible APIs may not support "tool" role; upstream maps Tool to "user".
     messages
         .iter()
         .filter_map(|cm| {
             let role = match cm.role {
-                MessageRole::System => return None,
-                MessageRole::User => "user",
+                MessageRole::System | MessageRole::User | MessageRole::Tool => "user",
                 MessageRole::Assistant => "assistant",
-                MessageRole::Tool => "tool",
             };
             let content: Vec<api::InputContentBlock> = cm
                 .blocks
                 .iter()
                 .filter_map(|b| match b {
+                    ContentBlock::Text { text } if text.is_empty() => None,
                     ContentBlock::Text { text } => Some(api::InputContentBlock::Text {
                         text: text.clone(),
                     }),
