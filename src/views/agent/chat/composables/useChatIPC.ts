@@ -187,12 +187,25 @@ export function useChatIPC({
       response?: string | null;
       session_id?: string;
       message_count?: number;
+      auto_compaction?: number | null;
     }>('agent-done', async (event) => {
       console.log('[ChatIPC] 📨 agent-done:', event.payload);
       const sessionId = event.payload?.session_id;
       if (sessionId) hermesSessionId.value = sessionId;
       toolProgress.value = null;
       isLoading.value = false;
+      // Show compaction notification if messages were removed
+      if (event.payload?.auto_compaction && event.payload.auto_compaction > 0) {
+        const removed = event.payload.auto_compaction;
+        setMessages([
+          ...messages.value,
+          {
+            id: `sys-compaction-${Date.now()}`,
+            role: 'agent',
+            content: `⚠️ 会话已压缩，移除了 ${removed} 条旧消息以释放上下文空间`,
+          },
+        ]);
+      }
       // In Claw mode, skip the Hermes DB merge — there's no Hermes backend
       if (getIsClawMode()) return;
       // End-of-stream DB merge
