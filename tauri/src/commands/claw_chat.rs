@@ -828,18 +828,9 @@ pub async fn claw_chat_send(
     };
     let session_path = session_path_buf.ok_or("No session path set — call claw_chat_init first")?;
 
-    // ── Push user message & persist ──
-    {
-        let mut s = state.session.lock().await;
-        if let Some(ref mut sess) = *s {
-            sess.push_user_text(&message)
-                .map_err(|e| format!("Failed to push user message: {e}"))?;
-            if let Some(path) = sess.persistence_path() {
-                sess.save_to_path(path)
-                    .map_err(|e| format!("Failed to save session: {e}"))?;
-            }
-        }
-    }
+    // NOTE: Don't push user message here — ConversationRuntime::run_turn()
+    // handles pushing the user message to the session internally.
+    // Pushing here would cause duplicate messages.
 
     // ── Build tool definitions ──
     // ── Read agent behavior settings from config ──
@@ -874,11 +865,6 @@ pub async fn claw_chat_send(
         let mut s = state.session.lock().await;
         s.take().ok_or("No session — call claw_chat_init first")?
     };
-    let sid = session_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .to_string();
 
     log::info!(
         "[claw_chat] Starting ConversationRuntime::run_turn(), session={}, max_iterations={}",
