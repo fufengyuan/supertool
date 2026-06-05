@@ -92,7 +92,7 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         .get("created_at_ms")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
-                    let _updated_at_ms = meta
+                    let updated_at_ms = meta
                         .get("updated_at_ms")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
@@ -124,11 +124,21 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         });
                     // Count message lines in the JSONL file
                     let message_count = content.lines().skip(1).count();
+                    // Extract model from first assistant message (if any)
+                    let model = content.lines().skip(1)
+                        .find_map(|line| {
+                            let v: serde_json::Value = serde_json::from_str(line).ok()?;
+                            let msg = v.get("message")?;
+                            if msg.get("role")?.as_str()? == "assistant" { Some(v) } else { None }
+                        })
+                        .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from));
                     sessions.push(serde_json::json!({
                         "sessionId": file_stem,
                         "createdAt": format_ts(created_at_ms),
+                        "updatedAt": format_ts(updated_at_ms),
                         "messageCount": message_count,
                         "title": title,
+                        "model": model,
                     }));
                 }
             }
@@ -379,7 +389,8 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
                 if let Ok(desc) = std::fs::read_to_string(&desc_path) {
                     let brief: String = desc.lines().take(3).collect::<Vec<_>>().join(" ");
                     let brief = if brief.len() > 200 {
-                        format!("{}...", &brief[..200])
+                        let safe_end = brief.floor_char_boundary(200);
+                        format!("{}...", &brief[..safe_end])
                     } else {
                         brief
                     };
@@ -401,7 +412,7 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
     // 2. Load full SKILL.md for coding-relevant categories
     let mut total_skill_bytes: usize = 0;
 
-    for category in &full_load_categories {
+    'skill_categories: for category in &full_load_categories {
         let cat_dir = skills_dir.join(category);
         if !cat_dir.exists() {
             continue;
@@ -428,7 +439,7 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
                                 "[claw_chat] Skill cap reached ({}KB), skipping remaining skills",
                                 total_skill_bytes / 1024
                             );
-                            break;
+                            break 'skill_categories;
                         }
                         total_skill_bytes += content_len;
                         sections.push(format!(
@@ -453,6 +464,20 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
             "\n\n# Hermes Skills\nThe following specialized skills are available from the Hermes Agent system:\n\n{}",
             sections.join("\n\n---\n\n")
         )
+    }
+}
+
+
+/// Load a HookRunner from the upstream settings.json via ConfigLoader.
+/// Falls back to default (empty) config if settings.json is missing or has no hooks.
+pub(crate) fn load_hook_runner() -> runtime::HookRunner {
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
+    match runtime::ConfigLoader::default_for(cwd).load() {
+        Ok(config) => runtime::HookRunner::from_feature_config(config.feature_config()),
+        Err(e) => {
+            log::debug!("[claw_chat] Could not load hook config from settings.json: {}", e);
+            runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
+        }
     }
 }
 
@@ -1034,14 +1059,32 @@ pub async fn claw_chat_send(
                 }),
             );
 
-            // ── Pre-tool hook ──
-            let hook_result = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
-                .run_pre_tool_use(tool_name, &tool_input.to_string());
-            if hook_result.is_denied() {
-                log::warn!("[claw_chat] Pre-tool hook denied: {}", tool_name);
+            // ── Pre-tool hook (matches upstream three-state: cancelled/failed/denied) ──
+            let hook_runner = load_hook_runner();
+            let hook_result = hook_runner.run_pre_tool_use(tool_name, &tool_input.to_string());
+
+            // Apply hook-modified input if provided (upstream: pre_hook_result.updated_input())
+            let effective_tool_input: serde_json::Value = if let Some(updated) = hook_result.updated_input() {
+                log::info!("[claw_chat] Pre-hook modified input for {}: {}", tool_name, &updated[..updated.len().min(100)]);
+                serde_json::from_str(updated).unwrap_or_else(|_| serde_json::json!({"raw": updated}))
+            } else {
+                tool_input.clone()
+            };
+
+            // Three-state check: cancelled / failed / denied (matches upstream conversation.rs:421-456)
+            if hook_result.is_cancelled() || hook_result.is_failed() || hook_result.is_denied() {
+                let reason = if !hook_result.messages().is_empty() {
+                    hook_result.messages().join("\n")
+                } else if hook_result.is_cancelled() {
+                    format!("PreToolUse hook cancelled tool `{tool_name}`")
+                } else if hook_result.is_failed() {
+                    format!("PreToolUse hook failed for tool `{tool_name}`")
+                } else {
+                    format!("PreToolUse hook denied tool `{tool_name}`")
+                };
+                log::warn!("[claw_chat] Pre-tool hook rejected {}: {}", tool_name, reason);
                 let tool_msg = ConversationMessage::tool_result(
-                    tool_id, tool_name,
-                    "Tool use denied by pre-tool hook".to_string(), true);
+                    tool_id, tool_name, reason, true);
                 {
                     let mut s = state.session.lock().await;
                     if let Some(ref mut sess) = *s {
@@ -1055,8 +1098,8 @@ pub async fn claw_chat_send(
             // upstream CLI runs tools in std::thread::spawn (no tokio runtime),
             // we must do the equivalent via spawn_blocking since claw_chat_send is async.
             let tn = tool_name.to_string();
-            let ti = tool_input.clone();
-            let (output, is_error) = match tokio::task::spawn_blocking(move || {
+            let ti = effective_tool_input.clone();
+            let (mut output, mut is_error) = match tokio::task::spawn_blocking(move || {
                 tools::execute_tool(&tn, &ti)
             })
             .await
@@ -1079,22 +1122,35 @@ pub async fn claw_chat_send(
                 }
             };
 
-            // ── Post-tool hook (before truncation — needs raw output) ──
-            if is_error {
-                let _ = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
-                    .run_post_tool_use_failure(tool_name, &tool_input.to_string(), &output);
+            // ── Post-tool hook (matches upstream: can flip is_error + merge feedback) ──
+            let mut post_hook_result = if is_error {
+                hook_runner.run_post_tool_use_failure(tool_name, &effective_tool_input.to_string(), &output)
             } else {
-                let _ = runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
-                    .run_post_tool_use(tool_name, &tool_input.to_string(), &output, is_error);
+                hook_runner.run_post_tool_use(tool_name, &effective_tool_input.to_string(), &output, false)
+            };
+            // If post-hook denies/fails/cancels, mark output as error (upstream conversation.rs:482-487)
+            if post_hook_result.is_denied() || post_hook_result.is_failed() || post_hook_result.is_cancelled() {
+                is_error = true;
+            }
+            // Merge hook feedback into output (upstream conversation.rs:488-494)
+            if !post_hook_result.messages().is_empty() {
+                let label = if is_error { "Hook feedback (error)" } else { "Hook feedback" };
+                let mut sections = Vec::new();
+                if !output.trim().is_empty() {
+                    sections.push(output);
+                }
+                sections.push(format!("{label}: {}", post_hook_result.messages().join("\n")));
+                output = sections.join("\n\n");
             }
 
-            // Truncate very large tool outputs to avoid blowing up context
+            // Truncate very large tool outputs — UTF-8 safe boundary
             let truncated_output = if output.len() > tool_output_truncation {
                 log::warn!(
                     "[claw_chat] Truncating tool output from {} to {}K chars",
                     output.len(), tool_output_truncation / 1024
                 );
-                format!("{}...\n\n[Output truncated — was {} chars total]", &output[..tool_output_truncation], output.len())
+                let safe_end = output.floor_char_boundary(tool_output_truncation);
+                format!("{}...\n\n[Output truncated — was {} chars total]", &output[..safe_end], output.len())
             } else {
                 output
             };
