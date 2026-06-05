@@ -2028,6 +2028,7 @@ export interface TauriAPI {
   clawChatInit: (cwd?: string) => Promise<void>
   clawChatSend: (message: string) => Promise<void>
   clawChatClose: () => Promise<void>
+  clawChatAbort: () => Promise<void>
   clawChatListSessions: () => Promise<unknown>
   clawChatInfo: () => Promise<{ mode: string; apiKeyConfigured: boolean; model: string; provider: string; baseUrl: string | null; configSource: string }>
   clawReadModelsConfig: () => Promise<unknown>
@@ -2817,6 +2818,8 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<void>('claw_chat_send', { message }),
     clawChatClose: async () =>
       tauriCall<void>('claw_chat_close'),
+    clawChatAbort: async () =>
+      tauriCall<void>('claw_chat_abort'),
     clawChatListSessions: async () =>
       tauriCall<unknown>('claw_chat_list_sessions'),
     clawChatInfo: async () =>

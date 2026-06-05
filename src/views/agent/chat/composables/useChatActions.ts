@@ -1,4 +1,4 @@
-import { ref } from 'vue';
+import { ref, isRef } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { Ref } from 'vue';
 import type { ChatMessage, Attachment } from '../types';
@@ -18,6 +18,7 @@ interface UseChatActionsArgs {
   contextFolder: Ref<string | null>;
   scrollToBottom: () => void;
   inputRef: Ref<{ clear: () => void; focus: () => void } | null>;
+  isClawMode?: Ref<boolean> | boolean;
 }
 
 interface UseChatActionsResult {
@@ -54,7 +55,9 @@ export function useChatActions({
   contextFolder,
   scrollToBottom,
   inputRef,
+  isClawMode: isClawModeArg = false,
 }: UseChatActionsArgs): UseChatActionsResult {
+  const getIsClawMode = () => isRef(isClawModeArg) ? isClawModeArg.value : isClawModeArg;
   const pushUser = (
     content: string,
     idPrefix = 'user',
@@ -125,7 +128,11 @@ export function useChatActions({
 
   const handleAbort = async () => {
     try {
-      await invoke('agent_abort_chat');
+      if (getIsClawMode()) {
+        await invoke('claw_chat_abort');
+      } else {
+        await invoke('agent_abort_chat');
+      }
     } catch {
       // Ignore abort errors
     }
