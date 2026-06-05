@@ -836,7 +836,7 @@ fn test_build_tool_definitions() {
 //   4. Model receives tool results and produces coherent final answer
 //   5. Session files are persisted with full message chain
 #[tokio::test(flavor = "multi_thread")]
-#[ignore] // Requires valid API key in ~/.claw/config.json
+#[ignore] // Requires valid API key in ~/.claw/settings.json
 async fn integration_full_tool_loop() {
     use crate::commands::claw_chat::{
         build_tool_definitions, session_to_input_messages, setup_env_from_claw_config,

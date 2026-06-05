@@ -19,7 +19,7 @@
         <div class="flex items-center justify-between mb-6">
           <div>
             <h1 class="text-2xl font-bold">Claw 模型提供商</h1>
-            <p class="text-sm text-base-content/60 mt-1">来自 ~/.claw/config.json</p>
+            <p class="text-sm text-base-content/60 mt-1">来自 ~/.claw/settings.json</p>
           </div>
           <button class="btn btn-ghost btn-sm" @click="loadClawConfig" :disabled="clawLoading">
             <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />

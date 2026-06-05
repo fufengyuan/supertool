@@ -53,86 +53,6 @@
 
     <!-- ==================== General Tab ==================== -->
     <div v-if="tab === 'general'" class="space-y-4">
-      <!-- Claw Configuration (Claw mode only) -->
-      <div v-if="isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
-        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
-          <IconCode :size="18" />
-          Claw Agent
-          <span class="text-xs text-base-content/40">~/.claw/config.json</span>
-        </h2>
-
-        <div class="space-y-3">
-          <!-- API Key -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">API Key</label>
-            <input
-              v-model="clawForm.apiKey"
-              type="password"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="sk-..."
-              autocomplete="off"
-            />
-            <p v-if="clawInfoSaved.apiKey" class="text-[10px] text-base-content/40 mt-0.5">
-              已保存: {{ clawInfoSaved.apiKey }}
-            </p>
-          </div>
-
-          <!-- Base URL -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">
-              Base URL
-              <span class="text-base-content/40">(可选，留空走官方 API)</span>
-            </label>
-            <input
-              v-model="clawForm.baseUrl"
-              type="url"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="https://api.openai.com/v1"
-            />
-          </div>
-
-          <!-- Model -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">Model</label>
-            <input
-              v-model="clawForm.model"
-              type="text"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="claude-sonnet-4-6"
-            />
-          </div>
-
-          <!-- Provider -->
-          <div>
-            <label class="text-xs font-medium text-base-content/70 mb-1 block">
-              Provider
-              <span class="text-base-content/40">(可选，如 anthropic / openai)</span>
-            </label>
-            <input
-              v-model="clawForm.provider"
-              type="text"
-              class="input input-bordered input-sm w-full text-xs"
-              placeholder="anthropic"
-            />
-          </div>
-
-          <!-- Save -->
-          <div class="flex items-center gap-3 pt-2">
-            <button
-              class="btn btn-primary btn-sm gap-1.5"
-              :disabled="clawSaving"
-              @click="saveClawConfig"
-            >
-              <SvgIcon name="save" :size="14" />
-              {{ clawSaving ? '保存中...' : '保存' }}
-            </button>
-            <span v-if="clawSaveMsg" class="text-xs" :class="clawSaveMsg.includes('✅') ? 'text-success' : 'text-error'">
-              {{ clawSaveMsg }}
-            </span>
-          </div>
-        </div>
-      </div>
-
       <!-- Hermes Config Info -->
       <div v-if="!isClawMode" class="bg-base-100 border border-base-300 rounded-xl p-5">
         <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
@@ -418,7 +338,7 @@
 
 <script setup lang="ts">
 defineOptions({ name: 'SettingsPage' })
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   IconRefresh,
@@ -632,76 +552,9 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
-const clawForm = ref({ apiKey: '', baseUrl: '', model: '', provider: '' })
-const clawInfoSaved = ref({ apiKey: '', baseUrl: '', model: '', provider: '' })
-const clawSaving = ref(false)
-const clawSaveMsg = ref('')
-
-async function loadClawConfig() {
-  try {
-    const api = getTauriAPI()
-    const info = await api.clawConfigGet()
-    clawInfoSaved.value = {
-      apiKey: info?.apiKey || '',
-      baseUrl: info?.baseUrl || '',
-      model: info?.model || '',
-      provider: info?.provider || '',
-    }
-    // 预填 API key（后端返回的就是原始 key，不在后端脱敏）
-    if (info?.hasApiKey) {
-      clawForm.value.apiKey = info.apiKey || ''
-      clawForm.value.baseUrl = info.baseUrl || ''
-      clawForm.value.model = info.model || 'claude-sonnet-4-6'
-      clawForm.value.provider = info.provider || ''
-    }
-    // 检测 key 是否已损坏（含 ... 的脱敏格式或 ***）
-    if (info?.apiKey && (info.apiKey.includes('...') || info.apiKey === '****' || info.apiKey === '***')) {
-      console.warn('[claw] Detected corrupted/masked API key on disk — user needs to re-enter it')
-      clawForm.value.apiKey = ''
-    }
-  } catch {
-    // Config not available yet
-  }
-}
-
-async function saveClawConfig() {
-  clawSaving.value = true
-  clawSaveMsg.value = ''
-  try {
-    const api = getTauriAPI()
-    const params: Record<string, string> = {}
-    // 安全检测：如果 key 包含 '...'（脱敏格式），跳过保存
-    // 避免因后端脱敏导致真实 key 被覆盖（见 claw_config_get 注释）
-    if (clawForm.value.apiKey.trim() && !clawForm.value.apiKey.includes('...')) {
-      params.apiKey = clawForm.value.apiKey.trim()
-    }
-    if (clawForm.value.baseUrl.trim()) params.baseUrl = clawForm.value.baseUrl.trim()
-    if (clawForm.value.model.trim()) params.model = clawForm.value.model.trim()
-    if (clawForm.value.provider.trim()) params.provider = clawForm.value.provider.trim()
-    const result = await api.clawConfigSet(params as any)
-    if (result?.success) {
-      clawSaveMsg.value = '✅ 已保存'
-      await loadClawConfig() // 刷新保存状态
-    } else {
-      clawSaveMsg.value = '❌ 保存失败'
-    }
-  } catch (e: any) {
-    clawSaveMsg.value = `❌ ${e?.message || String(e)}`
-  }
-  clawSaving.value = false
-  setTimeout(() => { clawSaveMsg.value = '' }, 3000)
-}
-
 onMounted(async () => {
   await loadAppVersion()
   await loadConfig()
   await loadApiStatus()
-  if (isClawMode.value) {
-    await loadClawConfig()
-  }
-})
-
-watch(isClawMode, (claw) => {
-  if (claw) { loadClawConfig() }
 })
 </script>
