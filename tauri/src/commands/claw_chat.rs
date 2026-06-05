@@ -264,7 +264,7 @@ pub(crate) fn session_to_input_messages(messages: &[ConversationMessage]) -> Vec
                     }
                     ContentBlock::ToolUse { id, name, input } => {
                         let input_value: serde_json::Value =
-                            serde_json::from_str(input).unwrap_or(serde_json::json!({}));
+                            serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({"raw": input}));
                         Some(api::InputContentBlock::ToolUse {
                             id: id.clone(),
                             name: name.clone(),
@@ -371,9 +371,29 @@ fn load_claw_plugin_tools() -> Vec<plugins::PluginTool> {
 
             match plugins::load_plugin_from_directory(&plugin_dir) {
                 Ok(manifest) => {
-                    log::info!("[claw_chat] Loaded plugin: {}", manifest.name);
-                    // Plugin tools would be executed via their commands
-                    // For now, log the plugin discovery
+                    log::info!(
+                        "[claw_chat] Loaded plugin: {} ({} tools)",
+                        manifest.name,
+                        manifest.tools.len()
+                    );
+                    // Convert PluginToolManifest → PluginTool (matches upstream aggregated_tools)
+                    for tool_manifest in &manifest.tools {
+                        let definition = plugins::PluginToolDefinition {
+                            name: tool_manifest.name.clone(),
+                            description: Some(tool_manifest.description.clone()),
+                            input_schema: tool_manifest.input_schema.clone(),
+                        };
+                        let plugin_tool = plugins::PluginTool::new(
+                            dir_name.to_string(),          // plugin_id
+                            manifest.name.clone(),         // plugin_name
+                            definition,
+                            tool_manifest.command.clone(),
+                            tool_manifest.args.clone(),
+                            tool_manifest.required_permission,
+                            Some(plugin_dir.clone()),      // root
+                        );
+                        all_tools.push(plugin_tool);
+                    }
                 }
                 Err(e) => {
                     log::debug!("[claw_chat] Skipping plugin {}: {}", dir_name, e);
@@ -430,6 +450,7 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
             if desc_path.exists() {
                 if let Ok(desc) = std::fs::read_to_string(&desc_path) {
                     let brief: String = desc.lines().take(3).collect::<Vec<_>>().join(" ");
+                    // Unicode-safe truncation (matches upstream floor_char_boundary)
                     let brief = if brief.len() > 200 {
                         let safe_end = brief.floor_char_boundary(200);
                         format!("{}...", &brief[..safe_end])
@@ -901,7 +922,8 @@ pub async fn claw_chat_send(
             sess.push_user_text(&message)
                 .map_err(|e| format!("Failed to push user message: {e}"))?;
             if let Some(path) = sess.persistence_path() {
-                let _ = sess.save_to_path(path);
+                sess.save_to_path(path)
+                    .map_err(|e| format!("Failed to save session: {e}"))?;
             }
         }
     }
@@ -947,45 +969,63 @@ pub async fn claw_chat_send(
         max_iterations, max_retries, skill_bytes_cap / 1024, auto_compaction
     );
 
+    // HookRunner: create once per turn, reuse for all tool calls (matches upstream ConversationRuntime)
+    let hook_runner = load_hook_runner();
+
     for iteration in 0..max_iterations {
         log::info!("[claw_chat] Tool loop iteration {}", iteration + 1);
 
         // ── Auto-compaction: compress old messages if context is too large ──
+        // Use cumulative API-reported input tokens (matches upstream DEFAULT_AUTO_COMPACTION_INPUT_TOKENS_THRESHOLD = 100K)
+        // instead of rough char-based estimation (which triggers ~10K, 10x too early).
         if auto_compaction {
-            let mut s = state.session.lock().await;
-            if let Some(ref mut sess) = *s {
-                let compact_config = runtime::CompactionConfig::default();
-                if runtime::should_compact(sess, compact_config) {
-                    log::info!("[claw_chat] Auto-compacting session ({} messages)", sess.messages.len());
-                    let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
-                    if result.removed_message_count > 0 {
-                        log::info!("[claw_chat] Compaction: removed {} messages",
-                            result.removed_message_count);
-                        *sess = result.compacted_session;
-                        if let Some(path) = sess.persistence_path() {
-                            let _ = sess.save_to_path(path);
-                        }
+            let auto_compact_threshold: u64 = 100_000;
+            if cumulative_input_tokens >= auto_compact_threshold {
+                let mut s = state.session.lock().await;
+                if let Some(ref mut sess) = *s {
+                    let compact_config = runtime::CompactionConfig::default();
+                    if runtime::should_compact(sess, compact_config) {
+                        log::info!(
+                            "[claw_chat] Auto-compacting session ({} messages, {} input tokens >= {} threshold)",
+                            sess.messages.len(), cumulative_input_tokens, auto_compact_threshold
+                        );
+                        let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
+                        if result.removed_message_count > 0 {
+                            log::info!("[claw_chat] Compaction: removed {} messages",
+                                result.removed_message_count);
+                            *sess = result.compacted_session;
+                            if let Some(path) = sess.persistence_path() {
+                                if let Err(e) = sess.save_to_path(path) {
+                                    log::error!("[claw_chat] Failed to save session after compaction: {}", e);
+                                }
+                            }
 
-                        // Session health probe after compaction (matches upstream conversation.rs:301)
-                        // Verify tool executor is still responsive with a non-destructive glob_search probe
-                        let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
-                        let probe_result = tokio::task::spawn_blocking(move || {
-                            tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
-                        }).await;
-                        match probe_result {
-                            Ok(Ok(_)) => {
-                                log::info!("[claw_chat] Session health probe passed after compaction");
+                            // Session health probe after compaction (matches upstream conversation.rs:301)
+                            let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
+                            let probe_result = tokio::task::spawn_blocking(move || {
+                                tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
+                            }).await;
+                            match probe_result {
+                                Ok(Ok(_)) => {
+                                    log::info!("[claw_chat] Session health probe passed after compaction");
+                                }
+                                Ok(Err(e)) => {
+                                    log::warn!("[claw_chat] Session health probe failed after compaction: {}", e);
+                                    let _ = app.emit("agent-error", serde_json::json!({
+                                        "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
+                                        "session_id": sid,
+                                    }));
+                                }
+                                Err(join_err) => {
+                                    log::warn!("[claw_chat] Session health probe panicked: {}", join_err);
+                                }
                             }
-                            Ok(Err(e)) => {
-                                log::warn!("[claw_chat] Session health probe failed after compaction: {}", e);
-                                let _ = app.emit("agent-error", serde_json::json!({
-                                    "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
-                                    "session_id": sid,
-                                }));
-                            }
-                            Err(join_err) => {
-                                log::warn!("[claw_chat] Session health probe panicked: {}", join_err);
-                            }
+
+                            // Emit compaction notice to frontend (matches upstream compaction event)
+                            let _ = app.emit("agent-compaction", serde_json::json!({
+                                "removed_messages": result.removed_message_count,
+                                "session_id": sid,
+                            }));
                         }
                     }
                 }
@@ -1076,7 +1116,9 @@ pub async fn claw_chat_send(
                                 compact_round + 1, result.removed_message_count);
                             *sess = result.compacted_session;
                             if let Some(path) = sess.persistence_path() {
-                                let _ = sess.save_to_path(path);
+                                if let Err(e) = sess.save_to_path(path) {
+                                    log::error!("[claw_chat] Failed to save session after context overflow compaction: {}", e);
+                                }
                             }
                         }
 
@@ -1156,7 +1198,6 @@ pub async fn claw_chat_send(
                 "session_id": sid,
             }));
 
-            let hook_runner = load_hook_runner();
             let hook_result = hook_runner.run_pre_tool_use(tool_name, &tool_input.to_string());
 
             // Apply hook-modified input if provided (upstream: pre_hook_result.updated_input())
@@ -1345,11 +1386,14 @@ pub async fn claw_chat_send(
         }));
     }
 
-    // ── Persist final session ──
+    // ── Persist final session (error propagation — matches upstream persist_session) ──
     {
         let s = state.session.lock().await;
         if let Some(ref sess) = *s {
-            let _ = sess.save_to_path(&session_path);
+            if let Some(path) = sess.persistence_path() {
+                sess.save_to_path(path)
+                    .map_err(|e| format!("Failed to save session: {e}"))?;
+            }
         }
     }
 
