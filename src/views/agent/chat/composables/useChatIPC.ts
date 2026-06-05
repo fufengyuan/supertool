@@ -259,6 +259,26 @@ export function useChatIPC({
       };
     });
     cleanups.push(unlistenUsage);
+
+    // agent-hook-progress: pre/post tool hook lifecycle events
+    const unlistenHookProgress = await listen<{
+      phase: 'started' | 'completed';
+      hook: string;
+      tool_name: string;
+      result?: string;
+      session_id: string;
+    }>('agent-hook-progress', (event) => {
+      const p = event.payload;
+      if (p.phase === 'started') {
+        toolProgress.value = `${p.hook} (${p.tool_name})`;
+      } else if (p.phase === 'completed') {
+        // Only clear if this is still the active hook
+        if (toolProgress.value === `${p.hook} (${p.tool_name})`) {
+          toolProgress.value = null;
+        }
+      }
+    });
+    cleanups.push(unlistenHookProgress);
   };
 
   setup();

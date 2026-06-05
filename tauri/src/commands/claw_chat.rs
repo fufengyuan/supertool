@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use runtime::{
@@ -8,11 +9,51 @@ use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message, TurnResult};
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
+// ── Cost estimation (matches upstream pricing_for_model) ───────────────────
+
+/// Per-million-token pricing by model family.
+#[derive(Debug, Clone, Copy)]
+struct ModelPricing {
+    input_per_million: f64,
+    output_per_million: f64,
+}
+
+impl ModelPricing {
+    const fn haiku() -> Self {
+        Self { input_per_million: 1.0, output_per_million: 5.0 }
+    }
+    const fn sonnet() -> Self {
+        Self { input_per_million: 15.0, output_per_million: 75.0 }
+    }
+    const fn opus() -> Self {
+        Self { input_per_million: 15.0, output_per_million: 75.0 }
+    }
+    const fn default_sonnet() -> Self {
+        Self::sonnet()
+    }
+}
+
+fn pricing_for_model(model: &str) -> ModelPricing {
+    let n = model.to_ascii_lowercase();
+    if n.contains("haiku") { ModelPricing::haiku() }
+    else if n.contains("opus") { ModelPricing::opus() }
+    else if n.contains("sonnet") || n.contains("claude") { ModelPricing::sonnet() }
+    else { ModelPricing::default_sonnet() }
+}
+
+fn estimate_cost(input_tokens: u64, output_tokens: u64, model: &str) -> f64 {
+    let p = pricing_for_model(model);
+    (input_tokens as f64 / 1_000_000.0) * p.input_per_million
+        + (output_tokens as f64 / 1_000_000.0) * p.output_per_million
+}
+
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
     pub(crate) session: Mutex<Option<Session>>,
     pub(crate) workspace: Mutex<Option<PathBuf>>,
+    /// Abort signal for the current tool loop — shared with hook runner.
+    pub(crate) hook_abort: Arc<AtomicBool>,
 }
 
 impl ClawChatState {
@@ -21,6 +62,7 @@ impl ClawChatState {
             client: Mutex::new(None),
             session: Mutex::new(None),
             workspace: Mutex::new(None),
+            hook_abort: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -892,6 +934,14 @@ pub async fn claw_chat_send(
         tool_defs.len(), sid
     );
 
+    // Reset abort signal for this turn
+    state.hook_abort.store(false, Ordering::SeqCst);
+    let abort_signal = state.hook_abort.clone();
+
+    // Track cumulative usage across all tool loop iterations
+    let mut cumulative_input_tokens: u64 = 0;
+    let mut cumulative_output_tokens: u64 = 0;
+
     log::info!(
         "[claw_chat] Agent config: max_iterations={}, max_retries={}, skill_bytes_cap={}, auto_compaction={}",
         max_iterations, max_retries, skill_bytes_cap / 1024, auto_compaction
@@ -914,6 +964,28 @@ pub async fn claw_chat_send(
                         *sess = result.compacted_session;
                         if let Some(path) = sess.persistence_path() {
                             let _ = sess.save_to_path(path);
+                        }
+
+                        // Session health probe after compaction (matches upstream conversation.rs:301)
+                        // Verify tool executor is still responsive with a non-destructive glob_search probe
+                        let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
+                        let probe_result = tokio::task::spawn_blocking(move || {
+                            tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
+                        }).await;
+                        match probe_result {
+                            Ok(Ok(_)) => {
+                                log::info!("[claw_chat] Session health probe passed after compaction");
+                            }
+                            Ok(Err(e)) => {
+                                log::warn!("[claw_chat] Session health probe failed after compaction: {}", e);
+                                let _ = app.emit("agent-error", serde_json::json!({
+                                    "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
+                                    "session_id": sid,
+                                }));
+                            }
+                            Err(join_err) => {
+                                log::warn!("[claw_chat] Session health probe panicked: {}", join_err);
+                            }
                         }
                     }
                 }
@@ -1025,6 +1097,12 @@ pub async fn claw_chat_send(
             }
         }
 
+        // Accumulate usage from this turn
+        if let Some((input_t, output_t)) = result.usage {
+            cumulative_input_tokens += input_t;
+            cumulative_output_tokens += output_t;
+        }
+
         log::info!(
             "[claw_chat] LLM responded: text={} chars, reasoning={} chars, tools={}",
             result.text.len(),
@@ -1039,6 +1117,16 @@ pub async fn claw_chat_send(
 
         // ── Execute tools ──
         for (tool_id, tool_name, tool_input) in &result.tool_calls {
+            // Check abort signal before each tool (matches upstream HookAbortSignal)
+            if abort_signal.load(Ordering::SeqCst) {
+                log::warn!("[claw_chat] Abort signal set — stopping tool loop");
+                let _ = app.emit("agent-error", serde_json::json!({
+                    "message": "对话已取消",
+                    "session_id": sid,
+                }));
+                return Ok(());
+            }
+
             log::info!("[claw_chat] Executing tool: {} (id={})", tool_name, tool_id);
 
             // Set workspace directory before each tool call
@@ -1060,6 +1148,14 @@ pub async fn claw_chat_send(
             );
 
             // ── Pre-tool hook (matches upstream three-state: cancelled/failed/denied) ──
+            // Emit hook-start progress event
+            let _ = app.emit("agent-hook-progress", serde_json::json!({
+                "phase": "started",
+                "hook": "pre-tool-use",
+                "tool_name": tool_name,
+                "session_id": sid,
+            }));
+
             let hook_runner = load_hook_runner();
             let hook_result = hook_runner.run_pre_tool_use(tool_name, &tool_input.to_string());
 
@@ -1070,6 +1166,15 @@ pub async fn claw_chat_send(
             } else {
                 tool_input.clone()
             };
+
+            // Emit hook-completed for successful pre-hook
+            let _ = app.emit("agent-hook-progress", serde_json::json!({
+                "phase": "completed",
+                "hook": "pre-tool-use",
+                "tool_name": tool_name,
+                "result": "approved",
+                "session_id": sid,
+            }));
 
             // Three-state check: cancelled / failed / denied (matches upstream conversation.rs:421-456)
             if hook_result.is_cancelled() || hook_result.is_failed() || hook_result.is_denied() {
@@ -1083,6 +1188,16 @@ pub async fn claw_chat_send(
                     format!("PreToolUse hook denied tool `{tool_name}`")
                 };
                 log::warn!("[claw_chat] Pre-tool hook rejected {}: {}", tool_name, reason);
+
+                // Emit hook-completed event
+                let _ = app.emit("agent-hook-progress", serde_json::json!({
+                    "phase": "completed",
+                    "hook": "pre-tool-use",
+                    "tool_name": tool_name,
+                    "result": "rejected",
+                    "session_id": sid,
+                }));
+
                 let tool_msg = ConversationMessage::tool_result(
                     tool_id, tool_name, reason, true);
                 {
@@ -1123,6 +1238,13 @@ pub async fn claw_chat_send(
             };
 
             // ── Post-tool hook (matches upstream: can flip is_error + merge feedback) ──
+            let _ = app.emit("agent-hook-progress", serde_json::json!({
+                "phase": "started",
+                "hook": "post-tool-use",
+                "tool_name": tool_name,
+                "session_id": sid,
+            }));
+
             let mut post_hook_result = if is_error {
                 hook_runner.run_post_tool_use_failure(tool_name, &effective_tool_input.to_string(), &output)
             } else {
@@ -1142,6 +1264,20 @@ pub async fn claw_chat_send(
                 sections.push(format!("{label}: {}", post_hook_result.messages().join("\n")));
                 output = sections.join("\n\n");
             }
+
+            // Emit post-hook completed event
+            let post_hook_status = if post_hook_result.is_denied() || post_hook_result.is_failed() || post_hook_result.is_cancelled() {
+                "rejected"
+            } else {
+                "completed"
+            };
+            let _ = app.emit("agent-hook-progress", serde_json::json!({
+                "phase": "completed",
+                "hook": "post-tool-use",
+                "tool_name": tool_name,
+                "result": post_hook_status,
+                "session_id": sid,
+            }));
 
             // Truncate very large tool outputs — UTF-8 safe boundary
             let truncated_output = if output.len() > tool_output_truncation {
@@ -1183,12 +1319,31 @@ pub async fn claw_chat_send(
     }
 
     // ── Emit agent-done ──
+    let total_tokens = cumulative_input_tokens + cumulative_output_tokens;
+    let cost = estimate_cost(cumulative_input_tokens, cumulative_output_tokens, &agent_config.model);
     let _ = app.emit(
         "agent-done",
         serde_json::json!({
             "session_id": sid,
+            "usage": {
+                "prompt_tokens": cumulative_input_tokens,
+                "completion_tokens": cumulative_output_tokens,
+                "total_tokens": total_tokens,
+                "cost": cost,
+            },
         }),
     );
+
+    // ── Emit final agent-usage with cumulative totals + cost ──
+    if total_tokens > 0 {
+        let _ = app.emit("agent-usage", serde_json::json!({
+            "prompt_tokens": cumulative_input_tokens,
+            "completion_tokens": cumulative_output_tokens,
+            "total_tokens": total_tokens,
+            "cost": cost,
+            "session_id": sid,
+        }));
+    }
 
     // ── Persist final session ──
     {
@@ -1225,6 +1380,17 @@ pub async fn claw_chat_close(
         *c = None;
     }
 
+    Ok(())
+}
+
+/// Abort the current tool loop — sets the hook abort signal so the loop
+/// exits gracefully after the current tool call completes.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_abort(
+    state: tauri::State<'_, ClawChatState>,
+) -> Result<(), String> {
+    log::info!("[claw_chat] Abort signal requested");
+    state.hook_abort.store(true, Ordering::SeqCst);
     Ok(())
 }
 

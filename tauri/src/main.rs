@@ -453,6 +453,7 @@ fn main() {
             commands::claw_chat::claw_chat_init,
             commands::claw_chat::claw_chat_send,
             commands::claw_chat::claw_chat_close,
+            commands::claw_chat::claw_chat_abort,
             commands::claw_chat::claw_chat_list_sessions,
             commands::claw_chat::claw_chat_info,
             commands::claw_chat::claw_read_models_config,

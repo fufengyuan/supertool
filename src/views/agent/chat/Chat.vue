@@ -280,6 +280,7 @@ const {
   contextFolder,
   scrollToBottom,
   inputRef: chatInputRef,
+  isClawMode,
 });
 
 // ── Derived ──────────────────────────────────────────────────────────────────
