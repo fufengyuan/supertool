@@ -1050,9 +1050,17 @@ pub async fn claw_chat_send(
                 continue;
             }
 
-            // Execute the tool
-            let (output, is_error) = match tools::execute_tool(tool_name, tool_input) {
-                Ok(output) => {
+            // Execute the tool — use spawn_blocking to avoid tokio runtime nesting.
+            // upstream CLI runs tools in std::thread::spawn (no tokio runtime),
+            // we must do the equivalent via spawn_blocking since claw_chat_send is async.
+            let tn = tool_name.to_string();
+            let ti = tool_input.clone();
+            let (output, is_error) = match tokio::task::spawn_blocking(move || {
+                tools::execute_tool(&tn, &ti)
+            })
+            .await
+            {
+                Ok(Ok(output)) => {
                     log::info!(
                         "[claw_chat] Tool {} completed: {} chars",
                         tool_name,
@@ -1060,9 +1068,13 @@ pub async fn claw_chat_send(
                     );
                     (output, false)
                 }
-                Err(e) => {
+                Ok(Err(e)) => {
                     log::error!("[claw_chat] Tool {} failed: {}", tool_name, e);
                     (e, true)
+                }
+                Err(join_err) => {
+                    log::error!("[claw_chat] Tool {} panicked: {}", tool_name, join_err);
+                    (format!("Tool panicked: {join_err}"), true)
                 }
             };
 
