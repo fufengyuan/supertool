@@ -611,12 +611,12 @@ pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
 
 // ── Config ───────────────────────────────────────────────────────────────
 
-/// 从 ~/.claw/config.json 读取 API key 和 base URL，设置到进程环境变量
+/// 从 ~/.claw/settings.json 读取 API key 和 base URL，设置到进程环境变量
 pub(crate) fn setup_env_from_claw_config() -> Result<(), String> {
     let config = crate::commands::claw_config::read_claw_config()?;
 
     if config.api_key.is_empty() {
-        log::info!("[claw_chat] No ~/.claw/config.json api_key — falling back to env vars");
+        log::info!("[claw_chat] No ~/.claw/settings.json api_key — falling back to env vars");
         return Ok(());
     }
 
@@ -723,7 +723,7 @@ pub async fn claw_chat_init(
     // ── LLM Client ──
     let client = LlmClient::from_env().map_err(|e| {
         let hint = if e.contains("401") || e.contains("Unauthorized") || e.contains("INVALID_API_KEY") {
-            " — 请检查 ~/.claw/config.json 中的 API key 是否有效（当前可能是脱敏后的值）"
+            " — 请检查 ~/.claw/settings.json 中的 API key 是否有效（当前可能是脱敏后的值）"
         } else if e.contains("timeout") || e.contains("timed out") {
             " — API 请求超时，请检查中转站地址是否可达"
         } else {
@@ -1088,7 +1088,7 @@ pub async fn claw_chat_info() -> Result<serde_json::Value, String> {
         "baseUrl": base_url,
         "model": model,
         "provider": provider,
-        "configSource": "~/.claw/config.json",
+        "configSource": "~/.claw/settings.json",
     }))
 }
 
@@ -1131,7 +1131,7 @@ pub async fn claw_read_models_config() -> Result<serde_json::Value, String> {
 
     Ok(serde_json::json!({
         "providers": providers,
-        "source": "~/.claw/config.json",
+        "source": "~/.claw/settings.json",
     }))
 }
 

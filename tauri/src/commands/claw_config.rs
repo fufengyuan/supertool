@@ -1,6 +1,6 @@
 //! Claw Agent configuration — read/write API key, base URL, model.
 //!
-//! Persists to `~/.claw/config.json`.
+//! Persists to `~/.claw/settings.json`.
 
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
