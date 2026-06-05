@@ -364,13 +364,16 @@ impl LlmClient {
     where
         F: Fn(LlmStreamEvent),
     {
+        // Match upstream: only include tools/tool_choice when non-empty
+        let has_tools = tools.as_ref().is_some_and(|t| !t.is_empty());
+
         let request = api::MessageRequest {
             model: self.model.clone(),
             max_tokens: api::max_tokens_for_model(&self.model),
             messages,
             system: system_prompt.map(|s| s.to_string()),
-            tools,
-            tool_choice: Some(api::ToolChoice::Auto),
+            tools: if has_tools { tools } else { None },
+            tool_choice: if has_tools { Some(api::ToolChoice::Auto) } else { None },
             stream: true,
             temperature: None,
             top_p: None,
