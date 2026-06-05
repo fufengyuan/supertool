@@ -204,6 +204,13 @@ where
         self
     }
 
+    /// Update the auto-compaction threshold after construction. This allows the
+    /// caller to tune the threshold based on runtime information (e.g., the
+    /// server-returned context window size from a 400 error).
+    pub fn set_auto_compaction_input_tokens_threshold(&mut self, threshold: u32) {
+        self.auto_compaction_input_tokens_threshold = threshold;
+    }
+
     #[must_use]
     pub fn with_hook_abort_signal(mut self, hook_abort_signal: HookAbortSignal) -> Self {
         self.hook_abort_signal = hook_abort_signal;

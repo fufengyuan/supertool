@@ -2701,6 +2701,20 @@ fn is_within_workspace(path: &str) -> bool {
 
     let path = PathBuf::from(trimmed);
 
+    // Reject any parent-directory traversal. Callers never need `..` to refer
+    // to files inside the workspace, and `..` defeats both checks below: the
+    // relative branch only inspects the leading component, and the absolute
+    // branch's `canonicalize()` silently falls back to the literal `..` path
+    // when the target does not exist yet (e.g. a file about to be created).
+    // Returning false here is the safe direction: it classifies the command as
+    // requiring full-access permission rather than workspace-write.
+    if path
+        .components()
+        .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return false;
+    }
+
     // If path is absolute, check if it starts with CWD
     if path.is_absolute() {
         if let Ok(cwd) = std::env::current_dir() {
@@ -2716,6 +2730,26 @@ fn is_within_workspace(path: &str) -> bool {
 
 fn run_powershell(input: PowerShellInput) -> Result<String, String> {
     to_pretty_json(execute_powershell(input).map_err(|error| error.to_string())?)
+}
+
+#[cfg(test)]
+mod workspace_traversal_guard_tests {
+    use super::is_within_workspace;
+
+    #[test]
+    fn rejects_parent_traversal_components() {
+        // Leading and embedded `..` must both be rejected (was previously a hole
+        // because only the leading component was inspected).
+        assert!(!is_within_workspace("../secrets"));
+        assert!(!is_within_workspace("src/../../etc/passwd"));
+        assert!(!is_within_workspace("a/b/../../../etc/crontab"));
+    }
+
+    #[test]
+    fn allows_plain_relative_paths() {
+        assert!(is_within_workspace("src/main.rs"));
+        assert!(is_within_workspace("Cargo.toml"));
+    }
 }
 
 fn to_pretty_json<T: serde::Serialize>(value: T) -> Result<String, String> {

@@ -125,6 +125,27 @@ pub struct RuntimePluginConfig {
     max_output_tokens: Option<u32>,
 }
 
+/// API timeout and retry configuration.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ApiTimeoutConfig {
+    /// Connect timeout in seconds. Defaults to 30.
+    pub connect_timeout_secs: u64,
+    /// Request timeout in seconds. Defaults to 300 (5 minutes).
+    pub request_timeout_secs: u64,
+    /// Maximum retry attempts on transient failures. Defaults to 8.
+    pub max_retries: u32,
+}
+
+impl Default for ApiTimeoutConfig {
+    fn default() -> Self {
+        Self {
+            connect_timeout_secs: 30,
+            request_timeout_secs: 300,
+            max_retries: 8,
+        }
+    }
+}
+
 /// Structured feature configuration consumed by runtime subsystems.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeFeatureConfig {
@@ -139,6 +160,7 @@ pub struct RuntimeFeatureConfig {
     sandbox: SandboxConfig,
     provider_fallbacks: ProviderFallbackConfig,
     trusted_roots: Vec<String>,
+    api_timeout: ApiTimeoutConfig,
     rules_import: RulesImportConfig,
 }
 
@@ -740,6 +762,7 @@ fn build_runtime_config(
         sandbox: parse_optional_sandbox_config(&merged_value)?,
         provider_fallbacks: parse_optional_provider_fallbacks(&merged_value)?,
         trusted_roots: parse_optional_trusted_roots(&merged_value)?,
+        api_timeout: parse_optional_api_timeout_config(&merged_value)?,
         rules_import: parse_optional_rules_import(&merged_value)?,
     };
 
@@ -2020,6 +2043,26 @@ fn parse_optional_provider_fallbacks(
     Ok(ProviderFallbackConfig { primary, fallbacks })
 }
 
+fn parse_optional_api_timeout_config(root: &JsonValue) -> Result<ApiTimeoutConfig, ConfigError> {
+    let Some(timeout_value) = root.as_object().and_then(|obj| obj.get("apiTimeout")) else {
+        return Ok(ApiTimeoutConfig::default());
+    };
+    let Some(obj) = timeout_value.as_object() else {
+        return Ok(ApiTimeoutConfig::default());
+    };
+    let context = "merged settings.apiTimeout";
+    let connect_timeout_secs = optional_u64(obj, "connectTimeout", context)?.unwrap_or(30);
+    let request_timeout_secs = optional_u64(obj, "requestTimeout", context)?.unwrap_or(300);
+    let max_retries = optional_u64(obj, "maxRetries", context)?
+        .map(|v| v as u32)
+        .unwrap_or(8);
+    Ok(ApiTimeoutConfig {
+        connect_timeout_secs,
+        request_timeout_secs,
+        max_retries,
+    })
+}
+
 fn parse_optional_trusted_roots(root: &JsonValue) -> Result<Vec<String>, ConfigError> {
     let Some(object) = root.as_object() else {
         return Ok(Vec::new());
@@ -2097,6 +2140,45 @@ fn parse_optional_oauth_config(
     }))
 }
 
+/// #92: expand `${VAR}` environment variable references and `~/` home directory
+/// prefix in a config string value. Returns the expanded string.
+fn expand_config_value(value: &str) -> String {
+    // Expand ${VAR} and $VAR references from the environment
+    let mut result = String::with_capacity(value.len());
+    let mut chars = value.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '$' {
+            if chars.peek() == Some(&'{') {
+                // ${VAR} form
+                chars.next(); // consume '{'
+                let mut var_name = String::new();
+                for ch in chars.by_ref() {
+                    if ch == '}' {
+                        break;
+                    }
+                    var_name.push(ch);
+                }
+                if let Ok(val) = std::env::var(&var_name) {
+                    result.push_str(&val);
+                }
+            } else {
+                // Bare $ — pass through
+                result.push(c);
+            }
+        } else if c == '~' && result.is_empty() {
+            // ~/... home directory expansion
+            if let Ok(home) = std::env::var("HOME") {
+                result.push_str(&home);
+            } else {
+                result.push(c);
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 fn parse_mcp_server_config(
     server_name: &str,
     value: &JsonValue,
@@ -2106,9 +2188,14 @@ fn parse_mcp_server_config(
     let server_type =
         optional_string(object, "type", context)?.unwrap_or_else(|| infer_mcp_server_type(object));
     match server_type {
+        // #92: expand ${VAR} and ~/ in command, args, and url fields
         "stdio" => Ok(McpServerConfig::Stdio(McpStdioServerConfig {
-            command: expect_non_empty_string(object, "command", context)?.to_string(),
-            args: optional_string_array(object, "args", context)?.unwrap_or_default(),
+            command: expand_config_value(expect_non_empty_string(object, "command", context)?),
+            args: optional_string_array(object, "args", context)?
+                .unwrap_or_default()
+                .iter()
+                .map(|a| expand_config_value(a))
+                .collect(),
             env: optional_string_map(object, "env", context)?.unwrap_or_default(),
             tool_call_timeout_ms: optional_u64(object, "toolCallTimeoutMs", context)?,
         })),
@@ -2119,7 +2206,8 @@ fn parse_mcp_server_config(
             object, context,
         )?)),
         "ws" => Ok(McpServerConfig::Ws(McpWebSocketServerConfig {
-            url: expect_string(object, "url", context)?.to_string(),
+            // #92: expand ${VAR} and ~/ in URL
+            url: expand_config_value(expect_string(object, "url", context)?),
             headers: optional_string_map(object, "headers", context)?.unwrap_or_default(),
             headers_helper: optional_string(object, "headersHelper", context)?.map(str::to_string),
         })),
@@ -2127,7 +2215,8 @@ fn parse_mcp_server_config(
             name: expect_string(object, "name", context)?.to_string(),
         })),
         "claudeai-proxy" => Ok(McpServerConfig::ManagedProxy(McpManagedProxyServerConfig {
-            url: expect_string(object, "url", context)?.to_string(),
+            // #92: expand ${VAR} and ~/ in URL
+            url: expand_config_value(expect_string(object, "url", context)?),
             id: expect_string(object, "id", context)?.to_string(),
         })),
         other => Err(ConfigError::Parse(format!(
@@ -2149,7 +2238,8 @@ fn parse_mcp_remote_server_config(
     context: &str,
 ) -> Result<McpRemoteServerConfig, ConfigError> {
     Ok(McpRemoteServerConfig {
-        url: expect_string(object, "url", context)?.to_string(),
+        // #92: expand ${VAR} and ~/ in URL
+        url: expand_config_value(expect_string(object, "url", context)?),
         headers: optional_string_map(object, "headers", context)?.unwrap_or_default(),
         headers_helper: optional_string(object, "headersHelper", context)?.map(str::to_string),
         oauth: parse_optional_mcp_oauth_config(object, context)?,
@@ -2411,6 +2501,10 @@ fn deep_merge_objects(
         match (target.get_mut(key), value) {
             (Some(JsonValue::Object(existing)), JsonValue::Object(incoming)) => {
                 deep_merge_objects(existing, incoming);
+            }
+            // #106: concatenate arrays instead of replacing
+            (Some(JsonValue::Array(existing)), JsonValue::Array(incoming)) => {
+                existing.extend(incoming.iter().cloned());
             }
             _ => {
                 target.insert(key.clone(), value.clone());
@@ -3385,14 +3479,19 @@ mod tests {
             .load()
             .expect("config should load valid hook entries and record invalid siblings");
 
-        assert_eq!(loaded.hooks().pre_tool_use(), &["project".to_string()]);
+        // #106: arrays now concatenate across config layers, so both "base" and "project" are present
+        assert_eq!(
+            loaded.hooks().pre_tool_use(),
+            &["base".to_string(), "project".to_string()]
+        );
         assert_eq!(loaded.hooks().invalid_count(), 1);
         assert_eq!(loaded.hooks().invalid_hooks()[0].event, "PreToolUse");
         assert_eq!(
             loaded.hooks().invalid_hooks()[0].kind,
             "invalid_hooks_config"
         );
-        assert_eq!(loaded.hooks().invalid_hooks()[0].index, Some(1));
+        // #106: invalid entry at index 2 after array concatenation
+        assert_eq!(loaded.hooks().invalid_hooks()[0].index, Some(2));
         assert!(loaded.hooks().invalid_hooks()[0]
             .reason
             .contains("must be a string or hook object"));

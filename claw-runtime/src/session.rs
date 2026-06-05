@@ -231,8 +231,31 @@ impl Session {
     pub fn save_to_path(&self, path: impl AsRef<Path>) -> Result<(), SessionError> {
         let path = path.as_ref();
         let snapshot = self.render_jsonl_snapshot()?;
-        rotate_session_file_if_needed(path)?;
-        write_atomic(path, &snapshot)?;
+        // #112: wrap ENOENT during rotate as concurrent modification
+        match rotate_session_file_if_needed(path) {
+            Ok(()) => {}
+            Err(SessionError::Io(ref io_err)) if io_err.kind() == std::io::ErrorKind::NotFound => {
+                return Err(SessionError::Io(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!(
+                        "session file was removed during save (possible concurrent modification): {io_err}"
+                    ),
+                )));
+            }
+            Err(e) => return Err(e),
+        }
+        write_atomic(path, &snapshot).map_err(|e| {
+            // #112: wrap ENOENT during write as concurrent modification
+            match &e {
+                SessionError::Io(io_err) if io_err.kind() == std::io::ErrorKind::NotFound => {
+                    SessionError::Io(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("session file was removed during write (possible concurrent modification): {io_err}"),
+                    ))
+                }
+                _ => e,
+            }
+        })?;
         cleanup_rotated_logs(path)?;
         Ok(())
     }
