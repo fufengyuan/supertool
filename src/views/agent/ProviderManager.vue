@@ -69,9 +69,15 @@
         <h1 class="text-2xl font-bold">模型提供商</h1>
         <p class="text-sm text-base-content/60 mt-1">管理 API Key、查看提供商状态</p>
       </div>
-      <button class="btn btn-ghost btn-sm" @click="loadProviders" :disabled="loading">
-        <IconRefresh :size="16" :class="{ 'animate-spin': loading }" />
-      </button>
+      <div class="flex items-center gap-2">
+        <button class="btn btn-primary btn-sm gap-1.5" @click="showAddProvider = true">
+          <IconPlus :size="14" />
+          添加提供商
+        </button>
+        <button class="btn btn-ghost btn-sm" @click="loadProviders" :disabled="loading">
+          <IconRefresh :size="16" :class="{ 'animate-spin': loading }" />
+        </button>
+      </div>
     </div>
 
     <!-- Error -->
@@ -184,6 +190,65 @@
       <p class="text-xs text-base-content/40 mt-1">请确保 Hermes 已安装并已配置提供商</p>
     </div>
 
+    <!-- Add provider modal -->
+    <div v-if="showAddProvider" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div class="bg-base-100 rounded-xl p-5 max-w-md w-full shadow-xl mx-4">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold">添加提供商</h3>
+          <button class="btn btn-ghost btn-sm btn-circle" @click="cancelAddProvider">
+            <IconX :size="16" />
+          </button>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm text-base-content/70 mb-1 block">提供商标识 *</label>
+            <input
+              v-model="newProviderId"
+              type="text"
+              class="input input-bordered input-sm w-full text-sm"
+              placeholder="如：my-custom-provider"
+              @keyup.enter="focusApiKey"
+              ref="providerIdInput"
+            />
+            <p class="text-[10px] text-base-content/40 mt-1">小写字母、数字和连字符，不可重复</p>
+          </div>
+          <div>
+            <label class="text-sm text-base-content/70 mb-1 block">API Key *</label>
+            <input
+              v-model="newProviderKey"
+              type="password"
+              class="input input-bordered input-sm w-full font-mono text-sm"
+              placeholder="sk-..."
+              ref="apiKeyInput"
+            />
+          </div>
+          <div>
+            <label class="text-sm text-base-content/70 mb-1 block">Base URL <span class="text-base-content/40 text-[10px]">（可选）</span></label>
+            <input
+              v-model="newProviderBaseUrl"
+              type="text"
+              class="input input-bordered input-sm w-full text-sm"
+              placeholder="https://api.example.com/v1"
+            />
+          </div>
+          <div v-if="addError" class="alert alert-error text-sm py-2 mt-2">
+            <IconAlertCircle :size="14" />
+            <span>{{ addError }}</span>
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end mt-4">
+          <button class="btn btn-ghost btn-sm" @click="cancelAddProvider">取消</button>
+          <button
+            class="btn btn-primary btn-sm"
+            @click="confirmAddProvider"
+            :disabled="addingProvider || !newProviderId.trim() || !newProviderKey.trim()"
+          >
+            {{ addingProvider ? '添加中...' : '确认添加' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Remove confirmation modal -->
     <div v-if="removingProvider" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div class="bg-base-100 rounded-xl p-5 max-w-sm w-full shadow-xl">
@@ -219,6 +284,7 @@ import {
   IconKey,
   IconTrash,
   IconRobotOff,
+  IconPlus,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import type { ProviderInfo } from '@/types'
@@ -263,6 +329,47 @@ const newKeys = ref<Record<string, string>>({})
 const displayedKeys = ref<Record<string, string>>({})
 const saving = ref(false)
 const removingProvider = ref<string | null>(null)
+
+// Add provider dialog
+const showAddProvider = ref(false)
+const newProviderId = ref('')
+const newProviderKey = ref('')
+const newProviderBaseUrl = ref('')
+const addingProvider = ref(false)
+const addError = ref('')
+const providerIdInput = ref<HTMLInputElement | null>(null)
+const apiKeyInput = ref<HTMLInputElement | null>(null)
+
+function focusApiKey() {
+  apiKeyInput.value?.focus()
+}
+
+function cancelAddProvider() {
+  showAddProvider.value = false
+  newProviderId.value = ''
+  newProviderKey.value = ''
+  newProviderBaseUrl.value = ''
+  addError.value = ''
+}
+
+async function confirmAddProvider() {
+  const id = newProviderId.value.trim()
+  const key = newProviderKey.value.trim()
+  if (!id || !key) return
+
+  addingProvider.value = true
+  addError.value = ''
+  try {
+    const api = getTauriAPI()
+    await api.saveProviderCredential(id, key, newProviderBaseUrl.value.trim() || undefined)
+    await loadProviders()
+    cancelAddProvider()
+  } catch (e: unknown) {
+    addError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    addingProvider.value = false
+  }
+}
 
 async function loadProviders() {
   loading.value = true
