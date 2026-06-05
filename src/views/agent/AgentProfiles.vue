@@ -106,20 +106,21 @@
       <div v-else class="text-center py-12 text-base-content/30 text-sm">加载失败</div>
     </div>
 
-    <div v-show="!isClawMode">
-      <h1 class="text-sm font-medium">Agent Profiles</h1>
-      <div class="flex items-center gap-2">
-        <button class="btn btn-sm btn-ghost" @click="refreshProfiles">
-          <SvgIcon name="refresh" size="14" />
-        </button>
-        <button class="btn btn-sm btn-primary" @click="showCreateProfile = true">
-          新建 Profile
-        </button>
+    <div v-show="!isClawMode" class="h-full flex flex-col">
+      <div class="px-4 py-3 border-b border-base-content/10 flex items-center justify-between">
+        <h1 class="text-sm font-medium">Agent Profiles</h1>
+        <div class="flex items-center gap-2">
+          <button class="btn btn-sm btn-ghost" @click="refreshProfiles">
+            <SvgIcon name="refresh" size="14" />
+          </button>
+          <button class="btn btn-sm btn-primary" @click="showCreateProfile = true">
+            新建 Profile
+          </button>
+        </div>
       </div>
-    </div>
 
-    <!-- Dispatcher status -->
-    <div class="px-4 py-2 bg-base-200/50 border-b border-base-content/10">
+      <!-- Dispatcher status -->
+      <div class="px-4 py-2 bg-base-200/50 border-b border-base-content/10">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
           <span class="text-xs text-base-content/60">Dispatcher:</span>
