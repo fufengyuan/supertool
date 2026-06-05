@@ -784,7 +784,7 @@ pub async fn claw_chat_send(
     app: AppHandle,
     state: tauri::State<'_, ClawChatState>,
     message: String,
-) -> Result<(), String> {
+) -> Result<serde_json::Value, String> {
     let (client, session_path_buf) = {
         let c = state.client.lock().await;
         let s = state.session.lock().await;
@@ -972,7 +972,17 @@ pub async fn claw_chat_send(
     }
 
     log::info!("[claw_chat] Turn completed for session={}", sid);
-    Ok(())
+
+    // ── Return session metadata ──
+    let message_count = {
+        let s = state.session.lock().await;
+        s.as_ref().map(|sess| sess.messages.len()).unwrap_or(0)
+    };
+    Ok(serde_json::json!({
+        "sessionId": sid,
+        "messageCount": message_count,
+        "autoCompaction": emit.auto_compaction_removed,
+    }))
 }
 
 /// 关闭会话（仅断开 LLM 连接，保留 session 持久化）

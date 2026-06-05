@@ -2026,7 +2026,7 @@ export interface TauriAPI {
 
   // Claw Chat (direct LLM API)
   clawChatInit: (cwd?: string) => Promise<void>
-  clawChatSend: (message: string) => Promise<void>
+  clawChatSend: (message: string) => Promise<{ sessionId: string; messageCount: number; autoCompaction: number | null }>
   clawChatClose: () => Promise<void>
   clawChatAbort: () => Promise<void>
   clawChatListSessions: () => Promise<unknown>
@@ -2815,7 +2815,7 @@ export function getTauriAPI(): TauriAPI {
     clawChatInit: async (cwd?: string) =>
       tauriCall<void>('claw_chat_init', { cwd }),
     clawChatSend: async (message: string) =>
-      tauriCall<void>('claw_chat_send', { message }),
+      tauriCall<{ sessionId: string; messageCount: number; autoCompaction: number | null }>('claw_chat_send', { message }),
     clawChatClose: async () =>
       tauriCall<void>('claw_chat_close'),
     clawChatAbort: async () =>

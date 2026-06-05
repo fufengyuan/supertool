@@ -348,7 +348,18 @@ async function clawSend(text: string) {
   isLoading.value = true
   await ensureClawChat()
   try {
-    await invoke('claw_chat_send', { message: text })
+    const result = await invoke<{
+      sessionId: string
+      messageCount: number
+      autoCompaction: number | null
+    }>('claw_chat_send', { message: text })
+    // Update session metadata from return value
+    if (result?.sessionId) {
+      hermesSessionId.value = result.sessionId
+    }
+    if (result?.autoCompaction && result.autoCompaction > 0) {
+      console.log(`[Chat] ⚠️ Session compacted: ${result.autoCompaction} messages removed`)
+    }
   } catch (e: any) {
     addAgentMessage(`发送失败: ${e?.message || String(e)}`)
     isLoading.value = false
