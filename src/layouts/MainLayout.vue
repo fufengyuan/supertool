@@ -103,11 +103,13 @@
 
       <!-- 主内容区（含标签栏） -->
       <div class="flex-1 flex flex-col overflow-hidden">
+        <!-- Tab 标签栏（至少有2个标签时显示） -->
+        <TabBar v-if="tabStore.tabs.length > 0" />
         <!-- Agent 模式切换栏（仅 agent 路由显示） -->
         <AgentModeBar v-if="isAgentTab" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
           <router-view v-slot="{ Component }">
-            <keep-alive :include="keepAliveList">
+            <keep-alive :max="8">
               <component :is="Component" :key="String($route.fullPath)" />
             </keep-alive>
           </router-view>
@@ -136,10 +138,12 @@
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import PageFind from '@/components/PageFind.vue'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import TabBar from '@/components/TabBar.vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
+import { useTabStore } from '@/stores/tabStore'
 import AgentModeBar from '@/components/AgentModeBar.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
@@ -215,12 +219,10 @@ const iconMap: Record<string, any> = {
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
+const tabStore = useTabStore()
 
 /** 当前路由是否为 Agent 相关 */
 const isAgentTab = computed(() => route.path.startsWith('/agent'))
-
-/** keep-alive 缓存的组件名列表 */
-const keepAliveList = ['Chat', 'SessionsPage', 'MemoryManager', 'LogAggregator', 'ProviderManager', 'ModelsPage']
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
@@ -271,9 +273,16 @@ const navGroups = {
   ],
 }
 
-function onNavClick(viewId: string, _path: string) {
+function onNavClick(viewId: string, path: string) {
   appStore.recordNavClick(viewId)
+  tabStore.openOrActivate(path)
 }
+
+// 监听路由变化 → 同步到 tabStore
+watch(() => route.fullPath, (fullPath) => {
+  const path = fullPath.split('?')[0].split('#')[0]
+  tabStore.syncRoute(path)
+}, { immediate: true })
 
 async function toggleLan() {
   if (!showLan.value && !lanStarted.value) {
