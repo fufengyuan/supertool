@@ -4,7 +4,7 @@ use std::sync::Arc;
 use runtime::{
     ContentBlock, ConversationMessage, MessageRole, Session,
 };
-use supertool_claw::llm::{LlmClient, LlmStreamEvent, Message, TurnResult};
+use supertool_claw::llm::LlmClient;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
@@ -129,7 +129,9 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
             // Read the first line (meta record) for session info
             if let Ok(content) = std::fs::read_to_string(&path) {
                 let first_line = content.lines().next().unwrap_or("");
+                #[allow(unused_assignments)]
                 let mut created_at_ms: u64 = 0;
+                #[allow(unused_assignments)]
                 let mut title: Option<String> = None;
                 if let Ok(meta) = serde_json::from_str::<serde_json::Value>(first_line) {
                     created_at_ms = meta
@@ -161,7 +163,9 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         .filter(|c| !c.is_empty())
                         .map(|c| {
                             if c.len() > 60 {
-                                format!("{}...", &c[..60])
+                                // Unicode-safe truncation
+                                let safe_end = c.floor_char_boundary(60);
+                                format!("{}...", &c[..safe_end])
                             } else {
                                 c
                             }
@@ -566,19 +570,6 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
 }
 
 
-/// Load a HookRunner from the upstream settings.json via ConfigLoader.
-/// Falls back to default (empty) config if settings.json is missing or has no hooks.
-pub(crate) fn load_hook_runner() -> runtime::HookRunner {
-    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
-    match runtime::ConfigLoader::default_for(cwd).load() {
-        Ok(config) => runtime::HookRunner::from_feature_config(config.feature_config()),
-        Err(e) => {
-            log::debug!("[claw_chat] Could not load hook config from settings.json: {}", e);
-            runtime::HookRunner::new(runtime::RuntimeHookConfig::default())
-        }
-    }
-}
-
 /// System prompt for the Claw agent — uses the real load_system_prompt from runtime.
 pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
@@ -652,44 +643,6 @@ pub(crate) fn setup_env_from_claw_config() -> Result<(), String> {
     }
 
     Ok(())
-}
-
-// ── ConversationMessage ↔ LlmClient::Message conversion ─────────────────
-
-/// Convert claw-code's `ConversationMessage` to the flat `Message` format
-/// that `LlmClient::send_streaming` expects.
-pub(crate) fn to_prompt_messages(session_messages: &[ConversationMessage]) -> Vec<Message> {
-    session_messages
-        .iter()
-        .map(|cm| {
-            let role = match cm.role {
-                MessageRole::System => "system",
-                MessageRole::User => "user",
-                MessageRole::Assistant => "assistant",
-                MessageRole::Tool => "tool",
-            }
-            .to_string();
-
-            // Flatten blocks into a single text string
-            let content: String = cm
-                .blocks
-                .iter()
-                .map(|b| match b {
-                    ContentBlock::Text { text } => text.clone(),
-                    ContentBlock::Thinking { thinking, .. } => thinking.clone(),
-                    ContentBlock::ToolUse { id, name, input } => {
-                        format!("[ToolUse: {name}({id})] {input}")
-                    }
-                    ContentBlock::ToolResult {
-                        tool_name, output, ..
-                    } => format!("[ToolResult: {tool_name}] {output}"),
-                })
-                .collect::<Vec<_>>()
-                .join("\n");
-
-            Message { role, content }
-        })
-        .collect()
 }
 
 // ── Tauri Commands ──────────────────────────────────────────────────────
@@ -820,7 +773,7 @@ pub async fn claw_chat_send(
     let (client, session_path_buf) = {
         let c = state.client.lock().await;
         let s = state.session.lock().await;
-        let client = c.clone().ok_or("Claw not initialized")?;
+        let client = c.clone().ok_or("Claw not initialized — call claw_chat_init first")?;
         let path = s
             .as_ref()
             .and_then(|sess| sess.persistence_path().map(|p| p.to_path_buf()));

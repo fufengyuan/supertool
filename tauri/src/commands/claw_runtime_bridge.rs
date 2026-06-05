@@ -10,7 +10,6 @@
 //! tokio::runtime::Runtime for the sync → async bridge.
 
 use std::sync::Arc;
-use std::cell::RefCell;
 
 use runtime::{
     ApiClient, ApiRequest, AssistantEvent, RuntimeError, TokenUsage, ToolError, ToolExecutor,
@@ -28,6 +27,7 @@ pub(crate) struct TauriApiClient {
     rt: tokio::runtime::Runtime,
     tool_defs: Vec<api::ToolDefinition>,
     reasoning_effort: Option<String>,
+    #[allow(dead_code)]
     model: String,
 }
 
@@ -106,8 +106,8 @@ impl ApiClient for TauriApiClient {
                 .map_err(|e| RuntimeError::new(format!("LLM stream failed: {e}")))?;
 
             let mut final_events = events.into_inner();
-            // Ensure MessageStop is present
-            if !final_events.iter().any(|e| matches!(e, AssistantEvent::MessageStop)) {
+            // Ensure MessageStop is present (LLM stream may not emit it explicitly)
+            if !final_events.last().is_some_and(|e| matches!(e, AssistantEvent::MessageStop)) {
                 final_events.push(AssistantEvent::MessageStop);
             }
 
