@@ -220,7 +220,7 @@ const appStore = useAppStore()
 const isAgentTab = computed(() => route.path.startsWith('/agent'))
 
 /** keep-alive 缓存的组件名列表 */
-const keepAliveList = ['Chat', 'SessionsPage', 'MemoryManager', 'LogAggregator']
+const keepAliveList = ['Chat', 'SessionsPage', 'MemoryManager', 'LogAggregator', 'ProviderManager', 'ModelsPage']
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)

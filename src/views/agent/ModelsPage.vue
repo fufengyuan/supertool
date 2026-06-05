@@ -325,6 +325,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'ModelsPage' })
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import { getTauriAPI } from '@/utils/tauri-api'
