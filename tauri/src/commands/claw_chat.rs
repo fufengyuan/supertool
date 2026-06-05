@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use runtime::{
@@ -55,8 +54,8 @@ pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
     pub(crate) session: Mutex<Option<Session>>,
     pub(crate) workspace: Mutex<Option<PathBuf>>,
-    /// Abort signal for the current tool loop — shared with hook runner.
-    pub(crate) hook_abort: Arc<AtomicBool>,
+    /// Abort signal for the current conversation — shared with ConversationRuntime.
+    pub(crate) hook_abort: Mutex<runtime::HookAbortSignal>,
 }
 
 impl ClawChatState {
@@ -65,7 +64,7 @@ impl ClawChatState {
             client: Mutex::new(None),
             session: Mutex::new(None),
             workspace: Mutex::new(None),
-            hook_abort: Arc::new(AtomicBool::new(false)),
+            hook_abort: Mutex::new(runtime::HookAbortSignal::new()),
         }
     }
 }
@@ -858,6 +857,13 @@ pub async fn claw_chat_send(
 
     let model_name = agent_config.model.clone();
     let max_iters = max_iterations;
+    // Create fresh abort signal for this turn, store in state so claw_chat_abort can set it
+    let hook_abort_signal = runtime::HookAbortSignal::new();
+    {
+        // Replace state's abort signal with this turn's signal
+        let mut abort = state.hook_abort.lock().await;
+        *abort = hook_abort_signal.clone();
+    }
 
     // block_in_place runs synchronously — !Send types stay in this stack frame
     let (summary, session) = tokio::task::block_in_place(move || {
@@ -877,7 +883,8 @@ pub async fn claw_chat_send(
             permission_policy,
             vec![system_prompt], // Vec<String> as expected by upstream
         )
-        .with_max_iterations(max_iters);
+        .with_max_iterations(max_iters)
+        .with_hook_abort_signal(hook_abort_signal);
 
         let result = rt.run_turn(message, None);
         let session = rt.into_session();
@@ -888,7 +895,18 @@ pub async fn claw_chat_send(
         }
     });
 
-    let summary = summary?;
+    let summary = match summary {
+        Ok(s) => s,
+        Err(e) => {
+            // Restore session even on failure — don't lose user's conversation
+            log::error!("[claw_chat] run_turn failed: {e}");
+            {
+                let mut s = state.session.lock().await;
+                *s = Some(session);
+            }
+            return Err(e);
+        }
+    };
     log::info!(
         "[claw_chat] run_turn completed: {} iterations, {} tools",
         summary.iterations,
@@ -1018,7 +1036,8 @@ pub async fn claw_chat_abort(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<(), String> {
     log::info!("[claw_chat] Abort signal requested");
-    state.hook_abort.store(true, Ordering::SeqCst);
+    let abort = state.hook_abort.lock().await;
+    abort.abort();
     Ok(())
 }
 
