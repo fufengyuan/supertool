@@ -21,9 +21,15 @@
             <h1 class="text-2xl font-bold">Claw 模型提供商</h1>
             <p class="text-sm text-base-content/60 mt-1">来自 ~/.claw/settings.json</p>
           </div>
-          <button class="btn btn-ghost btn-sm" @click="loadClawConfig" :disabled="clawLoading">
-            <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button class="btn btn-primary btn-sm gap-1.5" @click="showClawConfig = true">
+              <IconSettings :size="14" />
+              配置
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="loadClawConfig" :disabled="clawLoading">
+              <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
+            </button>
+          </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div
@@ -60,9 +66,49 @@
           </div>
         </div>
       </div>
-    </div>
 
-    <div v-show="!isClawMode">
+      <!-- Claw config modal -->
+      <div v-if="showClawConfig" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showClawConfig = false">
+      <div class="bg-base-100 rounded-xl p-5 max-w-md w-full shadow-xl mx-4">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold">配置 Claw 提供商</h3>
+        <button class="btn btn-ghost btn-sm btn-circle" @click="showClawConfig = false">
+          <IconX :size="16" />
+        </button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="text-sm text-base-content/70 mb-1 block">提供商名称 <span class="text-base-content/40 text-[10px]">（可选）</span></label>
+          <input v-model="clawProvider" type="text" class="input input-bordered input-sm w-full text-sm" placeholder="如：Anthropic" />
+        </div>
+        <div>
+          <label class="text-sm text-base-content/70 mb-1 block">API Key *</label>
+          <input v-model="clawApiKey" type="password" class="input input-bordered input-sm w-full font-mono text-sm" placeholder="sk-..." />
+        </div>
+        <div>
+          <label class="text-sm text-base-content/70 mb-1 block">Base URL <span class="text-base-content/40 text-[10px]">（可选）</span></label>
+          <input v-model="clawBaseUrl" type="text" class="input input-bordered input-sm w-full text-sm" placeholder="https://api.openai.com/v1" />
+        </div>
+        <div>
+          <label class="text-sm text-base-content/70 mb-1 block">默认模型 <span class="text-base-content/40 text-[10px]">（可选）</span></label>
+          <input v-model="clawModel" type="text" class="input input-bordered input-sm w-full text-sm" placeholder="如：claude-sonnet-4-6" />
+        </div>
+        <div v-if="clawConfigError" class="alert alert-error text-sm py-2 mt-2">
+          <IconAlertCircle :size="14" />
+          <span>{{ clawConfigError }}</span>
+        </div>
+      </div>
+      <div class="flex gap-2 justify-end mt-4">
+        <button class="btn btn-ghost btn-sm" @click="showClawConfig = false">取消</button>
+        <button class="btn btn-primary btn-sm" @click="confirmClawConfig" :disabled="clawConfigSaving || !clawApiKey.trim()">
+          {{ clawConfigSaving ? '保存中...' : '保存' }}
+        </button>
+      </div>
+      </div>
+      </div>
+      </div>
+
+      <div v-show="!isClawMode">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
@@ -285,6 +331,7 @@ import {
   IconTrash,
   IconRobotOff,
   IconPlus,
+  IconSettings,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import type { ProviderInfo } from '@/types'
@@ -296,6 +343,15 @@ const isClawMode = computed(() => agentModeStore.mode === 'claw')
 const clawProviders = ref<Record<string, any>>({})
 const clawLoading = ref(false)
 const clawError = ref('')
+
+// Claw config dialog
+const showClawConfig = ref(false)
+const clawProvider = ref('')
+const clawApiKey = ref('')
+const clawBaseUrl = ref('')
+const clawModel = ref('')
+const clawConfigSaving = ref(false)
+const clawConfigError = ref('')
 
 async function loadClawConfig() {
   console.log('[ProviderManager] 📦 loadClawConfig() called');
@@ -320,6 +376,28 @@ async function loadClawConfig() {
     clawProviders.value = {}
   } finally {
     clawLoading.value = false
+  }
+}
+
+async function confirmClawConfig() {
+  const key = clawApiKey.value.trim()
+  if (!key) return
+  clawConfigSaving.value = true
+  clawConfigError.value = ''
+  try {
+    const api = getTauriAPI()
+    await api.clawConfigSet({
+      apiKey: key || undefined,
+      baseUrl: clawBaseUrl.value.trim() || undefined,
+      model: clawModel.value.trim() || undefined,
+      provider: clawProvider.value.trim() || undefined,
+    })
+    showClawConfig.value = false
+    await loadClawConfig()
+  } catch (e: unknown) {
+    clawConfigError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    clawConfigSaving.value = false
   }
 }
 const providers = ref<ProviderInfo[]>([])

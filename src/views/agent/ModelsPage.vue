@@ -18,9 +18,15 @@
             <h1 class="text-2xl font-bold">Claw 模型管理</h1>
             <p class="text-sm text-base-content/60 mt-1">来自 ~/.claw/settings.json</p>
           </div>
-          <button class="btn btn-ghost btn-sm" @click="loadClawModels" :disabled="clawLoading">
-            <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button class="btn btn-primary btn-sm gap-1.5" @click="showClawModelInput = true">
+              <IconPlus :size="14" />
+              更改模型
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="loadClawModels" :disabled="clawLoading">
+              <IconRefresh :size="16" :class="{ 'animate-spin': clawLoading }" />
+            </button>
+          </div>
         </div>
         <div v-for="(prov, name) in clawProviders" :key="name" class="mb-6">
           <h2 class="text-base font-semibold mb-3 flex items-center gap-2">
@@ -45,6 +51,40 @@
             </div>
           </div>
           <p v-else class="text-xs text-base-content/40">无模型配置</p>
+        </div>
+
+        <!-- Claw model change modal -->
+        <div v-if="showClawModelInput" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click.self="showClawModelInput = false">
+          <div class="bg-base-100 rounded-xl p-5 max-w-sm w-full shadow-xl mx-4">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold">更改模型</h3>
+              <button class="btn btn-ghost btn-sm btn-circle" @click="showClawModelInput = false">
+                <IconX :size="16" />
+              </button>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <label class="text-sm text-base-content/70 mb-1 block">模型名称 *</label>
+                <input
+                  v-model="clawNewModel"
+                  type="text"
+                  class="input input-bordered input-sm w-full text-sm"
+                  placeholder="如：claude-sonnet-4-6"
+                  @keyup.enter="confirmClawModel"
+                />
+              </div>
+              <div v-if="clawModelError" class="alert alert-error text-sm py-2">
+                <IconAlertCircle :size="14" />
+                <span>{{ clawModelError }}</span>
+              </div>
+            </div>
+            <div class="flex gap-2 justify-end mt-4">
+              <button class="btn btn-ghost btn-sm" @click="showClawModelInput = false">取消</button>
+              <button class="btn btn-primary btn-sm" @click="confirmClawModel" :disabled="clawModelSaving || !clawNewModel.trim()">
+                {{ clawModelSaving ? '保存中...' : '确认' }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -326,6 +366,12 @@ const clawProviders = ref<Record<string, any>>({})
 const clawLoading = ref(false)
 const clawError = ref('')
 
+// Claw model change dialog
+const showClawModelInput = ref(false)
+const clawNewModel = ref('')
+const clawModelSaving = ref(false)
+const clawModelError = ref('')
+
 async function loadClawModels() {
   clawLoading.value = true
   clawError.value = ''
@@ -348,10 +394,28 @@ async function loadClawModels() {
     clawLoading.value = false
   }
 }
+
+async function confirmClawModel() {
+  const model = clawNewModel.value.trim()
+  if (!model) return
+  clawModelSaving.value = true
+  clawModelError.value = ''
+  try {
+    const api = getTauriAPI()
+    await api.clawConfigSet({ model })
+    showClawModelInput.value = false
+    clawNewModel.value = ''
+    await loadClawModels()
+  } catch (e: unknown) {
+    clawModelError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    clawModelSaving.value = false
+  }
+}
+
 const successMsg = ref('')
 const defaultModel = ref('')
 const activeProvider = ref('')
-
 const providerModels = ref<string[]>([])
 const customModels = ref<string[]>([])
 
