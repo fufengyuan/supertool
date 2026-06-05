@@ -39,7 +39,7 @@ fn session_path(id: &str) -> PathBuf {
 }
 
 /// Load a persisted session by ID.
-fn load_session(id: &str) -> Option<Session> {
+pub(crate) fn load_session(id: &str) -> Option<Session> {
     let path = session_path(id);
     log::info!("[claw_chat] load_session({}): looking for {}", id, path.display());
     if !path.exists() {

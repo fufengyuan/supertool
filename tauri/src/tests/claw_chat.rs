@@ -521,7 +521,7 @@ fn test_session_title_extracted_from_first_message() {
     std::fs::write(&session_path, format!("{meta}\n{msg1}\n{msg2}\n")).unwrap();
 
     let sessions = list_sessions_info();
-    let found = sessions.iter().find(|s| s["sessionId"] == "sess_title");
+    let found = sessions.iter().find(|s| s["sessionId"] == "test_sess_title");
     assert!(found.is_some(), "session should be found");
     let session = found.unwrap();
     assert_eq!(session["title"], "What is the meaning of life?");
@@ -540,7 +540,7 @@ fn test_session_title_empty_when_no_messages() {
     std::fs::write(&session_path, format!("{meta}\n")).unwrap();
 
     let sessions = list_sessions_info();
-    let found = sessions.iter().find(|s| s["sessionId"] == "sess_empty");
+    let found = sessions.iter().find(|s| s["sessionId"] == "test_sess_empty");
     assert!(found.is_some(), "session should be found");
     let session = found.unwrap();
     assert!(session.get("title").and_then(|t| t.as_str()).is_none()
@@ -562,7 +562,7 @@ fn test_session_title_truncated_to_60_chars() {
     std::fs::write(&session_path, format!("{meta}\n{msg}\n")).unwrap();
 
     let sessions = list_sessions_info();
-    let found = sessions.iter().find(|s| s["sessionId"] == "sess_long");
+    let found = sessions.iter().find(|s| s["sessionId"] == "test_sess_long");
     assert!(found.is_some());
     let title = found.unwrap()["title"].as_str().unwrap();
     assert_eq!(title.len(), 63); // 60 chars + "..."
@@ -1169,3 +1169,176 @@ async fn integration_skills_in_prompt_are_used() {
         "Response should reference GitHub skill. Got: {}", final_text);
     println!("\nSkills test PASSED");
 }
+
+// ── End-to-end: session load → context verification → LLM send ──────────
+
+/// Integration test: load a session from disk, verify context is correct,
+/// then send a follow-up message and verify the LLM sees the history.
+///
+/// This simulates the exact user flow:
+///   1. list_sessions_info() returns session IDs
+///   2. User clicks a session → claw_chat_init(sessionId)
+///   3. Session messages are restored
+///   4. User sends a new message → LLM receives full context
+#[tokio::test(flavor = "multi_thread")]
+async fn integration_session_load_and_context() {
+    use crate::commands::claw_chat::{
+        load_session, list_sessions_info, session_messages_to_json,
+        session_to_input_messages, setup_env_from_claw_config,
+        sessions_dir,
+    };
+    use runtime::Session;
+    use supertool_claw::llm::LlmClient;
+
+    // ── Step 0: Create a test session file with known content ──
+    let sess_dir = sessions_dir();
+    std::fs::create_dir_all(&sess_dir).unwrap();
+    let test_file = sess_dir.join("e2e_test_session.json");
+    let meta = r#"{"session_id":"should-not-be-used","created_at_ms":1717500000000,"updated_at_ms":1717500001000,"type":"session_meta","version":1}"#;
+    let msg1 = r#"{"message":{"blocks":[{"text":"My name is Alice and I like cats","type":"text"}],"role":"user"},"type":"message"}"#;
+    let msg2 = r#"{"message":{"blocks":[{"text":"Nice to meet you Alice! Cats are wonderful pets.","type":"text"}],"role":"assistant"},"type":"message"}"#;
+    std::fs::write(&test_file, format!("{meta}\n{msg1}\n{msg2}\n")).unwrap();
+    eprintln!("[e2e] Created test session file: {}", test_file.display());
+
+    // ── Step 1: list_sessions_info should use FILE STEM as sessionId ──
+    let sessions = list_sessions_info();
+    let our_session = sessions.iter().find(|s| {
+        s.get("sessionId")
+            .and_then(|v| v.as_str())
+            == Some("e2e_test_session")
+    });
+    assert!(
+        our_session.is_some(),
+        "list_sessions_info should return sessionId='e2e_test_session' (file stem), got: {:?}",
+        sessions.iter().map(|s| s.get("sessionId")).collect::<Vec<_>>()
+    );
+    let session_info = our_session.unwrap();
+    assert_eq!(session_info["messageCount"], 2);
+    let title = session_info["title"].as_str().unwrap_or("");
+    assert!(
+        title.contains("Alice"),
+        "Title should contain first message text, got: {title}"
+    );
+    eprintln!("[e2e] Step 1 PASSED: sessionId={}, title={}", session_info["sessionId"], title);
+
+    // ── Step 2: load_session should work with the sessionId from step 1 ──
+    let loaded: Option<Session> = load_session("e2e_test_session");
+    assert!(loaded.is_some(), "load_session('e2e_test_session') should find the file");
+    let session = loaded.unwrap();
+    assert_eq!(
+        session.messages.len(),
+        2,
+        "Should have 2 restored messages"
+    );
+    eprintln!("[e2e] Step 2 PASSED: loaded {} messages", session.messages.len());
+
+    // ── Step 3: Verify message content is correct ──
+    let json_msgs = session_messages_to_json(&session.messages);
+    assert_eq!(json_msgs.len(), 2);
+    assert_eq!(json_msgs[0]["role"], "user");
+    assert!(
+        json_msgs[0]["content"]
+            .as_str()
+            .unwrap()
+            .contains("Alice"),
+        "First message should contain 'Alice'"
+    );
+    assert_eq!(json_msgs[1]["role"], "agent");
+    let content1 = json_msgs[1]["content"].as_str().unwrap_or("(not string)");
+    eprintln!("[e2e-debug] content1='{}'", content1);
+    assert!(
+        json_msgs[1]["content"].as_str().unwrap().to_lowercase().contains("cat"),
+        "Second message should contain cat (case-insensitive)"
+    );
+    eprintln!("[e2e] Step 3 PASSED: message content verified");
+
+    // ── Step 4: Convert to InputMessages for LLM — verify context ──
+    let input_msgs = session_to_input_messages(&session.messages);
+    assert_eq!(input_msgs.len(), 2, "Should have 2 InputMessages");
+    assert_eq!(input_msgs[0].role, "user");
+    assert_eq!(input_msgs[1].role, "assistant");
+
+    let user_text = match &input_msgs[0].content[0] {
+        api::InputContentBlock::Text { text } => text.clone(),
+        _ => panic!("Expected Text block in user message"),
+    };
+    let assistant_text = match &input_msgs[1].content[0] {
+        api::InputContentBlock::Text { text } => text.clone(),
+        _ => panic!("Expected Text block in assistant message"),
+    };
+    assert!(user_text.contains("Alice"), "Context should preserve user text");
+    assert!(assistant_text.to_lowercase().contains("cat"), "Context should preserve assistant text");
+    eprintln!("[e2e] Step 4 PASSED: context conversion verified");
+
+    // ── Step 5: Send follow-up message — LLM should see Alice context ──
+    setup_env_from_claw_config().expect("setup env");
+    let client = match LlmClient::from_env() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[e2e] SKIP Step 5: Cannot create LLM client: {e}");
+            let _ = std::fs::remove_file(&test_file);
+            return;
+        }
+    };
+    eprintln!(
+        "[e2e] LLM: provider={:?}, model={}",
+        client.provider(),
+        client.model()
+    );
+
+    // Add a follow-up user message
+    let mut session = session;
+    session
+        .push_user_text("What is my name? Do NOT use any tools, just answer from memory.")
+        .expect("push follow-up");
+
+    let input_messages = session_to_input_messages(&session.messages);
+    assert_eq!(
+        input_messages.len(),
+        3,
+        "Should have 3 InputMessages (user + assistant + follow-up)"
+    );
+    eprintln!(
+        "[e2e] Sending {} messages to LLM",
+        input_messages.len()
+    );
+
+    let result = client
+        .send_turn(
+            input_messages,
+            Some("You are a helpful assistant. Remember the user's name from the conversation."),
+            None, // no tools
+            None,
+            Some(|event| match event {
+                supertool_claw::llm::LlmStreamEvent::TextDelta { text } => {
+                    eprint!("{text}");
+                }
+                _ => {}
+            }),
+        )
+        .await;
+
+    match result {
+        Ok(turn_result) => {
+            let response = turn_result.text.to_lowercase();
+            eprintln!(
+                "\n[e2e] LLM response: {}",
+                turn_result.text.chars().take(200).collect::<String>()
+            );
+            assert!(
+                response.contains("alice"),
+                "LLM should know the user's name is Alice from context! Got: {}",
+                turn_result.text
+            );
+            eprintln!("[e2e] Step 5 PASSED: LLM correctly remembers Alice from context");
+        }
+        Err(e) => {
+            panic!("LLM call failed: {e}");
+        }
+    }
+
+    // Cleanup
+    let _ = std::fs::remove_file(&test_file);
+    eprintln!("[e2e] Integration test PASSED");
+}
+
