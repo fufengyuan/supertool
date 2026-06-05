@@ -1,5 +1,10 @@
-//! Claw Profiles — runtime configuration summary from ~/.claw/
+//! Claw Profiles — runtime configuration summary
+//!
+//! Uses `ConfigLoader::inspect_collecting_warnings()` for health info,
+//! `PluginManager` for plugin count, and `McpConfigCollection` for MCP count.
 
+use plugins::{PluginManager, PluginManagerConfig};
+use runtime::ConfigLoader;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -16,7 +21,10 @@ pub struct ClawProfileInfo {
     pub raw_settings: Option<serde_json::Value>,
 }
 
-fn claw_home() -> PathBuf {
+fn resolve_config_home() -> PathBuf {
+    if let Ok(config_home) = std::env::var("CLAW_CONFIG_HOME") {
+        return PathBuf::from(config_home);
+    }
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("~"))
         .join(".claw")
@@ -24,41 +32,58 @@ fn claw_home() -> PathBuf {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn claw_get_profile() -> ClawProfileInfo {
-    let home = claw_home();
-    let settings_path = home.join("settings.json");
-    let installed_path = home.join("plugins").join("installed.json");
+    let config_home = resolve_config_home();
+    let settings_path = config_home.join("settings.json");
 
-    let (settings_exists, raw_settings, mcp_count, has_permissions, has_hooks, has_features) =
-        if let Ok(content) = std::fs::read_to_string(&settings_path) {
-            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-                let mcp = json
-                    .get("mcpServers")
-                    .and_then(|v| v.as_object())
-                    .map(|m| m.len())
-                    .unwrap_or(0);
-                let perms = json.get("permissions").is_some();
-                let hooks = json.get("hooks").is_some();
-                let feats = json.get("features").is_some();
-                (true, Some(json), mcp, perms, hooks, feats)
-            } else {
-                (true, None, 0, false, false, false)
-            }
-        } else {
-            (false, None, 0, false, false, false)
-        };
-
-    let plugin_count = if let Ok(content) = std::fs::read_to_string(&installed_path) {
-        serde_json::from_str::<serde_json::Value>(&content)
-            .ok()
-            .and_then(|v| v.get("plugins").cloned())
-            .and_then(|v| v.as_object().map(|m| m.len()))
-            .unwrap_or(0)
-    } else {
-        0
+    // Read raw settings for display (JSON directly)
+    let (settings_exists, raw_settings) = match std::fs::read_to_string(&settings_path) {
+        Ok(content) => (
+            true,
+            serde_json::from_str::<serde_json::Value>(&content).ok(),
+        ),
+        Err(_) => (false, None),
     };
 
+    // Use ConfigLoader for structured health info
+    let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let loader = ConfigLoader::default_for(&cwd);
+    let inspection = loader.inspect_collecting_warnings();
+
+    let (mcp_count, has_permissions, has_hooks, has_features) =
+        match &inspection.runtime_config {
+            Some(rc) => {
+                let mcp = rc.mcp();
+                let mcp_count = mcp.valid_count();
+                let merged = rc.merged();
+                let perms = merged
+                    .get("permissions")
+                    .and_then(|v| v.as_object())
+                    .map(|o| !o.is_empty())
+                    .unwrap_or(false);
+                let hooks = merged
+                    .get("hooks")
+                    .and_then(|v| v.as_object())
+                    .map(|o| !o.is_empty())
+                    .unwrap_or(false);
+                let feats = merged
+                    .get("features")
+                    .and_then(|v| v.as_object())
+                    .map(|o| !o.is_empty())
+                    .unwrap_or(false);
+                (mcp_count, perms, hooks, feats)
+            }
+            None => (0, false, false, false),
+        };
+
+    // Plugin count
+    let plugin_count = PluginManager::new(PluginManagerConfig::new(&config_home))
+        .plugin_registry_report()
+        .ok()
+        .map(|r| r.summaries().len())
+        .unwrap_or(0);
+
     ClawProfileInfo {
-        config_home: home.to_string_lossy().to_string(),
+        config_home: config_home.to_string_lossy().to_string(),
         settings_exists,
         mcp_server_count: mcp_count,
         plugin_count,

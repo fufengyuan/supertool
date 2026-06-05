@@ -8,11 +8,13 @@
       :has-messages="messages.length > 0"
       :context-folder="contextFolder"
       :show-context-folder="true"
+      :compacting="compacting"
       @pick-folder="pickContextFolder"
       @clear-folder="clearContextFolder"
       @toggle-fast="handleToggleFast"
       @new-chat="startNewChat"
       @clear="clearChat"
+      @compact="handleCompact"
     />
 
     <!-- Messages area -->
@@ -94,6 +96,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 
+import { getTauriAPI } from '@/utils/tauri-api';
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 import ChatHeader from './components/ChatHeader.vue';
@@ -127,6 +130,7 @@ const toolProgress = ref<string | null>(null);
 const usage = ref<UsageState | null>(null);
 const contextFolder = ref<string | null>(null);
 const currentInput = ref('');
+const compacting = ref(false);
 const chatInputRef = ref<{ clear: () => void; focus: () => void } | null>(null);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 
@@ -449,6 +453,27 @@ async function pickContextFolder() {
 
 function clearContextFolder() {
   contextFolder.value = null;
+}
+
+/** Compact the current Claw session */
+async function handleCompact() {
+  if (!hermesSessionId.value) return;
+  compacting.value = true;
+  try {
+    const tauri = getTauriAPI();
+    const result = await tauri.clawChatCompact(hermesSessionId.value);
+    if (result.removedMessageCount > 0) {
+      addAgentMessage(
+        `📦 会话已压缩: 移除了 ${result.removedMessageCount} 条消息，释放上下文空间。\n\n${result.summary ? `摘要: ${result.summary.slice(0, 200)}...` : ''}`
+      );
+    } else {
+      addAgentMessage('📦 会话无需压缩（消息量较少或已经压缩过）');
+    }
+  } catch (e: any) {
+    addAgentMessage(`❌ 压缩失败: ${e?.message || String(e)}`);
+  } finally {
+    compacting.value = false;
+  }
 }
 
 // ── Keyboard ─────────────────────────────────────────────────────────────────
