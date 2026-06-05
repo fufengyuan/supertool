@@ -2005,7 +2005,7 @@ export interface TauriAPI {
 
   // Hermes Provider
   listProviders: () => Promise<ProviderListResult>
-  saveProviderCredential: (providerId: string, apiKey: string) => Promise<ProviderSaveResult>
+  saveProviderCredential: (providerId: string, apiKey: string, baseUrl?: string) => Promise<ProviderSaveResult>
   removeProviderCredential: (providerId: string) => Promise<ProviderSaveResult>
   startOAuthFlow: (providerId: string) => Promise<ProviderSaveResult>
   pollOauthResult: (providerId: string) => Promise<ProviderSaveResult>
@@ -2796,7 +2796,7 @@ export function getTauriAPI(): TauriAPI {
 
     // ============ Provider Credential Management ============
     listProviders: async () => tauriCall<ProviderListResult>('list_providers'),
-    saveProviderCredential: async (providerId: string, apiKey: string) => tauriCall<ProviderSaveResult>('save_provider_credential', { providerId, apiKey }),
+    saveProviderCredential: async (providerId: string, apiKey: string, baseUrl?: string) => tauriCall<ProviderSaveResult>('save_provider_credential', { providerId, apiKey, baseUrl }),
     removeProviderCredential: async (providerId: string) => tauriCall<ProviderSaveResult>('remove_provider_credential', { providerId }),
     startOAuthFlow: async (providerId: string) => tauriCall<OAuthFlowResult>('start_oauth_flow', { providerId }),
     // ============ Hermes Cron Jobs ============

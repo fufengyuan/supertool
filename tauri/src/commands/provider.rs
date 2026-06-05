@@ -346,9 +346,13 @@ pub fn list_providers() -> Result<serde_json::Value, String> {
     }))
 }
 
-/// Save an API key for a provider
+/// Save an API key for a provider (also creates a new provider if it doesn't exist)
 #[tauri::command(rename_all = "camelCase")]
-pub fn save_provider_credential(provider_id: String, api_key: String) -> Result<serde_json::Value, String> {
+pub fn save_provider_credential(
+    provider_id: String,
+    api_key: String,
+    base_url: Option<String>,
+) -> Result<serde_json::Value, String> {
     if provider_id.trim().is_empty() {
         return Err("provider_id is required".to_string());
     }
@@ -359,6 +363,7 @@ pub fn save_provider_credential(provider_id: String, api_key: String) -> Result<
     let mut auth = read_auth()?;
     let provider_id = provider_id.trim().to_string();
     let api_key = api_key.trim().to_string();
+    let base_url = base_url.unwrap_or_default().trim().to_string();
 
     let entry = CredentialEntry {
         id: Uuid::new_v4().to_string()[..6].to_string(),
@@ -368,8 +373,8 @@ pub fn save_provider_credential(provider_id: String, api_key: String) -> Result<
         source: "manual".to_string(),
         access_token: api_key.clone(),
         refresh_token: String::new(),
-        api_key: api_key,
-        base_url: String::new(),
+        api_key,
+        base_url,
         request_count: 0,
         last_status: "ok".to_string(),
         last_status_at: None,
