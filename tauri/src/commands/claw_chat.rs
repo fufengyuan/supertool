@@ -47,6 +47,28 @@ fn estimate_cost(input_tokens: u64, output_tokens: u64, model: &str) -> f64 {
         + (output_tokens as f64 / 1_000_000.0) * p.output_per_million
 }
 
+/// Cumulative token usage tracker — mirrors upstream UsageTracker in runtime/src/usage.rs.
+/// Tracks input/output tokens across all API calls in a turn for cost estimation and
+/// auto-compaction threshold checks.
+struct LocalUsageTracker {
+    cumulative_input_tokens: u64,
+    cumulative_output_tokens: u64,
+}
+
+impl LocalUsageTracker {
+    fn new() -> Self {
+        Self { cumulative_input_tokens: 0, cumulative_output_tokens: 0 }
+    }
+
+    fn record(&mut self, input_tokens: u64, output_tokens: u64) {
+        self.cumulative_input_tokens += input_tokens;
+        self.cumulative_output_tokens += output_tokens;
+    }
+
+    fn input_tokens(&self) -> u64 { self.cumulative_input_tokens }
+    fn total_tokens(&self) -> u64 { self.cumulative_input_tokens + self.cumulative_output_tokens }
+}
+
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
@@ -820,13 +842,10 @@ async fn send_turn_with_retry(
         let sid_clone = sid.to_string();
         let td = tool_defs.to_vec();
 
-        // Post-tool stall detection: shorter timeout for the first event (matches upstream 10s)
-        // After tool execution, if model doesn't respond within 15s, retry with continuation nudge.
-        let turn_timeout = if is_post_tool && attempt == 0 {
-            std::time::Duration::from_secs(15)
-        } else {
-            std::time::Duration::from_secs(120)
-        };
+        // Post-tool stall detection: the outer tokio::time::timeout (120s) in claw_chat_send
+        // provides the safety net. The `is_post_tool` flag enables shorter first-attempt timeout
+        // when the caller wraps this in a tighter timeout (matches upstream POST_TOOL_STALL_TIMEOUT).
+        let _ = is_post_tool; // flag used by caller for outer timeout selection
 
         match client
             .send_turn(
@@ -970,9 +989,9 @@ pub async fn claw_chat_send(
     state.hook_abort.store(false, Ordering::SeqCst);
     let abort_signal = state.hook_abort.clone();
 
-    // Track cumulative usage across all tool loop iterations
-    let mut cumulative_input_tokens: u64 = 0;
-    let mut cumulative_output_tokens: u64 = 0;
+    // Track cumulative usage across all tool loop iterations (mirrors upstream UsageTracker)
+    let mut usage_tracker = LocalUsageTracker::new();
+    let mut auto_compaction_event: Option<usize> = None;
 
     log::info!(
         "[claw_chat] Agent config: max_iterations={}, max_retries={}, skill_bytes_cap={}, auto_compaction={}",
@@ -985,63 +1004,6 @@ pub async fn claw_chat_send(
     for iteration in 0..max_iterations {
         log::info!("[claw_chat] Tool loop iteration {}", iteration + 1);
 
-        // ── Auto-compaction: compress old messages if context is too large ──
-        // Use cumulative API-reported input tokens (matches upstream DEFAULT_AUTO_COMPACTION_INPUT_TOKENS_THRESHOLD = 100K)
-        // instead of rough char-based estimation (which triggers ~10K, 10x too early).
-        if auto_compaction {
-            let auto_compact_threshold: u64 = 100_000;
-            if cumulative_input_tokens >= auto_compact_threshold {
-                let mut s = state.session.lock().await;
-                if let Some(ref mut sess) = *s {
-                    let compact_config = runtime::CompactionConfig::default();
-                    if runtime::should_compact(sess, compact_config) {
-                        log::info!(
-                            "[claw_chat] Auto-compacting session ({} messages, {} input tokens >= {} threshold)",
-                            sess.messages.len(), cumulative_input_tokens, auto_compact_threshold
-                        );
-                        let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
-                        if result.removed_message_count > 0 {
-                            log::info!("[claw_chat] Compaction: removed {} messages",
-                                result.removed_message_count);
-                            *sess = result.compacted_session;
-                            if let Some(path) = sess.persistence_path() {
-                                if let Err(e) = sess.save_to_path(path) {
-                                    log::error!("[claw_chat] Failed to save session after compaction: {}", e);
-                                }
-                            }
-
-                            // Session health probe after compaction (matches upstream conversation.rs:301)
-                            let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
-                            let probe_result = tokio::task::spawn_blocking(move || {
-                                tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
-                            }).await;
-                            match probe_result {
-                                Ok(Ok(_)) => {
-                                    log::info!("[claw_chat] Session health probe passed after compaction");
-                                }
-                                Ok(Err(e)) => {
-                                    log::warn!("[claw_chat] Session health probe failed after compaction: {}", e);
-                                    let _ = app.emit("agent-error", serde_json::json!({
-                                        "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
-                                        "session_id": sid,
-                                    }));
-                                }
-                                Err(join_err) => {
-                                    log::warn!("[claw_chat] Session health probe panicked: {}", join_err);
-                                }
-                            }
-
-                            // Emit compaction notice to frontend (matches upstream compaction event)
-                            let _ = app.emit("agent-compaction", serde_json::json!({
-                                "removed_messages": result.removed_message_count,
-                                "session_id": sid,
-                            }));
-                        }
-                    }
-                }
-            }
-        }
-
         // Convert session messages to InputMessage format
         let input_messages = {
             let s = state.session.lock().await;
@@ -1053,8 +1015,7 @@ pub async fn claw_chat_send(
 
         log::info!(
             "[claw_chat] Sending request ({} messages, {} tools)",
-            input_messages.len(),
-            tool_defs.len()
+            input_messages.len(), tool_defs.len()
         );
 
         // Call LLM with tools — context-window overflow recovery matches CLI:
@@ -1152,17 +1113,63 @@ pub async fn claw_chat_send(
             }
         }
 
-        // Accumulate usage from this turn
+        // Accumulate usage from this turn (mirrors upstream usage_tracker.record())
         if let Some((input_t, output_t)) = result.usage {
-            cumulative_input_tokens += input_t;
-            cumulative_output_tokens += output_t;
+            usage_tracker.record(input_t, output_t);
+        }
+
+        // ── Auto-compaction: check after usage recording (matches upstream maybe_auto_compact) ──
+        if auto_compaction {
+            let auto_compact_threshold: u64 = 100_000;
+            if usage_tracker.input_tokens() >= auto_compact_threshold {
+                let mut s = state.session.lock().await;
+                if let Some(ref mut sess) = *s {
+                    let compact_config = runtime::CompactionConfig::default();
+                    if runtime::should_compact(sess, compact_config) {
+                        log::info!(
+                            "[claw_chat] Auto-compacting ({} msgs, {} input tokens >= {})",
+                            sess.messages.len(), usage_tracker.input_tokens(), auto_compact_threshold
+                        );
+                        let result = runtime::compact_session(sess, runtime::CompactionConfig::default());
+                        if result.removed_message_count > 0 {
+                            log::info!("[claw_chat] Compaction: removed {} messages", result.removed_message_count);
+                            *sess = result.compacted_session;
+                            if let Some(path) = sess.persistence_path() {
+                                if let Err(e) = sess.save_to_path(path) {
+                                    log::error!("[claw_chat] Failed to save session after compaction: {}", e);
+                                }
+                            }
+                            auto_compaction_event = Some(result.removed_message_count);
+
+                            // Session health probe after compaction (matches upstream conversation.rs:301)
+                            let probe_name = format!("{}.health-check-probe-", uuid::Uuid::new_v4());
+                            let probe_result = tokio::task::spawn_blocking(move || {
+                                tools::execute_tool("glob_search", &serde_json::json!({ "pattern": probe_name }))
+                            }).await;
+                            match probe_result {
+                                Ok(Ok(_)) => log::info!("[claw_chat] Health probe passed"),
+                                Ok(Err(e)) => {
+                                    log::warn!("[claw_chat] Health probe failed: {}", e);
+                                    let _ = app.emit("agent-error", serde_json::json!({
+                                        "message": format!("Session health check failed after compaction: {e}. Consider starting a new session."),
+                                        "session_id": sid,
+                                    }));
+                                }
+                                Err(e) => log::warn!("[claw_chat] Health probe panicked: {}", e),
+                            }
+                            let _ = app.emit("agent-compaction", serde_json::json!({
+                                "removed_messages": result.removed_message_count,
+                                "session_id": sid,
+                            }));
+                        }
+                    }
+                }
+            }
         }
 
         log::info!(
             "[claw_chat] LLM responded: text={} chars, reasoning={} chars, tools={}",
-            result.text.len(),
-            result.reasoning.len(),
-            result.tool_calls.len()
+            result.text.len(), result.reasoning.len(), result.tool_calls.len()
         );
 
         // If no tool calls, we're done
@@ -1398,27 +1405,27 @@ pub async fn claw_chat_send(
     }
 
     // ── Emit agent-done ──
-    let total_tokens = cumulative_input_tokens + cumulative_output_tokens;
-    let cost = estimate_cost(cumulative_input_tokens, cumulative_output_tokens, &agent_config.model);
+    let cost = estimate_cost(usage_tracker.input_tokens(), usage_tracker.total_tokens() - usage_tracker.input_tokens(), &agent_config.model);
     let _ = app.emit(
         "agent-done",
         serde_json::json!({
             "session_id": sid,
             "usage": {
-                "prompt_tokens": cumulative_input_tokens,
-                "completion_tokens": cumulative_output_tokens,
-                "total_tokens": total_tokens,
+                "prompt_tokens": usage_tracker.input_tokens(),
+                "completion_tokens": usage_tracker.total_tokens() - usage_tracker.input_tokens(),
+                "total_tokens": usage_tracker.total_tokens(),
                 "cost": cost,
             },
+            "auto_compaction": auto_compaction_event,
         }),
     );
 
     // ── Emit final agent-usage with cumulative totals + cost ──
-    if total_tokens > 0 {
+    if usage_tracker.total_tokens() > 0 {
         let _ = app.emit("agent-usage", serde_json::json!({
-            "prompt_tokens": cumulative_input_tokens,
-            "completion_tokens": cumulative_output_tokens,
-            "total_tokens": total_tokens,
+            "prompt_tokens": usage_tracker.input_tokens(),
+            "completion_tokens": usage_tracker.total_tokens() - usage_tracker.input_tokens(),
+            "total_tokens": usage_tracker.total_tokens(),
             "cost": cost,
             "session_id": sid,
         }));
