@@ -52,9 +52,7 @@ pub fn claw_list_agents() -> Result<Vec<AgentInfo>, String> {
             .unwrap_or("")
             .to_string();
         let model = agent
-            .get("config")
-            .and_then(|c| c.as_object())
-            .and_then(|c| c.get("model"))
+            .get("model")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string();
