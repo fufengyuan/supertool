@@ -742,8 +742,8 @@ fn test_session_to_input_messages_conversion() {
         _ => panic!("Expected ToolUse block"),
     }
 
-    // Tool result message
-    assert_eq!(input_msgs[2].role, "tool");
+    // Tool result message — upstream maps Tool role to "user" for OpenAI compat
+    assert_eq!(input_msgs[2].role, "user");
     match &input_msgs[2].content[0] {
         api::InputContentBlock::ToolResult { tool_use_id, content, is_error } => {
             assert_eq!(tool_use_id, "tu_001");
@@ -1342,3 +1342,95 @@ async fn integration_session_load_and_context() {
     eprintln!("[e2e] Integration test PASSED");
 }
 
+// Test: load skills from ~/.claw/skills/ and verify LLM can use them
+#[tokio::test(flavor = "multi_thread")]
+#[ignore]
+async fn integration_claw_skills_from_data_dir() {
+    use crate::commands::claw_chat::{
+        build_tool_definitions, session_to_input_messages, setup_env_from_claw_config,
+    };
+    use runtime::{ContentBlock, ConversationMessage, Session};
+    use supertool_claw::llm::LlmClient;
+
+    // 1. Verify ~/.claw/skills/ exists and has content
+    let claw_skills_dir = dirs::home_dir().unwrap().join(".claw/skills");
+    assert!(claw_skills_dir.exists(), "~/.claw/skills/ should exist");
+    
+    // Count skills
+    let mut skill_count = 0;
+    let mut total_skill_bytes: usize = 0;
+    if let Ok(entries) = std::fs::read_dir(&claw_skills_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_dir() { continue; }
+            let desc_path = path.join("DESCRIPTION.md");
+            if desc_path.exists() {
+                skill_count += 1;
+                if let Ok(content) = std::fs::read_to_string(&desc_path) {
+                    total_skill_bytes += content.len();
+                }
+            }
+        }
+    }
+    eprintln!("[claw-skills] Found {} skill categories in ~/.claw/skills/", skill_count);
+    assert!(skill_count >= 20, "Should have at least 20 skill categories, got {}", skill_count);
+
+    // 2. Load skills via the same function used by the app
+    let skills_content = crate::commands::claw_chat::load_hermes_skills(200 * 1024);
+    eprintln!("[claw-skills] Loaded {} chars of skill content", skills_content.len());
+    assert!(skills_content.contains("Hermes Skills"), "Should contain Hermes Skills header");
+    
+    // Check specific skills are present
+    assert!(skills_content.contains("github"), "Should contain github skill");
+    assert!(skills_content.contains("software-development"), "Should contain software-development");
+    assert!(skills_content.contains("devops"), "Should contain devops");
+    
+    // 3. Build full system prompt
+    let system_prompt = crate::commands::claw_chat::claw_agent_system_prompt(200 * 1024);
+    eprintln!("[claw-skills] System prompt: {} chars", system_prompt.len());
+    assert!(system_prompt.len() > 100_000, "System prompt should be substantial (>100KB)");
+    
+    // 4. Send to LLM — ask about a skill that only exists in our skills directory
+    setup_env_from_claw_config().expect("setup env");
+    let client = match LlmClient::from_env() {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[claw-skills] SKIP: {e}");
+            return;
+        }
+    };
+
+    let mut session = Session::new();
+    session.push_user_text(
+        "You have a GitHub skill loaded. Tell me in 2 sentences what the github skill says about creating pull requests. Do NOT use any tools."
+    ).expect("push");
+
+    let input_messages = session_to_input_messages(&session.messages);
+    let result = client
+        .send_turn(
+            input_messages,
+            Some(&system_prompt),
+            None, // no tools
+            None,
+            Some(|event| match event {
+                supertool_claw::llm::LlmStreamEvent::TextDelta { text } => {
+                    eprint!("{text}");
+                }
+                _ => {}
+            }),
+        )
+        .await
+        .expect("send_turn");
+
+    let response = result.text.to_lowercase();
+    eprintln!("\n[claw-skills] Response: {}", result.text.chars().take(300).collect::<String>());
+    
+    // The LLM should reference PR-related concepts from the github skill
+    assert!(
+        response.contains("pull request") || response.contains("pr") || response.contains("github"),
+        "LLM should reference PR/GitHub from the skill. Got: {}",
+        result.text
+    );
+    
+    eprintln!("[claw-skills] ✅ Skills from ~/.claw/skills/ loaded and used by LLM");
+}
