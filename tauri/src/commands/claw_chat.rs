@@ -71,16 +71,24 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
             if path.extension().and_then(|e| e.to_str()) != Some("json") {
                 continue;
             }
+            // CRITICAL: Use the FILE NAME (stem) as sessionId, NOT the session_id field
+            // inside the JSON. The claw-code CLI may save files with names that differ
+            // from the internal session_id. load_session(id) looks for {id}.json, so
+            // the ID returned here MUST match the filename.
+            let file_stem = path.file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_string();
+            if file_stem.is_empty() {
+                continue;
+            }
             // Read the first line (meta record) for session info
             if let Ok(content) = std::fs::read_to_string(&path) {
                 let first_line = content.lines().next().unwrap_or("");
+                let mut created_at_ms: u64 = 0;
+                let mut title: Option<String> = None;
                 if let Ok(meta) = serde_json::from_str::<serde_json::Value>(first_line) {
-                    let session_id = meta
-                        .get("session_id")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_string();
-                    let created_at_ms = meta
+                    created_at_ms = meta
                         .get("created_at_ms")
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
@@ -89,7 +97,7 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                         .and_then(|v| v.as_u64())
                         .unwrap_or(0);
                     // Read the first message (after meta line) for a title preview
-                    let preview: Option<String> = content
+                    title = content
                         .lines()
                         .nth(1)
                         .and_then(|line| {
@@ -117,10 +125,10 @@ pub(crate) fn list_sessions_info() -> Vec<serde_json::Value> {
                     // Count message lines in the JSONL file
                     let message_count = content.lines().skip(1).count();
                     sessions.push(serde_json::json!({
-                        "sessionId": session_id,
+                        "sessionId": file_stem,
                         "createdAt": format_ts(created_at_ms),
                         "messageCount": message_count,
-                        "title": preview,
+                        "title": title,
                     }));
                 }
             }
