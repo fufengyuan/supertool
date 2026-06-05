@@ -632,11 +632,20 @@ async function dryRunDispatch() {
 
 onMounted(() => {
   refreshProfiles();
-  if (isClawMode.value) loadClawProfile();
+  if (isClawMode.value) {
+    loadClawProfile();
+    loadClawAgents();
+    loadPermissionMode();
+  }
 });
 
 watch(isClawMode, (claw) => {
-  if (claw) { loadClawProfile(); }
-  else { refreshProfiles(); }
+  if (claw) {
+    loadClawProfile();
+    loadClawAgents();
+    loadPermissionMode();
+  } else {
+    refreshProfiles();
+  }
 });
 </script>
