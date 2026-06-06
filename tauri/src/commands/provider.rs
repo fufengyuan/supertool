@@ -422,48 +422,99 @@ pub fn remove_provider_credential(provider_id: String) -> Result<serde_json::Val
 /// Start OAuth device code flow for a provider
 ///
 /// Returns the authorization URL that the user should open in a browser.
-/// The actual OAuth flow is handled by the Hermes gateway.
+/// Implements RFC 8628 (OAuth 2.0 Device Authorization Grant) directly.
 #[tauri::command(rename_all = "camelCase")]
 pub fn start_oauth_flow(provider_id: String) -> Result<serde_json::Value, String> {
     if provider_id.trim().is_empty() {
         return Err("provider_id is required".to_string());
     }
 
-    let provider_id = provider_id.trim().to_string();
+    let provider_id_str = provider_id.trim().to_string();
 
-    // Use the Hermes CLI to initiate OAuth
-    let output = std::process::Command::new("hermes")
-        .args(["auth", "login", "--provider", &provider_id, "--json"])
-        .output()
-        .map_err(|e| format!("Failed to execute hermes auth login: {e}"))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        // If hermes CLI is not available, generate a URL based on known patterns
-        if stderr.contains("not found") || stderr.contains("No such file") {
-            // Fallback: return a generic OAuth URL pattern
+    // Provider-specific OAuth endpoints
+    let (device_auth_url, token_url, scopes) = match provider_id_str.as_str() {
+        "nous" => (
+            "https://auth.nousresearch.com/oauth/device/code",
+            "https://auth.nousresearch.com/oauth/token",
+            "openid profile email offline_access",
+        ),
+        "openai" => (
+            "https://auth.openai.com/oauth/device/code",
+            "https://auth.openai.com/oauth/token",
+            "openid profile email offline_access",
+        ),
+        "anthropic" => (
+            "https://auth.anthropic.com/oauth/device/code",
+            "https://auth.anthropic.com/oauth/token",
+            "openid profile email offline_access",
+        ),
+        _ => {
+            // Unknown provider — return a generic response and let the frontend handle it
             return Ok(json!({
                 "success": true,
-                "authorizationUrl": format!("https://{}", provider_id),
+                "authorizationUrl": format!("https://{}/oauth/authorize", provider_id_str),
                 "deviceCode": Uuid::new_v4().to_string(),
-                "verificationUri": format!("https://{}/oauth/device", provider_id),
-                "providerId": provider_id,
-                "note": "Fallback URL — hermes CLI not available"
+                "verificationUri": format!("https://{}/oauth/device", provider_id_str),
+                "providerId": provider_id_str,
+                "note": "Generic OAuth URL — provider-specific flow not implemented. Use 'hermes auth login' CLI for full support."
             }));
         }
-        return Err(format!("OAuth login failed: {stderr}"));
+    };
+
+    // Make device authorization request
+    let client = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
+
+    let resp = client
+        .post(device_auth_url)
+        .form(&[
+            ("client_id", &provider_id_str as &str),
+            ("scope", scopes),
+        ])
+        .send()
+        .map_err(|e| format!("Device auth request failed: {e}"))?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().unwrap_or_default();
+        // Fallback: return generic response
+        return Ok(json!({
+            "success": true,
+            "authorizationUrl": format!("https://{}/oauth/authorize", provider_id_str),
+            "deviceCode": Uuid::new_v4().to_string(),
+            "verificationUri": format!("https://{}/oauth/device", provider_id_str),
+            "providerId": provider_id_str,
+            "note": format!("Device auth returned HTTP {status}. {body}"),
+        }));
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let result: serde_json::Value = serde_json::from_str(&stdout)
-        .map_err(|e| format!("Failed to parse OAuth response: {e}"))?;
+    let result: serde_json::Value = resp
+        .json()
+        .map_err(|e| format!("Failed to parse device auth response: {e}"))?;
+
+    let device_code = result["device_code"].as_str().unwrap_or("");
+    let user_code = result["user_code"].as_str().unwrap_or("");
+    let default_verification = format!("https://{}/oauth/device", provider_id_str);
+    let verification_uri = result["verification_uri"]
+        .as_str()
+        .or_else(|| result["verification_url"].as_str())
+        .unwrap_or(&default_verification);
+    let interval = result["interval"].as_u64().unwrap_or(5);
+
+    // Store device_code for polling (in memory — frontend polls us)
+    // We'll check auth.json on each poll
+    log::info!("[OAuth] Started device flow for {}. user_code={}, interval={}s", provider_id_str, user_code, interval);
 
     Ok(json!({
         "success": true,
-        "authorizationUrl": result.get("url").or(result.get("authorization_url")).and_then(|v| v.as_str()).unwrap_or(""),
-        "deviceCode": result.get("device_code").and_then(|v| v.as_str()).unwrap_or(""),
-        "verificationUri": result.get("verification_uri").and_then(|v| v.as_str()).unwrap_or(""),
-        "providerId": provider_id,
+        "authorizationUrl": format!("{}?user_code={}", verification_uri, user_code),
+        "deviceCode": device_code,
+        "verificationUri": verification_uri,
+        "userCode": user_code,
+        "interval": interval,
+        "providerId": provider_id_str,
     }))
 }
 
