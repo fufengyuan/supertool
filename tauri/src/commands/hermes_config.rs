@@ -518,18 +518,35 @@ pub fn get_hermes_config_info() -> Result<serde_json::Value, String> {
     let installed = hermes_is_installed();
     let config_exists = cfg_path.exists();
     let version = if installed {
-        std::process::Command::new("hermes")
-            .arg("--version")
-            .output()
-            .ok()
-            .and_then(|o| {
-                if o.status.success() {
-                    String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
-                } else {
-                    None
-                }
+        // Read version from ultra crate's Cargo.toml (or fallback to CLI)
+        paths::hermes_home()
+            .parent()
+            .map(|p| p.join("workspace"))
+            .map(|w| w.join("hermes-agent-ultra-main"))
+            .map(|d| d.join("Cargo.toml"))
+            .filter(|p| p.exists())
+            .and_then(|p| std::fs::read_to_string(p).ok())
+            .and_then(|s| {
+                s.lines()
+                    .find(|l| l.trim().starts_with("version ="))
+                    .and_then(|l| l.split('=').nth(1))
+                    .map(|v| v.trim().trim_matches('"').to_string())
             })
-            .unwrap_or_default()
+            .unwrap_or_else(|| {
+                // Fallback: check the CLI binary version
+                std::process::Command::new("hermes")
+                    .arg("--version")
+                    .output()
+                    .ok()
+                    .and_then(|o| {
+                        if o.status.success() {
+                            String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_default()
+            })
     } else {
         String::new()
     };

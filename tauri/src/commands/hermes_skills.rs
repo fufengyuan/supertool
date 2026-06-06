@@ -1,12 +1,11 @@
 //! Hermes Skills management — using hermes-config paths for resolution.
 //!
 //! Scans SKILL.md files in the installed/bundled skills directories.
-//! Install/uninstall delegate to `hermes skills install/uninstall` CLI.
-
-use std::path::PathBuf;
+//! Install/uninstall with direct file operations (no CLI).
 
 use hermes_config::paths;
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -149,30 +148,135 @@ fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
     skills
 }
 
-// ── CLI helpers ───────────────────────────────────────────────
+// ── Install / Uninstall (direct file operations) ──────────────
 
-fn hermes_cli_path() -> String {
-    if let Some(home) = dirs::home_dir() {
-        let local = home.join(".local/bin/hermes");
-        if local.exists() {
-            return local.to_string_lossy().to_string();
-        }
+fn skill_category_name_from_identifier(identifier: &str) -> (String, String) {
+    if let Some(slash_pos) = identifier.find('/') {
+        let cat = &identifier[..slash_pos];
+        let name = &identifier[slash_pos + 1..];
+        (cat.to_string(), name.to_string())
+    } else {
+        ("agent".to_string(), identifier.to_string())
     }
-    "hermes".to_string()
 }
 
-fn run_command_direct(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let output = std::process::Command::new(cmd)
-        .args(args)
-        .output()
-        .map_err(|e| format!("Failed to run command: {e}"))?;
+#[tauri::command(rename_all = "camelCase")]
+pub fn install_skill(identifier: String) -> SkillCliResult {
+    let (category, skill_name) = skill_category_name_from_identifier(&identifier);
+    let skill_dir = installed_skills_dir().join(&category).join(&skill_name);
+    let skill_file = skill_dir.join("SKILL.md");
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Command failed: {stderr}"));
+    if skill_file.exists() {
+        return SkillCliResult {
+            success: false,
+            error: Some(format!("Skill '{}' already installed at {}", identifier, skill_dir.display())),
+        };
     }
 
-    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    // URL install: download from URL
+    if identifier.starts_with("http://") || identifier.starts_with("https://") {
+        let client = match reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+        {
+            Ok(c) => c,
+            Err(e) => return SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to create HTTP client: {e}")),
+            },
+        };
+        let resp = match client.get(&identifier).send() {
+            Ok(r) => r,
+            Err(e) => return SkillCliResult {
+                success: false,
+                error: Some(format!("HTTP request failed: {e}")),
+            },
+        };
+        if !resp.status().is_success() {
+            return SkillCliResult {
+                success: false,
+                error: Some(format!("HTTP {}: {}", resp.status(), resp.status().canonical_reason().unwrap_or("unknown"))),
+            };
+        }
+        let content = match resp.text() {
+            Ok(c) => c,
+            Err(e) => return SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to read response: {e}")),
+            },
+        };
+        if let Err(e) = std::fs::create_dir_all(&skill_dir) {
+            return SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to create skill dir: {e}")),
+            };
+        }
+        match std::fs::write(&skill_file, &content) {
+            Ok(_) => SkillCliResult { success: true, error: None },
+            Err(e) => SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to write SKILL.md: {e}")),
+            },
+        }
+    } else {
+        // Local install: copy from bundled skills
+        let bundled_skill = bundled_skills_dir()
+            .join(&category)
+            .join(&skill_name)
+            .join("SKILL.md");
+
+        if !bundled_skill.exists() {
+            return SkillCliResult {
+                success: false,
+                error: Some(format!(
+                    "Skill '{}' not found. Use a URL, or install via 'hermes skills install {}'",
+                    identifier, identifier
+                )),
+            };
+        }
+
+        let content = match std::fs::read_to_string(&bundled_skill) {
+            Ok(c) => c,
+            Err(e) => return SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to read bundled SKILL.md: {e}")),
+            },
+        };
+        if let Err(e) = std::fs::create_dir_all(&skill_dir) {
+            return SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to create skill dir: {e}")),
+            };
+        }
+        match std::fs::write(&skill_file, &content) {
+            Ok(_) => SkillCliResult { success: true, error: None },
+            Err(e) => SkillCliResult {
+                success: false,
+                error: Some(format!("Failed to write SKILL.md: {e}")),
+            },
+        }
+    }
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub fn uninstall_skill(identifier: String) -> SkillCliResult {
+    let (category, skill_name) = skill_category_name_from_identifier(&identifier);
+    let skill_dir = installed_skills_dir().join(&category).join(&skill_name);
+
+    if !skill_dir.exists() {
+        return SkillCliResult {
+            success: false,
+            error: Some(format!("Skill '{}' not found at {}", identifier, skill_dir.display())),
+        };
+    }
+
+    match std::fs::remove_dir_all(&skill_dir) {
+        Ok(_) => SkillCliResult { success: true, error: None },
+        Err(e) => SkillCliResult {
+            success: false,
+            error: Some(format!("Failed to remove skill directory: {e}")),
+        },
+    }
 }
 
 // ── Tauri Commands ────────────────────────────────────────────
@@ -232,22 +336,4 @@ pub fn get_skill_content(path: String) -> String {
         return String::new();
     }
     std::fs::read_to_string(&skill_file).unwrap_or_default()
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn install_skill(identifier: String) -> SkillCliResult {
-    let hermes = hermes_cli_path();
-    match run_command_direct(&hermes, &["skills", "install", &identifier, "--yes"]) {
-        Ok(_) => SkillCliResult { success: true, error: None },
-        Err(e) => SkillCliResult { success: false, error: Some(e) },
-    }
-}
-
-#[tauri::command(rename_all = "camelCase")]
-pub fn uninstall_skill(identifier: String) -> SkillCliResult {
-    let hermes = hermes_cli_path();
-    match run_command_direct(&hermes, &["skills", "uninstall", &identifier]) {
-        Ok(_) => SkillCliResult { success: true, error: None },
-        Err(e) => SkillCliResult { success: false, error: Some(e) },
-    }
 }
