@@ -1,20 +1,20 @@
-//! Hermes Memory Management — pure Rust, no Python bridge
+//! Hermes Memory Management — using hermes-config paths.
 //!
 //! Manages MEMORY.md and USER.md in ~/.hermes/memories/,
 //! reads session/message stats from state.db,
 //! and lists memory providers from config.yaml.
-//!
-//! Reference: hermes-desktop/src/main/memory.ts
 
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+
+use hermes_config::paths;
+use serde::{Deserialize, Serialize};
 
 const ENTRY_DELIMITER: &str = "\n§\n";
 pub(crate) const MEMORY_CHAR_LIMIT: usize = 2200;
 pub(crate) const USER_CHAR_LIMIT: usize = 1375;
 
-// ── Data types ───────────────────────────────────────────
+// ── Data types ────────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -78,41 +78,19 @@ pub struct MemoryWriteResult {
     pub error: Option<String>,
 }
 
-// ── Paths ────────────────────────────────────────────────
-
-pub(crate) fn hermes_home() -> PathBuf {
-    if let Ok(home) = std::env::var("HERMES_HOME") {
-        PathBuf::from(home)
-    } else {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".hermes")
-    }
-}
-
-fn memories_dir() -> PathBuf {
-    hermes_home().join("memories")
-}
-
-fn memory_path() -> PathBuf {
-    memories_dir().join("MEMORY.md")
-}
-
-fn user_path() -> PathBuf {
-    memories_dir().join("USER.md")
-}
+// ── Paths (ultra crate powered) ───────────────────────────────
 
 fn state_db_path() -> PathBuf {
-    hermes_home().join("state.db")
+    paths::hermes_home().join("state.db")
 }
 
-fn config_path() -> PathBuf {
-    hermes_home().join("config.yaml")
+fn config_path_fn() -> PathBuf {
+    paths::config_path()
 }
 
-// ── File helpers ─────────────────────────────────────────
+// ── File helpers ──────────────────────────────────────────────
 
-pub(crate) fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>) {
+fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>) {
     if !file_path.exists() {
         return (String::new(), false, None);
     }
@@ -130,21 +108,20 @@ pub(crate) fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>)
     }
 }
 
-pub(crate) fn write_file_atomic(file_path: &PathBuf, content: &str) -> Result<(), String> {
-    // Ensure parent directory exists
+fn write_file_atomic(file_path: &PathBuf, content: &str) -> Result<(), String> {
     if let Some(parent) = file_path.parent() {
         std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create directory: {}", e))?;
+            .map_err(|e| format!("Failed to create directory: {e}"))?;
     }
-    let tmp_path = file_path.with_extension("md.tmp");
-    std::fs::write(&tmp_path, content)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
-    std::fs::rename(&tmp_path, file_path)
-        .map_err(|e| format!("Failed to rename file: {}", e))?;
+    let tmp = file_path.with_extension("md.tmp");
+    std::fs::write(&tmp, content)
+        .map_err(|e| format!("Failed to write file: {e}"))?;
+    std::fs::rename(&tmp, file_path)
+        .map_err(|e| format!("Failed to rename file: {e}"))?;
     Ok(())
 }
 
-pub(crate) fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
+fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
     if content.trim().is_empty() {
         return Vec::new();
     }
@@ -159,7 +136,7 @@ pub(crate) fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
         .collect()
 }
 
-pub(crate) fn serialize_entries(entries: &[MemoryEntry]) -> String {
+fn serialize_entries(entries: &[MemoryEntry]) -> String {
     entries
         .iter()
         .map(|e| e.content.as_str())
@@ -167,13 +144,10 @@ pub(crate) fn serialize_entries(entries: &[MemoryEntry]) -> String {
         .join(ENTRY_DELIMITER)
 }
 
-pub(crate) fn get_session_stats() -> SessionStats {
+fn get_session_stats() -> SessionStats {
     let db_path = state_db_path();
     if !db_path.exists() {
-        return SessionStats {
-            total_sessions: 0,
-            total_messages: 0,
-        };
+        return SessionStats { total_sessions: 0, total_messages: 0 };
     }
 
     match rusqlite::Connection::open(&db_path) {
@@ -185,24 +159,16 @@ pub(crate) fn get_session_stats() -> SessionStats {
                     |row| row.get(0),
                 )
                 .unwrap_or(0);
-
             let total_messages: i64 = conn
                 .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
                 .unwrap_or(0);
-
-            SessionStats {
-                total_sessions,
-                total_messages,
-            }
+            SessionStats { total_sessions, total_messages }
         }
-        Err(_) => SessionStats {
-            total_sessions: 0,
-            total_messages: 0,
-        },
+        Err(_) => SessionStats { total_sessions: 0, total_messages: 0 },
     }
 }
 
-// ── Known memory providers ───────────────────────────────
+// ── Known memory providers ────────────────────────────────────
 
 const KNOWN_PROVIDERS: &[(&str, &str, &[&str])] = &[
     ("honcho", "Managed memory via Honcho API — best for long-term memory persistence", &["HONCHO_API_KEY"]),
@@ -213,18 +179,19 @@ const KNOWN_PROVIDERS: &[(&str, &str, &[&str])] = &[
     ("byterover", "ByteRover — cross-session memory router for long-running agents", &["BYTEROVER_API_KEY"]),
 ];
 
-/// Check if a provider's env vars are set in the environment
-pub(crate) fn check_provider_installed(env_keys: &[&str]) -> bool {
+fn check_provider_installed(env_keys: &[&str]) -> bool {
     env_keys.iter().any(|k| std::env::var(k).is_ok())
 }
 
-// ── Tauri Commands ───────────────────────────────────────
+// ── Tauri Commands ────────────────────────────────────────────
 
-/// Read memory info: MEMORY.md content + entries + USER.md + stats
 #[tauri::command(rename_all = "camelCase")]
 pub fn read_memory() -> Result<MemoryInfo, String> {
-    let mem_file = read_file_safe(&memory_path());
-    let user_file = read_file_safe(&user_path());
+    let mem_path = paths::memory_path();
+    let user_path = paths::user_path();
+
+    let mem_file = read_file_safe(&mem_path);
+    let user_file = read_file_safe(&user_path);
 
     Ok(MemoryInfo {
         memory: MemoryFileInfo {
@@ -239,7 +206,7 @@ pub fn read_memory() -> Result<MemoryInfo, String> {
             content: user_file.0.clone(),
             exists: user_file.1,
             last_modified: user_file.2,
-            entries: Vec::new(), // user file is freeform, not entry-based
+            entries: Vec::new(),
             char_count: user_file.0.len(),
             char_limit: USER_CHAR_LIMIT,
         },
@@ -247,10 +214,9 @@ pub fn read_memory() -> Result<MemoryInfo, String> {
     })
 }
 
-/// Add a new memory entry
 #[tauri::command(rename_all = "camelCase")]
 pub fn add_memory_entry(content: String) -> MemoryWriteResult {
-    let file_path = memory_path();
+    let file_path = paths::memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
     entries.push(MemoryEntry {
@@ -262,30 +228,19 @@ pub fn add_memory_entry(content: String) -> MemoryWriteResult {
     if new_content.len() > MEMORY_CHAR_LIMIT {
         return MemoryWriteResult {
             success: false,
-            error: Some(format!(
-                "Would exceed memory limit ({}/{})",
-                new_content.len(),
-                MEMORY_CHAR_LIMIT
-            )),
+            error: Some(format!("Would exceed memory limit ({}/{})", new_content.len(), MEMORY_CHAR_LIMIT)),
         };
     }
 
     match write_file_atomic(&file_path, &new_content) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(e),
-        },
+        Ok(()) => MemoryWriteResult { success: true, error: None },
+        Err(e) => MemoryWriteResult { success: false, error: Some(e) },
     }
 }
 
-/// Update a memory entry by index
 #[tauri::command(rename_all = "camelCase")]
 pub fn update_memory_entry(index: i32, content: String) -> MemoryWriteResult {
-    let file_path = memory_path();
+    let file_path = paths::memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
 
@@ -302,30 +257,19 @@ pub fn update_memory_entry(index: i32, content: String) -> MemoryWriteResult {
     if new_content.len() > MEMORY_CHAR_LIMIT {
         return MemoryWriteResult {
             success: false,
-            error: Some(format!(
-                "Would exceed memory limit ({}/{})",
-                new_content.len(),
-                MEMORY_CHAR_LIMIT
-            )),
+            error: Some(format!("Would exceed memory limit ({}/{})", new_content.len(), MEMORY_CHAR_LIMIT)),
         };
     }
 
     match write_file_atomic(&file_path, &new_content) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(e),
-        },
+        Ok(()) => MemoryWriteResult { success: true, error: None },
+        Err(e) => MemoryWriteResult { success: false, error: Some(e) },
     }
 }
 
-/// Remove a memory entry by index
 #[tauri::command(rename_all = "camelCase")]
 pub fn remove_memory_entry(index: i32) -> MemoryWriteResult {
-    let file_path = memory_path();
+    let file_path = paths::memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
 
@@ -340,53 +284,32 @@ pub fn remove_memory_entry(index: i32) -> MemoryWriteResult {
     let new_content = serialize_entries(&entries);
 
     match write_file_atomic(&file_path, &new_content) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(e),
-        },
+        Ok(()) => MemoryWriteResult { success: true, error: None },
+        Err(e) => MemoryWriteResult { success: false, error: Some(e) },
     }
 }
 
-/// Write user profile (USER.md)
 #[tauri::command(rename_all = "camelCase")]
 pub fn write_user_profile(content: String) -> MemoryWriteResult {
     if content.len() > USER_CHAR_LIMIT {
         return MemoryWriteResult {
             success: false,
-            error: Some(format!(
-                "Exceeds limit ({}/{})",
-                content.len(),
-                USER_CHAR_LIMIT
-            )),
+            error: Some(format!("Exceeds limit ({}/{})", content.len(), USER_CHAR_LIMIT)),
         };
     }
 
-    match write_file_atomic(&user_path(), &content) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(e),
-        },
+    match write_file_atomic(&paths::user_path(), &content) {
+        Ok(()) => MemoryWriteResult { success: true, error: None },
+        Err(e) => MemoryWriteResult { success: false, error: Some(e) },
     }
 }
 
-/// List memory providers with their status
-/// Reads active provider from config.yaml, checks env vars for each provider
 #[tauri::command(rename_all = "camelCase")]
 pub fn list_memory_providers() -> MemoryProviderResult {
-    // Read config.yaml for memory section
-    let config_path = config_path();
+    let config_path = config_path_fn();
     let active_provider = if config_path.exists() {
         match std::fs::read_to_string(&config_path) {
             Ok(content) => {
-                // Parse the memory section using serde_yaml
                 match serde_yaml::from_str::<serde_yaml::Value>(&content) {
                     Ok(value) => value
                         .get("memory")
@@ -403,40 +326,30 @@ pub fn list_memory_providers() -> MemoryProviderResult {
         String::new()
     };
 
-    // Read memory_char_limit and user_char_limit from config
-    let memory_char_limit = MEMORY_CHAR_LIMIT;
-    let user_char_limit = USER_CHAR_LIMIT;
-    let memory_enabled = true;
-    let user_profile_enabled = true;
-
     let providers: Vec<MemoryProviderInfo> = KNOWN_PROVIDERS
         .iter()
-        .map(|(name, desc, env_keys)| {
-            let env_vars: Vec<String> = env_keys.iter().map(|k| k.to_string()).collect();
-            MemoryProviderInfo {
-                name: name.to_string(),
-                description: desc.to_string(),
-                installed: check_provider_installed(env_keys),
-                active: active_provider == *name,
-                env_vars,
-            }
+        .map(|(name, desc, env_keys)| MemoryProviderInfo {
+            name: name.to_string(),
+            description: desc.to_string(),
+            installed: check_provider_installed(env_keys),
+            active: active_provider == *name,
+            env_vars: env_keys.iter().map(|k| k.to_string()).collect(),
         })
         .collect();
 
     MemoryProviderResult {
         providers,
         active_provider,
-        memory_enabled,
-        user_profile_enabled,
-        memory_char_limit,
-        user_char_limit,
+        memory_enabled: true,
+        user_profile_enabled: true,
+        memory_char_limit: MEMORY_CHAR_LIMIT,
+        user_char_limit: USER_CHAR_LIMIT,
     }
 }
 
-/// Set the active memory provider in config.yaml
 #[tauri::command(rename_all = "camelCase")]
 pub fn set_memory_provider(provider: String) -> MemoryWriteResult {
-    let config_path = config_path();
+    let config_path = config_path_fn();
     if !config_path.exists() {
         return MemoryWriteResult {
             success: false,
@@ -444,28 +357,22 @@ pub fn set_memory_provider(provider: String) -> MemoryWriteResult {
         };
     }
 
-    // Read existing config
     let content = match std::fs::read_to_string(&config_path) {
         Ok(c) => c,
-        Err(e) => {
-            return MemoryWriteResult {
-                success: false,
-                error: Some(format!("Failed to read config: {}", e)),
-            }
-        }
+        Err(e) => return MemoryWriteResult {
+            success: false,
+            error: Some(format!("Failed to read config: {e}")),
+        },
     };
 
     let mut yaml_value: serde_yaml::Value = match serde_yaml::from_str(&content) {
         Ok(v) => v,
-        Err(e) => {
-            return MemoryWriteResult {
-                success: false,
-                error: Some(format!("Failed to parse config: {}", e)),
-            }
-        }
+        Err(e) => return MemoryWriteResult {
+            success: false,
+            error: Some(format!("Failed to parse config: {e}")),
+        },
     };
 
-    // Ensure memory section exists
     if yaml_value.get("memory").is_none() {
         if let Some(map) = yaml_value.as_mapping_mut() {
             map.insert(
@@ -475,7 +382,6 @@ pub fn set_memory_provider(provider: String) -> MemoryWriteResult {
         }
     }
 
-    // Set provider value
     if let Some(memory) = yaml_value.get_mut("memory") {
         if let Some(map) = memory.as_mapping_mut() {
             map.insert(
@@ -485,104 +391,102 @@ pub fn set_memory_provider(provider: String) -> MemoryWriteResult {
         }
     }
 
-    // Write back atomically
     let new_content = match serde_yaml::to_string(&yaml_value) {
         Ok(s) => s,
-        Err(e) => {
-            return MemoryWriteResult {
-                success: false,
-                error: Some(format!("Failed to serialize config: {}", e)),
-            }
-        }
+        Err(e) => return MemoryWriteResult {
+            success: false,
+            error: Some(format!("Failed to serialize config: {e}")),
+        },
     };
 
-    let tmp_path = config_path.with_extension("yaml.tmp");
-    match std::fs::write(&tmp_path, &new_content) {
-        Ok(()) => {}
-        Err(e) => {
-            return MemoryWriteResult {
-                success: false,
-                error: Some(format!("Failed to write config: {}", e)),
+    let tmp = config_path.with_extension("yaml.tmp");
+    match std::fs::write(&tmp, &new_content) {
+        Ok(_) => {}
+        Err(e) => return MemoryWriteResult {
+            success: false,
+            error: Some(format!("Failed to write config: {e}")),
+        },
+    }
+    match std::fs::rename(&tmp, &config_path) {
+        Ok(_) => MemoryWriteResult { success: true, error: None },
+        Err(e) => MemoryWriteResult {
+            success: false,
+            error: Some(format!("Failed to rename config: {e}")),
+        },
+    }
+}
+
+/// Read env vars for memory providers (return values for display).
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_env_vars() -> Result<serde_json::Value, String> {
+    let env_path = paths::env_path();
+    if !env_path.exists() {
+        return Ok(serde_json::json!({}));
+    }
+    let content = std::fs::read_to_string(&env_path)
+        .map_err(|e| format!("Failed to read .env: {e}"))?;
+
+    let mut vars = HashMap::new();
+    for line in content.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some(eq) = trimmed.find('=') {
+            let key = &trimmed[..eq];
+            let value = &trimmed[eq + 1..];
+            // Only expose memory-related env vars
+            if key.starts_with("MEM") || key.starts_with("HIND") || key.starts_with("RETAIN")
+                || key.starts_with("SUPERMEM") || key.starts_with("BYTEROVER")
+                || key.starts_with("HONCHO")
+            {
+                let masked = if value.len() > 8 {
+                    format!("{}...{}", &value[..4], &value[value.len()-4..])
+                } else {
+                    "****".to_string()
+                };
+                vars.insert(key.to_string(), masked);
             }
         }
     }
-    match std::fs::rename(&tmp_path, &config_path) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(format!("Failed to rename config: {}", e)),
-        },
-    }
+
+    Ok(serde_json::json!(vars))
 }
 
-/// Read specified environment variables from the process
+/// Save a memory env var.
 #[tauri::command(rename_all = "camelCase")]
-pub fn read_env_vars(keys: Vec<String>) -> HashMap<String, String> {
-    let mut result = HashMap::new();
-    for key in keys {
-        let val = std::env::var(&key).unwrap_or_default();
-        result.insert(key, val);
-    }
-    result
-}
-
-/// Save an environment variable to ~/.hermes/.env
-#[tauri::command(rename_all = "camelCase")]
-pub fn save_env_var(key: String, value: String) -> MemoryWriteResult {
-    let env_path = hermes_home().join(".env");
-    let mut existing = String::new();
-    if env_path.exists() {
-        existing = match std::fs::read_to_string(&env_path) {
-            Ok(c) => c,
-            Err(e) => {
-                return MemoryWriteResult {
-                    success: false,
-                    error: Some(format!("Failed to read .env: {}", e)),
-                }
-            }
-        };
+pub fn save_env_var(key: String, value: String) -> Result<serde_json::Value, String> {
+    let env_path = paths::env_path();
+    // Ensure .hermes directory exists
+    if let Some(parent) = env_path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("Failed to create dir: {e}"))?;
     }
 
-    // Update or append the key=value line
-    let key_pattern = format!("{}=", key);
-    let mut found = false;
-    let mut new_lines: Vec<String> = existing
+    let existing_content = if env_path.exists() {
+        std::fs::read_to_string(&env_path).unwrap_or_default()
+    } else {
+        String::new()
+    };
+
+    let mut lines: Vec<String> = existing_content
         .lines()
-        .map(|line| {
-            if line.trim().starts_with(&key_pattern) || line.trim().starts_with(&format!("export {}", key_pattern))
-            {
-                found = true;
-                if value.is_empty() {
-                    // Comment out instead of removing
-                    format!("# {} (removed)", line)
-                } else {
-                    format!("export {}={}", key, value)
-                }
-            } else {
-                line.to_string()
-            }
-        })
+        .filter(|l| !l.trim().starts_with(&format!("{}=", key)))
+        .map(String::from)
         .collect();
 
-    if !found && !value.is_empty() {
-        new_lines.push(format!("export {}={}", key, value));
+    lines.push(format!("{}={}", key, value));
+
+    let mut new_content = lines.join("\n");
+    if !new_content.ends_with('\n') {
+        new_content.push('\n');
     }
 
-    let new_content = new_lines.join("\n") + "\n";
+    let tmp = env_path.with_extension("env.tmp");
+    std::fs::write(&tmp, &new_content)
+        .map_err(|e| format!("Failed to write .env: {e}"))?;
+    std::fs::rename(&tmp, &env_path)
+        .map_err(|e| format!("Failed to update .env: {e}"))?;
 
-    match write_file_atomic(&env_path, &new_content) {
-        Ok(()) => MemoryWriteResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => MemoryWriteResult {
-            success: false,
-            error: Some(format!("Failed to write .env: {}", e)),
-        },
-    }
+    Ok(serde_json::json!({ "success": true }))
 }
-
-// ── Tests ────────────────────────────────────────────────

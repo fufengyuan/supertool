@@ -1,0 +1,32 @@
+[package]
+name = "hermes-environments"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Terminal backends and environment management for Hermes Agent"
+
+[features]
+default = []
+docker = []
+ssh = []
+daytona = []
+modal = []
+singularity = []
+
+[dependencies]
+hermes-core = { workspace = true }
+hermes-config = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile = "3"
+hermes-config = { workspace = true, features = ["test-helpers"] }

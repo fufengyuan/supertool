@@ -1,13 +1,5 @@
-//! Hermes Sessions management commands (pure Rust, no Python bridge).
-//!
-//! Wraps `hermes sessions export/prune` commands.
+//! Hermes Sessions management commands.
 
-use serde_json::json;
-use std::process::Command;
-
-/// Export sessions to a JSONL file, or to stdout if path is "-".
-///
-/// Wraps `hermes sessions export [--source SOURCE] [--session-id SESSION_ID] <output>`.
 #[tauri::command(rename_all = "camelCase")]
 pub fn sessions_export(
     output: String,
@@ -25,7 +17,7 @@ pub fn sessions_export(
     }
     args.push(output);
 
-    let cmd = Command::new("hermes")
+    let cmd = std::process::Command::new("hermes")
         .args(&args)
         .output()
         .map_err(|e| format!("执行 hermes sessions export 失败: {e}"))?;
@@ -33,16 +25,13 @@ pub fn sessions_export(
     let stdout = String::from_utf8_lossy(&cmd.stdout);
     let stderr = String::from_utf8_lossy(&cmd.stderr);
 
-    Ok(json!({
+    Ok(serde_json::json!({
         "success": cmd.status.success(),
         "output": stdout.to_string(),
         "error": stderr.to_string(),
     }))
 }
 
-/// Prune old sessions.
-///
-/// Wraps `hermes sessions prune [--older-than DAYS] [--source SOURCE] [--yes]`.
 #[tauri::command(rename_all = "camelCase")]
 pub fn sessions_prune(
     older_than: Option<i32>,
@@ -62,7 +51,7 @@ pub fn sessions_prune(
         args.push("--yes".into());
     }
 
-    let cmd = Command::new("hermes")
+    let cmd = std::process::Command::new("hermes")
         .args(&args)
         .output()
         .map_err(|e| format!("执行 hermes sessions prune 失败: {e}"))?;
@@ -70,7 +59,7 @@ pub fn sessions_prune(
     let stdout = String::from_utf8_lossy(&cmd.stdout);
     let stderr = String::from_utf8_lossy(&cmd.stderr);
 
-    Ok(json!({
+    Ok(serde_json::json!({
         "success": cmd.status.success(),
         "output": stdout.to_string(),
         "error": stderr.to_string(),

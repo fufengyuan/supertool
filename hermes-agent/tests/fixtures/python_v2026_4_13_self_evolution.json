@@ -1,0 +1,52 @@
+[
+  {
+    "name": "memory_nudge_interval_2_after_one_run",
+    "runs": 1,
+    "memory_nudge_interval": 2,
+    "skill_creation_nudge_interval": 0,
+    "register_memory_tool": true,
+    "register_skill_tool": false,
+    "expected_turns_since_memory": 1,
+    "expected_iters_since_skill": 0
+  },
+  {
+    "name": "memory_nudge_interval_2_after_two_runs",
+    "runs": 2,
+    "memory_nudge_interval": 2,
+    "skill_creation_nudge_interval": 0,
+    "register_memory_tool": true,
+    "register_skill_tool": false,
+    "expected_turns_since_memory": 0,
+    "expected_iters_since_skill": 0
+  },
+  {
+    "name": "skill_counter_ticks_per_iteration",
+    "runs": 1,
+    "memory_nudge_interval": 0,
+    "skill_creation_nudge_interval": 10,
+    "register_memory_tool": false,
+    "register_skill_tool": true,
+    "expected_turns_since_memory": 0,
+    "expected_iters_since_skill": 1
+  },
+  {
+    "name": "skill_counter_hits_threshold_and_resets",
+    "runs": 1,
+    "memory_nudge_interval": 0,
+    "skill_creation_nudge_interval": 1,
+    "register_memory_tool": false,
+    "register_skill_tool": true,
+    "expected_turns_since_memory": 0,
+    "expected_iters_since_skill": 0
+  },
+  {
+    "name": "skill_counter_resets_every_threshold_window",
+    "runs": 2,
+    "memory_nudge_interval": 0,
+    "skill_creation_nudge_interval": 2,
+    "register_memory_tool": false,
+    "register_skill_tool": true,
+    "expected_turns_since_memory": 0,
+    "expected_iters_since_skill": 0
+  }
+]

@@ -7,9 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use futures::StreamExt;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::{AppHandle, Emitter};
-
 use crate::commands::hermes_config::{check_api_server_config, ensure_api_server_config};
 
 /// Hermes HTTP API server URL

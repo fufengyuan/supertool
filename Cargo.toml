@@ -1,20 +1,111 @@
 [workspace]
-members = ["tauri", "cli", "core", "claw-cli", "claw", "claw-plugins", "claw-telemetry", "claw-runtime", "claw-commands", "claw-tools"]
+members = [
+  # SuperTool
+  "tauri", "cli", "core",
+  # Claw
+  "claw-cli", "claw", "claw-plugins", "claw-telemetry",
+  "claw-runtime", "claw-commands", "claw-tools",
+  # Hermes Ultra
+  "hermes-core", "hermes-agent", "hermes-tools", "hermes-gateway",
+  "hermes-cli", "hermes-cron", "hermes-skills", "hermes-mcp",
+  "hermes-environments", "hermes-config", "hermes-intelligence",
+  "hermes-acp", "hermes-eval", "hermes-http", "hermes-auth",
+  "hermes-telemetry",
+]
 resolver = "2"
 
+[workspace.package]
+version = "0.16.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/sheawinkler/hermes-agent-ultra"
+
+[workspace.dependencies]
+# === Hermes Internal ===
+hermes-core = { path = "hermes-core" }
+hermes-agent = { path = "hermes-agent" }
+hermes-tools = { path = "hermes-tools" }
+hermes-gateway = { path = "hermes-gateway" }
+hermes-cli = { path = "hermes-cli" }
+hermes-cron = { path = "hermes-cron" }
+hermes-skills = { path = "hermes-skills" }
+hermes-mcp = { path = "hermes-mcp" }
+hermes-environments = { path = "hermes-environments" }
+hermes-config = { path = "hermes-config" }
+hermes-intelligence = { path = "hermes-intelligence" }
+hermes-acp = { path = "hermes-acp" }
+hermes-eval = { path = "hermes-eval" }
+hermes-http = { path = "hermes-http" }
+hermes-auth = { path = "hermes-auth" }
+hermes-telemetry = { path = "hermes-telemetry" }
+
+# === Async runtime ===
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+futures = "0.3"
+async-trait = "0.1"
+
+# === Serialization ===
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# === HTTP / networking ===
+reqwest = { version = "0.12", default-features = false, features = ["stream", "json", "rustls-tls"] }
+tokio-tungstenite = "0.24"
+eventsource-stream = "0.2"
+
+# === Error handling & logging ===
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+log = "0.4"
+env_logger = "0.11"
+
+# === CLI & TUI ===
+clap = { version = "4", features = ["derive"] }
+
+# === Database ===
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# === Time ===
+chrono = { version = "0.4", features = ["serde"] }
+
+# === Common utility crates (used by ultra crates) ===
+uuid = { version = "1", features = ["v4", "serde"] }
+regex = "1"
+url = "2"
+bytes = "1"
+indexmap = { version = "2", features = ["serde"] }
+base64 = "0.22"
+which = "7"
+dirs = "6"
+lazy_static = "1"
+async-stream = "0.3"
+proptest = "1"
+rand = "0.8"
+sha2 = "0.10"
+hex = "0.4"
+md-5 = "0.10"
+minijinja = "2"
+cron = "0.15"
+crossterm = "0.28"
+directories = "6"
+jsonwebtoken = "9"
+once_cell = "1"
+ratatui = "0.29"
+tui-textarea = "0.7"
+
 [profile.dev]
-# dev profile 保持编译速度
 incremental = true
-# 代码生成单元数，越大编译越快但优化越差
 codegen-units = 256
 
 [profile.release]
-# 最终发布包优化
 strip = true
 lto = true
 codegen-units = 1
 opt-level = "z"
 
 [profile.test]
-# 测试 profile 继承 dev
 incremental = true

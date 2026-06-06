@@ -1,110 +1,92 @@
-//! Hermes Gateway management commands (pure Rust, no Python bridge).
+//! Hermes Gateway management commands — using hermes-config paths.
 //!
-//! Wraps `hermes gateway status/start/stop/restart` commands.
+//! Status reads gateway PID file; start/stop/restart spawn the CLI binary.
 
-use serde_json::json;
-use std::process::Command;
+use hermes_config::paths;
 
-/// Run a hermes gateway subcommand and parse JSON output.
-fn gateway_cmd(args: &[&str]) -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
+fn run_hermes(args: &[&str]) -> Result<String, String> {
+    let output = std::process::Command::new("hermes")
         .args(args)
         .output()
-        .map_err(|e| format!("执行 hermes gateway 失败: {e}"))?;
+        .map_err(|e| format!("Failed to run hermes: {e}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("hermes gateway 失败: {}", stderr.lines().next().unwrap_or("")));
+        let err_line = stderr.lines().next().unwrap_or(&stderr);
+        return Err(format!("hermes failed: {err_line}"));
     }
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    serde_json::from_str(&stdout).map_err(|_| stdout.to_string())
+    Ok(stdout)
 }
 
-/// Get gateway status (PID, uptime, health).
+/// Read gateway PID file to check if running.
+fn is_gateway_running() -> bool {
+    let pid_path = paths::gateway_pid_path();
+    if !pid_path.exists() {
+        return false;
+    }
+    let pid_str = match std::fs::read_to_string(&pid_path) {
+        Ok(s) => s.trim().to_string(),
+        Err(_) => return false,
+    };
+    let pid: i32 = match pid_str.parse() {
+        Ok(p) => p,
+        Err(_) => return false,
+    };
+    // Check if process exists
+    let output = std::process::Command::new("/bin/kill")
+        .args(["-0", &pid.to_string()])
+        .output();
+    matches!(output, Ok(o) if o.status.success())
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub fn gateway_status() -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
-        .args(["gateway", "status"])
-        .output()
-        .map_err(|e| format!("执行 hermes gateway status 失败: {e}"))?;
+    let running = is_gateway_running();
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    // Parse status output — hermes gateway status returns text, not JSON
-    let is_running = output.status.success() && stdout.contains("PID");
-    let pid = if is_running {
-        stdout
-            .lines()
-            .find(|l| l.contains("PID"))
-            .and_then(|l| l.split_whitespace().last())
-            .unwrap_or("unknown")
-            .to_string()
+    let pid_path = paths::gateway_pid_path();
+    let pid = if running {
+        std::fs::read_to_string(&pid_path)
+            .ok()
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default()
     } else {
         String::new()
     };
 
-    Ok(json!({
+    Ok(serde_json::json!({
         "success": true,
-        "running": is_running,
-        "pid": if is_running { &pid } else { "" },
-        "status": if is_running { "running" } else { "stopped" },
-        "output": stdout.lines().take(5).collect::<Vec<_>>().join("\n"),
-        "error": if !output.status.success() { stderr.to_string() } else { String::new() },
+        "running": running,
+        "pid": pid,
+        "status": if running { "running" } else { "stopped" },
     }))
 }
 
-/// Start the gateway.
 #[tauri::command(rename_all = "camelCase")]
 pub fn gateway_start() -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
-        .args(["gateway", "start"])
-        .output()
-        .map_err(|e| format!("执行 hermes gateway start 失败: {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    Ok(json!({
-        "success": output.status.success(),
-        "output": stdout.to_string(),
-        "error": stderr.to_string(),
+    let output = run_hermes(&["gateway", "start"])?;
+    Ok(serde_json::json!({
+        "success": true,
+        "output": output,
     }))
 }
 
-/// Stop the gateway.
 #[tauri::command(rename_all = "camelCase")]
 pub fn gateway_stop() -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
-        .args(["gateway", "stop"])
-        .output()
-        .map_err(|e| format!("执行 hermes gateway stop 失败: {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    Ok(json!({
-        "success": output.status.success(),
-        "output": stdout.to_string(),
-        "error": stderr.to_string(),
+    let output = run_hermes(&["gateway", "stop"])?;
+    Ok(serde_json::json!({
+        "success": true,
+        "output": output,
     }))
 }
 
-/// Restart the gateway.
 #[tauri::command(rename_all = "camelCase")]
 pub fn gateway_restart() -> Result<serde_json::Value, String> {
-    let output = Command::new("hermes")
-        .args(["gateway", "restart"])
-        .output()
-        .map_err(|e| format!("执行 hermes gateway restart 失败: {e}"))?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let stderr = String::from_utf8_lossy(&output.stderr);
-
-    Ok(json!({
-        "success": output.status.success(),
-        "output": stdout.to_string(),
-        "error": stderr.to_string(),
+    let output = run_hermes(&["gateway", "restart"])?;
+    Ok(serde_json::json!({
+        "success": true,
+        "output": output,
     }))
 }
