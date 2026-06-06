@@ -1,0 +1,37 @@
+[package]
+name = "hermes-eval"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Agent evaluation harness for Hermes Agent (Terminal-Bench, SWE-bench, and more)"
+
+[features]
+default = ["agent-loop"]
+# `AgentLoopRollout` — see `src/agent_rollout.rs`
+agent-loop = ["dep:hermes-agent"]
+
+[dependencies]
+hermes-agent = { workspace = true, optional = true }
+hermes-cli = { workspace = true }
+hermes-config = { workspace = true }
+hermes-core = { workspace = true }
+hermes-skills = { workspace = true }
+hermes-tools = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+regex = { workspace = true }
+async-trait = { workspace = true }
+tracing = { workspace = true }
+thiserror = { workspace = true }
+chrono = { workspace = true }
+uuid = { workspace = true }
+futures = { workspace = true }
+reqwest = { workspace = true }
+toml = "0.8"
+
+[dev-dependencies]
+proptest = { workspace = true }

@@ -1,14 +1,5 @@
-//! Hermes Insights / usage analytics command (pure Rust, no Python bridge).
-//!
-//! Wraps `hermes insights [--days DAYS] [--source SOURCE]`.
+//! Hermes Insights / usage analytics command.
 
-use serde_json::json;
-use std::process::Command;
-
-/// Get usage insights and analytics.
-///
-/// Wraps `hermes insights [--days DAYS] [--source SOURCE]`.
-/// Returns the full text output from the CLI for frontend display.
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_insights(
     days: Option<i32>,
@@ -24,7 +15,7 @@ pub fn get_insights(
         args.push(s.clone());
     }
 
-    let cmd = Command::new("hermes")
+    let cmd = std::process::Command::new("hermes")
         .args(&args)
         .output()
         .map_err(|e| format!("执行 hermes insights 失败: {e}"))?;
@@ -32,7 +23,7 @@ pub fn get_insights(
     let stdout = String::from_utf8_lossy(&cmd.stdout);
     let stderr = String::from_utf8_lossy(&cmd.stderr);
 
-    Ok(json!({
+    Ok(serde_json::json!({
         "success": cmd.status.success(),
         "output": stdout.to_string(),
         "error": stderr.to_string(),

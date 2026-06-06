@@ -1,0 +1,48 @@
+//! Tool implementations module
+//!
+//! Each submodule implements one or more tool handlers that conform
+//! to the `ToolHandler` trait from `hermes-core`.
+
+pub mod alpha_snapshot;
+pub mod auth_snapshot;
+pub mod browser;
+pub mod clarify;
+pub mod code_execution;
+pub mod credential_files;
+pub mod cronjob;
+pub mod dashboard_control;
+pub mod delegation;
+pub mod disk_cleanup;
+pub mod env_passthrough;
+pub mod file;
+pub mod homeassistant;
+pub mod image_gen;
+pub mod integrations_snapshot;
+pub mod managed_tool_gateway;
+pub mod memory;
+pub mod messaging;
+pub mod mixture_of_agents;
+pub mod ops_snapshot;
+pub mod osv_check;
+pub mod process_registry;
+pub mod raw_trace_control;
+pub mod replay_trace_control;
+pub mod runbook;
+pub mod session_search;
+pub mod skill_commands;
+pub mod skill_utils;
+pub mod skills;
+pub mod spotify;
+pub mod telemetry_snapshot;
+pub mod terminal;
+pub mod todo;
+pub mod tool_policy_simulate;
+pub mod tool_result_storage;
+pub mod transcription;
+pub mod tts;
+pub mod tts_premium;
+pub mod url_safety;
+pub mod video;
+pub mod vision;
+pub mod voice_mode;
+pub mod web;

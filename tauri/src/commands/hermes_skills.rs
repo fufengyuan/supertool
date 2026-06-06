@@ -1,71 +1,57 @@
-//! Hermes Skills management — browse installed skills, list bundled, install/uninstall
+//! Hermes Skills management — using hermes-config paths for resolution.
 //!
-//! Structure:
-//!   ~/.hermes/skills/<category>/<skill-name>/SKILL.md   (installed skills)
-//!   ~/.hermes/hermes-agent/skills/<category>/<skill-name>/SKILL.md  (bundled skills)
-//!
-//! Install/Uninstall delegate to `hermes skills install/uninstall` CLI.
+//! Scans SKILL.md files in the installed/bundled skills directories.
+//! Install/uninstall delegate to `hermes skills install/uninstall` CLI.
 
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use std::process::Command;
 
-/// A skill entry presented to the frontend
+use hermes_config::paths;
+use serde::{Deserialize, Serialize};
+
+// ── Types ─────────────────────────────────────────────────────
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SkillInfo {
     pub name: String,
     pub category: String,
     pub description: String,
     pub path: String,
-    /// "installed" | "bundled"
-    pub source: String,
+    pub source: String, // "installed" | "bundled"
 }
 
-/// Result of install/uninstall operations
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SkillCliResult {
     pub success: bool,
     pub error: Option<String>,
 }
 
-// ── Helpers ────────────────────────────────────────────────────────────────
+// ── Paths (ultra crate powered) ───────────────────────────────
 
-/// Resolve path to the user's hermes skills directory
-pub(crate) fn installed_skills_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".hermes")
-        .join("skills")
+fn installed_skills_dir() -> PathBuf {
+    paths::skills_dir()
 }
 
-/// Resolve path to the bundled hermes-agent skills
-pub(crate) fn bundled_skills_dir() -> PathBuf {
-    dirs::home_dir()
-        .unwrap_or_else(|| PathBuf::from("~"))
-        .join(".hermes")
-        .join("hermes-agent")
-        .join("skills")
+fn bundled_skills_dir() -> PathBuf {
+    paths::hermes_home().join("hermes-agent").join("skills")
 }
 
-/// Parse YAML frontmatter from SKILL.md content (between --- markers)
-pub(crate) fn parse_skill_frontmatter(content: &str) -> (String, String) {
+// ── YAML frontmatter parser ───────────────────────────────────
+
+fn parse_skill_frontmatter(content: &str) -> (String, String) {
     let trimmed = content.trim();
     if !trimmed.starts_with("---") {
-        // Fallback: use first heading as name, first paragraph as description
-        let name = trim_to_120(
-            trimmed
-                .lines()
-                .find(|l| l.starts_with("# "))
-                .map(|l| l[2..].trim())
-                .unwrap_or(""),
-        );
-        let desc = trim_to_120(
-            trimmed
-                .lines()
-                .find(|l| !l.starts_with('#') && !l.starts_with("---") && !l.trim().is_empty())
-                .unwrap_or(""),
-        );
-        return (name, desc);
+        let name = trimmed
+            .lines()
+            .find(|l| l.starts_with("# "))
+            .map(|l| l[2..].trim())
+            .unwrap_or("")
+            .to_string();
+        let desc = trimmed
+            .lines()
+            .find(|l| !l.starts_with('#') && !l.starts_with("---") && !l.trim().is_empty())
+            .unwrap_or("")
+            .to_string();
+        return (trim_to_120(&name), trim_to_120(&desc));
     }
 
     let end = trimmed[3..].find("---").map(|i| i + 3);
@@ -95,7 +81,7 @@ pub(crate) fn parse_skill_frontmatter(content: &str) -> (String, String) {
     (name, desc)
 }
 
-pub(crate) fn trim_to_120(s: &str) -> String {
+fn trim_to_120(s: &str) -> String {
     if s.len() > 120 {
         let truncated: String = s.chars().take(117).collect();
         format!("{}...", truncated)
@@ -104,8 +90,9 @@ pub(crate) fn trim_to_120(s: &str) -> String {
     }
 }
 
-/// Scan a skills directory for installed/bundled skills
-pub(crate) fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
+// ── Directory scanner ─────────────────────────────────────────
+
+fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
     let mut skills = Vec::new();
     if !base.exists() {
         return skills;
@@ -127,11 +114,8 @@ pub(crate) fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
             .unwrap_or_default();
 
         for skill_entry in std::fs::read_dir(&cat_path).into_iter().flatten() {
-            let skill_entry = match skill_entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-            let skill_path = skill_entry.path();
+            let Ok(entry) = skill_entry else { continue };
+            let skill_path = entry.path();
             if !skill_path.is_dir() {
                 continue;
             }
@@ -165,9 +149,9 @@ pub(crate) fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
     skills
 }
 
-/// Get the hermes CLI path (reuses pattern from profile.rs)
-pub(crate) fn hermes_cli_path() -> String {
-    // Prefer ~/.local/bin/hermes
+// ── CLI helpers ───────────────────────────────────────────────
+
+fn hermes_cli_path() -> String {
     if let Some(home) = dirs::home_dir() {
         let local = home.join(".local/bin/hermes");
         if local.exists() {
@@ -177,22 +161,21 @@ pub(crate) fn hermes_cli_path() -> String {
     "hermes".to_string()
 }
 
-/// Run a command directly (no shell) to prevent command injection
 fn run_command_direct(cmd: &str, args: &[&str]) -> Result<String, String> {
-    let output = Command::new(cmd)
+    let output = std::process::Command::new(cmd)
         .args(args)
         .output()
-        .map_err(|e| format!("Failed to run command: {}", e))?;
+        .map_err(|e| format!("Failed to run command: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("Command failed: {}", stderr));
+        return Err(format!("Command failed: {stderr}"));
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
 
-// ── Tauri Commands ─────────────────────────────────────────────────────────
+// ── Tauri Commands ────────────────────────────────────────────
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn list_installed_skills() -> Vec<SkillInfo> {
@@ -202,8 +185,8 @@ pub fn list_installed_skills() -> Vec<SkillInfo> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn list_bundled_skills() -> Vec<SkillInfo> {
     let bundled = scan_skills_dir(&bundled_skills_dir(), "bundled");
-
     let installed = list_installed_skills();
+
     let installed_keys: std::collections::HashSet<String> = installed
         .iter()
         .map(|s| format!("{}/{}", s.category, s.name))
@@ -213,8 +196,6 @@ pub fn list_bundled_skills() -> Vec<SkillInfo> {
         .map(|s| format!("{}/{}", s.category, s.name))
         .collect();
 
-    // Merge: bundled first (marked as installed if already present),
-    // then any installed skills not in bundled
     let mut result: Vec<SkillInfo> = bundled
         .into_iter()
         .map(|mut s| {
@@ -226,15 +207,12 @@ pub fn list_bundled_skills() -> Vec<SkillInfo> {
         })
         .collect();
 
-    // Add installed skills that don't appear in bundled
     for skill in installed {
         let key = format!("{}/{}", skill.category, skill.name);
-        if !bundled_keys.contains(&key) {
-            if !result.iter().any(|r| r.path == skill.path) {
-                let mut s = skill;
-                s.source = "installed".to_string();
-                result.push(s);
-            }
+        if !bundled_keys.contains(&key) && !result.iter().any(|r| r.path == skill.path) {
+            let mut s = skill;
+            s.source = "installed".to_string();
+            result.push(s);
         }
     }
 
@@ -260,14 +238,8 @@ pub fn get_skill_content(path: String) -> String {
 pub fn install_skill(identifier: String) -> SkillCliResult {
     let hermes = hermes_cli_path();
     match run_command_direct(&hermes, &["skills", "install", &identifier, "--yes"]) {
-        Ok(_) => SkillCliResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => SkillCliResult {
-            success: false,
-            error: Some(e),
-        },
+        Ok(_) => SkillCliResult { success: true, error: None },
+        Err(e) => SkillCliResult { success: false, error: Some(e) },
     }
 }
 
@@ -275,13 +247,7 @@ pub fn install_skill(identifier: String) -> SkillCliResult {
 pub fn uninstall_skill(identifier: String) -> SkillCliResult {
     let hermes = hermes_cli_path();
     match run_command_direct(&hermes, &["skills", "uninstall", &identifier]) {
-        Ok(_) => SkillCliResult {
-            success: true,
-            error: None,
-        },
-        Err(e) => SkillCliResult {
-            success: false,
-            error: Some(e),
-        },
+        Ok(_) => SkillCliResult { success: true, error: None },
+        Err(e) => SkillCliResult { success: false, error: Some(e) },
     }
 }
