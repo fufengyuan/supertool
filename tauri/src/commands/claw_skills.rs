@@ -8,6 +8,9 @@ use commands::handle_skills_slash_command_json;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// Re-export shared parser helpers for test code
+pub use crate::commands::hermes_skills::{parse_skill_frontmatter, trim_to_120, installed_skills_dir, bundled_skills_dir, scan_skills_dir};
+
 /// A skill entry presented to the frontend
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]

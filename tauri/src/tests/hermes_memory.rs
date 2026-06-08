@@ -31,8 +31,14 @@ where
     let dir = std::env::temp_dir().join(format!("hermes_memory_test_{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
+    let prev = std::env::var("HERMES_HOME").ok();
     unsafe { set_env_var("HERMES_HOME", &dir.to_string_lossy()); }
     f(&dir);
+    // Restore previous HERMES_HOME
+    match prev {
+        Some(v) => unsafe { set_env_var("HERMES_HOME", &v); },
+        None => unsafe { remove_env_var("HERMES_HOME"); },
+    }
     let _ = fs::remove_dir_all(&dir);
 }
     // ── hermes_home ───────────────────────────────────────
@@ -884,19 +890,22 @@ fn test_ipc_set_memory_provider_fails_without_config() {
 }
 #[test]
 fn test_ipc_read_env_vars_from_process() {
-    let _lock = lock_test();
-    unsafe { set_env_var("IPC_TEST_KEY", "ipc-test-value"); }
-        // No with_temp_home needed — read_env_vars reads from process env
-    let (_app, ww) = build_test_app();
-    let result: serde_json::Value = invoke_ipc(
-        &ww,
-        "read_env_vars",
-        json!({"keys": ["IPC_TEST_KEY", "NONEXISTENT_KEY"]}),
-    )
-    .expect("read_env_vars should succeed");
-    assert_eq!(result["IPC_TEST_KEY"], "ipc-test-value");
-    assert_eq!(result["NONEXISTENT_KEY"], "");
-    unsafe { remove_env_var("IPC_TEST_KEY"); }
+    with_temp_home(|tmp| {
+        // Write a .env file directly in HERMES_HOME with a memory-API key
+        std::fs::write(tmp.join(".env"), "HONCHO_API_KEY=sk-test-value-12345\n").unwrap();
+
+        let (_app, ww) = build_test_app();
+        let result: serde_json::Value = invoke_ipc(&ww, "read_env_vars", json!({}))
+            .expect("read_env_vars should succeed");
+
+        assert!(
+            result.get("HONCHO_API_KEY").is_some(),
+            "expected HONCHO_API_KEY in env vars, got: {result:?}"
+        );
+        let val = result["HONCHO_API_KEY"].as_str().unwrap();
+        // Value should be masked (only first 4 + last 4 chars)
+        assert_eq!(val, "sk-t...2345", "expected masked value, got: {val}");
+    });
 }
 #[test]
 fn test_ipc_save_env_var_writes_file() {

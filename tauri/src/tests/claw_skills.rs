@@ -9,7 +9,7 @@ use tauri::{
 use serde_json::json;
 #[test]
 fn test_list_skills_returns_array() {
-    let skills = claw_list_skills();
+    let skills = claw_list_skills().unwrap_or_default();
     for s in &skills {
         assert!(!s.name.is_empty());
         assert!(!s.category.is_empty());

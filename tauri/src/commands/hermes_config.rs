@@ -125,6 +125,11 @@ fn write_config_yaml(root: &serde_yaml::Value) -> Result<(), String> {
 
 // ── Model management ──────────────────────────────────────────
 
+/// Get path to Hermes config.yaml (exposed for tests)
+pub(crate) fn config_path() -> PathBuf {
+    paths::config_path()
+}
+
 /// Add a model to Hermes config
 pub fn add_model(model: String) -> Result<serde_json::Value, String> {
     let content = read_config_yaml()?;

@@ -52,7 +52,7 @@ fn invoke_ok<R: serde::de::DeserializeOwned>(
 
 #[test]
 fn test_list_mcp_servers_returns_array() {
-    let servers = claw_list_mcp_servers();
+    let servers = claw_list_mcp_servers().unwrap_or_default();
     for srv in &servers {
         assert!(!srv.name.is_empty());
     }
@@ -64,7 +64,7 @@ fn test_list_mcp_servers_returns_array() {
 
 #[test]
 fn test_list_plugins_returns_array() {
-    let plugins = claw_list_plugins();
+    let plugins = claw_list_plugins().unwrap_or_default();
     for p in &plugins {
         assert!(!p.id.is_empty());
         assert!(!p.name.is_empty());

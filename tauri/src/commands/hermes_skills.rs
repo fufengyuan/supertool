@@ -26,17 +26,17 @@ pub struct SkillCliResult {
 
 // ── Paths (ultra crate powered) ───────────────────────────────
 
-fn installed_skills_dir() -> PathBuf {
+pub fn installed_skills_dir() -> PathBuf {
     paths::skills_dir()
 }
 
-fn bundled_skills_dir() -> PathBuf {
+pub fn bundled_skills_dir() -> PathBuf {
     paths::hermes_home().join("hermes-agent").join("skills")
 }
 
 // ── YAML frontmatter parser ───────────────────────────────────
 
-fn parse_skill_frontmatter(content: &str) -> (String, String) {
+pub fn parse_skill_frontmatter(content: &str) -> (String, String) {
     let trimmed = content.trim();
     if !trimmed.starts_with("---") {
         let name = trimmed
@@ -80,7 +80,7 @@ fn parse_skill_frontmatter(content: &str) -> (String, String) {
     (name, desc)
 }
 
-fn trim_to_120(s: &str) -> String {
+pub fn trim_to_120(s: &str) -> String {
     if s.len() > 120 {
         let truncated: String = s.chars().take(117).collect();
         format!("{}...", truncated)
@@ -91,7 +91,7 @@ fn trim_to_120(s: &str) -> String {
 
 // ── Directory scanner ─────────────────────────────────────────
 
-fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
+pub fn scan_skills_dir(base: &PathBuf, source: &str) -> Vec<SkillInfo> {
     let mut skills = Vec::new();
     if !base.exists() {
         return skills;
@@ -277,6 +277,16 @@ pub fn uninstall_skill(identifier: String) -> SkillCliResult {
             error: Some(format!("Failed to remove skill directory: {e}")),
         },
     }
+}
+
+pub(crate) fn hermes_cli_path() -> String {
+    if let Some(home) = dirs::home_dir() {
+        let local = home.join(".local/bin/hermes");
+        if local.exists() {
+            return local.to_string_lossy().to_string();
+        }
+    }
+    "hermes".to_string()
 }
 
 // ── Tauri Commands ────────────────────────────────────────────
