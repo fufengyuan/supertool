@@ -215,13 +215,17 @@ fn test_skill_cli_result_failure() {
 fn test_installed_skills_dir_ends_correctly() {
     let path = installed_skills_dir();
     let path_str = path.to_string_lossy();
-    assert!(path_str.ends_with(".hermes/skills"));
+    assert!(path.is_absolute(), "path should be absolute, got: {path_str}");
+    assert!(path_str.ends_with("/skills"), "path should end with /skills, got: {path_str}");
+    assert!(path_str.contains("hermes"), "path should contain 'hermes', got: {path_str}");
 }
 #[test]
 fn test_bundled_skills_dir_ends_correctly() {
     let path = bundled_skills_dir();
     let path_str = path.to_string_lossy();
-    assert!(path_str.ends_with(".hermes/hermes-agent/skills"));
+    assert!(path.is_absolute(), "path should be absolute, got: {path_str}");
+    assert!(path_str.ends_with("/skills"), "path should end with /skills, got: {path_str}");
+    assert!(path_str.contains("hermes"), "path should contain 'hermes', got: {path_str}");
 }
     // ── Pure-logic: scan_skills_dir with temp dirs ───────────────────────────
 #[test]

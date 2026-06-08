@@ -4271,9 +4271,9 @@ checksum = "c41e0c4fef86961ac6d6f8a82609f55f31b05e4fce149ac5710e439df7619ba4"
 
 [[package]]
 name = "mac-notification-sys"
-version = "0.6.12"
+version = "0.6.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "29a16783dd1a47849b8c8133c9cd3eb2112cfbc6901670af3dba47c8bbfb07d3"
+checksum = "50efa634682b3fc5a1ab6f3dd5b2bce7b848011fc485b53b063dc68f2f74feae"
 dependencies = [
  "cc",
  "objc2",
@@ -5153,7 +5153,7 @@ dependencies = [
  "opentelemetry-http",
  "opentelemetry-proto",
  "opentelemetry_sdk",
- "prost 0.14.3",
+ "prost 0.14.4",
  "thiserror 2.0.18",
 ]
 
@@ -5165,7 +5165,7 @@ checksum = "a7175df06de5eaee9909d4805a3d07e28bb752c34cab57fa9cff549da596b30f"
 dependencies = [
  "opentelemetry",
  "opentelemetry_sdk",
- "prost 0.14.3",
+ "prost 0.14.4",
  "tonic",
  "tonic-prost",
 ]
@@ -5793,12 +5793,12 @@ dependencies = [
 
 [[package]]
 name = "prost"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d2ea70524a2f82d518bce41317d0fae74151505651af45faf1ffbd6fd33f0568"
+checksum = "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
 dependencies = [
  "bytes",
- "prost-derive 0.14.3",
+ "prost-derive 0.14.4",
 ]
 
 [[package]]
@@ -5816,9 +5816,9 @@ dependencies = [
 
 [[package]]
 name = "prost-derive"
-version = "0.14.3"
+version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "27c6023962132f4b30eb4c172c91ce92d933da334c59c23cddee82358ddafb0b"
+checksum = "b570b25f7617e43d59005d0990ccb79e950a423952cea19671b7a876da390adf"
 dependencies = [
  "anyhow",
  "itertools 0.14.0",
@@ -7346,7 +7346,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stool"
-version = "4.65.0"
+version = "4.65.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7465,7 +7465,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "4.65.0"
+version = "4.65.1"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7542,7 +7542,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "4.65.0"
+version = "4.65.1"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -8575,7 +8575,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "50849f68853be452acf590cde0b146665b8d507b3b8af17261df47e02c209ea0"
 dependencies = [
  "bytes",
- "prost 0.14.3",
+ "prost 0.14.4",
  "tonic",
 ]
 

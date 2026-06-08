@@ -78,7 +78,26 @@ pub struct MemoryWriteResult {
     pub error: Option<String>,
 }
 
-// ── Paths (ultra crate powered) ───────────────────────────────
+// ── Paths (backward-compatible with ~/.hermes/memories/) ───────
+
+/// Get Hermes home dir (test override via HERMES_HOME env, fallback to ultra crate paths)
+pub fn hermes_home() -> std::path::PathBuf {
+    if let Ok(home) = std::env::var("HERMES_HOME") {
+        std::path::PathBuf::from(home)
+    } else {
+        paths::hermes_home()
+    }
+}
+
+/// ~/.hermes/memories/MEMORY.md (backward-compatible path)
+fn mem_memory_path() -> std::path::PathBuf {
+    hermes_home().join("memories").join("MEMORY.md")
+}
+
+/// ~/.hermes/memories/USER.md (backward-compatible path)
+fn mem_user_path() -> std::path::PathBuf {
+    hermes_home().join("memories").join("USER.md")
+}
 
 fn state_db_path() -> PathBuf {
     paths::hermes_home().join("state.db")
@@ -90,7 +109,7 @@ fn config_path_fn() -> PathBuf {
 
 // ── File helpers ──────────────────────────────────────────────
 
-fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>) {
+pub fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>) {
     if !file_path.exists() {
         return (String::new(), false, None);
     }
@@ -108,7 +127,7 @@ fn read_file_safe(file_path: &PathBuf) -> (String, bool, Option<i64>) {
     }
 }
 
-fn write_file_atomic(file_path: &PathBuf, content: &str) -> Result<(), String> {
+pub fn write_file_atomic(file_path: &PathBuf, content: &str) -> Result<(), String> {
     if let Some(parent) = file_path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("Failed to create directory: {e}"))?;
@@ -121,7 +140,7 @@ fn write_file_atomic(file_path: &PathBuf, content: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
+pub fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
     if content.trim().is_empty() {
         return Vec::new();
     }
@@ -136,7 +155,7 @@ fn parse_memory_entries(content: &str) -> Vec<MemoryEntry> {
         .collect()
 }
 
-fn serialize_entries(entries: &[MemoryEntry]) -> String {
+pub fn serialize_entries(entries: &[MemoryEntry]) -> String {
     entries
         .iter()
         .map(|e| e.content.as_str())
@@ -144,7 +163,7 @@ fn serialize_entries(entries: &[MemoryEntry]) -> String {
         .join(ENTRY_DELIMITER)
 }
 
-fn get_session_stats() -> SessionStats {
+pub fn get_session_stats() -> SessionStats {
     let db_path = state_db_path();
     if !db_path.exists() {
         return SessionStats { total_sessions: 0, total_messages: 0 };
@@ -179,7 +198,7 @@ const KNOWN_PROVIDERS: &[(&str, &str, &[&str])] = &[
     ("byterover", "ByteRover — cross-session memory router for long-running agents", &["BYTEROVER_API_KEY"]),
 ];
 
-fn check_provider_installed(env_keys: &[&str]) -> bool {
+pub fn check_provider_installed(env_keys: &[&str]) -> bool {
     env_keys.iter().any(|k| std::env::var(k).is_ok())
 }
 
@@ -187,8 +206,8 @@ fn check_provider_installed(env_keys: &[&str]) -> bool {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn read_memory() -> Result<MemoryInfo, String> {
-    let mem_path = paths::memory_path();
-    let user_path = paths::user_path();
+    let mem_path = mem_memory_path();
+    let user_path = mem_user_path();
 
     let mem_file = read_file_safe(&mem_path);
     let user_file = read_file_safe(&user_path);
@@ -216,7 +235,7 @@ pub fn read_memory() -> Result<MemoryInfo, String> {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn add_memory_entry(content: String) -> MemoryWriteResult {
-    let file_path = paths::memory_path();
+    let file_path = mem_memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
     entries.push(MemoryEntry {
@@ -240,7 +259,7 @@ pub fn add_memory_entry(content: String) -> MemoryWriteResult {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn update_memory_entry(index: i32, content: String) -> MemoryWriteResult {
-    let file_path = paths::memory_path();
+    let file_path = mem_memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
 
@@ -269,7 +288,7 @@ pub fn update_memory_entry(index: i32, content: String) -> MemoryWriteResult {
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn remove_memory_entry(index: i32) -> MemoryWriteResult {
-    let file_path = paths::memory_path();
+    let file_path = mem_memory_path();
     let (existing, _, _) = read_file_safe(&file_path);
     let mut entries = parse_memory_entries(&existing);
 
@@ -298,7 +317,7 @@ pub fn write_user_profile(content: String) -> MemoryWriteResult {
         };
     }
 
-    match write_file_atomic(&paths::user_path(), &content) {
+    match write_file_atomic(&mem_user_path(), &content) {
         Ok(()) => MemoryWriteResult { success: true, error: None },
         Err(e) => MemoryWriteResult { success: false, error: Some(e) },
     }
@@ -471,11 +490,21 @@ pub fn save_env_var(key: String, value: String) -> Result<serde_json::Value, Str
 
     let mut lines: Vec<String> = existing_content
         .lines()
-        .filter(|l| !l.trim().starts_with(&format!("{}=", key)))
+        .filter(|l| {
+            let trimmed = l.trim();
+            // Match both `KEY=value` and `export KEY=value` formats
+            !trimmed.starts_with(&format!("{}=", key))
+                && !trimmed.starts_with(&format!("export {}=", key))
+        })
         .map(String::from)
         .collect();
 
-    lines.push(format!("{}={}", key, value));
+    if value.is_empty() {
+        // Comment out the removed line
+        lines.push(format!("# (removed) {}=", key));
+    } else {
+        lines.push(format!("{}={}", key, value));
+    }
 
     let mut new_content = lines.join("\n");
     if !new_content.ends_with('\n') {

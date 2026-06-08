@@ -1150,5 +1150,3 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
         "source": "claw",
     }))
 }
-
-
