@@ -43,18 +43,20 @@ struct CredentialEntry {
     base_url: String,
     #[serde(default)]
     request_count: i64,
+    // Error/status fields use serde_json::Value to accept any JSON type
+    // (the hermes gateway writes these as null, string, or number — any must work)
     #[serde(default)]
-    last_status: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_status_at: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_error_code: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_error_reason: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_error_message: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    last_error_reset_at: Option<String>,
+    last_status: serde_json::Value,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    last_status_at: serde_json::Value,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    last_error_code: serde_json::Value,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    last_error_reason: serde_json::Value,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    last_error_message: serde_json::Value,
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    last_error_reset_at: serde_json::Value,
 }
 
 impl Default for CredentialEntry {
@@ -70,12 +72,12 @@ impl Default for CredentialEntry {
             api_key: String::new(),
             base_url: String::new(),
             request_count: 0,
-            last_status: "ok".to_string(),
-            last_status_at: None,
-            last_error_code: None,
-            last_error_reason: None,
-            last_error_message: None,
-            last_error_reset_at: None,
+            last_status: json!(""),
+            last_status_at: json!(null),
+            last_error_code: json!(null),
+            last_error_reason: json!(null),
+            last_error_message: json!(null),
+            last_error_reset_at: json!(null),
         }
     }
 }
@@ -376,12 +378,12 @@ pub fn save_provider_credential(
         api_key,
         base_url,
         request_count: 0,
-        last_status: "ok".to_string(),
-        last_status_at: None,
-        last_error_code: None,
-        last_error_reason: None,
-        last_error_message: None,
-        last_error_reset_at: None,
+        last_status: json!("ok"),
+        last_status_at: json!(null),
+        last_error_code: json!(null),
+        last_error_reason: json!(null),
+        last_error_message: json!(null),
+        last_error_reset_at: json!(null),
     };
     auth.credential_pool
         .insert(provider_id.clone(), vec![entry]);
