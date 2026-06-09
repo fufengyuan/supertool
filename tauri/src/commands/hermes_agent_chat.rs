@@ -23,7 +23,7 @@ use hermes_agent::{
 };
 use hermes_config::loader::load_config;
 use hermes_config::GatewayConfig;
-use hermes_core::{LlmProvider, Message, StreamChunk, ToolSchema};
+use hermes_core::{LlmProvider, Message, StreamChunk, ToolCall, ToolSchema};
 use hermes_environments::BackendManager;
 use hermes_skills::{FileSkillStore, SkillManager};
 use serde_json::json;
@@ -523,6 +523,35 @@ fn build_agent_loop(
 // Tauri Commands
 // ---------------------------------------------------------------------------
 
+/// Convert a DB HermesMessage to a core Message for AgentLoop context.
+fn db_message_to_core(msg: &supertool_core::db::agent::HermesMessage) -> Message {
+    match msg.role.as_str() {
+        "user" => Message::user(msg.content.clone().unwrap_or_default()),
+        "assistant" => {
+            if let Some(ref tc) = msg.tool_calls {
+                if let Ok(calls) = serde_json::from_str::<Vec<ToolCall>>(tc) {
+                    let mut m = Message::assistant_with_tool_calls(msg.content.clone(), calls);
+                    if let Some(ref r) = msg.reasoning_content {
+                        m.reasoning_content = Some(r.clone());
+                    }
+                    return m;
+                }
+            }
+            let mut m = Message::assistant(msg.content.clone().unwrap_or_default());
+            if let Some(ref r) = msg.reasoning_content {
+                m.reasoning_content = Some(r.clone());
+            }
+            m
+        }
+        "tool" => Message::tool_result(
+            msg.tool_call_id.clone().unwrap_or_default(),
+            msg.content.clone().unwrap_or_default(),
+        ),
+        "system" => Message::system(msg.content.clone().unwrap_or_default()),
+        _ => Message::user(msg.content.clone().unwrap_or_default()),
+    }
+}
+
 /// Send a chat message via the directly-integrated AgentLoop.
 #[tauri::command(rename_all = "camelCase")]
 pub async fn agent_chat(
@@ -546,8 +575,26 @@ pub async fn agent_chat(
         *current = effective_session_id.clone();
     }
 
-    // Build messages
-    let mut messages = Vec::new();
+    // Build messages — load session history from state.db if resuming
+    let mut messages: Vec<Message> = if let Some(ref sid) = effective_session_id {
+        if session_id.is_some() {
+            // Existing session: load all previous messages from state.db
+            match supertool_core::db::agent::list_hermes_messages(sid) {
+                Ok(db_msgs) => {
+                    log::info!("[AgentChat] loaded {} messages from session {}", db_msgs.len(), sid);
+                    db_msgs.iter().map(db_message_to_core).collect()
+                }
+                Err(e) => {
+                    log::warn!("[AgentChat] failed to load session history: {}", e);
+                    Vec::new()
+                }
+            }
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
     if let Some(ref folder) = context_folder {
         let trimmed = folder.trim();
         if !trimmed.is_empty() {

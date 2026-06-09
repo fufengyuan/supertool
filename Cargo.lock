@@ -7345,7 +7345,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stool"
-version = "4.66.8"
+version = "4.66.9"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7464,7 +7464,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "4.66.8"
+version = "4.66.9"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7544,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "4.66.8"
+version = "4.66.9"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -9076,9 +9076,9 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "uuid"
-version = "1.23.2"
+version = "1.23.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d258b83ceec21034727ecee8c382cfa6c3e133699b0742c64571814fb420c9f7"
+checksum = "144d6b123cef80b301b8f72a9e2ca4370ddec21950d0a103dd22c437006d2db7"
 dependencies = [
  "getrandom 0.4.2",
  "js-sys",
