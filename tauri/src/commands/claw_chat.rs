@@ -582,34 +582,55 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
 /// System prompt for the Claw agent — uses the real load_system_prompt from runtime.
 pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
-    let model = std::env::var("ANTHROPIC_MODEL")
-        .or_else(|_| std::env::var("OPENAI_MODEL"))
-        .unwrap_or_else(|_| "claude-sonnet-4-6".to_string());
 
-    let base_prompt = match runtime::load_system_prompt(
-        &cwd,
-        chrono::Utc::now().format("%Y-%m-%d").to_string(),
-        std::env::consts::OS.to_string(),
-        "26.5".to_string(),
-        api::model_family_identity_for(&model),
-    ) {
-        Ok(sections) => sections.join("\n\n"),
-        Err(e) => {
-            log::warn!("[claw_chat] Failed to load system prompt: {}, using fallback", e);
-            "You are an expert software engineer and coding assistant. You have access to tools for reading files, writing files, editing files, running shell commands, and searching code. Always use your tools to help the user.".to_string()
-        }
-    };
+    // Build a comprehensive system prompt directly, without relying on
+    // runtime::load_system_prompt which requires a specific config format
+    // that may not match the user's ~/.claw/settings.json layout.
+    let mut sections: Vec<String> = Vec::new();
+
+    sections.push(r#"You are an expert software engineer and coding assistant powered by the Claw Code agent.
+You have access to a powerful set of tools that let you read, write, edit, search, and explore codebases.
+
+# Core capabilities
+- Read files and directories to understand project structure
+- Search code with grep-like patterns
+- Write and edit files with precise changes
+- Run shell commands to build, test, and deploy
+- Explore codebases interactively
+
+# How to use tools
+When the user asks you to explore code, investigate a problem, or make changes:
+1. FIRST read relevant files to understand the context
+2. USE search tools to find relevant code
+3. MAKE changes with edit/write tools
+4. VERIFY with terminal commands (build, test)
+5. REPORT your findings clearly
+
+Always prefer using tools over guessing. If you need information, read the file. If you need to find something, search for it.
+Do not just describe what you would do — actually do it using your tools."#.to_string());
+
+    // OS / date info
+    sections.push(format!(
+        "Current date: {}.\nOperating system: {} {}.",
+        chrono::Utc::now().format("%Y-%m-%d"),
+        std::env::consts::OS,
+        "26.5",
+    ));
+
+    // Working directory
+    sections.push(format!(
+        "Your working directory is: {}",
+        cwd.display()
+    ));
 
     // Append Hermes skills
     let skills_section = load_hermes_skills(skill_bytes_cap);
-    if skills_section.is_empty() {
-        base_prompt
-    } else {
-        format!("{base_prompt}\n{skills_section}")
+    if !skills_section.is_empty() {
+        sections.push(skills_section);
     }
-}
 
-// ── Config ───────────────────────────────────────────────────────────────
+    sections.join("\n\n")
+}
 
 /// 从 ~/.claw/settings.json 读取 API key 和 base URL，设置到进程环境变量
 pub(crate) fn setup_env_from_claw_config() -> Result<(), String> {
