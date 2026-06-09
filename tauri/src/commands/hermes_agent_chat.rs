@@ -358,7 +358,7 @@ fn build_runtime_providers(
 }
 
 /// Build an AgentConfig from Hermes config.yaml + model string.
-fn build_agent_config(config: &GatewayConfig, model: &str) -> AgentConfig {
+fn build_agent_config(config: &GatewayConfig, model: &str, session_id: Option<String>) -> AgentConfig {
     let (provider_name, model_name) = resolve_provider_and_model(config, model);
     let runtime_providers = build_runtime_providers(config);
 
@@ -372,6 +372,7 @@ fn build_agent_config(config: &GatewayConfig, model: &str) -> AgentConfig {
         platform: Some("tauri".to_string()),
         runtime_providers,
         pass_session_id: true,
+        session_id,
         ..AgentConfig::default()
     }
 }
@@ -506,9 +507,10 @@ fn bridge_agent_tools(tools: &hermes_tools::ToolRegistry) -> Arc<AgentToolRegist
 fn build_agent_loop(
     config: &GatewayConfig,
     model: &str,
+    session_id: Option<String>,
     callbacks: AgentCallbacks,
 ) -> AgentLoop {
-    let agent_config = build_agent_config(config, model);
+    let agent_config = build_agent_config(config, model, session_id);
     let provider = build_provider(config, model);
     let tools = build_tool_registry(config);
     let agent_tools = bridge_agent_tools(&tools);
@@ -536,9 +538,12 @@ pub async fn agent_chat(
     log::info!("[AgentChat] resolved model_name='{}'", model_name);
 
     ABORT_FLAG.store(false, Ordering::SeqCst);
+    // Generate a session_id if this is a new conversation
+    let effective_session_id = session_id.clone()
+        .or_else(|| Some(uuid::Uuid::new_v4().to_string()));
     {
         let mut current = CURRENT_SESSION_ID.lock().unwrap();
-        *current = session_id.clone();
+        *current = effective_session_id.clone();
     }
 
     // Build messages
@@ -555,10 +560,17 @@ pub async fn agent_chat(
     messages.push(Message::user(&message));
 
     // Build AgentCallbacks for tool/reasoning events
-    let app_tool_start = app.clone();
+    let sid_tool_start = effective_session_id.clone();
+    let sid_tool_complete = effective_session_id.clone();
+    let sid_delta = effective_session_id.clone();
+    let sid_usage = effective_session_id.clone();
+    let sid_done = effective_session_id.clone();
+
+    let app_tool = app.clone();
     let app_tool_complete = app.clone();
-    let captured_id_start = session_id.clone();
-    let captured_id_complete = session_id.clone();
+    let app_delta = app.clone();
+    let app_usage = app.clone();
+    let app_done = app.clone();
 
     let callbacks = AgentCallbacks {
         on_tool_start: Some(Box::new(move |name: &str, args: &serde_json::Value| {
@@ -566,11 +578,11 @@ pub async fn agent_chat(
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
                 .unwrap_or(0));
-            let _ = app_tool_start.emit("agent-tool-start", json!({
+            let _ = app_tool.emit("agent-tool-start", json!({
                 "id": id,
                 "name": name,
                 "args": args,
-                "session_id": captured_id_start,
+                "session_id": sid_tool_start,
             }));
         })),
         on_tool_complete: Some(Box::new(move |name: &str, result: &str| {
@@ -582,24 +594,20 @@ pub async fn agent_chat(
                 "id": id,
                 "name": name,
                 "result": result,
-                "session_id": captured_id_complete.clone(),
+                "session_id": sid_tool_complete,
             }));
         })),
         ..Default::default()
     };
 
     // Build AgentLoop and run
-    let agent = build_agent_loop(&config, &model_name, callbacks);
-    let captured_session_id2 = session_id.clone();
-
-    let app_delta = app.clone();
-    let app_usage = app.clone();
+    let agent = build_agent_loop(&config, &model_name, effective_session_id.clone(), callbacks);
     let on_chunk = Some(Box::new(move |chunk: StreamChunk| {
         if let Some(ref delta) = chunk.delta {
             if let Some(ref content) = delta.content {
                 let _ = app_delta.emit("agent-delta", json!({
                     "text": content,
-                    "session_id": captured_session_id2,
+                    "session_id": sid_delta,
                 }));
             }
         }
@@ -608,7 +616,7 @@ pub async fn agent_chat(
                 "prompt_tokens": usage.prompt_tokens,
                 "completion_tokens": usage.completion_tokens,
                 "total_tokens": usage.total_tokens,
-                "session_id": captured_session_id2.clone(),
+                "session_id": sid_usage.clone(),
             }));
         }
     }) as Box<dyn Fn(StreamChunk) + Send + Sync>);
@@ -625,9 +633,6 @@ pub async fn agent_chat(
         tools.get_definitions()
     };
 
-    let app_err = app.clone();
-    let captured_session_id3 = session_id.clone();
-
     let result = agent.run_stream(messages, Some(tool_schemas), on_chunk).await;
 
     match result {
@@ -640,23 +645,23 @@ pub async fn agent_chat(
                 .and_then(|m| m.content.clone())
                 .unwrap_or_default();
 
-            let _ = app.emit("agent-done", json!({
+            let _ = app_done.emit("agent-done", json!({
                 "response": final_response,
-                "session_id": captured_session_id3.clone(),
+                "session_id": sid_done,
                 "message_count": 0i32,
             }));
 
             Ok(json!({
                 "response": final_response,
-                "session_id": captured_session_id3,
+                "session_id": sid_done,
                 "message_count": 0,
             }))
         }
         Err(err) => {
             let err_msg = err.to_string();
-            let _ = app_err.emit("agent-error", json!({
+            let _ = app_done.emit("agent-error", json!({
                 "message": err_msg,
-                "session_id": captured_session_id3,
+                "session_id": sid_done,
             }));
             Err(err_msg)
         }
