@@ -579,57 +579,56 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
 }
 
 
-/// System prompt for the Claw agent — uses the real load_system_prompt from runtime.
-pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> String {
+/// System prompt for the Claw agent — mirrors upstream CLI's build_system_prompt.
+/// Calls runtime::load_system_prompt() to get the full config-based prompt with
+/// project context, then appends Hermes skills for SuperTool-specific knowledge.
+pub(crate) fn claw_agent_system_prompt(skill_bytes_cap: usize) -> Vec<String> {
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("/"));
 
-    // Build a comprehensive system prompt directly, without relying on
-    // runtime::load_system_prompt which requires a specific config format
-    // that may not match the user's ~/.claw/settings.json layout.
-    let mut sections: Vec<String> = Vec::new();
-
-    sections.push(r#"You are an expert software engineer and coding assistant powered by the Claw Code agent.
-You have access to a powerful set of tools that let you read, write, edit, search, and explore codebases.
-
-# Core capabilities
-- Read files and directories to understand project structure
-- Search code with grep-like patterns
-- Write and edit files with precise changes
-- Run shell commands to build, test, and deploy
-- Explore codebases interactively
-
-# How to use tools
-When the user asks you to explore code, investigate a problem, or make changes:
-1. FIRST read relevant files to understand the context
-2. USE search tools to find relevant code
-3. MAKE changes with edit/write tools
-4. VERIFY with terminal commands (build, test)
-5. REPORT your findings clearly
-
-Always prefer using tools over guessing. If you need information, read the file. If you need to find something, search for it.
-Do not just describe what you would do — actually do it using your tools."#.to_string());
-
-    // OS / date info
-    sections.push(format!(
-        "Current date: {}.\nOperating system: {} {}.",
-        chrono::Utc::now().format("%Y-%m-%d"),
+    // Call the same load_system_prompt that the original claw CLI uses.
+    // This reads ~/.claw/settings.json (and other config files via ConfigLoader walk-up),
+    // discovers project context (git status, CLAUDE.md, AGENTS.md, rules, instructions),
+    // and builds the rich multi-section system prompt with tool instructions.
+    let mut sections: Vec<String> = match runtime::load_system_prompt(
+        cwd,
+        chrono::Utc::now().format("%Y-%m-%d").to_string(),
         std::env::consts::OS,
         "26.5",
-    ));
+        api::model_family_identity_for(
+            &crate::commands::claw_config::read_claw_config()
+                .unwrap_or_default()
+                .model,
+        ),
+    ) {
+        Ok(sections) => sections,
+        Err(e) => {
+            log::warn!(
+                "[claw_chat] load_system_prompt failed (falling back to minimal prompt): {e}"
+            );
+            // Fallback: a minimal prompt when config/config files are unavailable
+            vec![
+                r#"You are Claw Code, an expert software engineering agent. You have access to tools
+for reading, writing, searching, and exploring code. When given a task:
 
-    // Working directory
-    sections.push(format!(
-        "Your working directory is: {}",
-        cwd.display()
-    ));
+1. Read relevant files to understand context
+2. Search for what you need
+3. Make precise edits
+4. Verify with terminal commands
+5. Report findings clearly
 
-    // Append Hermes skills
+Use your tools proactively — do not just describe what you would do."#
+                    .to_string(),
+            ]
+        }
+    };
+
+    // Append Hermes skills as an additional section (SuperTool-specific)
     let skills_section = load_hermes_skills(skill_bytes_cap);
     if !skills_section.is_empty() {
         sections.push(skills_section);
     }
 
-    sections.join("\n\n")
+    sections
 }
 
 /// 从 ~/.claw/settings.json 读取 API key 和 base URL，设置到进程环境变量
@@ -828,7 +827,7 @@ pub async fn claw_chat_send(
 
     // ── Build tool definitions ──
     let tool_defs = build_tool_definitions();
-    let system_prompt = claw_agent_system_prompt(skill_bytes_cap);
+    let system_prompt_sections = claw_agent_system_prompt(skill_bytes_cap);
     let sid = session_path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -884,7 +883,7 @@ pub async fn claw_chat_send(
             api_client,
             tool_executor,
             permission_policy,
-            vec![system_prompt], // Vec<String> as expected by upstream
+            system_prompt_sections, // Vec<String> from load_system_prompt
         )
         .with_max_iterations(max_iters)
         .with_hook_abort_signal(hook_abort_signal)
