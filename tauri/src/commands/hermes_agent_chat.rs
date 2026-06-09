@@ -75,14 +75,15 @@ struct NestedModelInfo {
 /// Retries on empty/parse error to handle concurrent file writes by other processes.
 fn resolve_nested_model_info() -> Option<NestedModelInfo> {
     let path = hermes_config::paths::config_path();
+    log::info!("[AgentChat] nested_model_info: path={:?}, exists={}", path, path.exists());
     if !path.exists() {
         return None;
     }
-    // Retry up to 3 times with 50ms delay to survive concurrent writes
     for attempt in 0..3 {
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
-            Err(_) => {
+            Err(e) => {
+                log::warn!("[AgentChat] nested_model_info: read error (attempt {}): {}", attempt, e);
                 if attempt < 2 {
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
@@ -91,7 +92,8 @@ fn resolve_nested_model_info() -> Option<NestedModelInfo> {
         };
         let yaml: serde_yaml::Value = match serde_yaml::from_str(&content) {
             Ok(v) => v,
-            Err(_) => {
+            Err(e) => {
+                log::warn!("[AgentChat] nested_model_info: yaml parse error (attempt {}): {}", attempt, e);
                 if attempt < 2 {
                     std::thread::sleep(std::time::Duration::from_millis(50));
                 }
@@ -100,12 +102,22 @@ fn resolve_nested_model_info() -> Option<NestedModelInfo> {
         };
         let model_section = match yaml.get("model") {
             Some(s) => s,
-            None => return None,
+            None => {
+                log::warn!("[AgentChat] nested_model_info: no 'model' key in yaml");
+                return None;
+            }
         };
         if !model_section.is_mapping() {
-            return None; // Plain string, handled by GatewayConfig
+            log::info!("[AgentChat] nested_model_info: model is a plain string, not nested");
+            return None;
         }
-        let default_model = model_section.get("default")?.as_str()?.trim().to_string();
+        let default_model = match model_section.get("default").and_then(|v| v.as_str()) {
+            Some(s) => s.trim().to_string(),
+            None => {
+                log::warn!("[AgentChat] nested_model_info: missing model.default");
+                return None;
+            }
+        };
         let provider = model_section
             .get("provider")
             .and_then(|v| v.as_str())
@@ -129,12 +141,16 @@ fn resolve_nested_model_info() -> Option<NestedModelInfo> {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
 
-        return Some(NestedModelInfo {
+        let result = NestedModelInfo {
             model_str,
             base_url,
             api_key,
-        });
+        };
+        log::info!("[AgentChat] nested_model_info: resolved model_str={}, base_url={:?}, has_key={}",
+            result.model_str, result.base_url, result.api_key.is_some());
+        return Some(result);
     }
+    log::warn!("[AgentChat] nested_model_info: all 3 attempts failed");
     None
 }
 
@@ -187,6 +203,7 @@ fn find_provider_config(
         .or_else(|| config.llm_providers.get(&runtime_provider));
 
     if let Some(cfg) = cfg {
+        log::info!("[AgentChat] find_provider: found in llm_providers for '{}'", provider_name);
         let api_key = cfg
             .api_key
             .clone()
@@ -205,20 +222,28 @@ fn find_provider_config(
         .or_else(|| load_credential_pool_entry(&runtime_provider))
     {
         let (api_key, base_url) = result;
-        // If credential_pool has base_url but empty api_key, continue to step 3
+        log::info!("[AgentChat] find_provider: found in credential_pool for '{}': base_url={:?}, has_key={}",
+            provider_name, base_url, !api_key.is_empty());
         if !api_key.is_empty() || base_url.is_some() {
             return Some((api_key, base_url));
         }
+    } else {
+        log::info!("[AgentChat] find_provider: not found in credential_pool for '{}'", provider_name);
     }
 
     // 3. Final fallback: raw config.yaml nested model: section (base_url + api_key)
     if let Some(nested) = resolve_nested_model_info() {
+        log::info!("[AgentChat] find_provider: nested model fallback for '{}': base_url={:?}, has_key={}",
+            provider_name, nested.base_url, nested.api_key.is_some());
         if nested.base_url.is_some() {
             let api_key = nested.api_key.unwrap_or_default();
             return Some((api_key, nested.base_url));
         }
+    } else {
+        log::info!("[AgentChat] find_provider: nested model fallback returned None for '{}'", provider_name);
     }
 
+    log::warn!("[AgentChat] find_provider: all fallbacks exhausted for '{}'", provider_name);
     None
 }
 
@@ -508,6 +533,7 @@ pub async fn agent_chat(
 ) -> Result<serde_json::Value, String> {
     let config = load_config(None).map_err(|e| format!("Failed to load Hermes config: {e}"))?;
     let model_name = resolve_effective_model(&config, model);
+    log::info!("[AgentChat] resolved model_name='{}'", model_name);
 
     ABORT_FLAG.store(false, Ordering::SeqCst);
     {
