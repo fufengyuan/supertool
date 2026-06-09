@@ -707,12 +707,20 @@ pub async fn agent_chat(
                 "message_count": 0i32,
             }));
 
-            // Persist assistant response to state.db
+            // Persist all messages to state.db (batch replace — mirrors CLI)
             if let Some(ref sid) = effective_session_id {
-                let content = if final_response.is_empty() { None } else { Some(final_response.as_str()) };
-                let _ = supertool_core::db::agent::insert_hermes_message(
-                    sid, "assistant", content, None, None, None,
-                );
+                // Delete old messages, then re-insert all AgentResult messages
+                let _ = supertool_core::db::agent::delete_hermes_messages(sid);
+                for msg in &agent_result.messages {
+                    let role = format!("{:?}", msg.role).to_ascii_lowercase();
+                    let tc_json = msg.tool_calls.as_ref()
+                        .and_then(|tc| serde_json::to_string(tc).ok());
+                    let _ = supertool_core::db::agent::insert_hermes_message(
+                        sid, &role, msg.content.as_deref(),
+                        msg.tool_call_id.as_deref(), tc_json.as_deref(),
+                        msg.reasoning_content.as_deref(),
+                    );
+                }
             }
 
             Ok(json!({

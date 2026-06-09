@@ -171,6 +171,18 @@ pub fn insert_hermes_message(
     Ok(())
 }
 
+/// Delete all messages for a session and reset message_count to 0.
+pub fn delete_hermes_messages(session_id: &str) -> Result<(), String> {
+    let db_path = get_hermes_state_db_path();
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 state.db: {e}"))?;
+    conn.execute("DELETE FROM messages WHERE session_id = ?1", rusqlite::params![session_id])
+        .map_err(|e| format!("删除消息失败: {e}"))?;
+    conn.execute("UPDATE sessions SET message_count = 0 WHERE id = ?1", rusqlite::params![session_id])
+        .ok();
+    Ok(())
+}
+
 /// List Hermes sessions with preview (from all profiles)
 ///
 /// Query similar to Hermes's `list_sessions_rich`:
