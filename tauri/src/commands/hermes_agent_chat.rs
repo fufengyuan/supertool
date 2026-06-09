@@ -12,6 +12,7 @@
 //!   agent-error: error occurred
 //!   agent-usage: token usage info
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -40,6 +41,52 @@ lazy_static::lazy_static! {
 // ---------------------------------------------------------------------------
 // Helpers — config / provider / tool building
 // ---------------------------------------------------------------------------
+
+/// Resolve the effective model name from config.yaml.
+///
+/// `GatewayConfig.model` is `Option<String>` — but the user's config.yaml may
+/// have a nested `model:` section (OMP-style format) with `default`, `provider`,
+/// `base_url`, `api_key` sub-keys. serde silently ignores nested maps for a
+/// string field, so we fall back to raw-YAML parsing.
+fn resolve_effective_model(config: &GatewayConfig, cli_model: Option<String>) -> String {
+    if let Some(m) = cli_model {
+        return m;
+    }
+    if let Some(m) = &config.model {
+        return m.clone();
+    }
+    // Fallback: read raw YAML to extract nested model.default + model.provider
+    if let Some(model_str) = resolve_nested_model_from_yaml() {
+        return model_str;
+    }
+    "gpt-4o".to_string()
+}
+
+/// Read raw config.yaml and extract `model.default` + `model.provider`
+/// as a `provider:model` string (e.g. "custom:claude-sonnet-4-6").
+fn resolve_nested_model_from_yaml() -> Option<String> {
+    let path = hermes_config::paths::config_path();
+    if !path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
+    let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
+    let model_section = yaml.get("model")?;
+    if !model_section.is_mapping() {
+        return None; // It's a plain string, already handled by GatewayConfig
+    }
+    let default_model = model_section.get("default")?.as_str()?.trim().to_string();
+    let provider = model_section
+        .get("provider")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim().to_string());
+
+    match provider {
+        Some(p) => Some(format!("{}:{}", p, default_model)),
+        None => Some(default_model),
+    }
+}
 
 /// Resolve provider name + model name from a `provider:model` string.
 fn resolve_provider_and_model(config: &GatewayConfig, model: &str) -> (String, String) {
@@ -75,29 +122,153 @@ fn normalize_provider(name: &str) -> String {
     .to_string()
 }
 
+/// Look up provider config from `llm_providers` first, then fall back to
+/// auth.json `credential_pool` entries.
+fn find_provider_config(
+    config: &GatewayConfig,
+    provider_name: &str,
+) -> Option<(String, Option<String>)> {
+    let runtime_provider = normalize_provider(provider_name);
+
+    // 1. Try config.yaml llm_providers
+    let cfg = config
+        .llm_providers
+        .get(provider_name)
+        .or_else(|| config.llm_providers.get(&runtime_provider));
+
+    if let Some(cfg) = cfg {
+        let api_key = cfg
+            .api_key
+            .clone()
+            .or_else(|| {
+                cfg.api_key_env.as_deref().and_then(|name| {
+                    std::env::var(name).ok().filter(|v| !v.trim().is_empty())
+                })
+            })
+            .unwrap_or_default();
+        let base_url = cfg.base_url.clone();
+        return Some((api_key, base_url));
+    }
+
+    // 2. Fallback: auth.json credential_pool
+    load_credential_pool_entry(provider_name)
+        .or_else(|| load_credential_pool_entry(&runtime_provider))
+}
+
+/// Read a single entry from auth.json credential_pool by provider name.
+fn load_credential_pool_entry(provider_name: &str) -> Option<(String, Option<String>)> {
+    let home = hermes_config::hermes_home();
+    let auth_path = home.join("auth.json");
+    if !auth_path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(auth_path).ok()?;
+    let auth: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let pool = auth.get("credential_pool")?.as_object()?;
+
+    // Try exact match first, then partial match
+    let keys: [&str; 2] = [provider_name, &format!("custom:{}", provider_name)];
+    for key in keys {
+        if let Some(entries) = pool.get(key) {
+            if let Some(entry) = entries.as_array()?.first() {
+                let api_key = entry
+                    .get("api_key")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| entry.get("access_token").and_then(|v| v.as_str()))
+                    .unwrap_or("")
+                    .to_string();
+                let base_url = entry
+                    .get("base_url")
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string());
+                return Some((api_key, base_url));
+            }
+        }
+    }
+    None
+}
+
+/// Build all runtime provider configs from config.yaml + auth.json credential_pool.
+fn build_runtime_providers(
+    config: &GatewayConfig,
+) -> HashMap<String, hermes_agent::agent_loop::RuntimeProviderConfig> {
+    let mut providers: HashMap<String, hermes_agent::agent_loop::RuntimeProviderConfig> =
+        HashMap::new();
+
+    // From config.yaml llm_providers
+    for (name, cfg) in &config.llm_providers {
+        providers.insert(
+            name.clone(),
+            hermes_agent::agent_loop::RuntimeProviderConfig {
+                api_key: cfg.api_key.clone(),
+                api_key_env: cfg.api_key_env.clone(),
+                base_url: cfg.base_url.clone(),
+                api_mode: None,
+                command: cfg.command.clone(),
+                args: cfg.args.clone(),
+                oauth_token_url: cfg.oauth_token_url.clone(),
+                oauth_client_id: cfg.oauth_client_id.clone(),
+            },
+        );
+    }
+
+    // Fallback: from auth.json credential_pool
+    let home = config
+        .home_dir
+        .clone()
+        .map(PathBuf::from)
+        .unwrap_or_else(hermes_config::hermes_home);
+    let auth_path = home.join("auth.json");
+    if auth_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&auth_path) {
+            if let Ok(auth) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(pool) = auth.get("credential_pool").and_then(|v| v.as_object()) {
+                    for (key, entries) in pool {
+                        if providers.contains_key(key) {
+                            continue; // Don't overwrite config.yaml entries
+                        }
+                        if let Some(entry) = entries.as_array().and_then(|a| a.first()) {
+                            let api_key = entry
+                                .get("api_key")
+                                .and_then(|v| v.as_str())
+                                .or_else(|| {
+                                    entry.get("access_token").and_then(|v| v.as_str())
+                                })
+                                .unwrap_or("")
+                                .to_string();
+                            let base_url = entry
+                                .get("base_url")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                                .map(|s| s.to_string());
+                            providers.insert(
+                                key.clone(),
+                                hermes_agent::agent_loop::RuntimeProviderConfig {
+                                    api_key: Some(api_key),
+                                    api_key_env: None,
+                                    base_url,
+                                    api_mode: None,
+                                    command: None,
+                                    args: vec![],
+                                    oauth_token_url: None,
+                                    oauth_client_id: None,
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    providers
+}
+
 /// Build an AgentConfig from Hermes config.yaml + model string.
 fn build_agent_config(config: &GatewayConfig, model: &str) -> AgentConfig {
     let (provider_name, model_name) = resolve_provider_and_model(config, model);
-
-    let runtime_providers = config
-        .llm_providers
-        .iter()
-        .map(|(name, cfg)| {
-            (
-                name.clone(),
-                hermes_agent::agent_loop::RuntimeProviderConfig {
-                    api_key: cfg.api_key.clone(),
-                    api_key_env: cfg.api_key_env.clone(),
-                    base_url: cfg.base_url.clone(),
-                    api_mode: None,
-                    command: cfg.command.clone(),
-                    args: cfg.args.clone(),
-                    oauth_token_url: cfg.oauth_token_url.clone(),
-                    oauth_client_id: cfg.oauth_client_id.clone(),
-                },
-            )
-        })
-        .collect();
+    let runtime_providers = build_runtime_providers(config);
 
     AgentConfig {
         max_turns: config.max_turns,
@@ -113,28 +284,13 @@ fn build_agent_config(config: &GatewayConfig, model: &str) -> AgentConfig {
     }
 }
 
-/// Build an LLM provider from config + model string.
+/// Build an LLM provider from config + model string, with credential_pool fallback.
 fn build_provider(config: &GatewayConfig, model: &str) -> Arc<dyn LlmProvider> {
     let (provider_name, model_name) = resolve_provider_and_model(config, model);
     let runtime_provider = normalize_provider(&provider_name);
 
-    let provider_cfg = config
-        .llm_providers
-        .get(&provider_name)
-        .or_else(|| config.llm_providers.get(&runtime_provider));
-
-    let base_url = provider_cfg.and_then(|c| c.base_url.clone());
-
-    let api_key = provider_cfg
-        .and_then(|c| c.api_key.as_deref())
-        .map(|s| s.to_string())
-        .or_else(|| {
-            provider_cfg
-                .and_then(|c| c.api_key_env.as_deref())
-                .filter(|name| !name.is_empty())
-                .and_then(|name| std::env::var(name).ok())
-                .filter(|v| !v.trim().is_empty())
-        })
+    let (api_key, base_url) = find_provider_config(config, &provider_name)
+        .or_else(|| find_provider_config(config, &runtime_provider))
         .unwrap_or_default();
 
     use hermes_agent::provider::{
@@ -284,12 +440,7 @@ pub async fn agent_chat(
     context_folder: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let config = load_config(None).map_err(|e| format!("Failed to load Hermes config: {e}"))?;
-    let model_name = model.unwrap_or_else(|| {
-        config
-            .model
-            .clone()
-            .unwrap_or_else(|| "gpt-4o".to_string())
-    });
+    let model_name = resolve_effective_model(&config, model);
 
     ABORT_FLAG.store(false, Ordering::SeqCst);
     {
@@ -441,22 +592,49 @@ pub async fn agent_clear_cache(_session_id: String) -> Result<serde_json::Value,
 pub async fn agent_check_available() -> Result<serde_json::Value, String> {
     let config = load_config(None).ok();
     let has_config = config.is_some();
-    let has_providers = config
-        .as_ref()
-        .map(|c| !c.llm_providers.is_empty())
-        .unwrap_or(false);
+
+    // Check auth.json credential_pool as well (not just llm_providers)
+    let has_credentials = has_providers_in_config_or_auth(&config);
 
     Ok(json!({
-        "available": has_config && has_providers,
-        "ready": has_config && has_providers,
+        "available": has_config && has_credentials,
+        "ready": has_config && has_credentials,
         "error": if !has_config {
             serde_json::Value::String("Hermes config not found".to_string())
-        } else if !has_providers {
-            serde_json::Value::String("No LLM providers configured in config.yaml".to_string())
+        } else if !has_credentials {
+            serde_json::Value::String("No LLM providers or credentials configured".to_string())
         } else {
             serde_json::Value::Null
         },
     }))
+}
+
+fn has_providers_in_config_or_auth(config: &Option<GatewayConfig>) -> bool {
+    if let Some(c) = config {
+        if !c.llm_providers.is_empty() {
+            return true;
+        }
+    }
+    // Check auth.json credential_pool
+    let home = config
+        .as_ref()
+        .and_then(|c| c.home_dir.clone())
+        .map(PathBuf::from)
+        .unwrap_or_else(hermes_config::hermes_home);
+    let auth_path = home.join("auth.json");
+    if !auth_path.exists() {
+        return false;
+    }
+    if let Ok(content) = std::fs::read_to_string(auth_path) {
+        if let Ok(auth) = serde_json::from_str::<serde_json::Value>(&content) {
+            if let Some(pool) = auth.get("credential_pool").and_then(|v| v.as_object()) {
+                return pool.iter().any(|(_, entries)| {
+                    entries.as_array().is_some_and(|a| !a.is_empty())
+                });
+            }
+        }
+    }
+    false
 }
 
 /// Get custom models from Hermes config.
