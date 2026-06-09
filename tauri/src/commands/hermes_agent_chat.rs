@@ -63,6 +63,7 @@ fn resolve_effective_model(config: &GatewayConfig, cli_model: Option<String>) ->
 }
 
 /// Holds the full model info extracted from a nested `model:` YAML section.
+#[derive(Clone)]
 struct NestedModelInfo {
     model_str: String,
     base_url: Option<String>,
@@ -71,46 +72,50 @@ struct NestedModelInfo {
 
 /// Read raw config.yaml and extract nested model section
 /// (`model.default`, `model.provider`, `model.base_url`, `model.api_key`).
+/// Cached to avoid intermittent failures from concurrent file writes.
 fn resolve_nested_model_info() -> Option<NestedModelInfo> {
-    let path = hermes_config::paths::config_path();
-    if !path.exists() {
-        return None;
-    }
-    let content = std::fs::read_to_string(path).ok()?;
-    let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
-    let model_section = yaml.get("model")?;
-    if !model_section.is_mapping() {
-        return None; // Plain string, handled by GatewayConfig
-    }
-    let default_model = model_section.get("default")?.as_str()?.trim().to_string();
-    let provider = model_section
-        .get("provider")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.trim().to_string());
+    static CACHE: std::sync::OnceLock<Option<NestedModelInfo>> = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| {
+        let path = hermes_config::paths::config_path();
+        if !path.exists() {
+            return None;
+        }
+        let content = std::fs::read_to_string(path).ok()?;
+        let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
+        let model_section = yaml.get("model")?;
+        if !model_section.is_mapping() {
+            return None; // Plain string, handled by GatewayConfig
+        }
+        let default_model = model_section.get("default")?.as_str()?.trim().to_string();
+        let provider = model_section
+            .get("provider")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.trim().to_string());
 
-    let model_str = match &provider {
-        Some(p) => format!("{}:{}", p, default_model),
-        None => default_model,
-    };
+        let model_str = match &provider {
+            Some(p) => format!("{}:{}", p, default_model),
+            None => default_model,
+        };
 
-    let base_url = model_section
-        .get("base_url")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string());
+        let base_url = model_section
+            .get("base_url")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
 
-    let api_key = model_section
-        .get("api_key")
-        .and_then(|v| v.as_str())
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string());
+        let api_key = model_section
+            .get("api_key")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
 
-    Some(NestedModelInfo {
-        model_str,
-        base_url,
-        api_key,
-    })
+        Some(NestedModelInfo {
+            model_str,
+            base_url,
+            api_key,
+        })
+    }).as_ref().cloned()
 }
 
 /// Resolve provider name + model name from a `provider:model` string.
