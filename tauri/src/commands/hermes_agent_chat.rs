@@ -73,12 +73,17 @@ struct NestedModelInfo {
 /// Read raw config.yaml and extract nested model section
 /// (`model.default`, `model.provider`, `model.base_url`, `model.api_key`).
 /// Retries on empty/parse error to handle concurrent file writes by other processes.
+/// Checks both ~/.hermes and ~/.hermes-agent-ultra paths.
 fn resolve_nested_model_info() -> Option<NestedModelInfo> {
-    let path = hermes_config::paths::config_path();
-    log::info!("[AgentChat] nested_model_info: path={:?}, exists={}", path, path.exists());
-    if !path.exists() {
-        return None;
-    }
+    // Check multiple possible config paths
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
+    let candidates = [
+        home.join(".hermes").join("config.yaml"),
+        home.join(".hermes-agent-ultra").join("config.yaml"),
+        hermes_config::paths::config_path(),
+    ];
+    let path = candidates.iter().find(|p| p.exists())?;
+    log::info!("[AgentChat] nested_model_info: using path={:?}", path);
     for attempt in 0..3 {
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
@@ -248,9 +253,15 @@ fn find_provider_config(
 }
 
 /// Read a single entry from auth.json credential_pool by provider name.
+/// Checks both ~/.hermes and ~/.hermes-agent-ultra directories.
 fn load_credential_pool_entry(provider_name: &str) -> Option<(String, Option<String>)> {
-    let home = hermes_config::hermes_home();
-    let auth_path = home.join("auth.json");
+    let home = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/"));
+    let candidates = [
+        Some(home.join(".hermes").join("auth.json")),
+        Some(home.join(".hermes-agent-ultra").join("auth.json")),
+        hermes_config::paths::config_path().parent().map(|p| p.join("auth.json")),
+    ];
+    let auth_path = candidates.iter().find_map(|p| p.as_ref())?;
     if !auth_path.exists() {
         return None;
     }
