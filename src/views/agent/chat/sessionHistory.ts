@@ -6,7 +6,7 @@
  * union types, and merges streamed in-memory messages with DB-loaded
  * equivalents at end-of-stream.
  */
-import type { ChatMessage, ChatBubbleMessage } from './types'
+import type { ChatMessage, ChatBubbleMessage, ToolResultMessage } from './types'
 
 export interface DbHistoryItem {
   kind: 'user' | 'assistant' | 'reasoning' | 'tool_call' | 'tool_result'
@@ -92,12 +92,21 @@ function reconciliationKey(m: ChatMessage): string | null {
 }
 
 /** Merge DB-only metadata (e.g. attachments) into a streamed message
- *  while preserving the streamed message's identity (id). */
+ *  while preserving the streamed message's identity (id).
+ *  For tool_result messages, use DB content when streamed content is empty. */
 function mergeDbMetadataIntoStreamed(
   streamed: ChatMessage,
   db: ChatMessage,
 ): ChatMessage {
-  if ('kind' in streamed) return streamed
+  if ('kind' in streamed) {
+    // Preserve streamed for non-content fields (callId, name) but
+    // take content from DB if the streamed version has no content yet
+    // (tool_result may arrive with empty result from streaming events).
+    if (streamed.kind === 'tool_result' && !(streamed as ToolResultMessage).content && (db as ToolResultMessage).content) {
+      return { ...(db as ToolResultMessage), id: streamed.id }
+    }
+    return streamed
+  }
   const s = streamed as ChatBubbleMessage
   const d = db as ChatBubbleMessage
   if (d.attachments && d.attachments.length > 0 && (!s.attachments || s.attachments.length === 0)) {
