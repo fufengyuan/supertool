@@ -50,15 +50,20 @@ pub struct HermesMessage {
     pub is_child: bool,
 }
 
-/// Get Hermes home directory (~/.hermes)
+/// Get Hermes home directory — checks HERMES_HOME env var, then ~/.hermes, then ~/.hermes-agent-ultra.
+/// Mirrors the logic in hermes_config::paths::hermes_home().
 pub fn get_hermes_home() -> PathBuf {
     // Respect HERMES_HOME env var if set (for profile support)
     if let Ok(home) = std::env::var("HERMES_HOME") {
-        PathBuf::from(home)
+        return PathBuf::from(home);
+    }
+    let home_dir = dirs::home_dir().unwrap_or_else(|| PathBuf::from("/tmp"));
+    let primary = home_dir.join(".hermes");
+    let legacy = home_dir.join(".hermes-agent-ultra");
+    if primary.exists() || !legacy.exists() {
+        primary
     } else {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join(".hermes")
+        legacy
     }
 }
 
