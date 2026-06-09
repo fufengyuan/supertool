@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "4.65.3"
+version = "4.66.0"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -87,6 +87,9 @@ hermes-core = { path = "../hermes-core" }
 hermes-cron = { path = "../hermes-cron" }
 hermes-skills = { path = "../hermes-skills" }
 hermes-gateway = { path = "../hermes-gateway" }
+hermes-agent = { path = "../hermes-agent" }
+hermes-tools = { path = "../hermes-tools" }
+hermes-environments = { path = "../hermes-environments" }
 
 [dev-dependencies]
 tempfile = "3"

@@ -912,21 +912,21 @@ fn main() {
             commands::agent::agent_get_compression_tip,
             commands::agent::save_temp_file,
             commands::agent::clean_temp_dir,
-            // Agent Chat Bridge commands (chat/abort still use HTTP bridge)
-            commands::hermes_chat::agent_chat,
-            commands::hermes_chat::agent_abort_chat,
-            commands::hermes_chat::agent_clear_cache,
+            // Agent Chat (direct AgentLoop integration, no HTTP bridge)
+            commands::hermes_agent_chat::agent_chat,
+            commands::hermes_agent_chat::agent_abort_chat,
+            commands::hermes_agent_chat::agent_clear_cache,
             // Hermes gateway management
             commands::hermes_gateway::gateway_status,
             commands::hermes_gateway::gateway_start,
             commands::hermes_gateway::gateway_stop,
             commands::hermes_gateway::gateway_restart,
             // Hermes config management (pure Rust, no Python bridge)
-            commands::hermes_chat::agent_check_available,
-            commands::hermes_chat::agent_get_models,
-            commands::hermes_chat::agent_add_model,
-            commands::hermes_chat::agent_remove_model,
-            commands::hermes_chat::agent_set_model,
+            commands::hermes_agent_chat::agent_check_available,
+            commands::hermes_agent_chat::agent_get_models,
+            commands::hermes_agent_chat::agent_add_model,
+            commands::hermes_agent_chat::agent_remove_model,
+            commands::hermes_agent_chat::agent_set_model,
             // Hermes API server configuration
             commands::hermes_config::agent_api_server_status,
             commands::hermes_config::agent_configure_api_server,

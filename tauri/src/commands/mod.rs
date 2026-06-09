@@ -10,7 +10,7 @@ pub mod fetch;
 pub mod git;
 pub mod git_repo;
 pub mod git_sync;
-pub mod hermes_chat;
+pub mod hermes_agent_chat;
 pub mod hermes_config;
 pub mod hermes_cron;
 pub mod hermes_gateway;

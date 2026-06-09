@@ -146,7 +146,7 @@ fn test_create_and_remove_cron_job() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// hermes_chat (async — need Tokio runtime)
+// hermes_agent_chat (async — need Tokio runtime)
 // ═══════════════════════════════════════════════════════════════
 
 /// Run an async test function inside a Tokio runtime.
@@ -161,7 +161,7 @@ where
 #[test]
 fn test_agent_check_available() {
     let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let v = run_async(crate::commands::hermes_chat::agent_check_available()).unwrap();
+    let v = run_async(crate::commands::hermes_agent_chat::agent_check_available()).unwrap();
     assert!(v.get("available").is_some(), "missing available");
     assert!(v.get("ready").is_some(), "missing ready");
 }
@@ -169,7 +169,7 @@ fn test_agent_check_available() {
 #[test]
 fn test_agent_get_models() {
     let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let v = run_async(crate::commands::hermes_chat::agent_get_models()).unwrap();
+    let v = run_async(crate::commands::hermes_agent_chat::agent_get_models()).unwrap();
     assert!(v.get("customModels").is_some(), "missing customModels");
     assert!(v.get("providerModels").is_some(), "missing providerModels");
 }
@@ -177,7 +177,7 @@ fn test_agent_get_models() {
 #[test]
 fn test_agent_clear_cache() {
     let _lock = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let v = run_async(crate::commands::hermes_chat::agent_clear_cache("test-session".into()));
+    let v = run_async(crate::commands::hermes_agent_chat::agent_clear_cache("test-session".into()));
     assert!(v.is_ok(), "agentClearCache failed: {:?}", v.err());
 }
 
