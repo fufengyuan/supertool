@@ -2,7 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use runtime::{
-    ContentBlock, ConversationMessage, MessageRole, Session,
+    ConfigLoader, ContentBlock, ConversationMessage, MessageRole, PermissionMode, PermissionPolicy,
+    RuntimeConfig, RuntimeFeatureConfig, Session,
 };
 use supertool_claw::llm::LlmClient;
 use tauri::{AppHandle, Emitter};
@@ -579,6 +580,32 @@ pub(crate) fn load_hermes_skills(skill_bytes_cap: usize) -> String {
 }
 
 
+/// Build runtime plugin state (minimal version without MCP).
+/// Mirrors upstream `build_runtime_plugin_state` / `build_runtime_plugin_state_with_loader`
+/// in rusty-claude-cli/src/main.rs lines 11916-11945.
+///
+/// Loads ConfigLoader → RuntimeConfig → feature_config (hooks, permission_rules, etc.)
+/// and builds the tool registry with a permission enforcer.
+fn build_runtime_state() -> Result<(RuntimeFeatureConfig, tools::GlobalToolRegistry), String> {
+    let cwd = std::env::current_dir().map_err(|e| format!("failed to get cwd: {e}"))?;
+    let loader = ConfigLoader::default_for(&cwd);
+    let runtime_config: RuntimeConfig =
+        loader.load().map_err(|e| format!("ConfigLoader failed: {e}"))?;
+    let feature_config = runtime_config.feature_config().clone();
+
+    // Build tool registry with enforcer
+    let mut registry = tools::GlobalToolRegistry::builtin();
+    // Set permission enforcer from feature_config's permission_rules
+    let enforcer = runtime::permission_enforcer::PermissionEnforcer::new(
+        PermissionPolicy::new(PermissionMode::Allow)
+            .with_permission_rules(feature_config.permission_rules()),
+    );
+    registry.set_enforcer(enforcer);
+
+    Ok((feature_config, registry))
+}
+
+
 /// System prompt for the Claw agent — mirrors upstream CLI's build_system_prompt.
 /// Calls runtime::load_system_prompt() to get the full config-based prompt with
 /// project context, then appends Hermes skills for SuperTool-specific knowledge.
@@ -825,8 +852,10 @@ pub async fn claw_chat_send(
         Some(agent_config.reasoning_effort)
     };
 
-    // ── Build tool definitions ──
-    let tool_defs = build_tool_definitions();
+    // ── Build runtime state (feature_config + tool registry) ──
+    // Mirrors upstream: build_runtime_plugin_state() / build_runtime_with_plugin_state()
+    let (feature_config, tool_registry) = build_runtime_state()?;
+    let tool_defs = tool_registry.definitions(None);
     let system_prompt_sections = claw_agent_system_prompt(skill_bytes_cap);
     let sid = session_path
         .file_stem()
@@ -876,14 +905,17 @@ pub async fn claw_chat_send(
             model_name.clone(),
         );
         let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::default();
-        let permission_policy = runtime::PermissionPolicy::new(runtime::PermissionMode::Allow);
+        // Permission policy with rules from config — mirrors upstream permission_policy()
+        let permission_policy = PermissionPolicy::new(PermissionMode::Allow)
+            .with_permission_rules(feature_config.permission_rules());
 
-        let mut rt = runtime::ConversationRuntime::new(
+        let mut rt = runtime::ConversationRuntime::new_with_features(
             taken_session,
             api_client,
             tool_executor,
             permission_policy,
-            system_prompt_sections, // Vec<String> from load_system_prompt
+            system_prompt_sections,
+            &feature_config,
         )
         .with_max_iterations(max_iters)
         .with_hook_abort_signal(hook_abort_signal)
