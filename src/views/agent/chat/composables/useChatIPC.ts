@@ -51,6 +51,7 @@ export function useChatIPC({
       if (
         last &&
         last.role === 'agent' &&
+        !('kind' in last) &&
         'content' in last &&
         typeof last.content === 'string'
       ) {
