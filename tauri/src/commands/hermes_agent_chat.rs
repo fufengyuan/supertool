@@ -72,17 +72,36 @@ struct NestedModelInfo {
 
 /// Read raw config.yaml and extract nested model section
 /// (`model.default`, `model.provider`, `model.base_url`, `model.api_key`).
-/// Cached to avoid intermittent failures from concurrent file writes.
+/// Retries on empty/parse error to handle concurrent file writes by other processes.
 fn resolve_nested_model_info() -> Option<NestedModelInfo> {
-    static CACHE: std::sync::OnceLock<Option<NestedModelInfo>> = std::sync::OnceLock::new();
-    CACHE.get_or_init(|| {
-        let path = hermes_config::paths::config_path();
-        if !path.exists() {
-            return None;
-        }
-        let content = std::fs::read_to_string(path).ok()?;
-        let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
-        let model_section = yaml.get("model")?;
+    let path = hermes_config::paths::config_path();
+    if !path.exists() {
+        return None;
+    }
+    // Retry up to 3 times with 50ms delay to survive concurrent writes
+    for attempt in 0..3 {
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => {
+                if attempt < 2 {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                continue;
+            }
+        };
+        let yaml: serde_yaml::Value = match serde_yaml::from_str(&content) {
+            Ok(v) => v,
+            Err(_) => {
+                if attempt < 2 {
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                continue;
+            }
+        };
+        let model_section = match yaml.get("model") {
+            Some(s) => s,
+            None => return None,
+        };
         if !model_section.is_mapping() {
             return None; // Plain string, handled by GatewayConfig
         }
@@ -110,12 +129,13 @@ fn resolve_nested_model_info() -> Option<NestedModelInfo> {
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string());
 
-        Some(NestedModelInfo {
+        return Some(NestedModelInfo {
             model_str,
             base_url,
             api_key,
-        })
-    }).as_ref().cloned()
+        });
+    }
+    None
 }
 
 /// Resolve provider name + model name from a `provider:model` string.
