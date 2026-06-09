@@ -56,15 +56,22 @@ fn resolve_effective_model(config: &GatewayConfig, cli_model: Option<String>) ->
         return m.clone();
     }
     // Fallback: read raw YAML to extract nested model.default + model.provider
-    if let Some(model_str) = resolve_nested_model_from_yaml() {
+    if let Some(model_str) = resolve_nested_model_info().map(|m| m.model_str) {
         return model_str;
     }
     "gpt-4o".to_string()
 }
 
-/// Read raw config.yaml and extract `model.default` + `model.provider`
-/// as a `provider:model` string (e.g. "custom:claude-sonnet-4-6").
-fn resolve_nested_model_from_yaml() -> Option<String> {
+/// Holds the full model info extracted from a nested `model:` YAML section.
+struct NestedModelInfo {
+    model_str: String,
+    base_url: Option<String>,
+    api_key: Option<String>,
+}
+
+/// Read raw config.yaml and extract nested model section
+/// (`model.default`, `model.provider`, `model.base_url`, `model.api_key`).
+fn resolve_nested_model_info() -> Option<NestedModelInfo> {
     let path = hermes_config::paths::config_path();
     if !path.exists() {
         return None;
@@ -73,7 +80,7 @@ fn resolve_nested_model_from_yaml() -> Option<String> {
     let yaml: serde_yaml::Value = serde_yaml::from_str(&content).ok()?;
     let model_section = yaml.get("model")?;
     if !model_section.is_mapping() {
-        return None; // It's a plain string, already handled by GatewayConfig
+        return None; // Plain string, handled by GatewayConfig
     }
     let default_model = model_section.get("default")?.as_str()?.trim().to_string();
     let provider = model_section
@@ -82,10 +89,28 @@ fn resolve_nested_model_from_yaml() -> Option<String> {
         .filter(|s| !s.is_empty())
         .map(|s| s.trim().to_string());
 
-    match provider {
-        Some(p) => Some(format!("{}:{}", p, default_model)),
-        None => Some(default_model),
-    }
+    let model_str = match &provider {
+        Some(p) => format!("{}:{}", p, default_model),
+        None => default_model,
+    };
+
+    let base_url = model_section
+        .get("base_url")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    let api_key = model_section
+        .get("api_key")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
+    Some(NestedModelInfo {
+        model_str,
+        base_url,
+        api_key,
+    })
 }
 
 /// Resolve provider name + model name from a `provider:model` string.
@@ -123,7 +148,7 @@ fn normalize_provider(name: &str) -> String {
 }
 
 /// Look up provider config from `llm_providers` first, then fall back to
-/// auth.json `credential_pool` entries.
+/// auth.json `credential_pool` entries, and finally to raw config.yaml's nested `model:` section.
 fn find_provider_config(
     config: &GatewayConfig,
     provider_name: &str,
@@ -151,8 +176,25 @@ fn find_provider_config(
     }
 
     // 2. Fallback: auth.json credential_pool
-    load_credential_pool_entry(provider_name)
+    if let Some(result) = load_credential_pool_entry(provider_name)
         .or_else(|| load_credential_pool_entry(&runtime_provider))
+    {
+        let (api_key, base_url) = result;
+        // If credential_pool has base_url but empty api_key, continue to step 3
+        if !api_key.is_empty() || base_url.is_some() {
+            return Some((api_key, base_url));
+        }
+    }
+
+    // 3. Final fallback: raw config.yaml nested model: section (base_url + api_key)
+    if let Some(nested) = resolve_nested_model_info() {
+        if nested.base_url.is_some() {
+            let api_key = nested.api_key.unwrap_or_default();
+            return Some((api_key, nested.base_url));
+        }
+    }
+
+    None
 }
 
 /// Read a single entry from auth.json credential_pool by provider name.
