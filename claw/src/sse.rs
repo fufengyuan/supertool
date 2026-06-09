@@ -85,8 +85,8 @@ pub fn parse_frame(frame: &str) -> Result<Option<StreamEvent>, ApiError> {
 
 pub(crate) fn parse_frame_with_provider(
     frame: &str,
-    _provider: &str,
-    _model: &str,
+    provider: &str,
+    model: &str,
 ) -> Result<Option<StreamEvent>, ApiError> {
     let trimmed = frame.trim();
     if trimmed.is_empty() {
@@ -124,7 +124,7 @@ pub(crate) fn parse_frame_with_provider(
 
     serde_json::from_str::<StreamEvent>(&payload)
         .map(Some)
-        .or_else(|_| Ok(None))
+        .map_err(|error| ApiError::json_deserialize(provider, model, &payload, error))
 }
 
 #[cfg(test)]

@@ -6,7 +6,6 @@ use std::pin::Pin;
 use serde::Serialize;
 
 use crate::error::ApiError;
-use crate::runtime::ModelFamilyIdentity;
 use crate::types::{MessageRequest, MessageResponse};
 
 pub mod anthropic;
@@ -212,7 +211,7 @@ pub fn resolve_model_alias(model: &str) -> String {
         .find_map(|(alias, metadata)| {
             (*alias == lower).then_some(match metadata.provider {
                 ProviderKind::Anthropic => match *alias {
-                    "opus" => "claude-opus-4-6",
+                    "opus" => "claude-opus-4-7",
                     "sonnet" => "claude-sonnet-4-6",
                     "haiku" => "claude-haiku-4-5-20251213",
                     _ => trimmed,
@@ -256,6 +255,14 @@ pub fn metadata_for_model(model: &str) -> Option<ProviderMetadata> {
     // Without this, detect_provider_kind falls through to the auth-sniffer
     // order and misroutes to Anthropic if ANTHROPIC_API_KEY is present.
     if canonical.starts_with("openai/") || canonical.starts_with("gpt-") {
+        return Some(ProviderMetadata {
+            provider: ProviderKind::OpenAi,
+            auth_env: "OPENAI_API_KEY",
+            base_url_env: "OPENAI_BASE_URL",
+            default_base_url: openai_compat::DEFAULT_OPENAI_BASE_URL,
+        });
+    }
+    if canonical.starts_with("local/") {
         return Some(ProviderMetadata {
             provider: ProviderKind::OpenAi,
             auth_env: "OPENAI_API_KEY",
@@ -338,19 +345,28 @@ pub fn provider_diagnostics_for_model(model: &str) -> ProviderDiagnostics {
     }
 }
 
+fn looks_like_local_openai_model(model: &str) -> bool {
+    model.contains(':') || model.contains('.')
+}
+
 #[must_use]
 pub fn detect_provider_kind(model: &str) -> ProviderKind {
-    // When OPENAI_BASE_URL is set, the user explicitly configured an
-    // OpenAI-compatible endpoint (relay/proxy/self-hosted). This check goes
-    // BEFORE metadata_for_model so that a custom base URL wins over model-
-    // name-based routing — essential for third-party relay services that
-    // speak the OpenAI API format but are called with Claude model names.
-    if std::env::var_os("OPENAI_BASE_URL").is_some() && openai_compat::has_api_key("OPENAI_API_KEY")
-    {
+    // OLLAMA_HOST takes priority: if set, route all models through the local
+    // OpenAI-compatible endpoint regardless of model name or other env vars.
+    if std::env::var_os("OLLAMA_HOST").is_some() {
         return ProviderKind::OpenAi;
     }
-    if let Some(metadata) = metadata_for_model(model) {
+    let resolved_model = resolve_model_alias(model);
+    if let Some(metadata) = metadata_for_model(&resolved_model) {
         return metadata.provider;
+    }
+    // When OPENAI_BASE_URL is set and the unknown model name looks like a
+    // local server tag (for example `llama3.2` or `qwen2.5-coder:7b`), prefer
+    // the OpenAI-compatible endpoint over ambient Anthropic credentials.
+    if std::env::var_os("OPENAI_BASE_URL").is_some()
+        && looks_like_local_openai_model(&resolved_model)
+    {
+        return ProviderKind::OpenAi;
     }
     if anthropic::has_auth_from_env_or_saved().unwrap_or(false) {
         return ProviderKind::Anthropic;
@@ -370,15 +386,15 @@ pub fn detect_provider_kind(model: &str) -> ProviderKind {
 }
 
 #[must_use]
-pub const fn model_family_identity_for_kind(kind: ProviderKind) -> ModelFamilyIdentity {
+pub const fn model_family_identity_for_kind(kind: ProviderKind) -> runtime::ModelFamilyIdentity {
     match kind {
-        ProviderKind::Anthropic => ModelFamilyIdentity::Claude,
-        ProviderKind::Xai | ProviderKind::OpenAi => ModelFamilyIdentity::Generic,
+        ProviderKind::Anthropic => runtime::ModelFamilyIdentity::Claude,
+        ProviderKind::Xai | ProviderKind::OpenAi => runtime::ModelFamilyIdentity::Generic,
     }
 }
 
 #[must_use]
-pub fn model_family_identity_for(model: &str) -> ModelFamilyIdentity {
+pub fn model_family_identity_for(model: &str) -> runtime::ModelFamilyIdentity {
     model_family_identity_for_kind(detect_provider_kind(model))
 }
 
@@ -609,7 +625,7 @@ pub fn model_token_limit(model: &str) -> Option<ModelTokenLimit> {
     let canonical = resolve_model_alias(model);
     let base_model = canonical.rsplit('/').next().unwrap_or(canonical.as_str());
     match base_model {
-        "claude-opus-4-6" => Some(ModelTokenLimit {
+        "claude-opus-4-7" | "claude-opus-4-6" => Some(ModelTokenLimit {
             max_output_tokens: 32_000,
             context_window_tokens: 200_000,
         }),
@@ -811,8 +827,6 @@ pub(crate) fn dotenv_value(key: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime;
-    use crate::runtime::ModelFamilyIdentity;
     use std::ffi::OsString;
     use std::sync::{Mutex, OnceLock};
 
@@ -901,9 +915,9 @@ mod tests {
         let xai_identity = model_family_identity_for_kind(xai);
 
         // then: Anthropic stays Claude and OpenAI-compatible providers are generic
-        assert_eq!(anthropic_identity, ModelFamilyIdentity::Claude);
-        assert_eq!(openai_identity, ModelFamilyIdentity::Generic);
-        assert_eq!(xai_identity, ModelFamilyIdentity::Generic);
+        assert_eq!(anthropic_identity, runtime::ModelFamilyIdentity::Claude);
+        assert_eq!(openai_identity, runtime::ModelFamilyIdentity::Generic);
+        assert_eq!(xai_identity, runtime::ModelFamilyIdentity::Generic);
     }
 
     #[test]
@@ -919,9 +933,9 @@ mod tests {
         let xai_identity = model_family_identity_for(xai_model);
 
         // then: Anthropic stays Claude and OpenAI-compatible providers are generic
-        assert_eq!(claude_identity, ModelFamilyIdentity::Claude);
-        assert_eq!(openai_identity, ModelFamilyIdentity::Generic);
-        assert_eq!(xai_identity, ModelFamilyIdentity::Generic);
+        assert_eq!(claude_identity, runtime::ModelFamilyIdentity::Claude);
+        assert_eq!(openai_identity, runtime::ModelFamilyIdentity::Generic);
+        assert_eq!(xai_identity, runtime::ModelFamilyIdentity::Generic);
     }
 
     #[test]
@@ -1043,6 +1057,18 @@ mod tests {
         let kind2 = super::metadata_for_model("gpt-4o")
             .map_or_else(|| detect_provider_kind("gpt-4o"), |m| m.provider);
         assert_eq!(kind2, ProviderKind::OpenAi);
+    }
+
+    #[test]
+    fn local_prefix_routes_to_openai_not_anthropic() {
+        let meta = super::metadata_for_model("local/Qwen/Qwen3.6-27B-FP8")
+            .expect("local/ prefix must resolve to OpenAI-compatible metadata");
+        assert_eq!(meta.provider, ProviderKind::OpenAi);
+        assert_eq!(meta.auth_env, "OPENAI_API_KEY");
+        assert_eq!(meta.base_url_env, "OPENAI_BASE_URL");
+
+        let kind = detect_provider_kind("local/Qwen/Qwen3.6-27B-FP8");
+        assert_eq!(kind, ProviderKind::OpenAi);
     }
 
     #[test]
@@ -1652,6 +1678,7 @@ NO_EQUALS_LINE
             rendered.starts_with("missing Anthropic credentials;"),
             "canonical base message should still lead the rendered error: {rendered}"
         );
+        // #754: hint delimiter changed from " — hint: " to "\n" so split_error_hint works
         assert!(
             rendered.contains("I see OPENAI_API_KEY is set"),
             "rendered error should carry the env-driven hint: {rendered}"
