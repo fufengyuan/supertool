@@ -127,6 +127,50 @@ pub fn hermes_is_installed() -> bool {
     get_hermes_state_db_path().exists()
 }
 
+/// Create a new session in state.db (no-op if already exists).
+pub fn create_hermes_session(session_id: &str, source: &str, model: &str) -> Result<(), String> {
+    let db_path = get_hermes_state_db_path();
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 state.db: {e}"))?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+    conn.execute(
+        "INSERT OR IGNORE INTO sessions (id, source, model, started_at, message_count) VALUES (?1, ?2, ?3, ?4, 0)",
+        rusqlite::params![session_id, source, model, now],
+    ).map_err(|e| format!("创建会话失败: {e}"))?;
+    Ok(())
+}
+
+/// Insert a message into state.db and increment session message_count.
+pub fn insert_hermes_message(
+    session_id: &str,
+    role: &str,
+    content: Option<&str>,
+    tool_call_id: Option<&str>,
+    tool_calls: Option<&str>,
+    reasoning: Option<&str>,
+) -> Result<(), String> {
+    let db_path = get_hermes_state_db_path();
+    let conn = rusqlite::Connection::open(&db_path)
+        .map_err(|e| format!("无法打开 state.db: {e}"))?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs_f64();
+    conn.execute(
+        "INSERT INTO messages (session_id, role, content, tool_call_id, tool_calls, reasoning, timestamp) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        rusqlite::params![session_id, role, content, tool_call_id, tool_calls, reasoning, now],
+    ).map_err(|e| format!("插入消息失败: {e}"))?;
+    // Update session message_count
+    conn.execute(
+        "UPDATE sessions SET message_count = message_count + 1 WHERE id = ?1",
+        rusqlite::params![session_id],
+    ).ok();
+    Ok(())
+}
+
 /// List Hermes sessions with preview (from all profiles)
 ///
 /// Query similar to Hermes's `list_sessions_rich`:

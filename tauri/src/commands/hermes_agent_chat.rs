@@ -576,8 +576,13 @@ pub async fn agent_chat(
     }
 
     // Build messages — load session history from state.db if resuming
+    let is_new_session = session_id.is_none();
     let mut messages: Vec<Message> = if let Some(ref sid) = effective_session_id {
-        if session_id.is_some() {
+        if is_new_session {
+            // New session: create in state.db
+            let _ = supertool_core::db::agent::create_hermes_session(sid, "tauri", &model_name);
+            Vec::new()
+        } else {
             // Existing session: load all previous messages from state.db
             match supertool_core::db::agent::list_hermes_messages(sid) {
                 Ok(db_msgs) => {
@@ -589,8 +594,6 @@ pub async fn agent_chat(
                     Vec::new()
                 }
             }
-        } else {
-            Vec::new()
         }
     } else {
         Vec::new()
@@ -605,6 +608,12 @@ pub async fn agent_chat(
         }
     }
     messages.push(Message::user(&message));
+    // Persist user message to state.db immediately
+    if let Some(ref sid) = effective_session_id {
+        let _ = supertool_core::db::agent::insert_hermes_message(
+            sid, "user", Some(&message), None, None, None,
+        );
+    }
 
     // Build AgentCallbacks for tool/reasoning events
     let sid_tool_start = effective_session_id.clone();
@@ -697,6 +706,14 @@ pub async fn agent_chat(
                 "session_id": sid_done,
                 "message_count": 0i32,
             }));
+
+            // Persist assistant response to state.db
+            if let Some(ref sid) = effective_session_id {
+                let content = if final_response.is_empty() { None } else { Some(final_response.as_str()) };
+                let _ = supertool_core::db::agent::insert_hermes_message(
+                    sid, "assistant", content, None, None, None,
+                );
+            }
 
             Ok(json!({
                 "response": final_response,
