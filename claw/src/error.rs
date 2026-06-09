@@ -20,6 +20,7 @@ const CONTEXT_WINDOW_ERROR_MARKERS: &[&str] = &[
     "completion tokens",
     "prompt tokens",
     "request is too large",
+    "no parseable body",
 ];
 
 #[derive(Debug)]
@@ -60,6 +61,9 @@ pub enum ApiError {
         retryable: bool,
         /// Suggested user action based on error type (e.g., "Reduce prompt size" for 413)
         suggested_action: Option<String>,
+        /// Parsed Retry-After header value (seconds) for 429 responses.
+        /// When present, overrides the exponential backoff delay.
+        retry_after: Option<Duration>,
     },
     RetriesExhausted {
         attempts: u32,
@@ -128,6 +132,17 @@ impl ApiError {
     }
 
     #[must_use]
+    /// Return the `Retry-After` delay if this error came from a 429 response
+    /// that included a `retry-after` header. Callers should prefer this value
+    /// over the computed backoff delay when it exists.
+    pub fn retry_after(&self) -> Option<Duration> {
+        match self {
+            Self::Api { retry_after, .. } => *retry_after,
+            Self::RetriesExhausted { last_error, .. } => last_error.retry_after(),
+            _ => None,
+        }
+    }
+
     pub fn is_retryable(&self) -> bool {
         match self {
             Self::Http(error) => error.is_connect() || error.is_timeout() || error.is_request(),
@@ -273,6 +288,9 @@ impl Display for ApiError {
                     }
                 }
                 if let Some(hint) = hint {
+                    // #754: newline-delimited so split_error_hint() can extract the hint
+                    // into the JSON envelope's `hint` field. The em-dash form was a
+                    // single-line string that left hint:null in --output-format json.
                     write!(f, "\n{hint}")?;
                 }
                 Ok(())
@@ -308,6 +326,36 @@ impl Display for ApiError {
                 f,
                 "failed to parse {provider} response for model {model}: {source}; first 200 chars of body: {body_snippet}"
             ),
+            // #28: enhance 401/403 errors with actionable auth guidance
+            Self::Api {
+                status,
+                error_type,
+                message,
+                request_id,
+                body,
+                ..
+            } if matches!(status.as_u16(), 401 | 403) => {
+                if let (Some(error_type), Some(message)) = (error_type, message) {
+                    write!(f, "api returned {status} ({error_type})")?;
+                    if let Some(request_id) = request_id {
+                        write!(f, " [trace {request_id}]")?;
+                    }
+                    write!(f, ": {message}")?;
+                } else {
+                    write!(f, "api returned {status}")?;
+                    if let Some(request_id) = request_id {
+                        write!(f, " [trace {request_id}]")?;
+                    }
+                    write!(f, ": {body}")?;
+                }
+                write!(
+                    f,
+                    "\nhint: check that your API key is valid and matches the target provider. \
+                     For OpenAI-compatible providers set OPENAI_API_KEY or OPENAI_BASE_URL. \
+                     For Anthropic set ANTHROPIC_API_KEY. \
+                     Run `claw doctor` to verify your credential configuration."
+                )
+            }
             Self::Api {
                 status,
                 error_type,
@@ -496,6 +544,7 @@ mod tests {
             body: String::new(),
             retryable: true,
             suggested_action: None,
+        retry_after: None,
         };
 
         assert!(error.is_generic_fatal_wrapper());
@@ -519,6 +568,7 @@ mod tests {
                 body: String::new(),
                 retryable: true,
                 suggested_action: None,
+            retry_after: None,
             }),
         };
 
@@ -540,6 +590,7 @@ mod tests {
             body: String::new(),
             retryable: false,
             suggested_action: None,
+        retry_after: None,
         };
 
         assert!(error.is_context_window_failure());
@@ -560,6 +611,7 @@ mod tests {
             body: String::new(),
             retryable: false,
             suggested_action: None,
+            retry_after: None,
         };
 
         assert!(error.is_context_window_failure());
@@ -608,6 +660,7 @@ mod tests {
             rendered.starts_with("missing Anthropic credentials;"),
             "hint should be appended, not replace the base message: {rendered}"
         );
+        // #754: hint is now newline-delimited so split_error_hint() can extract it
         let hint_text = "I see OPENAI_API_KEY is set — if you meant to use the OpenAI-compat provider, prefix your model name with `openai/` so prefix routing selects it.";
         assert!(
             rendered.ends_with(hint_text),

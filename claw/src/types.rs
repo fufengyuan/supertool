@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::runtime::{pricing_for_model, TokenUsage, UsageCostEstimate};
+use runtime::{pricing_for_model, TokenUsage, UsageCostEstimate};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -282,7 +282,7 @@ pub enum StreamEvent {
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime::format_usd;
+    use runtime::format_usd;
     use serde_json::json;
 
     use super::{InputContentBlock, MessageResponse, Usage};

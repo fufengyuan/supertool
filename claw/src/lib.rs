@@ -24,13 +24,19 @@ mod types;
 pub mod providers;
 mod client;
 
-pub use prompt_cache::PromptCacheRecord;
+pub use prompt_cache::{
+    CacheBreakEvent, PromptCache, PromptCacheConfig, PromptCachePaths, PromptCacheRecord,
+    PromptCacheStats,
+};
 pub use client::{
     oauth_token_is_expired, read_base_url, read_xai_base_url, resolve_saved_oauth_token,
     resolve_startup_auth_source, MessageStream, OAuthTokenSet, ProviderClient,
 };
 pub use error::ApiError;
-pub use http_client::{build_http_client, build_http_client_or_default, build_http_client_with, ProxyConfig};
+pub use http_client::{
+    build_http_client, build_http_client_or_default, build_http_client_with,
+    build_http_client_with_opts, ProxyConfig, TimeoutConfig,
+};
 pub use providers::anthropic::{AnthropicClient, AnthropicClient as ApiClient, AuthSource};
 pub use providers::openai_compat::{
     build_chat_completion_request, check_request_body_size, estimate_request_body_size,

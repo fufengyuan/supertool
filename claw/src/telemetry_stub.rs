@@ -4,7 +4,6 @@
 //! standalone crate.
 
 use std::collections::BTreeMap;
-
 use serde_json::{Map, Value};
 
 use crate::error::ApiError;
@@ -154,7 +153,7 @@ pub struct SessionTracer;
 
 impl SessionTracer {
     #[must_use]
-    pub fn new(_name: &str, _sink: std::sync::Arc<MemoryTelemetrySink>) -> Self {
+    pub fn new(_name: &str, _sink: std::sync::Arc<dyn TelemetrySink>) -> Self {
         Self
     }
 
