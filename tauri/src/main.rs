@@ -153,6 +153,23 @@ fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
 }
 
 fn main() {
+    // Set default HERMES_HOME so all hermes_config::* functions resolve correctly,
+    // regardless of whether the host shell has it configured.
+    if std::env::var("HERMES_HOME").is_err() {
+        if let Some(home) = dirs::home_dir() {
+            let primary = home.join(".hermes");
+            let legacy = home.join(".hermes-agent-ultra");
+            if primary.exists() {
+                // SAFETY: single-threaded at main() entry, no other code reads HERMES_HOME yet
+                unsafe { std::env::set_var("HERMES_HOME", primary.to_str().expect("valid HOME path")); }
+                eprintln!("[Main] HERMES_HOME not set — defaulting to {}", primary.display());
+            } else if legacy.exists() {
+                // SAFETY: single-threaded at main() entry
+                unsafe { std::env::set_var("HERMES_HOME", legacy.to_str().expect("valid HOME path")); }
+                eprintln!("[Main] HERMES_HOME not set — defaulting to {} (legacy)", legacy.display());
+            }
+        }
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
