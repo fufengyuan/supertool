@@ -925,11 +925,11 @@ pub async fn claw_chat_send(
         .with_hook_progress_reporter(Box::new(
             crate::commands::claw_runtime_bridge::TauriHookReporter::new(app_hook, sid_hook),
         ))
-        // Raise auto-compaction threshold to effectively disable it.
-        // The default 100K tokens is too low given our large system prompt
-        // (~200KB Hermes skills), causing compaction after every 1-2 turns
-        // and spamming "removed N messages" notifications.
-        .with_auto_compaction_input_tokens_threshold(10_000_000);
+        // Auto-compaction: trigger when input tokens exceed 130K (out of 200K
+        // context window), leaving ~70K for system prompt + output. This prevents
+        // context_window_blocked errors while still allowing long conversations.
+        // Compaction happens transparently — only a console.log on the frontend.
+        .with_auto_compaction_input_tokens_threshold(130_000);
 
         let result = rt.run_turn(message, None);
         let session = rt.into_session();
