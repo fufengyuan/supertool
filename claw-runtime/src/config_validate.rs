@@ -216,6 +216,10 @@ const TOP_LEVEL_FIELDS: &[FieldSpec] = &[
         name: "rulesImport",
         expected: FieldType::RulesImport,
     },
+    FieldSpec {
+        name: "subagentModel",
+        expected: FieldType::String,
+    },
 ];
 
 const HOOKS_FIELDS: &[FieldSpec] = &[
@@ -421,8 +425,6 @@ fn validate_object_keys(
         } else if DEPRECATED_FIELDS.iter().any(|d| d.name == key) {
             // Deprecated key — handled separately, not an unknown-key error.
         } else {
-            // Unknown key — preserve compatibility by surfacing it as a warning
-            // instead of blocking otherwise valid config files.
             let suggestion = suggest_field(key, &known_names);
             result.warnings.push(ConfigDiagnostic {
                 path: path_display.to_string(),
@@ -436,56 +438,8 @@ fn validate_object_keys(
     result
 }
 
-/// Emit deprecation warnings for bare string hook entries in the hooks object.
-/// Legacy `["command-string"]` arrays still load but suggest migration to the
-/// structured `{matcher, hooks:[{type, command}]}` form.
-fn validate_hook_entry_format(
-    hooks: &BTreeMap<String, JsonValue>,
-    source: &str,
-    path_display: &str,
-) -> ValidationResult {
-    let mut result = ValidationResult {
-        errors: Vec::new(),
-        warnings: Vec::new(),
-    };
-    for spec in HOOKS_FIELDS {
-        let Some(value) = hooks.get(spec.name) else {
-            continue;
-        };
-        let Some(array) = value.as_array() else {
-            continue;
-        };
-        for item in array {
-            if item.as_str().is_some() {
-                result.warnings.push(ConfigDiagnostic {
-                    path: path_display.to_string(),
-                    field: format!("hooks.{}", spec.name),
-                    line: find_key_line(source, spec.name),
-                    kind: DiagnosticKind::Deprecated {
-                        replacement: "object-style hook entries with hooks:[{type:\"command\",command:\"...\"}]",
-                    },
-                });
-                // One deprecation warning per event is enough
-                break;
-            }
-        }
-    }
-    result
-}
-
 fn suggest_field(input: &str, candidates: &[&str]) -> Option<String> {
     let input_lower = input.to_ascii_lowercase();
-    // #461: prefix-aware matching — if input is a prefix of a candidate,
-    // treat it as distance 0 (perfect prefix match) to avoid edit-distance
-    // misranking (e.g., "mcp" → "env" instead of "mcpServers").
-    let prefix_match = candidates
-        .iter()
-        .filter(|c| c.to_ascii_lowercase().starts_with(&input_lower))
-        .min_by_key(|c| c.len())
-        .map(|name| name.to_string());
-    if prefix_match.is_some() {
-        return prefix_match;
-    }
     candidates
         .iter()
         .filter_map(|candidate| {
@@ -555,7 +509,6 @@ pub fn validate_config_file(
             source,
             &path_display,
         ));
-        result.merge(validate_hook_entry_format(hooks, source, &path_display));
     }
     if let Some(permissions) = object.get("permissions").and_then(JsonValue::as_object) {
         result.merge(validate_object_keys(

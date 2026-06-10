@@ -832,6 +832,28 @@ mod tests {
 
     static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
+    struct EnvVarGuard {
+        key: &'static str,
+        previous: Option<std::ffi::OsString>,
+    }
+
+    impl EnvVarGuard {
+        fn set(key: &'static str, value: &Path) -> Self {
+            let previous = std::env::var_os(key);
+            std::env::set_var(key, value);
+            Self { key, previous }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            match &self.previous {
+                Some(value) => std::env::set_var(self.key, value),
+                None => std::env::remove_var(self.key),
+            }
+        }
+    }
+
     fn temp_dir() -> PathBuf {
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -1290,8 +1312,11 @@ mod tests {
     #[test]
     fn latest_session_returns_all_empty_error_when_sessions_exist_but_have_no_messages() {
         // given — create sessions with 0 messages (empty)
+        let _env_guard = crate::test_env_lock();
         let base = temp_dir();
         fs::create_dir_all(&base).expect("base dir should exist");
+        let isolated_config_home = base.join("config-home");
+        let _claw_config_home = EnvVarGuard::set("CLAW_CONFIG_HOME", &isolated_config_home);
         let store = SessionStore::from_cwd(&base).expect("store should build");
 
         let empty_handle = store.create_handle("empty-session");

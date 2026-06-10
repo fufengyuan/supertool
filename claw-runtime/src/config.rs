@@ -162,6 +162,7 @@ pub struct RuntimeFeatureConfig {
     trusted_roots: Vec<String>,
     api_timeout: ApiTimeoutConfig,
     rules_import: RulesImportConfig,
+    provider: RuntimeProviderConfig,
 }
 
 /// Controls which external AI coding framework rules are imported into the system prompt.
@@ -186,6 +187,41 @@ impl RulesImportConfig {
                 .iter()
                 .any(|candidate| candidate.eq_ignore_ascii_case(framework)),
         }
+    }
+}
+
+/// Stored provider configuration from the setup wizard.
+///
+/// Represents the `provider` section in `~/.claw/settings.json`, used as a
+/// fallback when environment variables are absent (3-tier resolution:
+/// env var > .env file > stored config).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RuntimeProviderConfig {
+    kind: Option<String>,
+    api_key: Option<String>,
+    base_url: Option<String>,
+    model: Option<String>,
+}
+
+impl RuntimeProviderConfig {
+    #[must_use]
+    pub fn kind(&self) -> Option<&str> {
+        self.kind.as_deref()
+    }
+
+    #[must_use]
+    pub fn api_key(&self) -> Option<&str> {
+        self.api_key.as_deref()
+    }
+
+    #[must_use]
+    pub fn base_url(&self) -> Option<&str> {
+        self.base_url.as_deref()
+    }
+
+    #[must_use]
+    pub fn model(&self) -> Option<&str> {
+        self.model.as_deref()
     }
 }
 
@@ -764,6 +800,7 @@ fn build_runtime_config(
         trusted_roots: parse_optional_trusted_roots(&merged_value)?,
         api_timeout: parse_optional_api_timeout_config(&merged_value)?,
         rules_import: parse_optional_rules_import(&merged_value)?,
+        provider: parse_optional_provider_config(&merged_value)?,
     };
 
     Ok(RuntimeConfig {
@@ -878,6 +915,11 @@ impl RuntimeConfig {
         &self.feature_config.rules_import
     }
 
+    #[must_use]
+    pub fn provider(&self) -> &RuntimeProviderConfig {
+        &self.feature_config.provider
+    }
+
     /// Merge config-level default trusted roots with per-call roots.
     ///
     /// Config roots are defaults and are kept first; per-call roots extend the
@@ -891,6 +933,13 @@ impl RuntimeConfig {
 }
 
 impl RuntimeFeatureConfig {
+    /// Parsed provider configuration (kind, apiKey, baseUrl, model) from
+    /// merged settings.
+    #[must_use]
+    pub fn provider(&self) -> &RuntimeProviderConfig {
+        &self.provider
+    }
+
     #[must_use]
     pub fn with_hooks(mut self, hooks: RuntimeHookConfig) -> Self {
         self.hooks = hooks;
@@ -2102,6 +2151,25 @@ fn parse_optional_rules_import(root: &JsonValue) -> Result<RulesImportConfig, Co
             "merged settings.rulesImport: expected \"auto\", \"none\", or an array of framework names".to_string(),
         )),
     }
+}
+
+fn parse_optional_provider_config(root: &JsonValue) -> Result<RuntimeProviderConfig, ConfigError> {
+    let Some(provider_value) = root.as_object().and_then(|object| object.get("provider")) else {
+        return Ok(RuntimeProviderConfig::default());
+    };
+    let Some(object) = provider_value.as_object() else {
+        return Ok(RuntimeProviderConfig::default());
+    };
+    let kind = optional_string(object, "kind", "provider")?.map(str::to_string);
+    let api_key = optional_string(object, "apiKey", "provider")?.map(str::to_string);
+    let base_url = optional_string(object, "baseUrl", "provider")?.map(str::to_string);
+    let model = optional_string(object, "model", "provider")?.map(str::to_string);
+    Ok(RuntimeProviderConfig {
+        kind,
+        api_key,
+        base_url,
+        model,
+    })
 }
 
 fn parse_filesystem_mode_label(value: &str) -> Result<FilesystemIsolationMode, ConfigError> {

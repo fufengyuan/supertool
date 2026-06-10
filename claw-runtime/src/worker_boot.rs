@@ -1644,16 +1644,13 @@ mod tests {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let worktree = tmp.path().join("worktree");
-        let git_dir = tmp.path().join("external-gitdir");
         fs::create_dir_all(&worktree).expect("worktree dir");
-        fs::create_dir_all(git_dir.join("objects")).expect("objects dir");
-        fs::create_dir_all(git_dir.join("refs/heads")).expect("refs dir");
-        fs::write(git_dir.join("HEAD"), "ref: refs/heads/main\n").expect("HEAD");
-        fs::write(
-            worktree.join(".git"),
-            format!("gitdir: {}\n", git_dir.display()),
-        )
-        .expect(".git file");
+        Command::new("git")
+            .arg("init")
+            .current_dir(&worktree)
+            .output()
+            .expect("git init should run");
+        let git_dir = worktree.join(".git");
 
         let original_permissions = fs::metadata(&git_dir)
             .expect("gitdir metadata")
