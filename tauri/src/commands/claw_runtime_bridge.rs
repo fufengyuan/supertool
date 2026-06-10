@@ -58,7 +58,7 @@ impl ApiClient for TauriApiClient {
             // Collect LlmStreamEvent deltas into AssistantEvent Vec
             let events: std::cell::RefCell<Vec<AssistantEvent>> = std::cell::RefCell::new(Vec::new());
 
-            let _result: TurnResult = self
+            let result: TurnResult = self
                 .llm_client
                 .send_turn(
                     messages,
@@ -105,6 +105,21 @@ impl ApiClient for TauriApiClient {
                 )
                 .await
                 .map_err(|e| RuntimeError::new(format!("LLM stream failed: {e}")))?;
+
+            // send_turn accumulates tool_calls internally but does NOT forward
+            // ToolCall events to the on_event callback. We must emit ToolUse
+            // events ourselves from the TurnResult so ConversationRuntime's
+            // build_assistant_message() can create ToolUse content blocks.
+            // Without this, the tool loop breaks after 1 iteration (0 tools).
+            for (id, name, input) in &result.tool_calls {
+                let input_str = serde_json::to_string(input)
+                    .unwrap_or_else(|_| "{}".to_string());
+                events.borrow_mut().push(AssistantEvent::ToolUse {
+                    id: id.clone(),
+                    name: name.clone(),
+                    input: input_str,
+                });
+            }
 
             let mut final_events = events.into_inner();
             // Ensure MessageStop is present (LLM stream may not emit it explicitly)
