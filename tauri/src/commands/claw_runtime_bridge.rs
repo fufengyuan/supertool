@@ -197,9 +197,11 @@ pub(crate) fn turn_summary_to_emit(summary: &runtime::TurnSummary) -> TurnEmit {
                 runtime::ContentBlock::ToolUse { id, name, input } => {
                     tool_calls.push((id.clone(), name.clone(), input.clone()));
                 }
-                runtime::ContentBlock::Thinking { thinking, .. } => {
-                    assistant_text.push_str(thinking);
-                }
+                // Do NOT surface Thinking blocks as assistant_text — that would
+                // leak the model's internal reasoning/reasoning to the user as
+                // if it were the final answer. Thinking blocks are forwarded
+                // separately via streaming events when available.
+                runtime::ContentBlock::Thinking { .. } => {}
                 _ => {}
             }
         }
