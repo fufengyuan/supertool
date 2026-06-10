@@ -329,15 +329,28 @@ impl OpenAiCompatClient {
         check_request_body_size_for_base_url(request, self.config(), &self.base_url)?;
 
         let request_url = chat_completions_endpoint(&self.base_url);
+        let payload = build_chat_completion_request_for_base_url(
+            request,
+            self.config(),
+            &self.base_url,
+        );
+        // Debug: log whether tools/tool_choice are included in the request
+        let tool_info = match (payload.get("tools"), payload.get("tool_choice")) {
+            (Some(t), Some(tc)) => format!("tools={} items, tool_choice={}", t.as_array().map_or(0, |a| a.len()), tc),
+            (Some(t), None) => format!("tools={} items, tool_choice=none", t.as_array().map_or(0, |a| a.len())),
+            (None, Some(tc)) => format!("tools=none, tool_choice={}", tc),
+            (None, None) => "tools=none, tool_choice=none".to_string(),
+        };
+        log::info!(
+            "[claw_proxy] Sending request: model={}, {tool_info}, base_url={}",
+            payload.get("model").and_then(|v| v.as_str()).unwrap_or("?"),
+            self.base_url,
+        );
         self.http
             .post(&request_url)
             .header("content-type", "application/json")
             .bearer_auth(&self.api_key)
-            .json(&build_chat_completion_request_for_base_url(
-                request,
-                self.config(),
-                &self.base_url,
-            ))
+            .json(&payload)
             .send()
             .await
             .map_err(ApiError::from)

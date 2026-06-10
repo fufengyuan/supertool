@@ -357,21 +357,30 @@ pub fn detect_provider_kind(model: &str) -> ProviderKind {
         return ProviderKind::OpenAi;
     }
     let resolved_model = resolve_model_alias(model);
+    // DEBUG: log what model we're detecting
+    let has_openai_base_url = std::env::var_os("OPENAI_BASE_URL").is_some();
+    let has_openai_key = openai_compat::has_api_key("OPENAI_API_KEY");
+    let has_anthropic_key = anthropic::has_auth_from_env_or_saved().unwrap_or(false);
+    log::info!(
+        "[claw_debug] detect_provider_kind: model={resolved_model}, openai_base_url={has_openai_base_url}, openai_key={has_openai_key}, anthropic_key={has_anthropic_key}"
+    );
+
     if let Some(metadata) = metadata_for_model(&resolved_model) {
+        log::info!("[claw_debug] => metadata match: {:?}", metadata.provider);
         return metadata.provider;
     }
     // When OPENAI_BASE_URL is set and the unknown model name looks like a
     // local server tag (for example `llama3.2` or `qwen2.5-coder:7b`), prefer
     // the OpenAI-compatible endpoint over ambient Anthropic credentials.
-    if std::env::var_os("OPENAI_BASE_URL").is_some()
+    if has_openai_base_url
         && looks_like_local_openai_model(&resolved_model)
     {
         return ProviderKind::OpenAi;
     }
-    if anthropic::has_auth_from_env_or_saved().unwrap_or(false) {
+    if has_anthropic_key {
         return ProviderKind::Anthropic;
     }
-    if openai_compat::has_api_key("OPENAI_API_KEY") {
+    if has_openai_key {
         return ProviderKind::OpenAi;
     }
     if openai_compat::has_api_key("XAI_API_KEY") {
@@ -379,7 +388,7 @@ pub fn detect_provider_kind(model: &str) -> ProviderKind {
     }
     // Last resort: if OPENAI_BASE_URL is set without OPENAI_API_KEY (some
     // local providers like Ollama don't require auth), still route there.
-    if std::env::var_os("OPENAI_BASE_URL").is_some() {
+    if has_openai_base_url {
         return ProviderKind::OpenAi;
     }
     ProviderKind::Anthropic
