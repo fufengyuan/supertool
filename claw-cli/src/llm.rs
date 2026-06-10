@@ -75,10 +75,26 @@ impl LlmClient {
     ///
     /// Uses the model name from `ANTHROPIC_MODEL` / `OPENAI_MODEL` / `XAI_MODEL`
     /// (or a sensible default), then delegates to `ProviderClient::from_model`.
+    ///
+    /// **Proxy override**: when `OPENAI_BASE_URL` is set, the user is routing
+    /// through an OpenAI-compatible proxy (e.g. token.duormi.com). Even if the
+    /// model is `claude-sonnet-4-6` (which would normally be detected as `Anthropic`),
+    /// we force the OpenAI-compatible client — the proxy speaks the OpenAI wire
+    /// protocol and doesn't understand the Anthropic `/v1/messages` format.
     pub fn from_env() -> Result<Self, String> {
         let model = Self::resolve_model_from_env();
-        let client = api::ProviderClient::from_model(&model)
-            .map_err(|e| format!("Failed to create LLM client: {e}"))?;
+        let client = if std::env::var_os("OPENAI_BASE_URL").is_some() {
+            // Prepend "openai/" to bypass the model-name-based provider detection
+            // (which would route claude-* / anthropic/ to AnthropicClient).
+            // The "openai/" prefix is stripped at the wire level — the actual
+            // API call still uses the original model name.
+            let forced = format!("openai/{}", model);
+            api::ProviderClient::from_model(&forced)
+                .map_err(|e| format!("Failed to create LLM client: {e}"))?
+        } else {
+            api::ProviderClient::from_model(&model)
+                .map_err(|e| format!("Failed to create LLM client: {e}"))?
+        };
         Ok(Self {
             inner: Arc::new(client),
             model,
