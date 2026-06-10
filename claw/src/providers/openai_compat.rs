@@ -1291,7 +1291,14 @@ pub fn translate_message(message: &InputMessage, model: &str) -> Vec<Value> {
                 });
                 if !text.is_empty() {
                     msg["content"] = json!(text);
-                } else if !needs_reasoning {
+                } else if !tool_calls.is_empty() {
+                    // Has tool_calls — omit content entirely (some providers like
+                    // DeepSeek reject content=null for assistant messages).
+                } else if !reasoning.is_empty() {
+                    // Only thinking content, no text and no tool_calls — use
+                    // reasoning as content so providers don't reject the message.
+                    msg["content"] = json!(reasoning);
+                } else {
                     msg["content"] = Value::Null;
                 }
                 if needs_reasoning {
