@@ -961,10 +961,11 @@ pub async fn claw_chat_send(
         summary.tool_results.len()
     );
 
-    // ── Emit results to frontend (batch — usage/done only; text and tool events are real-time) ──
-    // NOTE: agent-delta / agent-tool-start / agent-tool-complete are NOT emitted here —
-    // text deltas stream from TauriApiClient::stream()'s on_event callback, and tool
-    // events fire from TauriToolExecutor::execute() during ConversationRuntime.run_turn().
+    // ── Emit results to frontend (batch — usage/done only; text/tool events are
+    // per-iteration from TauriApiClient::stream() and TauriToolExecutor::execute()) ──
+    // NOTE: agent-delta / agent-reasoning-delta are emitted per-iteration from
+    // TauriApiClient::stream() after each send_turn(). agent-tool-start / agent-tool-complete
+    // fire from TauriToolExecutor::execute() during ConversationRuntime.run_turn().
     let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
 
     let cost = estimate_cost(emit.input_tokens, emit.output_tokens, &agent_config.model);
