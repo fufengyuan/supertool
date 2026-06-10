@@ -223,23 +223,43 @@ pub(crate) fn session_messages_to_json(messages: &[ConversationMessage]) -> Vec<
             MessageRole::Tool => "tool",
         };
 
-        // Extract text content
+        // Extract text from Text blocks only (should be one block per message
+        // since ConversationRuntime merges all TextDelta events).
         let text: String = cm
             .blocks
             .iter()
             .filter_map(|block| match block {
                 ContentBlock::Text { text } => Some(text.as_str()),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .concat();
+
+        // Merge all Thinking blocks into a single reasoning string
+        let reasoning: String = cm
+            .blocks
+            .iter()
+            .filter_map(|block| match block {
                 ContentBlock::Thinking { thinking, .. } => Some(thinking.as_str()),
                 _ => None,
             })
             .collect::<Vec<_>>()
-            .join("\n");
+            .concat();
 
         // Only emit if there's text content (tool-only messages are handled separately)
         if !text.is_empty() {
             result.push(serde_json::json!({
                 "role": role,
                 "content": text,
+            }));
+        }
+
+        // Emit merged thinking content as separate reasoning message
+        if !reasoning.is_empty() {
+            result.push(serde_json::json!({
+                "role": "agent",
+                "kind": "reasoning",
+                "text": reasoning,
             }));
         }
 
