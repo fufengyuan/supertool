@@ -20,6 +20,36 @@
 
 use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// 单个模型配置
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ModelConfig {
+    /// 显示名称
+    pub name: String,
+    /// 模型 ID（如 claude-sonnet-4-6）
+    pub model: String,
+    /// 提供商类型（如 openai, anthropic）
+    pub provider: String,
+    /// API Key
+    pub api_key: String,
+    /// Base URL
+    pub base_url: String,
+    /// 上下文窗口大小（token）
+    #[serde(default = "default_context_window")]
+    pub context_window: u32,
+    /// 最大输出 token
+    #[serde(default = "default_max_tokens")]
+    pub max_tokens: u32,
+    /// 自动压缩阈值（输入 token 超过此值触发压缩）
+    #[serde(default = "default_compaction_threshold")]
+    pub compaction_threshold: u32,
+}
+
+fn default_context_window() -> u32 { 200_000 }
+fn default_max_tokens() -> u32 { 64_000 }
+fn default_compaction_threshold() -> u32 { 130_000 }
 
 /// Claw 配置结构（内存表示 — flat fields for frontend simplicity）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +86,16 @@ pub struct ClawConfig {
     /// Enable auto-compaction of old messages when context is large (default: true)
     #[serde(default = "default_auto_compaction")]
     pub auto_compaction: bool,
+
+    // ── Multi-model support ──
+
+    /// Active model ID (matches ModelConfig.name or falls back to top-level model)
+    #[serde(default)]
+    pub active_model: String,
+
+    /// List of model configurations
+    #[serde(default)]
+    pub models: Vec<ModelConfig>,
 }
 
 impl Default for ClawConfig {
@@ -71,6 +111,8 @@ impl Default for ClawConfig {
             reasoning_effort: String::new(),
             tool_output_truncation: default_tool_output_truncation(),
             auto_compaction: default_auto_compaction(),
+            active_model: String::new(),
+            models: Vec::new(),
         }
     }
 }
@@ -238,6 +280,59 @@ pub fn read_claw_config() -> Result<ClawConfig, String> {
             100_000,
         ),
         auto_compaction: get_bool(&value, &["autoCompaction", "auto_compaction"], true),
+        active_model: get_string(&value, &["activeModel", "active_model"], ""),
+        models: parse_models(&value),
+    })
+}
+
+/// Parse the `models` array from settings.json, or auto-create one from top-level fields.
+fn parse_models(value: &serde_json::Value) -> Vec<ModelConfig> {
+    if let Some(models_val) = value.get("models").and_then(|v| v.as_array()) {
+        let models: Vec<ModelConfig> = models_val
+            .iter()
+            .filter_map(|m| serde_json::from_value(m.clone()).ok())
+            .collect();
+        if !models.is_empty() {
+            return models;
+        }
+    }
+    // Auto-create from top-level fields for backward compatibility
+    let (provider_kind, api_key, base_url) = parse_provider(value);
+    let model = value
+        .get("model")
+        .and_then(|v| v.as_str())
+        .unwrap_or("claude-sonnet-4-6");
+    vec![ModelConfig {
+        name: model.to_string(),
+        model: model.to_string(),
+        provider: provider_kind,
+        api_key,
+        base_url,
+        context_window: default_context_window(),
+        max_tokens: default_max_tokens(),
+        compaction_threshold: default_compaction_threshold(),
+    }]
+}
+
+/// 从配置中解析激活的模型配置。如果 active_model 匹配到 models 列表中的某个
+/// name，则返回该模型配置；否则返回第一个模型或默认值。
+pub fn resolve_active_model(config: &ClawConfig) -> ModelConfig {
+    // Try to match by name
+    if !config.active_model.is_empty() {
+        if let Some(m) = config.models.iter().find(|m| m.name == config.active_model) {
+            return m.clone();
+        }
+    }
+    // Fall back to first model, or create from top-level fields
+    config.models.first().cloned().unwrap_or_else(|| ModelConfig {
+        name: config.model.clone(),
+        model: config.model.clone(),
+        provider: config.provider.clone(),
+        api_key: config.api_key.clone(),
+        base_url: config.base_url.clone(),
+        context_window: default_context_window(),
+        max_tokens: default_max_tokens(),
+        compaction_threshold: default_compaction_threshold(),
     })
 }
 
@@ -302,6 +397,23 @@ pub fn write_claw_config(config: &ClawConfig) -> Result<(), String> {
         "autoCompaction".to_string(),
         serde_json::Value::Bool(config.auto_compaction),
     );
+    if !config.active_model.is_empty() {
+        root.insert(
+            "activeModel".to_string(),
+            serde_json::Value::String(config.active_model.clone()),
+        );
+    }
+    if !config.models.is_empty() {
+        let models_val: Vec<serde_json::Value> = config
+            .models
+            .iter()
+            .map(|m| serde_json::to_value(m).unwrap_or(serde_json::json!({})))
+            .collect();
+        root.insert(
+            "models".to_string(),
+            serde_json::Value::Array(models_val),
+        );
+    }
 
     let content = serde_json::to_string_pretty(&serde_json::Value::Object(root))
         .map_err(|e| format!("Failed to serialize config: {e}"))?;
@@ -331,6 +443,8 @@ pub fn claw_config_get() -> Result<serde_json::Value, String> {
         "reasoningEffort": config.reasoning_effort,
         "toolOutputTruncation": config.tool_output_truncation,
         "autoCompaction": config.auto_compaction,
+        "activeModel": config.active_model,
+        "models": config.models,
     }))
 }
 
@@ -347,6 +461,8 @@ pub fn claw_config_set(
     reasoning_effort: Option<String>,
     tool_output_truncation: Option<u32>,
     auto_compaction: Option<bool>,
+    active_model: Option<String>,
+    models: Option<Vec<ModelConfig>>,
 ) -> Result<serde_json::Value, String> {
     let mut config = read_claw_config()?;
 
@@ -379,6 +495,12 @@ pub fn claw_config_set(
     }
     if let Some(v) = auto_compaction {
         config.auto_compaction = v;
+    }
+    if let Some(v) = active_model {
+        config.active_model = v;
+    }
+    if let Some(v) = models {
+        config.models = v;
     }
 
     write_claw_config(&config)?;

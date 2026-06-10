@@ -869,8 +869,12 @@ pub async fn claw_chat_send(
     let reasoning_effort = if agent_config.reasoning_effort.is_empty() {
         None
     } else {
-        Some(agent_config.reasoning_effort)
+        Some(agent_config.reasoning_effort.clone())
     };
+
+    // Resolve active model config
+    let active_model = crate::commands::claw_config::resolve_active_model(&agent_config);
+    let compaction_threshold = active_model.compaction_threshold;
 
     // ── Build runtime state (feature_config + tool registry) ──
     // Mirrors upstream: build_runtime_plugin_state() / build_runtime_with_plugin_state()
@@ -945,11 +949,10 @@ pub async fn claw_chat_send(
         .with_hook_progress_reporter(Box::new(
             crate::commands::claw_runtime_bridge::TauriHookReporter::new(app_hook, sid_hook),
         ))
-        // Auto-compaction: trigger when input tokens exceed 130K (out of 200K
-        // context window), leaving ~70K for system prompt + output. This prevents
-        // context_window_blocked errors while still allowing long conversations.
-        // Compaction happens transparently — only a console.log on the frontend.
-        .with_auto_compaction_input_tokens_threshold(130_000);
+        // Auto-compaction: trigger based on active model's compaction_threshold,
+        // which is configured per-model in the settings page. This prevents
+        // context_window_blocked errors while adapting to different model limits.
+        .with_auto_compaction_input_tokens_threshold(compaction_threshold);
 
         let result = rt.run_turn(message, None);
         let session = rt.into_session();
