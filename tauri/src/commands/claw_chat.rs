@@ -904,7 +904,10 @@ pub async fn claw_chat_send(
             app_hook.clone(),
             sid_hook.clone(),
         );
-        let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::default();
+        let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::new(
+            app_hook.clone(),
+            sid_hook.clone(),
+        );
         // Permission policy with rules from config — mirrors upstream permission_policy()
         let permission_policy = PermissionPolicy::new(PermissionMode::Allow)
             .with_permission_rules(feature_config.permission_rules());
@@ -958,37 +961,11 @@ pub async fn claw_chat_send(
         summary.tool_results.len()
     );
 
-    // ── Emit results to frontend (batch — tool/usage events only; text is streamed in real-time) ──
-    // NOTE: agent-delta is NOT emitted here — text deltas are forwarded in real-time
-    // from TauriApiClient::stream()'s on_event callback.
+    // ── Emit results to frontend (batch — usage/done only; text and tool events are real-time) ──
+    // NOTE: agent-delta / agent-tool-start / agent-tool-complete are NOT emitted here —
+    // text deltas stream from TauriApiClient::stream()'s on_event callback, and tool
+    // events fire from TauriToolExecutor::execute() during ConversationRuntime.run_turn().
     let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
-
-    for (tool_id, tool_name, tool_input) in &emit.tool_calls {
-        let _ = app.emit(
-            "agent-tool-start",
-            serde_json::json!({
-                "id": tool_id,
-                "name": tool_name,
-                "args": serde_json::from_str(tool_input).unwrap_or(serde_json::json!({})),
-                "session_id": sid,
-            }),
-        );
-        // Look up is_error from tool execution results
-        let is_error = emit.tool_errors.iter()
-            .find(|(id, _)| id == tool_id)
-            .map(|(_, err)| *err)
-            .unwrap_or(false);
-        let _ = app.emit(
-            "agent-tool-complete",
-            serde_json::json!({
-                "id": tool_id,
-                "name": tool_name,
-                "result": if is_error { "error" } else { "success" },
-                "isError": is_error,
-                "session_id": sid,
-            }),
-        );
-    }
 
     let cost = estimate_cost(emit.input_tokens, emit.output_tokens, &agent_config.model);
     let total_tokens = emit.input_tokens + emit.output_tokens;

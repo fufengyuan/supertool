@@ -149,14 +149,47 @@ impl ApiClient for TauriApiClient {
 
 /// Adapter that implements the upstream [`ToolExecutor`] trait by calling
 /// SuperTool's synchronous `tools::execute_tool`.
-#[derive(Default)]
-pub(crate) struct TauriToolExecutor;
+///
+/// Real-time tool event emission: emits `agent-tool-start` before executing
+/// and `agent-tool-complete` after, so the frontend shows tool lifecycle
+/// incrementally rather than batching everything until the turn ends.
+pub(crate) struct TauriToolExecutor {
+    app: AppHandle,
+    session_id: String,
+}
+
+impl TauriToolExecutor {
+    pub(crate) fn new(app: AppHandle, session_id: String) -> Self {
+        Self { app, session_id }
+    }
+}
 
 impl ToolExecutor for TauriToolExecutor {
     fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError> {
+        // Real-time: notify frontend that this tool started
+        let tool_input: serde_json::Value =
+            serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({ "raw": input }));
+        let _ = self.app.emit("agent-tool-start", serde_json::json!({
+            "name": tool_name,
+            "args": tool_input,
+            "session_id": &self.session_id,
+        }));
+
+        // Execute the tool
         let input_value: serde_json::Value =
             serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({ "raw": input }));
-        tools::execute_tool(tool_name, &input_value).map_err(ToolError::new)
+        let result = tools::execute_tool(tool_name, &input_value);
+
+        // Real-time: notify frontend that this tool completed
+        let is_error = result.is_err();
+        let _ = self.app.emit("agent-tool-complete", serde_json::json!({
+            "name": tool_name,
+            "result": if is_error { "error" } else { "success" },
+            "isError": is_error,
+            "session_id": &self.session_id,
+        }));
+
+        result.map_err(ToolError::new)
     }
 }
 
@@ -198,9 +231,6 @@ impl runtime::HookProgressReporter for TauriHookReporter {
 
 /// Result of a conversation turn, ready for frontend emission.
 pub(crate) struct TurnEmit {
-    pub assistant_text: String,
-    pub tool_calls: Vec<(String, String, String)>, // (id, name, input)
-    pub tool_errors: Vec<(String, bool)>,           // (id, is_error)
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub auto_compaction_removed: Option<usize>,
@@ -208,39 +238,7 @@ pub(crate) struct TurnEmit {
 
 /// Convert upstream [`TurnSummary`] into a flat [`TurnEmit`] for Tauri event dispatch.
 pub(crate) fn turn_summary_to_emit(summary: &runtime::TurnSummary) -> TurnEmit {
-    let mut assistant_text = String::new();
-    let mut tool_calls = Vec::new();
-    let mut tool_errors = Vec::new();
-
-    for msg in &summary.tool_results {
-        for block in &msg.blocks {
-            if let runtime::ContentBlock::ToolResult { tool_use_id, is_error, .. } = block {
-                tool_errors.push((tool_use_id.clone(), *is_error));
-            }
-        }
-    }
-
-    for msg in &summary.assistant_messages {
-        for block in &msg.blocks {
-            match block {
-                runtime::ContentBlock::Text { text } => assistant_text.push_str(text),
-                runtime::ContentBlock::ToolUse { id, name, input } => {
-                    tool_calls.push((id.clone(), name.clone(), input.clone()));
-                }
-                // Do NOT surface Thinking blocks as assistant_text — that would
-                // leak the model's internal reasoning/reasoning to the user as
-                // if it were the final answer. Thinking blocks are forwarded
-                // separately via streaming events when available.
-                runtime::ContentBlock::Thinking { .. } => {}
-                _ => {}
-            }
-        }
-    }
-
     TurnEmit {
-        assistant_text,
-        tool_calls,
-        tool_errors,
         input_tokens: summary.usage.input_tokens as u64,
         output_tokens: summary.usage.output_tokens as u64,
         auto_compaction_removed: summary.auto_compaction.map(|a| a.removed_message_count),
