@@ -2,6 +2,7 @@ import { ref, computed, onMounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { Ref } from 'vue';
 import type { ModelGroup } from '../types';
+import { getTauriAPI } from '@/utils/tauri-api';
 
 function groupModelsByProvider(
   models: { provider: string; model: string; name: string; baseUrl?: string }[],
@@ -60,31 +61,40 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
     isClawMode.value = checkClawMode();
 
     if (isClawMode.value) {
-      // Claw 模式：从 claw_chat_info 读取配置
+      // Claw 模式：从 claw_config_get 加载模型列表和当前活跃模型
       try {
-        const info = await invoke<{
-          model: string;
-          provider: string;
-          baseUrl: string | null;
-          apiKeyConfigured: boolean;
-          configSource: string;
-        }>('claw_chat_info');
+        const api = getTauriAPI();
+        const config = await api.clawConfigGet();
 
-        currentModel.value = info.model || 'claude-sonnet-4-6';
-        currentProvider.value = info.provider || 'Hermes Config';
-        currentBaseUrl.value = info.baseUrl || '';
-        modelGroups.value = [{
-          provider: 'Hermes Config',
-          providerLabel: 'Hermes Config',
-          models: [{
+        currentModel.value = config.activeModel || config.model || 'claude-sonnet-4-6';
+        currentProvider.value = config.provider || 'Hermes Config';
+        currentBaseUrl.value = config.baseUrl || '';
+
+        // Convert ModelConfig[] from backend to ModelGroup[]
+        if (config.models && config.models.length > 0) {
+          modelGroups.value = groupModelsByProvider(
+            config.models.map((m) => ({
+              provider: m.provider || 'default',
+              model: m.model,
+              name: m.name || m.model,
+              baseUrl: m.baseUrl || '',
+            })),
+          );
+        } else {
+          // Fallback: show the current model as a single entry
+          modelGroups.value = [{
             provider: 'Hermes Config',
-            model: info.model || 'claude-sonnet-4-6',
-            label: info.model || 'claude-sonnet-4-6',
-            baseUrl: info.baseUrl || '',
-          }],
-        }];
+            providerLabel: 'Hermes Config',
+            models: [{
+              provider: 'Hermes Config',
+              model: config.activeModel || config.model || 'claude-sonnet-4-6',
+              label: config.activeModel || config.model || 'claude-sonnet-4-6',
+              baseUrl: config.baseUrl || '',
+            }],
+          }];
+        }
       } catch {
-        // Fallback
+        // Fallback defaults
         currentModel.value = 'claude-sonnet-4-6';
         currentProvider.value = 'Hermes Config';
         currentBaseUrl.value = '';
@@ -122,10 +132,16 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
     baseUrl: string,
   ): Promise<void> => {
     if (isClawMode.value) {
-      // Claw 模式：模型选择暂不持久化
+      // Claw 模式：持久化到 claw config
       currentModel.value = model;
       currentProvider.value = provider;
       currentBaseUrl.value = baseUrl;
+      try {
+        const api = getTauriAPI();
+        await api.clawConfigSet({ activeModel: model });
+      } catch (e) {
+        console.warn('[useModelConfig] Failed to persist Claw model:', e);
+      }
       return;
     }
     const effectiveBaseUrl = provider === 'custom' ? baseUrl : '';
