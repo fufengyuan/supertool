@@ -74,23 +74,13 @@ impl ApiClient for TauriApiClient {
                         let mut events = events.borrow_mut();
                         match event {
                             LlmStreamEvent::TextDelta { text } => {
-                                events.push(AssistantEvent::TextDelta(text.clone()));
-                                // Real-time streaming: forward text deltas to frontend
-                                let _ = self.app.emit("agent-delta", serde_json::json!({
-                                    "text": text,
-                                    "session_id": &self.session_id,
-                                }));
+                                events.push(AssistantEvent::TextDelta(text));
                             }
                             LlmStreamEvent::ThinkingDelta { thinking } => {
                                 events.push(AssistantEvent::Thinking {
-                                    thinking: thinking.clone(),
+                                    thinking,
                                     signature: None,
                                 });
-                                // Real-time streaming: forward reasoning deltas to frontend
-                                let _ = self.app.emit("agent-reasoning-delta", serde_json::json!({
-                                    "text": thinking,
-                                    "session_id": &self.session_id,
-                                }));
                             }
                             LlmStreamEvent::ToolCall { id, name, input } => {
                                 let input_str = serde_json::to_string(&input)
@@ -120,6 +110,22 @@ impl ApiClient for TauriApiClient {
                 )
                 .await
                 .map_err(|e| RuntimeError::new(format!("LLM stream failed: {e}")))?;
+
+            // Per-iteration: emit complete assistant text and reasoning for this
+            // LLM turn (one call within the tool loop), rather than per-token.
+            // The frontend receives one agent-delta per LLM iteration.
+            if !result.text.is_empty() {
+                let _ = self.app.emit("agent-delta", serde_json::json!({
+                    "text": &result.text,
+                    "session_id": &self.session_id,
+                }));
+            }
+            if !result.reasoning.is_empty() {
+                let _ = self.app.emit("agent-reasoning-delta", serde_json::json!({
+                    "text": &result.reasoning,
+                    "session_id": &self.session_id,
+                }));
+            }
 
             // send_turn accumulates tool_calls internally but does NOT forward
             // ToolCall events to the on_event callback. We must emit ToolUse
