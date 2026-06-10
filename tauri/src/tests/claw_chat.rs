@@ -470,13 +470,15 @@ fn test_session_messages_to_json_converts_user_and_agent() {
         },
     ];
     let result = session_messages_to_json(&messages);
-    assert_eq!(result.len(), 2);
+    assert_eq!(result.len(), 3);
     assert_eq!(result[0]["role"], "user");
     assert_eq!(result[0]["content"], "Hello");
     assert_eq!(result[1]["role"], "agent");
-    // Both text + thinking blocks joined
-    assert!(result[1]["content"].as_str().unwrap().contains("Hi there!"));
-    assert!(result[1]["content"].as_str().unwrap().contains("let me think..."));
+    assert_eq!(result[1]["content"], "Hi there!");
+    // Thinking blocks now emitted as separate reasoning messages
+    assert_eq!(result[2]["role"], "agent");
+    assert_eq!(result[2]["kind"], "reasoning");
+    assert_eq!(result[2]["text"], "let me think...");
 }
 
 #[test]
