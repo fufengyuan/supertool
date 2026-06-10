@@ -43,6 +43,12 @@
         <IconLanguage :size="16" />
         <span>Language</span>
       </button>
+      <button v-if="isClawMode" class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'models' ? 'tab-active' : ''"
+        @click="tab = 'models'">
+        <IconBrain :size="16" />
+        <span>Models</span>
+      </button>
       <button class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'about' ? 'tab-active' : ''"
         @click="tab = 'about'">
@@ -273,6 +279,170 @@
       </div>
     </div>
 
+    <!-- ==================== Models Tab (Claw only) ==================== -->
+    <div v-if="tab === 'models'" class="space-y-4">
+      <div class="bg-base-100 border border-base-300 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold flex items-center gap-2">
+            <IconBrain :size="18" />
+            模型管理
+          </h2>
+          <div class="flex items-center gap-2">
+            <button class="btn btn-ghost btn-sm" @click="loadModels" :disabled="modelsLoading">
+              <IconRefresh :size="16" :class="{ 'animate-spin': modelsLoading }" />
+            </button>
+            <button class="btn btn-primary btn-sm gap-1" @click="openAddModel">
+              <IconPlus :size="14" />
+              添加模型
+            </button>
+          </div>
+        </div>
+
+        <!-- Error/Success -->
+        <div v-if="modelsError" class="alert alert-error mb-4 text-sm py-2">
+          <IconAlertCircle :size="16" />
+          <span>{{ modelsError }}</span>
+        </div>
+        <div v-if="modelsSuccess" class="alert alert-success mb-4 text-sm py-2">
+          <IconCheck :size="16" />
+          <span>{{ modelsSuccess }}</span>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="modelsLoading" class="flex items-center justify-center py-12">
+          <span class="loading loading-spinner loading-md text-primary" />
+        </div>
+
+        <!-- Model List -->
+        <div v-else-if="models.length === 0" class="text-center py-12">
+          <IconBox :size="32" class="mx-auto mb-2 text-base-content/20" />
+          <p class="text-sm text-base-content/50">暂无配置的模型</p>
+          <p class="text-xs text-base-content/30 mt-1">点击「添加模型」按钮开始配置</p>
+        </div>
+
+        <div v-else class="space-y-3">
+          <div
+            v-for="(m, idx) in models"
+            :key="idx"
+            class="border border-base-300 rounded-lg p-4 hover:bg-base-200/30 transition-colors"
+            :class="{ 'border-primary/30 bg-primary/5': m.model === activeModel }"
+          >
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <IconStar v-if="m.model === activeModel" :size="16" class="text-warning shrink-0" />
+                <span class="font-semibold text-sm truncate">{{ m.name || m.model }}</span>
+                <span v-if="m.model === activeModel" class="badge badge-primary badge-xs">当前</span>
+              </div>
+              <div class="flex items-center gap-1 shrink-0">
+                <button class="btn btn-ghost btn-xs" @click="openEditModel(m)">
+                  <IconEdit :size="14" />
+                </button>
+                <button class="btn btn-ghost btn-xs text-error hover:bg-error/10" @click="deleteModel(idx)">
+                  <IconTrash :size="14" />
+                </button>
+                <button
+                  v-if="m.model !== activeModel"
+                  class="btn btn-ghost btn-xs text-primary"
+                  @click="setActiveModel(m.model)"
+                >
+                  设为当前
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-1.5 text-xs">
+              <div>
+                <span class="text-base-content/50">模型 ID</span>
+                <code class="ml-1 font-mono">{{ m.model }}</code>
+              </div>
+              <div>
+                <span class="text-base-content/50">提供商</span>
+                <span class="ml-1">{{ m.provider || '-' }}</span>
+              </div>
+              <div class="col-span-2 sm:col-span-1 truncate">
+                <span class="text-base-content/50">Base URL</span>
+                <code class="ml-1 font-mono text-[10px]">{{ m.baseUrl || '-' }}</code>
+              </div>
+              <div>
+                <span class="text-base-content/50">上下文窗口</span>
+                <span class="ml-1">{{ m.contextWindow?.toLocaleString() || '-' }}</span>
+              </div>
+              <div>
+                <span class="text-base-content/50">最大输出</span>
+                <span class="ml-1">{{ m.maxTokens?.toLocaleString() || '-' }}</span>
+              </div>
+              <div>
+                <span class="text-base-content/50">压缩阈值</span>
+                <span class="ml-1">{{ m.compactionThreshold?.toLocaleString() || '-' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add/Edit Model Modal -->
+      <div v-if="showModelModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showModelModal = false">
+        <div class="bg-base-100 rounded-xl p-5 w-full max-w-md shadow-2xl mx-4 max-h-[85vh] overflow-y-auto">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold flex items-center gap-2">
+              <IconBrain :size="18" />
+              {{ editingIndex >= 0 ? '编辑模型' : '添加模型' }}
+            </h3>
+            <button class="btn btn-ghost btn-sm btn-circle" @click="showModelModal = false">
+              <IconX :size="16" />
+            </button>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs text-base-content/70 mb-1 block">名称 *</label>
+              <input v-model="form.name" type="text" class="input input-bordered input-sm w-full" placeholder="如：Claude Sonnet 4" />
+            </div>
+            <div>
+              <label class="text-xs text-base-content/70 mb-1 block">模型 ID *</label>
+              <input v-model="form.model" type="text" class="input input-bordered input-sm w-full font-mono" placeholder="如：claude-sonnet-4-6" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="text-xs text-base-content/70 mb-1 block">提供商 *</label>
+                <input v-model="form.provider" type="text" class="input input-bordered input-sm w-full" placeholder="如：anthropic" />
+              </div>
+              <div>
+                <label class="text-xs text-base-content/70 mb-1 block">Base URL</label>
+                <input v-model="form.baseUrl" type="text" class="input input-bordered input-sm w-full font-mono text-xs" placeholder="可选" />
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-3">
+              <div>
+                <label class="text-xs text-base-content/70 mb-1 block">上下文窗口</label>
+                <input v-model.number="form.contextWindow" type="number" class="input input-bordered input-sm w-full" placeholder="0" min="0" />
+              </div>
+              <div>
+                <label class="text-xs text-base-content/70 mb-1 block">最大输出</label>
+                <input v-model.number="form.maxTokens" type="number" class="input input-bordered input-sm w-full" placeholder="0" min="0" />
+              </div>
+              <div>
+                <label class="text-xs text-base-content/70 mb-1 block">压缩阈值</label>
+                <input v-model.number="form.compactionThreshold" type="number" class="input input-bordered input-sm w-full" placeholder="0" min="0" />
+              </div>
+            </div>
+          </div>
+
+          <div v-if="formError" class="alert alert-error text-sm py-2 mt-3">
+            <IconAlertCircle :size="14" />
+            <span>{{ formError }}</span>
+          </div>
+
+          <div class="flex gap-2 justify-end mt-4">
+            <button class="btn btn-ghost btn-sm" @click="showModelModal = false">取消</button>
+            <button class="btn btn-primary btn-sm" @click="saveModel" :disabled="formSaving">
+              <IconRefresh v-if="formSaving" :size="12" class="animate-spin" />
+              {{ editingIndex >= 0 ? '保存修改' : '添加' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== About Tab ==================== -->
     <div v-if="tab === 'about'" class="space-y-4">
       <!-- Version Info -->
@@ -361,6 +531,11 @@ import {
   IconCode,
   IconServer,
   IconKey,
+  IconBrain,
+  IconEdit,
+  IconPlus,
+  IconTrash,
+  IconBox,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
@@ -378,7 +553,7 @@ const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 const loading = ref(false)
 const error = ref('')
 const successMsg = ref('')
-const tab = ref<'general' | 'appearance' | 'language' | 'about'>('general')
+const tab = ref<'general' | 'appearance' | 'language' | 'models' | 'about'>('general')
 const configInfo = ref<HermesConfigInfo | null>(null)
 const appVersion = ref('')
 const theme = ref<'light' | 'dark' | 'system'>('light')
@@ -552,9 +727,143 @@ async function saveApiKey() {
   savingApiKey.value = false
 }
 
+// ── Model Management (Claw mode only) ──────────────────────────────
+interface ModelConfig {
+  name: string
+  model: string
+  provider: string
+  apiKey?: string
+  baseUrl?: string
+  contextWindow: number
+  maxTokens: number
+  compactionThreshold: number
+}
+
+const models = ref<ModelConfig[]>([])
+const activeModel = ref('')
+const modelsLoading = ref(false)
+const modelsError = ref('')
+const modelsSuccess = ref('')
+
+// Add/Edit modal state
+const showModelModal = ref(false)
+const editingIndex = ref(-1)
+const formSaving = ref(false)
+const formError = ref('')
+const form = ref<ModelConfig>({
+  name: '',
+  model: '',
+  provider: '',
+  apiKey: '',
+  baseUrl: '',
+  contextWindow: 0,
+  maxTokens: 0,
+  compactionThreshold: 0,
+})
+
+function resetForm() {
+  form.value = { name: '', model: '', provider: '', apiKey: '', baseUrl: '', contextWindow: 0, maxTokens: 0, compactionThreshold: 0 }
+  editingIndex.value = -1
+  formError.value = ''
+}
+
+function openAddModel() {
+  resetForm()
+  showModelModal.value = true
+}
+
+function openEditModel(m: ModelConfig) {
+  form.value = { ...m }
+  editingIndex.value = models.value.indexOf(m)
+  showModelModal.value = true
+}
+
+async function loadModels() {
+  modelsLoading.value = true
+  modelsError.value = ''
+  try {
+    const api = getTauriAPI()
+    const raw = await api.clawConfigGet() as any
+    models.value = (raw?.models || []) as ModelConfig[]
+    activeModel.value = raw?.activeModel || ''
+  } catch (e: unknown) {
+    modelsError.value = e instanceof Error ? e.message : String(e)
+    models.value = []
+  } finally {
+    modelsLoading.value = false
+  }
+}
+
+async function saveModel() {
+  if (!form.value.name.trim() || !form.value.model.trim() || !form.value.provider.trim()) {
+    formError.value = '名称、模型 ID 和提供商为必填项'
+    return
+  }
+  formSaving.value = true
+  formError.value = ''
+  try {
+    if (editingIndex.value >= 0) {
+      models.value[editingIndex.value] = { ...form.value }
+    } else {
+      models.value.push({ ...form.value })
+    }
+    const api = getTauriAPI()
+    await api.clawConfigSet({ models: models.value, activeModel: activeModel.value } as any)
+    showModelModal.value = false
+    modelsSuccess.value = editingIndex.value >= 0 ? '模型已更新' : '模型已添加'
+    clearModelsSuccess()
+  } catch (e: unknown) {
+    formError.value = e instanceof Error ? e.message : String(e)
+  } finally {
+    formSaving.value = false
+  }
+}
+
+async function deleteModel(index: number) {
+  if (!window.confirm(`确定删除模型「${models.value[index].name || models.value[index].model}」？`)) return
+  modelsError.value = ''
+  try {
+    const deleted = models.value[index].model
+    models.value.splice(index, 1)
+    if (activeModel.value === deleted) {
+      activeModel.value = ''
+    }
+    const api = getTauriAPI()
+    await api.clawConfigSet({ models: models.value, activeModel: activeModel.value } as any)
+    modelsSuccess.value = '模型已删除'
+    clearModelsSuccess()
+  } catch (e: unknown) {
+    modelsError.value = e instanceof Error ? e.message : String(e)
+    // Reload to restore state
+    await loadModels()
+  }
+}
+
+async function setActiveModel(model: string) {
+  activeModel.value = model
+  modelsError.value = ''
+  try {
+    const api = getTauriAPI()
+    await api.clawConfigSet({ models: models.value, activeModel } as any)
+    modelsSuccess.value = `已切换当前模型为「${model}」`
+    clearModelsSuccess()
+  } catch (e: unknown) {
+    modelsError.value = e instanceof Error ? e.message : String(e)
+  }
+}
+
+let modelsSuccessTimer: ReturnType<typeof setTimeout> | null = null
+function clearModelsSuccess() {
+  if (modelsSuccessTimer) clearTimeout(modelsSuccessTimer)
+  modelsSuccessTimer = setTimeout(() => { modelsSuccess.value = '' }, 3000)
+}
+
 onMounted(async () => {
   await loadAppVersion()
   await loadConfig()
   await loadApiStatus()
+  if (isClawMode.value) {
+    await loadModels()
+  }
 })
 </script>
