@@ -170,6 +170,17 @@ fn main() {
             }
         }
     }
+    // Set CLAW_CONFIG_HOME to match our config_path() resolution, so the upstream
+    // ConfigLoader and our claw_config module read the same settings.json.
+    // Must use env var because ConfigLoader uses std::env::var_os("HOME") internally.
+    if std::env::var("CLAW_CONFIG_HOME").is_err() {
+        if let Some(home) = dirs::home_dir() {
+            let claw_home = home.join(".claw");
+            // SAFETY: single-threaded at main() entry, no concurrent env reads
+            unsafe { std::env::set_var("CLAW_CONFIG_HOME", claw_home.to_str().expect("valid HOME path")); }
+            eprintln!("[Main] CLAW_CONFIG_HOME not set — defaulting to {}", claw_home.display());
+        }
+    }
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
