@@ -882,7 +882,6 @@ pub async fn claw_chat_send(
         sid, max_iterations
     );
 
-    let model_name = agent_config.model.clone();
     let max_iters = max_iterations;
     // Create fresh abort signal for this turn, store in state so claw_chat_abort can set it
     let hook_abort_signal = runtime::HookAbortSignal::new();
@@ -902,7 +901,8 @@ pub async fn claw_chat_send(
             client,
             tool_defs,
             reasoning_effort,
-            model_name.clone(),
+            app_hook.clone(),
+            sid_hook.clone(),
         );
         let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::default();
         // Permission policy with rules from config — mirrors upstream permission_policy()
@@ -958,18 +958,11 @@ pub async fn claw_chat_send(
         summary.tool_results.len()
     );
 
-    // ── Emit results to frontend (batch mode — previous real-time streaming removed) ──
+    // ── Emit results to frontend (batch — tool/usage events only; text is streamed in real-time) ──
+    // NOTE: agent-delta is NOT emitted here — text deltas are forwarded in real-time
+    // from TauriApiClient::stream()'s on_event callback.
     let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
 
-    if !emit.assistant_text.is_empty() {
-        let _ = app.emit(
-            "agent-delta",
-            serde_json::json!({
-                "text": emit.assistant_text,
-                "session_id": sid,
-            }),
-        );
-    }
     for (tool_id, tool_name, tool_input) in &emit.tool_calls {
         let _ = app.emit(
             "agent-tool-start",

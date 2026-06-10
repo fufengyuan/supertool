@@ -23,13 +23,17 @@ use tauri::{AppHandle, Emitter};
 /// Each instance owns a dedicated current-thread tokio runtime so that the
 /// sync `stream()` method can `block_on` the async `send_turn()` inside a
 /// synchronous context (the ConversationRuntime tool loop).
+///
+/// Real-time streaming: the `on_event` callback inside `stream()` emits
+/// Tauri events (`agent-delta`, `agent-reasoning-delta`) as the LLM
+/// produces tokens, rather than batching everything until the turn ends.
 pub(crate) struct TauriApiClient {
     llm_client: Arc<LlmClient>,
     rt: tokio::runtime::Runtime,
     tool_defs: Vec<api::ToolDefinition>,
     reasoning_effort: Option<String>,
-    #[allow(dead_code)]
-    model: String,
+    app: AppHandle,
+    session_id: String,
 }
 
 impl TauriApiClient {
@@ -37,13 +41,14 @@ impl TauriApiClient {
         llm_client: Arc<LlmClient>,
         tool_defs: Vec<api::ToolDefinition>,
         reasoning_effort: Option<String>,
-        model: String,
+        app: AppHandle,
+        session_id: String,
     ) -> Self {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("TauriApiClient tokio runtime");
-        Self { llm_client, rt, tool_defs, reasoning_effort, model }
+        Self { llm_client, rt, tool_defs, reasoning_effort, app, session_id }
     }
 }
 
@@ -69,13 +74,23 @@ impl ApiClient for TauriApiClient {
                         let mut events = events.borrow_mut();
                         match event {
                             LlmStreamEvent::TextDelta { text } => {
-                                events.push(AssistantEvent::TextDelta(text));
+                                events.push(AssistantEvent::TextDelta(text.clone()));
+                                // Real-time streaming: forward text deltas to frontend
+                                let _ = self.app.emit("agent-delta", serde_json::json!({
+                                    "text": text,
+                                    "session_id": &self.session_id,
+                                }));
                             }
                             LlmStreamEvent::ThinkingDelta { thinking } => {
                                 events.push(AssistantEvent::Thinking {
-                                    thinking,
+                                    thinking: thinking.clone(),
                                     signature: None,
                                 });
+                                // Real-time streaming: forward reasoning deltas to frontend
+                                let _ = self.app.emit("agent-reasoning-delta", serde_json::json!({
+                                    "text": thinking,
+                                    "session_id": &self.session_id,
+                                }));
                             }
                             LlmStreamEvent::ToolCall { id, name, input } => {
                                 let input_str = serde_json::to_string(&input)
