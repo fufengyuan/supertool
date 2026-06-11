@@ -87,6 +87,28 @@
 
       <div class="px-4 py-3">
         <div class="max-w-3xl mx-auto">
+
+          <!-- Goal input prompt -->
+          <div
+            v-if="showGoalInput"
+            class="mb-3 p-3 rounded-lg border border-info/20 bg-info/5"
+          >
+            <div class="text-xs text-info/70 mb-2">输入目标内容，按回车确认 / Esc 取消</div>
+            <div class="flex gap-2">
+              <input
+                ref="goalInputRef"
+                v-model="goalInputText"
+                type="text"
+                class="input input-sm input-bordered flex-1 text-sm"
+                placeholder="输入目标描述..."
+                @keydown.enter="confirmGoalInput"
+                @keydown.esc="cancelGoalInput"
+              />
+              <button class="btn btn-sm btn-primary" @click="confirmGoalInput">确认</button>
+              <button class="btn btn-sm btn-ghost" @click="cancelGoalInput">取消</button>
+            </div>
+          </div>
+
           <!-- Model picker row -->
           <div class="flex items-center justify-between mb-2">
             <ModelPicker
@@ -130,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -173,6 +195,9 @@ const currentInput = ref('');
 const compacting = ref(false);
 const chatInputRef = ref<{ clear: () => void; focus: () => void } | null>(null);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
+const goalInputRef = ref<HTMLInputElement | null>(null);
+const showGoalInput = ref(false);
+const goalInputText = ref('');
 
 // Claw 模式状态
 const clawInitialized = ref(false);
@@ -251,7 +276,7 @@ async function fetchPlanMode() {
   }
 }
 
-// Goal mode toggle — button: ON→OFF clears goal; OFF→prompt for goal text
+// Goal mode toggle — button: ON→OFF clears goal; OFF→show inline input
 async function handleToggleGoal() {
   if (!isClawMode.value) return;
   if (goalMode.value) {
@@ -268,23 +293,32 @@ async function handleToggleGoal() {
       console.error('[Chat] Failed to clear goal mode:', e);
     }
   } else {
-    // Prompt for goal text
-    const input = window.prompt('Enter your goal:');
-    if (input && input.trim()) {
-      const text = input.trim();
-      goalMode.value = true;
-      goalText.value = text;
-      goalStatus.value = 'active';
-      goalTurnsUsed.value = 0;
-      goalLastVerdict.value = null;
-      goalLastReason.value = null;
-      try {
-        await invoke('claw_chat_set_goal_mode', { active: true, goalText: text });
-      } catch (e) {
-        console.error('[Chat] Failed to set goal mode:', e);
-      }
-    }
+    // Show inline goal input
+    goalInputText.value = '';
+    showGoalInput.value = true;
+    await nextTick();
+    goalInputRef.value?.focus();
   }
+}
+
+function confirmGoalInput() {
+  const text = goalInputText.value.trim();
+  if (!text) return;
+  showGoalInput.value = false;
+  goalInputText.value = '';
+  goalMode.value = true;
+  goalText.value = text;
+  goalStatus.value = 'active';
+  goalTurnsUsed.value = 0;
+  goalLastVerdict.value = null;
+  goalLastReason.value = null;
+  invoke('claw_chat_set_goal_mode', { active: true, goalText: text })
+    .catch((e: unknown) => console.error('[Chat] Failed to set goal mode:', e));
+}
+
+function cancelGoalInput() {
+  showGoalInput.value = false;
+  goalInputText.value = '';
 }
 
 // Fetch goal mode state on init
