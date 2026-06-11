@@ -347,6 +347,41 @@ if [ -n "$LOGGED_IN_USER" ]; then
             ln -sf /usr/local/share/supertool/skills "$USER_SKILLS"
             chown -h "${LOGGED_IN_USER}" "$USER_SKILLS" 2>/dev/null || true
         fi
+
+        SKILLS_SRC="/usr/local/share/supertool/skills"
+        # ~/.hermes/skills/
+        HERMES_SKILLS="${USER_HOME}/.hermes/skills"
+        if [ -d "$SKILLS_SRC" ]; then
+            mkdir -p "${HERMES_SKILLS}"
+            for skill_dir in "$SKILLS_SRC"/*/; do
+                [ -d "$skill_dir" ] || continue
+                skill_name=$(basename "$skill_dir")
+                [ -n "$skill_name" ] || continue
+                skill_file="${skill_dir}SKILL.md"
+                [ -f "$skill_file" ] || continue
+                target_dir="${HERMES_SKILLS}/${skill_name}"
+                mkdir -p "${target_dir}"
+                cp -f "$skill_file" "${target_dir}/SKILL.md"
+            done
+            chown -R "${LOGGED_IN_USER}" "${HERMES_SKILLS}" 2>/dev/null || true
+        fi
+
+        # ~/.claw/skills/
+        CLAW_SKILLS="${USER_HOME}/.claw/skills"
+        if [ -d "$SKILLS_SRC" ]; then
+            mkdir -p "${CLAW_SKILLS}"
+            for skill_dir in "$SKILLS_SRC"/*/; do
+                [ -d "$skill_dir" ] || continue
+                skill_name=$(basename "$skill_dir")
+                [ -n "$skill_name" ] || continue
+                skill_file="${skill_dir}SKILL.md"
+                [ -f "$skill_file" ] || continue
+                target_dir="${CLAW_SKILLS}/${skill_name}"
+                mkdir -p "${target_dir}"
+                cp -f "$skill_file" "${target_dir}/SKILL.md"
+            done
+            chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
+        fi
     fi
 fi
 echo "✅ SuperTool installed successfully"
