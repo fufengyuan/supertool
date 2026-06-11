@@ -170,11 +170,34 @@ async fn main() {
             let mut rt = match init_runtime() {
                 Ok(r) => r,
                 Err(e) => {
-                    print_error(&format!("初始化失败: {}", e));
+                    print_error(&format!("初始化失败: {e}"));
                     process::exit(1);
                 }
             };
             if let Err(e) = cmd_weekly(&mut rt, action).await {
+                print_error(&e.to_string());
+                process::exit(1);
+            }
+        }
+        types::Commands::Hermes { message } => {
+            if let Err(e) = cmd_hermes_chat(message.clone()).await {
+                print_error(&e.to_string());
+                process::exit(1);
+            }
+        }
+        types::Commands::Claw { action } => {
+            use types::ClawCommands;
+            if let Err(e) = match action {
+                ClawCommands::Chat { message } => cmd_claw_chat(message.clone()).await,
+                ClawCommands::Goal { text, max_turns } => {
+                    cmd_claw_goal(text.clone(), *max_turns).await
+                }
+                ClawCommands::Loop {
+                    message,
+                    count,
+                    duration,
+                } => cmd_claw_loop(message.clone(), *count, duration.clone()).await,
+            } {
                 print_error(&e.to_string());
                 process::exit(1);
             }
