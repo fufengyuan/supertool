@@ -271,12 +271,29 @@ pub fn install_hermes_skills() -> Result<String, String> {
         .map(|h| h.join(".hermes").join("skills"))
         .ok_or_else(|| "Cannot determine home directory".to_string())?;
 
+    install_skills_to(&source_dir, &skills_root)
+}
+
+/// Install skills to Claw's skills directory (~/.claw/skills/) from bundled resources
+pub fn install_claw_skills() -> Result<String, String> {
+    let source_dir = get_bundled_skills_path()
+        .ok_or_else(|| "skills directory not found in resources".to_string())?;
+
+    let skills_root = dirs::home_dir()
+        .map(|h| h.join(".claw").join("skills"))
+        .ok_or_else(|| "Cannot determine home directory".to_string())?;
+
+    install_skills_to(&source_dir, &skills_root)
+}
+
+/// Generic skill installer: copy SKILL.md from source_dir/skill_name/ to target_root/skill_name/
+fn install_skills_to(source_dir: &std::path::Path, target_root: &std::path::Path) -> Result<String, String> {
     let mut installed = Vec::new();
 
     for entry in
-        fs::read_dir(&source_dir).map_err(|e| format!("Failed to read skills dir: {}", e))?
+        fs::read_dir(source_dir).map_err(|e| format!("Failed to read skills dir: {e}"))?
     {
-        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
         let path = entry.path();
         if !path.is_dir() {
             continue;
@@ -295,7 +312,7 @@ pub fn install_hermes_skills() -> Result<String, String> {
             continue;
         }
 
-        let target_dir = skills_root.join(&skill_name);
+        let target_dir = target_root.join(&skill_name);
         let target_file = target_dir.join("SKILL.md");
 
         // mtime comparison - only update if source is newer
@@ -312,14 +329,12 @@ pub fn install_hermes_skills() -> Result<String, String> {
         }
 
         fs::create_dir_all(&target_dir)
-            .map_err(|e| format!("Failed to create skill dir: {}", e))?;
+            .map_err(|e| format!("Failed to create skill dir: {e}"))?;
 
-        // fs::copy preserves metadata on some platforms, but we explicitly preserve mtime
-        // Simple approach: just copy, next launch will compare
         let content = fs::read_to_string(&skill_src)
-            .map_err(|e| format!("Failed to read skill file: {}", e))?;
+            .map_err(|e| format!("Failed to read skill file: {e}"))?;
         fs::write(&target_file, content)
-            .map_err(|e| format!("Failed to write skill file: {}", e))?;
+            .map_err(|e| format!("Failed to write skill file: {e}"))?;
 
         installed.push(skill_name);
     }
@@ -334,14 +349,21 @@ pub fn install_hermes_skills() -> Result<String, String> {
 #[tauri::command(rename_all = "camelCase")]
 pub fn install_cli_and_skills() -> InstallResult {
     let cli_result = install_stool_cli();
-    let skills_result = install_hermes_skills();
+    let hermes_result = install_hermes_skills();
+    let claw_result = install_claw_skills();
     let profiles_result = install_hermes_profiles();
+
+    let mut skills_installed = hermes_result.is_ok();
+    if claw_result.is_ok() {
+        let msg = claw_result.unwrap_or_default();
+        log::info!("Claw skills: {}", msg);
+    }
 
     InstallResult {
         cli_installed: cli_result.is_ok(),
         cli_path: cli_result.unwrap_or_default(),
-        skills_installed: skills_result.is_ok(),
-        skills_path: skills_result.unwrap_or_default(),
+        skills_installed,
+        skills_path: hermes_result.unwrap_or_default(),
         profiles_installed: profiles_result.is_ok(),
         profiles_count: profiles_result.unwrap_or(0),
     }
