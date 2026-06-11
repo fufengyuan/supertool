@@ -2971,7 +2971,6 @@ impl App {
             15,
         );
         self.interrupt_controller.clear_interrupt();
-        let mut remediation_attempted = false;
         let mut auth_refresh_attempts = 0usize;
         let auth_refresh_retry_limit = Self::auth_refresh_retry_limit();
         let mut transient_retry_attempts = 0usize;
@@ -3152,29 +3151,6 @@ impl App {
                         );
                         tokio::time::sleep(std::time::Duration::from_millis(backoff_ms)).await;
                         continue;
-                    }
-                    if !remediation_attempted {
-                        if let Some((next_model, notice)) =
-                            self.model_auto_remediation_target(&e).await
-                        {
-                            tracing::warn!(
-                                "Model auto-remediation triggered: {} -> {}",
-                                self.current_model,
-                                next_model
-                            );
-                            if self.stream_handle.is_some() {
-                                self.push_ui_assistant(notice.clone());
-                            } else {
-                                println!("{notice}");
-                            }
-                            Self::emit_lifecycle_event(
-                                &self.stream_handle_shared,
-                                format!("auto-remediation switching model to {}", next_model),
-                            );
-                            self.switch_model(&next_model);
-                            remediation_attempted = true;
-                            continue;
-                        }
                     }
                     return Err(e);
                 }
@@ -3398,31 +3374,6 @@ impl App {
         })?;
         self.enforce_session_snapshot_guardrails(&sessions_dir, &path)?;
         Ok(path)
-    }
-
-    fn model_auto_remediation_enabled() -> bool {
-        !matches!(
-            std::env::var("HERMES_MODEL_AUTO_REMEDIATE")
-                .ok()
-                .as_deref()
-                .map(|v| v.trim().to_ascii_lowercase()),
-            Some(v) if matches!(v.as_str(), "0" | "false" | "off" | "no")
-        )
-    }
-
-    fn is_model_not_found_error(err: &AgentError) -> bool {
-        let message = match err {
-            AgentError::LlmApi(msg)
-            | AgentError::Config(msg)
-            | AgentError::ToolExecution(msg)
-            | AgentError::Gateway(msg) => msg.to_ascii_lowercase(),
-            _ => return false,
-        };
-        let model_not_found = message.contains("model not found")
-            || message.contains("requested model does not exist")
-            || message.contains("404 not found")
-            || message.contains("openrouter catalog");
-        model_not_found && message.contains("model")
     }
 
     fn is_provider_auth_or_session_error(err: &AgentError) -> bool {
@@ -3654,46 +3605,6 @@ impl App {
             }
         }
         refreshed
-    }
-
-    async fn model_auto_remediation_target(&self, err: &AgentError) -> Option<(String, String)> {
-        if !Self::model_auto_remediation_enabled() || !Self::is_model_not_found_error(err) {
-            return None;
-        }
-
-        let (provider, current_model_id) = self
-            .current_model
-            .split_once(':')
-            .unwrap_or(("openai", self.current_model.as_str()));
-        let provider = provider.trim().to_ascii_lowercase();
-        if provider.is_empty() {
-            return None;
-        }
-
-        let catalog = provider_model_ids(&provider).await;
-        if catalog.is_empty() {
-            return None;
-        }
-
-        let selected = Self::resolve_quorum_catalog_candidate(current_model_id, &catalog)
-            .or_else(|| catalog.first().cloned())?;
-
-        let next_model = format!("{}:{}", provider, selected.trim());
-        if next_model.eq_ignore_ascii_case(&self.current_model) {
-            return None;
-        }
-        let close = Self::rank_catalog_candidates(current_model_id, &catalog, 3);
-        let notice = format!(
-            "Model catalog remediation: `{}` failed with not-found; switching to `{}` and retrying once. close matches: {}",
-            self.current_model,
-            next_model,
-            if close.is_empty() {
-                "(none)".to_string()
-            } else {
-                close.join(", ")
-            }
-        );
-        Some((next_model, notice))
     }
 
     /// Navigate backward in input history.
@@ -5615,19 +5526,6 @@ mod tests {
     }
 
     #[test]
-    fn test_is_model_not_found_error_detects_provider_404_shape() {
-        let err = AgentError::LlmApi(
-            "API error 404 Not Found: model foo/bar not found in OpenRouter catalog".to_string(),
-        );
-        assert!(App::is_model_not_found_error(&err));
-    }
-
-    #[test]
-    fn test_is_model_not_found_error_ignores_non_catalog_errors() {
-        let err = AgentError::LlmApi("Rate limit exceeded".to_string());
-        assert!(!App::is_model_not_found_error(&err));
-    }
-
     #[test]
     fn test_is_provider_auth_or_session_error_detects_auth_failures() {
         let err = AgentError::LlmApi("HTTP 401 Unauthorized: token expired".to_string());
