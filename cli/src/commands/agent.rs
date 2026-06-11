@@ -1,241 +1,264 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
+use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::Duration;
-use tokio::process::Command;
 use tokio::time::sleep;
 
-// ─── helpers ──────────────────────────────────────────────
+use api::{InputContentBlock, InputMessage, MessageRequest, OutputContentBlock};
 
-/// 调用 `hermes chat -q <message>`（可选的 session 恢复）。
-/// 返回 (stdout 文本, session_id)。
-async fn hermes_chat(message: &str, session_id: Option<&str>) -> Result<(String, String)> {
-    let mut cmd = Command::new("hermes");
-    cmd.arg("chat");
+// ─── config ─────────────────────────────────────────────
 
-    if let Some(sid) = session_id {
-        cmd.arg("-r").arg(sid);
-    }
+struct LlmConfig {
+    model: String,
+    api_key: String,
+    base_url: String,
+}
 
-    cmd.arg("-q").arg(message);
-    cmd.arg("--quiet");
+fn hermes_config_path() -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_default();
+    home.join(".hermes/config.yaml")
+}
 
-    let output = cmd
-        .output()
-        .await
-        .context("Failed to spawn hermes CLI. Is `hermes` installed and in PATH?")?;
+fn claw_config_path() -> PathBuf {
+    let home = dirs::home_dir().unwrap_or_default();
+    home.join(".claw/settings.json")
+}
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let err = stderr.trim();
-        if err.is_empty() {
-            bail!("hermes chat failed (exit code {})", output.status);
-        } else {
-            bail!("hermes chat failed: {err}");
+fn read_file(path: &PathBuf) -> Result<String> {
+    std::fs::read_to_string(path)
+        .with_context(|| format!("Cannot read {}", path.display()))
+}
+
+fn load_hermes_config() -> Result<LlmConfig> {
+    let content = read_file(&hermes_config_path())?;
+    let v: serde_yaml::Value = serde_yaml::from_str(&content)
+        .context("Failed to parse Hermes config (YAML)")?;
+    let m = &v["model"];
+    Ok(LlmConfig {
+        model: m["default"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
+        api_key: m["api_key"].as_str().context("hermes: no model.api_key in config")?.to_string(),
+        base_url: m["base_url"].as_str().context("hermes: no model.base_url in config")?.to_string(),
+    })
+}
+
+fn load_claw_config() -> Result<LlmConfig> {
+    let path = claw_config_path();
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
+            let active = v["activeModel"].as_str().unwrap_or("Claude Sonnet");
+            if let Some(models) = v["models"].as_array() {
+                let entry = models.iter()
+                    .find(|m| m["name"].as_str() == Some(active))
+                    .or_else(|| models.first());
+                if let Some(entry) = entry {
+                    let key = entry["apiKey"].as_str().unwrap_or("");
+                    if !key.is_empty() && key != "***" {
+                        return Ok(LlmConfig {
+                            model: entry["model"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
+                            api_key: key.to_string(),
+                            base_url: entry["baseUrl"].as_str().unwrap_or("").to_string(),
+                        });
+                    }
+                }
+            }
         }
     }
+    // Fallback: use Hermes config
+    load_hermes_config()
+}
 
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+// ─── LLM call ───────────────────────────────────────────
 
-    // session_id 在 stderr 中：格式 "session_id: <id>"
-    let new_session_id = stderr
-        .lines()
-        .find_map(|l| l.strip_prefix("session_id: "))
-        .unwrap_or_default()
-        .to_string();
+async fn call_llm(
+    cfg: &LlmConfig,
+    messages: Vec<InputMessage>,
+    system: Option<&str>,
+) -> Result<String> {
+    // Set env vars so ProviderClient::from_model can discover them
+    // Safety: set_var is unsafe in edition 2024; this is a CLI tool with no threading concerns.
+    unsafe { std::env::set_var("OPENAI_API_KEY", &cfg.api_key) };
+    unsafe { std::env::set_var("OPENAI_BASE_URL", &cfg.base_url) };
 
-    // 清理 stdout：去掉 "Warning:" 行和空行
-    let body: String = stdout
-        .lines()
-        .filter(|l| {
-            let trimmed = l.trim();
-            !trimmed.is_empty() && !trimmed.starts_with("Warning:")
+    // Force OpenAI-compatible client via "openai/" prefix
+    let client = api::ProviderClient::from_model(&format!("openai/{}", cfg.model))
+        .map_err(|e| anyhow!("Cannot create LLM client: {e}"))?;
+
+    let request = MessageRequest {
+        model: cfg.model.clone(),
+        max_tokens: 8192,
+        messages,
+        system: system.map(|s| s.to_string()),
+        tools: None,
+        tool_choice: None,
+        stream: false,
+        temperature: None,
+        top_p: None,
+        frequency_penalty: None,
+        presence_penalty: None,
+        stop: None,
+        reasoning_effort: None,
+        extra_body: BTreeMap::new(),
+    };
+
+    let resp = client.send_message(&request).await
+        .map_err(|e| anyhow!("LLM API error: {e}"))?;
+
+    let text: String = resp.content.iter()
+        .filter_map(|block| match block {
+            OutputContentBlock::Text { text } => Some(text.clone()),
+            _ => None,
         })
         .collect::<Vec<_>>()
         .join("\n");
 
-    Ok((body, new_session_id))
+    Ok(text)
 }
 
-/// 打印一条带颜色的分隔信息行。
+fn user_msg(text: &str) -> InputMessage {
+    InputMessage {
+        role: "user".to_string(),
+        content: vec![InputContentBlock::Text { text: text.to_string() }],
+    }
+}
+
+fn assistant_msg(text: &str) -> InputMessage {
+    InputMessage {
+        role: "assistant".to_string(),
+        content: vec![InputContentBlock::Text { text: text.to_string() }],
+    }
+}
+
 fn info_line(label: &str, detail: &str) {
-    // 使用 ANSI 颜色，简单可靠
     println!("\x1b[36m═══ {label} {detail}\x1b[0m");
 }
 
-// ─── hermes ───────────────────────────────────────────────
+// ─── public commands ────────────────────────────────────
 
-/// `stool hermes <message>` — 直接通过 hermes CLI 对话（含工具执行）
 pub async fn cmd_hermes_chat(message: String) -> Result<()> {
     info_line("Hermes", "⚡");
-    let (response, _sid) = hermes_chat(&message, None).await?;
-    println!("{response}");
+    let cfg = load_hermes_config()?;
+    let resp = call_llm(&cfg, vec![user_msg(&message)], None).await?;
+    println!("{resp}");
     Ok(())
 }
 
-// ─── claw ─────────────────────────────────────────────────
-
-/// `stool claw chat <message>` — 通过 hermes CLI 对话（Claw 模式提示）
 pub async fn cmd_claw_chat(message: String) -> Result<()> {
     info_line("Claw", "💬");
-    // Claw 模式下加一条系统提示引导
-    let enhanced = format!(
-        "You are Claw, a focused AI coding assistant. Respond concisely.\n\nUser message: {message}"
-    );
-    let (response, _sid) = hermes_chat(&enhanced, None).await?;
-    println!("{response}");
+    let cfg = load_claw_config()?;
+    let resp = call_llm(
+        &cfg,
+        vec![user_msg(&message)],
+        Some("You are Claw, a focused AI coding assistant. Respond concisely."),
+    )
+    .await?;
+    println!("{resp}");
     Ok(())
 }
 
-/// `stool claw goal <text>` — Goal 模式：持续工作直到目标达成
 pub async fn cmd_claw_goal(text: String, max_turns: u32) -> Result<()> {
-    info_line("Claw Goal", format!("🎯 \"{text}\"").as_str());
+    info_line("Claw Goal", &format!("🎯 \"{text}\""));
+    let cfg = load_claw_config()?;
 
-    let mut session_id: Option<String> = None;
-    let mut prev_response = String::new();
+    let goal_system =
+        "You are Claw. Work toward the goal below. When you believe it is fully achieved, end your response with [GOAL_COMPLETE].";
+    let judge_system = "You are a goal judge. Answer YES or NO only.";
+
+    let mut messages: Vec<InputMessage> = Vec::new();
 
     for turn in 1..=max_turns {
-        let message = if turn == 1 {
-            info_line("Round", format!("{turn}/{max_turns} 开始").as_str());
-            format!(
-                r#"Your goal: {text}
-
-Work toward this goal. After each action, I will check whether the goal is complete.
-If you believe the goal is fully achieved, end your response with [GOAL_COMPLETE]."#
-            )
+        let msg = if turn == 1 {
+            info_line("Round", &format!("{turn}/{max_turns} begin"));
+            format!("Goal: {text}\n\nWork toward this goal. End with [GOAL_COMPLETE] when done.")
         } else {
-            info_line("Round", format!("{turn}/{max_turns} 继续").as_str());
-            format!(
-                r#"Continue working toward the goal: {text}
-
-Previous work: {prev_response}
-
-If you believe the goal is now fully achieved, end your response with [GOAL_COMPLETE]."#
-            )
+            info_line("Round", &format!("{turn}/{max_turns} continue"));
+            format!("Continue: {text}")
         };
 
-        let (response, new_sid) = hermes_chat(&message, session_id.as_deref()).await?;
+        messages.push(user_msg(&msg));
+        let resp = call_llm(&cfg, messages.clone(), Some(goal_system)).await?;
+        messages.push(assistant_msg(&resp));
+        println!("\n{resp}");
 
-        if session_id.is_none() && !new_sid.is_empty() {
-            session_id = Some(new_sid);
-        }
-
-        println!("\n{response}");
-
-        // 检查 LLM 是否自行声明完成
-        if response.contains("[GOAL_COMPLETE]") {
-            info_line("Goal", "✅ 目标达成！");
-            // 去掉标记再显示
-            println!("{}", response.replace("[GOAL_COMPLETE]", ""));
+        // 1) Self-declared complete via marker
+        if resp.contains("[GOAL_COMPLETE]") {
+            info_line("Goal", "✅ 达成！");
+            println!("{}", resp.replace("[GOAL_COMPLETE]", ""));
             return Ok(());
         }
 
-        // Judge：用简洁一问检查目标是否完成
-        let judge_msg = format!(
-            r#"Based ONLY on our conversation so far, has the following goal been fully achieved?
-
-GOAL: {text}
-
-Answer with exactly one line:
-- YES if the goal is fully achieved
-- NO if there is still work to do
-
-Do not explain. Just say YES or NO."#
+        // 2) Judge: independent call (not added to conversation history)
+        let judge_prompt = format!(
+            "Goal: {text}\n\nLatest work:\n{resp}\n\nIs this goal fully achieved? Answer YES or NO."
         );
-
-        let (judge, _) = hermes_chat(&judge_msg, session_id.as_deref()).await?;
-        let judge_upper = judge.to_uppercase();
-
-        if judge_upper.contains("YES") && !judge_upper.contains("NO") {
-            info_line("Goal", "✅ 目标达成！");
-            println!("{response}");
+        let judge = call_llm(&cfg, vec![user_msg(&judge_prompt)], Some(judge_system)).await?;
+        if judge.to_uppercase().contains("YES") && !judge.to_uppercase().contains("NO") {
+            info_line("Goal", "✅ 达成！(judge 确认)");
             return Ok(());
         }
 
         if turn < max_turns {
-            let delay = if turn == 1 { 0 } else { 1 };
-            if delay > 0 {
-                sleep(Duration::from_secs(delay)).await;
-            }
+            sleep(Duration::from_secs(1)).await;
         }
-
-        prev_response = response;
     }
 
-    info_line("Goal", "⚠️ 已达最大轮次，目标未完成");
+    info_line("Goal", "⚠️ 已达最大轮次");
     bail!("Goal not completed within {max_turns} rounds");
 }
 
-/// `stool claw loop <message>` — Loop 模式：自动重发循环
 pub async fn cmd_claw_loop(
     message: String,
     count: Option<u32>,
     duration: Option<String>,
 ) -> Result<()> {
-    // 解析限制
-    let max_iters: u32 = if let Some(c) = count {
-        c
-    } else if let Some(d) = &duration {
-        // 解析时长，如 "5m"、"30s"
-        if let Some(secs_str) = d.strip_suffix('s') {
-            if let Ok(secs) = secs_str.parse::<u32>() {
-                // 每轮约 5-10 秒，估算迭代数
-                (secs / 5).max(1)
-            } else {
-                bail!("Invalid duration format: {d} (use e.g. 30s, 5m)");
-            }
-        } else if let Some(mins_str) = d.strip_suffix('m') {
-            if let Ok(mins) = mins_str.parse::<u32>() {
-                (mins * 60 / 5).max(1)
-            } else {
-                bail!("Invalid duration format: {d} (use e.g. 30s, 5m)");
-            }
-        } else {
-            bail!("Invalid duration format: {d} (use e.g. 30s, 5m)");
-        }
-    } else {
-        u32::MAX // 无限制
-    };
-
-    let display_limit = if max_iters == u32::MAX {
-        "∞".to_string()
+    let max_iters = parse_limit(count, duration)?;
+    let display = if max_iters == u32::MAX {
+        "∞".into()
     } else {
         max_iters.to_string()
     };
 
-    info_line(
-        "Claw Loop",
-        format!("🔄 \"{message}\" (max: {display_limit})").as_str(),
-    );
+    info_line("Claw Loop", &format!("🔄 \"{message}\" (max: {display})"));
+    let cfg = load_claw_config()?;
 
-    let mut session_id: Option<String> = None;
-    let mut prev_response = String::new();
+    let mut messages: Vec<InputMessage> = Vec::new();
 
     for turn in 1..=max_iters {
         let msg = if turn == 1 {
             message.clone()
         } else {
-            format!(
-                "Continue working on this task: {message}\n\nPrevious iteration result:\n{prev_response}"
-            )
+            format!("Continue: {message}")
         };
 
-        let (response, new_sid) = hermes_chat(&msg, session_id.as_deref()).await?;
+        messages.push(user_msg(&msg));
+        let resp = call_llm(&cfg, messages.clone(), Some("You are Claw. Respond concisely.")).await?;
+        messages.push(assistant_msg(&resp));
 
-        if session_id.is_none() && !new_sid.is_empty() {
-            session_id = Some(new_sid);
-        }
-
-        info_line("Loop", format!("#{turn} / {display_limit}").as_str());
-        println!("{response}");
-
-        prev_response = response;
+        info_line("Loop", &format!("#{turn} / {display}"));
+        println!("{resp}");
 
         if turn < max_iters {
-            // 800ms 延迟（仿 oh-my-pi）
             sleep(Duration::from_millis(800)).await;
         }
     }
 
     info_line("Loop", "✓ 循环结束");
     Ok(())
+}
+
+// ─── helpers ────────────────────────────────────────────
+
+fn parse_limit(count: Option<u32>, duration: Option<String>) -> Result<u32> {
+    if let Some(c) = count {
+        return Ok(c);
+    }
+    if let Some(d) = duration {
+        if let Some(s) = d.strip_suffix('s') {
+            return Ok((s.parse::<u32>().map_err(|_| anyhow!("bad duration: {d}"))? / 5).max(1));
+        }
+        if let Some(m) = d.strip_suffix('m') {
+            return Ok((m.parse::<u32>().map_err(|_| anyhow!("bad duration: {d}"))? * 60 / 5).max(1));
+        }
+        bail!("invalid duration format: {d} (use e.g. 30s, 5m)");
+    }
+    Ok(u32::MAX)
 }
