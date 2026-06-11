@@ -4,6 +4,37 @@ import type { Ref } from 'vue';
 import { SLASH_COMMANDS } from '../slashCommands';
 import type { UsageState } from '../types';
 
+/** Parse /loop args: number = iterations, number + time unit = duration. Returns iterations count (0 = unlimited) or error string */
+function parseLoopLimit(args: string): number | string {
+  const trimmed = args.trim();
+  if (!trimmed) return 0;
+  const parts = trimmed.split(/\s+/);
+  if (parts.length > 2) return 'Usage: /loop [count|duration]. Examples: /loop 10, /loop 5m, /loop 30s.';
+
+  const token = parts.length === 1 ? parts[0] : `${parts[0]}${parts[1]}`;
+  // Pure number = iterations
+  const iterMatch = /^(\d+)$/.exec(token);
+  if (iterMatch) {
+    const n = Number(iterMatch[1]);
+    if (!Number.isSafeInteger(n) || n <= 0) return 'Loop count must be a positive integer.';
+    return n;
+  }
+  // Number + unit = duration (convert to approximate iterations: 1m ≈ 1 iteration)
+  const durMatch = /^(\d+)([a-z]+)$/i.exec(token);
+  if (durMatch) {
+    const amount = Number(durMatch[1]);
+    const unit = durMatch[2].toLowerCase();
+    const unitMap: Record<string, number> = { s: 1, sec: 1, secs: 1, second: 1, seconds: 1, m: 60, min: 60, mins: 60, minute: 60, minutes: 60, h: 3600, hr: 3600, hrs: 3600, hour: 3600, hours: 3600 };
+    const multiplier = unitMap[unit];
+    if (!multiplier) return 'Duration unit must be seconds(s), minutes(m), or hours(h).';
+    const totalSecs = amount * multiplier;
+    // Convert to approximate iterations (1 iteration ≈ 30s). Min 1.
+    const iterations = Math.max(1, Math.round(totalSecs / 30));
+    return iterations;
+  }
+  return 'Usage: /loop [count|duration]. Examples: /loop 10, /loop 5m, /loop 30s.';
+}
+
 interface UseLocalCommandsArgs {
   usage: Ref<UsageState | null>;
   fastMode: Ref<boolean>;
@@ -11,6 +42,10 @@ interface UseLocalCommandsArgs {
   onNewChat?: () => void;
   onClear: () => void;
   addAgentMessage: (content: string) => void;
+  /** Callback for when goal mode changes (called with active, text) */
+  onGoalModeChange?: (active: boolean, goalText?: string) => void;
+  /** Callback for when loop mode changes (active, maxIterations?) */
+  onLoopModeChange?: (active: boolean, maxIterations?: number) => void;
 }
 
 interface UseLocalCommandsResult {
@@ -36,6 +71,8 @@ export function useLocalCommands({
   onNewChat,
   onClear,
   addAgentMessage,
+  onGoalModeChange,
+  onLoopModeChange,
 }: UseLocalCommandsArgs): UseLocalCommandsResult {
   const usageRef = usage;
 
@@ -155,6 +192,81 @@ export function useLocalCommands({
           addAgentMessage(lines.join('\n'));
         } else {
           addAgentMessage('暂无用量数据');
+        }
+        return true;
+      }
+
+      case '/goal': {
+        const goalArg = cmdText.trim().slice('/goal'.length).trim();
+        if (!goalArg) {
+          // Show current goal status
+          try {
+            const res = await invoke<{
+              active: boolean;
+              goalText: string;
+              status: string;
+              turnsUsed: number;
+              maxTurns: number;
+              lastVerdict: string | null;
+              lastReason: string | null;
+            }>('claw_chat_get_goal_mode');
+            if (res.active) {
+              const lines = [`**Goal mode: ON** — Status: **${res.status}**`];
+              lines.push(`> ${res.goalText || '(no text)'}`);
+              lines.push(`**Turns:** ${res.turnsUsed}/${res.maxTurns}`);
+              if (res.lastVerdict) {
+                lines.push(`**Last verdict:** ${res.lastVerdict} — ${res.lastReason || ''}`);
+              }
+              addAgentMessage(lines.join('\n'));
+            } else {
+              addAgentMessage('**Goal mode: OFF** — Use `/goal <text>` to set a persistent target.');
+            }
+          } catch {
+            addAgentMessage('无法读取 goal 模式状态');
+          }
+        } else {
+          // Set goal
+          try {
+            await invoke('claw_chat_set_goal_mode', { active: true, goalText: goalArg });
+            onGoalModeChange?.(true, goalArg);
+            addAgentMessage(`**Goal set**\n> ${goalArg}\n\nAgent will work toward this goal persistently. Use \`/goal\` to check status or the toggle button to reset.`);
+          } catch {
+            addAgentMessage('设置 goal 失败');
+          }
+        }
+        return true;
+      }
+
+      case '/loop': {
+        try {
+          const res = await invoke<{ active: boolean }>('claw_chat_get_loop_mode');
+          if (res.active) {
+            // Toggle OFF
+            await invoke('claw_chat_set_loop_mode', { active: false });
+            onLoopModeChange?.(false);
+            addAgentMessage('**Loop mode: OFF** — Auto-resubmit disabled.');
+          } else {
+            // Parse limit: /loop 10 (iterations), /loop 5m (5 minutes)
+            const loopArg = cmdText.trim().slice('/loop'.length).trim();
+            if (loopArg) {
+              const parsed = parseLoopLimit(loopArg);
+              if (typeof parsed === 'string') {
+                addAgentMessage(`❌ ${parsed}`);
+                return true;
+              }
+              await invoke('claw_chat_set_loop_mode', { active: true });
+              onLoopModeChange?.(true, parsed);
+              const limitText = parsed > 0 ? ` Limited to ${parsed} iterations.` : '';
+              addAgentMessage(`**Loop mode: ON** — Prompt will auto-resubmit after each turn.${limitText} Esc cancels current iteration; /loop again to disable.`);
+            } else {
+              // Toggle ON (no limit)
+              await invoke('claw_chat_set_loop_mode', { active: true });
+              onLoopModeChange?.(true, 0);
+              addAgentMessage('**Loop mode: ON** — Prompt will auto-resubmit after each turn. Esc cancels current iteration; /loop again to disable.');
+            }
+          }
+        } catch {
+          addAgentMessage('切换 loop 模式失败');
         }
         return true;
       }
