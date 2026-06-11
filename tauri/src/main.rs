@@ -911,7 +911,6 @@ fn main() {
             commands::disk_cleaner::delete_items,
             commands::disk_cleaner::find_duplicates,
             // CLI installer commands
-            commands::cli_installer::install_cli_and_skills,
             commands::cli_installer::check_cli_installed,
             // Alert commands
             commands::alert::get_email_config,
