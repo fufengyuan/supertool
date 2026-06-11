@@ -29,6 +29,28 @@
       @toggle-goal-pause="handleToggleGoalPause"
       @toggle-loop="handleToggleLoop"
     />
+    
+    <!-- Mode Status Bar (Plan / Goal / Loop) -->
+    <ModeBar
+      :plan-mode="planMode"
+      :goal-mode="goalMode"
+      :goal-text="goalText"
+      :goal-status="goalStatus"
+      :goal-turns-used="goalTurnsUsed"
+      :goal-max-turns="goalMaxTurns"
+      :tokens-used="goalTokensUsed"
+      :token-budget="goalTokenBudget"
+      :loop-mode="loopMode"
+      :loop-iterations="loopIterations"
+      :loop-max-iterations="loopMaxIterations"
+      :loop-prompt="loopPrompt"
+      @exit-plan="handleTogglePlan"
+      @resume-goal="handleResumeGoal"
+      @pause-goal="handleToggleGoalPause"
+      @drop-goal="handleDropGoal"
+      @pause-loop="handlePauseLoop"
+      @stop-loop="handleToggleLoop"
+    />
 
     <!-- Messages area -->
     <div ref="containerRef" class="flex-1 overflow-y-auto min-h-0">
@@ -115,6 +137,7 @@ import SvgIcon from '@/components/ui/SvgIcon.vue';
 import ChatHeader from './components/ChatHeader.vue';
 import ChatEmptyState from './components/ChatEmptyState.vue';
 import MessageList from './components/MessageList.vue';
+import ModeBar from './components/ModeBar.vue';
 import ModelPicker from './ModelPicker.vue';
 import SimpleChatInput from './SimpleChatInput.vue';
 
@@ -160,6 +183,8 @@ const goalText = ref('');
 const goalStatus = ref('inactive');
 const goalTurnsUsed = ref(0);
 const goalMaxTurns = ref(20);
+const goalTokensUsed = ref(0);
+const goalTokenBudget = ref<number | null>(null);
 const goalLastVerdict = ref<string | null>(null);
 const goalLastReason = ref<string | null>(null);
 
@@ -278,10 +303,14 @@ async function fetchGoalMode() {
     goalStatus.value = res.status || 'inactive';
     goalTurnsUsed.value = res.turnsUsed || 0;
     goalMaxTurns.value = res.maxTurns || 20;
+    goalTokensUsed.value = res.tokensUsed || 0;
+    goalTokenBudget.value = res.tokenBudget ?? null;
   } catch (e) {
     goalMode.value = false;
     goalText.value = '';
     goalStatus.value = 'inactive';
+    goalTokensUsed.value = 0;
+    goalTokenBudget.value = null;
   }
 }
 
@@ -315,6 +344,39 @@ async function handleToggleGoalPause() {
   } catch (e) {
     console.error('[Chat] Failed to toggle goal pause:', e);
   }
+}
+
+/** Resume a paused goal */
+async function handleResumeGoal() {
+  if (!isClawMode.value) return;
+  try {
+    await invoke('claw_chat_set_goal_status', { status: 'resume' });
+    goalStatus.value = 'active';
+    goalMode.value = true;
+  } catch (e) {
+    console.error('[Chat] Failed to resume goal:', e);
+  }
+}
+
+/** Drop the current goal */
+async function handleDropGoal() {
+  if (!isClawMode.value) return;
+  try {
+    await invoke('claw_chat_set_goal_status', { status: 'drop' });
+    goalMode.value = false;
+    goalText.value = '';
+    goalStatus.value = 'inactive';
+    goalTurnsUsed.value = 0;
+    goalTokensUsed.value = 0;
+  } catch (e) {
+    console.error('[Chat] Failed to drop goal:', e);
+  }
+}
+
+/** Pause loop (keep mode, clear prompt) */
+function handlePauseLoop() {
+  cancelLoopResend();
+  loopPrompt.value = null;
 }
 
 // Fetch loop mode state on init
