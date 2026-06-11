@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use runtime::{
@@ -10,6 +10,14 @@ use serde::{Deserialize, Serialize};
 use supertool_claw::llm::LlmClient;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
+
+// ── Plan Mode State ──────────────────────────────────────────────────────
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub(crate) struct PlanModeState {
+    pub enabled: bool,
+    pub plan_file_path: Option<String>,
+}
 
 // ── Cost estimation (matches upstream pricing_for_model) ───────────────────
 
@@ -52,26 +60,44 @@ fn estimate_cost(input_tokens: u64, output_tokens: u64, model: &str) -> f64 {
 /// Cumulative token usage tracker — mirrors upstream UsageTracker in runtime/src/usage.rs.
 /// Tracks input/output tokens across all API calls in a turn for cost estimation and
 /// auto-compaction threshold checks.
+/// Goal struct — mirrors oh-my-pi's Goal type
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct Goal {
+    pub id: String,
+    pub objective: String,
+    /// "active" | "paused" | "budget-limited" | "complete" | "dropped"
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub token_budget: Option<u32>,
+    pub tokens_used: u32,
+    pub time_used_seconds: u64,
+}
+
+/// GoalModeState — mirrors oh-my-pi's GoalModeState
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct GoalModeState {
+    pub enabled: bool,
+    /// "active" | "exiting"
+    pub mode: String,
+    pub goal: Goal,
+}
+
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
     pub(crate) session: Mutex<Option<Session>>,
     pub(crate) workspace: Mutex<Option<PathBuf>>,
-    pub(crate) plan_mode: Arc<AtomicBool>,
+    pub(crate) plan_state: Arc<std::sync::Mutex<PlanModeState>>,
+    /// Quick atomic check for goal mode active/inactive
     pub(crate) goal_mode: Arc<AtomicBool>,
-    pub(crate) goal_text: Arc<std::sync::Mutex<String>>,
-    /// Goal lifecycle status: "inactive" | "active" | "paused" | "done" | "cleared"
-    pub(crate) goal_status: Arc<std::sync::Mutex<String>>,
-    /// Turns used in the current goal session
-    pub(crate) goal_turns_used: Arc<AtomicU32>,
+    /// Full goal state (Goal + GoalModeState)
+    pub(crate) goal_state: Arc<std::sync::Mutex<Option<GoalModeState>>>,
+    /// Turns used in the current goal session (for turn budget only)
+    pub(crate) goal_turns_used: Arc<std::sync::Mutex<u32>>,
     /// Maximum turns allowed before auto-pause (default 20)
-    pub(crate) goal_max_turns: Arc<AtomicU32>,
-    /// Last judge verdict: "continue" | "done" | None
-    pub(crate) goal_last_verdict: Arc<std::sync::Mutex<Option<String>>>,
-    /// Last judge reason text
-    pub(crate) goal_last_reason: Arc<std::sync::Mutex<Option<String>>>,
+    pub(crate) goal_max_turns: Arc<std::sync::Mutex<u32>>,
     /// Consecutive judge parse failures (auto-pause after 3)
-    pub(crate) goal_consecutive_parse_failures: Arc<AtomicU32>,
+    pub(crate) goal_consecutive_parse_failures: Arc<std::sync::Mutex<u32>>,
     pub(crate) loop_mode: Arc<AtomicBool>,
     /// Abort signal for the current conversation — shared with ConversationRuntime.
     pub(crate) hook_abort: Mutex<runtime::HookAbortSignal>,
@@ -83,15 +109,12 @@ impl ClawChatState {
             client: Mutex::new(None),
             session: Mutex::new(None),
             workspace: Mutex::new(None),
-            plan_mode: Arc::new(AtomicBool::new(false)),
+            plan_state: Arc::new(std::sync::Mutex::new(PlanModeState::default())),
             goal_mode: Arc::new(AtomicBool::new(false)),
-            goal_text: Arc::new(std::sync::Mutex::new(String::new())),
-            goal_status: Arc::new(std::sync::Mutex::new("inactive".to_string())),
-            goal_turns_used: Arc::new(AtomicU32::new(0)),
-            goal_max_turns: Arc::new(AtomicU32::new(20)),
-            goal_last_verdict: Arc::new(std::sync::Mutex::new(None)),
-            goal_last_reason: Arc::new(std::sync::Mutex::new(None)),
-            goal_consecutive_parse_failures: Arc::new(AtomicU32::new(0)),
+            goal_state: Arc::new(std::sync::Mutex::new(None)),
+            goal_turns_used: Arc::new(std::sync::Mutex::new(0)),
+            goal_max_turns: Arc::new(std::sync::Mutex::new(20)),
+            goal_consecutive_parse_failures: Arc::new(std::sync::Mutex::new(0)),
             loop_mode: Arc::new(AtomicBool::new(false)), // default: off (opt-in via /loop)
             hook_abort: Mutex::new(runtime::HookAbortSignal::new()),
         }
@@ -508,7 +531,7 @@ fn get_last_assistant_text(session: &Session) -> String {
         .unwrap_or_default()
 }
 
-// ── Goal State Persistence ─────────────────────────────────────────────
+// ── Goal State Persistence (stores GoalModeState as JSON) ──────────────
 
 fn goals_dir() -> PathBuf {
     dirs::home_dir()
@@ -521,17 +544,7 @@ fn goal_state_path(session_id: &str) -> PathBuf {
     goals_dir().join(format!("{session_id}.json"))
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct GoalState {
-    goal_text: String,
-    status: String, // "inactive" | "active" | "paused" | "done" | "cleared"
-    turns_used: u32,
-    max_turns: u32,
-    last_verdict: Option<String>,
-    last_reason: Option<String>,
-}
-
-fn load_goal_state(session_id: &str) -> Option<GoalState> {
+fn load_goal_state(session_id: &str) -> Option<GoalModeState> {
     let path = goal_state_path(session_id);
     if !path.exists() {
         return None;
@@ -542,7 +555,7 @@ fn load_goal_state(session_id: &str) -> Option<GoalState> {
     }
 }
 
-fn save_goal_state(session_id: &str, state: &GoalState) {
+fn save_goal_state(session_id: &str, state: &GoalModeState) {
     let path = goal_state_path(session_id);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -739,47 +752,68 @@ pub(crate) fn build_tool_definitions() -> Vec<api::ToolDefinition> {
     // Add plan mode tools — the LLM can call these to toggle plan mode
     defs.push(api::ToolDefinition {
         name: "EnterPlanMode".into(),
-        description: Some("Switch to plan-only mode: the agent can read files and explore the codebase but cannot make any changes. Use this before writing code to create a thorough plan first. Call ExitPlanMode to leave this mode.".into()),
+        description: Some(
+            "Switch to plan mode: the agent can read files and explore the codebase but cannot make any changes. \
+             The agent MUST create a PLAN.md file with the full analysis and plan. \
+             Call ExitPlanMode when the plan is ready to be approved and executed."
+                .into(),
+        ),
         input_schema: serde_json::json!({
             "type": "object",
-            "properties": {},
+            "properties": {
+                "objective": {
+                    "type": "string",
+                    "description": "Optional goal or objective for the planning session"
+                }
+            },
             "required": [],
             "additionalProperties": false,
         }),
     });
     defs.push(api::ToolDefinition {
         name: "ExitPlanMode".into(),
-        description: Some("Exit plan-only mode and restore the ability to write/change files. Must be called after EnterPlanMode when ready to implement the plan.".into()),
-        input_schema: serde_json::json!({
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": false,
-        }),
-    });
-    // Add goal mode tools — the LLM can set a persistent cross-turn goal
-    defs.push(api::ToolDefinition {
-        name: "EnterGoalMode".into(),
-        description: Some("Switch to goal mode: set a persistent cross-turn goal that the agent works toward across multiple turns. Provide a clear goal text describing what to achieve. Call ExitGoalMode when the goal is completed or no longer needed.".into()),
+        description: Some(
+            "Exit plan mode and trigger the approval flow. Sets plan_state.enabled = false. \
+             Call this when the plan file is complete and ready for review. \
+             Pass `approved: true` to indicate the plan is ready for execution; \
+             pass `approved: false` or omit to simply cancel plan mode."
+                .into(),
+        ),
         input_schema: serde_json::json!({
             "type": "object",
             "properties": {
-                "goal": {
-                    "type": "string",
-                    "description": "The goal text describing what to achieve"
+                "approved": {
+                    "type": "boolean",
+                    "description": "Whether the plan is approved for execution"
                 }
             },
-            "required": ["goal"],
+            "required": [],
             "additionalProperties": false,
         }),
     });
+    // Add goal mode tool — hidden single `goal` tool (matches oh-my-pi)
+    // The goal tool controls goal lifecycle: create, get, complete, resume, drop, budget
     defs.push(api::ToolDefinition {
-        name: "ExitGoalMode".into(),
-        description: Some("Exit goal mode and resume normal chat. Call this when the goal is achieved, abandoned, or no longer needed.".into()),
+        name: "goal".into(),
+        description: Some("Manage the active goal-mode objective. Use a single `op` field: create (requires objective, optional token_budget), get (returns current goal state), complete (marks goal complete after verification), resume (re-activates paused goal), drop (discards goal without completing), budget (updates token budget).".into()),
         input_schema: serde_json::json!({
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+                "op": {
+                    "type": "string",
+                    "enum": ["create", "get", "complete", "resume", "drop", "budget"],
+                    "description": "Goal operation to perform"
+                },
+                "objective": {
+                    "type": "string",
+                    "description": "Goal objective (required for op=create)"
+                },
+                "token_budget": {
+                    "type": "integer",
+                    "description": "Token budget (optional for op=create, required for op=budget)"
+                }
+            },
+            "required": ["op"],
             "additionalProperties": false,
         }),
     });
@@ -1006,27 +1040,84 @@ Use your tools proactively — do not just describe what you would do."#
     sections.push(
         r#"## Plan Mode
 
-You have access to EnterPlanMode and ExitPlanMode tools. Use them to follow a plan-first workflow:
+<critical>
+Plan mode active. You MUST perform READ-ONLY operations only.
 
-1. **Before writing code**: Call EnterPlanMode to switch to read-only mode. This blocks write/edit/bash tools.
-2. **Explore and plan**: Read files, search the codebase, and present your analysis/plan to the user.
-3. **Ready to implement**: Call ExitPlanMode to restore write access, then make your changes.
+You NEVER:
+- Create, edit, or delete files (except the plan file)
+- Run state-changing commands (git commit, npm install, etc.)
+- Make any system changes
 
-Always plan before implementing complex changes. If unsure, start with EnterPlanMode."#
-            .to_string(),
+To implement: call `ExitPlanMode` with `approved: true` and a clear summary of the plan → user approves → full write access is restored. Call `ExitPlanMode` with `approved: false` to simply cancel plan mode.
+
+You NEVER ask the user to exit plan mode for you; you MUST call `ExitPlanMode` yourself.
+</critical>
+
+## Plan File
+
+You MUST create a plan at `PLAN.md` in the sessions directory (`~/.claw/sessions/PLAN.md`).
+
+You MUST use `Write` for incremental updates; use `Edit` only for full replacement.
+
+<caution>
+The approval flow:
+- **Approved** (`approved: true`): plan is complete → exit plan mode → full write access restored for implementation.
+- **Cancelled** (`approved: false`): exit plan mode without approval → write access restored but plan is discarded.
+
+You MUST make the plan file self-contained: include requirements, decisions, key findings, and remaining todos.
+</caution>
+
+## Planning Workflow
+
+<procedure>
+### Phase 1: Understand
+You MUST focus on the request and associated code. Use read/search tools to explore the codebase thoroughly.
+
+### Phase 2: Design
+You MUST draft an approach based on exploration. Consider trade-offs briefly, then choose.
+
+### Phase 3: Review
+You MUST read critical files. You MUST verify plan matches original request.
+
+### Phase 4: Update Plan
+You MUST create/update `PLAN.md` with:
+- Recommended approach only
+- Paths of critical files to modify
+- Verification section: how to test end-to-end
+
+The plan MUST be scannable yet detailed enough to execute.
+</procedure>
+
+<directives>
+- You MUST use read-only tools to gather information
+- You MAY NOT ask the user to approve your plan via conversation text — you MUST use `ExitPlanMode`
+</directives>
+
+<critical>
+Your turn ends ONLY by:
+1. Using read-only tools to gather information, OR
+2. Calling `ExitPlanMode` with `approved: true` when the plan is ready
+
+You MUST keep going until the plan is complete.
+</critical>"#.to_string(),
     );
 
-    // Append goal mode guidance
+    // Append goal mode guidance (matches oh-my-pi goal-mode-active.md)
     sections.push(
         r#"## Goal Mode
 
-You have access to EnterGoalMode and ExitGoalMode tools. Use them to lock onto a persistent cross-turn goal:
+You have access to the `goal` tool for managing a persistent cross-turn goal:
 
-1. **Set a goal**: Call EnterGoalMode with a clear goal text describing what to achieve.
-2. **Work persistently**: Stay focused on the goal across turns until it is complete.
-3. **Complete or abandon**: Call ExitGoalMode when the goal is done or no longer needed.
+- `goal({"op":"create","objective":"..."})` — Set a goal. Provide a clear objective. Optionally include `token_budget` (positive integer) to limit token usage.
+- `goal({"op":"get"})` — Get the current goal state and remaining budget.
+- `goal({"op":"resume"})` — Resume a paused goal.
+- `goal({"op":"complete"})` — Mark the goal complete, but ONLY after you have verified every deliverable against current evidence.
+- `goal({"op":"drop"})` — Discard the current goal without completing it.
+- `goal({"op":"budget","token_budget":N})` — Update the token budget.
 
-When goal mode is active, all responses should advance toward the stated goal."#
+When goal mode is active, the objective persists across turns. Before completing, audit the current state against every concrete deliverable. Do not call `complete` merely because a budget is low or a turn is ending.
+
+Budget exhaustion is not completion. If the work is unfinished, leave the goal active."#
             .to_string(),
     );
 
@@ -1177,28 +1268,27 @@ pub async fn claw_chat_init(
     }
 
     // ── Restore persisted goal state for this session ──
-    if let Some(goal_state) = load_goal_state(&sid) {
-        let was_active = goal_state.status == "active" || goal_state.status == "paused";
+    if let Some(mut goal_state) = load_goal_state(&sid) {
+        let was_active = goal_state.goal.status == "active" || goal_state.goal.status == "paused";
         log::info!(
-            "[claw_chat] Restored goal state for session {}: status={}, turns_used={}",
-            sid, &goal_state.status, goal_state.turns_used
+            "[claw_chat] Restored goal state for session {}: status={}, objective={}",
+            sid, &goal_state.goal.status, &goal_state.goal.objective
         );
-        *state.goal_text.lock().unwrap() = goal_state.goal_text;
-        state.goal_turns_used.store(goal_state.turns_used, Ordering::Relaxed);
-        state.goal_max_turns.store(goal_state.max_turns, Ordering::Relaxed);
-        {
-            let mut s = state.goal_status.lock().unwrap();
-            *s = goal_state.status;
-        }
-        {
-            let mut v = state.goal_last_verdict.lock().unwrap();
-            *v = goal_state.last_verdict;
-        }
-        {
-            let mut r = state.goal_last_reason.lock().unwrap();
-            *r = goal_state.last_reason;
-        }
+        // Set goal_mode atomic for quick check
         state.goal_mode.store(was_active, Ordering::Relaxed);
+        // If paused, disable but keep state
+        if !was_active {
+            goal_state.enabled = false;
+        }
+        {
+            let mut gs = state.goal_state.lock().unwrap();
+            *gs = Some(goal_state);
+        }
+        // Initialize turns_used for turn budget tracking
+        {
+            let mut tu = state.goal_turns_used.lock().unwrap();
+            *tu = 0;
+        }
     }
 
     let _ = app.emit(
@@ -1287,13 +1377,16 @@ pub async fn claw_chat_send(
 
     // ── Check goal mode state ──
     let goal_mode_active = state.goal_mode.load(Ordering::Relaxed);
-    let goal_text_value = state.goal_text.lock().map(|g| g.clone()).unwrap_or_default();
+    let goal_state_locked = state.goal_state.lock().unwrap().clone();
+    let goal_text_value = goal_state_locked.as_ref().map(|gs| gs.goal.objective.clone()).unwrap_or_default();
     if goal_mode_active && !goal_text_value.is_empty() {
         // If goal is paused on user message, set status back to active for judge
         {
-            let mut status = state.goal_status.lock().unwrap();
-            if *status == "paused" {
-                *status = "active".to_string();
+            let mut gs = state.goal_state.lock().unwrap();
+            if let Some(ref mut gs_inner) = *gs {
+                if gs_inner.goal.status == "paused" {
+                    gs_inner.goal.status = "active".to_string();
+                }
             }
         }
         let goal_section = format!(
@@ -1303,7 +1396,9 @@ You are in **goal mode**. Your persistent goal is:
 
 > {goal}
 
-Every response must advance toward this goal. Once the goal is complete, call `ExitGoalMode` to resume normal chat."#,
+You have the `goal` tool available to manage this goal. Use `goal({{\"op\":\"get\"}})` to check state, and `goal({{\"op\":\"complete\"}})` only after verifying every deliverable against current evidence.
+
+Every response must advance toward this goal. The objective persists across turns."#,
             goal = goal_text_value
         );
         system_prompt_sections.push(goal_section);
@@ -1320,7 +1415,7 @@ Every response must advance toward this goal. Once the goal is complete, call `E
     // a continuation prompt. Between iterations we make async judge calls.
     let mut current_message = message;
     let mut goal_loop_iteration = 0u32;
-    let goal_max_turns = state.goal_max_turns.load(Ordering::Relaxed);
+    let goal_max_turns = *state.goal_max_turns.lock().unwrap();
     let mut goal_completed = false;
     let mut goal_paused = false;
     let mut final_auto_compaction: Option<usize> = None;
@@ -1333,8 +1428,8 @@ Every response must advance toward this goal. Once the goal is complete, call `E
     let goal_was_active_before = goal_mode_active
         && !goal_text_value.is_empty()
         && {
-            let status = state.goal_status.lock().unwrap();
-            status.as_str() == "active"
+            let gs = state.goal_state.lock().unwrap();
+            gs.as_ref().map(|g| g.goal.status.as_str() == "active").unwrap_or(false)
         };
     if goal_was_active_before {
         log::info!("[claw_chat] User message preempts active goal — will auto-pause after judge");
@@ -1370,9 +1465,9 @@ Every response must advance toward this goal. Once the goal is complete, call `E
         let sp_iter = system_prompt_sections.clone();
         let app_hook = app.clone();
         let sid_hook = sid.clone();
-        let plan_mode_hook = state.plan_mode.clone();
+        let plan_state_hook = state.plan_state.clone();
         let goal_mode_hook = state.goal_mode.clone();
-        let goal_text_hook = state.goal_text.clone();
+        let goal_state_hook = state.goal_state.clone();
         let loop_mode_hook = state.loop_mode.clone();
 
         let (summary, session) = tokio::task::block_in_place(move || {
@@ -1386,9 +1481,9 @@ Every response must advance toward this goal. Once the goal is complete, call `E
             let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::new(
                 app_hook.clone(),
                 sid_hook.clone(),
-                plan_mode_hook.clone(),
+                plan_state_hook.clone(),
                 goal_mode_hook.clone(),
-                goal_text_hook.clone(),
+                goal_state_hook.clone(),
                 loop_mode_hook.clone(),
             );
             // Permission policy with rules from config — mirrors upstream permission_policy()
@@ -1499,14 +1594,17 @@ Every response must advance toward this goal. Once the goal is complete, call `E
                 log::info!("[claw_chat] Goal loop aborted by user");
                 goal_paused = true;
                 {
-                    let mut status = state.goal_status.lock().unwrap();
-                    *status = "paused".to_string();
+                    let mut gs = state.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.status = "paused".to_string();
+                        gs_inner.enabled = false;
+                    }
                 }
                 break;
             }
         }
 
-        // Check budget
+        // Check turn budget
         if goal_loop_iteration >= goal_max_turns {
             log::info!(
                 "[claw_chat] Goal turn budget exhausted ({}/{}), pausing",
@@ -1514,8 +1612,11 @@ Every response must advance toward this goal. Once the goal is complete, call `E
             );
             goal_paused = true;
             {
-                let mut status = state.goal_status.lock().unwrap();
-                *status = "paused".to_string();
+                let mut gs = state.goal_state.lock().unwrap();
+                if let Some(ref mut gs_inner) = *gs {
+                    gs_inner.goal.status = "paused".to_string();
+                    gs_inner.enabled = false;
+                }
             }
             let _ = app.emit("goal-status", serde_json::json!({
                 "status": "paused",
@@ -1523,6 +1624,34 @@ Every response must advance toward this goal. Once the goal is complete, call `E
                 "session_id": sid,
             }));
             break;
+        }
+
+        // Check token budget (if goal has one)
+        {
+            let gs = state.goal_state.lock().unwrap();
+            if let Some(ref gs_inner) = *gs {
+                if gs_inner.goal.token_budget.is_some()
+                    && gs_inner.goal.tokens_used >= gs_inner.goal.token_budget.unwrap()
+                    && gs_inner.goal.status == "active"
+                {
+                    let mut gs_mut = state.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs_mut {
+                        gs_inner.goal.status = "budget-limited".to_string();
+                        gs_inner.enabled = false;
+                    }
+                    log::info!(
+                        "[claw_chat] Goal token budget exhausted (used={}), pausing",
+                        gs_inner.goal.tokens_used
+                    );
+                    goal_paused = true;
+                    let _ = app.emit("goal-status", serde_json::json!({
+                        "status": "budget-limited",
+                        "reason": format!("Token budget exhausted ({} tokens used)", gs_inner.goal.tokens_used),
+                        "session_id": sid,
+                    }));
+                    break;
+                }
+            }
         }
 
         // ── Judge (async, outside block_in_place) ──
@@ -1543,18 +1672,23 @@ Every response must advance toward this goal. Once the goal is complete, call `E
 
         // Track consecutive parse failures
         if parse_failed {
-            let failures = state.goal_consecutive_parse_failures.fetch_add(1, Ordering::Relaxed) + 1;
-            log::warn!("[claw_chat] Goal judge parse failure #{failures}/3");
-            if failures >= 3 {
+            let mut failures = state.goal_consecutive_parse_failures.lock().unwrap();
+            *failures += 1;
+            let count = *failures;
+            log::warn!("[claw_chat] Goal judge parse failure #{count}/3");
+            if count >= 3 {
                 log::warn!("[claw_chat] Too many consecutive parse failures — auto-pausing goal");
                 goal_paused = true;
                 {
-                    let mut status = state.goal_status.lock().unwrap();
-                    *status = "paused".to_string();
+                    let mut gs = state.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.status = "paused".to_string();
+                        gs_inner.enabled = false;
+                    }
                 }
-                let pause_reason = format!("Judge output parse failed {failures} times in a row — check goal_judge model config");
+                let pause_reason = format!("Judge output parse failed {count} times in a row — check goal_judge model config");
                 // Reset counter
-                state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
+                *failures = 0;
                 let _ = app.emit("goal-status", serde_json::json!({
                     "status": "paused",
                     "reason": pause_reason,
@@ -1564,17 +1698,8 @@ Every response must advance toward this goal. Once the goal is complete, call `E
             }
         } else {
             // Reset on successful parse
-            state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
-        }
-
-        // Store verdict
-        {
-            let mut v = state.goal_last_verdict.lock().unwrap();
-            *v = Some(verdict.clone());
-        }
-        {
-            let mut r = state.goal_last_reason.lock().unwrap();
-            *r = Some(reason.clone());
+            let mut failures = state.goal_consecutive_parse_failures.lock().unwrap();
+            *failures = 0;
         }
 
         log::info!(
@@ -1585,24 +1710,28 @@ Every response must advance toward this goal. Once the goal is complete, call `E
         if verdict == "done" {
             goal_completed = true;
             {
-                let mut status = state.goal_status.lock().unwrap();
-                *status = "done".to_string();
+                let mut gs = state.goal_state.lock().unwrap();
+                if let Some(ref mut gs_inner) = *gs {
+                    gs_inner.goal.status = "complete".to_string();
+                    gs_inner.mode = "exiting".to_string();
+                    gs_inner.enabled = false;
+                }
             }
             let _ = app.emit("goal-status", serde_json::json!({
-                "status": "done",
+                "status": "complete",
                 "reason": reason,
                 "session_id": sid,
                 "turns_used": goal_loop_iteration + 1,
             }));
-            // Persist goal state
-            save_goal_state(&sid, &GoalState {
-                goal_text: goal_text_value.clone(),
-                status: "done".to_string(),
-                turns_used: goal_loop_iteration + 1,
-                max_turns: goal_max_turns,
-                last_verdict: Some(verdict),
-                last_reason: Some(reason),
-            });
+            // Persist goal state (save as GoalModeState format)
+            {
+                let gs = state.goal_state.lock().unwrap();
+                if let Some(ref gs_inner) = *gs {
+                    save_goal_state(&sid, gs_inner);
+                }
+            }
+            // Update goal_mode atomic to false
+            state.goal_mode.store(false, Ordering::Relaxed);
             break;
         }
 
@@ -1613,11 +1742,17 @@ Every response must advance toward this goal. Once the goal is complete, call `E
             log::info!("[claw_chat] User preempted goal — pausing (verdict: continue)");
             goal_paused = true;
             {
-                let mut status = state.goal_status.lock().unwrap();
-                *status = "paused".to_string();
+                let mut gs = state.goal_state.lock().unwrap();
+                if let Some(ref mut gs_inner) = *gs {
+                    gs_inner.goal.status = "paused".to_string();
+                    gs_inner.enabled = false;
+                }
             }
             // Reset parse failure counter
-            state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
+            {
+                let mut failures = state.goal_consecutive_parse_failures.lock().unwrap();
+                *failures = 0;
+            }
             let _ = app.emit("goal-status", serde_json::json!({
                 "status": "paused",
                 "reason": format!("User sent a new message while goal was active. Judge says: {reason}"),
@@ -1626,11 +1761,63 @@ Every response must advance toward this goal. Once the goal is complete, call `E
             break;
         }
 
-        // ── Build continuation message and loop ──
+        // ── Build continuation message with oh-my-pi style audit instructions ──
         goal_loop_iteration += 1;
+
+        let tokens_used_str = {
+            let gs = state.goal_state.lock().unwrap();
+            gs.as_ref().map(|g| g.goal.tokens_used.to_string()).unwrap_or_default()
+        };
+        let token_budget_str = {
+            let gs = state.goal_state.lock().unwrap();
+            gs.as_ref().and_then(|g| g.goal.token_budget.map(|b| b.to_string())).unwrap_or_else(|| "none".to_string())
+        };
+        let remaining_tokens_str = {
+            let gs = state.goal_state.lock().unwrap();
+            gs.as_ref().map(|g| {
+                g.goal.token_budget.map(|b| {
+                    let remaining = if b > g.goal.tokens_used { b - g.goal.tokens_used } else { 0 };
+                    remaining.to_string()
+                }).unwrap_or_else(|| "unbounded".to_string())
+            }).unwrap_or_else(|| "unbounded".to_string())
+        };
+        let time_used_str = {
+            let gs = state.goal_state.lock().unwrap();
+            gs.as_ref().map(|g| g.goal.time_used_seconds.to_string()).unwrap_or_default()
+        };
+
         current_message = format!(
-            "[Continuing toward your standing goal]\nGoal: {goal}\n\nContinue working toward this goal. Take the next concrete step. If you believe the goal is complete, state so explicitly and stop. If you are blocked and need input from the user, say so clearly and stop.",
+            r#"Continue work on the active goal.
+
+<objective>
+{goal}
+</objective>
+
+Budget:
+- Tokens used: {tokens_used}
+- Token budget: {token_budget}
+- Tokens remaining: {remaining_tokens}
+- Time used: {time_used} seconds
+
+This is an autonomous continuation. The objective persists across turns; do not redefine success around a smaller, easier, or already-completed subset.
+
+Before calling `goal({{"op":"complete"}})`, you MUST perform a completion audit against the current repo state:
+
+1. **Restate the objective as concrete deliverables.** What files, behaviors, tests, gates, or artifacts must exist for the objective to be true? Write them down (in your reasoning).
+2. **Map each deliverable to evidence.** For every requirement, identify the authoritative source that would prove it: a file's contents, a command's output, a test's pass status, a PR/issue state.
+3. **Inspect the actual current state.** Read the files. Run the commands. Check the tests. Do not rely on memory of earlier work in this session — the repo may have changed.
+4. **Match verification scope to claim scope.** A narrow check (one file passes its unit test) does not prove a broad claim (the feature works end-to-end).
+5. **Treat uncertainty as not-yet-achieved.** Indirect evidence, partial coverage, missing artifacts, or "looks right" without inspection mean continue working. Gather stronger evidence or do more work.
+6. **Budget exhaustion is not completion.** Do not call complete merely because tokens are nearly out. If the budget is tight and the work is unfinished, leave the goal active and stop the turn.
+
+Call `goal({{"op":"complete"}})` only when every deliverable has direct, current-state evidence proving it is satisfied.
+
+If the work is not done, just keep working. Do not narrate that you are continuing — execute."#,
             goal = goal_text_value,
+            tokens_used = tokens_used_str,
+            token_budget = token_budget_str,
+            remaining_tokens = remaining_tokens_str,
+            time_used = time_used_str,
         );
 
         let _ = app.emit("goal-status", serde_json::json!({
@@ -1823,9 +2010,10 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
 pub async fn claw_chat_get_plan_mode(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<serde_json::Value, String> {
-    let active = state.plan_mode.load(Ordering::Relaxed);
+    let ps = state.plan_state.lock().unwrap().clone();
     Ok(serde_json::json!({
-        "active": active,
+        "active": ps.enabled,
+        "planFilePath": ps.plan_file_path,
     }))
 }
 
@@ -1835,7 +2023,10 @@ pub async fn claw_chat_set_plan_mode(
     state: tauri::State<'_, ClawChatState>,
     active: bool,
 ) -> Result<serde_json::Value, String> {
-    state.plan_mode.store(active, Ordering::Relaxed);
+    {
+        let mut ps = state.plan_state.lock().unwrap();
+        ps.enabled = active;
+    }
     log::info!("[claw_chat] Plan mode set to {}", active);
     Ok(serde_json::json!({
         "success": true,
@@ -1849,20 +2040,37 @@ pub async fn claw_chat_get_goal_mode(
     state: tauri::State<'_, ClawChatState>,
 ) -> Result<serde_json::Value, String> {
     let active = state.goal_mode.load(Ordering::Relaxed);
-    let goal_text = state.goal_text.lock().unwrap().clone();
-    let status = state.goal_status.lock().unwrap().clone();
-    let turns_used = state.goal_turns_used.load(Ordering::Relaxed);
-    let max_turns = state.goal_max_turns.load(Ordering::Relaxed);
-    let last_verdict = state.goal_last_verdict.lock().unwrap().clone();
-    let last_reason = state.goal_last_reason.lock().unwrap().clone();
+    let turns_used = *state.goal_turns_used.lock().unwrap();
+    let max_turns = *state.goal_max_turns.lock().unwrap();
+    let goal_state = state.goal_state.lock().unwrap().clone();
+    let (goal_text, status, tokens_used, token_budget, time_used_seconds, mode) = match goal_state {
+        Some(ref gs) => (
+            gs.goal.objective.clone(),
+            gs.goal.status.clone(),
+            gs.goal.tokens_used,
+            gs.goal.token_budget,
+            gs.goal.time_used_seconds,
+            gs.mode.clone(),
+        ),
+        None => (
+            String::new(),
+            "inactive".to_string(),
+            0,
+            None,
+            0u64,
+            "active".to_string(),
+        ),
+    };
     Ok(serde_json::json!({
         "active": active,
         "goalText": goal_text,
         "status": status,
         "turnsUsed": turns_used,
         "maxTurns": max_turns,
-        "lastVerdict": last_verdict,
-        "lastReason": last_reason,
+        "tokensUsed": tokens_used,
+        "tokenBudget": token_budget,
+        "timeUsedSeconds": time_used_seconds,
+        "mode": mode,
     }))
 }
 
@@ -1876,35 +2084,68 @@ pub async fn claw_chat_set_goal_mode(
 ) -> Result<serde_json::Value, String> {
     state.goal_mode.store(active, Ordering::Relaxed);
     if let Some(text) = goal_text {
-        *state.goal_text.lock().unwrap() = text.clone();
+        // Create or update goal state with oh-my-pi style GoalModeState
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let now_ms = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64;
+        let goal_id = format!("goal-{}", now_ms);
+        let mut gs = state.goal_state.lock().unwrap();
+        *gs = Some(GoalModeState {
+            enabled: active,
+            mode: if active { "active".to_string() } else { "exiting".to_string() },
+            goal: Goal {
+                id: goal_id,
+                objective: text.clone(),
+                status: if active { "active".to_string() } else { "dropped".to_string() },
+                token_budget: None,
+                tokens_used: 0,
+                time_used_seconds: 0,
+            },
+        });
+        drop(gs);
         // Reset tracking state when setting a new goal
-        state.goal_turns_used.store(0, Ordering::Relaxed);
-        state.goal_max_turns.store(20, Ordering::Relaxed);
         {
-            let mut v = state.goal_last_verdict.lock().unwrap();
-            *v = None;
+            let mut tu = state.goal_turns_used.lock().unwrap();
+            *tu = 0;
         }
         {
-            let mut r = state.goal_last_reason.lock().unwrap();
-            *r = None;
+            let mut mt = state.goal_max_turns.lock().unwrap();
+            *mt = 20;
         }
         {
-            let mut s = state.goal_status.lock().unwrap();
-            *s = if active { "active".to_string() } else { "inactive".to_string() };
+            let mut cf = state.goal_consecutive_parse_failures.lock().unwrap();
+            *cf = 0;
         }
         log::info!("[claw_chat] Goal mode set to active with text: {}", text);
     } else {
-        {
-            let mut status = state.goal_status.lock().unwrap();
-            *status = if active { "active".to_string() } else { "inactive".to_string() };
+        if !active {
+            // Turning off — update goal state
+            let mut gs = state.goal_state.lock().unwrap();
+            if let Some(ref mut gs_inner) = *gs {
+                gs_inner.enabled = false;
+                gs_inner.mode = "exiting".to_string();
+                if gs_inner.goal.status == "active" {
+                    gs_inner.goal.status = "paused".to_string();
+                }
+            }
+        } else {
+            // Turning on — if there's a paused goal, mark enabled
+            let mut gs = state.goal_state.lock().unwrap();
+            if let Some(ref mut gs_inner) = *gs {
+                gs_inner.enabled = true;
+                gs_inner.mode = "active".to_string();
+                if gs_inner.goal.status == "paused" || gs_inner.goal.status == "budget-limited" {
+                    gs_inner.goal.status = "active".to_string();
+                }
+            }
         }
         log::info!("[claw_chat] Goal mode set to {}", active);
     }
 
     // Emit goal-status event for frontend
+    let curr_text = state.goal_state.lock().unwrap().as_ref().map(|g| g.goal.objective.clone()).unwrap_or_default();
     let _ = app.emit("goal-status", serde_json::json!({
         "status": if active { "active" } else { "inactive" },
-        "goalText": state.goal_text.lock().unwrap().clone(),
+        "goalText": curr_text,
         "session_id": serde_json::Value::Null,
     }));
 
@@ -1925,8 +2166,11 @@ pub async fn claw_chat_set_goal_status(
         "pause" | "paused" => {
             state.goal_mode.store(false, Ordering::Relaxed);
             {
-                let mut s = state.goal_status.lock().unwrap();
-                *s = "paused".to_string();
+                let mut gs = state.goal_state.lock().unwrap();
+                if let Some(ref mut gs_inner) = *gs {
+                    gs_inner.goal.status = "paused".to_string();
+                    gs_inner.enabled = false;
+                }
             }
             log::info!("[claw_chat] Goal mode paused");
             let _ = app.emit("goal-status", serde_json::json!({
@@ -1937,8 +2181,12 @@ pub async fn claw_chat_set_goal_status(
         "resume" | "active" => {
             state.goal_mode.store(true, Ordering::Relaxed);
             {
-                let mut s = state.goal_status.lock().unwrap();
-                *s = "active".to_string();
+                let mut gs = state.goal_state.lock().unwrap();
+                if let Some(ref mut gs_inner) = *gs {
+                    gs_inner.goal.status = "active".to_string();
+                    gs_inner.enabled = true;
+                    gs_inner.mode = "active".to_string();
+                }
             }
             log::info!("[claw_chat] Goal mode resumed");
             let _ = app.emit("goal-status", serde_json::json!({
@@ -1948,20 +2196,21 @@ pub async fn claw_chat_set_goal_status(
         }
         "clear" | "inactive" | "done" => {
             state.goal_mode.store(false, Ordering::Relaxed);
-            *state.goal_text.lock().unwrap() = String::new();
-            state.goal_turns_used.store(0, Ordering::Relaxed);
-            state.goal_max_turns.store(20, Ordering::Relaxed);
             {
-                let mut v = state.goal_last_verdict.lock().unwrap();
-                *v = None;
+                let mut gs = state.goal_state.lock().unwrap();
+                *gs = None;
             }
             {
-                let mut r = state.goal_last_reason.lock().unwrap();
-                *r = None;
+                let mut tu = state.goal_turns_used.lock().unwrap();
+                *tu = 0;
             }
             {
-                let mut s = state.goal_status.lock().unwrap();
-                *s = "cleared".to_string();
+                let mut mt = state.goal_max_turns.lock().unwrap();
+                *mt = 20;
+            }
+            {
+                let mut cf = state.goal_consecutive_parse_failures.lock().unwrap();
+                *cf = 0;
             }
             log::info!("[claw_chat] Goal mode cleared");
             let _ = app.emit("goal-status", serde_json::json!({
