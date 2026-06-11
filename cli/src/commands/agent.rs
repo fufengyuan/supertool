@@ -1,139 +1,73 @@
 use anyhow::{anyhow, bail, Context, Result};
-use std::collections::BTreeMap;
-use std::path::PathBuf;
 use std::time::Duration;
+use tokio::process::Command;
 use tokio::time::sleep;
 
-use api::{InputContentBlock, InputMessage, MessageRequest, OutputContentBlock};
+// ─── 调用官方 hermes CLI ─────────────────────────────
 
-// ─── config ─────────────────────────────────────────────
-
-struct LlmConfig {
-    #[allow(dead_code)]
-    model: String,
-    api_key: String,
-    base_url: String,
-}
-
-fn hermes_config_path() -> PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".hermes/config.yaml")
-}
-
-fn claw_config_path() -> PathBuf {
-    dirs::home_dir().unwrap_or_default().join(".claw/settings.json")
-}
-
-fn load_hermes_config() -> Result<LlmConfig> {
-    let content = std::fs::read_to_string(&hermes_config_path())
-        .with_context(|| format!("Cannot read {}", hermes_config_path().display()))?;
-    let v: serde_yaml::Value = serde_yaml::from_str(&content)
-        .context("Failed to parse Hermes config (YAML)")?;
-    let m = &v["model"];
-    Ok(LlmConfig {
-        model: m["default"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
-        api_key: m["api_key"].as_str().context("hermes: no model.api_key in config")?.to_string(),
-        base_url: m["base_url"].as_str().context("hermes: no model.base_url in config")?.to_string(),
-    })
-}
-
-fn load_claw_config() -> Result<LlmConfig> {
-    let content = std::fs::read_to_string(&claw_config_path())
-        .with_context(|| format!("Cannot read {}", claw_config_path().display()))?;
-    let v: serde_json::Value = serde_json::from_str(&content)
-        .context("Failed to parse Claw config (JSON)")?;
-    let active = v["activeModel"].as_str().unwrap_or("Claude Sonnet");
-    let models = v["models"].as_array().context("claw: no 'models' array")?;
-    let entry = models.iter()
-        .find(|m| m["name"].as_str() == Some(active))
-        .or_else(|| models.first())
-        .context("claw: no models configured")?;
-    let key = entry["apiKey"].as_str().unwrap_or("");
-    if key.is_empty() || key == "***" {
-        bail!("claw: no valid API key in ~/.claw/settings.json.\n       Configure credentials in the SuperTool GUI or edit the file directly.");
+/// 调用 `hermes chat -q <message> --quiet`（可选 session 恢复）。
+/// 返回 (输出文本, session_id)。
+async fn hermes_chat(message: &str, session_id: Option<&str>) -> Result<(String, String)> {
+    let mut cmd = Command::new("hermes");
+    cmd.arg("chat");
+    if let Some(sid) = session_id {
+        cmd.arg("-r").arg(sid);
     }
-    Ok(LlmConfig {
-        model: entry["model"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
-        api_key: key.to_string(),
-        base_url: entry["baseUrl"].as_str().context("claw: no baseUrl")?.to_string(),
-    })
-}
+    cmd.arg("-q").arg(message);
+    cmd.arg("--quiet");
 
-// ─── LLM call（使用 workspace api 库）───────────────────
+    let output = cmd
+        .output()
+        .await
+        .context("Failed to spawn `hermes` CLI. Is it installed and in PATH?")?;
 
-async fn call_llm(cfg: &LlmConfig, messages: Vec<InputMessage>, system: Option<&str>) -> Result<String> {
-    unsafe { std::env::set_var("OPENAI_API_KEY", &cfg.api_key) };
-    unsafe { std::env::set_var("OPENAI_BASE_URL", &cfg.base_url) };
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        bail!("hermes CLI failed: {}", stderr.trim());
+    }
 
-    let client = api::ProviderClient::from_model(&format!("openai/{}", cfg.model))
-        .map_err(|e| anyhow!("Cannot create LLM client: {e}"))?;
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-    let request = MessageRequest {
-        model: cfg.model.clone(),
-        max_tokens: 8192,
-        messages,
-        system: system.map(|s| s.to_string()),
-        tools: None,
-        tool_choice: None,
-        stream: false,
-        temperature: None,
-        top_p: None,
-        frequency_penalty: None,
-        presence_penalty: None,
-        stop: None,
-        reasoning_effort: None,
-        extra_body: BTreeMap::new(),
-    };
+    // session_id 在 stderr 中
+    let new_sid = stderr
+        .lines()
+        .find_map(|l| l.strip_prefix("session_id: "))
+        .unwrap_or_default()
+        .to_string();
 
-    let resp = client.send_message(&request).await
-        .map_err(|e| anyhow!("LLM API error: {e}"))?;
-
-    let text: String = resp.content.iter()
-        .filter_map(|block| match block {
-            OutputContentBlock::Text { text } => Some(text.clone()),
-            _ => None,
-        })
+    // 清理 stdout：去掉 Warning: 行和空行
+    let body: String = stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty() && !l.trim().starts_with("Warning:"))
         .collect::<Vec<_>>()
         .join("\n");
 
-    Ok(text)
+    Ok((body, new_sid))
 }
 
 fn info_line(label: &str, detail: &str) {
     println!("\x1b[36m═══ {label} {detail}\x1b[0m");
 }
 
-fn user_msg(text: &str) -> InputMessage {
-    InputMessage::user_text(text)
-}
-
-fn assistant_msg(text: &str) -> InputMessage {
-    InputMessage {
-        role: "assistant".to_string(),
-        content: vec![InputContentBlock::Text { text: text.to_string() }],
-    }
-}
-
-// ─── hermes chat（使用 workspace api 库 + Hermes 配置）───
+// ─── hermes chat ────────────────────────────────────────
 
 pub async fn cmd_hermes_chat(message: String) -> Result<()> {
     info_line("Hermes", "⚡");
-    let cfg = load_hermes_config()?;
-    let resp = call_llm(&cfg, vec![user_msg(&message)], None).await?;
+    let (resp, _sid) = hermes_chat(&message, None).await?;
     println!("{resp}");
     Ok(())
 }
 
-// ─── claw chat（使用 supertool_claw::LlmClient） ────────
+// ─── claw chat ──────────────────────────────────────────
 
 pub async fn cmd_claw_chat(message: String) -> Result<()> {
     info_line("Claw", "💬");
-    let cfg = load_claw_config()?;
-    let resp = call_llm(
-        &cfg,
-        vec![user_msg(&message)],
-        Some("You are Claw, a focused AI coding assistant. Respond concisely."),
-    )
-    .await?;
+    let enhanced = format!(
+        "[System: You are Claw, a focused AI coding assistant.]\n\n{}",
+        message
+    );
+    let (resp, _sid) = hermes_chat(&enhanced, None).await?;
     println!("{resp}");
     Ok(())
 }
@@ -142,24 +76,28 @@ pub async fn cmd_claw_chat(message: String) -> Result<()> {
 
 pub async fn cmd_claw_goal(text: String, max_turns: u32) -> Result<()> {
     info_line("Claw Goal", &format!("🎯 \"{text}\""));
-    let cfg = load_claw_config()?;
 
-    let goal_system = "You are Claw. Work toward the goal below. When done, end with [GOAL_COMPLETE].";
-    let judge_system = "You are a goal judge. Answer YES or NO only.";
-    let mut messages: Vec<InputMessage> = Vec::new();
+    let mut session_id: Option<String> = None;
+    let mut prev_resp = String::new();
 
     for turn in 1..=max_turns {
         let msg = if turn == 1 {
             info_line("Round", &format!("{turn}/{max_turns} begin"));
-            format!("Goal: {text}\n\nWork toward this goal. End with [GOAL_COMPLETE] when done.")
+            format!(
+                "Goal: {text}\n\nWork toward this goal. When done, end with [GOAL_COMPLETE]."
+            )
         } else {
             info_line("Round", &format!("{turn}/{max_turns} continue"));
-            format!("Continue: {text}")
+            format!(
+                "Continue working toward the goal: {text}\n\nPrevious work:\n{prev_resp}"
+            )
         };
 
-        messages.push(user_msg(&msg));
-        let resp = call_llm(&cfg, messages.clone(), Some(goal_system)).await?;
-        messages.push(assistant_msg(&resp));
+        let (resp, new_sid) = hermes_chat(&msg, session_id.as_deref()).await?;
+        if session_id.is_none() && !new_sid.is_empty() {
+            session_id = Some(new_sid);
+        }
+
         println!("\n{resp}");
 
         if resp.contains("[GOAL_COMPLETE]") {
@@ -168,57 +106,82 @@ pub async fn cmd_claw_goal(text: String, max_turns: u32) -> Result<()> {
             return Ok(());
         }
 
-        let judge = call_llm(
-            &cfg,
-            vec![user_msg(&format!(
-                "Goal: {text}\n\nLatest work:\n{resp}\n\nIs this goal fully achieved? Answer YES or NO."
-            ))],
-            Some(judge_system),
-        )
-        .await?;
-        if judge.to_uppercase().contains("YES") && !judge.to_uppercase().contains("NO") {
-            info_line("Goal", "✅ 达成！(judge 确认)");
-            return Ok(());
+        // Judge
+        if let Some(ref sid) = session_id {
+            let judge_msg = format!(
+                "Has this goal been fully achieved?\nGoal: {text}\nAnswer YES or NO only."
+            );
+            let (judge, _) = hermes_chat(&judge_msg, Some(sid)).await?;
+            if judge.to_uppercase().contains("YES") && !judge.to_uppercase().contains("NO") {
+                info_line("Goal", "✅ 达成！(judge 确认)");
+                return Ok(());
+            }
         }
 
-        if turn < max_turns { sleep(Duration::from_secs(1)).await; }
+        prev_resp = resp;
+
+        if turn < max_turns {
+            sleep(Duration::from_secs(1)).await;
+        }
     }
 
     info_line("Goal", "⚠️ 已达最大轮次");
-    bail!("Goal not completed within {max_turns} rounds");
+    Ok(())
 }
 
-pub async fn cmd_claw_loop(message: String, count: Option<u32>, duration: Option<String>) -> Result<()> {
+// ─── claw loop ──────────────────────────────────────────
+
+pub async fn cmd_claw_loop(
+    message: String,
+    count: Option<u32>,
+    duration: Option<String>,
+) -> Result<()> {
     let max_iters = parse_limit(count, duration)?;
-    let display = if max_iters == u32::MAX { "∞".into() } else { max_iters.to_string() };
+    let display = if max_iters == u32::MAX {
+        "∞".into()
+    } else {
+        max_iters.to_string()
+    };
 
     info_line("Claw Loop", &format!("🔄 \"{message}\" (max: {display})"));
-    let cfg = load_claw_config()?;
 
-    let mut messages: Vec<InputMessage> = Vec::new();
     for turn in 1..=max_iters {
-        let msg = if turn == 1 { message.clone() } else { format!("Continue: {message}") };
-        messages.push(user_msg(&msg));
-        let resp = call_llm(&cfg, messages.clone(), Some("You are Claw. Respond concisely.")).await?;
-        messages.push(assistant_msg(&resp));
+        let msg = if turn == 1 {
+            message.clone()
+        } else {
+            format!("Continue: {message}")
+        };
+
         info_line("Loop", &format!("#{turn} / {display}"));
-        println!("{resp}");
-        if turn < max_iters { sleep(Duration::from_millis(800)).await; }
+
+        match hermes_chat(&msg, None).await {
+            Ok((resp, _sid)) => println!("{resp}"),
+            Err(e) => eprintln!("Loop error at turn {turn}: {e}"),
+        }
+
+        if turn < max_iters {
+            sleep(Duration::from_millis(800)).await;
+        }
     }
+
     info_line("Loop", "✓ 循环结束");
     Ok(())
 }
 
 fn parse_limit(count: Option<u32>, duration: Option<String>) -> Result<u32> {
-    if let Some(c) = count { return Ok(c); }
+    if let Some(c) = count {
+        return Ok(c);
+    }
     if let Some(d) = duration {
         if let Some(s) = d.strip_suffix('s') {
-            return Ok((s.parse::<u32>().map_err(|_| anyhow!("bad duration: {d}"))? / 5).max(1));
+            let secs: u32 = s.parse().map_err(|_| anyhow::anyhow!("bad duration: {d}"))?;
+            return Ok((secs / 5).max(1));
         }
         if let Some(m) = d.strip_suffix('m') {
-            return Ok((m.parse::<u32>().map_err(|_| anyhow!("bad duration: {d}"))? * 60 / 5).max(1));
+            let mins: u32 = m.parse().map_err(|_| anyhow::anyhow!("bad duration: {d}"))?;
+            return Ok((mins * 60 / 5).max(1));
         }
-        bail!("invalid duration format: {d} (use e.g. 30s, 5m)");
+        bail!("invalid duration: {d} (use e.g. 30s, 5m)");
     }
     Ok(u32::MAX)
 }

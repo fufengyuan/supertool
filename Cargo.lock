@@ -7345,18 +7345,15 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stool"
-version = "4.73.3"
+version = "4.73.4"
 dependencies = [
  "anyhow",
- "api",
  "chrono",
  "clap",
  "dirs 5.0.1",
- "reqwest 0.12.28",
  "rusqlite",
  "serde",
  "serde_json",
- "serde_yaml",
  "supertool-core",
  "tokio",
 ]
@@ -7467,7 +7464,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "4.73.3"
+version = "4.73.4"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7547,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "4.73.3"
+version = "4.73.4"
 dependencies = [
  "aes-gcm",
  "anyhow",
