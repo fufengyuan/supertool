@@ -9,6 +9,7 @@
       :context-folder="contextFolder"
       :show-context-folder="true"
       :compacting="compacting"
+      :is-claw-mode="isClawMode"
       :plan-mode="planMode"
       :goal-mode="goalMode"
       :goal-text="goalText"
@@ -65,7 +66,10 @@
         />
       </template>
       <template v-else>
-        <ChatEmptyState @select-suggestion="handleSuggestion" />
+        <ChatEmptyState
+          :is-claw-mode="isClawMode"
+          @select-suggestion="handleSuggestion"
+        />
       </template>
       <div ref="bottomRef" />
     </div>
@@ -640,7 +644,6 @@ async function ensureClawChat() {
       // New session — reset all state
       messages.value = [];
       usage.value = null;
-      addAgentMessage('Claw 编码助手已就绪')
     }
   } catch (e: any) {
     addAgentMessage(`Claw 初始化失败: ${e?.message || String(e)}`)

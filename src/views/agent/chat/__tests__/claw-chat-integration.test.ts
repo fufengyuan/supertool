@@ -57,7 +57,7 @@ describe('Chat.vue — Claw initialization & session restore', () => {
         }))
         setMessages(converted)
       } else {
-        addAgentMessage('Claw 编码助手已就绪')
+        // No messages to restore — empty state
       }
     }
 
@@ -68,9 +68,8 @@ describe('Chat.vue — Claw initialization & session restore', () => {
       cwd: null,
     })
     expect(clawInitialized.value).toBe(true)
-    // Not restored → shows ready message
-    expect(messages.value).toHaveLength(1)
-    expect(messages.value[0].content).toContain('已就绪')
+    // Not restored → empty state (no welcome message shown)
+    expect(messages.value).toHaveLength(0)
   })
 
   it('ensureClawChat restores messages when session has history', async () => {
@@ -107,7 +106,7 @@ describe('Chat.vue — Claw initialization & session restore', () => {
         }))
         setMessages(converted)
       } else {
-        addAgentMessage('Claw 编码助手已就绪')
+        // No messages to restore — empty state
       }
     }
 
