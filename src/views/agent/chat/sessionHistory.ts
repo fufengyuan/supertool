@@ -202,10 +202,17 @@ export function hermesMessagesToChatMessages(raw: HermesMessage[]): ChatMessage[
 
     // ── user message ──────────────────────────────────────────────────────
     if (role === 'user') {
+      let content = msg.content || ''
+      // Strip any [System: ...] prefix from user messages (Hermes CLI may
+      // prepend system prompt to the first user message of a session)
+      const systemPrefixMatch = content.match(/^\[System:[^\]]+\]\s*/)
+      if (systemPrefixMatch) {
+        content = content.slice(systemPrefixMatch[0].length)
+      }
       result.push({
         id: `db-${msg.id}`,
         role: 'user',
-        content: msg.content || '',
+        content,
         timestamp: msg.timestamp != null ? Math.floor(msg.timestamp) : undefined,
       })
       continue
@@ -276,6 +283,11 @@ export function hermesMessagesToChatMessages(raw: HermesMessage[]): ChatMessage[
         name: msg.toolName || '',
         content: msg.content || '',
       })
+      continue
+    }
+
+    // ── system / session_meta — skip, these are internal meta messages ────
+    if (role === 'system' || role === 'session_meta') {
       continue
     }
 

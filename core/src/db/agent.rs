@@ -644,7 +644,7 @@ pub fn list_hermes_messages(session_id: &str) -> Result<Vec<HermesMessage>, Stri
             m.reasoning_content,
             CASE WHEN m.session_id != ? THEN 1 ELSE 0 END as is_child
         FROM messages m
-        WHERE m.session_id IN ({})
+        WHERE m.session_id IN ({}) AND m.role NOT IN ('system', 'session_meta')
         ORDER BY m.timestamp, m.id
         "#,
         in_clause
