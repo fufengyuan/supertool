@@ -1457,6 +1457,21 @@ Every response must advance toward this goal. The objective persists across turn
             *abort = hook_abort_signal.clone();
         }
 
+        // Check abort before starting a new turn (e.g. user clicked stop
+        // while a goal loop was between iterations)
+        {
+            let abort = state.hook_abort.lock().await;
+            if abort.is_aborted() {
+                log::info!("[claw_chat] Abort signaled before turn — stopping");
+                // Restore session so state isn't lost
+                {
+                    let mut s = state.session.lock().await;
+                    *s = Some(taken_session);
+                }
+                return Err("Cancelled by user".to_string());
+            }
+        }
+
         // Clone values for each iteration (block_in_place move closure consumes them)
         let client_iter = client.clone();
         let tool_defs_iter = tool_defs.clone();
@@ -1469,6 +1484,7 @@ Every response must advance toward this goal. The objective persists across turn
         let goal_mode_hook = state.goal_mode.clone();
         let goal_state_hook = state.goal_state.clone();
         let loop_mode_hook = state.loop_mode.clone();
+        let abort_signal_iter = hook_abort_signal.clone();
 
         let (summary, session) = tokio::task::block_in_place(move || {
             let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
@@ -1477,6 +1493,7 @@ Every response must advance toward this goal. The objective persists across turn
                 reasoning_iter,
                 app_hook.clone(),
                 sid_hook.clone(),
+                Some(abort_signal_iter),
             );
             let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::new(
                 app_hook.clone(),
@@ -1578,6 +1595,33 @@ Every response must advance toward this goal. The objective persists across turn
                     sess.save_to_path(path)
                         .map_err(|e| format!("Failed to save session: {e}"))?;
                 }
+            }
+        }
+
+        // ── Check abort after turn completes (all modes) ──
+        // This catches abort signals sent during the LLM call / tool execution.
+        // For non-goal mode this is the ONLY opportunity to stop; for goal mode
+        // it runs before the inter-iteration check below.
+        {
+            let abort = state.hook_abort.lock().await;
+            if abort.is_aborted() {
+                log::info!("[claw_chat] Turn completed but abort was signaled — stopping");
+                goal_paused = true;
+                {
+                    let mut gs = state.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.status = "paused".to_string();
+                        gs_inner.enabled = false;
+                    }
+                }
+                let _ = app.emit(
+                    "agent-done",
+                    serde_json::json!({
+                        "session_id": sid,
+                        "aborted": true,
+                    }),
+                );
+                break;
             }
         }
 

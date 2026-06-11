@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use runtime::{
-    ApiClient, ApiRequest, AssistantEvent, RuntimeError, TokenUsage, ToolError, ToolExecutor,
+    ApiClient, ApiRequest, AssistantEvent, HookAbortSignal, RuntimeError, TokenUsage, ToolError, ToolExecutor,
 };
 use supertool_claw::llm::{LlmClient, LlmStreamEvent, TurnResult};
 use tauri::{AppHandle, Emitter};
@@ -37,6 +37,7 @@ pub(crate) struct TauriApiClient {
     reasoning_effort: Option<String>,
     app: AppHandle,
     session_id: String,
+    abort_signal: Option<HookAbortSignal>,
 }
 
 impl TauriApiClient {
@@ -46,17 +47,27 @@ impl TauriApiClient {
         reasoning_effort: Option<String>,
         app: AppHandle,
         session_id: String,
+        abort_signal: Option<HookAbortSignal>,
     ) -> Self {
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .expect("TauriApiClient tokio runtime");
-        Self { llm_client, rt, tool_defs, reasoning_effort, app, session_id }
+        Self { llm_client, rt, tool_defs, reasoning_effort, app, session_id, abort_signal }
     }
 }
 
 impl ApiClient for TauriApiClient {
     fn stream(&mut self, request: ApiRequest) -> Result<Vec<AssistantEvent>, RuntimeError> {
+        // Check abort signal before making the LLM call — short-circuit if
+        // the user has already requested stop (e.g. from a previous iteration).
+        if let Some(ref signal) = self.abort_signal {
+            if signal.is_aborted() {
+                log::info!("[TauriApiClient] Abort signaled — skipping LLM call");
+                return Ok(Vec::new());
+            }
+        }
+
         let messages = super::claw_chat::session_to_input_messages(&request.messages);
         let system = request.system_prompt.join("\n");
         let td = self.tool_defs.clone();
