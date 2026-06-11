@@ -18,6 +18,8 @@ use runtime::{
 use supertool_claw::llm::{LlmClient, LlmStreamEvent, TurnResult};
 use tauri::{AppHandle, Emitter};
 
+use crate::commands::claw_chat::{GoalModeState, PlanModeState};
+
 /// Adapter that implements the upstream [`ApiClient`] trait by wrapping
 /// SuperTool's async [`LlmClient`].
 ///
@@ -163,9 +165,9 @@ impl ApiClient for TauriApiClient {
 pub(crate) struct TauriToolExecutor {
     app: AppHandle,
     session_id: String,
-    plan_mode: Arc<AtomicBool>,
+    plan_state: Arc<std::sync::Mutex<PlanModeState>>,
     goal_mode: Arc<AtomicBool>,
-    goal_text: Arc<std::sync::Mutex<String>>,
+    goal_state: Arc<std::sync::Mutex<Option<GoalModeState>>>,
     loop_mode: Arc<AtomicBool>,
 }
 
@@ -173,12 +175,12 @@ impl TauriToolExecutor {
     pub(crate) fn new(
         app: AppHandle,
         session_id: String,
-        plan_mode: Arc<AtomicBool>,
+        plan_state: Arc<std::sync::Mutex<PlanModeState>>,
         goal_mode: Arc<AtomicBool>,
-        goal_text: Arc<std::sync::Mutex<String>>,
+        goal_state: Arc<std::sync::Mutex<Option<GoalModeState>>>,
         loop_mode: Arc<AtomicBool>,
     ) -> Self {
-        Self { app, session_id, plan_mode, goal_mode, goal_text, loop_mode }
+        Self { app, session_id, plan_state, goal_mode, goal_state, loop_mode }
     }
 }
 
@@ -191,33 +193,210 @@ impl ToolExecutor for TauriToolExecutor {
     fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError> {
         // Handle plan mode tools internally
         if tool_name == "EnterPlanMode" {
-            self.plan_mode.store(true, Ordering::Relaxed);
-            log::info!("[PlanMode] Entered plan mode");
-            return Ok(r#"{"success":true,"message":"Plan mode enabled. You can now explore the codebase with read-only tools. Call ExitPlanMode when ready to write code."}"#.into());
+            // Extract optional objective from input
+            let objective = serde_json::from_str::<serde_json::Value>(input)
+                .ok()
+                .and_then(|v| v.get("objective").and_then(|g| g.as_str().map(|s| s.to_string())));
+            // Create plan file path (PLAN.md in sessions dir)
+            let plan_dir = dirs::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("~"))
+                .join(".claw")
+                .join("sessions");
+            let plan_path = plan_dir.join("PLAN.md");
+            if let Some(parent) = plan_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            // Initialize empty plan file if it doesn't exist
+            if !plan_path.exists() {
+                let _ = std::fs::write(&plan_path, format!("# Plan\n\n{}", objective.as_deref().unwrap_or("")));
+            }
+            {
+                let mut ps = self.plan_state.lock().unwrap();
+                ps.enabled = true;
+                ps.plan_file_path = Some(plan_path.to_string_lossy().to_string());
+            }
+            log::info!("[PlanMode] Entered plan mode (plan_path: {})", plan_path.display());
+            return Ok(format!(
+                r#"{{"success":true,"message":"Plan mode enabled. Plan file created at {plan}. You can explore the codebase with read-only tools. Write the plan to PLAN.md. Call ExitPlanMode with approved:true when the plan is ready."}}"#,
+                plan = plan_path.display()
+            ));
         }
         if tool_name == "ExitPlanMode" {
-            self.plan_mode.store(false, Ordering::Relaxed);
-            log::info!("[PlanMode] Exited plan mode");
-            return Ok(r#"{"success":true,"message":"Plan mode disabled. You can now write and modify files."}"#.into());
+            // Extract optional approved flag
+            let approved = serde_json::from_str::<serde_json::Value>(input)
+                .ok()
+                .and_then(|v| v.get("approved").and_then(|a| a.as_bool()))
+                .unwrap_or(false);
+            let _plan_path = {
+                let ps = self.plan_state.lock().unwrap();
+                ps.plan_file_path.clone()
+            };
+            {
+                let mut ps = self.plan_state.lock().unwrap();
+                ps.enabled = false;
+                ps.plan_file_path = None;
+            }
+            if approved {
+                log::info!("[PlanMode] Plan approved → exited plan mode, write access restored");
+                return Ok(r#"{"success":true,"message":"Plan approved! Exiting plan mode. Write access restored — you can now implement the plan."}"#.into());
+            } else {
+                log::info!("[PlanMode] Plan cancelled → exited plan mode, write access restored");
+                return Ok(r#"{"success":true,"message":"Plan mode cancelled. Exiting plan mode. Write access restored."}"#.into());
+            }
         }
 
-        // Handle goal mode tools internally
-        if tool_name == "EnterGoalMode" {
-            // Extract goal text from input JSON
-            let goal = serde_json::from_str::<serde_json::Value>(input)
-                .ok()
-                .and_then(|v| v.get("goal").and_then(|g| g.as_str().map(|s| s.to_string())))
-                .unwrap_or_default();
-            self.goal_mode.store(true, Ordering::Relaxed);
-            *self.goal_text.lock().unwrap() = goal.clone();
-            log::info!("[GoalMode] Entered goal mode: {}", goal);
-            return Ok(format!(r#"{{"success":true,"message":"Goal mode enabled. Goal: {goal}. Work persistently toward this goal. Call ExitGoalMode when done."}}"#));
-        }
-        if tool_name == "ExitGoalMode" {
-            self.goal_mode.store(false, Ordering::Relaxed);
-            self.goal_text.lock().unwrap().clear();
-            log::info!("[GoalMode] Exited goal mode");
-            return Ok(r#"{"success":true,"message":"Goal mode disabled. Resuming normal chat."}"#.into());
+        // Handle goal mode tools internally — the hidden `goal` tool
+        if tool_name == "goal" {
+            let input_value: serde_json::Value = serde_json::from_str(input)
+                .unwrap_or_else(|_| serde_json::json!({}));
+            let op = input_value.get("op")
+                .and_then(|v| v.as_str())
+                .unwrap_or("get")
+                .to_string();
+
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+
+            match op.as_str() {
+                "create" => {
+                    let objective = input_value.get("objective")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
+                    if objective.trim().is_empty() {
+                        return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"objective is required for op=create"}"#.into());
+                    }
+                    let token_budget = input_value.get("token_budget")
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as u32);
+
+                    let goal_id = format!("goal-{}", now_ms);
+                    let goal = super::claw_chat::Goal {
+                        id: goal_id,
+                        objective: objective.clone(),
+                        status: "active".to_string(),
+                        token_budget,
+                        tokens_used: 0,
+                        time_used_seconds: 0,
+                    };
+                    let state = super::claw_chat::GoalModeState {
+                        enabled: true,
+                        mode: "active".to_string(),
+                        goal,
+                    };
+
+                    self.goal_mode.store(true, Ordering::Relaxed);
+                    {
+                        let mut gs = self.goal_state.lock().unwrap();
+                        *gs = Some(state.clone());
+                    }
+                    log::info!("[GoalTool] Created goal: {} (budget={:?})", objective, token_budget);
+                    return Ok(format!(r#"{{"goal":{},"remainingTokens":{},"completionBudgetReport":null}}"#,
+                        serde_json::to_string(&state.goal).unwrap_or_default(),
+                        token_budget.map(|b| b.to_string()).unwrap_or_else(|| "null".to_string())
+                    ));
+                }
+                "get" => {
+                    let gs = self.goal_state.lock().unwrap();
+                    let response = if let Some(ref gs_inner) = *gs {
+                        let remaining = gs_inner.goal.token_budget.map(|b| {
+                            let r = if b > gs_inner.goal.tokens_used { b - gs_inner.goal.tokens_used } else { 0 };
+                            r.to_string()
+                        }).unwrap_or_else(|| "null".to_string());
+                        format!(r#"{{"goal":{},"remainingTokens":{},"completionBudgetReport":null}}"#,
+                            serde_json::to_string(&gs_inner.goal).unwrap_or_default(),
+                            remaining
+                        )
+                    } else {
+                        r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null}"#.to_string()
+                    };
+                    return Ok(response);
+                }
+                "complete" => {
+                    let mut gs = self.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.status = "complete".to_string();
+                        gs_inner.enabled = false;
+                        gs_inner.mode = "exiting".to_string();
+                        self.goal_mode.store(false, Ordering::Relaxed);
+
+                        let budget_report = if gs_inner.goal.token_budget.is_some() || gs_inner.goal.time_used_seconds > 0 {
+                            let mut parts = vec![];
+                            if let Some(budget) = gs_inner.goal.token_budget {
+                                parts.push(format!("tokens used: {} of {}", gs_inner.goal.tokens_used, budget));
+                            }
+                            if gs_inner.goal.time_used_seconds > 0 {
+                                parts.push(format!("time used: {} seconds", gs_inner.goal.time_used_seconds));
+                            }
+                            Some(format!("Goal achieved. Report final budget usage to the user: {}.", parts.join("; ")))
+                        } else {
+                            None
+                        };
+
+                        log::info!("[GoalTool] Completed goal: {}", gs_inner.goal.objective);
+                        return Ok(format!(r#"{{"goal":{},"remainingTokens":null,"completionBudgetReport":{}}}"#,
+                            serde_json::to_string(&gs_inner.goal).unwrap_or_default(),
+                            budget_report.map(|r| format!("\"{}\"", r.replace('"', "\\\""))).unwrap_or_else(|| "null".to_string())
+                        ));
+                    }
+                    return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"No active goal to complete"}"#.into());
+                }
+                "resume" => {
+                    let mut gs = self.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        if gs_inner.goal.status == "complete" {
+                            return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"Goal is already complete"}"#.into());
+                        }
+                        gs_inner.enabled = true;
+                        gs_inner.mode = "active".to_string();
+                        gs_inner.goal.status = "active".to_string();
+                        self.goal_mode.store(true, Ordering::Relaxed);
+                        let remaining = gs_inner.goal.token_budget.map(|b| {
+                            let r = if b > gs_inner.goal.tokens_used { b - gs_inner.goal.tokens_used } else { 0 };
+                            r.to_string()
+                        }).unwrap_or_else(|| "null".to_string());
+                        log::info!("[GoalTool] Resumed goal: {}", gs_inner.goal.objective);
+                        return Ok(format!(r#"{{"goal":{},"remainingTokens":{},"completionBudgetReport":null}}"#,
+                            serde_json::to_string(&gs_inner.goal).unwrap_or_default(),
+                            remaining
+                        ));
+                    }
+                    return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"No paused goal to resume"}"#.into());
+                }
+                "drop" => {
+                    let mut gs = self.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.status = "dropped".to_string();
+                        gs_inner.enabled = false;
+                        self.goal_mode.store(false, Ordering::Relaxed);
+                        log::info!("[GoalTool] Dropped goal: {}", gs_inner.goal.objective);
+                        return Ok(format!(r#"{{"goal":{},"remainingTokens":null,"completionBudgetReport":null}}"#,
+                            serde_json::to_string(&gs_inner.goal).unwrap_or_default()
+                        ));
+                    }
+                    return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"No active goal to drop"}"#.into());
+                }
+                "budget" => {
+                    let token_budget = input_value.get("token_budget")
+                        .and_then(|v| v.as_u64())
+                        .map(|v| v as u32);
+                    let mut gs = self.goal_state.lock().unwrap();
+                    if let Some(ref mut gs_inner) = *gs {
+                        gs_inner.goal.token_budget = token_budget;
+                        log::info!("[GoalTool] Updated goal budget to {:?}", token_budget);
+                        return Ok(format!(r#"{{"goal":{},"remainingTokens":{},"completionBudgetReport":null}}"#,
+                            serde_json::to_string(&gs_inner.goal).unwrap_or_default(),
+                            token_budget.map(|b| b.to_string()).unwrap_or_else(|| "null".to_string())
+                        ));
+                    }
+                    return Ok(r#"{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"No active goal"}"#.into());
+                }
+                _ => {
+                    return Ok(format!(r#"{{"goal":null,"remainingTokens":null,"completionBudgetReport":null,"error":"Unknown goal op: {op}"}}"#));
+                }
+            }
         }
 
         // Handle loop mode tools internally
@@ -241,20 +420,47 @@ impl ToolExecutor for TauriToolExecutor {
             "session_id": &self.session_id,
         }));
 
-        // Plan mode check: block write tools when plan mode is active
-        if self.plan_mode.load(Ordering::Relaxed) {
-            let is_write = WRITE_TOOLS.iter().any(|w| w.eq_ignore_ascii_case(tool_name));
-            if is_write {
-                let _ = self.app.emit("agent-tool-complete", serde_json::json!({
-                    "name": tool_name,
-                    "result": "error",
-                    "isError": true,
-                    "session_id": &self.session_id,
-                }));
-                return Err(ToolError::new(format!(
-                    "Plan mode is active — `{tool_name}` is blocked. \
-                     Call ExitPlanMode first to allow writing files."
-                )));
+        // Plan mode check: block write tools when plan mode is active,
+        // UNLESS the tool targets the plan file path.
+        {
+            let ps = self.plan_state.lock().unwrap();
+            if ps.enabled {
+                let is_write = WRITE_TOOLS.iter().any(|w| w.eq_ignore_ascii_case(tool_name));
+                if is_write {
+                    // Check if this tool targets the plan file (whitelist)
+                    let input_value: serde_json::Value =
+                        serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({}));
+                    let target_path = input_value
+                        .get("path")
+                        .or_else(|| input_value.get("file_path"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let is_plan_file = ps
+                        .plan_file_path
+                        .as_ref()
+                        .map(|pfp| {
+                            let canon_pfp = std::path::Path::new(pfp);
+                            let canon_target = std::path::Path::new(target_path);
+                            canon_pfp == canon_target
+                                || target_path == "PLAN.md"
+                                || target_path.contains("/PLAN.md")
+                                || target_path.contains("\\PLAN.md")
+                        })
+                        .unwrap_or(false);
+                    if !is_plan_file {
+                        let _ = self.app.emit("agent-tool-complete", serde_json::json!({
+                            "name": tool_name,
+                            "result": "error",
+                            "isError": true,
+                            "session_id": &self.session_id,
+                        }));
+                        return Err(ToolError::new(format!(
+                            "Plan mode is active — `{tool_name}` is blocked. \
+                             You can only write to the plan file (PLAN.md). \
+                             Call ExitPlanMode with approved:true to approve the plan and restore write access."
+                        )));
+                    }
+                }
             }
         }
 

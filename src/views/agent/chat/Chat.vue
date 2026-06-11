@@ -268,16 +268,16 @@ async function fetchGoalMode() {
       status: string;
       turnsUsed: number;
       maxTurns: number;
-      lastVerdict: string | null;
-      lastReason: string | null;
+      tokensUsed: number;
+      tokenBudget: number | null;
+      timeUsedSeconds: number;
+      mode: string;
     }>('claw_chat_get_goal_mode');
     goalMode.value = res.active;
     goalText.value = res.goalText || '';
     goalStatus.value = res.status || 'inactive';
     goalTurnsUsed.value = res.turnsUsed || 0;
     goalMaxTurns.value = res.maxTurns || 20;
-    goalLastVerdict.value = res.lastVerdict || null;
-    goalLastReason.value = res.lastReason || null;
   } catch (e) {
     goalMode.value = false;
     goalText.value = '';
