@@ -42,29 +42,31 @@ fn load_hermes_config() -> Result<LlmConfig> {
 }
 
 fn load_claw_config() -> Result<LlmConfig> {
-    let path = claw_config_path();
-    if let Ok(content) = std::fs::read_to_string(&path) {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&content) {
-            let active = v["activeModel"].as_str().unwrap_or("Claude Sonnet");
-            if let Some(models) = v["models"].as_array() {
-                let entry = models.iter()
-                    .find(|m| m["name"].as_str() == Some(active))
-                    .or_else(|| models.first());
-                if let Some(entry) = entry {
-                    let key = entry["apiKey"].as_str().unwrap_or("");
-                    if !key.is_empty() && key != "***" {
-                        return Ok(LlmConfig {
-                            model: entry["model"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
-                            api_key: key.to_string(),
-                            base_url: entry["baseUrl"].as_str().unwrap_or("").to_string(),
-                        });
-                    }
-                }
-            }
-        }
+    let content = read_file(&claw_config_path())?;
+    let v: serde_json::Value = serde_json::from_str(&content)
+        .context("claw: failed to parse ~/.claw/settings.json")?;
+    let active = v["activeModel"].as_str().unwrap_or("Claude Sonnet");
+    let models = v["models"].as_array()
+        .context("claw: no 'models' array in ~/.claw/settings.json")?;
+    let entry = models.iter()
+        .find(|m| m["name"].as_str() == Some(active))
+        .or_else(|| models.first())
+        .context("claw: no models configured in ~/.claw/settings.json")?;
+
+    let key = entry["apiKey"].as_str().unwrap_or("");
+    if key.is_empty() || key == "***" {
+        bail!("claw: no valid API key in ~/.claw/settings.json.\n       Configure credentials in the SuperTool GUI or edit the file directly.");
     }
-    // Fallback: use Hermes config
-    load_hermes_config()
+    let base_url = entry["baseUrl"].as_str().unwrap_or("");
+    if base_url.is_empty() || base_url == "***" {
+        bail!("claw: no valid base URL in ~/.claw/settings.json.\n       Configure credentials in the SuperTool GUI or edit the file directly.");
+    }
+
+    Ok(LlmConfig {
+        model: entry["model"].as_str().unwrap_or("claude-sonnet-4-6").to_string(),
+        api_key: key.to_string(),
+        base_url: base_url.to_string(),
+    })
 }
 
 // ─── LLM call ───────────────────────────────────────────
