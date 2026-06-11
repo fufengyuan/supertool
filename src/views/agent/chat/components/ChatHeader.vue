@@ -8,6 +8,29 @@
         {{ usage.totalTokens.toLocaleString() }} tokens
         <span v-if="usage.cost != null"> · ${{ usage.cost.toFixed(4) }}</span>
       </span>
+      <!-- Goal mode status indicator -->
+      <span
+        v-if="goalMode && goalStatus === 'active'"
+        class="text-xs text-info/70 shrink-0"
+        title="Goal mode active"
+      >
+        🎯 {{ goalTurnsUsed }}/{{ goalMaxTurns }}
+        <span v-if="goalLastVerdict === 'continue'" class="text-warning/70">⏳</span>
+      </span>
+      <span
+        v-else-if="goalMode && goalStatus === 'done'"
+        class="text-xs text-success/70 shrink-0"
+        title="Goal completed"
+      >
+        🎯 ✓ Done
+      </span>
+      <span
+        v-else-if="goalMode && goalStatus === 'paused'"
+        class="text-xs text-warning/70 shrink-0"
+        title="Goal paused"
+      >
+        🎯 ⏸ Paused
+      </span>
     </div>
     <div class="flex items-center gap-1">
       <template v-if="showContextFolder">
@@ -67,6 +90,39 @@
         <SvgIcon name="copy" size="14" />
       </button>
       <button
+        class="btn btn-ghost btn-xs"
+        :class="{ 'text-success': planMode, 'text-base-content/50': !planMode }"
+        :title="planMode ? 'Plan mode: ON — only read allowed' : 'Plan mode: OFF'"
+        @click="$emit('togglePlan')"
+      >
+        <SvgIcon name="clipboard" size="14" />
+      </button>
+      <button
+        class="btn btn-ghost btn-xs"
+        :class="{ 'text-info': goalMode, 'text-base-content/50': !goalMode }"
+        :title="goalMode ? `Goal mode: ON — ${goalText}` : 'Goal mode: OFF'"
+        @click="$emit('toggleGoal')"
+      >
+        <SvgIcon name="crosshair" size="14" />
+      </button>
+      <!-- Pause/Resume button (only visible when goal is active/paused) -->
+      <button
+        v-if="goalMode && (goalStatus === 'active' || goalStatus === 'paused')"
+        class="btn btn-ghost btn-xs"
+        :title="goalStatus === 'paused' ? 'Resume goal' : 'Pause goal'"
+        @click="$emit('toggleGoalPause')"
+      >
+        <SvgIcon :name="goalStatus === 'paused' ? 'play' : 'pause'" size="14" />
+      </button>
+      <button
+        class="btn btn-ghost btn-xs"
+        :class="{ 'text-success': loopMode, 'text-base-content/30': !loopMode }"
+        :title="loopMode ? 'Loop mode: ON — prompt auto-resubmits after each turn. Esc to pause.' : 'Loop mode: OFF — one turn at a time'"
+        @click="$emit('toggleLoop')"
+      >
+        <SvgIcon name="refresh" size="14" />
+      </button>
+      <button
         v-if="hasMessages"
         class="btn btn-ghost btn-xs"
         title="Clear chat"
@@ -91,6 +147,14 @@ const props = defineProps<{
   contextFolder: string | null;
   showContextFolder: boolean;
   compacting?: boolean;
+  planMode: boolean;
+  goalMode: boolean;
+  goalText: string;
+  goalStatus: string;
+  goalTurnsUsed: number;
+  goalMaxTurns: number;
+  goalLastVerdict: string | null;
+  loopMode: boolean;
 }>();
 
 defineEmits<{
@@ -101,6 +165,10 @@ defineEmits<{
   clear: [];
   compact: [];
   fork: [];
+  togglePlan: [];
+  toggleGoal: [];
+  toggleGoalPause: [];
+  toggleLoop: [];
 }>();
 
 function folderName(p: string): string {

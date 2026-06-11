@@ -1,10 +1,12 @@
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Arc;
 
 use runtime::{
     ConfigLoader, ContentBlock, ConversationMessage, MessageRole, PermissionMode, PermissionPolicy,
     RuntimeConfig, RuntimeFeatureConfig, Session,
 };
+use serde::{Deserialize, Serialize};
 use supertool_claw::llm::LlmClient;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
@@ -55,6 +57,22 @@ pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
     pub(crate) session: Mutex<Option<Session>>,
     pub(crate) workspace: Mutex<Option<PathBuf>>,
+    pub(crate) plan_mode: Arc<AtomicBool>,
+    pub(crate) goal_mode: Arc<AtomicBool>,
+    pub(crate) goal_text: Arc<std::sync::Mutex<String>>,
+    /// Goal lifecycle status: "inactive" | "active" | "paused" | "done" | "cleared"
+    pub(crate) goal_status: Arc<std::sync::Mutex<String>>,
+    /// Turns used in the current goal session
+    pub(crate) goal_turns_used: Arc<AtomicU32>,
+    /// Maximum turns allowed before auto-pause (default 20)
+    pub(crate) goal_max_turns: Arc<AtomicU32>,
+    /// Last judge verdict: "continue" | "done" | None
+    pub(crate) goal_last_verdict: Arc<std::sync::Mutex<Option<String>>>,
+    /// Last judge reason text
+    pub(crate) goal_last_reason: Arc<std::sync::Mutex<Option<String>>>,
+    /// Consecutive judge parse failures (auto-pause after 3)
+    pub(crate) goal_consecutive_parse_failures: Arc<AtomicU32>,
+    pub(crate) loop_mode: Arc<AtomicBool>,
     /// Abort signal for the current conversation — shared with ConversationRuntime.
     pub(crate) hook_abort: Mutex<runtime::HookAbortSignal>,
 }
@@ -65,6 +83,16 @@ impl ClawChatState {
             client: Mutex::new(None),
             session: Mutex::new(None),
             workspace: Mutex::new(None),
+            plan_mode: Arc::new(AtomicBool::new(false)),
+            goal_mode: Arc::new(AtomicBool::new(false)),
+            goal_text: Arc::new(std::sync::Mutex::new(String::new())),
+            goal_status: Arc::new(std::sync::Mutex::new("inactive".to_string())),
+            goal_turns_used: Arc::new(AtomicU32::new(0)),
+            goal_max_turns: Arc::new(AtomicU32::new(20)),
+            goal_last_verdict: Arc::new(std::sync::Mutex::new(None)),
+            goal_last_reason: Arc::new(std::sync::Mutex::new(None)),
+            goal_consecutive_parse_failures: Arc::new(AtomicU32::new(0)),
+            loop_mode: Arc::new(AtomicBool::new(false)), // default: off (opt-in via /loop)
             hook_abort: Mutex::new(runtime::HookAbortSignal::new()),
         }
     }
@@ -303,6 +331,235 @@ fn format_ts(ms: u64) -> String {
         .unwrap_or_default()
 }
 
+// ── Goal Mode (Judge Loop) ─────────────────────────────────────────────
+
+/// Judge whether a goal has been achieved by examining the last assistant response.
+///
+/// Makes a non-streaming LLM call using the existing ProviderClient. Returns
+/// `("continue", reason)` if the goal is not yet complete, `("done", reason)` if
+/// it is complete. On any error (network, parse, etc.) returns `("continue", error_msg)`
+/// to fail-open — the agent keeps working rather than prematurely stopping.
+/// Judge whether the agent's last response completes the goal.
+/// Returns `(verdict, reason, parse_failed)`.
+/// - `verdict`: "done" | "continue" | "skipped"
+/// - `parse_failed`: true only when the LLM call succeeded but output was unusable
+async fn judge_goal(
+    client: Arc<LlmClient>,
+    goal_text: &str,
+    last_response: &str,
+) -> (String, String, bool) {
+    if goal_text.trim().is_empty() {
+        return ("skipped".to_string(), "empty goal".to_string(), false);
+    }
+    if last_response.trim().is_empty() {
+        return ("continue".to_string(), "empty response (nothing to evaluate)".to_string(), false);
+    }
+
+    let system_prompt = "\
+You are a strict judge evaluating whether an autonomous agent has achieved a user's stated goal.
+You receive the goal text and the agent's most recent response. Your only job is to decide whether
+the goal is fully satisfied based on that response.
+
+A goal is DONE only when:
+- The response explicitly confirms the goal was completed, OR
+- The response clearly shows the final deliverable was produced, OR
+- The response explains the goal is unachievable / blocked / needs user input (treat this as DONE with reason describing the block).
+
+Otherwise the goal is NOT done — CONTINUE.
+
+Reply ONLY with a single JSON object on one line:
+{\"done\": <true|false>, \"reason\": \"<one-sentence rationale>\"}";
+
+    let user_prompt = format!(
+        "Goal:\n{goal}\n\nAgent's most recent response:\n{response}\n\nIs the goal satisfied?",
+        goal = goal_text,
+        response = last_response,
+    );
+
+    let request = api::MessageRequest {
+        model: client.model().to_string(),
+        max_tokens: 4096,
+        messages: vec![
+            api::InputMessage {
+                role: "user".to_string(),
+                content: vec![api::InputContentBlock::Text { text: user_prompt }],
+            },
+        ],
+        system: Some(system_prompt.to_string()),
+        tools: None,
+        tool_choice: None,
+        stream: false,
+        temperature: Some(0.0),
+        top_p: None,
+        frequency_penalty: None,
+        presence_penalty: None,
+        stop: None,
+        reasoning_effort: None,
+        extra_body: std::collections::BTreeMap::new(),
+    };
+
+    match client.inner().send_message(&request).await {
+        Ok(response) => {
+            let response_text: String = response
+                .content
+                .iter()
+                .filter_map(|block| match block {
+                    api::OutputContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .concat();
+
+            let trimmed = response_text.trim();
+
+            if trimmed.is_empty() {
+                return ("continue".to_string(), "judge returned empty response".to_string(), true);
+            }
+
+            // Parse JSON: try full string first, then handle markdown fences, then search inside prose
+            let mut text = trimmed;
+
+            // Strip markdown code fences (```json ... ```)
+            if text.starts_with("```") {
+                text = text.trim_start_matches('`');
+                let nl = text.find('\n').unwrap_or(0);
+                if nl > 0 {
+                    text = text[nl + 1..].trim();
+                }
+                text = text.trim_end_matches('`').trim();
+            }
+
+            // First try: parse the whole blob
+            let mut data: Option<serde_json::Value> = None;
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(text) {
+                data = Some(v);
+            } else {
+                // Second try: pull the first { ... } object out of the text
+                if let Some(start) = text.find('{') {
+                    if let Some(end) = text[start..].rfind('}') {
+                        let candidate = &text[start..=start + end];
+                        if let Ok(v) = serde_json::from_str::<serde_json::Value>(candidate) {
+                            data = Some(v);
+                        }
+                    }
+                }
+            }
+
+            match data {
+                Some(json) => {
+                    let done_val = json.get("done");
+                    let done = match done_val {
+                        Some(v) if v.is_boolean() => v.as_bool().unwrap_or(false),
+                        Some(v) if v.is_string() => {
+                            matches!(v.as_str().unwrap_or("").to_lowercase().as_str(), "true" | "yes" | "1" | "done")
+                        }
+                        _ => false,
+                    };
+                    let reason = json
+                        .get("reason")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("no reason provided")
+                        .to_string();
+                    if done {
+                        ("done".to_string(), reason, false)
+                    } else {
+                        ("continue".to_string(), reason, false)
+                    }
+                }
+                None => {
+                    log::warn!("[judge_goal] Failed to parse judge response as JSON: raw={}", _truncate(&response_text, 200));
+                    ("continue".to_string(), format!("judge reply was not JSON: {}", _truncate(&response_text, 200)), true)
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("[judge_goal] Judge LLM call failed: {e}");
+            ("continue".to_string(), format!("judge error: {e}"), false)
+        }
+    }
+}
+
+/// Truncate text for logging, adding ellipsis if truncated.
+fn _truncate(text: &str, limit: usize) -> String {
+    if text.len() <= limit {
+        text.to_string()
+    } else {
+        format!("{}… [truncated]", &text[..limit])
+    }
+}
+
+/// Extract the last assistant text response from a session (for judge evaluation).
+fn get_last_assistant_text(session: &Session) -> String {
+    session
+        .messages
+        .iter()
+        .rev()
+        .find(|msg| msg.role == MessageRole::Assistant)
+        .map(|msg| {
+            msg.blocks
+                .iter()
+                .filter_map(|block| match block {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .concat()
+        })
+        .unwrap_or_default()
+}
+
+// ── Goal State Persistence ─────────────────────────────────────────────
+
+fn goals_dir() -> PathBuf {
+    dirs::home_dir()
+        .unwrap_or_else(|| PathBuf::from("~"))
+        .join(".claw")
+        .join("goals")
+}
+
+fn goal_state_path(session_id: &str) -> PathBuf {
+    goals_dir().join(format!("{session_id}.json"))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct GoalState {
+    goal_text: String,
+    status: String, // "inactive" | "active" | "paused" | "done" | "cleared"
+    turns_used: u32,
+    max_turns: u32,
+    last_verdict: Option<String>,
+    last_reason: Option<String>,
+}
+
+fn load_goal_state(session_id: &str) -> Option<GoalState> {
+    let path = goal_state_path(session_id);
+    if !path.exists() {
+        return None;
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(content) => serde_json::from_str(&content).ok(),
+        Err(_) => None,
+    }
+}
+
+fn save_goal_state(session_id: &str, state: &GoalState) {
+    let path = goal_state_path(session_id);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).ok();
+    }
+    if let Ok(content) = serde_json::to_string_pretty(state) {
+        std::fs::write(&path, content).ok();
+    }
+}
+
+#[allow(dead_code)]
+fn clear_goal_state(session_id: &str) {
+    let path = goal_state_path(session_id);
+    if path.exists() {
+        std::fs::remove_file(&path).ok();
+    }
+}
+
 // ── Session → InputMessage conversion (for tool-loop requests) ──────────
 
 /// Convert runtime `ConversationMessage` to `api::InputMessage` for the tool loop.
@@ -474,10 +731,80 @@ fn load_claw_plugin_tools() -> Vec<plugins::PluginTool> {
     all_tools
 }
 
-/// Legacy wrapper — returns tool definitions from the registry.
+/// Legacy wrapper — returns tool definitions from the registry,
+/// plus plan mode tools (EnterPlanMode / ExitPlanMode).
 pub(crate) fn build_tool_definitions() -> Vec<api::ToolDefinition> {
     let registry = build_tool_registry();
-    registry.definitions(None)
+    let mut defs = registry.definitions(None);
+    // Add plan mode tools — the LLM can call these to toggle plan mode
+    defs.push(api::ToolDefinition {
+        name: "EnterPlanMode".into(),
+        description: Some("Switch to plan-only mode: the agent can read files and explore the codebase but cannot make any changes. Use this before writing code to create a thorough plan first. Call ExitPlanMode to leave this mode.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false,
+        }),
+    });
+    defs.push(api::ToolDefinition {
+        name: "ExitPlanMode".into(),
+        description: Some("Exit plan-only mode and restore the ability to write/change files. Must be called after EnterPlanMode when ready to implement the plan.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false,
+        }),
+    });
+    // Add goal mode tools — the LLM can set a persistent cross-turn goal
+    defs.push(api::ToolDefinition {
+        name: "EnterGoalMode".into(),
+        description: Some("Switch to goal mode: set a persistent cross-turn goal that the agent works toward across multiple turns. Provide a clear goal text describing what to achieve. Call ExitGoalMode when the goal is completed or no longer needed.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {
+                "goal": {
+                    "type": "string",
+                    "description": "The goal text describing what to achieve"
+                }
+            },
+            "required": ["goal"],
+            "additionalProperties": false,
+        }),
+    });
+    defs.push(api::ToolDefinition {
+        name: "ExitGoalMode".into(),
+        description: Some("Exit goal mode and resume normal chat. Call this when the goal is achieved, abandoned, or no longer needed.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false,
+        }),
+    });
+    // Add loop mode tools — controls iteration limit
+    defs.push(api::ToolDefinition {
+        name: "EnterLoopMode".into(),
+        description: Some("Enable unlimited iteration mode: the agent will automatically continue working without any turn limit. Use this for long-running autonomous tasks. Call ExitLoopMode to restore the configured iteration limit.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false,
+        }),
+    });
+    defs.push(api::ToolDefinition {
+        name: "ExitLoopMode".into(),
+        description: Some("Disable unlimited iteration mode and restore the configured iteration limit. Call this when you want to bound the agent's autonomy to the configured limit.".into()),
+        input_schema: serde_json::json!({
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": false,
+        }),
+    });
+    defs
 }
 
 /// Load Hermes skills from ~/.hermes/skills/ and return a formatted section.
@@ -675,6 +1002,47 @@ Use your tools proactively — do not just describe what you would do."#
         sections.push(skills_section);
     }
 
+    // Append plan mode guidance
+    sections.push(
+        r#"## Plan Mode
+
+You have access to EnterPlanMode and ExitPlanMode tools. Use them to follow a plan-first workflow:
+
+1. **Before writing code**: Call EnterPlanMode to switch to read-only mode. This blocks write/edit/bash tools.
+2. **Explore and plan**: Read files, search the codebase, and present your analysis/plan to the user.
+3. **Ready to implement**: Call ExitPlanMode to restore write access, then make your changes.
+
+Always plan before implementing complex changes. If unsure, start with EnterPlanMode."#
+            .to_string(),
+    );
+
+    // Append goal mode guidance
+    sections.push(
+        r#"## Goal Mode
+
+You have access to EnterGoalMode and ExitGoalMode tools. Use them to lock onto a persistent cross-turn goal:
+
+1. **Set a goal**: Call EnterGoalMode with a clear goal text describing what to achieve.
+2. **Work persistently**: Stay focused on the goal across turns until it is complete.
+3. **Complete or abandon**: Call ExitGoalMode when the goal is done or no longer needed.
+
+When goal mode is active, all responses should advance toward the stated goal."#
+            .to_string(),
+    );
+
+    // Append loop mode guidance
+    sections.push(
+        r#"## Loop Mode
+
+You have access to EnterLoopMode and ExitLoopMode tools to control auto-continuation:
+
+- **EnterLoopMode** (default): Unlimited iterations — the agent auto-continues working until the task is done, with no turn limit.
+- **ExitLoopMode**: Restore the configured iteration limit, so the agent stops after the configured number of tool turns.
+
+Use ExitLoopMode when you want to bound the agent's autonomy to the configured limit."#
+            .to_string(),
+    );
+
     sections
 }
 
@@ -808,6 +1176,31 @@ pub async fn claw_chat_init(
         *c = Some(Arc::new(client));
     }
 
+    // ── Restore persisted goal state for this session ──
+    if let Some(goal_state) = load_goal_state(&sid) {
+        let was_active = goal_state.status == "active" || goal_state.status == "paused";
+        log::info!(
+            "[claw_chat] Restored goal state for session {}: status={}, turns_used={}",
+            sid, &goal_state.status, goal_state.turns_used
+        );
+        *state.goal_text.lock().unwrap() = goal_state.goal_text;
+        state.goal_turns_used.store(goal_state.turns_used, Ordering::Relaxed);
+        state.goal_max_turns.store(goal_state.max_turns, Ordering::Relaxed);
+        {
+            let mut s = state.goal_status.lock().unwrap();
+            *s = goal_state.status;
+        }
+        {
+            let mut v = state.goal_last_verdict.lock().unwrap();
+            *v = goal_state.last_verdict;
+        }
+        {
+            let mut r = state.goal_last_reason.lock().unwrap();
+            *r = goal_state.last_reason;
+        }
+        state.goal_mode.store(was_active, Ordering::Relaxed);
+    }
+
     let _ = app.emit(
         "agent-session-created",
         serde_json::json!({
@@ -880,7 +1273,7 @@ pub async fn claw_chat_send(
     // Mirrors upstream: build_runtime_plugin_state() / build_runtime_with_plugin_state()
     let (feature_config, tool_registry) = build_runtime_state()?;
     let tool_defs = tool_registry.definitions(None);
-    let system_prompt_sections = claw_agent_system_prompt(skill_bytes_cap);
+    let mut system_prompt_sections = claw_agent_system_prompt(skill_bytes_cap);
     let sid = session_path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -892,146 +1285,364 @@ pub async fn claw_chat_send(
         tool_defs.len(), sid
     );
 
-    // ── Take session and run via ConversationRuntime ──
-    // ConversationRuntime is !Send (contains Box<dyn HookProgressReporter>),
-    // so all runtime creation + run_turn + into_session must happen inside
-    // block_in_place, which runs synchronously without Send requirements.
-    let taken_session = {
-        let mut s = state.session.lock().await;
-        s.take().ok_or("No session — call claw_chat_init first")?
-    };
+    // ── Check goal mode state ──
+    let goal_mode_active = state.goal_mode.load(Ordering::Relaxed);
+    let goal_text_value = state.goal_text.lock().map(|g| g.clone()).unwrap_or_default();
+    if goal_mode_active && !goal_text_value.is_empty() {
+        // If goal is paused on user message, set status back to active for judge
+        {
+            let mut status = state.goal_status.lock().unwrap();
+            if *status == "paused" {
+                *status = "active".to_string();
+            }
+        }
+        let goal_section = format!(
+            r#"## Active Goal
 
-    log::info!(
-        "[claw_chat] Starting ConversationRuntime::run_turn(), session={}, max_iterations={}",
-        sid, max_iterations
-    );
+You are in **goal mode**. Your persistent goal is:
 
-    let max_iters = max_iterations;
-    // Create fresh abort signal for this turn, store in state so claw_chat_abort can set it
-    let hook_abort_signal = runtime::HookAbortSignal::new();
-    {
-        // Replace state's abort signal with this turn's signal
-        let mut abort = state.hook_abort.lock().await;
-        *abort = hook_abort_signal.clone();
+> {goal}
+
+Every response must advance toward this goal. Once the goal is complete, call `ExitGoalMode` to resume normal chat."#,
+            goal = goal_text_value
+        );
+        system_prompt_sections.push(goal_section);
+        log::info!("[claw_chat] Goal mode active: {}", goal_text_value);
     }
 
-    // block_in_place runs synchronously — !Send types stay in this stack frame
-    // Clone for use inside block_in_place (move closure takes ownership)
-    let app_hook = app.clone();
-    let sid_hook = sid.clone();
+    // Max iterations for a single run_turn (from config, loop mode doesn't affect this)
+    let max_iters = max_iterations;
+    let loop_mode_active = state.loop_mode.load(Ordering::Relaxed);
 
-    let (summary, session) = tokio::task::block_in_place(move || {
-        let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
-            client,
-            tool_defs,
-            reasoning_effort,
-            app_hook.clone(),
-            sid_hook.clone(),
+    // ── Goal loop ──
+    // We run turns in a loop when goal mode is active.
+    // The first iteration uses the user's `message`; subsequent iterations use
+    // a continuation prompt. Between iterations we make async judge calls.
+    let mut current_message = message;
+    let mut goal_loop_iteration = 0u32;
+    let goal_max_turns = state.goal_max_turns.load(Ordering::Relaxed);
+    let mut goal_completed = false;
+    let mut goal_paused = false;
+    let mut final_auto_compaction: Option<usize> = None;
+
+    // ── User message preemption ──
+    // If a goal is already active when the user sends a new message,
+    // the user's input preempts the goal. We let the judge evaluate
+    // after this turn — if the user's message happens to complete the
+    // goal, mark done; otherwise auto-pause the goal.
+    let goal_was_active_before = goal_mode_active
+        && !goal_text_value.is_empty()
+        && {
+            let status = state.goal_status.lock().unwrap();
+            status.as_str() == "active"
+        };
+    if goal_was_active_before {
+        log::info!("[claw_chat] User message preempts active goal — will auto-pause after judge");
+    }
+
+    loop {
+        // ── Take session and run via ConversationRuntime ──
+        // ConversationRuntime is !Send (contains Box<dyn HookProgressReporter>),
+        // so all runtime creation + run_turn + into_session must happen inside
+        // block_in_place, which runs synchronously without Send requirements.
+        let taken_session = {
+            let mut s = state.session.lock().await;
+            s.take().ok_or("No session — call claw_chat_init first")?
+        };
+
+        log::info!(
+            "[claw_chat] Starting ConversationRuntime::run_turn(), session={}, iteration={}",
+            sid, goal_loop_iteration
         );
-        let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::new(
-            app_hook.clone(),
-            sid_hook.clone(),
-        );
-        // Permission policy with rules from config — mirrors upstream permission_policy()
-        let permission_policy = PermissionPolicy::new(PermissionMode::Allow)
-            .with_permission_rules(feature_config.permission_rules());
 
-        let mut rt = runtime::ConversationRuntime::new_with_features(
-            taken_session,
-            api_client,
-            tool_executor,
-            permission_policy,
-            system_prompt_sections,
-            &feature_config,
-        )
-        .with_max_iterations(max_iters)
-        .with_hook_abort_signal(hook_abort_signal)
-        .with_hook_progress_reporter(Box::new(
-            crate::commands::claw_runtime_bridge::TauriHookReporter::new(app_hook, sid_hook),
-        ))
-        // Auto-compaction: trigger based on active model's compaction_threshold,
-        // which is configured per-model in the settings page. This prevents
-        // context_window_blocked errors while adapting to different model limits.
-        .with_auto_compaction_input_tokens_threshold(compaction_threshold);
-
-        let result = rt.run_turn(message, None);
-        let session = rt.into_session();
-
-        match result {
-            Ok(s) => (Ok(s), session),
-            Err(e) => (Err(format!("Conversation failed: {e}")), session),
+        // Create fresh abort signal for this turn
+        let hook_abort_signal = runtime::HookAbortSignal::new();
+        {
+            let mut abort = state.hook_abort.lock().await;
+            *abort = hook_abort_signal.clone();
         }
-    });
 
-    let summary = match summary {
-        Ok(s) => s,
-        Err(e) => {
-            // Restore session even on failure — don't lose user's conversation
-            log::error!("[claw_chat] run_turn failed: {e}");
-            {
-                let mut s = state.session.lock().await;
-                *s = Some(session);
+        // Clone values for each iteration (block_in_place move closure consumes them)
+        let client_iter = client.clone();
+        let tool_defs_iter = tool_defs.clone();
+        let reasoning_iter = reasoning_effort.clone();
+        let fc_iter = feature_config.clone();
+        let sp_iter = system_prompt_sections.clone();
+        let app_hook = app.clone();
+        let sid_hook = sid.clone();
+        let plan_mode_hook = state.plan_mode.clone();
+        let goal_mode_hook = state.goal_mode.clone();
+        let goal_text_hook = state.goal_text.clone();
+        let loop_mode_hook = state.loop_mode.clone();
+
+        let (summary, session) = tokio::task::block_in_place(move || {
+            let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
+                client_iter,
+                tool_defs_iter,
+                reasoning_iter,
+                app_hook.clone(),
+                sid_hook.clone(),
+            );
+            let tool_executor = crate::commands::claw_runtime_bridge::TauriToolExecutor::new(
+                app_hook.clone(),
+                sid_hook.clone(),
+                plan_mode_hook.clone(),
+                goal_mode_hook.clone(),
+                goal_text_hook.clone(),
+                loop_mode_hook.clone(),
+            );
+            // Permission policy with rules from config — mirrors upstream permission_policy()
+            let permission_policy = PermissionPolicy::new(PermissionMode::Allow)
+                .with_permission_rules(fc_iter.permission_rules());
+
+            let mut rt = runtime::ConversationRuntime::new_with_features(
+                taken_session,
+                api_client,
+                tool_executor,
+                permission_policy,
+                sp_iter,
+                &fc_iter,
+            )
+            .with_max_iterations(max_iters)
+            .with_hook_abort_signal(hook_abort_signal)
+            .with_hook_progress_reporter(Box::new(
+                crate::commands::claw_runtime_bridge::TauriHookReporter::new(app_hook, sid_hook),
+            ))
+            // Auto-compaction: trigger based on active model's compaction_threshold
+            .with_auto_compaction_input_tokens_threshold(compaction_threshold);
+
+            let result = rt.run_turn(current_message, None);
+            let session = rt.into_session();
+
+            match result {
+                Ok(s) => (Ok(s), session),
+                Err(e) => (Err(format!("Conversation failed: {e}")), session),
             }
-            // NOTE: Don't emit agent-error here — frontend clawSend catch block
-            // already handles the error and shows it to the user.
-            // Emitting agent-error would cause duplicate error messages.
-            return Err(e);
+        });
+
+        let summary = match summary {
+            Ok(s) => s,
+            Err(e) => {
+                // Restore session even on failure — don't lose user's conversation
+                log::error!("[claw_chat] run_turn failed: {e}");
+                {
+                    let mut s = state.session.lock().await;
+                    *s = Some(session);
+                }
+                return Err(e);
+            }
+        };
+
+        log::info!(
+            "[claw_chat] run_turn completed: {} iterations, {} tools",
+            summary.iterations,
+            summary.tool_results.len()
+        );
+
+        // ── Emit results to frontend ──
+        let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
+        final_auto_compaction = emit.auto_compaction_removed;
+
+        let cost = estimate_cost(emit.input_tokens, emit.output_tokens, &agent_config.model);
+        let total_tokens = emit.input_tokens + emit.output_tokens;
+        if total_tokens > 0 {
+            let _ = app.emit(
+                "agent-usage",
+                serde_json::json!({
+                    "prompt_tokens": emit.input_tokens,
+                    "completion_tokens": emit.output_tokens,
+                    "total_tokens": total_tokens,
+                    "cost": cost,
+                    "session_id": sid,
+                }),
+            );
         }
-    };
-    log::info!(
-        "[claw_chat] run_turn completed: {} iterations, {} tools",
-        summary.iterations,
-        summary.tool_results.len()
-    );
-
-    // ── Emit results to frontend (batch — usage/done only; text/tool events are
-    // per-iteration from TauriApiClient::stream() and TauriToolExecutor::execute()) ──
-    // NOTE: agent-delta / agent-reasoning-delta are emitted per-iteration from
-    // TauriApiClient::stream() after each send_turn(). agent-tool-start / agent-tool-complete
-    // fire from TauriToolExecutor::execute() during ConversationRuntime.run_turn().
-    let emit = crate::commands::claw_runtime_bridge::turn_summary_to_emit(&summary);
-
-    let cost = estimate_cost(emit.input_tokens, emit.output_tokens, &agent_config.model);
-    let total_tokens = emit.input_tokens + emit.output_tokens;
-    if total_tokens > 0 {
         let _ = app.emit(
-            "agent-usage",
+            "agent-done",
             serde_json::json!({
-                "prompt_tokens": emit.input_tokens,
-                "completion_tokens": emit.output_tokens,
-                "total_tokens": total_tokens,
-                "cost": cost,
                 "session_id": sid,
+                "usage": {
+                    "prompt_tokens": emit.input_tokens,
+                    "completion_tokens": emit.output_tokens,
+                    "total_tokens": total_tokens,
+                    "cost": cost,
+                },
+                "auto_compaction": emit.auto_compaction_removed,
             }),
         );
-    }
-    let _ = app.emit(
-        "agent-done",
-        serde_json::json!({
-            "session_id": sid,
-            "usage": {
-                "prompt_tokens": emit.input_tokens,
-                "completion_tokens": emit.output_tokens,
-                "total_tokens": total_tokens,
-                "cost": cost,
-            },
-            "auto_compaction": emit.auto_compaction_removed,
-        }),
-    );
 
-    // ── Save session ──
-    {
-        let mut s = state.session.lock().await;
-        *s = Some(session);
-    }
-    {
-        let s = state.session.lock().await;
-        if let Some(ref sess) = *s {
-            if let Some(path) = sess.persistence_path() {
-                sess.save_to_path(path)
-                    .map_err(|e| format!("Failed to save session: {e}"))?;
+        // ── Save session ──
+        {
+            let mut s = state.session.lock().await;
+            *s = Some(session);
+        }
+        {
+            let s = state.session.lock().await;
+            if let Some(ref sess) = *s {
+                if let Some(path) = sess.persistence_path() {
+                    sess.save_to_path(path)
+                        .map_err(|e| format!("Failed to save session: {e}"))?;
+                }
             }
         }
+
+        // ── Goal mode: judge loop ──
+        if !goal_mode_active || goal_text_value.is_empty() {
+            // Not in goal mode — single turn only
+            break;
+        }
+
+        // Check abort signal between iterations
+        {
+            let abort = state.hook_abort.lock().await;
+            if abort.is_aborted() {
+                log::info!("[claw_chat] Goal loop aborted by user");
+                goal_paused = true;
+                {
+                    let mut status = state.goal_status.lock().unwrap();
+                    *status = "paused".to_string();
+                }
+                break;
+            }
+        }
+
+        // Check budget
+        if goal_loop_iteration >= goal_max_turns {
+            log::info!(
+                "[claw_chat] Goal turn budget exhausted ({}/{}), pausing",
+                goal_loop_iteration, goal_max_turns
+            );
+            goal_paused = true;
+            {
+                let mut status = state.goal_status.lock().unwrap();
+                *status = "paused".to_string();
+            }
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "paused",
+                "reason": format!("Turn budget exhausted ({}/{})", goal_loop_iteration, goal_max_turns),
+                "session_id": sid,
+            }));
+            break;
+        }
+
+        // ── Judge (async, outside block_in_place) ──
+        // Get the last assistant response from the session
+        let last_response = {
+            let s = state.session.lock().await;
+            s.as_ref()
+                .map(|sess| get_last_assistant_text(sess))
+                .unwrap_or_default()
+        };
+
+        let (verdict, reason, parse_failed) = judge_goal(
+            client.clone(),
+            &goal_text_value,
+            &last_response,
+        )
+        .await;
+
+        // Track consecutive parse failures
+        if parse_failed {
+            let failures = state.goal_consecutive_parse_failures.fetch_add(1, Ordering::Relaxed) + 1;
+            log::warn!("[claw_chat] Goal judge parse failure #{failures}/3");
+            if failures >= 3 {
+                log::warn!("[claw_chat] Too many consecutive parse failures — auto-pausing goal");
+                goal_paused = true;
+                {
+                    let mut status = state.goal_status.lock().unwrap();
+                    *status = "paused".to_string();
+                }
+                let pause_reason = format!("Judge output parse failed {failures} times in a row — check goal_judge model config");
+                // Reset counter
+                state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
+                let _ = app.emit("goal-status", serde_json::json!({
+                    "status": "paused",
+                    "reason": pause_reason,
+                    "session_id": sid,
+                }));
+                break;
+            }
+        } else {
+            // Reset on successful parse
+            state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
+        }
+
+        // Store verdict
+        {
+            let mut v = state.goal_last_verdict.lock().unwrap();
+            *v = Some(verdict.clone());
+        }
+        {
+            let mut r = state.goal_last_reason.lock().unwrap();
+            *r = Some(reason.clone());
+        }
+
+        log::info!(
+            "[claw_chat] Goal judge verdict: {} — {}",
+            verdict, reason
+        );
+
+        if verdict == "done" {
+            goal_completed = true;
+            {
+                let mut status = state.goal_status.lock().unwrap();
+                *status = "done".to_string();
+            }
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "done",
+                "reason": reason,
+                "session_id": sid,
+                "turns_used": goal_loop_iteration + 1,
+            }));
+            // Persist goal state
+            save_goal_state(&sid, &GoalState {
+                goal_text: goal_text_value.clone(),
+                status: "done".to_string(),
+                turns_used: goal_loop_iteration + 1,
+                max_turns: goal_max_turns,
+                last_verdict: Some(verdict),
+                last_reason: Some(reason),
+            });
+            break;
+        }
+
+        // ── User message preemption ──
+        // If this turn was triggered by a user message (not a goal continuity),
+        // auto-pause the goal since the user has changed focus.
+        if goal_was_active_before {
+            log::info!("[claw_chat] User preempted goal — pausing (verdict: continue)");
+            goal_paused = true;
+            {
+                let mut status = state.goal_status.lock().unwrap();
+                *status = "paused".to_string();
+            }
+            // Reset parse failure counter
+            state.goal_consecutive_parse_failures.store(0, Ordering::Relaxed);
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "paused",
+                "reason": format!("User sent a new message while goal was active. Judge says: {reason}"),
+                "session_id": sid,
+            }));
+            break;
+        }
+
+        // ── Build continuation message and loop ──
+        goal_loop_iteration += 1;
+        current_message = format!(
+            "[Continuing toward your standing goal]\nGoal: {goal}\n\nContinue working toward this goal. Take the next concrete step. If you believe the goal is complete, state so explicitly and stop. If you are blocked and need input from the user, say so clearly and stop.",
+            goal = goal_text_value,
+        );
+
+        let _ = app.emit("goal-status", serde_json::json!({
+            "status": "continuing",
+            "reason": reason,
+            "session_id": sid,
+            "turns_used": goal_loop_iteration,
+            "max_turns": goal_max_turns,
+        }));
+
+        // Small yield to allow event loop to process
+        tokio::task::yield_now().await;
     }
 
     log::info!("[claw_chat] Turn completed for session={}", sid);
@@ -1041,10 +1652,15 @@ pub async fn claw_chat_send(
         let s = state.session.lock().await;
         s.as_ref().map(|sess| sess.messages.len()).unwrap_or(0)
     };
+
     Ok(serde_json::json!({
         "sessionId": sid,
         "messageCount": message_count,
-        "autoCompaction": emit.auto_compaction_removed,
+        "autoCompaction": final_auto_compaction,
+        "goalCompleted": goal_completed,
+        "goalPaused": goal_paused,
+        "goalTurnsUsed": goal_loop_iteration,
+        "goalMaxTurns": goal_max_turns,
     }))
 }
 
@@ -1199,5 +1815,190 @@ pub async fn claw_read_stats() -> Result<serde_json::Value, String> {
         "sessions": sessions.len(),
         "messages": total_messages,
         "source": "claw",
+    }))
+}
+
+/// 获取当前 plan 模式状态
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_get_plan_mode(
+    state: tauri::State<'_, ClawChatState>,
+) -> Result<serde_json::Value, String> {
+    let active = state.plan_mode.load(Ordering::Relaxed);
+    Ok(serde_json::json!({
+        "active": active,
+    }))
+}
+
+/// 手动切换 plan 模式（前端 UI 调用）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_set_plan_mode(
+    state: tauri::State<'_, ClawChatState>,
+    active: bool,
+) -> Result<serde_json::Value, String> {
+    state.plan_mode.store(active, Ordering::Relaxed);
+    log::info!("[claw_chat] Plan mode set to {}", active);
+    Ok(serde_json::json!({
+        "success": true,
+        "active": active,
+    }))
+}
+
+/// 获取当前 goal 模式状态（含完整跟踪信息）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_get_goal_mode(
+    state: tauri::State<'_, ClawChatState>,
+) -> Result<serde_json::Value, String> {
+    let active = state.goal_mode.load(Ordering::Relaxed);
+    let goal_text = state.goal_text.lock().unwrap().clone();
+    let status = state.goal_status.lock().unwrap().clone();
+    let turns_used = state.goal_turns_used.load(Ordering::Relaxed);
+    let max_turns = state.goal_max_turns.load(Ordering::Relaxed);
+    let last_verdict = state.goal_last_verdict.lock().unwrap().clone();
+    let last_reason = state.goal_last_reason.lock().unwrap().clone();
+    Ok(serde_json::json!({
+        "active": active,
+        "goalText": goal_text,
+        "status": status,
+        "turnsUsed": turns_used,
+        "maxTurns": max_turns,
+        "lastVerdict": last_verdict,
+        "lastReason": last_reason,
+    }))
+}
+
+/// 手动切换 goal 模式（前端 UI 调用）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_set_goal_mode(
+    app: AppHandle,
+    state: tauri::State<'_, ClawChatState>,
+    active: bool,
+    goal_text: Option<String>,
+) -> Result<serde_json::Value, String> {
+    state.goal_mode.store(active, Ordering::Relaxed);
+    if let Some(text) = goal_text {
+        *state.goal_text.lock().unwrap() = text.clone();
+        // Reset tracking state when setting a new goal
+        state.goal_turns_used.store(0, Ordering::Relaxed);
+        state.goal_max_turns.store(20, Ordering::Relaxed);
+        {
+            let mut v = state.goal_last_verdict.lock().unwrap();
+            *v = None;
+        }
+        {
+            let mut r = state.goal_last_reason.lock().unwrap();
+            *r = None;
+        }
+        {
+            let mut s = state.goal_status.lock().unwrap();
+            *s = if active { "active".to_string() } else { "inactive".to_string() };
+        }
+        log::info!("[claw_chat] Goal mode set to active with text: {}", text);
+    } else {
+        {
+            let mut status = state.goal_status.lock().unwrap();
+            *status = if active { "active".to_string() } else { "inactive".to_string() };
+        }
+        log::info!("[claw_chat] Goal mode set to {}", active);
+    }
+
+    // Emit goal-status event for frontend
+    let _ = app.emit("goal-status", serde_json::json!({
+        "status": if active { "active" } else { "inactive" },
+        "goalText": state.goal_text.lock().unwrap().clone(),
+        "session_id": serde_json::Value::Null,
+    }));
+
+    Ok(serde_json::json!({
+        "success": true,
+        "active": active,
+    }))
+}
+
+/// 控制 goal 生命周期：pause / resume / clear
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_set_goal_status(
+    app: AppHandle,
+    state: tauri::State<'_, ClawChatState>,
+    status: String,
+) -> Result<serde_json::Value, String> {
+    match status.as_str() {
+        "pause" | "paused" => {
+            state.goal_mode.store(false, Ordering::Relaxed);
+            {
+                let mut s = state.goal_status.lock().unwrap();
+                *s = "paused".to_string();
+            }
+            log::info!("[claw_chat] Goal mode paused");
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "paused",
+                "session_id": serde_json::Value::Null,
+            }));
+        }
+        "resume" | "active" => {
+            state.goal_mode.store(true, Ordering::Relaxed);
+            {
+                let mut s = state.goal_status.lock().unwrap();
+                *s = "active".to_string();
+            }
+            log::info!("[claw_chat] Goal mode resumed");
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "active",
+                "session_id": serde_json::Value::Null,
+            }));
+        }
+        "clear" | "inactive" | "done" => {
+            state.goal_mode.store(false, Ordering::Relaxed);
+            *state.goal_text.lock().unwrap() = String::new();
+            state.goal_turns_used.store(0, Ordering::Relaxed);
+            state.goal_max_turns.store(20, Ordering::Relaxed);
+            {
+                let mut v = state.goal_last_verdict.lock().unwrap();
+                *v = None;
+            }
+            {
+                let mut r = state.goal_last_reason.lock().unwrap();
+                *r = None;
+            }
+            {
+                let mut s = state.goal_status.lock().unwrap();
+                *s = "cleared".to_string();
+            }
+            log::info!("[claw_chat] Goal mode cleared");
+            let _ = app.emit("goal-status", serde_json::json!({
+                "status": "cleared",
+                "session_id": serde_json::Value::Null,
+            }));
+        }
+        _ => return Err(format!("Invalid goal status: {status}. Use: pause, resume, clear")),
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+        "status": status,
+    }))
+}
+
+/// 获取当前 loop 模式状态
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_get_loop_mode(
+    state: tauri::State<'_, ClawChatState>,
+) -> Result<serde_json::Value, String> {
+    let active = state.loop_mode.load(Ordering::Relaxed);
+    Ok(serde_json::json!({
+        "active": active,
+    }))
+}
+
+/// 手动切换 loop 模式（前端 UI 调用）
+#[tauri::command(rename_all = "camelCase")]
+pub async fn claw_chat_set_loop_mode(
+    state: tauri::State<'_, ClawChatState>,
+    active: bool,
+) -> Result<serde_json::Value, String> {
+    state.loop_mode.store(active, Ordering::Relaxed);
+    log::info!("[claw_chat] Loop mode set to {}", active);
+    Ok(serde_json::json!({
+        "success": true,
+        "active": active,
     }))
 }

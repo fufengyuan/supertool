@@ -25,6 +25,7 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/usage', description: 'Show token usage, cost, and rate limits', category: 'agent', local: true },
   { name: '/debug', description: 'Show diagnostics and debug info', category: 'agent' },
   { name: '/goal', description: 'Lock the agent onto a persistent cross-turn goal', category: 'agent' },
+  { name: '/loop', description: 'Toggle loop auto-resubmit mode. While ON, the next prompt re-sends after each turn. Args: count or duration (e.g. /loop 10, /loop 5m). Esc cancels iteration.', category: 'agent' },
   { name: '/steer', description: 'Steer the in-flight agent without interrupting it', category: 'agent' },
   { name: '/queue', description: 'Queue a follow-up to run after the current turn', category: 'agent' },
 

@@ -9,6 +9,14 @@
       :context-folder="contextFolder"
       :show-context-folder="true"
       :compacting="compacting"
+      :plan-mode="planMode"
+      :goal-mode="goalMode"
+      :goal-text="goalText"
+      :goal-status="goalStatus"
+      :goal-turns-used="goalTurnsUsed"
+      :goal-max-turns="goalMaxTurns"
+      :goal-last-verdict="goalLastVerdict"
+      :loop-mode="loopMode"
       @pick-folder="pickContextFolder"
       @clear-folder="clearContextFolder"
       @toggle-fast="handleToggleFast"
@@ -16,6 +24,10 @@
       @clear="clearChat"
       @compact="handleCompact"
       @fork="handleFork"
+      @toggle-plan="handleTogglePlan"
+      @toggle-goal="handleToggleGoal"
+      @toggle-goal-pause="handleToggleGoalPause"
+      @toggle-loop="handleToggleLoop"
     />
 
     <!-- Messages area -->
@@ -139,6 +151,183 @@ const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const clawInitialized = ref(false);
 const isClawMode = computed(() => agentModeStore.mode === 'claw');
 
+// Plan mode state
+const planMode = ref(false);
+
+// Goal mode state
+const goalMode = ref(false);
+const goalText = ref('');
+const goalStatus = ref('inactive');
+const goalTurnsUsed = ref(0);
+const goalMaxTurns = ref(20);
+const goalLastVerdict = ref<string | null>(null);
+const goalLastReason = ref<string | null>(null);
+
+// Loop mode state
+const loopMode = ref(false); // default: off (opt-in via /loop)
+const loopPrompt = ref<string | null>(null);
+const loopIterations = ref(0);
+const loopMaxIterations = ref(0); // 0 = unlimited
+let loopResendTimer: ReturnType<typeof setTimeout> | null = null;
+
+function cancelLoopResend() {
+  if (loopResendTimer) {
+    clearTimeout(loopResendTimer);
+    loopResendTimer = null;
+  }
+}
+
+/** Schedule auto-resend of loop prompt after 800ms delay (matching oh-my-pi) */
+function scheduleLoopResend() {
+  cancelLoopResend();
+  if (!loopMode.value || !loopPrompt.value) return;
+  // Check iteration limit
+  if (loopMaxIterations.value > 0 && loopIterations.value >= loopMaxIterations.value) {
+    loopMode.value = false;
+    addAgentMessage(`🔁 Loop finished — ${loopIterations.value} iterations completed`);
+    invoke('claw_chat_set_loop_mode', { active: false }).catch(() => {});
+    return;
+  }
+  loopResendTimer = setTimeout(async () => {
+    loopResendTimer = null;
+    if (!loopMode.value || !loopPrompt.value) return;
+    loopIterations.value++;
+    const prompt = loopPrompt.value;
+    await clawSend(prompt);
+    // Schedule next loop iteration after this turn completes
+    scheduleLoopResend();
+  }, 800);
+}
+
+// Plan mode toggle — calls Tauri backend set/get
+async function handleTogglePlan() {
+  if (!isClawMode.value) return;
+  const newState = !planMode.value;
+  planMode.value = newState;
+  try {
+    await invoke('claw_chat_set_plan_mode', { active: newState });
+  } catch (e) {
+    console.error('[Chat] Failed to set plan mode:', e);
+  }
+}
+
+// Fetch plan mode state on init
+async function fetchPlanMode() {
+  if (!isClawMode.value) return;
+  try {
+    const res = await invoke<{ active: boolean }>('claw_chat_get_plan_mode');
+    planMode.value = res.active;
+  } catch (e) {
+    planMode.value = false;
+  }
+}
+
+// Goal mode toggle — button: ON→OFF clears goal; OFF→prompt for goal text
+async function handleToggleGoal() {
+  if (!isClawMode.value) return;
+  if (goalMode.value) {
+    // Turn off — clear goal
+    goalMode.value = false;
+    goalText.value = '';
+    goalStatus.value = 'inactive';
+    goalTurnsUsed.value = 0;
+    goalLastVerdict.value = null;
+    goalLastReason.value = null;
+    try {
+      await invoke('claw_chat_set_goal_status', { status: 'clear' });
+    } catch (e) {
+      console.error('[Chat] Failed to clear goal mode:', e);
+    }
+  } else {
+    // Prompt for goal text
+    const input = window.prompt('Enter your goal:');
+    if (input && input.trim()) {
+      const text = input.trim();
+      goalMode.value = true;
+      goalText.value = text;
+      goalStatus.value = 'active';
+      goalTurnsUsed.value = 0;
+      goalLastVerdict.value = null;
+      goalLastReason.value = null;
+      try {
+        await invoke('claw_chat_set_goal_mode', { active: true, goalText: text });
+      } catch (e) {
+        console.error('[Chat] Failed to set goal mode:', e);
+      }
+    }
+  }
+}
+
+// Fetch goal mode state on init
+async function fetchGoalMode() {
+  if (!isClawMode.value) return;
+  try {
+    const res = await invoke<{
+      active: boolean;
+      goalText: string;
+      status: string;
+      turnsUsed: number;
+      maxTurns: number;
+      lastVerdict: string | null;
+      lastReason: string | null;
+    }>('claw_chat_get_goal_mode');
+    goalMode.value = res.active;
+    goalText.value = res.goalText || '';
+    goalStatus.value = res.status || 'inactive';
+    goalTurnsUsed.value = res.turnsUsed || 0;
+    goalMaxTurns.value = res.maxTurns || 20;
+    goalLastVerdict.value = res.lastVerdict || null;
+    goalLastReason.value = res.lastReason || null;
+  } catch (e) {
+    goalMode.value = false;
+    goalText.value = '';
+    goalStatus.value = 'inactive';
+  }
+}
+
+// Loop mode toggle
+async function handleToggleLoop() {
+  if (!isClawMode.value) return;
+  const newState = !loopMode.value;
+  loopMode.value = newState;
+  if (!newState) {
+    // Disabling: clean up loop state
+    cancelLoopResend();
+    loopPrompt.value = null;
+    loopIterations.value = 0;
+  }
+  try {
+    await invoke('claw_chat_set_loop_mode', { active: newState });
+  } catch (e) {
+    console.error('[Chat] Failed to set loop mode:', e);
+  }
+}
+
+// Goal pause/resume toggle
+async function handleToggleGoalPause() {
+  if (!isClawMode.value || !goalMode.value) return;
+  const isPaused = goalStatus.value === 'paused';
+  const newStatus = isPaused ? 'resume' : 'pause';
+  try {
+    await invoke('claw_chat_set_goal_status', { status: newStatus });
+    goalStatus.value = isPaused ? 'active' : 'paused';
+    goalMode.value = !isPaused; // paused = goal_mode off for backend
+  } catch (e) {
+    console.error('[Chat] Failed to toggle goal pause:', e);
+  }
+}
+
+// Fetch loop mode state on init
+async function fetchLoopMode() {
+  if (!isClawMode.value) return;
+  try {
+    const res = await invoke<{ active: boolean }>('claw_chat_get_loop_mode');
+    loopMode.value = res.active;
+  } catch (e) {
+    loopMode.value = false;
+  }
+}
+
 // 监听模式切换：清空消息、重新初始化
 watch(() => agentModeStore.mode, async (newMode, oldMode) => {
   console.log(`[Chat] 🔄 Mode changed: ${oldMode} → ${newMode}`);
@@ -150,7 +339,14 @@ watch(() => agentModeStore.mode, async (newMode, oldMode) => {
   if (newMode === 'claw') {
     clawInitialized.value = false;
     await ensureClawChat();
+    await fetchPlanMode();
+    await fetchGoalMode();
+    await fetchLoopMode();
   } else {
+    planMode.value = false;
+    goalMode.value = false;
+    goalText.value = '';
+    loopMode.value = false;
     await loadSessionHistory();
   }
 });
@@ -224,6 +420,21 @@ const localCommands = useLocalCommands({
   onNewChat: startNewChat,
   onClear: clearChat,
   addAgentMessage,
+  onGoalModeChange: (active, text) => {
+    goalMode.value = active;
+    if (text != null) goalText.value = text;
+  },
+  onLoopModeChange: (active, maxIterations) => {
+    loopMode.value = active;
+    if (!active) {
+      cancelLoopResend();
+      loopPrompt.value = null;
+      loopIterations.value = 0;
+    }
+    if (maxIterations != null) {
+      loopMaxIterations.value = maxIterations;
+    }
+  },
 });
 
 // ── Scroll management ────────────────────────────────────────────────────────
@@ -268,7 +479,7 @@ const {
 // ── Chat actions (depends on localCommands, scrollToBottom, etc.) ────────────
 const {
   handleSend: doSend,
-  handleAbort,
+  handleAbort: handleAbortRaw,
   handleApprove,
   handleDeny,
 } = useChatActions({
@@ -283,6 +494,14 @@ const {
   inputRef: chatInputRef,
   isClawMode,
 });
+
+/** Wrapper around handleAbort that also pauses loop mode (matching oh-my-pi Esc → pauseLoop) */
+async function handleAbort() {
+  // Pause loop: cancel pending resend, clear prompt, but keep mode enabled
+  cancelLoopResend();
+  loopPrompt.value = null;
+  await handleAbortRaw();
+}
 
 // ── Derived ──────────────────────────────────────────────────────────────────
 const isApprovalMode = computed(() => {
@@ -376,6 +595,10 @@ async function clawSend(text: string) {
       sessionId: string
       messageCount: number
       autoCompaction: number | null
+      goalCompleted?: boolean
+      goalPaused?: boolean
+      goalTurnsUsed?: number
+      goalMaxTurns?: number
     }>('claw_chat_send', { message: text })
     // Update session metadata from return value
     if (result?.sessionId) {
@@ -383,6 +606,18 @@ async function clawSend(text: string) {
     }
     if (result?.autoCompaction && result.autoCompaction > 0) {
       console.log(`[Chat] ⚠️ Session compacted: ${result.autoCompaction} messages removed`)
+    }
+    // Update goal tracking from response
+    if (result?.goalCompleted) {
+      goalStatus.value = 'done';
+      addAgentMessage(`✅ **Goal completed!** (${result.goalTurnsUsed ?? 0} turns used)`);
+    } else if (result?.goalPaused) {
+      goalStatus.value = 'paused';
+      goalMode.value = false;
+      addAgentMessage(`⏸ **Goal paused** — turn budget of ${result.goalMaxTurns ?? 20} exhausted. Resume to continue.`);
+    }
+    if (result?.goalTurnsUsed != null) {
+      goalTurnsUsed.value = result.goalTurnsUsed;
     }
     // Reset loading state — agent-done event also resets this,
     // but we do it here as safety net in case event doesn't fire
@@ -399,9 +634,17 @@ async function handleSendInput() {
 
   // Claw 模式 → 走 direct LLM API
   if (isClawMode.value) {
+    if (isLoading.value) return; // prevent concurrent sends
+    // Capture loop prompt if loop mode is ON
+    if (loopMode.value) {
+      loopPrompt.value = text;
+      loopIterations.value = 0;
+    }
     chatInputRef.value?.clear()
     pushUser(text)
     await clawSend(text)
+    // Schedule loop auto-resend after turn completes
+    scheduleLoopResend();
     pushHistory(text)
     return
   }
@@ -508,6 +751,14 @@ function handleKeydown(e: KeyboardEvent) {
     return;
   }
 
+  // Esc during loop gap (800ms between iterations) → cancel pending resend
+  if (e.key === 'Escape' && loopResendTimer) {
+    cancelLoopResend();
+    loopPrompt.value = null;
+    e.preventDefault();
+    return;
+  }
+
   if (e.key === 'ArrowUp') {
     const prev = recallPrev();
     if (prev) e.preventDefault();
@@ -542,6 +793,9 @@ async function loadSessionHistory() {
 onMounted(async () => {
   if (isClawMode.value) {
     await ensureClawChat();
+    await fetchPlanMode();
+    await fetchGoalMode();
+    await fetchLoopMode();
   } else {
     await loadSessionHistory();
   }

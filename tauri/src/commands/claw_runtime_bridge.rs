@@ -10,6 +10,7 @@
 //! tokio::runtime::Runtime for the sync → async bridge.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use runtime::{
     ApiClient, ApiRequest, AssistantEvent, RuntimeError, TokenUsage, ToolError, ToolExecutor,
@@ -162,16 +163,75 @@ impl ApiClient for TauriApiClient {
 pub(crate) struct TauriToolExecutor {
     app: AppHandle,
     session_id: String,
+    plan_mode: Arc<AtomicBool>,
+    goal_mode: Arc<AtomicBool>,
+    goal_text: Arc<std::sync::Mutex<String>>,
+    loop_mode: Arc<AtomicBool>,
 }
 
 impl TauriToolExecutor {
-    pub(crate) fn new(app: AppHandle, session_id: String) -> Self {
-        Self { app, session_id }
+    pub(crate) fn new(
+        app: AppHandle,
+        session_id: String,
+        plan_mode: Arc<AtomicBool>,
+        goal_mode: Arc<AtomicBool>,
+        goal_text: Arc<std::sync::Mutex<String>>,
+        loop_mode: Arc<AtomicBool>,
+    ) -> Self {
+        Self { app, session_id, plan_mode, goal_mode, goal_text, loop_mode }
     }
 }
 
+/// Tools that modify the workspace — blocked when plan mode is active
+const WRITE_TOOLS: &[&str] = &[
+    "Write", "Edit", "write_file", "edit_file", "Bash", "bash",
+];
+
 impl ToolExecutor for TauriToolExecutor {
     fn execute(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError> {
+        // Handle plan mode tools internally
+        if tool_name == "EnterPlanMode" {
+            self.plan_mode.store(true, Ordering::Relaxed);
+            log::info!("[PlanMode] Entered plan mode");
+            return Ok(r#"{"success":true,"message":"Plan mode enabled. You can now explore the codebase with read-only tools. Call ExitPlanMode when ready to write code."}"#.into());
+        }
+        if tool_name == "ExitPlanMode" {
+            self.plan_mode.store(false, Ordering::Relaxed);
+            log::info!("[PlanMode] Exited plan mode");
+            return Ok(r#"{"success":true,"message":"Plan mode disabled. You can now write and modify files."}"#.into());
+        }
+
+        // Handle goal mode tools internally
+        if tool_name == "EnterGoalMode" {
+            // Extract goal text from input JSON
+            let goal = serde_json::from_str::<serde_json::Value>(input)
+                .ok()
+                .and_then(|v| v.get("goal").and_then(|g| g.as_str().map(|s| s.to_string())))
+                .unwrap_or_default();
+            self.goal_mode.store(true, Ordering::Relaxed);
+            *self.goal_text.lock().unwrap() = goal.clone();
+            log::info!("[GoalMode] Entered goal mode: {}", goal);
+            return Ok(format!(r#"{{"success":true,"message":"Goal mode enabled. Goal: {goal}. Work persistently toward this goal. Call ExitGoalMode when done."}}"#));
+        }
+        if tool_name == "ExitGoalMode" {
+            self.goal_mode.store(false, Ordering::Relaxed);
+            self.goal_text.lock().unwrap().clear();
+            log::info!("[GoalMode] Exited goal mode");
+            return Ok(r#"{"success":true,"message":"Goal mode disabled. Resuming normal chat."}"#.into());
+        }
+
+        // Handle loop mode tools internally
+        if tool_name == "EnterLoopMode" {
+            self.loop_mode.store(true, Ordering::Relaxed);
+            log::info!("[LoopMode] Entered loop mode");
+            return Ok(r#"{"success":true,"message":"Loop mode enabled. Your next prompt will auto-resubmit after each turn. Use /loop again or Esc to disable."}"#.into());
+        }
+        if tool_name == "ExitLoopMode" {
+            self.loop_mode.store(false, Ordering::Relaxed);
+            log::info!("[LoopMode] Exited loop mode");
+            return Ok(r#"{"success":true,"message":"Loop mode disabled. Prompt will no longer auto-resubmit."}"#.into());
+        }
+
         // Real-time: notify frontend that this tool started
         let tool_input: serde_json::Value =
             serde_json::from_str(input).unwrap_or_else(|_| serde_json::json!({ "raw": input }));
@@ -180,6 +240,23 @@ impl ToolExecutor for TauriToolExecutor {
             "args": tool_input,
             "session_id": &self.session_id,
         }));
+
+        // Plan mode check: block write tools when plan mode is active
+        if self.plan_mode.load(Ordering::Relaxed) {
+            let is_write = WRITE_TOOLS.iter().any(|w| w.eq_ignore_ascii_case(tool_name));
+            if is_write {
+                let _ = self.app.emit("agent-tool-complete", serde_json::json!({
+                    "name": tool_name,
+                    "result": "error",
+                    "isError": true,
+                    "session_id": &self.session_id,
+                }));
+                return Err(ToolError::new(format!(
+                    "Plan mode is active — `{tool_name}` is blocked. \
+                     Call ExitPlanMode first to allow writing files."
+                )));
+            }
+        }
 
         // Execute the tool
         let input_value: serde_json::Value =
