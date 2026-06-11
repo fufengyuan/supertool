@@ -63,11 +63,11 @@ export function useLocalCommands({
   onGoalModeChange,
   onLoopModeChange,
 }: UseLocalCommandsArgs): UseLocalCommandsResult {
-  const localOnlyCommands = new Set<string>(['/help', '/usage', '/debug', '/fast']);
+  const localOnlyCommands = new Set<string>(['/help', '/usage', '/debug', '/fast', '/new', '/clear', '/model', '/memory', '/tools', '/skills', '/goal', '/loop']);
 
   function isLocallyHandled(text: string): boolean {
     const cmd = text.split(/\s+/)[0].toLowerCase();
-    return localOnlyCommands.has(cmd) || SLASH_COMMANDS.some((c) => c.name.toLowerCase() === cmd);
+    return localOnlyCommands.has(cmd);
   }
 
   async function executeLocal(cmdText: string): Promise<boolean> {
@@ -211,6 +211,76 @@ export function useLocalCommands({
           lines.push(`- **Tokens:** ${u.totalTokens.toLocaleString()} total`);
         }
         addAgentMessage(lines.join('\n'));
+        return true;
+      }
+
+      case '/new': {
+        onNewChat?.();
+        return true;
+      }
+
+      case '/clear': {
+        onClear();
+        return true;
+      }
+
+      case '/model': {
+        try {
+          const res = await invoke<{ model: string; provider: string; baseUrl: string }>('claw_chat_get_model_config');
+          addAgentMessage(`**Current Model**\n- **Model:** ${res.model}\n- **Provider:** ${res.provider}\n- **Base URL:** ${res.baseUrl || '(default)'}`);
+        } catch {
+          addAgentMessage('无法获取模型配置');
+        }
+        return true;
+      }
+
+      case '/memory': {
+        try {
+          const res = await invoke<{ content: string; stats: { totalSessions: number; totalMessages: number } }>('claw_read_memory');
+          if (res.content) {
+            addAgentMessage(`**Memory**\n${res.content}\n\n**Stats:** ${res.stats.totalSessions} sessions, ${res.stats.totalMessages} messages`);
+          } else {
+            addAgentMessage('暂无记忆条目');
+          }
+        } catch {
+          addAgentMessage('无法读取 Agent 记忆');
+        }
+        return true;
+      }
+
+      case '/tools': {
+        try {
+          const tools = await invoke<{ label: string; description: string; enabled: boolean }[]>('claw_chat_get_tools');
+          if (tools.length === 0) {
+            addAgentMessage('未找到可用工具');
+          } else {
+            const lines = ['**Available Tools**'];
+            for (const t of tools) {
+              lines.push(`- **${t.label}** ${t.description} ${t.enabled ? '' : '(disabled)'}`);
+            }
+            addAgentMessage(lines.join('\n'));
+          }
+        } catch {
+          addAgentMessage('无法获取工具列表');
+        }
+        return true;
+      }
+
+      case '/skills': {
+        try {
+          const skills = await invoke<{ name: string; category: string; description: string }[]>('claw_chat_get_skills');
+          if (skills.length === 0) {
+            addAgentMessage('No skills installed.');
+          } else {
+            const lines = ['**Installed Skills**'];
+            for (const s of skills) {
+              lines.push(`- **${s.name}** ${s.description} (${s.category})`);
+            }
+            addAgentMessage(lines.join('\n'));
+          }
+        } catch {
+          addAgentMessage('无法获取技能列表');
+        }
         return true;
       }
 
