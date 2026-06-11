@@ -769,7 +769,12 @@ async function handleSendInput() {
 
 function handleSuggestion(text: string) {
   currentInput.value = text;
-  handleSendInput();
+  if (isClawMode.value) {
+    // Claw 模式：只填充输入框，不自动发送
+    chatInputRef.value?.focus();
+  } else {
+    handleSendInput();
+  }
 }
 
 async function handleSelectModel(provider: string, model: string, baseUrl: string) {
