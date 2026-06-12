@@ -77,16 +77,6 @@
           <SvgIcon name="plus" size="16" />
         </button>
       </div>
-      <div v-if="hasMessages" class="tooltip" data-tip="压缩会话（把较早的消息总结成摘要）">
-        <button
-          class="btn btn-ghost btn-xs"
-          :class="{ 'loading': compacting }"
-          :disabled="compacting"
-          @click="$emit('compact')"
-        >
-          <SvgIcon v-if="!compacting" name="compress" size="14" />
-        </button>
-      </div>
       <div v-if="hasMessages" class="tooltip" data-tip="分叉会话">
         <button
           class="btn btn-ghost btn-xs"
