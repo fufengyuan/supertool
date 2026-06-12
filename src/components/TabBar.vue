@@ -10,7 +10,13 @@
       @click="onTabClick(tab)"
       @mousedown.middle.prevent="tabStore.closeTab(tab.id)"
     >
-      <SvgIcon v-if="tab.viewId && iconMap[tab.viewId]" :name="tab.viewId" :size="14" class="shrink-0 opacity-60" />
+      <component
+        :is="iconMap[tab.viewId]"
+        v-if="tab.viewId && iconMap[tab.viewId]"
+        :size="14"
+        class="shrink-0 opacity-60"
+        stroke-width="2"
+      />
       <span class="text-xs truncate max-w-[120px]">{{ tab.label }}</span>
       <button
         class="ml-1 w-4 h-4 flex items-center justify-center rounded hover:bg-base-300 opacity-0 group-hover:opacity-100 transition-opacity"
