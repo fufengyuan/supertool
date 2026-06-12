@@ -304,6 +304,18 @@
                   <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ log.logOutput }}</pre>
                 </div>
 
+                <!-- Running deploy: show real-time logs from deploy state -->
+                <div v-else-if="!fullLogContent && log.status === 'running' && runningRealtimeLogs(log)" class="mt-1">
+                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</div>
+                  <div class="font-mono text-xs leading-relaxed p-2 bg-base-100 rounded max-h-72 overflow-y-auto">
+                    <div v-for="(line, i) in runningRealtimeLogs(log)" :key="i" class="flex gap-2 py-0.5">
+                      <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ line.time }}</span>
+                      <span class="text-base-content/60 shrink-0 min-w-[55px]">[{{ line.stage }}]</span>
+                      <span class="text-base-content break-all">{{ line.message }}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Auto-load log file when step logs are empty -->
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
                   <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
@@ -991,6 +1003,13 @@ async function toggleLogDetails(logId: string) {
       stepLogs.value[logId] = (await getTauriAPI().getDeployStepLogs(logId, "")) as DeployStep[];
     }
   }
+}
+
+/** Get real-time logs for a running deploy from its deploy state */
+function runningRealtimeLogs(log: DeployLog) {
+  if (log.status !== 'running') return null;
+  const state = deployStates.value.get(log.configId);
+  return state?.realtimeLogs || null;
 }
 
 async function loadLogContent(log: DeployLog) {
