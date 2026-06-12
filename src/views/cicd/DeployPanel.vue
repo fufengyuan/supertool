@@ -320,12 +320,7 @@
                 <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
                   <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
                   <pre ref="el => { if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }) }" class="mt-1 p-2 bg-base-100 rounded overflow-y-auto overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else-if="loadingLogContent[log.id]"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
-                  <button
-                    v-else
-                    @click="loadLogContent(log)"
-                    class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white transition-colors"
-                  ><SvgIcon name="file" size="12" class="inline-block align-text-bottom" /> 点击加载日志</button>
+                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
                 </div>
 
                 <!-- No details available -->
@@ -1001,6 +996,11 @@ async function toggleLogDetails(logId: string) {
     expandedLog.value = logId;
     if (!stepLogs.value[logId]) {
       stepLogs.value[logId] = (await getTauriAPI().getDeployStepLogs(logId, "")) as DeployStep[];
+    }
+    // 自动加载日志文件（如果有 logFilePath 且尚未加载）
+    const log = combinedLogs.value.find(l => l.id === logId);
+    if (log?.logFilePath && !loadedLogContent.value[logId] && !loadingLogContent.value[logId]) {
+      await loadLogContent(log);
     }
   }
 }
