@@ -812,13 +812,15 @@ function clearContextFolder() {
   contextFolder.value = null;
 }
 
-/** Compact the current Claw session */
+/** Compact the current session (Hermes or Claw) */
 async function handleCompact() {
   if (!hermesSessionId.value) return;
   compacting.value = true;
   try {
     const tauri = getTauriAPI();
-    const result = await tauri.clawChatCompact(hermesSessionId.value);
+    const result = await (isClawMode.value
+      ? tauri.clawChatCompact(hermesSessionId.value)
+      : tauri.hermesChatCompact(hermesSessionId.value));
     if (result.removedMessageCount > 0) {
       addAgentMessage(
         `📦 会话已压缩: 移除了 ${result.removedMessageCount} 条消息，释放上下文空间。\n\n${result.summary ? `摘要: ${result.summary.slice(0, 200)}...` : ''}`

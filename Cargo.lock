@@ -4465,9 +4465,9 @@ checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
 name = "memchr"
-version = "2.8.1"
+version = "2.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6b947ae49db0d222b1dbc6b113ce7248a3fc3a6ca21b696717bfc000ba4484d8"
+checksum = "88904434abc2901f197fe8cc55f0445e7ded921dba5911dad2e2b39b48e663c4"
 
 [[package]]
 name = "memo-map"
@@ -7345,7 +7345,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stool"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7464,7 +7464,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7544,7 +7544,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "5.0.1"
+version = "5.0.2"
 dependencies = [
  "aes-gcm",
  "anyhow",
