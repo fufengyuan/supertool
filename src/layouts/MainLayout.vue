@@ -109,8 +109,8 @@
         <AgentModeBar v-if="isAgentTab" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
           <router-view v-slot="{ Component }">
-            <keep-alive :max="8">
-              <component :is="Component" :key="String($route.fullPath)" />
+            <keep-alive :max="8" :include="tabStore.includeList">
+              <component :is="Component" />
             </keep-alive>
           </router-view>
         </main>
