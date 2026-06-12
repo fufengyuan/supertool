@@ -4,7 +4,6 @@
     <ChatHeader
       :session-id="hermesSessionId"
       :usage="usage"
-      :fast-mode="fastMode"
       :has-messages="messages.length > 0"
       :context-folder="contextFolder"
       :show-context-folder="true"
@@ -19,7 +18,6 @@
       :loop-mode="loopMode"
       @pick-folder="pickContextFolder"
       @clear-folder="clearContextFolder"
-      @toggle-fast="handleToggleFast"
       @new-chat="startNewChat"
       @clear="clearChat"
       @fork="handleFork"
@@ -119,13 +117,6 @@
               @select-model="handleSelectModel"
             />
             <div class="flex items-center gap-2 text-[10px] text-base-content/30">
-              <span
-                v-if="fastMode"
-                class="flex items-center gap-1 px-1.5 py-0.5 rounded bg-warning/10 text-warning/70"
-              >
-                <SvgIcon name="zap" size="8" />
-                优先模式
-              </span>
               <span>⌘ ↵ 发送</span>
             </div>
           </div>
@@ -168,7 +159,6 @@ import SimpleChatInput from './SimpleChatInput.vue';
 import { useChatIPC } from './composables/useChatIPC';
 import { useChatActions } from './composables/useChatActions';
 import { useChatScroll } from './composables/useChatScroll';
-import { useFastMode } from './composables/useFastMode';
 import { useInputHistory } from './composables/useInputHistory';
 import { useModelConfig } from './composables/useModelConfig';
 import { useLocalCommands } from './composables/useLocalCommands';
@@ -500,20 +490,9 @@ function clearChat() {
   toolProgress.value = null;
 }
 
-// ── Fast mode ────────────────────────────────────────────────────────────────
-const { fastMode, toggle: doToggleFast } = useFastMode();
-
 // ── Local commands (must be set up before chat actions) ──────────────────────
 const localCommands = useLocalCommands({
   usage,
-  fastMode,
-  setFastMode: async (next: boolean) => {
-    await invoke('hermes_set_config', {
-      key: 'agent.service_tier',
-      value: next ? 'fast' : 'normal',
-    });
-    fastMode.value = next;
-  },
   onNewChat: startNewChat,
   onClear: clearChat,
   addAgentMessage,
@@ -548,10 +527,6 @@ useChatIPC({
   scrollToBottom,
   isClawMode,
 });
-
-function handleToggleFast() {
-  doToggleFast();
-}
 
 // ── Input history ────────────────────────────────────────────────────────────
 const { push: pushHistory, recallPrev, recallNext } = useInputHistory({

@@ -20,7 +20,6 @@ export const SLASH_COMMANDS: SlashCommand[] = [
   { name: '/compact', description: 'Compact and summarize the conversation', category: 'agent' },
   { name: '/undo', description: 'Undo the last action', category: 'agent' },
   { name: '/retry', description: 'Retry the last failed action', category: 'agent' },
-  { name: '/fast', description: 'Toggle priority processing (lower latency)', category: 'agent', local: true },
   { name: '/compress', description: 'Compress conversation with optional focus topic', category: 'agent' },
   { name: '/usage', description: 'Show token usage, cost, and rate limits', category: 'agent', local: true },
   { name: '/debug', description: 'Show diagnostics and debug info', category: 'agent' },

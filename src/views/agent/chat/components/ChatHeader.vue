@@ -63,15 +63,6 @@
           </button>
         </div>
       </template>
-      <div class="tooltip" :data-tip="fastMode ? '快速模式: 已开启' : '快速模式: 已关闭'">
-        <button
-          class="btn btn-ghost btn-xs"
-          :class="{ 'text-amber-500': fastMode }"
-          @click="$emit('toggleFast')"
-        >
-          <SvgIcon name="zap" size="14" />
-        </button>
-      </div>
       <div class="tooltip" data-tip="新建对话">
         <button class="btn btn-ghost btn-xs" @click="$emit('newChat')">
           <SvgIcon name="plus" size="16" />
@@ -141,7 +132,6 @@ import type { UsageState } from '../types';
 const props = defineProps<{
   sessionId: string | null;
   usage: UsageState | null;
-  fastMode: boolean;
   hasMessages: boolean;
   contextFolder: string | null;
   showContextFolder: boolean;
@@ -160,7 +150,6 @@ const props = defineProps<{
 defineEmits<{
   pickFolder: [];
   clearFolder: [];
-  toggleFast: [];
   newChat: [];
   clear: [];
   compact: [];

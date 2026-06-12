@@ -30,8 +30,6 @@ import { useLocalCommands } from '../composables/useLocalCommands'
 
 function setup() {
   const usage = ref<UsageState | null>(null)
-  const fastMode = ref(false)
-  const setFastMode = vi.fn().mockResolvedValue(undefined)
   const onNewChat = vi.fn()
   const onClear = vi.fn()
   const addAgentMessage = vi.fn()
@@ -40,8 +38,6 @@ function setup() {
 
   const commands = useLocalCommands({
     usage,
-    fastMode,
-    setFastMode,
     onNewChat,
     onClear,
     addAgentMessage,
@@ -49,7 +45,7 @@ function setup() {
     onLoopModeChange,
   })
 
-  return { usage, setFastMode, addAgentMessage, onGoalModeChange, onLoopModeChange, commands }
+  return { usage, addAgentMessage, onGoalModeChange, onLoopModeChange, commands }
 }
 
 describe('Goal mode commands', () => {

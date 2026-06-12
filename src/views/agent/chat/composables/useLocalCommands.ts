@@ -1,4 +1,3 @@
-import { ref } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import type { Ref } from 'vue';
 import { SLASH_COMMANDS } from '../slashCommands';
@@ -37,8 +36,6 @@ function parseLoopLimit(args: string): number | string {
 
 interface UseLocalCommandsArgs {
   usage: Ref<UsageState | null>;
-  fastMode: Ref<boolean>;
-  setFastMode: (next: boolean) => Promise<void>;
   onNewChat?: () => void;
   onClear: () => void;
   addAgentMessage: (content: string) => void;
@@ -55,15 +52,13 @@ interface UseLocalCommandsResult {
 
 export function useLocalCommands({
   usage: usageRef,
-  fastMode,
-  setFastMode,
   onNewChat,
   onClear,
   addAgentMessage,
   onGoalModeChange,
   onLoopModeChange,
 }: UseLocalCommandsArgs): UseLocalCommandsResult {
-  const localOnlyCommands = new Set<string>(['/help', '/usage', '/debug', '/fast', '/new', '/clear', '/model', '/memory', '/tools', '/skills', '/goal', '/loop']);
+  const localOnlyCommands = new Set<string>(['/help', '/usage', '/debug', '/new', '/clear', '/model', '/memory', '/tools', '/skills', '/goal', '/loop']);
 
   function isLocallyHandled(text: string): boolean {
     const cmd = text.split(/\s+/)[0].toLowerCase();
@@ -140,18 +135,6 @@ export function useLocalCommands({
         return true;
       }
 
-      case '/fast': {
-        const isOn = fastMode.value;
-        const next = !isOn;
-        await setFastMode(next);
-        addAgentMessage(
-          next
-            ? '**Fast Mode: ON** — Priority processing enabled for lower latency.'
-            : '**Fast Mode: OFF** — Standard processing restored.',
-        );
-        return true;
-      }
-
       case '/usage': {
         const u = usageRef.value;
         if (u) {
@@ -205,7 +188,6 @@ export function useLocalCommands({
 
       case '/debug': {
         const lines = ['**Debug Info**'];
-        lines.push(`- **Fast Mode:** ${fastMode.value ? 'ON' : 'OFF'}`);
         const u = usageRef.value;
         if (u) {
           lines.push(`- **Tokens:** ${u.totalTokens.toLocaleString()} total`);
