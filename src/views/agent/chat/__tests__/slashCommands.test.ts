@@ -33,7 +33,6 @@ describe('SLASH_COMMANDS data contract', () => {
     expect(names).toContain('/help')
     expect(names).toContain('/model')
     expect(names).toContain('/memory')
-    expect(names).toContain('/fast')
   })
 
   it('should mark local commands appropriately', () => {
@@ -41,7 +40,6 @@ describe('SLASH_COMMANDS data contract', () => {
     const localNames = localCommands.map((c) => c.name)
     expect(localNames).toContain('/new')
     expect(localNames).toContain('/clear')
-    expect(localNames).toContain('/fast')
   })
 
   it('should have chat category commands', () => {

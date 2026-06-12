@@ -12,22 +12,18 @@ import { useLocalCommands } from '../composables/useLocalCommands'
 
 function setup() {
   const usage = ref<UsageState | null>(null)
-  const fastMode = ref(false)
-  const setFastMode = vi.fn().mockResolvedValue(undefined)
   const onNewChat = vi.fn()
   const onClear = vi.fn()
   const addAgentMessage = vi.fn()
 
   const commands = useLocalCommands({
     usage,
-    fastMode,
-    setFastMode,
     onNewChat,
     onClear,
     addAgentMessage,
   })
 
-  return { usage, setFastMode, onNewChat, onClear, addAgentMessage, commands }
+  return { usage, onNewChat, onClear, addAgentMessage, commands }
 }
 
 describe('useLocalCommands', () => {
@@ -187,15 +183,6 @@ describe('useLocalCommands', () => {
       const result = await commands.executeLocal('/usage')
       expect(result).toBe(true)
       expect(addAgentMessage).toHaveBeenCalledWith('暂无用量数据')
-    })
-
-    it('/fast should show toggle fast mode', async () => {
-      const { commands, addAgentMessage, setFastMode } = setup()
-      const result = await commands.executeLocal('/fast')
-      expect(result).toBe(true)
-      expect(setFastMode).toHaveBeenCalled()
-      const msg = addAgentMessage.mock.calls[0][0] as string
-      expect(msg).toContain('Fast Mode')
     })
 
     it('/tools should show tools list', async () => {

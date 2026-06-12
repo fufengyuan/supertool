@@ -204,69 +204,6 @@ describe('useChatIPC — Claw mode guard', () => {
   })
 })
 
-// ── useLocalCommands — /fast toggle tests ───────────────────────────────────
-describe('useLocalCommands — /fast toggle', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockInvoke.mockReset()
-  })
-
-  it('/fast toggles based on fastMode.value, not usage', async () => {
-    const { useLocalCommands } = await import('../composables/useLocalCommands')
-    const fastMode = ref(false)
-    const usage = ref<any>(null) // null usage — old code would think fast is OFF
-    const setFastMode = vi.fn(async (next: boolean) => { fastMode.value = next })
-    const addAgentMessage = vi.fn()
-
-    const commands = useLocalCommands({
-      usage,
-      fastMode,
-      setFastMode,
-      onClear: vi.fn(),
-      addAgentMessage,
-    })
-
-    // fastMode is false → /fast should turn it ON
-    await commands.executeLocal('/fast')
-    expect(setFastMode).toHaveBeenCalledWith(true)
-    expect(fastMode.value).toBe(true)
-    expect(addAgentMessage).toHaveBeenCalledWith(
-      expect.stringContaining('ON')
-    )
-
-    vi.clearAllMocks()
-
-    // fastMode is now true → /fast should turn it OFF
-    await commands.executeLocal('/fast')
-    expect(setFastMode).toHaveBeenCalledWith(false)
-    expect(fastMode.value).toBe(false)
-    expect(addAgentMessage).toHaveBeenCalledWith(
-      expect.stringContaining('OFF')
-    )
-  })
-
-  it('/fast does not depend on usage data', async () => {
-    const { useLocalCommands } = await import('../composables/useLocalCommands')
-    const fastMode = ref(false)
-    // Usage has data — old code would think fast is ON
-    const usage = ref({ promptTokens: 100, completionTokens: 50, totalTokens: 150 })
-    const setFastMode = vi.fn(async (next: boolean) => { fastMode.value = next })
-    const addAgentMessage = vi.fn()
-
-    const commands = useLocalCommands({
-      usage,
-      fastMode,
-      setFastMode,
-      onClear: vi.fn(),
-      addAgentMessage,
-    })
-
-    // fastMode is false → /fast should turn it ON, ignoring usage data
-    await commands.executeLocal('/fast')
-    expect(setFastMode).toHaveBeenCalledWith(true)
-  })
-})
-
 // ── loadSessionHistory Claw mode guard ──────────────────────────────────────
 describe('Chat.vue loadSessionHistory guard', () => {
   it('skips agent_list_messages in Claw mode', async () => {
