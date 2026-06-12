@@ -8,7 +8,6 @@
       :has-messages="messages.length > 0"
       :context-folder="contextFolder"
       :show-context-folder="true"
-      :compacting="compacting"
       :is-claw-mode="isClawMode"
       :plan-mode="planMode"
       :goal-mode="goalMode"
@@ -23,7 +22,6 @@
       @toggle-fast="handleToggleFast"
       @new-chat="startNewChat"
       @clear="clearChat"
-      @compact="handleCompact"
       @fork="handleFork"
       @toggle-plan="handleTogglePlan"
       @toggle-goal="handleToggleGoal"
@@ -192,7 +190,6 @@ const toolProgress = ref<string | null>(null);
 const usage = ref<UsageState | null>(null);
 const contextFolder = ref<string | null>(null);
 const currentInput = ref('');
-const compacting = ref(false);
 const chatInputRef = ref<{ clear: () => void; focus: () => void } | null>(null);
 const messageListRef = ref<InstanceType<typeof MessageList> | null>(null);
 const goalInputRef = ref<HTMLInputElement | null>(null);
@@ -810,29 +807,6 @@ async function pickContextFolder() {
 
 function clearContextFolder() {
   contextFolder.value = null;
-}
-
-/** Compact the current session (Hermes or Claw) */
-async function handleCompact() {
-  if (!hermesSessionId.value) return;
-  compacting.value = true;
-  try {
-    const tauri = getTauriAPI();
-    const result = await (isClawMode.value
-      ? tauri.clawChatCompact(hermesSessionId.value)
-      : tauri.hermesChatCompact(hermesSessionId.value));
-    if (result.removedMessageCount > 0) {
-      addAgentMessage(
-        `📦 会话已压缩: 移除了 ${result.removedMessageCount} 条消息，释放上下文空间。\n\n${result.summary ? `摘要: ${result.summary.slice(0, 200)}...` : ''}`
-      );
-    } else {
-      addAgentMessage('📦 会话无需压缩（消息量较少或已经压缩过）');
-    }
-  } catch (e: any) {
-    addAgentMessage(`❌ 压缩失败: ${e?.message || String(e)}`);
-  } finally {
-    compacting.value = false;
-  }
 }
 
 async function handleFork() {

@@ -602,14 +602,6 @@ export interface AgentInfo {
   config: Record<string, unknown> | null
 }
 
-// ============ Claw Compact ============
-
-export interface CompactResult {
-  sessionId: string
-  removedMessageCount: number
-  summary: string
-}
-
 // ============ Claw MCP Health ============
 
 export interface McpHealthStatus {

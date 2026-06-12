@@ -19,7 +19,7 @@ import type {
   CronJob,
   ProviderInfo, ProviderListResult, ProviderSaveResult,
   OAuthFlowResult, OAuthPollResult,
-  AgentInfo, CompactResult, McpHealthStatus, PermissionModeResult, SetPermissionModeResult, ForkResult,
+  AgentInfo, McpHealthStatus, PermissionModeResult, SetPermissionModeResult, ForkResult,
 } from '../types'
 
 // ============ 日志脱敏 ============
@@ -2050,12 +2050,6 @@ export interface TauriAPI {
   // Claw Profiles
   clawGetProfile: () => Promise<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>
 
-  // Compact
-  hermesChatCompact: (sessionId: string) => Promise<CompactResult>
-
-  // Claw Compact
-  clawChatCompact: (sessionId: string) => Promise<CompactResult>
-
   // Claw Agents
   clawListAgents: () => Promise<AgentInfo[]>
 
@@ -2873,11 +2867,6 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>('claw_get_profile'),
 
     // ============ Compact ============
-    hermesChatCompact: async (sessionId: string) =>
-      tauriCall<CompactResult>('hermes_chat_compact', { sessionId }),
-    clawChatCompact: async (sessionId: string) =>
-      tauriCall<CompactResult>('claw_chat_compact', { sessionId }),
-
     // ============ Claw Agents ============
     clawListAgents: async () =>
       tauriCall<AgentInfo[]>('claw_list_agents'),

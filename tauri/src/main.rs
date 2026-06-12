@@ -493,8 +493,6 @@ fn main() {
             commands::claw_chat::claw_chat_set_goal_status,
             commands::claw_chat::claw_chat_get_loop_mode,
             commands::claw_chat::claw_chat_set_loop_mode,
-            commands::claw_compact::claw_chat_compact,
-            commands::hermes_compact::hermes_chat_compact,
             commands::claw_session::claw_chat_set_model,
             commands::claw_session::claw_chat_fork,
             commands::claw_config::claw_config_get,
