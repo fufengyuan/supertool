@@ -2050,6 +2050,9 @@ export interface TauriAPI {
   // Claw Profiles
   clawGetProfile: () => Promise<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>
 
+  // Compact
+  hermesChatCompact: (sessionId: string) => Promise<CompactResult>
+
   // Claw Compact
   clawChatCompact: (sessionId: string) => Promise<CompactResult>
 
@@ -2869,7 +2872,9 @@ export function getTauriAPI(): TauriAPI {
     clawGetProfile: async () =>
       tauriCall<{ configHome: string; settingsExists: boolean; mcpServerCount: number; pluginCount: number; hasPermissions: boolean; hasHooks: boolean; hasFeatures: boolean; rawSettings: unknown | null }>('claw_get_profile'),
 
-    // ============ Claw Compact ============
+    // ============ Compact ============
+    hermesChatCompact: async (sessionId: string) =>
+      tauriCall<CompactResult>('hermes_chat_compact', { sessionId }),
     clawChatCompact: async (sessionId: string) =>
       tauriCall<CompactResult>('claw_chat_compact', { sessionId }),
 
