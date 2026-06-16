@@ -77,9 +77,14 @@
                   </div>
                   <div class="flex items-center justify-between">
                     <span class="text-xs text-base-content/60 opacity-60">{{ formatTime(cfg.updatedAt) }}</span>
-                    <button @click.stop="deleteConfig(cfg.id)" class="bg-transparent border-none cursor-pointer p-1 rounded text-base-content/60 opacity-0 group-hover:opacity-100 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10" title="删除">
-                      <SvgIcon name="trash" :size="12" />
-                    </button>
+                    <div class="flex items-center gap-0.5">
+                      <button @click.stop="copyConfig(cfg.id)" class="bg-transparent border-none cursor-pointer p-1 rounded text-base-content/60 opacity-0 group-hover:opacity-60 transition-all duration-150 hover:!opacity-100 hover:text-primary hover:bg-primary/10" title="复制配置">
+                        <SvgIcon name="copy" :size="12" />
+                      </button>
+                      <button @click.stop="deleteConfig(cfg.id)" class="bg-transparent border-none cursor-pointer p-1 rounded text-base-content/60 opacity-0 group-hover:opacity-100 transition-all duration-150 hover:!opacity-100 hover:text-error hover:bg-error/10" title="删除">
+                        <SvgIcon name="trash" :size="12" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -847,7 +852,7 @@ defineOptions({ name: 'CiCdConfig' })
 import { useCicdConfig } from './composables/useCicdConfig';
 import ModuleTreeNode from './ModuleTreeNode.vue';
 import GroupedServerSelector from '../server/GroupedServerSelector.vue';
-import { computed, defineAsyncComponent, ref } from 'vue'
+import { computed, defineAsyncComponent, onBeforeUnmount, ref } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue';
 
 const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
@@ -855,11 +860,17 @@ const DeployPanel = defineAsyncComponent(() => import('./DeployPanel.vue'));
 const cicdTab = ref<'deploy' | 'config'>('deploy')
 
 // Listen for DeployPanel's "go to config" event
+const _onSwitchCicdTab = ((e: CustomEvent) => {
+  cicdTab.value = e.detail
+}) as EventListener
 if (typeof window !== 'undefined') {
-  window.addEventListener('switch-cicd-tab', ((e: CustomEvent) => {
-    cicdTab.value = e.detail
-  }) as EventListener)
+  window.addEventListener('switch-cicd-tab', _onSwitchCicdTab)
 }
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('switch-cicd-tab', _onSwitchCicdTab)
+  }
+})
 
 const cicd = useCicdConfig();
 
@@ -910,7 +921,7 @@ const {
   selectServer, copyGitUrl, loadBranches, testConnection,
   addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
   addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
-  saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
+  saveConfig, deleteConfig, copyConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
   switchToGitCloneMode, fetchGitRemoteUrl,
   defaultConfig, pageLoading,
 } = cicd;

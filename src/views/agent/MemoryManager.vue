@@ -279,6 +279,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'MemoryManager' })
 import { ref, computed, onMounted, watch } from 'vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAgentModeStore } from '@/stores/agentModeStore'

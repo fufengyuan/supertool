@@ -1,6 +1,6 @@
 <template>
   <div class="app-root">
-    <router-view :key="routeKey" />
+    <router-view />
     <!-- 全局组件 -->
     <ToastContainer />
     <GlobalSearch ref="globalSearchRef" />
@@ -10,8 +10,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import ToastContainer from '@/components/ui/ToastContainer.vue'
 import GlobalSearch from '@/components/GlobalSearch.vue'
@@ -24,8 +24,6 @@ const showAboutDialog = ref(false)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
 const globalSearchRef = ref<InstanceType<typeof GlobalSearch> | null>(null)
 const router = useRouter()
-const route = useRoute()
-const routeKey = computed(() => `${route.path}?${JSON.stringify(route.query)}`)
 const appStore = useAppStore()
 
 async function onQuickSwitchSelect(viewId: string) {

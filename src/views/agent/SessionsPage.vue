@@ -225,6 +225,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'SessionsPage' })
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { invoke } from '@tauri-apps/api/core'

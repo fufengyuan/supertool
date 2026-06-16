@@ -156,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'ToolsManager' })
 import { ref, computed, onMounted, watch } from 'vue'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'

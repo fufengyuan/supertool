@@ -767,6 +767,56 @@ export function useCicdConfig() {
     } catch (error) { handleError(error, { context: '删除配置' }); }
   }
 
+  async function copyConfig(sourceId: string) {
+    try {
+      // 1. 获取源配置
+      const source = await getTauriAPI().getCicdConfigById(sourceId) as CicdConfigEntry | undefined;
+      if (!source || !source.id) { toast.error('源配置不存在'); return; }
+
+      // 2. 获取源配置的子模块
+      const sourceModules = await getTauriAPI().getDeployModules(sourceId) as DeployModule[];
+
+      // 3. 深拷贝配置，生成新 ID 和时间戳
+      const now = new Date().toISOString();
+      const newId = Date.now().toString();
+      const newConfig = { ...JSON.parse(JSON.stringify(source)) };
+
+      // 重置 ID 和元数据
+      newConfig.id = newId;
+      newConfig.createdAt = now;
+      newConfig.updatedAt = now;
+      // 清空部署时间（新配置还未部署过）
+      newConfig.lastDeployedAt = null;
+      // 修改名称: "源名称 - 副本"
+      newConfig.name = (source.name || getGitRepoName(source.gitRepoId) || '未命名配置') + ' - 副本';
+
+      // 4. 深拷贝子模块，生成新 ID，绑定新 configId
+      const newModules: DeployModule[] = sourceModules.map((mod, idx) => ({
+        ...JSON.parse(JSON.stringify(mod)),
+        id: `${newId}-mod-${idx}`,
+        configId: newId,
+        createdAt: now,
+        updatedAt: now,
+      }));
+
+      // 5. 一次性保存配置+模块（addCicdConfig 支持传入 modules）
+      await getTauriAPI().addCicdConfig(newConfig, newModules);
+
+      // 6. 重新加载配置列表
+      await loadConfigs();
+
+      // 7. 选中新配置并打开到编辑器
+      selectedConfigId.value = newId;
+      isNewConfig.value = false;
+      await loadConfig(newId);
+
+      // 8. 异步运行工具路径检测（新配置打开后自动填充路径）
+      runToolDetection();
+
+      toast.success('配置已复制');
+    } catch (error) { handleError(error, { context: '复制配置' }); }
+  }
+
   // Normalize old saved /bin/java or /bin/node paths to home directories
   function normalizeHomeDir(p: string): string {
     if (!p) {return '';}
@@ -839,14 +889,14 @@ export function useCicdConfig() {
 
   // ─── Watch localPath changes — auto-scan project ───
   let _scanDebounce: ReturnType<typeof setTimeout> | undefined;
-  watch(() => config.value.localPath, (newPath) => {
+  const _stopWatchLocalPath = watch(() => config.value.localPath, (newPath) => {
     if (!newPath) {return;}
     clearTimeout(_scanDebounce);
     _scanDebounce = setTimeout(() => scanLocalProject(newPath), 300);
   });
 
   // ─── Watch build tool changes ───
-  watch(() => config.value.buildTool, async (newTool, oldTool) => {
+  const _stopWatchBuildTool = watch(() => config.value.buildTool, async (newTool, oldTool) => {
     if (newTool === oldTool || !newTool) {return;}
     const c = config.value;
     const dp = defaultPaths.value;
@@ -898,6 +948,7 @@ export function useCicdConfig() {
   });
 
   let _cleanupDataChanged: (() => void) | undefined;
+  let _loadFirstConfigTimer: ReturnType<typeof setTimeout> | undefined;
 
   // ─── Init ───
   // 页面立即渲染，不做任何阻塞式加载
@@ -918,7 +969,7 @@ export function useCicdConfig() {
         selectedConfigId.value = configs.value[0].id;
         isNewConfig.value = false;
         // 延迟加载配置详情，不阻塞列表渲染
-        setTimeout(() => loadConfig(configs.value[0].id).catch(() => {}), 100);
+        _loadFirstConfigTimer = setTimeout(() => loadConfig(configs.value[0].id).catch(() => {}), 100);
       }
     }).catch(err => handleError(err, { context: '加载CI/CD配置' }));
 
@@ -926,7 +977,15 @@ export function useCicdConfig() {
     // 这些检测会阻塞 IPC 通道（运行7个shell命令），只在用户点击新建配置时才触发
   });
 
-  onBeforeUnmount(() => { _cleanupDataChanged?.(); });
+  onBeforeUnmount(() => {
+    _cleanupDataChanged?.();
+    // 清理 watch 停止句柄
+    _stopWatchLocalPath();
+    _stopWatchBuildTool();
+    // 清理未触发的定时器
+    clearTimeout(_scanDebounce);
+    clearTimeout(_loadFirstConfigTimer);
+  });
 
   async function loadServers() {
     try { servers.value = (await getTauriAPI().getAllServers?.()) as Server[] | undefined || []; serverGroups.value = (await getTauriAPI().getServerGroups?.()) as Array<{ id: string; name: string; color: string; parentId: string | null }> | undefined || []; }
@@ -1006,7 +1065,7 @@ export function useCicdConfig() {
     selectServer, copyGitUrl, loadBranches, testConnection,
     addModule, toggleModuleExpand, scanModules, toggleTreeNode, isModuleAlreadyAdded,
     addModuleFromScan, addAllDetectedModules, flattenModuleTree, autoDetectParentBuild, deleteModule,
-    saveConfig, deleteConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
+    saveConfig, deleteConfig, copyConfig, loadConfig, loadServers, loadProjects, loadGitRepos,
     switchToGitCloneMode, fetchGitRemoteUrl,
     defaultConfig,
     pageLoading,

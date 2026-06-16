@@ -433,6 +433,12 @@ interface DeployState {
 
 const deployStates = ref<Map<string, DeployState>>(new Map());
 
+// 缓存上限：防止长时间使用后内存无界增长
+const MAX_REALTIME_LOGS = 500;    // 每条部署状态最多保留的实时日志条数
+const MAX_LOADED_LOG_CONTENT = 3; // loadedLogContent 最多缓存的日志文件数（LRU）
+const MAX_STEP_LOGS = 5;          // stepLogs 最多缓存的步骤日志数（LRU）
+const DEPLOY_STATE_TTL = 30_000;  // 部署完成后保留状态 30s 再清理
+
 // 获取当前选中配置的部署状态
 const currentDeployState = computed(() => {
   if (!selectedConfigId.value) {return null;}
@@ -648,7 +654,12 @@ const progressHandler = (data: { progress?: number; message?: string; stage?: st
   if (!shouldThrottle) {
     if (isUploadProgress) {updates.lastLoggedProgress = pct;}
     const now = new Date().toLocaleTimeString('zh-CN');
-    updates.realtimeLogs = [...state.realtimeLogs, { time: now, stage: data.stage || 'info', message: data.message || '' }];
+    // 直接 push 到原数组（避免每次事件都 O(n) 拷贝整个数组），超过上限则截断
+    state.realtimeLogs.push({ time: now, stage: data.stage || 'info', message: data.message || '' });
+    if (state.realtimeLogs.length > MAX_REALTIME_LOGS) {
+      state.realtimeLogs.splice(0, state.realtimeLogs.length - MAX_REALTIME_LOGS);
+    }
+    updates.realtimeLogs = state.realtimeLogs;
   }
   updates.currentStep = data.message || state.currentStep;
   if (data.deployLogId && !state.deployLogId) {
@@ -698,11 +709,12 @@ onMounted(() => {
       if (!state) {return;}
       
       if (data.success) {
+        state.realtimeLogs.push({ time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' });
         updateDeployState(cfgId, {
           deploying: false,
           progress: 100,
           currentStep: '部署成功！',
-          realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'deploy', message: '✅ 部署成功完成' }],
+          realtimeLogs: state.realtimeLogs,
         });
         toast.success(`部署完成`);
         refreshLogs();
@@ -714,13 +726,18 @@ onMounted(() => {
         });
         toast.info('部署已取消');
       } else {
+        state.realtimeLogs.push({ time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') });
         updateDeployState(cfgId, {
           deploying: false,
           currentStep: '部署失败: ' + (data.error || '未知错误'),
-          realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'error', message: '❌ 部署失败: ' + (data.error || '未知错误') }],
+          realtimeLogs: state.realtimeLogs,
         });
         toast.error(`部署失败: ${data.error || '未知错误'}`, 6000);
         refreshLogs();
+      }
+      // 部署完成（成功/取消/失败）后延迟清理 deployStates，避免无界增长
+      if (cfgId) {
+        setTimeout(() => { deployStates.value.delete(cfgId); }, DEPLOY_STATE_TTL);
       }
     });
     // TODO(tauri-events): const cleanupDataChanged = getTauriAPI().onDataChanged?.(({ type }) => {
@@ -995,6 +1012,11 @@ async function toggleLogDetails(logId: string) {
   } else {
     expandedLog.value = logId;
     if (!stepLogs.value[logId]) {
+      // LRU：超过上限时删除最旧的条目
+      const keys = Object.keys(stepLogs.value);
+      if (keys.length >= MAX_STEP_LOGS) {
+        delete stepLogs.value[keys[0]];
+      }
       stepLogs.value[logId] = (await getTauriAPI().getDeployStepLogs(logId, "")) as DeployStep[];
     }
     // 自动加载日志文件（如果有 logFilePath 且尚未加载）
@@ -1019,6 +1041,11 @@ async function loadLogContent(log: DeployLog) {
     console.log("[loadLogContent] called")
     const content = await getTauriAPI().readLogFile(log.logFilePath!) as { success: boolean; content?: string; error?: string };
     if (content.success && content.content !== undefined) {
+      // LRU：超过上限时删除最旧的条目
+      const keys = Object.keys(loadedLogContent.value);
+      if (keys.length >= MAX_LOADED_LOG_CONTENT) {
+        delete loadedLogContent.value[keys[0]];
+      }
       loadedLogContent.value[log.id] = content.content;
     } else {
       toast.error('读取日志失败: ' + (content.error || '未知错误'));

@@ -167,6 +167,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'KanbanBoard' })
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
