@@ -370,6 +370,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'AgentProfiles' })
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import { invoke } from '@tauri-apps/api/core';

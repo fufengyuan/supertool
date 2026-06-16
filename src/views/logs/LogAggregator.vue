@@ -181,7 +181,7 @@
         <button
           v-if="queryMode === 'stream' && showScrollBottom"
           @click="scrollToBottom"
-          class="btn btn-primary btn-sm rounded-full absolute bottom-4 right-4 z-10 shadow-lg animate-pulse hover:scale-105 hover:shadow-xl transition-all"
+          class="btn btn-primary btn-sm rounded-full absolute bottom-4 right-4 z-10 shadow-lg hover:scale-105 hover:shadow-xl transition-all"
           title="回到底部"
         >
           <SvgIcon name="arrowDown" size="14" /> 回到底部
@@ -470,16 +470,19 @@ function getKeywordsFromPreset(): string {
   return ''
 }
 
-// 搜索结果高亮
+// 搜索结果高亮：缓存正则，仅在关键词变化时重建
+const _highlightRegex = computed<RegExp | null>(() => {
+  const kw = queryMode.value === 'search' ? searchKeyword.value : getKeywordsFromPreset()
+  if (!kw?.trim()) {return null}
+  const escapedKw = kw.trim().replace(/[.*+?^${}()|[\]\\]/g, String.fromCharCode(92) + '&')
+  return new RegExp(`(${escapedKw})`, 'gi')
+})
+
 function highlightSearchResult(content: string): string {
   if (typeof content !== 'string') {return ''}
   let result = content.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-
-  const kw = queryMode.value === 'search' ? searchKeyword.value : getKeywordsFromPreset()
-  if (!kw?.trim()) {return result}
-
-  const escapedKw = kw.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp(`(${escapedKw})`, 'gi')
+  const regex = _highlightRegex.value
+  if (!regex) {return result}
   result = result.replace(regex, '<mark>$1</mark>')
   return result
 }
@@ -731,8 +734,8 @@ function scheduleFlush() {
     // 智能裁剪：仅在超出上限时裁剪，避免每次 flush 都排序
     const MAX_LINES = 3000
     if (logLines.value.length > MAX_LINES) {
-      // 只保留最后 MAX_LINES 条（已经是追加排序的，尾部就是最新的）
-      logLines.value = logLines.value.slice(-MAX_LINES)
+      // 原地删除头部多余元素，保持数组引用不变，Vue 只需 patch 被删除的节点
+      logLines.value.splice(0, logLines.value.length - MAX_LINES)
     }
     if (followMode.value) {
       nextTick(() => {

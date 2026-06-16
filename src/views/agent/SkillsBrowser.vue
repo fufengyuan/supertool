@@ -203,6 +203,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'SkillsBrowser' })
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import SvgIcon from '@/components/ui/SvgIcon.vue'

@@ -141,6 +141,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: 'Chat' })
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { open } from '@tauri-apps/plugin-dialog';
