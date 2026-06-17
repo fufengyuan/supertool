@@ -260,17 +260,8 @@
               </div>
 
               <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="expandedLog === log.id">
-                <!-- Full log file viewer -->
-                <div v-if="fullLogContent !== null" class="mb-2.5">
-                  <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
-                    <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 完整日志</span>
-                    <button @click="closeFullLog" class="px-2 py-0.5 bg-transparent border border-base-content/10 rounded text-base-content/60 text-xs cursor-pointer hover:bg-error hover:text-white hover:border-error transition-colors inline-flex items-center gap-1"><SvgIcon name="x" size="12" /> 关闭</button>
-                  </div>
-                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all">{{ fullLogContent }}</pre>
-                </div>
-
-                <!-- Step logs -->
-                <div v-if="!fullLogContent && stepLogs[log.id] && stepLogs[log.id].length > 0" class="flex flex-col gap-2">
+                <!-- Step logs (结构化步骤日志，优先级最高) -->
+                <div v-if="stepLogs[log.id] && stepLogs[log.id].length > 0" class="flex flex-col gap-2">
                   <div
                     v-for="step in stepLogs[log.id]"
                     :key="step.id"
@@ -306,42 +297,46 @@
                   </div>
                 </div>
 
-                <!-- Raw log output (fallback when no step logs but logOutput exists) -->
-                <div v-else-if="!fullLogContent && log.logOutput" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content">{{ log.logOutput }}</pre>
-                </div>
-
-                <!-- Running deploy: show real-time logs from deploy state -->
-                <div v-else-if="!fullLogContent && log.status === 'running' && runningRealtimeLogs(log)" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</div>
-                  <div class="font-mono text-xs leading-relaxed p-2 bg-base-100 rounded max-h-72 overflow-y-auto">
-                    <div v-for="(line, i) in runningRealtimeLogs(log)" :key="i" class="flex gap-2 py-0.5">
-                      <span class="text-base-content/60 shrink-0 min-w-[75px]">{{ line.time }}</span>
-                      <span class="text-base-content/60 shrink-0 min-w-[55px]">[{{ line.stage }}]</span>
-                      <span class="text-base-content break-all">{{ line.message }}</span>
-                    </div>
+                <!-- 正在部署：显示实时日志 -->
+                <div v-else-if="log.status === 'running' && runningRealtimeLogs(log)" class="mt-1">
+                  <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
+                    <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 实时日志</span>
+                    <span class="text-xs text-base-content/60">{{ runningRealtimeLogs(log)?.length }} 行</span>
                   </div>
+                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all font-mono">
+                    <div v-for="(line, i) in runningRealtimeLogs(log)" :key="i" class="flex gap-2 py-0.5">
+                      <span class="text-gray-500 shrink-0 min-w-[75px]">{{ line.time }}</span>
+                      <span class="text-gray-500 shrink-0 min-w-[55px]">[{{ line.stage }}]</span>
+                      <span class="text-gray-300 break-all">{{ line.message }}</span>
+                    </div>
+                  </pre>
                 </div>
 
-                <!-- Auto-load log file when step logs are empty -->
-                <div v-else-if="!fullLogContent && log.logFilePath" class="mt-1">
-                  <div class="text-sm font-semibold text-base-content mb-1.5"><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</div>
-                  <pre ref="el => { if (el) requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; }) }" class="mt-1 p-2 bg-base-100 rounded overflow-y-auto overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-if="loadedLogContent[log.id]">{{ loadedLogContent[log.id] }}</pre>
-                  <pre class="mt-1 p-2 bg-base-100 rounded overflow-x-auto text-xs max-h-72 whitespace-pre-wrap break-all text-base-content" v-else><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...</pre>
+                <!-- 日志文件内容（暗色主题展示，与完整日志效果一致） -->
+                <div v-else-if="loadedLogContent[log.id]" class="mt-1">
+                  <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
+                    <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</span>
+                    <span class="text-xs text-base-content/60">{{ loadedLogContent[log.id].split('\n').length }} 行</span>
+                  </div>
+                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all font-mono">{{ loadedLogContent[log.id] }}</pre>
                 </div>
 
-                <!-- No details available -->
-                <div v-else-if="!fullLogContent" class="text-center p-5 text-base-content/60">
+                <!-- 原始 logOutput（无日志文件时的后备展示） -->
+                <div v-else-if="log.logOutput" class="mt-1">
+                  <div class="flex justify-between items-center px-2.5 py-1.5 bg-base-100 border border-base-content/10 border-b-0 rounded-t font-semibold text-sm">
+                    <span><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 部署日志</span>
+                  </div>
+                  <pre class="m-0 p-2.5 max-h-[500px] overflow-y-auto overflow-x-auto bg-[#1e1e1e] text-[#d4d4d4] text-xs leading-relaxed border border-base-content/10 rounded-b whitespace-pre-wrap break-all font-mono">{{ log.logOutput }}</pre>
+                </div>
+
+                <!-- 正在加载日志文件 -->
+                <div v-else-if="log.logFilePath" class="mt-1 text-center p-5 text-base-content/60">
+                  <SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 读取日志中...
+                </div>
+
+                <!-- 没有任何数据 -->
+                <div v-else class="text-center p-5 text-base-content/60">
                   <p class="m-1 text-sm"><SvgIcon name="mail" size="14" class="inline-block align-text-bottom" /> 暂无日志数据</p>
-                </div>
-
-                <!-- View full log button -->
-                <div v-if="log.logFilePath && fullLogContent === null" class="mt-2 flex justify-end">
-                  <button @click="viewFullLog(log)" :disabled="loadingLogFile" class="px-3.5 py-1 bg-base-content/10 text-base-content border border-base-content/10 rounded text-xs cursor-pointer hover:bg-primary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <template v-if="loadingLogFile"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom animate-spin" /> 加载中...</template>
-                    <template v-else><SvgIcon name="file" size="14" class="inline-block align-text-bottom" /> 查看完整日志</template>
-                  </button>
                 </div>
               </div>
 
@@ -545,9 +540,6 @@ function updateDeployState(configId: string, updates: Partial<DeployState>) {
   deployStates.value.set(configId, { ...existing, ...updates });
 }
 
-// Full log file viewer state
-const fullLogContent = ref<string | null>(null);
-const loadingLogFile = ref(false);
 
 const currentTime = computed(() => {
   return new Date().toLocaleTimeString('zh-CN');
@@ -997,28 +989,6 @@ async function rollbackDeploy(log: DeployLog) {
     handleError(error, { context: '回滚部署' });
   }
   rollingBackId.value = null;
-}
-
-async function viewFullLog(log: DeployLog) {
-  if (!log.logFilePath) {return;}
-  loadingLogFile.value = true;
-  fullLogContent.value = null;
-  try {
-    console.log("[viewFullLog] called")
-    const content = await getTauriAPI().readLogFile(log.logFilePath!) as { success: boolean; content?: string; error?: string };
-    if (content.success && content.content !== undefined) {
-      fullLogContent.value = content.content;
-    } else {
-      toast.error('读取日志失败: ' + (content.error || '未知错误'));
-    }
-  } catch (error) {
-    handleError(error, { context: '读取日志文件' });
-  }
-  loadingLogFile.value = false;
-}
-
-function closeFullLog() {
-  fullLogContent.value = null;
 }
 
 async function refreshLogs() {
