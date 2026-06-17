@@ -230,6 +230,14 @@
                   <template v-if="rollingBackId === log.id"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom" /> 回滚中</template>
                   <template v-else><SvgIcon name="refresh" size="14" class="inline-block align-text-bottom" /> 回滚</template>
                 </button>
+                <button
+                  v-if="log.status === 'running'"
+                  @click="cancelRunningDeploy(log)"
+                  class="ml-auto px-2.5 py-0.5 bg-error text-white border-0 rounded cursor-pointer text-xs font-medium transition-colors hover:opacity-85"
+                  title="取消部署"
+                >
+                  <SvgIcon name="stopSquare" size="14" class="inline-block align-text-bottom" /> 取消
+                </button>
               </div>
 
               <div class="mt-2 px-2.5 py-2 bg-base-content/10 rounded" v-if="log.status === 'failed'">
@@ -884,6 +892,34 @@ async function cancelDeploy() {
         realtimeLogs: [...state.realtimeLogs, { time: new Date().toLocaleTimeString('zh-CN'), stage: 'info', message: '⏹️ 部署取消请求已发送' }],
       });
       toast.info('部署取消请求已发送');
+    }
+  } catch (error) {
+    handleError(error, { context: '取消部署' });
+  }
+}
+
+/** 从历史列表中取消正在运行的部署 */
+async function cancelRunningDeploy(log: DeployLog) {
+  const state = deployStates.value.get(log.configId);
+  const deployLogId = state?.deployLogId || log.id;
+  if (!deployLogId) {return;}
+
+  const confirmed = confirm('确定要取消此部署吗？');
+  if (!confirmed) {return;}
+
+  try {
+    const result = await getTauriAPI().cancelDeploy(deployLogId);
+    if (result.success) {
+      // 更新本地状态
+      if (state) {
+        updateDeployState(log.configId, {
+          deploying: false,
+          deployCancelled: true,
+          currentStep: '⏹️ 部署已取消',
+        });
+      }
+      toast.info('部署取消请求已发送');
+      await refreshLogs();
     }
   } catch (error) {
     handleError(error, { context: '取消部署' });
