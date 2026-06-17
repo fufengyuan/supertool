@@ -790,17 +790,18 @@ export function useCicdConfig() {
       // 修改名称: "源名称 - 副本"
       newConfig.name = (source.name || getGitRepoName(source.gitRepoId) || '未命名配置') + ' - 副本';
 
-      // 4. 深拷贝子模块，生成新 ID，绑定新 configId
-      const newModules: DeployModule[] = sourceModules.map((mod, idx) => ({
-        ...JSON.parse(JSON.stringify(mod)),
-        id: `${newId}-mod-${idx}`,
-        configId: newId,
-        createdAt: now,
-        updatedAt: now,
-      }));
+      // 4. 先保存配置（不传 modules，与 saveConfig 新建逻辑保持一致）
+      await getTauriAPI().addCicdConfig(newConfig);
 
-      // 5. 一次性保存配置+模块（addCicdConfig 支持传入 modules）
-      await getTauriAPI().addCicdConfig(newConfig, newModules);
+      // 5. 逐个保存子模块（与 saveConfig 新建逻辑保持一致）
+      for (const mod of sourceModules) {
+        const newMod = { ...JSON.parse(JSON.stringify(mod)) };
+        newMod.id = `${newId}-mod-${Math.random().toString(36).substr(2, 9)}`;
+        newMod.configId = newId;
+        newMod.createdAt = now;
+        newMod.updatedAt = now;
+        await getTauriAPI().addDeployModule(newMod);
+      }
 
       // 6. 重新加载配置列表
       await loadConfigs();
