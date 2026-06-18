@@ -256,7 +256,6 @@ const navGroups = {
     { path: '/notes', icon: '📓', label: '笔记', viewId: 'notes' },
     { path: '/git', icon: '🔀', label: 'Git 仓库', viewId: 'git' },
     { path: '/image', icon: '🖼️', label: '图像处理', viewId: 'image-processor' },
-    { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
   ],
   security: [
     { path: '/mfa', icon: '🔐', label: 'MFA', viewId: 'mfa' },

@@ -92,6 +92,12 @@
         <IconCpu :size="16" />
         <span>记忆</span>
       </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'kanban' ? 'tab-active' : ''"
+        @click="tab = 'kanban'">
+        <IconLayoutColumns :size="16" />
+        <span>看板</span>
+      </button>
     </div>
 
     <!-- ==================== General Tab ==================== -->
@@ -570,6 +576,11 @@
     <div v-if="tab === 'memory'" class="-mx-3">
       <MemoryManager />
     </div>
+
+    <!-- ==================== 看板 ==================== -->
+    <div v-if="tab === 'kanban'" class="-mx-3">
+      <KanbanBoard />
+    </div>
   </div>
 </template>
 
@@ -607,6 +618,7 @@ import {
   IconTools,
   IconClock,
   IconCpu,
+  IconLayoutColumns,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
@@ -621,6 +633,7 @@ const ToolsManager = defineAsyncComponent(() => import('./ToolsManager.vue'))
 const CronManager = defineAsyncComponent(() => import('./CronManager.vue'))
 const SkillsBrowser = defineAsyncComponent(() => import('./SkillsBrowser.vue'))
 const MemoryManager = defineAsyncComponent(() => import('./MemoryManager.vue'))
+const KanbanBoard = defineAsyncComponent(() => import('@/components/kanban/KanbanBoard.vue'))
 
 const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
@@ -632,7 +645,7 @@ const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 const loading = ref(false)
 const error = ref('')
 const successMsg = ref('')
-const tab = ref<'general' | 'appearance' | 'language' | 'models' | 'about' | 'profiles' | 'providers' | 'tools' | 'cron' | 'skills' | 'memory'>('general')
+const tab = ref<'general' | 'appearance' | 'language' | 'models' | 'about' | 'profiles' | 'providers' | 'tools' | 'cron' | 'skills' | 'memory' | 'kanban'>('general')
 const configInfo = ref<HermesConfigInfo | null>(null)
 const appVersion = ref('')
 const theme = ref<'light' | 'dark' | 'system'>('light')
