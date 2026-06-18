@@ -160,20 +160,22 @@
             <p>未找到匹配结果</p>
           </div>
 
-          <div
-            v-for="line in displayLines"
-            :key="line.id"
-            class="flex gap-2 py-0.5 hover:bg-white/5"
-            :class="{ 'bg-warning/10 border-l-4 border-warning': line.isMatch }"
-            style="content-visibility: auto; contain-intrinsic-size: 1.5rem;"
-          >
-            <span v-if="queryMode === 'search'" class="text-base-content/60 min-w-[50px] text-[11px] opacity-60 text-right">{{ line.lineNum || '' }}</span>
-            <span class="min-w-[80px] font-medium" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
-            <span
-              class="log-line-text flex-1 whitespace-pre-wrap break-all"
-              :class="{ 'text-error': line.level === 'error', 'text-warning': line.level === 'warn', 'text-base-content/40': line.level === 'debug' }"
-              v-html="highlightSearchResult(line.content)"
-            ></span>
+          <!-- 虚拟滚动容器：用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行 -->
+          <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' }">
+            <div
+              v-for="line in visibleLines"
+              :key="line.id"
+              class="flex gap-2 py-0.5 hover:bg-white/5"
+              :class="{ 'bg-warning/10 border-l-4 border-warning': line.isMatch }"
+            >
+              <span v-if="queryMode === 'search'" class="text-base-content/60 min-w-[50px] text-[11px] opacity-60 text-right">{{ line.lineNum || '' }}</span>
+              <span class="min-w-[80px] font-medium" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
+              <span
+                class="log-line-text flex-1 whitespace-pre-wrap break-all"
+                :class="{ 'text-error': line.level === 'error', 'text-warning': line.level === 'warn', 'text-base-content/40': line.level === 'debug' }"
+                v-html="highlightSearchResult(line.content)"
+              ></span>
+            </div>
           </div>
         </div>
 
@@ -313,6 +315,26 @@ const isDownloadingLog = ref(false)
 
 // 滚动状态
 const showScrollBottom = ref(false)
+// 虚拟滚动：只渲染可视区内的行
+const VIRTUAL_LINE_HEIGHT = 24    // px，匹配 contain-intrinsic-size: 1.5rem
+const OVERSCAN = 100               // 视口上下额外渲染的行数
+const scrollTop = ref(0)
+const containerHeight = ref(0)
+
+const totalItems = computed(() => displayLines.value.length)
+
+const visibleStart = computed(() => {
+  return Math.max(0, Math.floor(scrollTop.value / VIRTUAL_LINE_HEIGHT) - OVERSCAN)
+})
+
+const visibleEnd = computed(() => {
+  return Math.min(totalItems.value, Math.ceil((scrollTop.value + containerHeight.value) / VIRTUAL_LINE_HEIGHT) + OVERSCAN)
+})
+
+// 模板只渲染这部分行，其余行用 paddingTop/paddingBottom 撑开滚动空间
+const visibleLines = computed(() => {
+  return displayLines.value.slice(visibleStart.value, visibleEnd.value)
+})
 
 // 预设分组折叠状态
 const collapsedPresetGroups = ref(new Set<string>())
@@ -734,8 +756,15 @@ function scheduleFlush() {
     // 智能裁剪：仅在超出上限时裁剪，避免每次 flush 都排序
     const MAX_LINES = 3000
     if (logLines.value.length > MAX_LINES) {
-      // 原地删除头部多余元素，保持数组引用不变，Vue 只需 patch 被删除的节点
-      logLines.value.splice(0, logLines.value.length - MAX_LINES)
+      const overflow = logLines.value.length - MAX_LINES
+      // 原地删除头部多余元素，保持数组引用不变
+      logLines.value.splice(0, overflow)
+      // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
+      if (!followMode.value && logContainer.value && scrollTop.value > 0) {
+        const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+        logContainer.value.scrollTop = adjustedScroll
+        scrollTop.value = adjustedScroll
+      }
     }
     if (followMode.value) {
       nextTick(() => {
@@ -771,8 +800,14 @@ function onScroll() {
   // 程序化滚动期间，忽略 onScroll
   if (scrollingFromRAF) {return}
 
-  const { scrollTop, scrollHeight, clientHeight } = logContainer.value
-  const atBottom = scrollHeight - scrollTop - clientHeight < 50
+  const el = logContainer.value
+  scrollTop.value = el.scrollTop
+  // 仅在大小变化时更新，避免每帧赋值
+  if (containerHeight.value !== el.clientHeight) {
+    containerHeight.value = el.clientHeight
+  }
+
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
 
   // 用户向上滚动超过 100px → 暂定自动追踪，显示回到底部按钮
   userScrolledUp.value = !atBottom && isStreaming.value
@@ -1046,6 +1081,11 @@ let _cleanupDataChanged: (() => void) | undefined
 onMounted(async () => {
     console.log("[components/LogAggregator.vue] mounted")
   await Promise.all([loadPresets(), loadServers()])
+
+  // 初始化虚拟滚动容器高度
+  if (logContainer.value) {
+    containerHeight.value = logContainer.value.clientHeight
+  }
 
   /* Event listeners for log streaming from Tauri backend */
   cleanupLogsLine = await getTauriAPI().onLogsLine(onLineHandler);
