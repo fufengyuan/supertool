@@ -237,16 +237,16 @@ fn main() {
 
             // 注入用户登录 shell 的环境变量（PATH/NVM/SDKMAN 等）
             // 使 agent 执行 bash 命令时能找到用户安装的工具
+            // 仅补充当前进程缺失的变量，不覆盖已有值（避免覆盖正确的 PATH）
             let shell_env = get_shell_env_for_command();
             log::info!("[ShellEnv] 加载用户 shell 环境: {} 个变量", shell_env.len());
             for (key, value) in &shell_env {
-                // 跳过当前进程已有且为关键系统变量的（如 SHLVL、_ 等）
-                if matches!(key.as_str(), "SHLVL" | "_" | "SHELL" | "TERM_PROGRAM" | "TERM_PROGRAM_VERSION") {
-                    continue;
+                if std::env::var(key).is_ok() {
+                    continue; // 已有则跳过（进程级 PATH 通常比 shell -l 的 PATH 更完整）
                 }
                 unsafe { std::env::set_var(key, value); }
             }
-            log::info!("[ShellEnv] 用户 shell 环境变量已注入");
+            log::info!("[ShellEnv] 用户 shell 环境变量补充注入完成");
 
             // OpenVPN
             app.manage(openvpn::OpenVPNManager::new());

@@ -276,7 +276,7 @@
 <script setup lang="ts">// @ts-nocheck
 defineOptions({ name: 'LogAggregator' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, nextTick, watch } from 'vue'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
 import type { Server } from '../../types'
@@ -1072,6 +1072,29 @@ onUnmounted(async () => {
   serverColors.clear()
   colorIndex = 0
 })
+
+// 用于记录切出前是否有活跃查询，等用户切回后自动恢复
+let wasQueryBeforeDeactivate = false
+
+// 切到其他 tab 时暂停后台日志流，避免持续占用主线程（导致部署时页面卡死）
+onDeactivated(() => {
+  wasQueryBeforeDeactivate = isStreaming.value
+  if (logFlushTimer) { clearTimeout(logFlushTimer); logFlushTimer = null }
+  logBuffer.length = 0
+  if (isStreaming.value && streamId.value) {
+    getTauriAPI().logsStopStream(streamId.value).catch(() => {})
+    isStreaming.value = false
+    streamId.value = ''
+  }
+})
+
+// 切回时恢复日志流
+onActivated(async () => {
+  if (selectedPreset.value && wasQueryBeforeDeactivate) {
+    await resumeQuery()
+  }
+})
+
 </script>
 
 <!-- 用于 v-html 渲染的 <mark> 标签样式（必须全局/非 scoped） -->
