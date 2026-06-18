@@ -1,6 +1,6 @@
 [package]
 name = "stool"
-version = "5.1.6"
+version = "5.2.0"
 edition = "2024"
 description = "SuperTool CLI - Direct CoreService access for task, project, server, and log management"
 

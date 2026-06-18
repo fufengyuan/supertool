@@ -266,7 +266,6 @@ async function fetchPlanMode() {
 
 // Goal mode toggle — button: ON→OFF clears goal; OFF→show inline input
 async function handleToggleGoal() {
-  if (!isClawMode.value) return;
   if (goalMode.value) {
     // Turn off — clear goal
     goalMode.value = false;
@@ -275,10 +274,12 @@ async function handleToggleGoal() {
     goalTurnsUsed.value = 0;
     goalLastVerdict.value = null;
     goalLastReason.value = null;
-    try {
-      await invoke('claw_chat_set_goal_status', { status: 'clear' });
-    } catch (e) {
-      console.error('[Chat] Failed to clear goal mode:', e);
+    if (isClawMode.value) {
+      try {
+        await invoke('claw_chat_set_goal_status', { status: 'clear' });
+      } catch (e) {
+        console.error('[Chat] Failed to clear goal mode:', e);
+      }
     }
   } else {
     // Show inline goal input
@@ -300,8 +301,10 @@ function confirmGoalInput() {
   goalTurnsUsed.value = 0;
   goalLastVerdict.value = null;
   goalLastReason.value = null;
-  invoke('claw_chat_set_goal_mode', { active: true, goalText: text })
-    .catch((e: unknown) => console.error('[Chat] Failed to set goal mode:', e));
+  if (isClawMode.value) {
+    invoke('claw_chat_set_goal_mode', { active: true, goalText: text })
+      .catch((e: unknown) => console.error('[Chat] Failed to set goal mode:', e));
+  }
 }
 
 function cancelGoalInput() {
@@ -566,6 +569,7 @@ const {
   scrollToBottom,
   inputRef: chatInputRef,
   isClawMode,
+  goal: goalText, // pass goal text for hermes agent goal mode
 });
 
 /** Wrapper around handleAbort that also pauses loop mode (matching oh-my-pi Esc → pauseLoop) */

@@ -19,6 +19,7 @@ interface UseChatActionsArgs {
   scrollToBottom: () => void;
   inputRef: Ref<{ clear: () => void; focus: () => void } | null>;
   isClawMode?: Ref<boolean> | boolean;
+  goal?: Ref<string>;  // optional goal text for hermes agent
 }
 
 interface UseChatActionsResult {
@@ -56,6 +57,7 @@ export function useChatActions({
   scrollToBottom,
   inputRef,
   isClawMode: isClawModeArg = false,
+  goal,
 }: UseChatActionsArgs): UseChatActionsResult {
   const getIsClawMode = () => isRef(isClawModeArg) ? isClawModeArg.value : isClawModeArg;
   const pushUser = (
@@ -88,6 +90,7 @@ export function useChatActions({
         })),
         attachments: attachments || [],
         contextFolder: contextFolder.value || undefined,
+        goal: goal?.value || undefined,
       });
     } catch {
       // IPC error already surfaces via agent-error event

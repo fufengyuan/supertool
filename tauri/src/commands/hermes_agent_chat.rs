@@ -561,6 +561,7 @@ pub async fn agent_chat(
     model: Option<String>,
     toolsets: Option<Vec<String>>,
     context_folder: Option<String>,
+    goal: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let config = load_config(None).map_err(|e| format!("Failed to load Hermes config: {e}"))?;
     let model_name = resolve_effective_model(&config, model);
@@ -603,6 +604,19 @@ pub async fn agent_chat(
         if !trimmed.is_empty() {
             messages.push(Message::system(&format!(
                 "The working folder for this conversation is {}. When the user asks you to read, create, modify, or run project files, use the file, terminal, and code-execution tools with absolute paths under this folder.",
+                trimmed
+            )));
+        }
+    }
+    // Inject goal as a persistent system message
+    if let Some(ref goal_text) = goal {
+        let trimmed = goal_text.trim();
+        if !trimmed.is_empty() {
+            messages.push(Message::system(&format!(
+                "You are working toward the following goal: {}\n\
+                 - Work toward this goal step by step across multiple turns.\n\
+                 - After each response, evaluate whether you have achieved the goal.\n\
+                 - If you believe the goal is achieved, end your response with GOAL_COMPLETED.",
                 trimmed
             )));
         }
