@@ -8,6 +8,7 @@ mod tray_notification;
 mod tests;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
+use supertool_core::logic::cicd_deploy::get_shell_env_for_command;
 use commands::claw_chat::ClawChatState;
 
 use std::sync::OnceLock;
@@ -233,6 +234,19 @@ fn main() {
             let core = CoreService::new(database, supertool_dir.clone());
             app.manage(core.clone());
             log::info!("[CoreService] 初始化完成");
+
+            // 注入用户登录 shell 的环境变量（PATH/NVM/SDKMAN 等）
+            // 使 agent 执行 bash 命令时能找到用户安装的工具
+            let shell_env = get_shell_env_for_command();
+            log::info!("[ShellEnv] 加载用户 shell 环境: {} 个变量", shell_env.len());
+            for (key, value) in &shell_env {
+                // 跳过当前进程已有且为关键系统变量的（如 SHLVL、_ 等）
+                if matches!(key.as_str(), "SHLVL" | "_" | "SHELL" | "TERM_PROGRAM" | "TERM_PROGRAM_VERSION") {
+                    continue;
+                }
+                unsafe { std::env::set_var(key, value); }
+            }
+            log::info!("[ShellEnv] 用户 shell 环境变量已注入");
 
             // OpenVPN
             app.manage(openvpn::OpenVPNManager::new());
