@@ -247,15 +247,7 @@ const navGroups = {
   agent: [
     { path: '/agent/chat', icon: '💬', label: '对话', viewId: 'agent-chat' },
     { path: '/agent/sessions', icon: '📜', label: '历史会话', viewId: 'agent-sessions' },
-    { path: '/agent/skills', icon: '⚡', label: '技能', viewId: 'skills' },
-    { path: '/agent/memory', icon: '📚', label: '记忆', viewId: 'memory' },
-    { path: '/agent/tools', icon: '🔧', label: '工具', viewId: 'tools' },
-    { path: '/agent/cron', icon: '⏰', label: '定时任务', viewId: 'cron' },
-    { path: '/agent/profiles', icon: '👤', label: '配置文件', viewId: 'agent-profiles' },
-    { path: '/agent/providers', icon: '🏪', label: '模型提供商', viewId: 'providers' },
-    { path: '/agent/models', icon: '🤖', label: '模型', viewId: 'models' },
-    { path: '/agent/settings', icon: '⚙️', label: '设置', viewId: 'agent-settings' },
-    { path: '/kanban', icon: '📋', label: '看板', viewId: 'kanban' },
+    { path: '/agent/settings', icon: '⚙️', label: '配置', viewId: 'agent-settings' },
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },

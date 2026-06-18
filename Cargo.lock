@@ -815,9 +815,9 @@ checksum = "8f1fe948ff07f4bd06c30984e69f5b4899c516a3ef74f34df92a2df2ab535495"
 
 [[package]]
 name = "bytes"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e748733b7cbc798e1434b6ac524f0c1ff2ab456fe201501e6497c8417a4fc33"
+checksum = "8ae3f5d315924270530207e2a68396c3cc547f6dca3fbdca317cfb1a51edb593"
 dependencies = [
  "serde",
 ]
@@ -4329,7 +4329,7 @@ checksum = "8983d30f2915feeaaab2d6babdd6bc7e9ed1a00b66b5e6d74df19aa9c0e91862"
 dependencies = [
  "log",
  "tendril 0.5.0",
- "web_atoms 0.2.4",
+ "web_atoms 0.2.5",
 ]
 
 [[package]]
@@ -7355,7 +7355,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "stool"
-version = "5.1.4"
+version = "5.1.5"
 dependencies = [
  "anyhow",
  "chrono",
@@ -7474,7 +7474,7 @@ checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
 name = "supertool"
-version = "5.1.4"
+version = "5.1.5"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -7554,7 +7554,7 @@ dependencies = [
 
 [[package]]
 name = "supertool-core"
-version = "5.1.4"
+version = "5.1.5"
 dependencies = [
  "aes-gcm",
  "anyhow",
@@ -9339,9 +9339,9 @@ dependencies = [
 
 [[package]]
 name = "web_atoms"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7cff6eef815df1834fd250e3a2ff436044d82a9f1bc1980ca1dbdf07effc538"
+checksum = "075474b12bcb3d2e3d4546580e9de478eeeead668a1761e2a8860c836b7ef297"
 dependencies = [
  "phf 0.13.1",
  "phf_codegen 0.13.1",
