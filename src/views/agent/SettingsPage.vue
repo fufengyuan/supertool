@@ -1,5 +1,5 @@
 <template>
-  <div class="max-w-3xl mx-auto">
+  <div class="w-full px-6">
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
       <div>
