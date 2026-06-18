@@ -55,6 +55,43 @@
         <IconInfoCircle :size="16" />
         <span>About</span>
       </button>
+      <!-- 子功能导航 -->
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'profiles' ? 'tab-active' : ''"
+        @click="tab = 'profiles'">
+        <IconUsers :size="16" />
+        <span>配置文件</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'providers' ? 'tab-active' : ''"
+        @click="tab = 'providers'">
+        <IconBuildingStore :size="16" />
+        <span>模型提供商</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'tools' ? 'tab-active' : ''"
+        @click="tab = 'tools'">
+        <IconTools :size="16" />
+        <span>工具</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'cron' ? 'tab-active' : ''"
+        @click="tab = 'cron'">
+        <IconClock :size="16" />
+        <span>定时任务</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'skills' ? 'tab-active' : ''"
+        @click="tab = 'skills'">
+        <IconBrain :size="16" />
+        <span>技能</span>
+      </button>
+      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+        :class="tab === 'memory' ? 'tab-active' : ''"
+        @click="tab = 'memory'">
+        <IconCpu :size="16" />
+        <span>记忆</span>
+      </button>
     </div>
 
     <!-- ==================== General Tab ==================== -->
@@ -503,12 +540,42 @@
         </div>
       </div>
     </div>
+
+    <!-- ==================== 配置文件 ==================== -->
+    <div v-if="tab === 'profiles'" class="space-y-4">
+      <AgentProfiles />
+    </div>
+
+    <!-- ==================== 模型提供商 ==================== -->
+    <div v-if="tab === 'providers'" class="-mx-3">
+      <ProviderManager />
+    </div>
+
+    <!-- ==================== 工具 ==================== -->
+    <div v-if="tab === 'tools'" class="-mx-3">
+      <ToolsManager />
+    </div>
+
+    <!-- ==================== 定时任务 ==================== -->
+    <div v-if="tab === 'cron'" class="-mx-3">
+      <CronManager />
+    </div>
+
+    <!-- ==================== 技能 ==================== -->
+    <div v-if="tab === 'skills'" class="-mx-3">
+      <SkillsBrowser />
+    </div>
+
+    <!-- ==================== 记忆 ==================== -->
+    <div v-if="tab === 'memory'" class="-mx-3">
+      <MemoryManager />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 defineOptions({ name: 'SettingsPage' })
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   IconRefresh,
@@ -536,12 +603,24 @@ import {
   IconPlus,
   IconTrash,
   IconBox,
+  IconBuildingStore,
+  IconTools,
+  IconClock,
+  IconCpu,
 } from '@tabler/icons-vue'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useSettingsStore } from '@/utils/settings'
 import { useAgentModeStore } from '@/stores/agentModeStore'
 import { invoke } from '@tauri-apps/api/core'
 import type { HermesConfigInfo } from '@/types'
+
+// 延迟加载各子功能组件（只在对应 tab 选中时加载）
+const AgentProfiles = defineAsyncComponent(() => import('./AgentProfiles.vue'))
+const ProviderManager = defineAsyncComponent(() => import('./ProviderManager.vue'))
+const ToolsManager = defineAsyncComponent(() => import('./ToolsManager.vue'))
+const CronManager = defineAsyncComponent(() => import('./CronManager.vue'))
+const SkillsBrowser = defineAsyncComponent(() => import('./SkillsBrowser.vue'))
+const MemoryManager = defineAsyncComponent(() => import('./MemoryManager.vue'))
 
 const { t, locale } = useI18n()
 const settingsStore = useSettingsStore()
@@ -553,7 +632,7 @@ const TELEGRAM_URL = 'https://t.me/hermes_agent_desktop'
 const loading = ref(false)
 const error = ref('')
 const successMsg = ref('')
-const tab = ref<'general' | 'appearance' | 'language' | 'models' | 'about'>('general')
+const tab = ref<'general' | 'appearance' | 'language' | 'models' | 'about' | 'profiles' | 'providers' | 'tools' | 'cron' | 'skills' | 'memory'>('general')
 const configInfo = ref<HermesConfigInfo | null>(null)
 const appVersion = ref('')
 const theme = ref<'light' | 'dark' | 'system'>('light')
