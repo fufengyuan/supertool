@@ -577,7 +577,24 @@ async function handleAbort() {
   // Pause loop: cancel pending resend, clear prompt, but keep mode enabled
   cancelLoopResend();
   loopPrompt.value = null;
-  await handleAbortRaw();
+
+  if (isClawMode.value) {
+    // Claw mode: send abort signal to backend, then wait for the in-flight
+    // clawSend() invoke to truly finish (not just set a flag).
+    // This prevents the "cancel still running → send new msg → session lock" crash.
+    try {
+      await invoke('claw_chat_abort');
+    } catch { /* ignore */ }
+    // Wait for the pending send to settle (catches Cancelled error)
+    if (_pendingClawSend) {
+      await _pendingClawSend;
+    }
+    // Now it's safe to allow new sends
+    isLoading.value = false;
+    setTimeout(() => chatInputRef.value?.focus(), 50);
+  } else {
+    await handleAbortRaw();
+  }
 }
 
 // ── Derived ──────────────────────────────────────────────────────────────────
@@ -663,7 +680,13 @@ async function ensureClawChat() {
 }
 
 /** Claw 模式：发送消息 */
+let _pendingClawSend: Promise<void> | null = null
 async function clawSend(text: string) {
+  const p = _execClawSend(text)
+  _pendingClawSend = p
+  return p
+}
+async function _execClawSend(text: string) {
   isLoading.value = true
   await ensureClawChat()
   try {
@@ -695,12 +718,15 @@ async function clawSend(text: string) {
     if (result?.goalTurnsUsed != null) {
       goalTurnsUsed.value = result.goalTurnsUsed;
     }
-    // Reset loading state — agent-done event also resets this,
-    // but we do it here as safety net in case event doesn't fire
-    isLoading.value = false
   } catch (e: any) {
-    addAgentMessage(`发送失败: ${e?.message || String(e)}`)
+    // Ignore "Cancelled by user" — it's a normal abort, not an error
+    const msg = e?.message || String(e)
+    if (!msg.includes('Cancelled by user')) {
+      addAgentMessage(`发送失败: ${msg}`)
+    }
+  } finally {
     isLoading.value = false
+    _pendingClawSend = null
   }
 }
 
