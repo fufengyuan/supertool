@@ -92,7 +92,7 @@
         <IconCpu :size="16" />
         <span>记忆</span>
       </button>
-      <button class="tab tab-bordered tab-sm flex items-center gap-1"
+      <button v-if="!isClawMode" class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'kanban' ? 'tab-active' : ''"
         @click="tab = 'kanban'">
         <IconLayoutColumns :size="16" />
@@ -577,8 +577,8 @@
       <MemoryManager />
     </div>
 
-    <!-- ==================== 看板 ==================== -->
-    <div v-if="tab === 'kanban'" class="-mx-3">
+    <!-- ==================== 看板（仅 Hermes） ==================== -->
+    <div v-if="tab === 'kanban' && !isClawMode" class="-mx-3">
       <KanbanBoard />
     </div>
   </div>
