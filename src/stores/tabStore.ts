@@ -48,7 +48,7 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/logs':      { label: '日志聚合',viewId: 'log-aggregator',   componentNames: ['LogAggregator'] },
   '/nginx':     { label: 'Nginx',   viewId: 'nginx',            componentNames: ['NginxManager'] },
   '/database':  { label: '数据库',  viewId: 'database',         componentNames: ['DBManager'] },
-  '/agent':     { label: '对话',   viewId: 'agent',            componentNames: ['Chat'] },
+  '/agent':     { label: '对话',   viewId: 'agent',            componentNames: ['AgentWorkspace'] },
   '/agent/profiles': { label: '配置文件', viewId: 'agent-profiles', componentNames: ['AgentProfiles'] },
   '/agent/tools': { label: '工具', viewId: 'tools', componentNames: ['ToolsManager'] },
   '/agent/cron': { label: '定时任务', viewId: 'cron', componentNames: ['CronManager'] },
@@ -56,7 +56,6 @@ export const KNOWN_ROUTES: Record<string, RouteInfo> = {
   '/agent/models': { label: '模型', viewId: 'models', componentNames: ['ModelsPage'] },
   '/agent/skills': { label: '技能', viewId: 'skills', componentNames: ['SkillsBrowser'] },
   '/agent/memory': { label: '记忆', viewId: 'memory', componentNames: ['MemoryManager'] },
-  '/agent/sessions': { label: '历史会话', viewId: 'agent-sessions', componentNames: ['SessionsPage'] },
   '/agent/settings': { label: '设置', viewId: 'agent-settings', componentNames: ['SettingsPage'] },
   '/kanban':    { label: '看板',    viewId: 'kanban',           componentNames: ['KanbanBoard'] },
   '/alert':     { label: '告警',    viewId: 'alert',            componentNames: ['AlertView'] },
@@ -112,7 +111,6 @@ export const VIEW_ID_TO_PATH: Record<string, string> = {
   models: '/agent/models',
   skills: '/agent/skills',
   memory: '/agent/memory',
-  'agent-sessions': '/agent/sessions',
   'agent-settings': '/agent/settings',
 }
 
