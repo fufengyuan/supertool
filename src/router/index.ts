@@ -110,12 +110,12 @@ const routes = [
       {
         path: 'agent',
         name: 'Agent',
-        redirect: '/agent/sessions',
+        component: () => import('../views/agent/Workspace.vue'),
       },
       {
         path: 'agent/chat',
         name: 'AgentChat',
-        component: () => import('../views/agent/chat/Chat.vue'),
+        component: () => import('../views/agent/Workspace.vue'),
       },
       {
         path: 'agent/profiles',
@@ -141,11 +141,6 @@ const routes = [
         path: 'agent/memory',
         name: 'AgentMemory',
         component: () => import('../views/agent/MemoryManager.vue'),
-      },
-      {
-        path: 'agent/sessions',
-        name: 'AgentSessions',
-        component: () => import('../views/agent/SessionsPage.vue'),
       },
       {
         path: 'agent/settings',

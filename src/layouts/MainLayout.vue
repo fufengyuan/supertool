@@ -245,8 +245,7 @@ const navGroups = {
     { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
   ],
   agent: [
-    { path: '/agent/chat', icon: '💬', label: '对话', viewId: 'agent-chat' },
-    { path: '/agent/sessions', icon: '📜', label: '历史会话', viewId: 'agent-sessions' },
+    { path: '/agent', icon: '💬', label: '对话', viewId: 'agent' },
     { path: '/agent/settings', icon: '⚙️', label: '配置', viewId: 'agent-settings' },
   ],
   dev: [
@@ -323,7 +322,7 @@ onMounted(async () => {
     const routeMap: Record<string, string> = {
       'dashboard': '/', 'todo': '/todo', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
-      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent/sessions', 'alert': '/alert', 'devtools': '/devtools',
+      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
