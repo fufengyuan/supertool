@@ -604,6 +604,7 @@ fn main() {
             commands::logs::delete_log_preset,
             commands::logs::log_search,
             commands::logs::log_tail,
+            commands::logs::logs_load_more,
             commands::logs::logs_start_stream,
             commands::logs::logs_stop_stream,
             commands::logs::write_system_log,
