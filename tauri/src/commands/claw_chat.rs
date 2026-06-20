@@ -85,8 +85,6 @@ pub(crate) struct GoalModeState {
 /// Claw 聊天状态（单例，存在 app state 中）
 pub struct ClawChatState {
     pub(crate) client: Mutex<Option<Arc<LlmClient>>>,
-    /// Optional sub-agent client with a different (faster) model for delegated tool execution.
-    pub(crate) sub_agent_client: Mutex<Option<Arc<LlmClient>>>,
     pub(crate) session: Mutex<Option<Session>>,
     pub(crate) workspace: Mutex<Option<PathBuf>>,
     pub(crate) plan_state: Arc<std::sync::Mutex<PlanModeState>>,
@@ -109,7 +107,6 @@ impl ClawChatState {
     pub fn new() -> Self {
         Self {
             client: Mutex::new(None),
-            sub_agent_client: Mutex::new(None),
             session: Mutex::new(None),
             workspace: Mutex::new(None),
             plan_state: Arc::new(std::sync::Mutex::new(PlanModeState::default())),
@@ -1270,21 +1267,17 @@ pub async fn claw_chat_init(
         *c = Some(Arc::new(client));
     }
 
-    // ── Sub-Agent LLM Client (optional, for tool delegation) ──
+    // ── Sub-Agent model (optional, for `Agent` tool delegation) ──
+    // Expose the configured sub-agent model to claw-tools via env var so that
+    // delegated sub-agents (spawned through the `Agent` tool) default to this
+    // faster/cheaper model when the caller doesn't specify one explicitly.
     {
         let config = crate::commands::claw_config::read_claw_config()?;
-        if !config.sub_agent_model.is_empty() {
-            log::info!("[claw_chat] Initializing sub-agent client with model={}", config.sub_agent_model);
-            match LlmClient::from_model(&config.sub_agent_model) {
-                Ok(sub_client) => {
-                    let mut sc = state.sub_agent_client.lock().await;
-                    *sc = Some(Arc::new(sub_client));
-                    log::info!("[claw_chat] Sub-agent client ready: model={}", config.sub_agent_model);
-                }
-                Err(e) => {
-                    log::warn!("[claw_chat] Failed to create sub-agent client (will use main model): {e}");
-                }
-            }
+        if config.sub_agent_model.is_empty() {
+            unsafe { std::env::remove_var("CLAW_SUB_AGENT_MODEL") };
+        } else {
+            log::info!("[claw_chat] Sub-agent default model: {}", config.sub_agent_model);
+            unsafe { std::env::set_var("CLAW_SUB_AGENT_MODEL", &config.sub_agent_model) };
         }
     }
 
@@ -1506,10 +1499,6 @@ Every response must advance toward this goal. The objective persists across turn
         let goal_state_hook = state.goal_state.clone();
         let loop_mode_hook = state.loop_mode.clone();
         let abort_signal_iter = hook_abort_signal.clone();
-        let sub_agent_client_iter = {
-            let sc = state.sub_agent_client.lock().await;
-            sc.clone()
-        };
 
         let (summary, session) = tokio::task::block_in_place(move || {
             let api_client = crate::commands::claw_runtime_bridge::TauriApiClient::new(
@@ -1527,7 +1516,6 @@ Every response must advance toward this goal. The objective persists across turn
                 goal_mode_hook.clone(),
                 goal_state_hook.clone(),
                 loop_mode_hook.clone(),
-                sub_agent_client_iter,
             );
             // Permission policy with rules from config — mirrors upstream permission_policy()
             let permission_policy = PermissionPolicy::new(PermissionMode::Allow)

@@ -4247,11 +4247,16 @@ fn build_agent_system_prompt(subagent_type: &str, model: &str) -> Result<Vec<Str
 }
 
 fn resolve_agent_model(model: Option<&str>) -> String {
-    model
-        .map(str::trim)
-        .filter(|model| !model.is_empty())
-        .unwrap_or(DEFAULT_AGENT_MODEL)
-        .to_string()
+    if let Some(explicit) = model.map(str::trim).filter(|model| !model.is_empty()) {
+        return explicit.to_string();
+    }
+    if let Ok(configured) = std::env::var("CLAW_SUB_AGENT_MODEL") {
+        let configured = configured.trim();
+        if !configured.is_empty() {
+            return configured.to_string();
+        }
+    }
+    DEFAULT_AGENT_MODEL.to_string()
 }
 
 fn allowed_tools_for_subagent(subagent_type: &str) -> BTreeSet<String> {
