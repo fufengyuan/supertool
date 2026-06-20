@@ -70,6 +70,22 @@ pub async fn log_tail(
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
+/// Load more historical log lines for an active stream.
+/// Queries each server in the preset for older lines beyond `currentCount`
+/// and returns them as a JSON result for the frontend to prepend.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn logs_load_more(
+    core: State<'_, CoreService>,
+    stream_id: String,
+    current_count: usize,
+    batch_size: Option<usize>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] logs_load_more() stream={}, currentCount={}", stream_id, current_count);
+    let batch = batch_size.unwrap_or(500);
+    let result = core.load_more_logs(&stream_id, current_count, batch).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
 // =================== Log Streaming ===================
 
 #[tauri::command(rename_all = "camelCase")]

@@ -881,9 +881,39 @@ async function loadMoreHistory() {
   if (queryMode.value !== 'stream' || !selectedPreset.value || loadingMore.value) return
   loadingMore.value = true
   try {
-    // Placeholder - backend API not yet implemented
-    console.log('[LogAggregator] loadMoreHistory triggered, count=', logLines.value.length)
-    // TODO: await getTauriAPI().logsLoadMore(streamId.value, logLines.value.length)
+    const result = await getTauriAPI().logsLoadMore(streamId.value, logLines.value.length, 500)
+    if (result?.results && result.results.length > 0) {
+      let addedCount = 0
+      for (const serverResult of result.results) {
+        if (serverResult.lines && serverResult.lines.length > 0) {
+          for (let i = serverResult.lines.length - 1; i >= 0; i--) {
+            const content = serverResult.lines[i]
+            if (!content) continue
+            logLines.value.unshift({
+              id: `${serverResult.serverId}-more-${Date.now()}-${Math.random()}`,
+              serverId: serverResult.serverId,
+              serverName: serverResult.serverName || '',
+              timestamp: Date.now(),
+              content,
+              level: detectLevel(content),
+              matched: true,
+              sortKey: Date.now(),
+            })
+            addedCount++
+          }
+        }
+      }
+      if (addedCount > 0) {
+        // Adjust scroll position so the visible content doesn't jump
+        const addedHeight = addedCount * VIRTUAL_LINE_HEIGHT
+        if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
+          scrollingFromRAF = true
+          logContainer.value.scrollTop = scrollTop.value + addedHeight
+          Promise.resolve().then(() => { scrollingFromRAF = false })
+        }
+        toast.info(`已加载 ${addedCount} 条历史日志`)
+      }
+    }
   } catch (e) {
     console.warn('[LogAggregator] loadMoreHistory failed:', e)
   } finally {

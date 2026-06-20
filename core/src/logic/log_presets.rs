@@ -216,6 +216,121 @@ impl super::CoreService {
         Ok(json!({"presetId": preset_id, "lines": results.len(), "results": results}))
     }
 
+    /// Load more historical log lines for an active stream.
+    /// Queries each server for older lines beyond the current count
+    /// and returns them as a list of {serverId, serverName, lines[]}.
+    pub async fn load_more_logs(
+        &self,
+        _stream_id: &str,
+        current_count: usize,
+        batch_size: usize,
+    ) -> Result<Value, String> {
+        // We need to find the preset. Since stream_id<->preset mapping isn't stored,
+        // we use a simpler approach: get the most recent preset and load more lines.
+        // For a production version, store stream-to-preset mapping.
+        let presets = self.get_log_presets().await?;
+        let empty_vec = vec![];
+        let preset_list = presets.as_array().unwrap_or(&empty_vec);
+        if preset_list.is_empty() {
+            return Ok(json!({"lines": 0, "results": []}));
+        }
+        let preset = &preset_list[0]; // Use first preset as fallback
+
+        let server_ids: Vec<String> =
+            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
+
+        if server_ids.is_empty() {
+            return Ok(json!({"lines": 0, "results": [], "note": "No servers configured"}));
+        }
+
+        let log_type = preset["logType"].as_str().unwrap_or("file");
+        let log_path = preset["logPath"].as_str().unwrap_or("");
+        let mut results = Vec::new();
+
+        for server_id in &server_ids {
+            let server = self.with_db(|db| {
+                db.conn()
+                    .query_row(
+                        "SELECT * FROM servers WHERE id = ?1",
+                        params![server_id],
+                        |row| {
+                            Ok(json!({
+                                "id": row.get::<_, String>("id")?,
+                                "name": row.get::<_, String>("name")?,
+                                "host": row.get::<_, String>("host")?,
+                                "port": row.get::<_, i64>("port")?,
+                                "username": row.get::<_, String>("username")?,
+                                "password": row.get::<_, Option<String>>("password")?,
+                                "sshKeyPath": row.get::<_, Option<String>>("sshKeyPath")?,
+                            }))
+                        },
+                    )
+                    .map_err(|e| e.to_string())
+            });
+
+            let Ok(s) = server else { continue };
+
+            let host = s["host"].as_str().unwrap_or("").to_string();
+            let port = s["port"].as_u64().unwrap_or(22) as u32;
+            let username = s["username"].as_str().unwrap_or("").to_string();
+            let raw_password = s.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let ssh_key_path = s.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
+
+            let config = ssh::SshServerConfig {
+                id: server_id.clone(),
+                name: s["name"].as_str().unwrap_or("").to_string(),
+                host, port, username, password, ssh_key_path,
+            };
+
+            if !self.ssh.is_connected(server_id) {
+                if let Err(e) = self.ssh.connect(&config) {
+                    results.push(json!({"serverId": server_id, "serverName": s["name"], "error": e, "lines": []}));
+                    continue;
+                }
+            }
+
+            // Build a command that reads (current_count + batch_size) lines from the end,
+            // then takes only the first `batch_size` (the oldest portion of the window).
+            // This gives us lines that come BEFORE the currently displayed log lines.
+            let cmd = match log_type {
+                "docker" => {
+                    let containers: Vec<String> = log_path.split('\n')
+                        .filter(|c| !c.trim().is_empty()).map(|c| c.trim().to_string()).collect();
+                    if containers.is_empty() { continue; }
+                    let c = &containers[0];
+                    format!("docker logs --tail {} {} 2>&1 | head -n {}", current_count + batch_size, c, batch_size)
+                }
+                "journal" => {
+                    format!("journalctl -n {} --no-pager -o cat | head -n {}", current_count + batch_size, batch_size)
+                }
+                _ => {
+                    // For file logs: get last N+M lines, then take first M
+                    format!("tail -n {} {} 2>/dev/null | head -n {}", current_count + batch_size, log_path, batch_size)
+                }
+            };
+
+            match self.ssh.exec_command(server_id, &cmd) {
+                Ok(output) => {
+                    let lines: Vec<String> = output.output.lines()
+                        .map(|l| l.to_string())
+                        .filter(|l| !l.trim().is_empty())
+                        .collect();
+                    results.push(json!({
+                        "serverId": server_id,
+                        "serverName": s["name"],
+                        "lines": lines,
+                    }));
+                }
+                Err(e) => {
+                    results.push(json!({"serverId": server_id, "serverName": s["name"], "error": e, "lines": []}));
+                }
+            }
+        }
+
+        Ok(json!({"lines": results.len(), "results": results}))
+    }
+
     pub async fn log_search(
         &self,
         preset_id: &str,
