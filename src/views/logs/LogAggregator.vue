@@ -121,6 +121,25 @@
               <span class="text-base-content/30">/</span>
               <span class="text-base-content/40">{{ logLines.length }} 行(全部)</span>
             </template>
+            <template v-else-if="queryMode === 'search' && hasSearched">
+              <span>{{ matchIndices.length }} 个匹配</span>
+              <span class="text-base-content/30">/</span>
+              <span class="text-base-content/40">{{ displayLines.length }} 行</span>
+              <!-- 搜索导航 -->
+              <span class="ml-2 flex items-center gap-1">
+                <button @click="prevMatch" :disabled="matchIndices.length === 0 || currentMatchIndex <= 0"
+                  class="btn btn-ghost btn-xs px-1" title="上一个匹配 (Shift+N)">
+                  <SvgIcon name="chevronUp" size="12" />
+                </button>
+                <span class="text-xs font-mono min-w-[40px] text-center">
+                  {{ matchIndices.length > 0 ? currentMatchIndex + 1 : 0 }}/{{ matchIndices.length }}
+                </span>
+                <button @click="nextMatch" :disabled="matchIndices.length === 0 || currentMatchIndex >= matchIndices.length - 1"
+                  class="btn btn-ghost btn-xs px-1" title="下一个匹配 (N)">
+                  <SvgIcon name="chevronDown" size="12" />
+                </button>
+              </span>
+            </template>
             <template v-else>
               <span>{{ displayLines.length }} 行</span>
             </template>
@@ -162,11 +181,18 @@
 
           <!-- 虚拟滚动容器：用 paddingTop/Bottom 撑起全量滚动空间，只渲染视口附近的行 -->
           <div v-if="displayLines.length > 0" :style="{ paddingTop: (visibleStart * VIRTUAL_LINE_HEIGHT) + 'px', paddingBottom: ((totalItems - visibleEnd) * VIRTUAL_LINE_HEIGHT) + 'px' }">
+            <!-- 滚动到顶部时自动加载更多历史日志 -->
+            <div v-if="loadingMore" class="text-center py-2 text-base-content/40 text-[10px]">
+              <SvgIcon name="refresh" size="12" class="inline-block animate-spin" /> 加载更多历史日志...
+            </div>
             <div
               v-for="line in visibleLines"
               :key="line.id"
               class="flex gap-2 py-0.5 hover:bg-white/5"
-              :class="{ 'bg-warning/10 border-l-4 border-warning': line.isMatch }"
+              :class="{
+                'bg-warning/10 border-l-4 border-warning': line.isMatch,
+                'bg-primary/20 border-l-4 border-primary': line.id === currentMatchId
+              }"
             >
               <span v-if="queryMode === 'search'" class="text-base-content/60 min-w-[50px] text-[11px] opacity-60 text-right">{{ line.lineNum || '' }}</span>
               <span class="min-w-[80px] font-medium" :style="{ color: getServerColor(line.serverId) }">[{{ line.serverName }}]</span>
@@ -309,6 +335,12 @@ const searchKeyword = ref('')
 const searchContextLines = ref(10)
 const isSearching = ref(false)
 const hasSearched = ref(false)
+// 搜索导航
+const matchIndices = ref<number[]>([])
+const currentMatchIndex = ref(-1)
+const currentMatchId = ref<string | null>(null)
+// 加载更多历史日志
+const loadingMore = ref(false)
 
 // 下载状态
 const isDownloadingLog = ref(false)
@@ -694,10 +726,14 @@ async function doSearch() {
           } as any)
         }
       }
-      // 按时间排序搜索结果
-      logLines.value.sort((a: any, b: any) => (a.sortKey ?? 0) - (b.sortKey ?? 0))
-      const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
-      toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果`)
+	      // 清除之前的搜索导航状态
+	      matchIndices.value = []
+	      currentMatchIndex.value = -1
+	      currentMatchId.value = null
+	      const totalMatches = result.matches?.reduce((s: number, m: any) => s + (m.matchCount || 0), 0) || 0
+	      toast.success(`搜索完成：${totalMatches} 个匹配，${logLines.value.length} 行结果`)
+	      // 搜索完成后更新匹配索引
+	      nextTick(() => updateMatchIndices())
     } else {
       toast.error(result?.error || '搜索失败')
     }
@@ -745,13 +781,10 @@ function scheduleFlush() {
       }
       activeServers.value.add(data.serverId)
     }
-    newLines.length = validCount
+	    newLines.length = validCount
 
-    // 按 sortKey 排序，确保多服务器日志按时间顺序排列
-    newLines.sort((a, b) => a.sortKey - b.sortKey)
-
-    // 批量追加（Vue 响应式优化：单次 push 比逐条 push 快 ~10x）
-    logLines.value.push(...newLines)
+	    // 批量追加（不排序，按服务器返回的原始顺序显示）
+	    logLines.value.push(...newLines)
 
     // 智能裁剪：仅在超出上限时裁剪，避免每次 flush 都排序
     const MAX_LINES = 3000
@@ -794,6 +827,70 @@ function scrollToBottomSilent() {
   Promise.resolve().then(() => { scrollingFromRAF = false })
 }
 
+function scrollToBottom() {
+  if (logContainer.value) {
+    userScrolledUp.value = false
+    followMode.value = true
+    scrollToBottomSilent()
+    showScrollBottom.value = false
+  }
+}
+
+// ── 搜索导航 ──
+function updateMatchIndices() {
+  matchIndices.value = []
+  for (let i = 0; i < displayLines.value.length; i++) {
+    if (displayLines.value[i].isMatch) {
+      matchIndices.value.push(i)
+    }
+  }
+}
+
+function scrollToLineIndex(idx: number) {
+  // scroll the target line into view
+  const targetTop = idx * VIRTUAL_LINE_HEIGHT
+  const halfVisible = containerHeight.value / 2
+  if (logContainer.value) {
+    scrollingFromRAF = true
+    logContainer.value.scrollTop = Math.max(0, targetTop - halfVisible)
+    Promise.resolve().then(() => { scrollingFromRAF = false })
+  }
+}
+
+function nextMatch() {
+  if (matchIndices.value.length === 0) return
+  const next = (currentMatchIndex.value + 1) % matchIndices.value.length
+  currentMatchIndex.value = next
+  const idx = matchIndices.value[next]
+  currentMatchId.value = displayLines.value[idx]?.id ?? null
+  scrollToLineIndex(idx)
+}
+
+function prevMatch() {
+  if (matchIndices.value.length === 0) return
+  const prev = (currentMatchIndex.value - 1 + matchIndices.value.length) % matchIndices.value.length
+  currentMatchIndex.value = prev
+  const idx = matchIndices.value[prev]
+  currentMatchId.value = displayLines.value[idx]?.id ?? null
+  scrollToLineIndex(idx)
+}
+
+// ── 滚动到顶部自动加载更多历史日志 ──
+// TODO: Requires backend logs_load_more Tauri command. For now, gracefully degrades.
+async function loadMoreHistory() {
+  if (queryMode.value !== 'stream' || !selectedPreset.value || loadingMore.value) return
+  loadingMore.value = true
+  try {
+    // Placeholder - backend API not yet implemented
+    console.log('[LogAggregator] loadMoreHistory triggered, count=', logLines.value.length)
+    // TODO: await getTauriAPI().logsLoadMore(streamId.value, logLines.value.length)
+  } catch (e) {
+    console.warn('[LogAggregator] loadMoreHistory failed:', e)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
 // 滚动事件
 function onScroll() {
   if (!logContainer.value) {return}
@@ -809,17 +906,20 @@ function onScroll() {
 
   const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50
 
-  // 用户向上滚动超过 100px → 暂定自动追踪，显示回到底部按钮
+  // 用户向上滚动 → 停止自动追踪
   userScrolledUp.value = !atBottom && isStreaming.value
+  // 只有用户手动滚动时才改变 followMode（程序化滚动被 scrollingFromRAF 拦截）
+  if (!atBottom && isStreaming.value) {
+    followMode.value = false
+  } else if (atBottom) {
+    followMode.value = true
+  }
 
   showScrollBottom.value = userScrolledUp.value && isStreaming.value
-}
 
-function scrollToBottom() {
-  if (logContainer.value) {
-    userScrolledUp.value = false
-    scrollToBottomSilent()
-    showScrollBottom.value = false
+  // 滚动到顶部时自动加载更多历史日志
+  if (el.scrollTop < 50 && isStreaming.value && !loadingMore.value) {
+    loadMoreHistory()
   }
 }
 // 继续查询（终止后重新启动同一预设，不清除日志）
@@ -1077,6 +1177,7 @@ let cleanupLogsServerEnd: (() => void) | null = null
 let cleanupLogsError: (() => void) | null = null
 let cleanupStreamStopped: (() => void) | null = null
 let _cleanupDataChanged: (() => void) | undefined
+let _cleanupKeyDown: (() => void) | undefined
 
 onMounted(async () => {
     console.log("[components/LogAggregator.vue] mounted")
@@ -1096,6 +1197,21 @@ onMounted(async () => {
   _cleanupDataChanged = await getTauriAPI().onDataChanged?.(({ type }: { type: string }) => {
     if (type === 'servers') {loadServers()}
   })
+
+  // N/N 快捷键搜索导航
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'n' || e.key === 'N') {
+      if (queryMode.value !== 'search' || matchIndices.value.length === 0) return
+      e.preventDefault()
+      if (e.shiftKey) {
+        prevMatch()
+      } else {
+        nextMatch()
+      }
+    }
+  }
+  window.addEventListener('keydown', onKeyDown)
+  _cleanupKeyDown = () => window.removeEventListener('keydown', onKeyDown)
 })
 
 onUnmounted(async () => {
