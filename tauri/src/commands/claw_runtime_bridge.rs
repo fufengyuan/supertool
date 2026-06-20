@@ -19,6 +19,7 @@ use supertool_claw::llm::{LlmClient, LlmStreamEvent, TurnResult};
 use tauri::{AppHandle, Emitter};
 
 use crate::commands::claw_chat::{GoalModeState, PlanModeState};
+use api::InputMessage;
 
 /// Adapter that implements the upstream [`ApiClient`] trait by wrapping
 /// SuperTool's async [`LlmClient`].
@@ -180,6 +181,8 @@ pub(crate) struct TauriToolExecutor {
     goal_mode: Arc<AtomicBool>,
     goal_state: Arc<std::sync::Mutex<Option<GoalModeState>>>,
     loop_mode: Arc<AtomicBool>,
+    /// Optional sub-agent client for delegating tool execution to a faster model.
+    sub_agent_client: Option<Arc<LlmClient>>,
 }
 
 impl TauriToolExecutor {
@@ -190,8 +193,47 @@ impl TauriToolExecutor {
         goal_mode: Arc<AtomicBool>,
         goal_state: Arc<std::sync::Mutex<Option<GoalModeState>>>,
         loop_mode: Arc<AtomicBool>,
+        sub_agent_client: Option<Arc<LlmClient>>,
     ) -> Self {
-        Self { app, session_id, plan_state, goal_mode, goal_state, loop_mode }
+        Self { app, session_id, plan_state, goal_mode, goal_state, loop_mode, sub_agent_client }
+    }
+
+    /// Delegate a tool execution to the sub-agent (fast model).
+    /// Creates a one-shot LLM call with context about the tool and input.
+    fn dispatch_sub_agent(&mut self, tool_name: &str, input: &str) -> Result<String, ToolError> {
+        let client = match self.sub_agent_client.as_ref() {
+            Some(c) => c.clone(),
+            None => return Err(ToolError::new(format!("No sub-agent client configured"))),
+        };
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| ToolError::new(format!("Failed to create sub-agent runtime: {e}")))?;
+
+        let system = format!(
+            "You are a fast sub-agent. Your task is to execute a tool call delegated by the main agent.\n\
+             Tool: {}\n\
+             Input: {}\n\n\
+             Complete the task and return the result concisely.",
+            tool_name, input
+        );
+
+        let messages = vec![InputMessage::user_text(system)];
+
+        let result = rt.block_on(async {
+            client.send_turn(
+                messages,
+                None::<&str>,
+                None,  // no tools for sub-agent
+                None,  // no reasoning effort
+                None::<fn(LlmStreamEvent)>,
+            ).await
+        });
+
+        match result {
+            Ok(turn) => Ok(turn.text),
+            Err(e) => Err(ToolError::new(format!("Sub-agent failed: {e}"))),
+        }
     }
 }
 
@@ -420,6 +462,27 @@ impl ToolExecutor for TauriToolExecutor {
             self.loop_mode.store(false, Ordering::Relaxed);
             log::info!("[LoopMode] Exited loop mode");
             return Ok(r#"{"success":true,"message":"Loop mode disabled. Prompt will no longer auto-resubmit."}"#.into());
+        }
+
+        // ── Sub-Agent Delegation ──
+        // If a sub-agent (fast model) is configured, delegate tool execution
+        // to it for non-internal tools. The sub-agent processes the task and
+        // returns a result, which the main agent receives as a tool response.
+        if self.sub_agent_client.is_some() {
+            // Only delegate tools that benefit from LLM-based processing
+            let delegatable = ["Bash", "bash", "Write", "write_file", "Edit", "edit_file",
+                "Read", "read_file", "Glob", "glob_search", "Grep", "grep_search",
+                "ReadUrl", "read_url", "RunTerminal", "run_terminal"];
+            if delegatable.iter().any(|t| t.eq_ignore_ascii_case(tool_name)) {
+                let result = self.dispatch_sub_agent(tool_name, input);
+                match result {
+                    Ok(output) => return Ok(output),
+                    Err(e) => {
+                        log::error!("[SubAgent] Delegation failed for {}: {:?}", tool_name, e);
+                        // Fall through to direct execution
+                    }
+                }
+            }
         }
 
         // Real-time: notify frontend that this tool started

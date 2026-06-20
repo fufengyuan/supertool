@@ -107,15 +107,30 @@
 
           <!-- Model picker row -->
           <div class="flex items-center justify-between mb-2">
-            <ModelPicker
-              :current-model="currentModel"
-              :current-provider="currentProvider"
-              :current-base-url="currentBaseUrl"
-              :model-groups="modelGroups"
-              :display-model="displayModel"
-              @open="reload"
-              @select-model="handleSelectModel"
-            />
+            <div class="flex items-center gap-2">
+              <ModelPicker
+                :current-model="currentModel"
+                :current-provider="currentProvider"
+                :current-base-url="currentBaseUrl"
+                :model-groups="modelGroups"
+                :display-model="displayModel"
+                @open="reload"
+                @select-model="handleSelectModel"
+              />
+              <!-- Sub-agent model picker (Claw mode only) -->
+              <div v-if="isClawMode" class="flex items-center gap-1 text-[10px] text-base-content/40">
+                <span>子</span>
+                <ModelPicker
+                  :current-model="subAgentModel"
+                  :current-provider="currentProvider"
+                  :current-base-url="currentBaseUrl"
+                  :model-groups="modelGroups"
+                  :display-model="subAgentDisplayModel || '—'"
+                  @open="reload"
+                  @select-model="(_p: string, m: string, _b: string) => selectSubAgentModel(m)"
+                />
+              </div>
+            </div>
             <div class="flex items-center gap-2 text-[10px] text-base-content/30">
               <span>⌘ ↵ 发送</span>
             </div>
@@ -548,8 +563,11 @@ const {
   currentBaseUrl,
   modelGroups,
   displayModel,
+  subAgentModel,
+  subAgentDisplayModel,
   reload,
   selectModel,
+  selectSubAgentModel,
 } = useModelConfig();
 
 // ── Chat actions (depends on localCommands, scrollToBottom, etc.) ────────────
