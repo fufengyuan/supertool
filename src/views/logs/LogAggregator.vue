@@ -881,7 +881,12 @@ async function loadMoreHistory() {
   if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) return
   loadingMore.value = true
   try {
-    const result = await getTauriAPI().logsLoadMore(streamId.value, logLines.value.length, 500)
+    const result = await getTauriAPI().logsLoadMore({
+      streamId: streamId.value,
+      presetId: selectedPreset.value.id,
+      currentCount: logLines.value.length,
+      batchSize: 500,
+    })
     if (result?.results && result.results.length > 0) {
       let addedCount = 0
       for (const serverResult of result.results) {

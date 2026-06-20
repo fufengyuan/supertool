@@ -221,20 +221,20 @@ impl super::CoreService {
     /// and returns them as a list of {serverId, serverName, lines[]}.
     pub async fn load_more_logs(
         &self,
-        _stream_id: &str,
+        preset_id: &str,
         current_count: usize,
         batch_size: usize,
     ) -> Result<Value, String> {
-        // We need to find the preset. Since stream_id<->preset mapping isn't stored,
-        // we use a simpler approach: get the most recent preset and load more lines.
-        // For a production version, store stream-to-preset mapping.
         let presets = self.get_log_presets().await?;
         let empty_vec = vec![];
         let preset_list = presets.as_array().unwrap_or(&empty_vec);
         if preset_list.is_empty() {
             return Ok(json!({"lines": 0, "results": []}));
         }
-	let preset = &preset_list[0]; // Use first preset as fallback
+	let preset = preset_list
+            .iter()
+            .find(|p| p["id"].as_str() == Some(preset_id))
+            .unwrap_or_else(|| &preset_list[0]); // fallback to first preset
 
 	let server_ids: Vec<String> =
 	    serde_json::from_value(preset["serverIds"].clone()).unwrap_or_default();
