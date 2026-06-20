@@ -83,21 +83,24 @@ impl LlmClient {
     /// protocol and doesn't understand the Anthropic `/v1/messages` format.
     pub fn from_env() -> Result<Self, String> {
         let model = Self::resolve_model_from_env();
+        Self::from_model(&model)
+    }
+
+    /// Create a client for the given model name (uses env api_key/base_url).
+    /// Used to create the sub-agent client with a different (faster) model
+    /// while sharing the same provider configuration.
+    pub fn from_model(model: &str) -> Result<Self, String> {
         let client = if std::env::var_os("OPENAI_BASE_URL").is_some() {
-            // Prepend "openai/" to bypass the model-name-based provider detection
-            // (which would route claude-* / anthropic/ to AnthropicClient).
-            // The "openai/" prefix is stripped at the wire level — the actual
-            // API call still uses the original model name.
             let forced = format!("openai/{}", model);
             api::ProviderClient::from_model(&forced)
                 .map_err(|e| format!("Failed to create LLM client: {e}"))?
         } else {
-            api::ProviderClient::from_model(&model)
+            api::ProviderClient::from_model(model)
                 .map_err(|e| format!("Failed to create LLM client: {e}"))?
         };
         Ok(Self {
             inner: Arc::new(client),
-            model,
+            model: model.to_string(),
         })
     }
 

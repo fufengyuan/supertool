@@ -96,6 +96,10 @@ pub struct ClawConfig {
     /// List of model configurations
     #[serde(default)]
     pub models: Vec<ModelConfig>,
+
+    /// Sub-agent model name (fast/cheap model for delegated tool execution)
+    #[serde(default)]
+    pub sub_agent_model: String,
 }
 
 impl Default for ClawConfig {
@@ -113,6 +117,7 @@ impl Default for ClawConfig {
             auto_compaction: default_auto_compaction(),
             active_model: String::new(),
             models: Vec::new(),
+            sub_agent_model: String::new(),
         }
     }
 }
@@ -282,6 +287,7 @@ pub fn read_claw_config() -> Result<ClawConfig, String> {
         auto_compaction: get_bool(&value, &["autoCompaction", "auto_compaction"], true),
         active_model: get_string(&value, &["activeModel", "active_model"], ""),
         models: parse_models(&value),
+        sub_agent_model: get_string(&value, &["subAgentModel", "sub_agent_model"], ""),
     })
 }
 
@@ -403,6 +409,12 @@ pub fn write_claw_config(config: &ClawConfig) -> Result<(), String> {
             serde_json::Value::String(config.active_model.clone()),
         );
     }
+    if !config.sub_agent_model.is_empty() {
+        root.insert(
+            "subAgentModel".to_string(),
+            serde_json::Value::String(config.sub_agent_model.clone()),
+        );
+    }
     if !config.models.is_empty() {
         let models_val: Vec<serde_json::Value> = config
             .models
@@ -445,6 +457,7 @@ pub fn claw_config_get() -> Result<serde_json::Value, String> {
         "autoCompaction": config.auto_compaction,
         "activeModel": config.active_model,
         "models": config.models,
+        "subAgentModel": config.sub_agent_model,
     }))
 }
 
@@ -463,6 +476,7 @@ pub fn claw_config_set(
     auto_compaction: Option<bool>,
     active_model: Option<String>,
     models: Option<Vec<ModelConfig>>,
+    sub_agent_model: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let mut config = read_claw_config()?;
 
@@ -501,6 +515,9 @@ pub fn claw_config_set(
     }
     if let Some(v) = models {
         config.models = v;
+    }
+    if let Some(v) = sub_agent_model {
+        config.sub_agent_model = v;
     }
 
     write_claw_config(&config)?;

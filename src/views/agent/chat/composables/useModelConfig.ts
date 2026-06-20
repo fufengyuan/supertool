@@ -32,12 +32,15 @@ interface UseModelConfigResult {
   currentBaseUrl: Ref<string>;
   modelGroups: Ref<ModelGroup[]>;
   displayModel: Ref<string>;
+  subAgentModel: Ref<string>;
+  subAgentDisplayModel: Ref<string>;
   reload: () => Promise<void>;
   selectModel: (
     provider: string,
     model: string,
     baseUrl: string,
   ) => Promise<void>;
+  selectSubAgentModel: (model: string) => Promise<void>;
 }
 
 export function useModelConfig(profile?: string): UseModelConfigResult {
@@ -45,6 +48,7 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
   const currentProvider = ref('auto');
   const currentBaseUrl = ref('');
   const modelGroups = ref<ModelGroup[]>([]);
+  const subAgentModel = ref('');
   const isClawMode = ref(false);
 
   /** 检查当前是否为 Claw 模式 */
@@ -69,6 +73,7 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
         currentModel.value = config.activeModel || config.model || 'claude-sonnet-4-6';
         currentProvider.value = config.provider || 'Hermes Config';
         currentBaseUrl.value = config.baseUrl || '';
+        subAgentModel.value = config.subAgentModel || '';
 
         // Convert ModelConfig[] from backend to ModelGroup[]
         if (config.models && config.models.length > 0) {
@@ -164,13 +169,34 @@ export function useModelConfig(profile?: string): UseModelConfigResult {
         : 'No model',
   );
 
+  const subAgentDisplayModel = computed(() =>
+    subAgentModel.value
+      ? subAgentModel.value.split('/').pop() || subAgentModel.value
+      : '',
+  );
+
+  const selectSubAgentModel = async (model: string): Promise<void> => {
+    subAgentModel.value = model;
+    if (isClawMode.value) {
+      try {
+        const api = getTauriAPI();
+        await api.clawConfigSet({ subAgentModel: model });
+      } catch (e) {
+        console.warn('[useModelConfig] Failed to persist sub-agent model:', e);
+      }
+    }
+  };
+
   return {
     currentModel,
     currentProvider,
     currentBaseUrl,
     modelGroups,
     displayModel,
+    subAgentModel,
+    subAgentDisplayModel,
     reload,
     selectModel,
+    selectSubAgentModel,
   };
 }
