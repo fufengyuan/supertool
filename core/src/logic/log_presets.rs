@@ -234,10 +234,10 @@ impl super::CoreService {
         if preset_list.is_empty() {
             return Ok(json!({"lines": 0, "results": []}));
         }
-        let preset = &preset_list[0]; // Use first preset as fallback
+	let preset = &preset_list[0]; // Use first preset as fallback
 
-        let server_ids: Vec<String> =
-            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
+	let server_ids: Vec<String> =
+	    serde_json::from_value(preset["serverIds"].clone()).unwrap_or_default();
 
         if server_ids.is_empty() {
             return Ok(json!({"lines": 0, "results": [], "note": "No servers configured"}));

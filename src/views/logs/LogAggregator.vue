@@ -878,7 +878,7 @@ function prevMatch() {
 // ── 滚动到顶部自动加载更多历史日志 ──
 // TODO: Requires backend logs_load_more Tauri command. For now, gracefully degrades.
 async function loadMoreHistory() {
-  if (queryMode.value !== 'stream' || !selectedPreset.value || loadingMore.value) return
+  if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) return
   loadingMore.value = true
   try {
     const result = await getTauriAPI().logsLoadMore(streamId.value, logLines.value.length, 500)
@@ -948,7 +948,7 @@ function onScroll() {
   showScrollBottom.value = userScrolledUp.value && isStreaming.value
 
   // 滚动到顶部时自动加载更多历史日志
-  if (el.scrollTop < 50 && isStreaming.value && !loadingMore.value) {
+  if (el.scrollTop < 50 && isStreaming.value && streamId.value && !loadingMore.value) {
     loadMoreHistory()
   }
 }
