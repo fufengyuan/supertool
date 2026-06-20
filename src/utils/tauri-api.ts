@@ -1197,9 +1197,10 @@ export function useLogsAPI() {
       })
       return res
     },
-    logsLoadMore: async (params: { streamId: string; currentCount: number; batchSize?: number }): Promise<any> => {
+    logsLoadMore: async (params: { streamId: string; presetId: string; currentCount: number; batchSize?: number }): Promise<any> => {
       const res = await tauriCall<any>('logs_load_more', {
         streamId: params.streamId,
+        presetId: params.presetId,
         currentCount: params.currentCount,
         batchSize: params.batchSize ?? 500,
       })
@@ -1623,7 +1624,7 @@ export interface TauriAPI {
   deleteLogPreset: (id: string) => Promise<void>
   logSearch: (params: { query: string; presetId?: string; lines?: number }) => Promise<any>
   logTail: (params: { path: string; lines?: number }) => Promise<any>
-  logsLoadMore: (params: { streamId: string; currentCount: number; batchSize?: number }) => Promise<any>
+  logsLoadMore: (params: { streamId: string; presetId: string; currentCount: number; batchSize?: number }) => Promise<any>
   // Settings
   getMenuIcon: (key: string) => Promise<string | null>
   getSetting: (key: string) => Promise<any>
