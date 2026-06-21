@@ -2264,6 +2264,7 @@ export function getTauriAPI(): TauriAPI {
       lines: (params as any).lines ?? 50
     }),
     logTail: logs.logTail,
+    logsLoadMore: logs.logsLoadMore,
     // Settings
     getMenuIcon: settings.getMenuIcon,
     getSetting: settings.getSetting,
