@@ -169,7 +169,7 @@
           </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed allow-select" ref="logContainer" @scroll="onScroll">
+        <div class="flex-1 overflow-y-auto p-2 font-mono text-xs leading-relaxed allow-select" ref="logContainer" @scroll="onScroll" style="overflow-anchor: none">
           <div v-if="displayLines.length === 0 && !isStreaming && !hasSearched" class="flex items-center justify-center h-full text-base-content/60">
             <p v-if="queryMode === 'stream'">选择左侧预设开始查询日志</p>
             <p v-else>输入关键字后点击搜索</p>
@@ -801,9 +801,7 @@ function scheduleFlush() {
     }
     if (followMode.value) {
       nextTick(() => {
-        requestAnimationFrame(() => {
-          scrollToBottomSilent()
-        })
+        scrollToBottomSilent()
       })
     }
   }, 30) // 30ms flush，约 33fps，更流畅
@@ -823,6 +821,8 @@ function scrollToBottomSilent() {
   }
   scrollingFromRAF = true
   logContainer.value.scrollTop = logContainer.value.scrollHeight
+  // ⚡ 同步更新虚拟滚动 ref，与真实 DOM 位置保持一致
+  scrollTop.value = logContainer.value.scrollTop
   // 使用微任务延迟重置标志，避免 onScroll 误判
   Promise.resolve().then(() => { scrollingFromRAF = false })
 }
@@ -853,6 +853,8 @@ function scrollToLineIndex(idx: number) {
   if (logContainer.value) {
     scrollingFromRAF = true
     logContainer.value.scrollTop = Math.max(0, targetTop - halfVisible)
+    // ⚡ 同步更新虚拟滚动 ref
+    scrollTop.value = logContainer.value.scrollTop
     Promise.resolve().then(() => { scrollingFromRAF = false })
   }
 }
@@ -914,6 +916,8 @@ async function loadMoreHistory() {
         if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
           scrollingFromRAF = true
           logContainer.value.scrollTop = scrollTop.value + addedHeight
+          // ⚡ 同步虚拟滚动 ref
+          scrollTop.value = logContainer.value.scrollTop
           Promise.resolve().then(() => { scrollingFromRAF = false })
         }
         toast.info(`已加载 ${addedCount} 条历史日志`)
