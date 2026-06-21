@@ -14,7 +14,7 @@
 
     <div
       v-if="isOpen"
-      class="absolute top-full left-0 mt-1 z-50 w-[320px] max-h-[340px] overflow-y-auto rounded-xl border border-base-content/10 bg-base-100 shadow-xl"
+      class="absolute bottom-full left-0 mb-1 z-50 w-[320px] max-h-[340px] overflow-y-auto rounded-xl border border-base-content/10 bg-base-100 shadow-xl"
     >
       <!-- Model groups -->
       <div v-for="group in modelGroups" :key="group.provider" class="p-1.5">
