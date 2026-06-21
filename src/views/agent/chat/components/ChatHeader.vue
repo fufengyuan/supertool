@@ -34,7 +34,7 @@
     </div>
     <div class="flex items-center gap-1">
       <template v-if="showContextFolder">
-        <div class="tooltip" :data-tip="`工作目录: ${contextFolder}`">
+        <div class="tooltip tooltip-bottom" :data-tip="`工作目录: ${contextFolder}`">
           <button
             v-if="contextFolder"
             class="btn btn-ghost btn-xs gap-1"
@@ -44,7 +44,7 @@
             <span class="text-xs max-w-[120px] truncate">{{ folderName(contextFolder) }}</span>
           </button>
         </div>
-        <div class="tooltip" data-tip="移除工作目录">
+        <div class="tooltip tooltip-bottom" data-tip="移除工作目录">
           <button
             v-if="contextFolder"
             class="btn btn-ghost btn-xs btn-square"
@@ -53,7 +53,7 @@
             <SvgIcon name="x" size="12" />
           </button>
         </div>
-        <div class="tooltip" data-tip="设置工作目录">
+        <div class="tooltip tooltip-bottom" data-tip="设置工作目录">
           <button
             v-if="!contextFolder"
             class="btn btn-ghost btn-xs"
@@ -63,12 +63,12 @@
           </button>
         </div>
       </template>
-      <div class="tooltip" data-tip="新建对话">
+      <div class="tooltip tooltip-bottom" data-tip="新建对话">
         <button class="btn btn-ghost btn-xs" @click="$emit('newChat')">
           <SvgIcon name="plus" size="16" />
         </button>
       </div>
-      <div v-if="hasMessages" class="tooltip" data-tip="分叉会话">
+      <div v-if="hasMessages" class="tooltip tooltip-bottom" data-tip="分叉会话">
         <button
           class="btn btn-ghost btn-xs"
           @click="$emit('fork')"
@@ -76,7 +76,7 @@
           <SvgIcon name="copy" size="14" />
         </button>
       </div>
-      <div v-if="isClawMode" class="tooltip" :data-tip="planMode ? '计划模式: 已开启 — 仅读取' : '计划模式: 已关闭'">
+      <div v-if="isClawMode" class="tooltip tooltip-bottom" :data-tip="planMode ? '计划模式: 已开启 — 仅读取' : '计划模式: 已关闭'">
         <button
           class="btn btn-ghost btn-xs"
           :class="{ 'text-success': planMode, 'text-base-content/50': !planMode }"
@@ -85,7 +85,7 @@
           <SvgIcon name="clipboard" size="14" />
         </button>
       </div>
-      <div v-if="isClawMode" class="tooltip" :data-tip="goalMode ? `目标模式: 已开启 — ${goalText}` : '目标模式: 已关闭'">
+      <div v-if="isClawMode" class="tooltip tooltip-bottom" :data-tip="goalMode ? `目标模式: 已开启 — ${goalText}` : '目标模式: 已关闭'">
         <button
           class="btn btn-ghost btn-xs"
           :class="{ 'text-info': goalMode, 'text-base-content/50': !goalMode }"
@@ -95,7 +95,7 @@
         </button>
       </div>
       <!-- Pause/Resume button (only visible when goal is active/paused) -->
-      <div v-if="isClawMode && goalMode && (goalStatus === 'active' || goalStatus === 'paused')" class="tooltip" :data-tip="goalStatus === 'paused' ? '恢复目标' : '暂停目标'">
+      <div v-if="isClawMode && goalMode && (goalStatus === 'active' || goalStatus === 'paused')" class="tooltip tooltip-bottom" :data-tip="goalStatus === 'paused' ? '恢复目标' : '暂停目标'">
         <button
           class="btn btn-ghost btn-xs"
           @click="$emit('toggleGoalPause')"
@@ -103,7 +103,7 @@
           <SvgIcon :name="goalStatus === 'paused' ? 'play' : 'pause'" size="14" />
         </button>
       </div>
-      <div v-if="isClawMode" class="tooltip" :data-tip="loopMode ? '循环模式: 已开启 — 每次回复后自动重发。按 Esc 暂停' : '循环模式: 已关闭 — 每次一轮'">
+      <div v-if="isClawMode" class="tooltip tooltip-bottom" :data-tip="loopMode ? '循环模式: 已开启 — 每次回复后自动重发。按 Esc 暂停' : '循环模式: 已关闭 — 每次一轮'">
         <button
           class="btn btn-ghost btn-xs"
           :class="{ 'text-success': loopMode, 'text-base-content/30': !loopMode }"
@@ -112,7 +112,7 @@
           <SvgIcon name="refresh" size="14" />
         </button>
       </div>
-      <div v-if="hasMessages" class="tooltip" data-tip="清空对话">
+      <div v-if="hasMessages" class="tooltip tooltip-bottom" data-tip="清空对话">
         <button
           class="btn btn-ghost btn-xs"
           @click="$emit('clear')"
