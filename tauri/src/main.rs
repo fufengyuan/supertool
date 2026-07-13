@@ -8,8 +8,6 @@ mod tray_notification;
 mod tests;
 use supertool_core::logic::openvpn;
 use supertool_core::logic::wireguard;
-use supertool_core::logic::cicd_deploy::get_shell_env_for_command;
-use commands::claw_chat::ClawChatState;
 
 use std::sync::OnceLock;
 use supertool_core::db::Database;
@@ -154,34 +152,7 @@ fn update_frequent_menu(items: Vec<String>) -> Result<(), String> {
 }
 
 fn main() {
-    // Set default HERMES_HOME so all hermes_config::* functions resolve correctly,
-    // regardless of whether the host shell has it configured.
-    if std::env::var("HERMES_HOME").is_err() {
-        if let Some(home) = dirs::home_dir() {
-            let primary = home.join(".hermes");
-            let legacy = home.join(".hermes-agent-ultra");
-            if primary.exists() {
-                // SAFETY: single-threaded at main() entry, no other code reads HERMES_HOME yet
-                unsafe { std::env::set_var("HERMES_HOME", primary.to_str().expect("valid HOME path")); }
-                eprintln!("[Main] HERMES_HOME not set — defaulting to {}", primary.display());
-            } else if legacy.exists() {
-                // SAFETY: single-threaded at main() entry
-                unsafe { std::env::set_var("HERMES_HOME", legacy.to_str().expect("valid HOME path")); }
-                eprintln!("[Main] HERMES_HOME not set — defaulting to {} (legacy)", legacy.display());
-            }
-        }
-    }
-    // Set CLAW_CONFIG_HOME to match our config_path() resolution, so the upstream
-    // ConfigLoader and our claw_config module read the same settings.json.
-    // Must use env var because ConfigLoader uses std::env::var_os("HOME") internally.
-    if std::env::var("CLAW_CONFIG_HOME").is_err() {
-        if let Some(home) = dirs::home_dir() {
-            let claw_home = home.join(".claw");
-            // SAFETY: single-threaded at main() entry, no concurrent env reads
-            unsafe { std::env::set_var("CLAW_CONFIG_HOME", claw_home.to_str().expect("valid HOME path")); }
-            eprintln!("[Main] CLAW_CONFIG_HOME not set — defaulting to {}", claw_home.display());
-        }
-    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_dialog::init())
@@ -235,19 +206,6 @@ fn main() {
             app.manage(core.clone());
             log::info!("[CoreService] 初始化完成");
 
-            // 注入用户登录 shell 的环境变量（PATH/NVM/SDKMAN 等）
-            // 使 agent 执行 bash 命令时能找到用户安装的工具
-            // 仅补充当前进程缺失的变量，不覆盖已有值（避免覆盖正确的 PATH）
-            let shell_env = get_shell_env_for_command();
-            log::info!("[ShellEnv] 加载用户 shell 环境: {} 个变量", shell_env.len());
-            for (key, value) in &shell_env {
-                if std::env::var(key).is_ok() {
-                    continue; // 已有则跳过（进程级 PATH 通常比 shell -l 的 PATH 更完整）
-                }
-                unsafe { std::env::set_var(key, value); }
-            }
-            log::info!("[ShellEnv] 用户 shell 环境变量补充注入完成");
-
             // OpenVPN
             app.manage(openvpn::OpenVPNManager::new());
             log::info!("[OpenVPN] 管理器初始化完成");
@@ -259,7 +217,6 @@ fn main() {
             // LAN
             let db_path_str = db_path.to_string_lossy().to_string();
             crate::commands::lan::init_lan_service_with_db(&db_path_str);
-            app.manage(ClawChatState::new());
             // Auto-start LAN service for team collaboration
             crate::commands::lan::auto_start_lan(app.handle());
 
@@ -302,6 +259,7 @@ fn main() {
                     &nav_item("nav_weekly", "周报")?,
                     &nav_item("nav_projects", "项目")?,
                     &nav_item("nav_accounting", "记账本")?,
+                    &action_item("open_floating_todo", "待办悬浮窗")?,
                 ],
             )?;
 
@@ -404,6 +362,11 @@ fn main() {
                         "about" => "about",
                         "toggle_locale" => "toggle-locale",
                         "toggle_theme" => "toggle-theme",
+                        "open_floating_todo" => {
+                            // 直接调后端方法，不 emit 到前端
+                            let _ = crate::commands::floating_todo::ensure_floating_todo(&handle_clone);
+                            return;
+                        }
                         _ => id,
                     };
                     log::info!("[MENU] Emitting 'menu:{}'", action);
@@ -412,6 +375,11 @@ fn main() {
             });
 
             log::info!("[Main] === SuperTool Tauri ready ===");
+
+            // 启动时默认显示悬浮待办窗
+            if let Err(e) = crate::commands::floating_todo::ensure_floating_todo(app.handle()) {
+                log::warn!("[FloatingTodo] failed to create: {}", e);
+            }
 
             // 启动后台通知检查定时器（每 5 分钟检查到期任务）
             crate::tray_notification::start_notification_timer(app.handle().clone());
@@ -492,39 +460,6 @@ fn main() {
             commands::terminal::close_terminal,
             commands::terminal::is_terminal_active,
             // Claw Chat commands
-            commands::claw_chat::claw_chat_init,
-            commands::claw_chat::claw_chat_send,
-            commands::claw_chat::claw_chat_close,
-            commands::claw_chat::claw_chat_abort,
-            commands::claw_chat::claw_chat_list_sessions,
-            commands::claw_chat::claw_chat_info,
-            commands::claw_chat::claw_read_models_config,
-            commands::claw_chat::claw_read_stats,
-            commands::claw_chat::claw_chat_get_plan_mode,
-            commands::claw_chat::claw_chat_set_plan_mode,
-            commands::claw_chat::claw_chat_get_goal_mode,
-            commands::claw_chat::claw_chat_set_goal_mode,
-            commands::claw_chat::claw_chat_set_goal_status,
-            commands::claw_chat::claw_chat_get_loop_mode,
-            commands::claw_chat::claw_chat_set_loop_mode,
-            commands::claw_session::claw_chat_set_model,
-            commands::claw_session::claw_chat_fork,
-            commands::claw_config::claw_config_get,
-            commands::claw_config::claw_config_set,
-            commands::claw_config::claw_get_permission_mode,
-            commands::claw_config::claw_set_permission_mode,
-            // Claw Skills commands
-            commands::claw_skills::claw_list_skills,
-            commands::claw_skills::claw_get_skill_content,
-            commands::claw_agents::claw_list_agents,
-            commands::claw_tools::claw_list_mcp_servers,
-            commands::claw_tools::claw_list_plugins,
-            commands::claw_tools::claw_mcp_health,
-            commands::claw_cron::claw_list_cron_jobs,
-            commands::claw_cron::claw_create_cron_job,
-            commands::claw_cron::claw_delete_cron_job,
-            commands::claw_cron::claw_toggle_cron_job,
-            commands::claw_profiles::claw_get_profile,
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,
@@ -553,6 +488,7 @@ fn main() {
             commands::settings::get_app_version,
             commands::settings::notification_test,
             tray_notification::play_sound,
+            tray_notification::play_confirm_sound,
             // Notes commands
             commands::notes::get_all_notes,
             commands::notes::add_note,
@@ -605,6 +541,7 @@ fn main() {
             commands::logs::log_search,
             commands::logs::log_tail,
             commands::logs::logs_load_more,
+            commands::logs::log_context,
             commands::logs::logs_start_stream,
             commands::logs::logs_stop_stream,
             commands::logs::write_system_log,
@@ -637,6 +574,14 @@ fn main() {
             commands::wireguard::wireguard_get_status,
             commands::wireguard::wireguard_generate_keypair,
             commands::wireguard::wireguard_derive_public_key,
+            commands::wireguard::wireguard_parse_conf,
+            commands::wireguard::wireguard_passwordless_status,
+            commands::wireguard::wireguard_passwordless_install,
+            commands::wireguard::wireguard_passwordless_uninstall,
+            commands::floating_todo::open_floating_todo,
+            commands::floating_todo::close_floating_todo,
+            commands::floating_todo::toggle_floating_todo,
+            commands::floating_todo::set_floating_todo_pinned,
             commands::data_backup::get_app_path,
             // CICD commands
             commands::cicd::detect_tool_paths,
@@ -949,110 +894,6 @@ fn main() {
             commands::fetch::fetch_page_content,
             commands::fetch::convert_html_to_md,
             // Agent commands (direct DB access)
-            commands::agent::agent_installed,
-            commands::agent::agent_list_messages,
-            commands::agent::agent_get_stats,
-            commands::agent::agent_list_sessions,
-            commands::agent::agent_delete_session,
-            commands::agent::agent_rename_session,
-            commands::agent::agent_get_session,
-            commands::agent::agent_search_sessions,
-            commands::agent::agent_get_compression_tip,
-            commands::agent::save_temp_file,
-            commands::agent::clean_temp_dir,
-            // Agent Chat (direct AgentLoop integration, no HTTP bridge)
-            commands::hermes_agent_chat::agent_chat,
-            commands::hermes_agent_chat::agent_abort_chat,
-            commands::hermes_agent_chat::agent_clear_cache,
-            // Hermes gateway management
-            commands::hermes_gateway::gateway_status,
-            commands::hermes_gateway::gateway_start,
-            commands::hermes_gateway::gateway_stop,
-            commands::hermes_gateway::gateway_restart,
-            // Hermes config management (pure Rust, no Python bridge)
-            commands::hermes_agent_chat::agent_check_available,
-            commands::hermes_agent_chat::agent_get_models,
-            commands::hermes_agent_chat::agent_add_model,
-            commands::hermes_agent_chat::agent_remove_model,
-            commands::hermes_agent_chat::agent_set_model,
-            // Hermes API server configuration
-            commands::hermes_config::agent_api_server_status,
-            commands::hermes_config::agent_configure_api_server,
-            // Hermes Toolset management (platform_toolsets.cli + mcp_servers)
-            commands::hermes_config::list_toolsets,
-            commands::hermes_config::set_toolset_enabled,
-            commands::hermes_config::list_mcp_servers,
-            // Hermes Config export/import
-            commands::hermes_config::get_hermes_config_info,
-            commands::hermes_config::export_hermes_config,
-            commands::hermes_config::import_hermes_config,
-            commands::hermes_config::hermes_set_config,
-            // Hermes Sessions management
-            commands::hermes_sessions::sessions_export,
-            commands::hermes_sessions::sessions_prune,
-            // Hermes Insights
-            commands::hermes_insights::get_insights,
-            // Hermes Memory management
-            commands::hermes_memory::read_memory,
-            commands::hermes_memory::add_memory_entry,
-            commands::hermes_memory::update_memory_entry,
-            commands::hermes_memory::remove_memory_entry,
-            commands::hermes_memory::write_user_profile,
-            commands::hermes_memory::list_memory_providers,
-            commands::hermes_memory::set_memory_provider,
-            commands::hermes_memory::read_env_vars,
-            commands::hermes_memory::save_env_var,
-            // Hermes Skills browser
-            commands::hermes_skills::list_installed_skills,
-            commands::hermes_skills::list_bundled_skills,
-            commands::hermes_skills::get_skill_content,
-            commands::hermes_skills::install_skill,
-            commands::hermes_skills::uninstall_skill,
-            // Hermes Cron Jobs
-            commands::hermes_cron::list_cron_jobs,
-            commands::hermes_cron::create_cron_job,
-            commands::hermes_cron::remove_cron_job,
-            commands::hermes_cron::pause_cron_job,
-            commands::hermes_cron::resume_cron_job,
-            commands::hermes_cron::trigger_cron_job,
-            // Hermes Kanban board
-            commands::kanban::kanban_list_boards,
-            commands::kanban::kanban_get_current_board,
-            commands::kanban::kanban_list_tasks,
-            commands::kanban::kanban_show_task,
-            commands::kanban::kanban_create_task,
-            commands::kanban::kanban_assign_task,
-            commands::kanban::kanban_reclaim_task,
-            commands::kanban::kanban_complete_task,
-            commands::kanban::kanban_block_task,
-            commands::kanban::kanban_unblock_task,
-            commands::kanban::kanban_archive_task,
-            commands::kanban::kanban_add_comment,
-            commands::kanban::kanban_list_assignees,
-            commands::kanban::kanban_get_stats,
-            commands::kanban::kanban_create_board,
-            commands::kanban::kanban_switch_board,
-            commands::kanban::kanban_get_task_log,
-            // Hermes Profile management (multi-agent)
-            commands::profile::profile_list,
-            commands::profile::profile_show,
-            commands::profile::profile_create,
-            commands::profile::profile_delete,
-            commands::profile::profile_use,
-            commands::profile::profile_describe,
-            commands::profile::profile_get_description,
-            commands::profile::profile_set_model,
-            commands::profile::profile_install,
-            commands::profile::profile_update,
-            commands::profile::kanban_dispatch,
-            commands::profile::kanban_dispatcher_status,
-            commands::profile::kanban_workload,
-            // Provider credential management
-            commands::provider::list_providers,
-            commands::provider::save_provider_credential,
-            commands::provider::remove_provider_credential,
-            commands::provider::start_oauth_flow,
-            commands::provider::poll_oauth_result,
             // Image commands
             commands::image::image_compress,
             commands::image::image_resize,

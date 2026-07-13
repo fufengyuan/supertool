@@ -5,7 +5,8 @@ use supertool_core::logic::wireguard::WireGuardManager;
 pub async fn wireguard_get_all(
     core: tauri::State<'_, supertool_core::logic::CoreService>,
 ) -> Result<serde_json::Value, String> {
-    let configs = core.db_read(|conn| db_wg::get_all(conn).map_err(|e| e.to_string()))?;
+    let configs = core.db_read(|conn| db_wg::get_all(conn).map_err(|e| e.to_string()))?
+        .map_err(|e| e.to_string())?;
     Ok(serde_json::to_value(configs).map_err(|e| e.to_string())?)
 }
 
@@ -14,7 +15,8 @@ pub async fn wireguard_get_by_id(
     core: tauri::State<'_, supertool_core::logic::CoreService>,
     id: String,
 ) -> Result<serde_json::Value, String> {
-    let config = core.db_read(|conn| db_wg::get_by_id(conn, &id).map_err(|e| e.to_string()))?;
+    let config = core.db_read(|conn| db_wg::get_by_id(conn, &id).map_err(|e| e.to_string()))?
+        .map_err(|e| e.to_string())?;
     Ok(serde_json::to_value(config).map_err(|e| e.to_string())?)
 }
 
@@ -57,7 +59,7 @@ pub async fn wireguard_add(
             preshared_key.as_deref(),
         )
         .map_err(|e| e.to_string())
-    })?;
+    })?.map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "id": id }))
 }
 
@@ -96,7 +98,7 @@ pub async fn wireguard_update(
             preshared_key.as_deref(),
         )
         .map_err(|e| e.to_string())
-    })?;
+    })?.map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "success": true }))
 }
 
@@ -105,7 +107,8 @@ pub async fn wireguard_delete(
     core: tauri::State<'_, supertool_core::logic::CoreService>,
     id: String,
 ) -> Result<serde_json::Value, String> {
-    let _ = core.db_write(|conn| db_wg::delete(conn, &id).map_err(|e| e.to_string()))?;
+    let _ = core.db_write(|conn| db_wg::delete(conn, &id).map_err(|e| e.to_string()))?
+        .map_err(|e| e.to_string())?;
     Ok(serde_json::json!({ "success": true }))
 }
 
@@ -121,7 +124,7 @@ pub async fn wireguard_connect(
     address: Option<String>,
     mtu: Option<i64>,
 ) -> Result<serde_json::Value, String> {
-    wg.connect(
+    match wg.connect(
         &config_id,
         &config_name,
         &private_key,
@@ -132,7 +135,13 @@ pub async fn wireguard_connect(
         mtu,
     )
     .await
-    .map(|_| serde_json::json!({ "success": true }))
+    {
+        Ok(_) => Ok(serde_json::json!({ "success": true })),
+        Err(e) => {
+            wg.reset_state_if_connecting();
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -163,4 +172,33 @@ pub async fn wireguard_generate_keypair() -> Result<serde_json::Value, String> {
 pub async fn wireguard_derive_public_key(private_key: String) -> Result<serde_json::Value, String> {
     let public = WireGuardManager::public_key_from_private(&private_key)?;
     Ok(serde_json::json!({ "publicKey": public }))
+}
+
+#[tauri::command(rename_all = "camelCase")]
+pub async fn wireguard_parse_conf(content: String, name: Option<String>) -> Result<serde_json::Value, String> {
+    let cfg_name = name.unwrap_or_else(|| "导入配置".to_string());
+    let parsed = WireGuardManager::parse_conf(&content, &cfg_name)?;
+    Ok(serde_json::to_value(&parsed).map_err(|e| e.to_string())?)
+}
+
+/// Check whether the passwordless sudoers rule is installed (macOS-only).
+#[tauri::command(rename_all = "camelCase")]
+pub async fn wireguard_passwordless_status() -> Result<serde_json::Value, String> {
+    Ok(serde_json::json!({
+        "installed": supertool_core::logic::wireguard::is_passwordless_installed(),
+    }))
+}
+
+/// Install the passwordless sudoers rule (pops up macOS auth dialog once).
+#[tauri::command(rename_all = "camelCase")]
+pub async fn wireguard_passwordless_install() -> Result<serde_json::Value, String> {
+    supertool_core::logic::wireguard::install_passwordless().await?;
+    Ok(serde_json::json!({ "success": true }))
+}
+
+/// Uninstall the passwordless sudoers rule (pops up macOS auth dialog once).
+#[tauri::command(rename_all = "camelCase")]
+pub async fn wireguard_passwordless_uninstall() -> Result<serde_json::Value, String> {
+    supertool_core::logic::wireguard::uninstall_passwordless().await?;
+    Ok(serde_json::json!({ "success": true }))
 }

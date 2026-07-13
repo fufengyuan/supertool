@@ -108,13 +108,18 @@ impl super::CoreService {
                 .map_err(|e| e.to_string())
         })?;
 
-        let server_ids: Vec<String> =
-            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
-
+        let server_ids: Vec<String> = match &preset["serverIds"] {
+            Value::Array(arr) => arr.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+            Value::String(s) => serde_json::from_str(s).unwrap_or_default(),
+            _ => Vec::new(),
+        };
         if server_ids.is_empty() {
-            return Ok(
-                json!({"presetId": preset_id, "lines": lines, "results": [], "note": "No servers configured"}),
-            );
+            return Err(format!("预设 {} 没有配置服务器", preset_id));
+        }
+
+        let log_path = preset["logPath"].as_str().unwrap_or("");
+        if log_path.trim().is_empty() {
+            return Err(format!("预设 {} 没有配置日志路径", preset_id));
         }
 
         // Build tail command based on log type
@@ -360,8 +365,19 @@ impl super::CoreService {
                 .map_err(|e| e.to_string())
         })?;
 
-        let server_ids: Vec<String> =
-            serde_json::from_str(preset["serverIds"].as_str().unwrap_or("[]")).unwrap_or_default();
+        let server_ids: Vec<String> = match &preset["serverIds"] {
+            Value::Array(arr) => arr.iter().filter_map(|v| v.as_str().map(String::from)).collect(),
+            Value::String(s) => serde_json::from_str(s).unwrap_or_default(),
+            _ => Vec::new(),
+        };
+        if server_ids.is_empty() {
+            return Err(format!("预设 {} 没有配置服务器", preset_id));
+        }
+
+        let log_path = preset["logPath"].as_str().unwrap_or("");
+        if log_path.trim().is_empty() {
+            return Err(format!("预设 {} 没有配置日志路径", preset_id));
+        }
 
         let cmd = build_grep_command(&preset, keyword, lines);
         let mut matches = Vec::new();
@@ -474,6 +490,96 @@ impl super::CoreService {
         }
 
         Ok(json!({"presetId": preset_id, "keyword": keyword, "matches": matches}))
+    }
+
+    /// Load context lines around a specific line number from a specific server.
+    /// Returns `context_lines` lines (half before, half after the given line_num).
+    pub async fn log_context(
+        &self,
+        preset_id: &str,
+        server_id: &str,
+        line_num: usize,
+        context_lines: usize,
+    ) -> Result<Value, String> {
+        let half = context_lines / 2;
+        let start = if line_num > half { line_num - half } else { 1 };
+        let end = line_num + half;
+
+        let preset = self.with_db(|db| {
+            db.conn()
+                .query_row(
+                    "SELECT * FROM log_presets WHERE id = ?1",
+                    params![preset_id],
+                    |row| {
+                        Ok(json!({
+                            "id": row.get::<_, String>("id")?,
+                            "logPath": row.get::<_, String>("logPath")?,
+                            "logType": row.get::<_, String>("logType")?,
+                        }))
+                    },
+                )
+                .map_err(|e| e.to_string())
+        })?;
+
+        let log_type = preset["logType"].as_str().unwrap_or("file");
+        let log_path = preset["logPath"].as_str().unwrap_or("");
+
+        let server = self.with_db(|db| {
+            db.conn()
+                .query_row(
+                    "SELECT * FROM servers WHERE id = ?1",
+                    params![server_id],
+                    |row| {
+                        Ok(json!({
+                            "id": row.get::<_, String>("id")?,
+                            "name": row.get::<_, String>("name")?,
+                            "host": row.get::<_, String>("host")?,
+                            "port": row.get::<_, i64>("port")?,
+                            "username": row.get::<_, String>("username")?,
+                            "password": row.get::<_, Option<String>>("password")?,
+                            "sshKeyPath": row.get::<_, Option<String>>("sshKeyPath")?,
+                        }))
+                    },
+                )
+                .map_err(|e| e.to_string())
+        })?;
+
+        let host = server["host"].as_str().unwrap_or("").to_string();
+        let port = server["port"].as_u64().unwrap_or(22) as u32;
+        let username = server["username"].as_str().unwrap_or("").to_string();
+        let raw_password = server.get("password").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let ssh_key_path = server.get("sshKeyPath").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let password = raw_password.map(|pw| crate::encryption::try_decrypt_password(&pw));
+
+        let config = ssh::SshServerConfig {
+            id: server_id.to_string(),
+            name: server["name"].as_str().unwrap_or("").to_string(),
+            host, port, username, password, ssh_key_path,
+        };
+
+        if !self.ssh.is_connected(server_id) {
+            self.ssh.connect(&config).map_err(|e| e.to_string())?;
+        }
+
+        let cmd = build_context_command(log_type, log_path, start, end);
+        let output = self.ssh.exec_command(server_id, &cmd).map_err(|e| e.to_string())?;
+
+        let lines: Vec<Value> = output.output
+            .lines()
+            .filter(|l| !l.trim().is_empty())
+            .enumerate()
+            .map(|(i, content)| {
+                json!({"lineNum": start + i, "content": content.to_string()})
+            })
+            .collect();
+
+        Ok(json!({
+            "serverId": server_id,
+            "serverName": server["name"],
+            "lines": lines,
+            "start": start,
+            "end": end,
+        }))
     }
 }
 
@@ -617,12 +723,57 @@ fn build_grep_command(preset: &Value, keyword: &str, context_lines: usize) -> St
     }
 }
 
+fn build_context_command(log_type: &str, log_path: &str, start: usize, end: usize) -> String {
+    let count = end - start + 1;
+    match log_type {
+        "docker" => {
+            let containers: Vec<String> = log_path
+                .split('\n')
+                .filter(|c| !c.trim().is_empty())
+                .map(|c| c.trim().to_string())
+                .collect();
+            if containers.is_empty() {
+                return "echo 'No containers configured'".to_string();
+            }
+            containers.iter()
+                .map(|c| format!("docker logs '{}' 2>&1 | tail -n +{} | head -n {}", c.replace('\'', "'\\''"), start, count))
+                .collect::<Vec<_>>()
+                .join(" ; ")
+        }
+        "journalctl" => {
+            let units: Vec<String> = log_path
+                .split('\n')
+                .filter(|u| !u.trim().is_empty())
+                .map(|u| u.trim().to_string())
+                .collect();
+            let base_cmd = if units.is_empty() {
+                "journalctl --no-pager -o cat 2>/dev/null".to_string()
+            } else {
+                let unit_args: Vec<String> = units.iter().map(|u| format!("-u '{}'", u.replace('\'', "'\\''"))).collect();
+                format!("journalctl {} --no-pager -o cat 2>/dev/null", unit_args.join(" "))
+            };
+            format!("{} | tail -n +{} | head -n {}", base_cmd, start, count)
+        }
+        _ => {
+            let paths: Vec<String> = log_path
+                .split('\n')
+                .filter(|p| !p.trim().is_empty())
+                .map(|p| p.trim().to_string())
+                .collect();
+            if paths.is_empty() {
+                return "echo 'No log paths configured'".to_string();
+            }
+            let q = |p: &str| shell_quote_path(p);
+            paths.iter()
+                .map(|p| format!("tail -n +{} {} 2>/dev/null | head -n {}", start, q(p), count))
+                .collect::<Vec<_>>()
+                .join(" ; ")
+        }
+    }
+}
+
 fn parse_grep_output(output: &str, keyword: &str) -> Vec<Value> {
     let kw_lower = keyword.to_lowercase();
-    output
-        .lines()
-        .filter(|l| l.trim().is_empty() || *l == "--")
-        .count(); // consume filter
 
     output
         .lines()

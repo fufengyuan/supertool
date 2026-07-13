@@ -87,6 +87,21 @@ pub async fn logs_load_more(
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
+/// Load context lines around a specific line number from a specific server.
+#[tauri::command(rename_all = "camelCase")]
+pub async fn log_context(
+    core: State<'_, CoreService>,
+    preset_id: String,
+    server_id: String,
+    line_num: usize,
+    context_lines: Option<usize>,
+) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] log_context() preset={}, server={}, line={}", preset_id, server_id, line_num);
+    let ctx = context_lines.unwrap_or(100);
+    let result = core.log_context(&preset_id, &server_id, line_num, ctx).await?;
+    Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
+}
+
 // =================== Log Streaming ===================
 
 #[tauri::command(rename_all = "camelCase")]

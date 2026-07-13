@@ -71,20 +71,20 @@ pub enum Commands {
         #[command(subcommand)]
         action: NginxCommands,
     },
-    /// AI Agent 对话 — Claw 模式（支持 goal/loop）
-    Claw {
-        #[command(subcommand)]
-        action: ClawCommands,
-    },
-    /// Hermes Agent 对话
-    Hermes {
-        /// 发送的消息
-        message: String,
-    },
     /// 数据备份/恢复 — 导出/导入所有数据
     Backup {
         #[command(subcommand)]
         action: BackupCommands,
+    },
+    /// WireGuard tunnel 后台进程 — 由 GUI 通过 sudo 调起，普通用户不要直接运行
+    #[command(name = "wg-tunnel", hide = true)]
+    WgTunnel {
+        /// 配置 JSON 文件路径
+        #[arg(long)]
+        conf: String,
+        /// UDS 控制 socket 路径
+        #[arg(long)]
+        uds: String,
     },
 }
 
@@ -762,34 +762,6 @@ pub enum BackupCommands {
 }
 
 /// Claw Agent 对话子命令
-#[derive(Subcommand)]
-pub enum ClawCommands {
-    /// 直接对话
-    Chat {
-        /// 发送的消息
-        message: String,
-    },
-    /// Goal 模式 — 持续工作直到目标完成
-    Goal {
-        /// 目标描述
-        text: String,
-        /// 最大轮次（默认 20）
-        #[arg(short, long, default_value = "20")]
-        max_turns: u32,
-    },
-    /// Loop 模式 — 自动重发循环
-    Loop {
-        /// 任务描述
-        message: String,
-        /// 循环次数（如 --count 10）
-        #[arg(short, long)]
-        count: Option<u32>,
-        /// 运行时长（如 --duration 5m 或 30s）
-        #[arg(short, long)]
-        duration: Option<String>,
-    },
-}
-
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Todo {
     pub id: String,

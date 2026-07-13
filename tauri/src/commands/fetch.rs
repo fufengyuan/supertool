@@ -14,15 +14,6 @@ pub async fn fetch_page_content(url: String) -> Result<String, String> {
         .await
         .map_err(|e| format!("请求失败: {}", e))?;
 
-    let status = response.status();
-    if !status.is_success() {
-        return Err(format!(
-            "HTTP {}: {}",
-            status.as_u16(),
-            status.canonical_reason().unwrap_or("Unknown")
-        ));
-    }
-
     let text = response
         .text()
         .await
@@ -32,6 +23,6 @@ pub async fn fetch_page_content(url: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-pub fn convert_html_to_md(html: String) -> String {
-    html2md::parse_html(&html)
+pub async fn convert_html_to_md(html: String) -> Result<String, String> {
+    Ok(html2md::parse_html(&html))
 }

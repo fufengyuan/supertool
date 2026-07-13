@@ -179,29 +179,6 @@ async fn main() {
                 process::exit(1);
             }
         }
-        types::Commands::Hermes { message } => {
-            if let Err(e) = cmd_hermes_chat(message.clone()).await {
-                print_error(&e.to_string());
-                process::exit(1);
-            }
-        }
-        types::Commands::Claw { action } => {
-            use types::ClawCommands;
-            if let Err(e) = match action {
-                ClawCommands::Chat { message } => cmd_claw_chat(message.clone()).await,
-                ClawCommands::Goal { text, max_turns } => {
-                    cmd_claw_goal(text.clone(), *max_turns).await
-                }
-                ClawCommands::Loop {
-                    message,
-                    count,
-                    duration,
-                } => cmd_claw_loop(message.clone(), *count, duration.clone()).await,
-            } {
-                print_error(&e.to_string());
-                process::exit(1);
-            }
-        }
         types::Commands::Nginx { action } => {
             let mut rt = match init_runtime() {
                 Ok(r) => r,
@@ -225,6 +202,16 @@ async fn main() {
             };
             if let Err(e) = cmd_backup(&mut rt, action).await {
                 print_error(&e.to_string());
+                process::exit(1);
+            }
+        }
+        types::Commands::WgTunnel { conf, uds } => {
+            // WireGuard tunnel subprocess — must be invoked with root privileges
+            // by the GUI via osascript. Not intended for direct user invocation.
+            if let Err(e) =
+                supertool_core::logic::wireguard_tunnel::run_tunnel(conf, uds).await
+            {
+                eprintln!("[wg-tunnel] {}", e);
                 process::exit(1);
             }
         }

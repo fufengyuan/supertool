@@ -62,13 +62,20 @@ impl super::CoreService {
                     Ok(json!({
                         "id": row.get::<_, String>("id")?,
                         "configId": row.get::<_, String>("configId")?,
-                        "name": row.get::<_, String>("name")?,
-                        "order": row.get::<_, i64>("order")?,
-                        "serverId": row.get::<_, String>("serverId")?,
-                        "remotePath": row.get::<_, String>("remotePath")?,
-                        "localPath": row.get::<_, Option<String>>("localPath")?,
-                        "preDeployScript": row.get::<_, Option<String>>("preDeployScript")?,
-                        "postDeployScript": row.get::<_, Option<String>>("postDeployScript")?,
+                        "moduleName": row.get::<_, String>("moduleName")?,
+                        "modulePath": row.get::<_, String>("modulePath")?,
+                        "buildPath": row.get::<_, Option<String>>("buildPath")?,
+                        "buildCommand": row.get::<_, Option<String>>("buildCommand")?,
+                        "buildTool": row.get::<_, Option<String>>("buildTool")?,
+                        "outputPath": row.get::<_, Option<String>>("outputPath")?,
+                        "artifactName": row.get::<_, Option<String>>("artifactName")?.unwrap_or_default(),
+                        "artifactType": row.get::<_, Option<String>>("artifactType")?,
+                        "libFilterRules": row.get::<_, Option<String>>("libFilterRules")?,
+                        "deployOrder": row.get::<_, i64>("deployOrder")?,
+                        "deployPath": row.get::<_, Option<String>>("deployPath")?,
+                        "enabled": row.get::<_, i64>("enabled")? == 1,
+                        "createdAt": row.get::<_, String>("createdAt")?,
+                        "updatedAt": row.get::<_, String>("updatedAt")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -82,13 +89,17 @@ impl super::CoreService {
             let logs: Vec<Value> = stmt3
                 .query_map([], |row| {
                     Ok(json!({
-                        "id": row.get::<_, i64>("id")?,
+                        "id": row.get::<_, String>("id")?,
                         "configId": row.get::<_, String>("configId")?,
                         "status": row.get::<_, String>("status")?,
-                        "output": row.get::<_, Option<String>>("output")?,
-                        "error": row.get::<_, Option<String>>("error")?,
-                        "startedAt": row.get::<_, String>("startedAt")?,
-                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                        "startTime": row.get::<_, String>("startTime")?,
+                        "endTime": row.get::<_, Option<String>>("endTime")?,
+                        "errorMessage": row.get::<_, Option<String>>("errorMessage")?,
+                        "progress": row.get::<_, i64>("progress")?,
+                        "triggeredBy": row.get::<_, Option<String>>("triggeredBy")?,
+                        "createdAt": row.get::<_, String>("createdAt")?,
+                        "logFilePath": row.get::<_, Option<String>>("logFilePath")?,
+                        "artifactPaths": row.get::<_, Option<String>>("artifactPaths")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -102,12 +113,12 @@ impl super::CoreService {
             let history: Vec<Value> = stmt4
                 .query_map([], |row| {
                     Ok(json!({
-                        "id": row.get::<_, i64>("id")?,
+                        "id": row.get::<_, String>("id")?,
                         "configId": row.get::<_, String>("configId")?,
-                        "trigger": row.get::<_, String>("trigger")?,
                         "status": row.get::<_, String>("status")?,
-                        "startedAt": row.get::<_, String>("startedAt")?,
-                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                        "deployedAt": row.get::<_, String>("deployedAt")?,
+                        "rolledBack": row.get::<_, i64>("rolledBack")? == 1,
+                        "rolledBackAt": row.get::<_, Option<String>>("rolledBackAt")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -121,14 +132,12 @@ impl super::CoreService {
             let steps: Vec<Value> = stmt5
                 .query_map([], |row| {
                     Ok(json!({
-                        "id": row.get::<_, i64>("id")?,
+                        "id": row.get::<_, String>("id")?,
                         "deployLogId": row.get::<_, String>("deployLogId")?,
-                        "step": row.get::<_, String>("step")?,
+                        "stage": row.get::<_, String>("stage")?,
                         "status": row.get::<_, String>("status")?,
-                        "output": row.get::<_, Option<String>>("output")?,
-                        "error": row.get::<_, Option<String>>("error")?,
-                        "startedAt": row.get::<_, String>("startedAt")?,
-                        "completedAt": row.get::<_, Option<String>>("completedAt")?,
+                        "message": row.get::<_, Option<String>>("message")?,
+                        "timestamp": row.get::<_, String>("timestamp")?,
                     }))
                 })
                 .map_err(|e| e.to_string())?
@@ -144,6 +153,31 @@ impl super::CoreService {
             }))
         });
         result
+    }
+
+    /// 获取所有部署历史（含配置名），对应 Tauri 版 get_all_deploy_history。
+    pub async fn get_all_deploy_history(&self, limit: i64) -> Result<Value, String> {
+        let db = self.db.lock().map_err(|e| e.to_string())?;
+        let conn = db.conn();
+        let mut stmt = conn.prepare(
+            "SELECT h.id, h.configId, c.name as configName, h.status, h.deployedAt, h.rolledBack, h.rolledBackAt \
+             FROM deploy_history h \
+             LEFT JOIN cicd_configs c ON h.configId = c.id \
+             ORDER BY h.deployedAt DESC LIMIT ?1"
+        ).map_err(|e| e.to_string())?;
+        let rows = stmt.query_map(rusqlite::params![limit], |row| {
+            Ok(serde_json::json!({
+                "id": row.get::<_, String>("id")?,
+                "configId": row.get::<_, String>("configId")?,
+                "configName": row.get::<_, Option<String>>("configName")?,
+                "status": row.get::<_, String>("status")?,
+                "deployedAt": row.get::<_, String>("deployedAt")?,
+                "rolledBack": row.get::<_, i64>("rolledBack")? != 0,
+                "rolledBackAt": row.get::<_, Option<String>>("rolledBackAt")?,
+            }))
+        }).map_err(|e| e.to_string())?;
+        let items: Vec<Value> = rows.filter_map(|r| r.ok()).collect();
+        serde_json::to_value(&items).map_err(|e| e.to_string())
     }
 
     pub async fn import_cicd_data(
@@ -248,16 +282,20 @@ impl super::CoreService {
             if let Some(logs) = data.get("deployLogs").and_then(|v| v.as_array()) {
                 for l in logs {
                     let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_logs (id, configId, status, output, error, startedAt, completedAt)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7)",
+                        "INSERT OR REPLACE INTO deploy_logs (id, configId, status, startTime, endTime, errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths)
+                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
                         rusqlite::params![
-                            l.get("id").and_then(|v|v.as_i64()).unwrap_or(0),
+                            l.get("id").and_then(|v|v.as_str()).unwrap_or(""),
                             l.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
                             l.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("output").and_then(|v|v.as_str()),
-                            l.get("error").and_then(|v|v.as_str()),
-                            l.get("startedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("completedAt").and_then(|v|v.as_str()),
+                            l.get("startTime").and_then(|v|v.as_str()).unwrap_or(""),
+                            l.get("endTime").and_then(|v|v.as_str()),
+                            l.get("errorMessage").and_then(|v|v.as_str()),
+                            l.get("progress").and_then(|v|v.as_i64()).unwrap_or(0),
+                            l.get("triggeredBy").and_then(|v|v.as_str()),
+                            l.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
+                            l.get("logFilePath").and_then(|v|v.as_str()),
+                            l.get("artifactPaths").and_then(|v|v.as_str()),
                         ]
                     );
                     imported += 1;
@@ -268,15 +306,15 @@ impl super::CoreService {
             if let Some(history) = data.get("deployHistory").and_then(|v| v.as_array()) {
                 for h in history {
                     let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_history (id, configId, trigger, status, startedAt, completedAt)
+                        "INSERT OR REPLACE INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt)
                          VALUES (?1,?2,?3,?4,?5,?6)",
                         rusqlite::params![
-                            h.get("id").and_then(|v|v.as_i64()).unwrap_or(0),
+                            h.get("id").and_then(|v|v.as_str()).unwrap_or(""),
                             h.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("trigger").and_then(|v|v.as_str()).unwrap_or(""),
                             h.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("startedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("completedAt").and_then(|v|v.as_str()),
+                            h.get("deployedAt").and_then(|v|v.as_str()).unwrap_or(""),
+                            if h.get("rolledBack").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                            h.get("rolledBackAt").and_then(|v|v.as_str()),
                         ]
                     );
                     imported += 1;
@@ -287,17 +325,15 @@ impl super::CoreService {
             if let Some(steps) = data.get("deployStepLogs").and_then(|v| v.as_array()) {
                 for s in steps {
                     let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_step_logs (id, deployLogId, step, status, output, error, startedAt, completedAt)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+                        "INSERT OR REPLACE INTO deploy_step_logs (id, deployLogId, stage, status, message, timestamp)
+                         VALUES (?1,?2,?3,?4,?5,?6)",
                         rusqlite::params![
-                            s.get("id").and_then(|v|v.as_i64()).unwrap_or(0),
+                            s.get("id").and_then(|v|v.as_str()).unwrap_or(""),
                             s.get("deployLogId").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("step").and_then(|v|v.as_str()).unwrap_or(""),
+                            s.get("stage").and_then(|v|v.as_str()).unwrap_or(""),
                             s.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("output").and_then(|v|v.as_str()),
-                            s.get("error").and_then(|v|v.as_str()),
-                            s.get("startedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("completedAt").and_then(|v|v.as_str()),
+                            s.get("message").and_then(|v|v.as_str()),
+                            s.get("timestamp").and_then(|v|v.as_str()).unwrap_or(""),
                         ]
                     );
                     imported += 1;

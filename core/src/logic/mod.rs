@@ -1,4 +1,6 @@
 pub mod cicd_deploy;
+pub mod disk_cleaner;
+pub mod log_stream;
 /// Core Service — 共享业务逻辑层
 ///
 /// Tauri commands 和 CLI 都通过这一层操作数据库和服务。
@@ -12,6 +14,7 @@ pub mod nginx_parser;
 pub mod openvpn;
 pub mod ssh;
 pub mod wireguard;
+pub mod wireguard_tunnel;
 
 // 拆分后的模块
 pub mod accounting;
@@ -19,6 +22,8 @@ pub mod alert;
 pub mod backup;
 pub mod cicd_data;
 pub mod cicd_sync;
+pub mod cicd_tools;
+pub mod db_connections;
 pub mod file_ops;
 pub mod lan;
 pub mod log_presets;
@@ -31,8 +36,9 @@ pub mod ssh_ops;
 pub mod todo;
 pub mod weekly;
 
-use crate::db::Database;
+use crate::db::{ApiResponse, Database};
 use serde_json::{Value, json};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -558,6 +564,29 @@ impl CoreService {
     }
 
     pub async fn cicd_deploy(&self, config_id: &str) -> Result<Value, String> {
+        self.cicd_deploy_inner(config_id, None, None).await
+    }
+
+    /// Deploy with a live event channel and a cancellation flag.
+    ///
+    /// - `event_tx`: 每次 ProgressEvent 都会克隆一份 send 出去，GPUI 侧的 timer 轮询
+    ///   或 async 任务用 `recv()` 消费，用于实时日志、进度、步骤事件。
+    /// - `cancel_flag`: 前端设置为 true 后部署内部循环会尽快退出。
+    pub async fn cicd_deploy_with_events(
+        &self,
+        config_id: &str,
+        event_tx: std::sync::mpsc::Sender<crate::logic::cicd_deploy::ProgressEvent>,
+        cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> Result<Value, String> {
+        self.cicd_deploy_inner(config_id, Some(event_tx), Some(cancel_flag)).await
+    }
+
+    async fn cicd_deploy_inner(
+        &self,
+        config_id: &str,
+        event_tx: Option<std::sync::mpsc::Sender<crate::logic::cicd_deploy::ProgressEvent>>,
+        cancel_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    ) -> Result<Value, String> {
         // Get CICD config from DB
         let cicd_config = self
             .db_read(|conn| {
@@ -738,17 +767,24 @@ impl CoreService {
             &data_dir_str,
             &deploy_id,
             move |event: crate::logic::cicd_deploy::ProgressEvent| {
-                let mut logs = step_logs_for_cb.lock().unwrap();
-                logs.push(crate::db::cicd::DeployStepLog {
-                    id: 0, // auto-increment
-                    deploy_log_id: deploy_id_for_cb.clone(),
-                    stage: event.stage,
-                    status: event.status,
-                    message: Some(event.message),
-                    timestamp: chrono::Utc::now().to_rfc3339(),
-                });
+                // 1) 累积到内存以便一次性写库
+                {
+                    let mut logs = step_logs_for_cb.lock().unwrap();
+                    logs.push(crate::db::cicd::DeployStepLog {
+                        id: 0, // auto-increment
+                        deploy_log_id: deploy_id_for_cb.clone(),
+                        stage: event.stage.clone(),
+                        status: event.status.clone(),
+                        message: Some(event.message.clone()),
+                        timestamp: chrono::Utc::now().to_rfc3339(),
+                    });
+                }
+                // 2) 如提供了实时事件通道则同步 send（GPUI 侧走这条路径）
+                if let Some(ref tx) = event_tx {
+                    let _ = tx.send(event);
+                }
             },
-            || false, // CLI 部署不支持取消
+            move || cancel_flag.as_ref().map(|f| f.load(std::sync::atomic::Ordering::Relaxed)).unwrap_or(false),
         )
         .await;
 
@@ -860,6 +896,59 @@ impl CoreService {
             "success": true,
             "message": "部署已取消"
         }))
+    }
+
+    /// 扫描项目模块树（Maven `<modules>` / 子目录 pom.xml / NPM package.json）。
+    /// 返回 `{"success": bool, "modules": [...], "error"?: "..."}`。
+    pub fn scan_project_modules(&self, project_path: &str) -> Value {
+        crate::logic::cicd_tools::scan_project_modules(project_path)
+    }
+
+    /// 检测本机可用的构建工具版本（java/maven/node/npm/pnpm/yarn/gradle）。
+    pub fn detect_tools(&self) -> HashMap<String, crate::logic::cicd_tools::ToolDetectionResult> {
+        crate::logic::cicd_tools::detect_tools_impl()
+    }
+
+    /// 检测本机构建工具的可执行路径（用于回填 CICD 配置的 JAVA_HOME / MAVEN_HOME / NODE_HOME 等）。
+    pub fn detect_tool_paths(&self) -> crate::logic::cicd_tools::ToolPaths {
+        crate::logic::cicd_tools::detect_tool_paths_impl()
+    }
+
+    /// 扫描 SDKMAN 和 NVM 目录，返回所有可安装/已安装的版本列表。
+    /// 用于 CICD 编辑器的 SDK 版本选择下拉框。
+    pub fn detect_sdk_versions(&self) -> Value {
+        crate::logic::cicd_tools::detect_sdk_versions_impl()
+    }
+
+    /// 插入一个新模块：module 应包含 configId / moduleName / modulePath / 可选构建字段。
+    /// 用于 CICD 编辑器不整存整取地新增一行模块。
+    pub fn cicd_add_deploy_module(&self, module: Value) -> Result<Value, String> {
+        use crate::db::cicd::{DeployModule, add_deploy_module};
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut dm: DeployModule = serde_json::from_value(module)
+            .map_err(|e| format!("解析模块失败: {}", e))?;
+        if dm.id.is_empty() { dm.id = uuid::Uuid::new_v4().to_string(); }
+        dm.created_at = now.clone();
+        dm.updated_at = now;
+        let result = self.db_write(move |conn| add_deploy_module(conn, &dm).map_err(|e| e.to_string()))??;
+        serde_json::to_value(&result).map_err(|e| e.to_string())
+    }
+
+    pub fn cicd_update_deploy_module(&self, module: Value) -> Result<Value, String> {
+        use crate::db::cicd::{DeployModule, update_deploy_module};
+        let now = chrono::Utc::now().to_rfc3339();
+        let mut dm: DeployModule = serde_json::from_value(module)
+            .map_err(|e| format!("解析模块失败: {}", e))?;
+        dm.updated_at = now;
+        let result = self.db_write(move |conn| update_deploy_module(conn, &dm).map_err(|e| e.to_string()))??;
+        serde_json::to_value(&result).map_err(|e| e.to_string())
+    }
+
+    pub fn cicd_delete_deploy_module(&self, module_id: &str) -> Result<Value, String> {
+        use crate::db::cicd::delete_deploy_module;
+        let id = module_id.to_string();
+        let _ = self.db_write(move |conn| delete_deploy_module(conn, &id).map_err(|e| e.to_string()))??;
+        Ok(json!({"success": true}))
     }
 
     pub async fn cicd_rollback(&self, config_id: &str, log_id: &str) -> Result<Value, String> {
@@ -1003,5 +1092,381 @@ impl CoreService {
         channel.wait_close().ok();
 
         Ok(())
+    }
+
+    // ============ Git Repo CRUD ============
+
+    pub fn get_all_git_repos(&self) -> Result<ApiResponse<Vec<crate::db::git_repo::GitRepo>>, String> {
+        Ok(self.with_db(|db| -> Result<ApiResponse<Vec<crate::db::git_repo::GitRepo>>, String> {
+            let repos = crate::db::git_repo::get_all(db.conn()).map_err(|e| e.to_string())?;
+            Ok(ApiResponse::ok(repos))
+        })?)
+    }
+
+    pub fn add_git_repo(
+        &self,
+        name: &str,
+        path: &str,
+        remote: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<ApiResponse<()>, String> {
+        let id = format!("gr_{}", uuid::Uuid::new_v4().simple());
+        let name = name.to_string();
+        let path = path.to_string();
+        let remote = remote.map(|s| s.to_string());
+        let branch = branch.map(|s| s.to_string());
+        self.db_write(move |conn| {
+            crate::db::git_repo::add(
+                conn, &id, &name, &path, remote.as_deref(), branch.as_deref(),
+            )
+        })?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    pub fn update_git_repo(
+        &self,
+        id: &str,
+        name: &str,
+        path: &str,
+        remote: Option<&str>,
+        branch: Option<&str>,
+    ) -> Result<ApiResponse<()>, String> {
+        let id = id.to_string();
+        let name = name.to_string();
+        let path = path.to_string();
+        let remote = remote.map(|s| s.to_string());
+        let branch = branch.map(|s| s.to_string());
+        self.db_write(move |conn| {
+            crate::db::git_repo::update(
+                conn, &id, &name, &path, remote.as_deref(), branch.as_deref(),
+            )
+        })?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    pub fn delete_git_repo(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let id = id.to_string();
+        self.db_write(move |conn| crate::db::git_repo::delete(conn, &id))?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    // ============ CICD CRUD ============
+
+    pub fn get_all_cicd_configs(&self) -> Result<ApiResponse<Vec<crate::db::cicd::CicdConfig>>, String> {
+        Ok(self.with_db(|db| -> Result<ApiResponse<Vec<crate::db::cicd::CicdConfig>>, String> {
+            let configs = crate::db::cicd::get_all_cicd_configs(db.conn()).map_err(|e| e.to_string())?;
+            Ok(ApiResponse::ok(configs))
+        })?)
+    }
+
+    pub fn add_cicd_config(
+        &self,
+        name: &str,
+        deploy_branch: &str,
+        deploy_path: &str,
+        restart_script: &str,
+    ) -> Result<ApiResponse<()>, String> {
+        let id = format!("cicd_{}", uuid::Uuid::new_v4().simple());
+        let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let config = crate::db::cicd::CicdConfig {
+            id,
+            name: name.to_string(),
+            deploy_branch: deploy_branch.to_string(),
+            maven_settings: None,
+            maven_profile: String::new(),
+            deploy_path: deploy_path.to_string(),
+            lib_separate: false,
+            restart_script: restart_script.to_string(),
+            health_check_url: None,
+            health_check_timeout: 30,
+            created_at: now.clone(),
+            updated_at: now,
+            build_tool: None,
+            build_command: None,
+            build_path: None,
+            repo_url: None,
+            local_path: None,
+            npm_script: None,
+            npm_custom_script: None,
+            servers: None,
+            group_name: String::new(),
+            last_deployed_at: None,
+            parent_build_mode: false,
+            parent_build_path: String::new(),
+            requires_approval: false,
+            java_home: None,
+            node_home: None,
+            maven_home: None,
+            npm_home: None,
+            pnpm_home: None,
+            yarn_home: None,
+            build_mode: "maven".to_string(),
+            git_repo_id: None,
+        };
+        self.db_write(move |conn| crate::db::cicd::add_cicd_config(conn, &config))?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    pub fn update_cicd_config(
+        &self,
+        id: &str,
+        name: &str,
+    ) -> Result<ApiResponse<()>, String> {
+        let id = id.to_string();
+        let name = name.to_string();
+        self.db_write(move |conn| {
+            // Partial update: just update name for now
+            let now = chrono::Utc::now().to_rfc3339();
+            conn.execute(
+                "UPDATE cicd_configs SET name = ?1, updatedAt = ?2 WHERE id = ?3",
+                rusqlite::params![name, now, id],
+            ).map_err(|e| e.to_string())?;
+            Ok::<_, String>(())
+        })?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    pub fn delete_cicd_config(&self, id: &str) -> Result<ApiResponse<()>, String> {
+        let id = id.to_string();
+        self.db_write(move |conn| crate::db::cicd::delete_cicd_config(conn, &id))?;
+        Ok(ApiResponse::ok(()))
+    }
+
+    pub fn save_cicd_config_full(
+        &self,
+        mut json: serde_json::Value,
+    ) -> Result<ApiResponse<crate::db::cicd::CicdConfig>, String> {
+        use crate::db::cicd::CicdConfig;
+
+        // 1. servers: 数组 → JSON 字符串（数据库存的是 TEXT）
+        if let Some(servers) = json.get("servers") {
+            if servers.is_array() {
+                let s = serde_json::to_string(servers).unwrap_or_else(|_| "[]".to_string());
+                json["servers"] = Value::String(s);
+            }
+        }
+
+        // 2. Extract modules before deserializing config
+        let modules: Vec<serde_json::Value> = json.get("modules")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default();
+        // Remove modules from json so it doesn't interfere with CicdConfig deserialization
+        if let Some(obj) = json.as_object_mut() {
+            obj.remove("modules");
+        }
+
+        // Normalize empty strings to null for Option<String> fields
+        if let Some(obj) = json.as_object_mut() {
+            let empty_to_null = ["mavenSettings","mavenProfile","repoUrl","localPath","gitRepoId",
+                "buildCommand","buildPath","npmScript","npmCustomScript","healthCheckUrl",
+                "mavenHome","javaHome","npmHome","nodeHome","pnpmHome","yarnHome",
+                "parentBuildPath","buildTool","servers"];
+            for field in &empty_to_null {
+                if let Some(v) = obj.get(*field) {
+                    if v.as_str().map(|s| s.is_empty()).unwrap_or(false) {
+                        obj[*field] = serde_json::Value::Null;
+                    }
+                }
+            }
+        }
+
+        let mut config: CicdConfig = serde_json::from_value(json).map_err(|e| format!("配置反序列化失败: {}", e))?;
+        let now = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        let now2 = now.clone();
+        config.updated_at = now.clone();
+
+        let exists = if config.id.is_empty() { false } else {
+            let id = config.id.clone();
+            self.db_read(|conn| crate::db::cicd::get_cicd_config_by_config_id(conn, &id).unwrap_or(None))?.is_some()
+        };
+
+        if !exists {
+            if config.id.is_empty() {
+                config.id = format!("cicd_{}", uuid::Uuid::new_v4().simple());
+            }
+            config.created_at = now2;
+            let cfg = config.clone();
+            self.db_write(move |conn| -> Result<(), String> {
+                crate::db::cicd::add_cicd_config(conn, &cfg).map_err(|e| e.to_string())?;
+                Ok(())
+            })?;
+        } else {
+            let cfg = config.clone();
+            self.db_write(move |conn| -> Result<(), String> {
+                crate::db::cicd::update_cicd_config(conn, &cfg).map_err(|e| e.to_string())?;
+                Ok(())
+            })?;
+        }
+
+        // Save modules: DELETE existing, INSERT new
+        let config_id = config.id.clone();
+        let modules_clone = modules.clone();
+        self.db_write(move |conn| -> Result<(), String> {
+            conn.execute("DELETE FROM deploy_modules WHERE configId = ?1", rusqlite::params![&config_id])
+                .map_err(|e| e.to_string())?;
+            for (i, m) in modules_clone.iter().enumerate() {
+                let module = crate::db::cicd::DeployModule {
+                    id: format!("dm_{}", uuid::Uuid::new_v4().simple()),
+                    config_id: config_id.clone(),
+                    module_name: m.get("moduleName").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    module_path: m.get("modulePath").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    build_path: m.get("buildPath").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    build_command: m.get("buildCommand").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    build_tool: m.get("buildTool").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    output_path: m.get("outputPath").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    artifact_name: m.get("artifactName").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    artifact_type: m.get("artifactType").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    lib_filter_rules: m.get("libFilterRules").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    deploy_order: (i + 1) as i64,
+                    deploy_path: m.get("deployPath").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    enabled: m.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+                    created_at: now.clone(),
+                    updated_at: now.clone(),
+                };
+                crate::db::cicd::add_deploy_module(conn, &module).map_err(|e| e.to_string())?;
+            }
+            Ok(())
+        })?;
+
+        Ok(ApiResponse::ok(config))
+    }
+
+    // ============ Database Query ============
+
+    /// Execute a SQL query on the given connection config and return results.
+    /// Uses db_pool to establish a connection and db_ops to execute the query.
+    pub async fn execute_db_query(
+        &self,
+        config: crate::db_pool::DbConnectionConfig,
+        sql: &str,
+    ) -> Result<serde_json::Value, String> {
+        use crate::db_ops;
+
+        // First, ensure we have a connection in the pool
+        let conn = match config.db_type.as_str() {
+            "mysql" => crate::db_pool::connect_mysql(&config).await?,
+            "postgres" => crate::db_pool::connect_postgres(&config).await?,
+            "redis" => crate::db_pool::connect_redis(&config).await?,
+            "sqlite" => crate::db_pool::connect_sqlite(&config).await?,
+            _ => return Err(format!("Unsupported database type: {}", config.db_type)),
+        };
+
+        // Execute the query
+        let result = db_ops::execute_query_direct(&conn, sql).await?;
+
+        // Don't keep the connection (stateless for now)
+        // In a real app we'd pool it
+
+        Ok(result)
+    }
+
+    /// Test a database connection
+    pub async fn test_db_connection(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+    ) -> Result<serde_json::Value, String> {
+        crate::db_ops::test_connection(config).await
+    }
+
+    /// Get all databases for a connection
+    pub async fn db_get_databases(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::get_databases(&conn).await
+    }
+
+    /// Get all tables for a database
+    pub async fn db_get_tables(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_name: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::get_tables(&conn, db_name).await
+    }
+
+    /// Get table structure
+    pub async fn db_get_table_structure(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_name: Option<&str>,
+        table: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::get_table_structure(&conn, db_name, table).await
+    }
+
+    /// Get table data with pagination
+    pub async fn db_get_table_data(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_name: Option<&str>,
+        table: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::get_table_data(&conn, db_name, table, limit, offset).await
+    }
+
+    // ── Redis Operations ──
+
+    pub async fn db_redis_list_keys(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        pattern: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::redis_keys(&conn, db_index, pattern).await
+    }
+
+    pub async fn db_redis_get_value(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        key: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::redis_key_value(&conn, db_index, key).await
+    }
+
+    pub async fn db_redis_delete_key(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        key: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::redis_delete_key(&conn, db_index, key).await
+    }
+
+    // ============ Log Stream (from log_stream module) ============
+
+    pub fn logs_start_stream(
+        &self,
+        stream_id: String,
+        server_ids: Vec<String>,
+        command: String,
+        tx: std::sync::mpsc::Sender<crate::logic::log_stream::LogStreamEvent>,
+    ) -> Result<(), String> {
+        crate::logic::log_stream::start_stream(self, &stream_id, &server_ids, &command, tx)
+    }
+
+    pub fn logs_stop_stream(&self, stream_id: &str) {
+        crate::logic::log_stream::stop_stream(stream_id)
+    }
+}
+
+async fn connect_db(config: &crate::db_pool::DbConnectionConfig) -> Result<crate::db_pool::DbConnection, String> {
+    match config.db_type.as_str() {
+        "mysql" => crate::db_pool::connect_mysql(config).await,
+        "postgres" => crate::db_pool::connect_postgres(config).await,
+        "redis" => crate::db_pool::connect_redis(config).await,
+        "sqlite" => crate::db_pool::connect_sqlite(config).await,
+        _ => Err(format!("Unsupported database type: {}", config.db_type)),
     }
 }
