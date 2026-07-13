@@ -1,5 +1,4 @@
 pub mod accounting;
-pub mod agent;
 pub mod backup;
 pub mod cicd;
 pub mod database;
@@ -14,7 +13,6 @@ pub mod todo;
 pub mod weekly;
 
 pub use accounting::*;
-pub use agent::*;
 pub use backup::*;
 pub use cicd::*;
 pub use database::*;

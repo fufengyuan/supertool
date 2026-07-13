@@ -2,7 +2,6 @@ use rusqlite::{Connection, Result};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-pub mod agent;
 pub mod alert;
 pub mod cicd;
 pub mod cicd_tables;
@@ -13,6 +12,7 @@ pub mod nginx;
 pub mod openvpn;
 pub mod projects;
 pub mod servers;
+pub mod db_connections;
 pub mod wireguard;
 pub use cicd::*;
 
@@ -583,6 +583,21 @@ pub fn init_db(conn: &Connection) -> Result<()> {
             ref_name TEXT,
             message TEXT,
             sent_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS db_connections (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'mysql',
+            host TEXT NOT NULL DEFAULT '',
+            port INTEGER NOT NULL DEFAULT 3306,
+            username TEXT NOT NULL DEFAULT '',
+            password TEXT NOT NULL DEFAULT '',
+            dbName TEXT,
+            dbIndex INTEGER,
+            path TEXT,
+            createdAt TEXT NOT NULL,
+            updatedAt TEXT NOT NULL
         );
 
         "#,

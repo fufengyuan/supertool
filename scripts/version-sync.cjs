@@ -11,6 +11,7 @@
  *
  * 同步的文件:
  *   - package.json (version)
+ *   - gpui-app/Cargo.toml (version)
  *   - tauri/Cargo.toml (version)
  *   - tauri/tauri.conf.json (version)
  */
@@ -21,6 +22,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 const FILES = [
   { path: path.join(ROOT, 'package.json'), pattern: /"version":\s*"[^"]+"/, format: (v) => `"version": "${v}"` },
+  { path: path.join(ROOT, 'gpui-app', 'Cargo.toml'), pattern: /^version\s*=\s*"[^"]+"/m, format: (v) => `version = "${v}"` },
   { path: path.join(ROOT, 'tauri', 'Cargo.toml'), pattern: /^version\s*=\s*"[^"]+"/m, format: (v) => `version = "${v}"` },
   { path: path.join(ROOT, 'tauri', 'tauri.conf.json'), pattern: /"version":\s*"[^"]+"/, format: (v) => `"version": "${v}"` },
 ];

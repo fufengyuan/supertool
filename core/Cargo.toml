@@ -1,6 +1,6 @@
 [package]
 name = "supertool-core"
-version = "5.4.6"
+version = "5.87.0"
 edition = "2024"
 
 [dependencies]
@@ -29,12 +29,16 @@ tokio = { version = "1", features = ["full"] }
 ssh2 = "0.9.5"
 openssl = { version = "0.10", features = ["vendored"] }
 boringtun = "0.7"
+jwalk = "0.8"
 tun2 = { version = "4", features = ["async"] }
 rand = "0.8"
 notify-rust = "4"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 flate2 = "1"
+hex = "0.4"
 libc = "0.2"
+socket2 = "0.5"
+if-addrs = "0.13"
 
 [dev-dependencies]
 tempfile = "3"

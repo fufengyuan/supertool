@@ -164,6 +164,49 @@ pub fn play_sound() -> Result<serde_json::Value, String> {
     Ok(serde_json::json!({ "success": true }))
 }
 
+/// 播放确认提示音（轻短提示，与完成音区分）
+#[tauri::command(rename_all = "camelCase")]
+pub fn play_confirm_sound() -> Result<serde_json::Value, String> {
+    log::info!("[Notification] play_confirm_sound() called");
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("afplay")
+            .arg("/System/Library/Sounds/Pop.aiff")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .ok();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        if std::process::Command::new("paplay")
+            .arg("/usr/share/sounds/freedesktop/stereo/dialog-information.oga")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .is_err()
+        {
+            std::process::Command::new("canberra-gtk-play")
+                .arg("-i")
+                .arg("dialog-information")
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn()
+                .ok();
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("powershell")
+            .args(["-c", "[console]::beep(1000,80)"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .ok();
+    }
+    Ok(serde_json::json!({ "success": true }))
+}
+
 /// 播放系统提示音
 pub fn play_notification_sound() {
     log::info!("[Notification] play_notification_sound() called");

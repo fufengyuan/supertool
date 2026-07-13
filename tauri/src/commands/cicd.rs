@@ -765,6 +765,7 @@ pub async fn deploy(
     core: State<'_, CoreService>,
     config_id: String,
     confirmed: Option<bool>,
+    branch: Option<String>,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] deploy() called");
     // Get config from DB
@@ -786,7 +787,15 @@ pub async fn deploy(
         core.db_read(|conn| cicd_get_modules(conn, &config_id).map_err(|e| e.to_string()))??;
 
     // Build DeployConfig
-    let deploy_config = build_deploy_config(&core, &cicd_config, &modules)?;
+    let mut deploy_config = build_deploy_config(&core, &cicd_config, &modules)?;
+
+    // Override branch if provided (per-deploy branch selection)
+    if let Some(ref b) = branch {
+        if !b.is_empty() {
+            log::info!("[deploy] overriding branch: {} -> {}", deploy_config.branch, b);
+            deploy_config.branch = b.clone();
+        }
+    }
 
     // Create deploy log
     let deploy_id = uuid::Uuid::new_v4().to_string();

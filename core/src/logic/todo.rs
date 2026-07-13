@@ -53,7 +53,7 @@ impl super::CoreService {
         self.with_db(|db| {
             db.conn_mut()
                 .execute(
-                    "INSERT INTO todos (id, text, completed, priority, dueDate, description, markdownDescription, tag, createdAt, updatedAt, orderNum, repeatCount, projectId) VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10)",
+                    "INSERT INTO todos (id, text, completed, priority, dueDate, description, markdownDescription, tag, createdAt, updatedAt, orderNum, repeatCount, repeatType, repeatInterval, repeatEndDate, projectId) VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13)",
                     params![
                         id,
                         params["text"].as_str().unwrap_or(""),
@@ -64,6 +64,9 @@ impl super::CoreService {
                         params["tag"].as_str().unwrap_or(""),
                         now,
                         now,
+                        params.get("repeatType").and_then(|v| v.as_str()).filter(|s| !s.is_empty()),
+                        params.get("repeatInterval").and_then(|v| v.as_i64()),
+                        params.get("repeatEndDate").and_then(|v| v.as_str()).filter(|s| !s.is_empty()),
                         params.get("projectId").and_then(|v| v.as_str()),
                     ],
                 )
@@ -72,6 +75,108 @@ impl super::CoreService {
         .map_err(|e| e.to_string())?;
         Ok(json!({"id": id, "text": params["text"], "createdAt": now}))
     }
+
+    /// Create the next instance of a recurring todo when the original is completed.
+    /// Computes the next dueDate based on repeatType/repeatInterval, copies content,
+    /// links via parentTodoId, and respects repeatEndDate.
+    pub async fn create_repeat_instance(&self, todo_id: &str) -> Result<Value, String> {
+        use chrono::{Datelike, Duration, NaiveDate};
+
+        // Read the original todo's fields
+        let orig = self.with_db(|db| {
+            db.conn()
+                .query_row(
+                    "SELECT text, priority, dueDate, description, markdownDescription, tag, projectId, repeatType, repeatInterval, repeatEndDate FROM todos WHERE id = ?1",
+                    params![todo_id],
+                    |row| {
+                        Ok(json!({
+                            "text": row.get::<_, String>("text").unwrap_or_default(),
+                            "priority": row.get::<_, String>("priority").unwrap_or_else(|_| "medium".into()),
+                            "dueDate": row.get::<_, Option<String>>("dueDate").unwrap_or(None),
+                            "description": row.get::<_, String>("description").unwrap_or_default(),
+                            "markdownDescription": row.get::<_, Option<String>>("markdownDescription").unwrap_or(None),
+                            "tag": row.get::<_, Option<String>>("tag").unwrap_or(None),
+                            "projectId": row.get::<_, Option<String>>("projectId").unwrap_or(None),
+                            "repeatType": row.get::<_, Option<String>>("repeatType").unwrap_or(None),
+                            "repeatInterval": row.get::<_, Option<i64>>("repeatInterval").unwrap_or(None),
+                            "repeatEndDate": row.get::<_, Option<String>>("repeatEndDate").unwrap_or(None),
+                        }))
+                    },
+                )
+                .map_err(|e| e.to_string())
+        })?;
+
+        let repeat_type = orig["repeatType"].as_str().unwrap_or("");
+        if repeat_type.is_empty() {
+            return Ok(json!({"skipped": "no repeatType"}));
+        }
+        let interval = orig["repeatInterval"].as_i64().unwrap_or(1).max(1);
+
+        // Compute next due date. Base off existing dueDate if present, else today.
+        let base_date = orig["dueDate"].as_str()
+            .and_then(|s| NaiveDate::parse_from_str(&s[..s.len().min(10)], "%Y-%m-%d").ok())
+            .unwrap_or_else(|| chrono::Utc::now().date_naive());
+
+        let next_date: NaiveDate = match repeat_type {
+            "daily" => base_date + Duration::days(interval),
+            "weekly" => base_date + Duration::days(7 * interval),
+            "monthly" => {
+                let total_month0 = (base_date.year() as i64) * 12 + (base_date.month0() as i64) + interval;
+                let ny = (total_month0.div_euclid(12)) as i32;
+                let nm0 = total_month0.rem_euclid(12) as u32;
+                NaiveDate::from_ymd_opt(ny, nm0 + 1, base_date.day())
+                    .or_else(|| NaiveDate::from_ymd_opt(ny, nm0 + 1, 28))
+                    .unwrap_or(base_date)
+            }
+            "yearly" => NaiveDate::from_ymd_opt(base_date.year() + interval as i32, base_date.month(), base_date.day())
+                .unwrap_or(base_date),
+            "custom" => base_date + Duration::days(interval),
+            _ => base_date + Duration::days(1),
+        };
+
+        // Respect repeatEndDate
+        if let Some(end_str) = orig["repeatEndDate"].as_str() {
+            if let Ok(end_date) = NaiveDate::parse_from_str(&end_str[..end_str.len().min(10)], "%Y-%m-%d") {
+                if next_date > end_date {
+                    return Ok(json!({"stopped": "past repeatEndDate"}));
+                }
+            }
+        }
+
+        let now = chrono::Utc::now().to_rfc3339();
+        let new_id = uuid::Uuid::new_v4().to_string();
+        let next_due = next_date.format("%Y-%m-%d").to_string();
+        let rt = repeat_type.to_string();
+
+        self.with_db(|db| {
+            db.conn_mut()
+                .execute(
+                    "INSERT INTO todos (id, text, completed, priority, dueDate, description, markdownDescription, tag, createdAt, updatedAt, orderNum, repeatCount, repeatType, repeatInterval, repeatEndDate, parentTodoId, projectId) VALUES (?1, ?2, 0, ?3, ?4, ?5, ?6, ?7, ?8, ?9, 0, 0, ?10, ?11, ?12, ?13, ?14)",
+                    params![
+                        new_id,
+                        orig["text"].as_str().unwrap_or(""),
+                        orig["priority"].as_str().unwrap_or("medium"),
+                        next_due,
+                        orig["description"].as_str().unwrap_or(""),
+                        orig["markdownDescription"].as_str(),
+                        orig["tag"].as_str(),
+                        now,
+                        now,
+                        rt,
+                        interval,
+                        orig["repeatEndDate"].as_str(),
+                        todo_id,
+                        orig["projectId"].as_str(),
+                    ],
+                )
+                .map_err(|e| e.to_string())
+        })
+        .map_err(|e| e.to_string())?;
+
+        Ok(json!({"id": new_id, "parentTodoId": todo_id, "dueDate": next_due}))
+    }
+
+
 
     pub async fn update_todo(&self, params: Value) -> Result<Value, String> {
         let id = params["id"].as_str().unwrap_or("").to_string();

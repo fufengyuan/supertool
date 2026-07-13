@@ -2,15 +2,6 @@
 members = [
   # SuperTool
   "tauri", "cli", "core",
-  # Claw
-  "claw-cli", "claw", "claw-plugins", "claw-telemetry",
-  "claw-runtime", "claw-commands", "claw-tools",
-  # Hermes Ultra
-  "hermes-core", "hermes-agent", "hermes-tools", "hermes-gateway",
-  "hermes-cli", "hermes-cron", "hermes-skills", "hermes-mcp",
-  "hermes-environments", "hermes-config", "hermes-intelligence",
-  "hermes-acp", "hermes-eval", "hermes-http", "hermes-auth",
-  "hermes-telemetry",
 ]
 resolver = "2"
 
@@ -18,27 +9,9 @@ resolver = "2"
 version = "0.16.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/sheawinkler/hermes-agent-ultra"
+repository = "https://github.com/fufengyuan/supertool"
 
 [workspace.dependencies]
-# === Hermes Internal ===
-hermes-core = { path = "hermes-core" }
-hermes-agent = { path = "hermes-agent" }
-hermes-tools = { path = "hermes-tools" }
-hermes-gateway = { path = "hermes-gateway" }
-hermes-cli = { path = "hermes-cli" }
-hermes-cron = { path = "hermes-cron" }
-hermes-skills = { path = "hermes-skills" }
-hermes-mcp = { path = "hermes-mcp" }
-hermes-environments = { path = "hermes-environments" }
-hermes-config = { path = "hermes-config" }
-hermes-intelligence = { path = "hermes-intelligence" }
-hermes-acp = { path = "hermes-acp" }
-hermes-eval = { path = "hermes-eval" }
-hermes-http = { path = "hermes-http" }
-hermes-auth = { path = "hermes-auth" }
-hermes-telemetry = { path = "hermes-telemetry" }
-
 # === Async runtime ===
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1"

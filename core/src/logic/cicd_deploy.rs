@@ -276,6 +276,14 @@ pub struct Artifact {
     pub deploy_path: Option<String>,
 }
 
+#[derive(Debug, Clone)]
+pub enum DeployEvent {
+    LogLine { line: String },
+    Progress { percent: f64, message: String },
+    StepStart { step: String },
+    StepEnd { step: String, status: String },
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProgressEvent {
     pub stage: String,

@@ -802,5 +802,34 @@ impl super::CoreService {
         Ok(json!(result?))
     }
 
+    // ── Import CSV ──
+
+    pub async fn import_accounting_csv(&self, csv_content: &str) -> Result<Value, String> {
+        let mut imported = 0u64;
+        let mut errors = Vec::new();
+        for (i, line) in csv_content.lines().enumerate() {
+            if i == 0 { continue; } // skip header
+            if line.trim().is_empty() { continue; }
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.len() < 6 {
+                errors.push(format!("行 {}: 列数不足", i + 1));
+                continue;
+            }
+            let params = json!({
+                "description": parts.get(1).unwrap_or(&"").trim(),
+                "amount": parts.get(2).unwrap_or(&"0").trim().parse::<f64>().unwrap_or(0.0),
+                "type": parts.get(3).unwrap_or(&"expense").trim(),
+                "category": parts.get(4).unwrap_or(&"").trim(),
+                "date": parts.get(5).unwrap_or(&"").trim(),
+                "status": parts.get(6).unwrap_or(&"pending").trim(),
+            });
+            match self.add_accounting_record(params).await {
+                Ok(_) => imported += 1,
+                Err(e) => errors.push(format!("行 {}: {}", i + 1, e)),
+            }
+        }
+        Ok(json!({"imported": imported, "errors": errors}))
+    }
+
     // ============ LAN ============
 }
