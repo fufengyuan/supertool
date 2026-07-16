@@ -2078,7 +2078,6 @@ export interface TauriAPI {
   closeFloatingTodo: () => Promise<any>
   toggleFloatingTodo: () => Promise<any>
   setFloatingTodoPinned: (pinned: boolean) => Promise<any>
-  onFloatingTodoWindowClose: (cb: () => void) => Promise<() => void>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2909,7 +2908,6 @@ export function getTauriAPI(): TauriAPI {
     closeFloatingTodo: async () => tauriCall('close_floating_todo'),
     toggleFloatingTodo: async () => tauriCall('toggle_floating_todo'),
     setFloatingTodoPinned: async (pinned: boolean) => tauriCall('set_floating_todo_pinned', { pinned }),
-    onFloatingTodoWindowClose: async (cb: () => void) => listen('floating_todo_window_close', cb),
 
   }
 

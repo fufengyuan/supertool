@@ -677,7 +677,7 @@ async function loadBranchesForConfig(cfg: CicdConfigEntry) {
         seen.add(name); local.push(name);
       }
     }
-    branches.value = [...local, ...remote.filter(r => !seen.has(r))];
+    branches.value = [...local, ...remote];
     selectedBranch.value = cfg.deployBranch || 'main';
   } catch {
     branches.value = [cfg.deployBranch || 'main'];
