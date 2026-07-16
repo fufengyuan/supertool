@@ -101,6 +101,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
+import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
 
 interface Project {
   id: string
@@ -225,14 +226,12 @@ async function deleteTodo(todo: Todo) {
 
 async function startDragging() {
   try {
-    const { getCurrentWindow } = await import('@tauri-apps/api/window')
     await getCurrentWindow().startDragging()
   } catch { /* non-Tauri env */ }
 }
 
 async function setWindowHeight(h: number) {
   try {
-    const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
     await getCurrentWindow().setSize(new LogicalSize(340, h))
   } catch { /* non-Tauri env */ }
 }
