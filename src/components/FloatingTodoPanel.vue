@@ -2,11 +2,11 @@
   <div class="floating-todo-panel min-h-[200px] bg-base-100" :data-theme="theme">
     <!-- Title bar: always visible -->
     <div
-      class="title-bar flex items-center justify-between px-3 py-2 bg-base-200 border-b border-base-content/10 cursor-pointer select-none"
+      class="title-bar flex items-center justify-between px-3 py-2 bg-base-200 border-b border-base-content/10 cursor-grab select-none"
       :class="{ 'rounded-t-lg': !collapsed }"
-      @click="collapsed = !collapsed"
+      @mousedown.prevent="onTitleMouseDown"
     >
-      <span class="text-xs font-semibold text-base-content tracking-wider flex items-center gap-1.5">
+      <span class="text-xs font-semibold text-base-content tracking-wider flex items-center gap-1.5" @click.stop="collapsed = !collapsed">
         <span>📋</span>
         <span>待办</span>
         <span class="text-[10px] text-base-content/40">({{ pendingCount }})</span>
@@ -99,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
 
 interface Project {
@@ -121,6 +121,9 @@ interface TodoGroup {
   project: Project | null
   todos: Todo[]
 }
+
+const EXPANDED_HEIGHT = 500
+const COLLAPSED_HEIGHT = 36
 
 const theme = ref('dark')
 const collapsed = ref(false)
@@ -220,6 +223,32 @@ async function deleteTodo(todo: Todo) {
   }
 }
 
+async function startDragging() {
+  try {
+    const { getCurrentWindow } = await import('@tauri-apps/api/window')
+    await getCurrentWindow().startDragging()
+  } catch { /* non-Tauri env */ }
+}
+
+async function setWindowHeight(h: number) {
+  try {
+    const { getCurrentWindow, LogicalSize } = await import('@tauri-apps/api/window')
+    await getCurrentWindow().setSize(new LogicalSize(340, h))
+  } catch { /* non-Tauri env */ }
+}
+
+function onTitleMouseDown(e: MouseEvent) {
+  // Only drag on title bar background, not on buttons
+  const target = e.target as HTMLElement
+  if (target.closest('button')) return
+  startDragging()
+}
+
+// Watch collapsed state and resize window
+watch(collapsed, (val) => {
+  setWindowHeight(val ? COLLAPSED_HEIGHT : EXPANDED_HEIGHT)
+})
+
 async function togglePin() {
   pinned.value = !pinned.value
   try {
@@ -232,6 +261,8 @@ async function togglePin() {
 let unlistenTodos: (() => void) | null = null
 
 onMounted(async () => {
+  // Set initial window height
+  setWindowHeight(EXPANDED_HEIGHT)
   loadTodos()
   // Load projects
   try {
