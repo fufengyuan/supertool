@@ -1711,6 +1711,7 @@ export interface TauriAPI {
   onTaskCommentAdded: (callback: (data: any) => void) => () => void
   onTaskAssigned: (callback: (data: any) => void) => () => void
   onDataChanged: (callback: (data: any) => void) => Promise<() => void>
+  onTodosChanged: (callback: () => void) => Promise<() => void>
   onDeployProgress: (callback: (data: any) => void) => () => void
   onDeployNotification: (callback: (data: any) => void) => () => void
   onDeployLogIdCreated: (callback: (data: any) => void) => Promise<UnlistenFn>
@@ -2552,6 +2553,7 @@ export function getTauriAPI(): TauriAPI {
     onTaskCommentAdded: (callback: (data: any) => void) => { return listen('task-comment-added', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onTaskAssigned: (callback: (data: any) => void) => { return listen('task-assigned', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDataChanged: (callback: (data: any) => void) => { return listen('data-changed', (e) => callback(e.payload)) as Promise<UnlistenFn> },
+    onTodosChanged: (callback: () => void) => { return listen('todos-changed', () => callback()) as Promise<UnlistenFn> },
     onDeployProgress: (callback: (data: any) => void) => { return listen('deploy-progress', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployNotification: (callback: (data: any) => void) => { return listen('deploy-notification', (e) => callback(e.payload)) as Promise<UnlistenFn> },
     onDeployLogIdCreated: (callback: (data: any) => void) => { return listen('deploy-log-id-created', (e) => callback(e.payload)) as Promise<UnlistenFn> },

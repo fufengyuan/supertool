@@ -834,12 +834,17 @@ function navigateToTodo(todoId: string) {
 onMounted(async () => {
   await todoStore.loadTodos()
   await projectStore.loadProjects()
+  // Listen for cross-window todo changes
+  const unlistenTodos = await getTauriAPI().onTodosChanged(async () => {
+    await todoStore.loadTodos()
+  }).catch(() => () => {})
   window.addEventListener('navigate-to-todo', (event: Event) => {
     const ce = event as CustomEvent
     if (ce.detail && ce.detail.todoId) {
       navigateToTodo(ce.detail.todoId)
     }
   })
+  onUnmounted(() => { (unlistenTodos as (() => void))?.() })
 })
 
 // ===== LAN & 菜单监听 =====

@@ -1,5 +1,5 @@
 use supertool_core::logic::CoreService;
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_todos(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
@@ -10,41 +10,49 @@ pub async fn get_todos(core: State<'_, CoreService>) -> Result<serde_json::Value
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn add_todo(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     todo: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] add_todo() called");
     let result = core.add_todo(todo).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn update_todo(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] update_todo() called");
     let result = core.update_todo(params).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_todo(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_todo() called");
     let result = core.delete_todo(&id).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn add_tag(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     name: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] add_tag() called");
     let result = core.add_tag(&name).await?;
+    let _ = app.emit("tags-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -57,41 +65,49 @@ pub async fn get_all_tags(core: State<'_, CoreService>) -> Result<serde_json::Va
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_tag(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     name: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_tag() called");
     let result = core.delete_tag(&name).await?;
+    let _ = app.emit("tags-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn add_subtask(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     subtask: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] add_subtask() called");
     let result = core.add_subtask(subtask).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn update_subtask(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     params: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] update_subtask() called");
     let result = core.update_subtask(params).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_subtask(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     id: String,
 ) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] delete_subtask() called");
     let result = core.delete_subtask(&id).await?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::to_value(result).map_err(|e| e.to_string())?)
 }
 
@@ -107,6 +123,7 @@ pub async fn get_subtasks_for_todo(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn delete_many(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
@@ -120,11 +137,13 @@ pub async fn delete_many(
         conn.execute(&sql, rusqlite::params_from_iter(&ids))
             .map_err(|e| e.to_string())
     })?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::json!({ "deleted": deleted }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn update_order(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     items: Vec<serde_json::Value>,
 ) -> Result<serde_json::Value, String> {
@@ -146,11 +165,13 @@ pub async fn update_order(
         })?;
         count += 1;
     }
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::json!({ "updated": count }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn create_repeat_instance(
+    app: tauri::AppHandle,
     core: State<'_, CoreService>,
     todo_id: String,
 ) -> Result<serde_json::Value, String> {
@@ -205,5 +226,6 @@ pub async fn create_repeat_instance(
         )
         .map_err(|e| e.to_string())
     })?;
+    let _ = app.emit("todos-changed", ());
     Ok(serde_json::json!({ "id": new_id, "parentTodoId": todo_id }))
 }
