@@ -48,30 +48,49 @@
       </div>
 
       <!-- Todo list -->
-      <div class="todo-list space-y-1 max-h-[350px] overflow-y-auto">
-        <div
-          v-for="todo in pendingTodos"
-          :key="todo.id"
-          class="todo-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-base-200/50 transition-colors group"
-        >
-          <button
-            @click="toggleDone(todo)"
-            class="w-4 h-4 rounded border border-base-content/30 flex items-center justify-center flex-shrink-0 hover:border-primary transition-colors"
-            :class="{ 'bg-primary border-primary': todo.completed }"
+      <div class="todo-list max-h-[350px] overflow-y-auto">
+        <template v-for="group in groupedTodos" :key="group.projectId">
+          <!-- 分组头部 -->
+          <div class="flex items-center gap-2 px-1 py-1.5 mt-1.5 mb-0.5 border-b border-base-content/10 first:mt-0">
+            <span
+              v-if="group.project"
+              class="flex items-center gap-1.5 text-[11px] font-semibold text-base-content/70 pl-2 border-l-[3px]"
+              :style="group.project.color ? { borderLeftColor: group.project.color } : {}"
+            >
+              <span v-if="group.project.color" class="inline-block w-2 h-2 rounded-full" :style="{ backgroundColor: group.project.color }"></span>
+              {{ group.project.name }}
+              <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
+            </span>
+            <span v-else class="flex items-center gap-1.5 text-[11px] font-semibold text-base-content/50 pl-2 border-l-[3px] border-transparent">
+              <span class="inline-block w-2 h-2 rounded-full bg-base-content/30"></span>
+              无项目
+              <span class="badge badge-ghost badge-xs ml-0.5">{{ group.todos.length }}</span>
+            </span>
+          </div>
+          <!-- 分组内的任务 -->
+          <div
+            v-for="todo in group.todos"
+            :key="todo.id"
+            class="todo-item flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-base-200/50 transition-colors group"
           >
-            <span v-if="todo.completed" class="text-white text-[10px]">✓</span>
-          </button>
-          <span
-            class="flex-1 text-xs text-base-content truncate"
-            :class="{ 'line-through text-base-content/40': todo.completed }"
-          >{{ todo.text }}</span>
-          <span v-if="todo.projectId" class="text-[9px] text-base-content/30 mr-1">{{ getProjectName(todo.projectId) }}</span>
-          <button
-            @click="deleteTodo(todo)"
-            class="opacity-0 group-hover:opacity-100 text-[10px] text-base-content/30 hover:text-error transition-all px-1"
-          >✕</button>
-        </div>
-        <div v-if="pendingTodos.length === 0" class="text-[11px] text-base-content/40 text-center py-6">
+            <button
+              @click="toggleDone(todo)"
+              class="w-4 h-4 rounded border border-base-content/30 flex items-center justify-center flex-shrink-0 hover:border-primary transition-colors"
+              :class="{ 'bg-primary border-primary': todo.completed }"
+            >
+              <span v-if="todo.completed" class="text-white text-[10px]">✓</span>
+            </button>
+            <span
+              class="flex-1 text-xs text-base-content truncate"
+              :class="{ 'line-through text-base-content/40': todo.completed }"
+            >{{ todo.text }}</span>
+            <button
+              @click="deleteTodo(todo)"
+              class="opacity-0 group-hover:opacity-100 text-[10px] text-base-content/30 hover:text-error transition-all px-1"
+            >✕</button>
+          </div>
+        </template>
+        <div v-if="groupedTodos.length === 0" class="text-[11px] text-base-content/40 text-center py-6">
           ✨ 暂无待办任务
         </div>
       </div>
@@ -86,6 +105,7 @@ import { getTauriAPI } from '../utils/tauri-api'
 interface Project {
   id: string
   name: string
+  color?: string
 }
 
 interface Todo {
@@ -94,6 +114,12 @@ interface Todo {
   completed: boolean
   priority?: string
   projectId?: string
+}
+
+interface TodoGroup {
+  projectId: string | null
+  project: Project | null
+  todos: Todo[]
 }
 
 const theme = ref('dark')
@@ -106,6 +132,46 @@ const todos = ref<Todo[]>([])
 
 const pendingTodos = computed(() => todos.value.filter(t => !t.completed))
 const pendingCount = computed(() => pendingTodos.value.length)
+
+const groupedTodos = computed<TodoGroup[]>(() => {
+  const active = pendingTodos.value
+  if (active.length === 0) return []
+
+  // Build project map
+  const projectMap = new Map<string, Project>()
+  for (const p of projects.value) {
+    projectMap.set(p.id, p)
+  }
+
+  // Group by projectId
+  const groupMap = new Map<string | null, Todo[]>()
+  for (const todo of active) {
+    const pid = todo.projectId || null
+    if (!groupMap.has(pid)) groupMap.set(pid, [])
+    groupMap.get(pid)!.push(todo)
+  }
+
+  // Build group array
+  const groups: TodoGroup[] = []
+  for (const [pid, todos] of groupMap) {
+    groups.push({
+      projectId: pid,
+      project: pid ? projectMap.get(pid) || null : null,
+      todos,
+    })
+  }
+
+  // Sort: projects first (by order), no-project last
+  const projectOrder = new Map<string, number>()
+  projects.value.forEach((p, i) => projectOrder.set(p.id, i))
+  groups.sort((a, b) => {
+    if (a.projectId === null) return 1
+    if (b.projectId === null) return -1
+    return (projectOrder.get(a.projectId) ?? Infinity) - (projectOrder.get(b.projectId) ?? Infinity)
+  })
+
+  return groups
+})
 
 function getProjectName(projectId: string): string {
   return projects.value.find(p => p.id === projectId)?.name || ''
