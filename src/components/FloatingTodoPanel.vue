@@ -29,6 +29,13 @@
     <div v-show="!collapsed" class="content-area p-3 space-y-3">
       <!-- Quick add -->
       <div class="flex gap-1.5">
+        <select
+          v-model="selectedProjectId"
+          class="select select-bordered select-xs w-24 bg-base-200 text-xs cursor-pointer"
+        >
+          <option value="">无项目</option>
+          <option v-for="p in projects" :key="p.id" :value="p.id">{{ p.name }}</option>
+        </select>
         <input
           v-model="newTodoText"
           @keydown.enter="addTodo"
@@ -58,6 +65,7 @@
             class="flex-1 text-xs text-base-content truncate"
             :class="{ 'line-through text-base-content/40': todo.completed }"
           >{{ todo.text }}</span>
+          <span v-if="todo.projectId" class="text-[9px] text-base-content/30 mr-1">{{ getProjectName(todo.projectId) }}</span>
           <button
             @click="deleteTodo(todo)"
             class="opacity-0 group-hover:opacity-100 text-[10px] text-base-content/30 hover:text-error transition-all px-1"
@@ -75,21 +83,33 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
 
+interface Project {
+  id: string
+  name: string
+}
+
 interface Todo {
   id: string
   text: string
   completed: boolean
   priority?: string
+  projectId?: string
 }
 
 const theme = ref('dark')
 const collapsed = ref(false)
 const pinned = ref(false)
 const newTodoText = ref('')
+const selectedProjectId = ref('')
+const projects = ref<Project[]>([])
 const todos = ref<Todo[]>([])
 
 const pendingTodos = computed(() => todos.value.filter(t => !t.completed))
 const pendingCount = computed(() => pendingTodos.value.length)
+
+function getProjectName(projectId: string): string {
+  return projects.value.find(p => p.id === projectId)?.name || ''
+}
 
 async function loadTodos() {
   try {
@@ -105,7 +125,11 @@ async function addTodo() {
   if (!text) return
   newTodoText.value = ''
   try {
-    await getTauriAPI().addTodo({ text, priority: 'medium' })
+    const todoData: any = { text, priority: 'medium' }
+    if (selectedProjectId.value) {
+      todoData.projectId = selectedProjectId.value
+    }
+    await getTauriAPI().addTodo(todoData)
     await loadTodos()
   } catch {
     // ignore
@@ -139,19 +163,24 @@ async function togglePin() {
   }
 }
 
-let loadTimer: ReturnType<typeof setInterval> | null = null
+let unlistenTodos: (() => void) | null = null
 
-onMounted(() => {
+onMounted(async () => {
   loadTodos()
+  // Load projects
+  try {
+    const raw = await getTauriAPI().getProjects?.(true) || []
+    projects.value = raw as Project[]
+  } catch { /* ignore */ }
   // Read theme from document
   const htmlTheme = document.documentElement.getAttribute('data-theme')
   if (htmlTheme) theme.value = htmlTheme
-  // Auto-refresh every 10s
-  loadTimer = setInterval(loadTodos, 10000)
+  // Listen for cross-window todo changes
+  unlistenTodos = await getTauriAPI().onTodosChanged(() => loadTodos()).catch(() => null)
 })
 
 onUnmounted(() => {
-  if (loadTimer) clearInterval(loadTimer)
+  unlistenTodos?.()
 })
 </script>
 
