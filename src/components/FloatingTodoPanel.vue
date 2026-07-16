@@ -72,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../utils/tauri-api'
 
 interface Todo {
@@ -139,13 +139,19 @@ async function togglePin() {
   }
 }
 
+let loadTimer: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   loadTodos()
   // Read theme from document
   const htmlTheme = document.documentElement.getAttribute('data-theme')
   if (htmlTheme) theme.value = htmlTheme
   // Auto-refresh every 10s
-  setInterval(loadTodos, 10000)
+  loadTimer = setInterval(loadTodos, 10000)
+})
+
+onUnmounted(() => {
+  if (loadTimer) clearInterval(loadTimer)
 })
 </script>
 
