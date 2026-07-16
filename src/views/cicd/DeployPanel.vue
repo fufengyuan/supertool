@@ -72,7 +72,20 @@
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">分支</span>
-                <span class="inline-flex px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-semibold">{{ config.deployBranch || 'main' }}</span>
+                <div class="flex items-center gap-1">
+                  <select v-model="selectedBranch"
+                    class="select select-bordered select-xs w-28 bg-base-200 text-xs cursor-pointer"
+                    :disabled="!selectedGitRepoObj || loadingBranches"
+                    @click.stop>
+                    <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
+                  </select>
+                  <input v-model="selectedBranch"
+                    class="input input-bordered input-xs w-20 bg-base-200 text-xs font-mono"
+                    :disabled="!selectedGitRepoObj || loadingBranches"
+                    placeholder="或输入"
+                    @click.stop />
+                  <button v-if="selectedGitRepoObj" @click.stop="loadBranchesForConfig(config!)" class="btn btn-xs btn-ghost px-1" :class="{ 'loading': loadingBranches }" title="刷新分支列表">⟳</button>
+                </div>
               </div>
               <div class="flex justify-between items-center py-1.5 border-b border-base-content/10 last:border-b-0">
                 <span class="text-xs font-medium text-base-content/60">服务器</span>
@@ -413,6 +426,9 @@ const { configs, servers, serverGroups, gitRepos } = shared;
 const selectedConfigId = ref('');
 const config = ref<CicdConfigEntry | null>(null);
 const loadingConfig = ref(false);
+const selectedBranch = ref('');
+const branches = ref<string[]>([]);
+const loadingBranches = ref(false);
 const logs = ref<DeployLog[]>([]);
 const stepLogs = ref<Record<string, DeployStep[]>>({});
 const expandedLog = ref<string | null>(null);
@@ -623,9 +639,51 @@ async function selectDeployConfig(cfg: CicdConfigEntry) {
   selectedConfigId.value = cfg.id;
   config.value = null;
   loadingConfig.value = true;
-  // 切换配置时不清空其他配置的部署状态，只切换显示
+  // 切换配置时加载分支
+  loadBranchesForConfig(cfg);
   await loadConfigData(cfg.id);
   loadingConfig.value = false;
+}
+
+async function loadBranchesForConfig(cfg: CicdConfigEntry) {
+  if (!cfg.gitRepoId) {
+    branches.value = [];
+    selectedBranch.value = cfg.deployBranch || 'main';
+    return;
+  }
+  loadingBranches.value = true;
+  try {
+    // 找到仓库对象，获取本地路径
+    const repo = gitRepos.value.find((r: any) => r.id === cfg.gitRepoId);
+    const repoPath = repo?.repoPath || repo?.localPath || '';
+    if (!repoPath) {
+      branches.value = [cfg.deployBranch || 'main'];
+      selectedBranch.value = cfg.deployBranch || 'main';
+      return;
+    }
+    const result = await getTauriAPI().getGitBranches(repoPath);
+    // 结果可能是 { branches: [...] } 或直接数组
+    const rawBranches: string[] = result?.branches || result || [];
+    // 去重，去掉 remotes/origin/ 前缀但保留本地分支优先
+    const seen = new Set<string>();
+    const local: string[] = [];
+    const remote: string[] = [];
+    for (const b of rawBranches) {
+      const name = typeof b === 'string' ? b : (b.name || '');
+      if (name.startsWith('remotes/origin/')) {
+        const short = name.replace('remotes/origin/', '');
+        if (!seen.has(short)) { seen.add(short); remote.push(short); }
+      } else if (name !== 'HEAD' && !seen.has(name)) {
+        seen.add(name); local.push(name);
+      }
+    }
+    branches.value = [...local, ...remote.filter(r => !seen.has(r))];
+    selectedBranch.value = cfg.deployBranch || 'main';
+  } catch {
+    branches.value = [cfg.deployBranch || 'main'];
+    selectedBranch.value = cfg.deployBranch || 'main';
+  }
+  loadingBranches.value = false;
 }
 
 function getServersInfo(cfg: CicdConfigEntry | null): string {
@@ -840,7 +898,7 @@ async function startDeploy() {
 
   try {
     const confirmed = !!config.value?.requiresApproval;
-    const result = await getTauriAPI().deploy(selectedConfigId.value, confirmed || undefined);
+    const result = await getTauriAPI().deploy(selectedConfigId.value, confirmed || undefined, selectedBranch.value || undefined);
     cleanupLogId?.();
 
     if (!result.success) {

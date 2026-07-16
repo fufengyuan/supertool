@@ -1782,7 +1782,7 @@ export interface TauriAPI {
   closeTerminal: (terminalId: string) => Promise<any>
   readTerminal: (terminalId: string) => Promise<any>
   isTerminalActive: (terminalId: string) => Promise<any>
-  deploy: (configId: string, confirmed?: boolean) => Promise<any>
+  deploy: (configId: string, confirmed?: boolean, branch?: string) => Promise<any>
   cancelDeploy: (deployLogId: string) => Promise<any>
   rollback: (configId: string, logId: string) => Promise<any>
   getDeployLogs: (configId: string, limit?: number) => Promise<any>
@@ -2073,6 +2073,12 @@ export interface TauriAPI {
   // Claw Permission Mode
   clawGetPermissionMode: () => Promise<PermissionModeResult>
   clawSetPermissionMode: (mode: string) => Promise<SetPermissionModeResult>
+  // Floating Todo
+  openFloatingTodo: () => Promise<any>
+  closeFloatingTodo: () => Promise<any>
+  toggleFloatingTodo: () => Promise<any>
+  setFloatingTodoPinned: (pinned: boolean) => Promise<any>
+  onFloatingTodoWindowClose: (cb: () => void) => Promise<() => void>
 }
 
 let cachedAPI: TauriAPI | null = null
@@ -2643,7 +2649,7 @@ export function getTauriAPI(): TauriAPI {
     readTerminal: async (terminalId: string) => tauriCall("read_terminal", { terminalId }, true),
     isTerminalActive: async (terminalId: string) => tauriCall("is_terminal_active", { terminalId }),
     // Deploy
-    deploy: async (configId: string, confirmed?: boolean) => tauriCall("deploy", { configId, confirmed }),
+    deploy: async (configId: string, confirmed?: boolean, branch?: string) => tauriCall("deploy", { configId, confirmed, branch }),
     cancelDeploy: async (deployLogId: string) => tauriCall("cancel_deploy", { deployLogId }),
     rollback: async (configId: string, logId: string) => tauriCall("rollback", { configId, logId }),
     getDeployLogs: async (configId: string, limit?: number) => tauriCall("get_deploy_logs", { configId, limit }),
@@ -2897,6 +2903,13 @@ export function getTauriAPI(): TauriAPI {
       tauriCall<PermissionModeResult>('claw_get_permission_mode'),
     clawSetPermissionMode: async (mode: string) =>
       tauriCall<SetPermissionModeResult>('claw_set_permission_mode', { mode }),
+
+    // ============ Floating Todo ============
+    openFloatingTodo: async () => tauriCall('open_floating_todo'),
+    closeFloatingTodo: async () => tauriCall('close_floating_todo'),
+    toggleFloatingTodo: async () => tauriCall('toggle_floating_todo'),
+    setFloatingTodoPinned: async (pinned: boolean) => tauriCall('set_floating_todo_pinned', { pinned }),
+    onFloatingTodoWindowClose: async (cb: () => void) => listen('floating_todo_window_close', cb),
 
   }
 

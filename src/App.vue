@@ -1,11 +1,14 @@
 <template>
   <div class="app-root">
-    <router-view />
-    <!-- 全局组件 -->
-    <ToastContainer />
-    <GlobalSearch ref="globalSearchRef" />
-    <AboutDialog v-model="showAboutDialog" />
-    <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
+    <FloatingTodoPanel v-if="isFloatingTodo" />
+    <template v-else>
+      <router-view />
+      <!-- 全局组件 -->
+      <ToastContainer />
+      <GlobalSearch ref="globalSearchRef" />
+      <AboutDialog v-model="showAboutDialog" />
+      <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
+    </template>
   </div>
 </template>
 
@@ -17,8 +20,10 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 import GlobalSearch from '@/components/GlobalSearch.vue'
 import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
+import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
 import { useAppStore } from '@/stores/appStore'
 
+const isFloatingTodo = ref(false)
 const isDark = ref(false)
 const showAboutDialog = ref(false)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
@@ -75,6 +80,14 @@ function onDoubleClick(e: MouseEvent) {
 }
 
 onMounted(async () => {
+  // Detect if this is the floating-todo window
+  try {
+    const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
+    const label = getCurrentWebviewWindow().label
+    isFloatingTodo.value = label === 'floating-todo'
+    if (isFloatingTodo.value) return // floating window: skip global setup
+  } catch {} // not in Tauri, or webview not available
+
   // 添加全局双击事件监听
   document.addEventListener('dblclick', onDoubleClick)
   const api = getTauriAPI()
