@@ -649,13 +649,42 @@ pub fn lan_get_messages_between(
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_check_network_permission() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_check_network_permission() called");
-    Ok(serde_json::json!({ "success": true, "data": { "granted": true } }))
+    use std::net::UdpSocket;
+
+    match UdpSocket::bind("0.0.0.0:0") {
+        Ok(socket) => {
+            let _ = socket.set_broadcast(true);
+            match socket.send_to(&[0u8], "255.255.255.255:49152") {
+                Ok(_) => Ok(serde_json::json!({ "success": true, "data": { "granted": true } })),
+                Err(e) => {
+                    log::warn!("[lan_check_network_permission] UDP broadcast failed: {}", e);
+                    Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": e.to_string() } }))
+                }
+            }
+        }
+        Err(e) => {
+            log::warn!("[lan_check_network_permission] UDP bind failed: {}", e);
+            Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": e.to_string() } }))
+        }
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn lan_get_permission_status() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_get_permission_status() called");
-    Ok(serde_json::json!({ "success": true, "data": { "status": "granted" } }))
+    use std::net::UdpSocket;
+
+    let (granted, detail) = match UdpSocket::bind("0.0.0.0:0") {
+        Ok(socket) => {
+            let _ = socket.set_broadcast(true);
+            match socket.send_to(&[0u8], "255.255.255.255:49152") {
+                Ok(_) => ("granted", "UDP broadcast OK"),
+                Err(e) => ("denied", "UDP broadcast failed"),
+            }
+        }
+        Err(_) => ("denied", "UDP bind failed"),
+    };
+    Ok(serde_json::json!({ "success": true, "data": { "status": granted, "detail": detail } }))
 }
 
 #[tauri::command(rename_all = "camelCase")]
