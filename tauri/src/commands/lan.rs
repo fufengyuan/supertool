@@ -660,13 +660,13 @@ pub fn lan_check_network_permission() -> Result<serde_json::Value, String> {
                 Ok(_) => Ok(serde_json::json!({ "success": true, "data": { "granted": true } })),
                 Err(e) => {
                     log::warn!("[lan_check_network_permission] UDP broadcast failed: {}", e);
-                    Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": e.to_string() } }))
+                    Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": "UDP broadcast not permitted" } }))
                 }
             }
         }
         Err(e) => {
             log::warn!("[lan_check_network_permission] UDP bind failed: {}", e);
-            Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": e.to_string() } }))
+            Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": "UDP socket not available" } }))
         }
     }
 }
