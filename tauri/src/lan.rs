@@ -239,6 +239,17 @@ impl LanService {
         let local_ip = Self::detect_local_ip().unwrap_or_else(|| "127.0.0.1".to_string());
         *self.local_ip.lock().unwrap() = local_ip.clone();
         log::info!("[LAN] Detected local IP: {}", local_ip);
+        // Log all usable network interfaces for debugging
+        if let Ok(interfaces) = if_addrs::get_if_addrs() {
+            for iface in interfaces {
+                if let if_addrs::IfAddr::V4(v4) = iface.addr {
+                    log::info!(
+                        "[LAN] Network interface: {} ip={} netmask={} broadcast={:?}",
+                        iface.name, v4.ip, v4.netmask, v4.broadcast
+                    );
+                }
+            }
+        }
 
         // ===== UDP receive thread =====
         let peers = Arc::clone(&self.peers);
@@ -260,10 +271,12 @@ impl LanService {
         thread::spawn(move || {
             let mut buf = [0u8; 65536];
             let mut recv_count = 0u64;
+            let mut last_recv_time = std::time::Instant::now();
             while !stop.load(Ordering::SeqCst) {
                 match recv_udp.recv_from(&mut buf) {
                     Ok((len, addr)) => {
                         recv_count += 1;
+                        last_recv_time = std::time::Instant::now();
                         if recv_count <= 5 || recv_count % 50 == 0 {
                             Self::add_log_static(
                                 &log,
@@ -296,10 +309,25 @@ impl LanService {
                                     &recv_app_handle,
                                     &db_conn,
                                 );
+                            } else {
+                                log::warn!(
+                                    "[UDP RECV] JSON parse failed from {} (len={}): {}",
+                                    addr.ip(), len,
+                                    &text[..len.min(100)]
+                                );
                             }
+                        } else {
+                            log::warn!("[UDP RECV] Non-UTF8 data from {} (len={})", addr.ip(), len);
                         }
                     }
                     Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                        let idle = last_recv_time.elapsed();
+                        if recv_count == 0 && idle.as_secs() % 30 == 0 && idle.as_secs() > 0 {
+                            log::info!(
+                                "[UDP RECV] idle {}s, no packets received yet (total_received=0)",
+                                idle.as_secs()
+                            );
+                        }
                         thread::sleep(Duration::from_millis(100));
                     }
                     Err(_) => thread::sleep(Duration::from_millis(100)),
@@ -353,20 +381,26 @@ impl LanService {
                     });
                     if let Ok(msg) = serde_json::to_string(&hb) {
                         // Send to limited broadcast (255.255.255.255)
-                        let sent = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
+                        if let Err(e) = hb_udp.send_to(msg.as_bytes(), broadcast_addr) {
+                            log::warn!("[LAN] HB#{} broadcast FAILED: {}", hb_count, e);
+                        }
                         // Also send to multicast group (239.255.0.1)
-                        let _mc_sent = hb_udp.send_to(msg.as_bytes(), multicast_addr);
+                        if let Err(e) = hb_udp.send_to(msg.as_bytes(), multicast_addr) {
+                            log::warn!("[LAN] HB#{} multicast FAILED: {}", hb_count, e);
+                        }
                         // Also send to directed broadcast (192.168.x.255) if available
                         if let Some(ref dbc) = directed_broadcast {
-                            let _ = hb_udp.send_to(msg.as_bytes(), dbc);
+                            if let Err(e) = hb_udp.send_to(msg.as_bytes(), dbc) {
+                                log::warn!("[LAN] HB#{} directed_broadcast {} FAILED: {}", hb_count, dbc, e);
+                            }
                         }
-                        if hb_count <= 3 || hb_count % 10 == 0 {
+                        if hb_count <= 5 || hb_count % 5 == 0 {
                             log::info!(
-                                "[LAN] HB#{} sent={} bytes -> {}, mc={}",
+                                "[LAN] HB#{} sent to {}, {}, {:?}",
                                 hb_count,
-                                sent.unwrap_or(0),
                                 broadcast_addr,
-                                _mc_sent.unwrap_or(0)
+                                multicast_addr,
+                                directed_broadcast,
                             );
                         }
                     }
@@ -495,7 +529,12 @@ impl LanService {
         match msg_type {
             "heartbeat" | "discovery" => {
                 let peer_id = data["userId"].as_str().unwrap_or("");
-                if peer_id.is_empty() || peer_id == my_user_id {
+                if peer_id.is_empty() {
+                    log::warn!("[LAN] Dropping heartbeat: empty userId from {}", addr.ip());
+                    return;
+                }
+                if peer_id == my_user_id {
+                    log::debug!("[LAN] Dropping own heartbeat (my_user_id={})", my_user_id);
                     return;
                 }
 
@@ -1792,7 +1831,13 @@ impl LanService {
             if let Ok(msg) = serde_json::to_string(&hb) {
                 let broadcast_addr =
                     SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
-                let _ = udp.send_to(msg.as_bytes(), broadcast_addr);
+                let mc_addr =
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(239, 255, 0, 1)), DISCOVERY_PORT);
+                match udp.send_to(msg.as_bytes(), broadcast_addr) {
+                    Ok(n) => log::info!("[LAN] refresh_discovery sent {} bytes -> {}", n, broadcast_addr),
+                    Err(e) => log::warn!("[LAN] refresh_discovery broadcast FAILED: {}", e),
+                }
+                let _ = udp.send_to(msg.as_bytes(), mc_addr);
             }
         }
     }
