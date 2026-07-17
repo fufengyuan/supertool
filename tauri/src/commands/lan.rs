@@ -653,7 +653,9 @@ pub fn lan_check_network_permission() -> Result<serde_json::Value, String> {
 
     match UdpSocket::bind("0.0.0.0:0") {
         Ok(socket) => {
-            let _ = socket.set_broadcast(true);
+            if let Err(e) = socket.set_broadcast(true) {
+                log::warn!("[lan_check_network_permission] set_broadcast failed: {}", e);
+            }
             match socket.send_to(&[0u8], "255.255.255.255:49152") {
                 Ok(_) => Ok(serde_json::json!({ "success": true, "data": { "granted": true } })),
                 Err(e) => {
@@ -676,13 +678,15 @@ pub fn lan_get_permission_status() -> Result<serde_json::Value, String> {
 
     let (granted, detail) = match UdpSocket::bind("0.0.0.0:0") {
         Ok(socket) => {
-            let _ = socket.set_broadcast(true);
+            if let Err(e) = socket.set_broadcast(true) {
+                log::warn!("[lan_get_permission_status] set_broadcast failed: {}", e);
+            }
             match socket.send_to(&[0u8], "255.255.255.255:49152") {
-                Ok(_) => ("granted", "UDP broadcast OK"),
-                Err(e) => ("denied", "UDP broadcast failed"),
+                Ok(_) => ("granted", "UDP broadcast OK".to_string()),
+                Err(e) => ("denied", format!("UDP broadcast failed: {}", e)),
             }
         }
-        Err(_) => ("denied", "UDP bind failed"),
+        Err(e) => ("denied", format!("UDP bind failed: {}", e)),
     };
     Ok(serde_json::json!({ "success": true, "data": { "status": granted, "detail": detail } }))
 }

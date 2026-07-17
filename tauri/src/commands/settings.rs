@@ -59,10 +59,12 @@ pub fn check_network_permission(_host: String, port: i64) -> Result<serde_json::
     // TCP connect to 0.0.0.0:0 would always fail; UDP bind+send is the correct test
     match UdpSocket::bind("0.0.0.0:0") {
         Ok(socket) => {
-            let _ = socket.set_broadcast(true);
-            // Try sending a zero-byte packet to broadcast address
+            if let Err(e) = socket.set_broadcast(true) {
+                log::warn!("[check_network_permission] set_broadcast failed: {}", e);
+            }
+            // Try sending a 1-byte probe to broadcast address (empty slice may not trigger I/O on some stacks)
             let test_addr = format!("255.255.255.255:{}", if port > 0 { port } else { 49152 });
-            match socket.send_to(&[], &test_addr) {
+            match socket.send_to(&[0u8], &test_addr) {
                 Ok(_) => Ok(serde_json::json!({ "success": true, "data": true })),
                 Err(e) => {
                     log::warn!("[check_network_permission] UDP broadcast failed: {}", e);
