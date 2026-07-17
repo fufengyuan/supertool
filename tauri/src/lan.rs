@@ -268,25 +268,39 @@ impl LanService {
         let tcp_p = tcp_port;
 
         let recv_udp = Arc::clone(&udp);
+        let recv_local_ip = local_ip.clone();
         thread::spawn(move || {
             let mut buf = [0u8; 65536];
             let mut recv_count = 0u64;
             let mut last_recv_time = std::time::Instant::now();
+            let mut external_recv_count = 0u64;
+            let mut last_external_recv_time = std::time::Instant::now();
             while !stop.load(Ordering::SeqCst) {
                 match recv_udp.recv_from(&mut buf) {
                     Ok((len, addr)) => {
                         recv_count += 1;
                         last_recv_time = std::time::Instant::now();
+                        let is_local = addr.ip().to_string() == recv_local_ip
+                            || addr.ip().is_loopback();
+                        if !is_local {
+                            external_recv_count += 1;
+                            last_external_recv_time = std::time::Instant::now();
+                            log::info!(
+                                "[UDP RECV] *** EXTERNAL packet #{} from {}:{} len={} ***",
+                                external_recv_count, addr.ip(), addr.port(), len
+                            );
+                        }
                         if recv_count <= 5 || recv_count % 50 == 0 {
                             Self::add_log_static(
                                 &log,
                                 "info",
                                 &format!(
-                                    "[UDP RECV] #{} from {}:{} len={}",
+                                    "[UDP RECV] #{} from {}:{} len={} {}",
                                     recv_count,
                                     addr.ip(),
                                     addr.port(),
-                                    len
+                                    len,
+                                    if is_local { "(local)" } else { "*** EXTERNAL ***" }
                                 ),
                             );
                         }
@@ -321,16 +335,19 @@ impl LanService {
                         }
                     }
                     Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
-                        let idle = last_recv_time.elapsed();
-                        if recv_count == 0 && idle.as_secs() % 30 == 0 && idle.as_secs() > 0 {
+                        let ext_idle = last_external_recv_time.elapsed();
+                        if external_recv_count == 0 && ext_idle.as_secs() >= 30 && ext_idle.as_secs() % 30 == 0 {
                             log::info!(
-                                "[UDP RECV] idle {}s, no packets received yet (total_received=0)",
-                                idle.as_secs()
+                                "[UDP RECV] idle {}s, no EXTERNAL packets (own packets received={})",
+                                ext_idle.as_secs(), recv_count
                             );
                         }
                         thread::sleep(Duration::from_millis(100));
                     }
-                    Err(_) => thread::sleep(Duration::from_millis(100)),
+                    Err(e) => {
+                        log::warn!("[UDP RECV] recv_from error: {} (kind={:?})", e, e.kind());
+                        thread::sleep(Duration::from_millis(100));
+                    }
                 }
             }
         });
@@ -525,6 +542,7 @@ impl LanService {
         db_conn: &Arc<Mutex<Connection>>,
     ) {
         let msg_type = data["type"].as_str().unwrap_or("");
+        log::debug!("[LAN] handle_udp_message type={:?} from {}", msg_type, addr.ip());
 
         match msg_type {
             "heartbeat" | "discovery" => {
@@ -534,7 +552,7 @@ impl LanService {
                     return;
                 }
                 if peer_id == my_user_id {
-                    log::debug!("[LAN] Dropping own heartbeat (my_user_id={})", my_user_id);
+                    log::debug!("[LAN] Dropping own heartbeat from {} (my_user_id={})", addr.ip(), my_user_id);
                     return;
                 }
 
