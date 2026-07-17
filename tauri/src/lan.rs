@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
+use std::os::unix::io::AsRawFd;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -194,11 +195,36 @@ impl LanService {
             .map_err(|e| format!("set_reuse_address 失败: {}", e))?;
         sock.set_broadcast(true)
             .map_err(|e| format!("set_broadcast 失败: {}", e))?;
+        // SO_REUSEPORT on macOS for UDP broadcast/multicast receiving
+        #[cfg(target_os = "macos")]
+        {
+            let raw_fd = sock.as_raw_fd();
+            let optval: libc::c_int = 1;
+            if unsafe {
+                libc::setsockopt(
+                    raw_fd,
+                    libc::SOL_SOCKET,
+                    libc::SO_REUSEPORT,
+                    &optval as *const _ as *const libc::c_void,
+                    std::mem::size_of_val(&optval) as libc::socklen_t,
+                )
+            } != 0
+            {
+                log::warn!("[LAN] setsockopt SO_REUSEPORT 失败");
+            }
+        }
         sock.bind(&addr.into())
             .map_err(|e| format!("UDP 绑定失败: {}", e))?;
         sock.set_nonblocking(true)
             .map_err(|e| format!("set_nonblocking 失败: {}", e))?;
         let udp: UdpSocket = sock.into();
+        // Join multicast group for LAN discovery
+        let mc_addr = Ipv4Addr::new(239, 255, 0, 1);
+        if let Err(e) = udp.join_multicast_v4(&mc_addr, &Ipv4Addr::UNSPECIFIED) {
+            log::warn!("[LAN] join_multicast_v4 失败: {}", e);
+        } else {
+            log::info!("[LAN] Joined multicast group {}", mc_addr);
+        }
         let udp = Arc::new(udp);
         *self.udp_socket.lock().unwrap() = Some(Arc::clone(&udp));
         log::info!("[LAN] UDP socket bound on 0.0.0.0:{}", DISCOVERY_PORT);
@@ -290,11 +316,24 @@ impl LanService {
             let hb_avatar = self.avatar.lock().unwrap().clone();
             let hb_status = self.my_status.lock().unwrap().clone();
             let hb_version = self.version.clone();
+            let hb_local_ip = self.local_ip.lock().unwrap().clone();
             log::info!("[LAN] My version for heartbeat: {}", hb_version);
 
             thread::spawn(move || {
                 let broadcast_addr =
                     SocketAddr::new(IpAddr::V4(Ipv4Addr::BROADCAST), DISCOVERY_PORT);
+                let multicast_addr =
+                    SocketAddr::new(IpAddr::V4(Ipv4Addr::new(239, 255, 0, 1)), DISCOVERY_PORT);
+                // Compute directed broadcast from detected local IP
+                let directed_broadcast = if let Some(octets) = Self::ip_to_octets(&hb_local_ip) {
+                    // Assume /24 subnet: x.y.z.255
+                    Some(SocketAddr::new(
+                        IpAddr::V4(Ipv4Addr::new(octets[0], octets[1], octets[2], 255)),
+                        DISCOVERY_PORT,
+                    ))
+                } else {
+                    None
+                };
                 let mut hb_count = 0u64;
                 loop {
                     if hb_stop.load(Ordering::SeqCst) {
@@ -313,13 +352,21 @@ impl LanService {
                         "messagePort": DISCOVERY_PORT,
                     });
                     if let Ok(msg) = serde_json::to_string(&hb) {
+                        // Send to limited broadcast (255.255.255.255)
                         let sent = hb_udp.send_to(msg.as_bytes(), broadcast_addr);
+                        // Also send to multicast group (239.255.0.1)
+                        let _mc_sent = hb_udp.send_to(msg.as_bytes(), multicast_addr);
+                        // Also send to directed broadcast (192.168.x.255) if available
+                        if let Some(ref dbc) = directed_broadcast {
+                            let _ = hb_udp.send_to(msg.as_bytes(), dbc);
+                        }
                         if hb_count <= 3 || hb_count % 10 == 0 {
                             log::info!(
-                                "[LAN] HB#{} sent={} bytes -> {}",
+                                "[LAN] HB#{} sent={} bytes -> {}, mc={}",
                                 hb_count,
                                 sent.unwrap_or(0),
-                                broadcast_addr
+                                broadcast_addr,
+                                _mc_sent.unwrap_or(0)
                             );
                         }
                     }
@@ -1396,6 +1443,19 @@ impl LanService {
 
     fn add_log(&self, level: &str, message: &str) {
         Self::add_log_static(&self.log_buffer, level, message);
+    }
+
+    /// Parse an IPv4 string like "192.168.1.69" into [192, 168, 1, 69]
+    fn ip_to_octets(ip: &str) -> Option<[u8; 4]> {
+        let parts: Vec<&str> = ip.split('.').collect();
+        if parts.len() != 4 {
+            return None;
+        }
+        let mut octets = [0u8; 4];
+        for (i, part) in parts.iter().enumerate() {
+            octets[i] = part.parse().ok()?;
+        }
+        Some(octets)
     }
 
     /// Detect local IP by enumerating interfaces,
