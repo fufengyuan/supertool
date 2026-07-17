@@ -28,7 +28,6 @@
         <SvgIcon name="keyboard" size="16" />
         <span>{{ t('settings.tabs.shortcuts') }}</span>
       </button>
-      </button>
       <button class="tab tab-bordered tab-sm flex items-center gap-1"
         :class="tab === 'network' ? 'tab-active' : ''"
         @click="tab = 'network'">
