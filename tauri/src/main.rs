@@ -868,8 +868,6 @@ fn main() {
             commands::disk_cleaner::get_cache_paths,
             commands::disk_cleaner::delete_items,
             commands::disk_cleaner::find_duplicates,
-            // CLI installer commands
-            commands::cli_installer::check_cli_installed,
             // Alert commands
             commands::alert::get_email_config,
             commands::alert::test_email_config,
