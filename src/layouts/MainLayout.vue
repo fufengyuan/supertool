@@ -42,18 +42,6 @@
           </router-link>
 
           <!-- Agent -->
-          <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
-            <span class="text-xs font-bold text-base-content uppercase tracking-wider">Agent</span>
-          </div>
-          <router-link v-for="item in navGroups.agent" :key="item.path"
-            :to="item.path"
-            class="flex items-center gap-3 py-2 pl-4 pr-3 rounded-lg hover:bg-base-200 transition-colors cursor-pointer"
-            :class="[$route.path === item.path ? 'bg-base-200 font-bold text-base-content' : 'text-base-content']"
-            @click="onNavClick(item.viewId, item.path)">
-            <component :is="iconMap[item.viewId]" size="18" class="shrink-0" stroke-width="2" />
-            <span v-show="!sidebarCollapsed" class="text-sm font-medium">{{ item.label }}</span>
-          </router-link>
-
           <!-- 开发 -->
           <div class="py-1.5 mt-2 pl-2" v-show="!sidebarCollapsed">
             <span class="text-xs font-bold text-base-content uppercase tracking-wider">开发</span>
@@ -105,8 +93,6 @@
       <div class="flex-1 flex flex-col overflow-hidden">
         <!-- Tab 标签栏（至少有2个标签时显示） -->
         <TabBar v-if="tabStore.tabs.length > 0" />
-        <!-- Agent 模式切换栏（仅 agent 路由显示） -->
-        <AgentModeBar v-if="isAgentTab" />
         <main class="flex-1 overflow-y-auto p-4 lg:p-6">
           <router-view v-slot="{ Component }">
             <keep-alive :max="8" :include="tabStore.includeList">
@@ -144,7 +130,6 @@ import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
 import { useTabStore } from '@/stores/tabStore'
-import AgentModeBar from '@/components/AgentModeBar.vue'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
 
@@ -201,13 +186,8 @@ const iconMap: Record<string, any> = {
   'vpn': IconShieldLock,
   'data-backup': IconCloudDownload,
   'disk-cleaner': IconTrash,
-  'agent': IconRobot,
-  'agent-chat': IconMessage2,
-  'agent-profiles': IconUsers,
   'skills': IconBrain,
   'memory': IconCpu,
-  'agent-sessions': IconRobot,
-  'agent-settings': IconSettings,
   'tools': IconTools,
   'cron': IconClock,
   'providers': IconBuildingStore,
@@ -222,7 +202,6 @@ const appStore = useAppStore()
 const tabStore = useTabStore()
 
 /** 当前路由是否为 Agent 相关 */
-const isAgentTab = computed(() => route.path.startsWith('/agent'))
 
 const sidebarCollapsed = ref(false)
 const showLan = ref(false)
@@ -243,10 +222,6 @@ const navGroups = {
     { path: '/cicd', icon: '🚀', label: 'CI/CD', viewId: 'cicd' },
     { path: '/logs', icon: '📋', label: '日志聚合', viewId: 'log-aggregator' },
     { path: '/nginx', icon: '🌐', label: 'Nginx', viewId: 'nginx' },
-  ],
-  agent: [
-    { path: '/agent', icon: '💬', label: '对话', viewId: 'agent' },
-    { path: '/agent/settings', icon: '⚙️', label: '配置', viewId: 'agent-settings' },
   ],
   dev: [
     { path: '/database', icon: '🗄️', label: '数据库', viewId: 'database' },
@@ -322,11 +297,11 @@ onMounted(async () => {
     const routeMap: Record<string, string> = {
       'dashboard': '/', 'todo': '/todo', 'weekly-report': '/weekly', 'projects': '/projects',
       'accounting': '/accounting', 'servers': '/servers', 'cicd': '/cicd',
-      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'agent': '/agent', 'alert': '/alert', 'devtools': '/devtools',
+      'log-aggregator': '/logs', 'nginx': '/nginx', 'database': '/database', 'alert': '/alert', 'devtools': '/devtools',
       'notes': '/notes', 'git': '/git', 'mfa': '/mfa', 'vpn': '/vpn',
       'data-backup': '/backup', 'disk-cleaner': '/disk-cleaner', 'report': '/report', 'settings': '/settings',
       'image-processor': '/image',
-      'skills': '/agent/skills', 'agent-sessions': '/agent/sessions',
+      'sessions': '/terminal',
     }
     const path = routeMap[view]
     if (path) router.push(path)

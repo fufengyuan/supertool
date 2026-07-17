@@ -553,67 +553,6 @@ export default {
   },
 
   // Agent Settings
-  agentSettings: {
-    title: 'Agent Settings',
-    description: 'Configure Hermes Agent behavior',
-    tabs: {
-      general: 'General',
-      model: 'Model',
-      providers: 'Providers',
-      toolsets: 'Toolsets',
-      exportImport: 'Export/Import',
-    },
-    general: {
-      hermesHome: 'Hermes Home',
-      version: 'Version',
-      configExists: 'Config File',
-      installed: 'CLI Installed',
-      yes: 'Yes',
-      no: 'No',
-      notInstalled: 'Not Installed',
-    },
-    model: {
-      defaultModel: 'Default Model',
-      currentModel: 'Current Model',
-      provider: 'Provider',
-      notConfigured: 'Not configured',
-    },
-    providers: {
-      title: 'Provider Configuration',
-      name: 'Name',
-      model: 'Model',
-      apiKey: 'API Key',
-      configured: 'Configured',
-      notConfigured: 'Not Configured',
-    },
-    toolsets: {
-      title: 'Toolset Configuration',
-      key: 'Key',
-      label: 'Label',
-      enabled: 'Enabled',
-      disabled: 'Disabled',
-      description: 'Description',
-      enableAll: 'Enable All',
-      disableAll: 'Disable All',
-    },
-    exportImport: {
-      export: 'Export Config',
-      import: 'Import Config',
-      exportHint: 'Copy the configuration content below to back up your settings.',
-      importHint: 'Paste your configuration YAML below to restore settings.',
-      copy: 'Copy',
-      copied: 'Copied!',
-      paste: 'Paste',
-      importSuccess: 'Configuration imported successfully!',
-      importFailed: 'Import failed: {error}',
-      exportFailed: 'Export failed: {error}',
-      confirmImport: 'Are you sure you want to import this configuration? This will overwrite your current settings.',
-      confirm: 'Confirm',
-      cancel: 'Cancel',
-      loadFailed: 'Failed to load configuration',
-    },
-    refresh: 'Refresh',
-  },
 
   // Settings page
   settings: {
