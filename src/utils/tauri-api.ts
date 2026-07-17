@@ -699,9 +699,13 @@ export function useLanAPI() {
     lanOpenFileFolder: async (filePath: string): Promise<void> => {
       await tauriInvoke('lan_open_file_folder', { filePath })
     },
-    lanCheckNetworkPermission: async (): Promise<any> => {
-      const res = await tauriInvoke<any>('lan_check_network_permission')
-      return res.success ? (res.data ?? {}) : {}
+    lanCheckNetworkPermission: async (): Promise<{ success: boolean; error?: string }> => {
+      const res = await tauriInvoke<{ granted?: boolean; error?: string }>('lan_check_network_permission')
+      if (!res.success) {
+        return { success: false, error: res.error }
+      }
+      const granted = res.data?.granted === true
+      return { success: granted, error: granted ? undefined : (res.data?.error ?? 'UDP broadcast test failed') }
     },
     lanGetPermissionStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('lan_get_permission_status')
