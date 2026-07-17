@@ -125,10 +125,6 @@
           <SvgIcon name="plus" size="14" />
           添加待办
         </button>
-        <button class="btn btn-sm btn-ghost gap-1.5" @click="navigateTo('/agent/chat')">
-          <SvgIcon name="bot" size="14" />
-          AI 对话
-        </button>
         <button class="btn btn-sm btn-ghost gap-1.5" @click="navigateTo('/cicd')">
           <SvgIcon name="rocket" size="14" />
           CI/CD
