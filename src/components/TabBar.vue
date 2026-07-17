@@ -51,15 +51,14 @@ const iconMap: Record<string, any> = {
   'dashboard': IconDashboard, 'todo': IconList, 'weekly-report': IconCalendarWeek,
   'projects': IconFolders, 'accounting': IconCoin, 'servers': IconServer,
   'cicd': IconRocket, 'log-aggregator': IconNotes, nginx: IconWorld,
-  'database': IconDatabase, agent: IconMessage, alert: IconAlertTriangle,
+  'database': IconDatabase, alert: IconAlertTriangle,
   devtools: IconTerminal, notes: IconNotebook, git: IconGitBranch,
   mfa: IconLock, vpn: IconPlug, 'data-backup': IconCloud,
   'disk-cleaner': IconTrash, report: IconChartBar, settings: IconSettings,
   'image-processor': IconPhoto, kanban: IconCalendar,
   tools: IconTool, cron: IconClock, providers: IconServer,
   models: IconRobot, skills: IconBrain, memory: IconBrain,
-  'agent-sessions': IconHistory, 'agent-settings': IconSettings,
-  'agent-profiles': IconUser,
+
 }
 
 function onTabClick(tab: Tab) {

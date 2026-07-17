@@ -459,7 +459,6 @@ fn main() {
             commands::terminal::resize_terminal,
             commands::terminal::close_terminal,
             commands::terminal::is_terminal_active,
-            // Claw Chat commands
             // SSH commands
             commands::ssh::connect_server,
             commands::ssh::disconnect_server,

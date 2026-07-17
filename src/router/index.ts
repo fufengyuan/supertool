@@ -108,56 +108,6 @@ const routes = [
         component: () => import('../views/devtools/DevTools.vue'),
       },
       {
-        path: 'agent',
-        name: 'Agent',
-        component: () => import('../views/agent/Workspace.vue'),
-      },
-      {
-        path: 'agent/chat',
-        name: 'AgentChat',
-        component: () => import('../views/agent/Workspace.vue'),
-      },
-      {
-        path: 'agent/profiles',
-        name: 'AgentProfiles',
-        component: () => import('../views/agent/AgentProfiles.vue'),
-      },
-      {
-        path: 'agent/tools',
-        name: 'AgentTools',
-        component: () => import('../views/agent/ToolsManager.vue'),
-      },
-      {
-        path: 'agent/cron',
-        name: 'AgentCron',
-        component: () => import('../views/agent/CronManager.vue'),
-      },
-      {
-        path: 'agent/skills',
-        name: 'AgentSkills',
-        component: () => import('../views/agent/SkillsBrowser.vue'),
-      },
-      {
-        path: 'agent/memory',
-        name: 'AgentMemory',
-        component: () => import('../views/agent/MemoryManager.vue'),
-      },
-      {
-        path: 'agent/settings',
-        name: 'AgentSettings',
-        component: () => import('../views/agent/SettingsPage.vue'),
-      },
-      {
-        path: 'agent/providers',
-        name: 'AgentProviders',
-        component: () => import('../views/agent/ProviderManager.vue'),
-      },
-      {
-        path: 'agent/models',
-        name: 'AgentModels',
-        component: () => import('../views/agent/ModelsPage.vue'),
-      },
-      {
         path: 'kanban',
         name: 'Kanban',
         component: () => import('../components/kanban/KanbanBoard.vue'),

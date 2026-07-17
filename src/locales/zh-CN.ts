@@ -554,67 +554,6 @@ export default {
   },
 
   // Agent 设置
-  agentSettings: {
-    title: 'Agent 设置',
-    description: '配置 Hermes Agent 行为',
-    tabs: {
-      general: '基本信息',
-      model: '模型',
-      providers: '提供商',
-      toolsets: '工具集',
-      exportImport: '导出/导入',
-    },
-    general: {
-      hermesHome: 'Hermes 目录',
-      version: '版本',
-      configExists: '配置文件',
-      installed: 'CLI 已安装',
-      yes: '是',
-      no: '否',
-      notInstalled: '未安装',
-    },
-    model: {
-      defaultModel: '默认模型',
-      currentModel: '当前模型',
-      provider: '提供商',
-      notConfigured: '未配置',
-    },
-    providers: {
-      title: '提供商标识',
-      name: '名称',
-      model: '模型',
-      apiKey: 'API 密钥',
-      configured: '已配置',
-      notConfigured: '未配置',
-    },
-    toolsets: {
-      title: '工具集配置',
-      key: '键',
-      label: '标签',
-      enabled: '已启用',
-      disabled: '已禁用',
-      description: '描述',
-      enableAll: '启用全部',
-      disableAll: '禁用全部',
-    },
-    exportImport: {
-      export: '导出配置',
-      import: '导入配置',
-      exportHint: '复制下方配置内容以备份您的设置。',
-      importHint: '在下方粘贴您的配置 YAML 以恢复设置。',
-      copy: '复制',
-      copied: '已复制！',
-      paste: '粘贴',
-      importSuccess: '配置导入成功！',
-      importFailed: '导入失败：{error}',
-      exportFailed: '导出失败：{error}',
-      confirmImport: '确定要导入此配置吗？这将覆盖您当前的设置。',
-      confirm: '确认',
-      cancel: '取消',
-      loadFailed: '加载配置失败',
-    },
-    refresh: '刷新',
-  },
 
   // Settings page
   settings: {
