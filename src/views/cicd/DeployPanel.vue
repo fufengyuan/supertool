@@ -655,7 +655,7 @@ async function loadBranchesForConfig(cfg: CicdConfigEntry) {
   try {
     // 找到仓库对象，获取本地路径
     const repo = gitRepos.value.find((r: any) => r.id === cfg.gitRepoId);
-    const repoPath = repo?.repoPath || repo?.localPath || '';
+    const repoPath = repo?.path || repo?.repoPath || repo?.localPath || '';
     if (!repoPath) {
       branches.value = [cfg.deployBranch || 'main'];
       selectedBranch.value = cfg.deployBranch || 'main';
@@ -682,8 +682,9 @@ async function loadBranchesForConfig(cfg: CicdConfigEntry) {
   } catch {
     branches.value = [cfg.deployBranch || 'main'];
     selectedBranch.value = cfg.deployBranch || 'main';
+  } finally {
+    loadingBranches.value = false;
   }
-  loadingBranches.value = false;
 }
 
 function getServersInfo(cfg: CicdConfigEntry | null): string {
