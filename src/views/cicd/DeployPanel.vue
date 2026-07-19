@@ -79,11 +79,6 @@
                     @click.stop>
                     <option v-for="b in branches" :key="b" :value="b">{{ b }}</option>
                   </select>
-                  <input v-model="selectedBranch"
-                    class="input input-bordered input-xs w-20 bg-base-200 text-xs font-mono"
-                    :disabled="!selectedGitRepoObj || loadingBranches"
-                    placeholder="或输入"
-                    @click.stop />
                   <button v-if="selectedGitRepoObj" @click.stop="loadBranchesForConfig(config!)" class="btn btn-xs btn-ghost px-1" :class="{ 'loading': loadingBranches }" title="刷新分支列表">⟳</button>
                 </div>
               </div>
