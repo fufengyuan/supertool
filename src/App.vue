@@ -22,6 +22,7 @@ import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
 import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
 import { useAppStore } from '@/stores/appStore'
+import { useLanStore } from '@/stores/lanStore'
 
 const isFloatingTodo = ref(false)
 const isDark = ref(false)
@@ -92,6 +93,11 @@ onMounted(async () => {
   document.addEventListener('dblclick', onDoubleClick)
   const api = getTauriAPI()
   
+  // Initialize LAN message store (persistent listener across navigation)
+  try {
+    useLanStore().init()
+  } catch { /* lan store may fail if not available */ }
+
   // Check theme
   try {
     const theme = await api.getSetting('theme')

@@ -238,7 +238,8 @@ const scanning = ref(false);
 const networkInfo = ref<{ address: string; ports: string; version: string } | null>(null);
 const receivePath = ref<string>('');
 
-// 网络权限状态（macOS Local Network Privacy）
+import { useLanStore } from '@/stores/lanStore'
+const lanStore = useLanStore()
 const permissionWarning = ref<{ type: 'warning' | 'error'; title: string; message: string } | null>(null)
 const checkingPermission = ref(false)
 
@@ -272,8 +273,8 @@ const offlineCount = computed(() => {
 // 排序：有未读消息 > 在线 > 按名称
 const sortedPeers = computed(() => {
   return [...peers.value].sort((a, b) => {
-    const aUnread = unreadCounts.value[a.id] || 0;
-    const bUnread = unreadCounts.value[b.id] || 0;
+    const aUnread = lanStore.unreadCounts.value[a.id] || 0;
+    const bUnread = lanStore.unreadCounts.value[b.id] || 0;
     if (aUnread > 0 && bUnread === 0) {return -1;}
     if (aUnread === 0 && bUnread > 0) {return 1;}
     const aOnline = getStatusClass(a) === 'online' ? 1 : 0;
@@ -363,7 +364,7 @@ async function loadUnreadCounts() {
   try {
     const userInfo = await getTauriAPI().lanGetUserInfo();
     const counts = await getTauriAPI().lanGetAllUnreadCounts(userInfo.id);
-    unreadCounts.value = counts;
+    lanStore.unreadCounts.value = counts;
   } catch (e) {
     console.warn('Failed to load unread counts:', e);
   }
@@ -449,29 +450,7 @@ onMounted(async () => {
       peer.avatarPath = data.avatarPath;
     }
   }));
-  cleanupIpcListeners.push(await getTauriAPI().lanOnMessage((data: any) => {
-    if (data && data.from) {
-      const senderId = data.from;
-      // Only increment unread if this peer's chat is NOT currently open
-      // (ChatPanel handles its own message display)
-      if (selectedPeer.value?.id !== senderId) {
-        if (!unreadCounts.value[senderId]) {
-          unreadCounts.value[senderId] = 0;
-        }
-        unreadCounts.value[senderId]++;
-      }
-      lastSeenTimes.value[senderId] = Date.now();
-      // Also update peer lastSeen for the discovered peer
-      const peer = peers.value.find(p => p.id === senderId);
-      if (peer) {
-        peer.lastSeen = Date.now();
-      }
-    }
-  }));
-});
-
-onUnmounted(() => {
-  window.removeEventListener('lan:reload-unread', loadUnreadCounts);
+('lan:reload-unread', loadUnreadCounts);
   cleanupIpcListeners.forEach(fn => fn());
   cleanupIpcListeners = [];
 });
@@ -544,13 +523,13 @@ async function saveProfile() {
 function selectPeer(peer: LanPeer) {
   selectedPeer.value = peer;
   // Clear unread count when selecting a peer
-  unreadCounts.value[peer.id] = 0;
+  lanStore.unreadCounts.value[peer.id] = 0;
   emit('select-peer', peer);
 }
 
 function openChat(peer: LanPeer) {
   selectedPeer.value = peer;
-  unreadCounts.value[peer.id] = 0;
+  lanStore.unreadCounts.value[peer.id] = 0;
   emit('open-chat', peer);
 }
 
