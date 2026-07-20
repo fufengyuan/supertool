@@ -450,7 +450,8 @@ onMounted(async () => {
       peer.avatarPath = data.avatarPath;
     }
   }));
-('lan:reload-unread', loadUnreadCounts);
+onUnmounted(() => {
+  window.removeEventListener('lan:reload-unread', loadUnreadCounts);
   cleanupIpcListeners.forEach(fn => fn());
   cleanupIpcListeners = [];
 });
