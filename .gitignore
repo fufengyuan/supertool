@@ -15,3 +15,4 @@ package-lock.json
 target/
 tauri/.sandbox-home/
 .reasonix/
+reasonix.toml
