@@ -1029,13 +1029,33 @@ export function useAccountingAPI() {
       return res.success ? (res.data ?? { records: [], total: 0 }) : { records: [], total: 0 }
     },
     addAccountingRecord: async (record: Partial<AccountingRecord>): Promise<AccountingRecord> => {
+      // 直接透传 record，仅补全必需默认值，不重新拣选字段
+      // 后端读取的字段名是 snake_case（invoice_number, tax_amount 等），
+      // useAccountingBook.saveRecord 传进来的也是 snake_case，所以不能转换
       const full = {
-        id: record.id ?? crypto.randomUUID(), categoryId: record.category ?? '',
-        amount: record.amount ?? 0, type: record.type ?? 'expense',
-        description: record.description ?? '', date: record.date ?? new Date().toISOString().slice(0, 10),
-        receiptPath: record.receiptPath ?? null,
+        id: record.id ?? crypto.randomUUID(),
+        date: record.date ?? new Date().toISOString().slice(0, 10),
+        type: record.type ?? 'expense',
+        category: record.category ?? '',
+        amount: record.amount ?? 0,
+        description: record.description ?? '',
+        status: record.status ?? 'completed',
         createdAt: record.createdAt ?? new Date().toISOString(),
         updatedAt: record.updatedAt ?? new Date().toISOString(),
+        // 以下字段原样透传（兼容 snake_case 和 camelCase 两种命名）
+        entity: (record as any).entity,
+        project: (record as any).project,
+        supplier: (record as any).supplier,
+        invoice_number: (record as any).invoice_number ?? (record as any).invoiceNumber,
+        tax_amount: (record as any).tax_amount ?? (record as any).taxAmount,
+        payment_method: (record as any).payment_method ?? (record as any).paymentMethod,
+        approver: (record as any).approver,
+        voucher_number: (record as any).voucher_number ?? (record as any).voucherNumber,
+        attachments_json: (record as any).attachments_json ?? (record as any).attachmentsJson,
+        receipt_path: (record as any).receipt_path ?? (record as any).receiptPath,
+        receipt_type: (record as any).receipt_type ?? (record as any).receiptType,
+        attachmentPath: (record as any).attachmentPath,
+        createdBy: (record as any).createdBy,
       }
       const res = await tauriInvoke<AccountingRecord>('add_accounting_record', { record: full })
       if (!res.success) {throw new Error(res.error)}

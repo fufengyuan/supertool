@@ -78,7 +78,12 @@
           </button>
           <!-- 局域网 -->
           <button class="flex items-center justify-center gap-2.5 py-2 w-full rounded-lg hover:bg-base-200 transition-colors" @click="toggleLan" :class="{ 'text-primary': showLan }" title="局域网协作">
-            <IconNetwork size="20" stroke-width="1.5" />
+            <div class="relative inline-flex items-center">
+              <IconNetwork size="20" stroke-width="1.5" />
+              <span v-if="lanStore.totalUnread > 0" class="absolute -top-1.5 -right-2 badge badge-error badge-xs min-w-4 h-4 text-[10px] px-1 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
+                {{ lanStore.totalUnread > 99 ? '99+' : lanStore.totalUnread }}
+              </span>
+            </div>
             <span v-show="!sidebarCollapsed" class="text-sm">局域网</span>
           </button>
           <!-- 主题切换 -->
@@ -129,6 +134,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { useAppStore } from '@/stores/appStore'
+import { useLanStore } from '@/stores/lanStore'
 import { useTabStore } from '@/stores/tabStore'
 import LanUsers from '@/views/lan/LanUsers.vue'
 import ChatPanel from '@/views/lan/ChatPanel.vue'
@@ -200,6 +206,7 @@ const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const tabStore = useTabStore()
+const lanStore = useLanStore()
 
 /** 当前路由是否为 Agent 相关 */
 
