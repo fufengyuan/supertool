@@ -38,8 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { format as formatSql } from 'sql-formatter'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
@@ -89,6 +88,43 @@ function simpleFormat(code: string, type: string): string {
   return result.join('\n')
 }
 
+function formatYaml(code: string): string {
+  const lines = code.split('\n')
+  const result: string[] = []
+  for (const line of lines) {
+    // 去除行尾空格，保留行首缩进
+    const trimmedEnd = line.replace(/\s+$/, '')
+    if (trimmedEnd.trim() === '') {
+      result.push('')
+      continue
+    }
+    // 规范化 key: value 间距（冒号后单空格）
+    const match = trimmedEnd.match(/^(\s*-?\s*)([^:#]+?):\s*(.*)$/)
+    if (match) {
+      const [, indent, key, val] = match
+      result.push(`${indent}${key}: ${val.trim()}`)
+    } else {
+      result.push(trimmedEnd)
+    }
+  }
+  return result.join('\n').replace(/\n{3,}/g, '\n\n').trim()
+}
+
+function formatMarkdown(code: string): string {
+  return code
+    // 标题前后各空一行
+    .replace(/\n*(^#{1,6}\s.*)\n*/gm, '\n\n$1\n')
+    // 标题 # 后加空格
+    .replace(/^(#{1,6})([^\s#])/gm, '$1 $2')
+    // 列表项前后空行归一化（连续列表项不空行）
+    .replace(/\n{2,}(\s*[-*+]\s)/g, '\n$1')
+    // 代码块前后空一行
+    .replace(/\n*(^```.*$)\n*/gm, '\n\n$1\n')
+    // 多余空行压缩为最多2个换行
+    .replace(/\n{3,}/g, '\n\n')
+    .trim() + '\n'
+}
+
 function simpleMinify(code: string): string {
   return code
     .replace(/\/\*[\s\S]*?\*\//g, '') // Remove block comments
@@ -125,15 +161,14 @@ function formatCode() {
     }
 
     if (language.value === 'yaml') {
-      // Simple YAML validation and formatting
-      output.value = input.value.trim()
-      toast.success('YAML 已处理')
+      output.value = formatYaml(input.value)
+      toast.success('YAML 格式化成功')
       return
     }
 
     if (language.value === 'markdown') {
-      output.value = input.value.trim()
-      toast.success('Markdown 已处理')
+      output.value = formatMarkdown(input.value)
+      toast.success('Markdown 格式化成功')
       return
     }
 
