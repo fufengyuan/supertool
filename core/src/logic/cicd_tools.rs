@@ -28,31 +28,6 @@ pub struct ToolPaths {
     pub yarn_home: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ProjectScanResult {
-    #[serde(rename = "hasPomXml")]
-    pub has_pom_xml: bool,
-    #[serde(rename = "hasBuildGradle")]
-    pub has_build_gradle: bool,
-    #[serde(rename = "hasPackageJson")]
-    pub has_package_json: bool,
-    #[serde(rename = "hasPomXmlAdmin")]
-    pub has_pom_xml_admin: bool,
-    #[serde(rename = "hasPomXmlApp")]
-    pub has_pom_xml_app: bool,
-    #[serde(rename = "hasDockerCompose")]
-    pub has_docker_compose: bool,
-    pub language: String,
-    #[serde(rename = "buildTool")]
-    pub build_tool: String,
-    #[serde(rename = "appCount")]
-    pub app_count: usize,
-    #[serde(rename = "appModules")]
-    pub app_modules: Vec<String>,
-    #[serde(rename = "hasRobustConfig")]
-    pub has_robust_config: bool,
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CommandOutput {
     pub stdout: String,
@@ -95,36 +70,77 @@ pub fn find_maven_home() -> Option<String> {
 }
 
 pub fn check_java(java_home: Option<String>) -> ToolDetectionResult {
-    let java = if let Some(ref home) = java_home { format!("{}/bin/java", home) } else { "java".to_string() };
-    let out = run_command(&format!("{} -version 2>&1", java), None);
-    if out.success {
-        let version = out.stderr.lines().next().map(|l| l.to_string()).or_else(|| out.stdout.lines().next().map(|l| l.to_string()));
-        ToolDetectionResult { available: true, version, path: Some(java) }
+    let cmd = if let Some(ref home) = java_home {
+        // 智能检测: 如果路径已是二进制则直接使用, 否则当作 JAVA_HOME 拼接 /bin/java
+        let java_path = if Path::new(home).is_file() || home.ends_with("/java") {
+            home.clone()
+        } else {
+            format!("{}/bin/java", home)
+        };
+        format!("{} -version", java_path)
     } else {
-        ToolDetectionResult { available: false, version: None, path: None }
+        "java -version".to_string()
+    };
+    let result = run_command(&cmd, None);
+    let mut version = None;
+    let mut available = false;
+    if result.success || !result.stderr.is_empty() {
+        // java -version 输出到 stderr
+        let output = if !result.stderr.is_empty() { &result.stderr } else { &result.stdout };
+        if let Some(line) = output.lines().next() {
+            let ver_str = line.trim().to_string();
+            if !ver_str.is_empty() {
+                version = Some(ver_str);
+                available = true;
+            }
+        }
     }
+    let path = run_command("which java", None).stdout.trim().to_string();
+    ToolDetectionResult { available, version, path: if path.is_empty() { None } else { Some(path) } }
 }
 
 pub fn check_maven(maven_home: Option<String>) -> ToolDetectionResult {
-    let mvn = if let Some(ref home) = maven_home { format!("{}/bin/mvn", home) } else { "mvn".to_string() };
-    let out = run_command(&format!("{} --version 2>&1 | head -1", mvn), None);
-    if out.success {
-        let version = out.stdout.lines().next().map(|l| l.trim().to_string());
-        ToolDetectionResult { available: true, version, path: Some(mvn) }
+    let cmd = if let Some(ref home) = maven_home {
+        // 智能检测: 如果路径以 mvn 结尾(是二进制)则直接使用, 否则当作 MAVEN_HOME 拼接 /bin/mvn
+        let mvn_path = if Path::new(home).is_file() || home.ends_with("/mvn") {
+            home.clone()
+        } else {
+            format!("{}/bin/mvn", home)
+        };
+        format!("{} -version", mvn_path)
     } else {
-        ToolDetectionResult { available: false, version: None, path: None }
+        "mvn -version".to_string()
+    };
+    let result = run_command(&cmd, None);
+    let mut version = None;
+    let available = result.success;
+    if available {
+        version = result.stdout.lines().next().map(|s| s.trim().to_string());
     }
+    let path = run_command("which mvn", None).stdout.trim().to_string();
+    ToolDetectionResult { available, version, path: if path.is_empty() { None } else { Some(path) } }
 }
 
 pub fn check_node(node_home: Option<String>) -> ToolDetectionResult {
-    let node = if let Some(ref home) = node_home { format!("{}/bin/node", home) } else { "node".to_string() };
-    let out = run_command(&format!("{} --version 2>&1", node), None);
-    if out.success {
-        let version = out.stdout.trim().to_string();
-        ToolDetectionResult { available: true, version: Some(version), path: Some(node) }
+    let cmd = if let Some(ref home) = node_home {
+        // 智能检测: 如果路径已是二进制则直接使用, 否则当作 NODE_HOME 拼接 /bin/node
+        let node_path = if Path::new(home).is_file() || home.ends_with("/node") {
+            home.clone()
+        } else {
+            format!("{}/bin/node", home)
+        };
+        format!("{} -v", node_path)
     } else {
-        ToolDetectionResult { available: false, version: None, path: None }
+        "node -v".to_string()
+    };
+    let result = run_command(&cmd, None);
+    let mut version = None;
+    let available = result.success;
+    if available {
+        version = result.stdout.lines().next().map(|s| s.trim().to_string());
     }
+    let path = run_command("which node", None).stdout.trim().to_string();
+    ToolDetectionResult { available, version, path: if path.is_empty() { None } else { Some(path) } }
 }
 
 pub fn detect_tools_impl() -> HashMap<String, ToolDetectionResult> {
@@ -192,7 +208,17 @@ pub fn detect_tool_paths_impl() -> ToolPaths {
 }
 
 fn find_path(cmd: &str) -> String {
-    run_command(&format!("which {} 2>/dev/null", cmd), None).stdout.trim().to_string()
+    let which = run_command(&format!("which {} 2>/dev/null", cmd), None);
+    if !which.stdout.trim().is_empty() {
+        return which.stdout.trim().to_string();
+    }
+    // whereis 回退：which 找不到时尝试 whereis
+    let whereis = run_command(&format!("whereis {}", cmd), None);
+    let parts: Vec<&str> = whereis.stdout.trim().split_whitespace().collect();
+    if parts.len() > 1 {
+        return parts[1].to_string();
+    }
+    String::new()
 }
 
 fn strip_bin(bin_path: &str) -> String {
@@ -200,27 +226,6 @@ fn strip_bin(bin_path: &str) -> String {
     if let Some(pos) = bin_path.rfind("/bin/") {
         bin_path[..pos].to_string()
     } else { bin_path.to_string() }
-}
-
-pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
-    let path = Path::new(local_path);
-    let has_pom_xml = path.join("pom.xml").exists();
-    let has_build_gradle = path.join("build.gradle").exists() || path.join("build.gradle.kts").exists();
-    let has_package_json = path.join("package.json").exists();
-    let has_pom_xml_admin = has_pom_xml && path.join("admin").exists();
-    let has_pom_xml_app = has_pom_xml && !has_pom_xml_admin;
-    let has_docker_compose = path.join("docker-compose.yml").exists();
-    let language = if has_pom_xml || has_build_gradle { "java".to_string() } else if has_package_json { "node".to_string() } else { "unknown".to_string() };
-    let build_tool = if has_pom_xml { "maven".to_string() } else if has_build_gradle { "gradle".to_string() } else if has_package_json { "npm".to_string() } else { "none".to_string() };
-
-    let mut app_modules = Vec::new();
-    if has_pom_xml { if let Ok(entries) = std::fs::read_dir(path) { for e in entries.flatten() { if e.path().join("pom.xml").exists() { app_modules.push(e.file_name().to_string_lossy().to_string()); } } } }
-
-    ProjectScanResult {
-        has_pom_xml, has_build_gradle, has_package_json, has_pom_xml_admin, has_pom_xml_app, has_docker_compose,
-        language, build_tool, app_count: app_modules.len(), app_modules,
-        has_robust_config: false,
-    }
 }
 
 // =================== Project Module Tree Scanner ===================
