@@ -4,35 +4,35 @@
 
     <div class="mb-5">
       <label class="text-xs font-medium text-base-content/60 mb-1 block">WebSocket URL</label>
-      <input
-        v-model="url"
-        class="input w-full px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
-        placeholder="ws:// 或 wss://..."
-      />
-
-      <div class="flex gap-2.5 mt-3 flex-wrap">
-        <button
-          v-if="status !== 'connected'"
-          class="btn btn-primary btn-sm"
-          @click="connect"
-          :disabled="status === 'connecting'"
-        >
+      <div class="flex gap-2">
+        <input
+          v-model="url"
+          class="input flex-1 px-3 py-2 text-sm text-base-content bg-base-200 rounded-md border border-base-content/10 outline-none focus:border-primary"
+          placeholder="ws:// 或 wss://..."
+          @keydown.enter="connect"
+        />
+        <button v-if="status !== 'connected'" class="btn btn-primary btn-sm" @click="connect" :disabled="status === 'connecting'">
           <template v-if="status === 'connecting'">连接中...</template><template v-else><SvgIcon name="link" size="14" class="inline-block align-text-bottom" /> 连接</template>
         </button>
+        <button v-else class="btn btn-error btn-sm" @click="disconnect">断开</button>
+      </div>
+
+      <!-- 连接历史 -->
+      <div v-if="urlHistory.length > 0" class="mt-1.5 flex flex-wrap gap-1.5">
+        <span class="text-xs text-base-content/40">历史：</span>
         <button
-          v-else
-          class="btn btn-error btn-sm"
-          @click="disconnect"
-        >
-          ⛔ 断开
-        </button>
-        <button class="btn btn-ghost btn-sm" @click="clearLog"><SvgIcon name="trash" size="14" class="inline-block align-text-bottom" /> 清空日志</button>
+          v-for="h in urlHistory"
+          :key="h"
+          class="btn btn-ghost btn-xs font-mono opacity-60 hover:opacity-100"
+          @click="url = h; connect()"
+        >{{ h.replace(/^wss?:\/\//, '') }}</button>
       </div>
 
       <!-- Status indicator -->
       <div class="flex items-center gap-2 px-3 py-2 mt-3 bg-base-200 border border-base-content/10 rounded-md">
         <span class="w-2.5 h-2.5 rounded-full" :class="status === 'connected' ? 'bg-green-500 shadow-[0_0_6px_#22c55e]' : status === 'connecting' ? 'bg-amber-500 animate-pulse' : 'bg-red-500'"></span>
         <span class="text-xs text-base-content">{{ statusText }}</span>
+        <span v-if="status === 'connected'" class="text-xs text-base-content/40 ml-auto">已收 {{ stats.received }} · 已发 {{ stats.sent }}</span>
       </div>
 
       <!-- Message log -->
@@ -60,13 +60,8 @@
           @keyup.enter="sendMessage"
           :disabled="status !== 'connected'"
         />
-        <button
-          class="btn btn-primary btn-sm"
-          @click="sendMessage"
-          :disabled="status !== 'connected'"
-        >
-          📤 发送
-        </button>
+        <button class="btn btn-primary btn-sm" @click="sendMessage" :disabled="status !== 'connected'">发送</button>
+        <button class="btn btn-ghost btn-sm" @click="clearLog"><SvgIcon name="trash" size="14" class="inline-block align-text-bottom" /></button>
       </div>
     </div>
   </div>
@@ -74,7 +69,7 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
@@ -89,21 +84,43 @@ const messages = ref<Array<{
 }>>([])
 const status = ref<'disconnected' | 'connecting' | 'connected'>('disconnected')
 const logContainer = ref<HTMLElement | null>(null)
+const urlHistory = ref<string[]>(loadUrlHistory())
+const stats = ref({ sent: 0, received: 0 })
 
 let ws: WebSocket | null = null
 
-const statusText = {
-  disconnected: '未连接',
-  connecting: '连接中...',
-  connected: '已连接',
-}[status.value] as string
-
-watch(status, () => {
-  // Update status text reactively - handled in template
+const statusText = computed(() => {
+  switch (status.value) {
+    case 'connected': return '已连接'
+    case 'connecting': return '连接中...'
+    default: return '未连接'
+  }
 })
 
 function getNow(): string {
   return new Date().toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function loadUrlHistory(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem('devtools:ws-history') || '[]')
+  } catch { return [] }
+}
+
+function saveUrlHistory(url: string) {
+  const filtered = urlHistory.value.filter(u => u !== url)
+  urlHistory.value = [url, ...filtered].slice(0, 8)
+  localStorage.setItem('devtools:ws-history', JSON.stringify(urlHistory.value))
+}
+
+function tryFormatJson(str: string): string {
+  try {
+    const parsed = JSON.parse(str)
+    if (typeof parsed === 'object' && parsed !== null) {
+      return JSON.stringify(parsed, null, 2)
+    }
+  } catch { /* not json */ }
+  return str
 }
 
 function addMessage(type: 'sent' | 'received' | 'system' | 'error', content: string) {
@@ -120,6 +137,8 @@ function addMessage(type: 'sent' | 'received' | 'system' | 'error', content: str
     content,
     time: getNow(),
   })
+  if (type === 'sent') stats.value.sent++
+  else if (type === 'received') stats.value.received++
   scrollToBottom()
 }
 
@@ -142,7 +161,19 @@ function connect() {
     return
   }
 
+  // Cleanup existing connection
+  if (ws) {
+    ws.onclose = null
+    ws.onerror = null
+    ws.onmessage = null
+    ws.onopen = null
+    ws.close()
+    ws = null
+  }
+
   status.value = 'connecting'
+  stats.value = { sent: 0, received: 0 }
+  saveUrlHistory(wsUrl)
   addMessage('system', `正在连接 ${wsUrl}...`)
 
   try {
@@ -150,23 +181,22 @@ function connect() {
 
     ws.onopen = () => {
       status.value = 'connected'
-      addMessage('system', `✅ 已连接到 ${wsUrl}`)
+      addMessage('system', `已连接到 ${wsUrl}`)
     }
 
     ws.onmessage = (event) => {
-      const data = typeof event.data === 'string' ? event.data : '[Binary]'
+      const data = typeof event.data === 'string' ? tryFormatJson(event.data) : '[Binary]'
       addMessage('received', data)
     }
 
     ws.onclose = (event) => {
       status.value = 'disconnected'
       ws = null
-      addMessage('system', `❌ 连接已关闭 (代码: ${event.code}, 原因: ${event.reason || '无'})`)
+      addMessage('system', `连接已关闭 (代码: ${event.code}${event.reason ? ', 原因: ' + event.reason : ''})`)
     }
 
-    ws.onerror = (error) => {
-      status.value = 'disconnected'
-      addMessage('error', 'WebSocket 错误')
+    ws.onerror = () => {
+      addMessage('error', 'WebSocket 连接错误')
     }
   } catch (e: any) {
     status.value = 'disconnected'
@@ -203,7 +233,17 @@ function sendMessage() {
 
 function clearLog() {
   messages.value = []
+  stats.value = { sent: 0, received: 0 }
 }
+
+onUnmounted(() => {
+  if (ws) {
+    ws.onclose = null
+    ws.onerror = null
+    ws.onmessage = null
+    ws.onopen = null
+    ws.close()
+    ws = null
+  }
+})
 </script>
-
-
