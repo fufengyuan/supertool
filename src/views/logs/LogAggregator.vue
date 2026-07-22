@@ -166,6 +166,7 @@
             <button @click="clearLogs" class="btn btn-ghost btn-sm border border-base-content/10">清除</button>
             <button @click="exportLogs" class="btn btn-ghost btn-sm border border-base-content/10"><SvgIcon name="download" size="14" /> 导出</button>
             <button @click="downloadRemoteLogs" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地"><SvgIcon name="download" size="14" /> 下载日志</button>
+            <button @click="viewFullRemoteLog" v-if="selectedPreset && selectedPreset.logType === 'file'" class="btn btn-ghost btn-sm border border-base-content/10" title="下载远程日志文件到本地离线查看，支持多节点"><SvgIcon name="fileText" size="14" /> 离线查看</button>
           </div>
         </div>
 
@@ -299,12 +300,291 @@
       </div>
       <form method="dialog" class="modal-backdrop"><button @click="cancelDeletePreset">close</button></form>
     </dialog>
+
+    <!-- 离线日志查看弹窗 -->
+    <dialog ref="fullLogDialog" class="modal">
+      <div class="modal-box max-w-[96vw] w-[1500px] h-[92vh] p-0 bg-[#1e1e1e] text-[#d4d4d4] flex flex-col">
+        <div class="flex items-center gap-3 px-4 py-2.5 border-b border-white/10 bg-[#252526]">
+          <SvgIcon name="fileText" size="16" class="text-primary" />
+          <h3 class="text-sm font-semibold flex-1 truncate" :title="fullLogActiveSession ? `${fullLogActiveSession.serverName} · ${fullLogActiveSession.fileName}` : '离线日志'">
+            {{ fullLogActiveSession ? `${fullLogActiveSession.serverName} · ${fullLogActiveSession.fileName}` : '离线日志' }}
+          </h3>
+          <div class="flex items-center gap-2">
+            <input
+              v-model="fullLogSearchKeyword"
+              type="text"
+              placeholder="搜索关键字（高亮匹配，可上下跳转）..."
+              class="input input-bordered input-sm h-8 w-[300px] bg-[#3c3c3c] border-white/10 text-[#d4d4d4] text-xs placeholder:text-white/30"
+              @keyup.enter="fullLogSearch"
+            />
+            <button @click="fullLogSearch" class="btn btn-primary btn-xs" title="搜索">搜索</button>
+            <button @click="fullLogPrevMatch" :disabled="fullLogMatchLineNos.length === 0" class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10 disabled:opacity-30" title="上一个匹配"><SvgIcon name="chevronUp" size="12" /></button>
+            <span class="text-[11px] text-white/60 min-w-[60px] text-center font-mono">
+              {{ fullLogMatchLineNos.length === 0 ? '0/0' : `${fullLogCurrentMatchIndex + 1}/${fullLogMatchLineNos.length}` }}
+            </span>
+            <button @click="fullLogNextMatch" :disabled="fullLogMatchLineNos.length === 0" class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10 disabled:opacity-30" title="下一个匹配"><SvgIcon name="chevronDown" size="12" /></button>
+            <button @click="closeFullLogDialog" class="btn btn-ghost btn-xs text-white/70 hover:text-white border border-white/10" title="关闭"><SvgIcon name="x" size="12" /> 关闭</button>
+          </div>
+        </div>
+        <!-- 服务器节点 + 文件名 Tab 切换 -->
+        <div v-if="fullLogSessions.length > 1" class="flex items-center gap-1 px-4 py-1 border-b border-white/10 bg-[#2d2d2d] overflow-x-auto">
+          <button
+            v-for="(s, idx) in fullLogSessions"
+            :key="s.downloadId"
+            @click="switchFullLogSession(idx)"
+            :class="['btn btn-xs rounded whitespace-nowrap', idx === fullLogActiveIndex ? 'btn-primary' : 'btn-ghost text-white/60 hover:text-white']"
+            :title="s.loadError ? s.loadError : `${s.serverName} · ${s.fileName}`"
+          >
+            <span class="opacity-90">{{ s.serverName }}</span>
+            <span class="text-white/40 mx-0.5">·</span>
+            <span class="text-[10px] opacity-80">{{ s.fileName }}</span>
+            <span v-if="s.totalLines > 0" class="text-[10px] opacity-60 ml-1">({{ s.totalLines }})</span>
+            <span v-if="s.loadError" class="text-error ml-1" :title="s.loadError">⚠</span>
+            <span v-else-if="!s.downloaded && !fullLogLoading" class="text-warning ml-1">⏳</span>
+          </button>
+        </div>
+        <div ref="fullLogContainer" class="flex-1 overflow-auto px-4 py-2 text-xs leading-relaxed font-mono">
+          <div v-if="fullLogLoading" class="flex flex-col items-center justify-center h-full text-white/60 gap-4">
+            <div class="flex items-center">
+              <SvgIcon name="refresh" size="14" class="animate-spin inline-block mr-2" />
+              <span>{{ fullLogLoadingText }}</span>
+            </div>
+            <!-- 下载进度面板 -->
+            <div v-if="fullLogSessions.length > 0" class="w-[700px] max-w-[90%] bg-[#2d2d2d] rounded-lg p-4 border border-white/10">
+              <!-- 总进度 -->
+              <div class="mb-3">
+                <div class="flex justify-between items-center mb-1.5">
+                  <span class="text-[11px] text-white/70 font-medium">总进度</span>
+                  <span class="text-[11px] text-white/60 font-mono">
+                    {{ formatBytes(fullLogDownloadProgress.downloaded) }} / {{ formatBytes(fullLogDownloadProgress.total) }}
+                    · {{ fullLogDownloadProgress.percent }}%
+                    · {{ fullLogDownloadProgress.done }}/{{ fullLogDownloadProgress.count }} 完成
+                  </span>
+                </div>
+                <div class="h-2 bg-[#1e1e1e] rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-primary transition-all duration-200 rounded-full"
+                    :style="{ width: fullLogDownloadProgress.percent + '%' }"
+                  ></div>
+                </div>
+              </div>
+              <!-- 每个节点的进度 -->
+              <div class="space-y-2 max-h-[300px] overflow-y-auto">
+                <div v-for="s in fullLogSessions" :key="s.downloadId" class="flex items-center gap-2">
+                  <span class="text-[11px] text-white/70 w-[200px] truncate" :title="`${s.serverName} · ${s.fileName}`">{{ s.serverName }} · {{ s.fileName }}</span>
+                  <div class="flex-1 h-1.5 bg-[#1e1e1e] rounded-full overflow-hidden">
+                    <div
+                      class="h-full transition-all duration-200 rounded-full"
+                      :class="{
+                        'bg-green-500': s.downloadStatus === 'done',
+                        'bg-red-500': s.downloadStatus === 'failed',
+                        'bg-primary': s.downloadStatus === 'downloading' || s.downloadStatus === 'pending',
+                      }"
+                      :style="{ width: (s.downloadTotal > 0 ? Math.min(100, (s.downloadDownloaded / s.downloadTotal) * 100) : (s.downloadStatus === 'done' ? 100 : 0)) + '%' }"
+                    ></div>
+                  </div>
+                  <span class="text-[10px] text-white/50 font-mono w-[140px] text-right">
+                    <template v-if="s.downloadStatus === 'done'">完成 ({{ formatBytes(s.downloadTotal) }})</template>
+                    <template v-else-if="s.downloadStatus === 'failed'" class="text-red-400">失败</template>
+                    <template v-else-if="s.downloadTotal > 0">{{ formatBytes(s.downloadDownloaded) }} / {{ formatBytes(s.downloadTotal) }}</template>
+                    <template v-else>等待中...</template>
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="fullLogError" class="flex items-center justify-center h-full text-error text-sm">
+            <SvgIcon name="alertTriangle" size="16" class="mr-2" /> {{ fullLogError }}
+          </div>
+          <div v-else-if="fullLogTotalLines === 0" class="flex items-center justify-center h-full text-white/40">
+            日志为空
+          </div>
+          <div v-else :style="{ overflowAnchor: 'none' }">
+            <div :style="{ height: (fullLogVisibleStart * FULL_LOG_LINE_HEIGHT) + 'px' }"></div>
+            <div
+              v-for="item in fullLogVisibleLines"
+              :key="item.lineNo"
+              :data-line-no="item.lineNo"
+              class="flex gap-2 py-0.5 hover:bg-white/5 rounded"
+              :class="{ 'bg-yellow-500/20 border-l-2 border-yellow-400': fullLogCurrentMatchLineNo === item.lineNo }"
+            >
+              <span class="text-white/30 select-none w-[60px] text-right flex-shrink-0">{{ item.lineNo + 1 }}</span>
+              <span
+                class="flex-1 whitespace-pre-wrap break-all"
+                v-html="item.html"
+              ></span>
+            </div>
+            <div :style="{ height: ((fullLogTotalLines - fullLogVisibleEnd) * FULL_LOG_LINE_HEIGHT) + 'px' }"></div>
+          </div>
+        </div>
+        <div class="flex items-center justify-between px-4 py-1.5 border-t border-white/10 bg-[#252526] text-[11px] text-white/50">
+          <span class="truncate" :title="fullLogActiveSession?.localPath">{{ fullLogActiveSession ? `${fullLogActiveSession.serverName} · ${fullLogActiveSession.fileName}` : '' }} <span class="text-white/30">· {{ fullLogActiveSession?.localPath || '' }}</span></span>
+          <span v-if="fullLogTotalLines > 0">{{ fullLogTotalLines }} 行{{ fullLogMatchLineNos.length > 0 ? ` · ${fullLogMatchLineNos.length} 个匹配` : '' }}</span>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button @click="closeFullLogDialog">close</button></form>
+    </dialog>
+
+    <!-- 离线查看入口选择：实时日志 / 历史日志 -->
+    <dialog ref="fullLogEntryDialog" class="modal">
+      <div class="modal-box max-w-md relative">
+        <button @click="fullLogEntryDialog?.close()" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
+          <SvgIcon name="x" size="16" />
+        </button>
+        <h3 class="mt-0 mb-2 text-lg font-semibold flex items-center gap-2">
+          <SvgIcon name="fileText" size="18" class="text-primary" />
+          <span>离线查看</span>
+        </h3>
+        <p class="text-sm text-base-content/70 mb-4">请选择日志类型：</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button @click="startRealtimeFullLog" class="btn btn-primary btn-outline h-[100px] flex flex-col gap-2">
+            <SvgIcon name="refresh" size="22" />
+            <span class="text-sm font-medium">实时日志</span>
+            <span class="text-[11px] opacity-70">按预设路径下载当前文件</span>
+          </button>
+          <button @click="startHistoricalFullLog" class="btn btn-primary btn-outline h-[100px] flex flex-col gap-2">
+            <SvgIcon name="fileText" size="22" />
+            <span class="text-sm font-medium">历史日志</span>
+            <span class="text-[11px] opacity-70">浏览服务器选择历史文件</span>
+          </button>
+        </div>
+        <div v-if="selectedPreset" class="mt-4 text-[11px] text-base-content/60 bg-base-200 rounded p-2">
+          <div>预设：{{ selectedPreset.name }}</div>
+          <div>节点数：{{ selectedPreset.serverIds?.length || 0 }}</div>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button>close</button></form>
+    </dialog>
+
+    <!-- 历史日志文件选择器（SFTP 浏览 + 多选 + 子目录导航） -->
+    <dialog ref="fullLogFilePickerDialog" class="modal">
+      <div class="modal-box max-w-[96vw] w-[1100px] h-[80vh] p-0 flex flex-col">
+        <!-- 顶部：标题 + 路径导航 -->
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-base-content/10">
+          <SvgIcon name="folder" size="16" class="text-primary" />
+          <h3 class="text-sm font-semibold flex-shrink-0">选择历史日志文件</h3>
+          <button
+            @click="filePickerGoUp"
+            :disabled="filePickerPathStack.length === 0 || filePickerLoading"
+            class="btn btn-ghost btn-xs border border-base-content/10 disabled:opacity-30"
+            title="返回上一级"
+          >
+            <SvgIcon name="chevronUp" size="12" /> 上一级
+          </button>
+          <div class="flex-1 flex items-center gap-1">
+            <input
+              v-model="filePickerPathInput"
+              @keyup.enter="filePickerLoadFromInput"
+              :disabled="filePickerLoading"
+              placeholder="输入路径后回车"
+              class="input input-bordered input-sm h-8 flex-1 font-mono text-xs"
+            />
+            <button @click="filePickerLoadFromInput" :disabled="filePickerLoading" class="btn btn-primary btn-xs">前往</button>
+          </div>
+          <button @click="cancelFilePicker" class="btn btn-ghost btn-xs btn-square" title="关闭">
+            <SvgIcon name="x" size="14" />
+          </button>
+        </div>
+        <!-- 当前路径 + 已选文件数 -->
+        <div class="flex items-center justify-between px-4 py-1.5 border-b border-base-content/10 text-[11px] text-base-content/60 bg-base-200">
+          <span class="truncate font-mono" :title="filePickerCurrentPath">当前目录：{{ filePickerCurrentPath }}</span>
+          <span v-if="filePickerSelected.length > 0" class="text-primary font-medium whitespace-nowrap">已选 {{ filePickerSelected.length }} 个文件</span>
+        </div>
+        <!-- 文件列表 -->
+        <div class="flex-1 overflow-y-auto">
+          <div v-if="filePickerLoading" class="flex items-center justify-center h-full text-base-content/60 text-sm">
+            <SvgIcon name="refresh" size="16" class="animate-spin mr-2" /> 加载中...
+          </div>
+          <div v-else-if="filePickerError" class="flex items-center justify-center h-full text-error text-sm">
+            <SvgIcon name="alertTriangle" size="16" class="mr-2" /> {{ filePickerError }}
+          </div>
+          <div v-else-if="filePickerFiles.length === 0" class="flex items-center justify-center h-full text-base-content/40 text-sm">
+            目录为空
+          </div>
+          <table v-else class="table table-xs table-zebra w-full">
+            <thead class="sticky top-0 bg-base-200 text-[11px] text-base-content/60">
+              <tr>
+                <th class="w-[40px]"></th>
+                <th>名称</th>
+                <th class="w-[100px] text-right">大小</th>
+                <th class="w-[160px]">修改时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="entry in filePickerFiles"
+                :key="entry.path"
+                @click="entry.isDir ? filePickerEnterDir(entry) : filePickerToggleSelect(entry)"
+                :class="['cursor-pointer hover:bg-primary/10', !entry.isDir && isFilePickerSelected(entry) ? 'bg-primary/20' : '']"
+              >
+                <td class="text-center">
+                  <input
+                    v-if="!entry.isDir"
+                    type="checkbox"
+                    :checked="isFilePickerSelected(entry)"
+                    @click.stop="filePickerToggleSelect(entry)"
+                    class="checkbox checkbox-xs checkbox-primary"
+                  />
+                  <SvgIcon v-else name="folder" size="14" class="inline text-warning" />
+                </td>
+                <td class="font-mono text-xs">
+                  <span v-if="entry.isDir" class="text-warning font-medium">{{ entry.name }}/</span>
+                  <span v-else>
+                    {{ entry.name }}
+                    <span v-if="entry.isGz" class="badge badge-xs badge-primary ml-1">gz</span>
+                  </span>
+                </td>
+                <td class="text-right font-mono text-[11px] text-base-content/60">
+                  {{ entry.isDir ? '-' : formatBytes(entry.size) }}
+                </td>
+                <td class="font-mono text-[11px] text-base-content/60">
+                  {{ entry.modifyTime ? new Date(entry.modifyTime).toLocaleString() : '-' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- 底部：已选文件列表 + 确认按钮 -->
+        <div class="border-t border-base-content/10 px-4 py-2 bg-base-200">
+          <div v-if="filePickerSelected.length > 0" class="mb-2 flex flex-wrap gap-1 max-h-[80px] overflow-y-auto">
+            <span
+              v-for="f in filePickerSelected"
+              :key="f.path"
+              class="badge badge-sm badge-primary gap-1 cursor-pointer"
+              @click="filePickerToggleSelect(f)"
+              :title="`移除 ${f.name}`"
+            >
+              {{ f.name }}
+              <SvgIcon name="x" size="10" />
+            </span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-base-content/60">
+              <SvgIcon name="info" size="11" class="inline" />
+              所选文件将从所有服务器节点下载（.gz 自动解压）
+            </span>
+            <div class="flex gap-2">
+              <button @click="cancelFilePicker" class="btn btn-ghost btn-sm">取消</button>
+              <button
+                @click="confirmFilePickerSelection"
+                :disabled="filePickerSelected.length === 0"
+                class="btn btn-primary btn-sm"
+              >
+                <SvgIcon name="download" size="14" /> 下载并查看 ({{ filePickerSelected.length }})
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <form method="dialog" class="modal-backdrop"><button @click="cancelFilePicker">close</button></form>
+    </dialog>
 </template>
 
 <script setup lang="ts">// @ts-nocheck
 defineOptions({ name: 'LogAggregator' })
 import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, nextTick, watch } from 'vue'
+import type { UnlistenFn } from '@tauri-apps/api/event'
 import { getTauriAPI } from '../../utils/tauri-api'
 import { useToast } from '../../composables/useToast'
 import type { Server } from '../../types'
@@ -324,7 +604,9 @@ const userScrolledUp = ref(false)
 const activeServers = ref(new Set<string>())
 const streamId = ref('')
 const logContainer = ref<HTMLElement | null>(null)
-let scrollingFromRAF = false
+// 计数器替代布尔标志：多个程序化滚动操作并发时（如 scrollToBottom + loadMoreHistory 同时触发）
+// 不会互相覆盖重置，只要还有未完成的程序化滚动，onScroll 就忽略
+let scrollingFromRAFCount = 0
 let pendingScroll = false
 
 // 查询模式
@@ -345,13 +627,850 @@ const loadingMore = ref(false)
 // 下载状态
 const isDownloadingLog = ref(false)
 
+// ── 离线日志查看（多服务器节点，后端按需返回 HTML，前端只渲染） ──
+const fullLogDialog = ref<HTMLDialogElement | null>(null)
+const fullLogLoading = ref(false)
+const fullLogLoadingText = ref('')
+const fullLogError = ref('')
+const fullLogSearchKeyword = ref('')
+const fullLogContainer = ref<HTMLElement | null>(null)
+const FULL_LOG_LINE_HEIGHT = 18
+const FULL_LOG_OVERSCAN = 30
+const FULL_LOG_BATCH = 300   // 每次后端请求拉 300 行
+const FULL_LOG_LOAD_STEP = 150  // loadStart 对齐步长，避免微小滚动触发重复加载
+const FULL_LOG_CACHE_LIMIT = 5000  // LRU 缓存上限
+let _fullLogResizeHandler: (() => void) | null = null
+let _fullLogScrollHandler: (() => void) | null = null
+let _fullLogRafId = 0
+
+// 单个服务器节点的离线日志会话状态
+interface FullLogSession {
+  serverId: string
+  serverName: string
+  fileName: string
+  remotePath: string
+  localPath: string
+  totalLines: number
+  cache: Map<number, { lineNo: number; html: string }>
+  scrollTop: number
+  lastLoadRange: { start: number; end: number }
+  loadingPromise: Promise<void> | null
+  // vim 搜索状态（每个 session 独立）
+  matchLineNos: number[]
+  currentMatchIndex: number
+  currentMatchLineNo: number
+  loadError: string
+  downloaded: boolean  // 是否已下载完成
+  // 下载进度状态
+  downloadId: string
+  downloadTotal: number  // 文件总字节数
+  downloadDownloaded: number  // 已下载字节数
+  downloadStatus: 'pending' | 'downloading' | 'done' | 'failed'
+}
+
+// 所有会话（按服务器顺序）
+const fullLogSessions = ref<FullLogSession[]>([])
+// 当前激活的会话索引
+const fullLogActiveIndex = ref(0)
+// 当前激活的会话（computed）
+const fullLogActiveSession = computed<FullLogSession | null>(() => fullLogSessions.value[fullLogActiveIndex.value] ?? null)
+
+// 整体下载进度汇总（所有 session 合计）
+const fullLogDownloadProgress = computed(() => {
+  const sessions = fullLogSessions.value
+  if (sessions.length === 0) return { total: 0, downloaded: 0, percent: 0, active: 0, done: 0, failed: 0 }
+  let total = 0, downloaded = 0, done = 0, failed = 0, active = 0
+  for (const s of sessions) {
+    if (s.downloadTotal > 0) {
+      total += s.downloadTotal
+      downloaded += s.downloadDownloaded
+    }
+    if (s.downloadStatus === 'done') done++
+    else if (s.downloadStatus === 'failed') failed++
+    else if (s.downloadStatus === 'downloading') active++
+  }
+  const percent = total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0
+  return { total, downloaded, percent, active, done, failed, count: sessions.length }
+})
+
+// 下载进度事件监听器（unlisten 函数）
+let _downloadProgressUnlisten: UnlistenFn | null = null
+
+// ===== 历史日志文件选择对话框 =====
+// viewFullRemoteLog 入口选择对话框：实时日志 / 历史日志
+const fullLogEntryDialog = ref<HTMLDialogElement | null>(null)
+// 历史日志文件选择对话框
+const fullLogFilePickerDialog = ref<HTMLDialogElement | null>(null)
+// 文件选择器当前服务器 ID
+const filePickerServerId = ref<string>('')
+// 文件选择器当前路径
+const filePickerCurrentPath = ref<string>('')
+// 文件选择器路径输入框值（支持手动输入）
+const filePickerPathInput = ref<string>('')
+// 文件选择器加载状态
+const filePickerLoading = ref(false)
+// 文件选择器错误信息
+const filePickerError = ref('')
+// 文件选择器当前目录的文件列表
+interface RemoteFileEntry {
+  name: string
+  path: string  // 完整路径
+  isDir: boolean
+  size: number
+  modifyTime: string
+  isGz: boolean
+}
+const filePickerFiles = ref<RemoteFileEntry[]>([])
+// 已选中的文件（按服务器分组，因为不同服务器都要下载同一相对路径）
+const filePickerSelected = ref<RemoteFileEntry[]>([])
+// 文件选择器路径历史栈（用于"上一级"导航）
+const filePickerPathStack = ref<string[]>([])
+
+// 以下 ref 都是"当前激活 session"的视图代理，便于模板绑定
+const fullLogScrollTop = ref(0)
+const fullLogContainerHeight = ref(0)
+const fullLogTotalLines = ref(0)
+const fullLogVisibleLines = ref<Array<{ lineNo: number; html: string }>>([])
+const fullLogMatchLineNos = ref<number[]>([])
+const fullLogCurrentMatchIndex = ref(-1)
+const fullLogCurrentMatchLineNo = ref(-1)
+let _fullLogFindingMatches = false
+let _fullLogCurrentKeyword = ''    // 当前生效的关键字（全局共享，搜索时对所有 session 生效）
+
+const fullLogVisibleStart = computed(() => Math.max(0, Math.floor(fullLogScrollTop.value / FULL_LOG_LINE_HEIGHT) - FULL_LOG_OVERSCAN))
+const fullLogVisibleEnd = computed(() => {
+  const end = Math.ceil((fullLogScrollTop.value + fullLogContainerHeight.value) / FULL_LOG_LINE_HEIGHT) + FULL_LOG_OVERSCAN
+  return Math.min(fullLogTotalLines.value, end)
+})
+
+// 从激活 session 的 cache 中拉取当前可见行段（同步操作，无 IO）
+function refreshVisibleLines() {
+  const session = fullLogActiveSession.value
+  if (!session) {
+    fullLogVisibleLines.value = []
+    return
+  }
+  const start = fullLogVisibleStart.value
+  const end = fullLogVisibleEnd.value
+  if (end <= start || session.totalLines === 0) {
+    fullLogVisibleLines.value = []
+    return
+  }
+  const arr: Array<{ lineNo: number; html: string }> = []
+  for (let i = start; i < end; i++) {
+    const row = session.cache.get(i)
+    if (row != null) {
+      arr.push(row)
+    }
+  }
+  fullLogVisibleLines.value = arr
+}
+
+// 检查可见区间是否在 cache 中，若不足则触发后端加载
+async function ensureVisibleRangeLoaded() {
+  const session = fullLogActiveSession.value
+  if (!session || !session.localPath) return
+  const start = fullLogVisibleStart.value
+  const end = fullLogVisibleEnd.value
+  const knownTotal = session.totalLines
+
+  // 强检查：如果可见区间全部在 cache 里，直接刷新显示，绝对不发请求
+  if (knownTotal > 0 && end > start) {
+    let allCached = true
+    for (let i = start; i < end; i++) {
+      if (!session.cache.has(i)) { allCached = false; break }
+    }
+    if (allCached) {
+      refreshVisibleLines()
+      return
+    }
+  }
+
+  // 避免并发请求：若已有进行中的加载，等它完成后再决定是否需要补充加载
+  if (session.loadingPromise) {
+    await session.loadingPromise
+    // 加载完成后再次检查：可能这次加载的区间已覆盖目标区间
+    if (end > start) {
+      let allCached = true
+      for (let i = start; i < end; i++) {
+        if (!session.cache.has(i)) { allCached = false; break }
+      }
+      if (allCached) {
+        refreshVisibleLines()
+        return
+      }
+    }
+  }
+
+  // 计算需要加载的区间，loadStart 对齐到 FULL_LOG_LOAD_STEP 步长
+  const loadStart = Math.max(0, Math.floor((start - Math.floor(FULL_LOG_BATCH / 3)) / FULL_LOG_LOAD_STEP) * FULL_LOG_LOAD_STEP)
+  const loadCount = Math.min(
+    FULL_LOG_BATCH,
+    knownTotal > 0 ? knownTotal - loadStart : FULL_LOG_BATCH
+  )
+  if (loadCount <= 0) return
+
+  // 防止重复加载同一区间
+  if (session.lastLoadRange.start === loadStart && session.lastLoadRange.end === loadStart + loadCount) {
+    return
+  }
+  session.lastLoadRange = { start: loadStart, end: loadStart + loadCount }
+
+  session.loadingPromise = (async () => {
+    try {
+      const result = await getTauriAPI().readLogFileLines(
+        session.localPath,
+        loadStart,
+        loadCount,
+        _fullLogCurrentKeyword || undefined
+      )
+      // 清理超出缓存上限的旧条目
+      if (session.cache.size > FULL_LOG_CACHE_LIMIT) {
+        const keys = Array.from(session.cache.keys()).sort((a, b) => a - b)
+        for (let i = 0; i < 1000 && i < keys.length; i++) {
+          session.cache.delete(keys[i])
+        }
+      }
+      for (let i = 0; i < result.lines.length; i++) {
+        session.cache.set(result.start + i, {
+          lineNo: result.lines[i].lineNo,
+          html: result.lines[i].html,
+        })
+      }
+      if (result.totalLines !== session.totalLines) {
+        session.totalLines = result.totalLines
+        if (fullLogActiveSession.value === session) {
+          fullLogTotalLines.value = result.totalLines
+        }
+      }
+      if (fullLogActiveSession.value === session) {
+        refreshVisibleLines()
+      }
+    } catch (e: any) {
+      console.error('[LogAggregator] ensureVisibleRangeLoaded failed:', e)
+      session.loadError = e.message || String(e)
+      if (fullLogActiveSession.value === session) {
+        fullLogError.value = session.loadError
+      }
+    } finally {
+      session.loadingPromise = null
+    }
+  })()
+  await session.loadingPromise
+}
+
+// 监听可见区间变化，触发按需加载
+watch([fullLogVisibleStart, fullLogVisibleEnd], () => {
+  if (!fullLogContainer.value) return
+  ensureVisibleRangeLoaded()
+})
+
+// 将激活 session 的状态同步到视图代理 ref
+function syncActiveSessionToView() {
+  const session = fullLogActiveSession.value
+  if (!session) {
+    fullLogScrollTop.value = 0
+    fullLogTotalLines.value = 0
+    fullLogVisibleLines.value = []
+    fullLogMatchLineNos.value = []
+    fullLogCurrentMatchIndex.value = -1
+    fullLogCurrentMatchLineNo.value = -1
+    fullLogError.value = ''
+    return
+  }
+  fullLogTotalLines.value = session.totalLines
+  fullLogMatchLineNos.value = session.matchLineNos
+  fullLogCurrentMatchIndex.value = session.currentMatchIndex
+  fullLogCurrentMatchLineNo.value = session.currentMatchLineNo
+  fullLogError.value = session.loadError
+  // 恢复滚动位置
+  if (fullLogContainer.value) {
+    fullLogContainer.value.scrollTop = session.scrollTop
+  }
+  fullLogScrollTop.value = session.scrollTop
+  refreshVisibleLines()
+  // 切换后需要确保新 session 的可见区间已加载
+  nextTick(() => ensureVisibleRangeLoaded())
+}
+
+// 切换到指定 session
+function switchFullLogSession(idx: number) {
+  if (idx < 0 || idx >= fullLogSessions.value.length) return
+  if (idx === fullLogActiveIndex.value) return
+  // 保存当前 session 的滚动位置
+  const cur = fullLogActiveSession.value
+  if (cur && fullLogContainer.value) {
+    cur.scrollTop = fullLogContainer.value.scrollTop
+  }
+  fullLogActiveIndex.value = idx
+  syncActiveSessionToView()
+}
+
+// 关键字变化时：不再自动触发（改用 fullLogSearch 按钮手动触发，避免输入过程频繁扫描全文）
+// 仅清空旧的匹配状态（所有 session 都清）
+watch(fullLogSearchKeyword, (newKw) => {
+  const trimmed = newKw.trim()
+  if (trimmed === _fullLogCurrentKeyword) return
+  fullLogMatchLineNos.value = []
+  fullLogCurrentMatchIndex.value = -1
+  fullLogCurrentMatchLineNo.value = -1
+  for (const s of fullLogSessions.value) {
+    s.matchLineNos = []
+    s.currentMatchIndex = -1
+    s.currentMatchLineNo = -1
+  }
+})
+
+// vim 式搜索：对当前激活 session 调用后端扫描全文获取匹配行号，清 cache 重新加载（带高亮）
+async function fullLogSearch() {
+  const session = fullLogActiveSession.value
+  if (!session || !session.localPath) return
+  const trimmed = fullLogSearchKeyword.value.trim()
+  if (!trimmed) {
+    // 清空搜索：恢复无高亮状态
+    if (_fullLogCurrentKeyword !== '') {
+      _fullLogCurrentKeyword = ''
+      for (const s of fullLogSessions.value) {
+        s.cache.clear()
+        s.lastLoadRange = { start: -1, end: -1 }
+        s.matchLineNos = []
+        s.currentMatchIndex = -1
+        s.currentMatchLineNo = -1
+      }
+      fullLogMatchLineNos.value = []
+      fullLogCurrentMatchIndex.value = -1
+      fullLogCurrentMatchLineNo.value = -1
+      fullLogVisibleLines.value = []
+      ensureVisibleRangeLoaded()
+    }
+    return
+  }
+  if (trimmed === _fullLogCurrentKeyword && session.matchLineNos.length > 0) {
+    // 同样的关键字，跳到第一个匹配
+    fullLogJumpToMatch(0)
+    return
+  }
+  if (_fullLogFindingMatches) return
+  _fullLogFindingMatches = true
+  fullLogLoadingText.value = '正在搜索匹配...'
+  try {
+    // 对所有已下载的 session 并行搜索
+    const sessions = fullLogSessions.value.filter(s => s.downloaded && s.localPath)
+    const results = await Promise.all(
+      sessions.map(async s => {
+        try {
+          const matchLineNos = await getTauriAPI().findLogMatches(s.localPath, trimmed)
+          return { session: s, matchLineNos }
+        } catch (e) {
+          return { session: s, matchLineNos: [] }
+        }
+      })
+    )
+    _fullLogCurrentKeyword = trimmed
+    for (const { session: s, matchLineNos } of results) {
+      s.matchLineNos = matchLineNos
+      s.currentMatchIndex = matchLineNos.length > 0 ? 0 : -1
+      s.currentMatchLineNo = matchLineNos.length > 0 ? matchLineNos[0] : -1
+      // 清 cache，重新加载带高亮的 HTML
+      s.cache.clear()
+      s.lastLoadRange = { start: -1, end: -1 }
+    }
+    // 同步当前 session 到视图
+    const cur = fullLogActiveSession.value
+    if (cur) {
+      fullLogMatchLineNos.value = cur.matchLineNos
+      fullLogCurrentMatchIndex.value = cur.currentMatchIndex
+      fullLogCurrentMatchLineNo.value = cur.currentMatchLineNo
+    }
+    if (cur && cur.matchLineNos.length > 0) {
+      fullLogJumpToMatch(0)
+    } else {
+      toast.info('当前节点未找到匹配')
+      ensureVisibleRangeLoaded()
+    }
+  } catch (e: any) {
+    console.error('[LogAggregator] fullLogSearch failed:', e)
+    toast.error('搜索失败: ' + (e.message || String(e)))
+  } finally {
+    _fullLogFindingMatches = false
+    fullLogLoadingText.value = ''
+  }
+}
+
+// 跳转到第 idx 个匹配（滚动到对应行，触发按需加载）
+function fullLogJumpToMatch(idx: number) {
+  const session = fullLogActiveSession.value
+  if (!session) return
+  if (idx < 0 || idx >= session.matchLineNos.length) return
+  const targetLineNo = session.matchLineNos[idx]
+  session.currentMatchIndex = idx
+  session.currentMatchLineNo = targetLineNo
+  fullLogCurrentMatchIndex.value = idx
+  fullLogCurrentMatchLineNo.value = targetLineNo
+  if (fullLogContainer.value) {
+    // 先按估算行高滚动到大致位置（让目标行进入可见区间，触发加载）
+    const targetScrollTop = Math.max(0, targetLineNo * FULL_LOG_LINE_HEIGHT - fullLogContainerHeight.value / 3)
+    fullLogContainer.value.scrollTop = targetScrollTop
+    fullLogScrollTop.value = targetScrollTop
+    // 加载该区间后，用 scrollIntoView 精确对齐（避免估算行高与真实行高偏差导致定位偏下）
+    nextTick(() => {
+      ensureVisibleRangeLoaded().then(() => {
+        nextTick(() => {
+          const container = fullLogContainer.value
+          if (!container) return
+          const el = container.querySelector(`[data-line-no="${targetLineNo}"]`) as HTMLElement | null
+          if (el) {
+            el.scrollIntoView({ block: 'center', behavior: 'auto' })
+            // scrollIntoView 会触发 scroll 事件，同步 scrollTop ref
+            fullLogScrollTop.value = container.scrollTop
+            if (session) session.scrollTop = container.scrollTop
+          }
+        })
+      })
+    })
+  }
+}
+
+function fullLogNextMatch() {
+  const session = fullLogActiveSession.value
+  if (!session || session.matchLineNos.length === 0) return
+  const nextIdx = (session.currentMatchIndex + 1) % session.matchLineNos.length
+  fullLogJumpToMatch(nextIdx)
+}
+
+function fullLogPrevMatch() {
+  const session = fullLogActiveSession.value
+  if (!session || session.matchLineNos.length === 0) return
+  const prevIdx = (session.currentMatchIndex - 1 + session.matchLineNos.length) % session.matchLineNos.length
+  fullLogJumpToMatch(prevIdx)
+}
+
+function closeFullLogDialog() {
+  if (fullLogDialog.value) {
+    fullLogDialog.value.close()
+  }
+  // 清理状态，避免下次打开闪现旧内容
+  _fullLogCurrentKeyword = ''
+  fullLogSessions.value = []
+  fullLogActiveIndex.value = 0
+  fullLogVisibleLines.value = []
+  fullLogTotalLines.value = 0
+  fullLogSearchKeyword.value = ''
+  fullLogMatchLineNos.value = []
+  fullLogCurrentMatchIndex.value = -1
+  fullLogCurrentMatchLineNo.value = -1
+  fullLogError.value = ''
+  if (_downloadProgressUnlisten) {
+    try { _downloadProgressUnlisten() } catch {}
+    _downloadProgressUnlisten = null
+  }
+  if (_fullLogResizeHandler) {
+    window.removeEventListener('resize', _fullLogResizeHandler)
+    _fullLogResizeHandler = null
+  }
+  if (_fullLogScrollHandler && fullLogContainer.value) {
+    fullLogContainer.value.removeEventListener('scroll', _fullLogScrollHandler)
+    _fullLogScrollHandler = null
+  }
+  if (_fullLogRafId) {
+    cancelAnimationFrame(_fullLogRafId)
+    _fullLogRafId = 0
+  }
+}
+
+// 离线查看入口：弹窗让用户选择实时日志 或 历史日志
+async function viewFullRemoteLog() {
+  if (!selectedPreset.value) {
+    toast.warning('请先选择预设')
+    return
+  }
+  if (!selectedPreset.value.serverIds?.length) {
+    toast.warning('预设未配置服务器')
+    return
+  }
+  const paths = selectedPreset.value.logPath.split('\n').map((p: string) => p.trim()).filter(Boolean)
+  if (paths.length === 0) {
+    toast.warning('日志路径为空')
+    return
+  }
+  if (fullLogEntryDialog.value && !fullLogEntryDialog.value.open) {
+    fullLogEntryDialog.value.showModal()
+  }
+}
+
+// 用户选择：实时日志
+async function startRealtimeFullLog() {
+  if (fullLogEntryDialog.value) fullLogEntryDialog.value.close()
+  if (!selectedPreset.value) return
+  const paths = selectedPreset.value.logPath.split('\n').map((p: string) => p.trim()).filter(Boolean)
+  if (paths.length === 0) {
+    toast.warning('日志路径为空')
+    return
+  }
+  const logPath = paths[0].trim()
+  const fileName = logPath.split('/').pop() || 'log.txt'
+  await downloadAndShowLogs([{ path: logPath, name: fileName, isGz: false }], false)
+}
+
+// 用户选择：历史日志 -> 打开文件选择器
+async function startHistoricalFullLog() {
+  if (fullLogEntryDialog.value) fullLogEntryDialog.value.close()
+  await openFilePickerForFirstServer()
+}
+
+// 取得预设 logPath 的父目录，用作文件选择器初始路径
+function getParentDir(path: string): string {
+  if (!path) return '/'
+  const idx = path.lastIndexOf('/')
+  if (idx <= 0) return '/'
+  return path.substring(0, idx)
+}
+
+// 打开文件选择器，浏览预设中第一个服务器的目录
+async function openFilePickerForFirstServer() {
+  if (!selectedPreset.value?.serverIds?.length) {
+    toast.warning('预设未配置服务器')
+    return
+  }
+  const firstServerId = selectedPreset.value.serverIds[0]
+  const paths = selectedPreset.value.logPath.split('\n').map((p: string) => p.trim()).filter(Boolean)
+  const initialPath = paths.length > 0 ? getParentDir(paths[0]) : '/'
+
+  filePickerServerId.value = firstServerId
+  filePickerCurrentPath.value = initialPath
+  filePickerPathInput.value = initialPath
+  filePickerPathStack.value = []
+  filePickerSelected.value = []
+  filePickerError.value = ''
+  filePickerFiles.value = []
+
+  if (fullLogFilePickerDialog.value && !fullLogFilePickerDialog.value.open) {
+    fullLogFilePickerDialog.value.showModal()
+  }
+  await filePickerLoadDir(initialPath)
+}
+
+// 加载目录列表
+async function filePickerLoadDir(path: string) {
+  if (!filePickerServerId.value) return
+  filePickerLoading.value = true
+  filePickerError.value = ''
+  try {
+    const result: any = await getTauriAPI().listSftpDir(filePickerServerId.value, path)
+    if (result && result.success) {
+      const raw: any[] = result.files || []
+      const entries: RemoteFileEntry[] = raw
+        .filter((f: any) => f.name !== '.' && f.name !== '..')
+        .map((f: any) => ({
+          name: f.name,
+          path: path === '/' ? `/${f.name}` : `${path.replace(/\/$/, '')}/${f.name}`,
+          isDir: f.type === 'directory',
+          size: Number(f.size) || 0,
+          modifyTime: f.modifyTime || '',
+          isGz: f.name.toLowerCase().endsWith('.gz'),
+        }))
+        .sort((a: RemoteFileEntry, b: RemoteFileEntry) => {
+          if (a.isDir && !b.isDir) return -1
+          if (!a.isDir && b.isDir) return 1
+          return a.name.localeCompare(b.name)
+        })
+      filePickerFiles.value = entries
+      filePickerCurrentPath.value = path
+      filePickerPathInput.value = path
+    } else {
+      filePickerError.value = (result && result.error) || '加载失败'
+      filePickerFiles.value = []
+    }
+  } catch (e: any) {
+    filePickerError.value = e.message || String(e)
+    filePickerFiles.value = []
+  } finally {
+    filePickerLoading.value = false
+  }
+}
+
+// 进入子目录
+function filePickerEnterDir(entry: RemoteFileEntry) {
+  if (!entry.isDir) return
+  filePickerPathStack.value.push(filePickerCurrentPath.value)
+  filePickerLoadDir(entry.path)
+}
+
+// 返回上一级
+function filePickerGoUp() {
+  if (filePickerPathStack.value.length === 0) return
+  const prev = filePickerPathStack.value.pop()!
+  filePickerLoadDir(prev)
+}
+
+// 按输入框路径加载
+function filePickerLoadFromInput() {
+  const p = filePickerPathInput.value.trim()
+  if (!p || p === filePickerCurrentPath.value) return
+  filePickerPathStack.value.push(filePickerCurrentPath.value)
+  filePickerLoadDir(p)
+}
+
+// 切换文件选中状态
+function filePickerToggleSelect(entry: RemoteFileEntry) {
+  if (entry.isDir) return
+  const idx = filePickerSelected.value.findIndex(f => f.path === entry.path)
+  if (idx >= 0) {
+    filePickerSelected.value.splice(idx, 1)
+  } else {
+    filePickerSelected.value.push(entry)
+  }
+}
+
+function isFilePickerSelected(entry: RemoteFileEntry): boolean {
+  return filePickerSelected.value.some(f => f.path === entry.path)
+}
+
+// 取消文件选择
+function cancelFilePicker() {
+  if (fullLogFilePickerDialog.value) fullLogFilePickerDialog.value.close()
+  filePickerFiles.value = []
+  filePickerSelected.value = []
+  filePickerError.value = ''
+}
+
+// 确认选择 -> 下载并展示
+async function confirmFilePickerSelection() {
+  if (filePickerSelected.value.length === 0) {
+    toast.warning('请至少选择一个文件')
+    return
+  }
+  const selectedFiles = [...filePickerSelected.value]
+  if (fullLogFilePickerDialog.value) fullLogFilePickerDialog.value.close()
+  await downloadAndShowLogs(selectedFiles, true)
+}
+
+// 通用：根据所选文件 + 所有服务器节点创建 session，并行下载并展示
+// isHistorical=true 时按"每 (server, file) 一个 session"展开；isHistorical=false 时 fileName 来自预设单个 logPath
+async function downloadAndShowLogs(files: RemoteFileEntry[], isHistorical: boolean) {
+  if (!selectedPreset.value?.serverIds?.length) return
+  const serverIds = selectedPreset.value.serverIds
+  const downloadsDir = await getTauriAPI().getDownloadsDir()
+  const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-')
+  const sep = downloadsDir.endsWith('/') || downloadsDir.endsWith('\\') ? '' : '/'
+
+  // 创建 sessions：历史日志每个 (server, file) 一个 session；实时日志每个 server 一个 session（取 files[0]）
+  const sessions: FullLogSession[] = []
+  const downloadIdPrefix = `logview_${isHistorical ? 'hist' : 'rt'}_${Date.now()}`
+  let idCounter = 0
+  const expandFiles = isHistorical ? files : [files[0]]
+  for (const file of expandFiles) {
+    for (const serverId of serverIds) {
+      const server = allServers.value.find(s => s.id === serverId)
+      if (!server) continue
+      const localPath = `${downloadsDir}${sep}${server.name}_${timestamp}_${file.name}`
+      sessions.push({
+        serverId,
+        serverName: server.name,
+        fileName: file.name,
+        remotePath: file.path,
+        localPath,
+        totalLines: 0,
+        cache: new Map<number, { lineNo: number; html: string }>(),
+        scrollTop: 0,
+        lastLoadRange: { start: -1, end: -1 },
+        loadingPromise: null,
+        matchLineNos: [],
+        currentMatchIndex: -1,
+        currentMatchLineNo: -1,
+        loadError: '',
+        downloaded: false,
+        downloadId: `${downloadIdPrefix}_${idCounter++}`,
+        downloadTotal: 0,
+        downloadDownloaded: 0,
+        downloadStatus: 'pending',
+      })
+    }
+  }
+
+  if (sessions.length === 0) {
+    toast.warning('服务器不存在')
+    return
+  }
+
+  // 重置视图状态
+  fullLogError.value = ''
+  _fullLogCurrentKeyword = ''
+  fullLogSearchKeyword.value = ''
+  fullLogSessions.value = sessions
+  fullLogActiveIndex.value = 0
+  fullLogVisibleLines.value = []
+  fullLogTotalLines.value = 0
+  fullLogLoading.value = true
+  fullLogLoadingText.value = `正在并行下载 ${sessions.length} 个日志文件...`
+  if (fullLogDialog.value && !fullLogDialog.value.open) {
+    fullLogDialog.value.showModal()
+  }
+
+  // 注册下载进度监听
+  if (_downloadProgressUnlisten) {
+    try { _downloadProgressUnlisten() } catch {}
+    _downloadProgressUnlisten = null
+  }
+  try {
+    _downloadProgressUnlisten = await getTauriAPI().onSftpDownloadProgress((payload) => {
+      const s = sessions.find(s => s.downloadId === payload.downloadId)
+      if (!s) return
+      s.downloadDownloaded = payload.downloaded
+      s.downloadTotal = payload.total
+      if (s.downloadStatus === 'pending') s.downloadStatus = 'downloading'
+      fullLogSessions.value = [...sessions]
+    })
+  } catch (e) {
+    console.warn('[LogAggregator] 注册下载进度监听失败:', e)
+  }
+
+  // 并行下载，.gz 文件下载后自动解压
+  const downloadPromises = sessions.map(async (s) => {
+    s.downloadStatus = 'downloading'
+    fullLogSessions.value = [...sessions]
+    try {
+      await getTauriAPI().downloadFileWithProgress(
+        s.downloadId,
+        s.serverId,
+        s.serverName,
+        s.remotePath,
+        s.localPath,
+        s.fileName
+      )
+      s.downloaded = true
+      s.downloadStatus = 'done'
+      // 历史日志：.gz 自动解压，localPath 切换为解压后路径
+      if (isHistorical && s.fileName.toLowerCase().endsWith('.gz')) {
+        try {
+          const decompressed = await getTauriAPI().gunzipLocalFile(s.localPath)
+          s.localPath = decompressed.decompressedPath
+        } catch (e: any) {
+          s.loadError = `解压失败: ${e.message || String(e)}`
+          s.downloaded = false
+          s.downloadStatus = 'failed'
+        }
+      }
+    } catch (e: any) {
+      s.loadError = `下载失败: ${e.message || String(e)}`
+      s.downloaded = false
+      s.downloadStatus = 'failed'
+    }
+    fullLogSessions.value = [...sessions]
+  })
+  await Promise.all(downloadPromises)
+
+  // 找第一个下载成功的 session 作为激活
+  const okIdx = sessions.findIndex(s => s.downloaded)
+  if (okIdx < 0) {
+    fullLogLoading.value = false
+    fullLogLoadingText.value = ''
+    fullLogError.value = '所有节点下载失败'
+    return
+  }
+
+  fullLogActiveIndex.value = okIdx
+  fullLogLoadingText.value = '正在读取日志...'
+
+  try {
+    const firstSession = sessions[okIdx]
+    const firstBatch = await getTauriAPI().readLogFileLines(firstSession.localPath, 0, FULL_LOG_BATCH)
+    firstSession.totalLines = firstBatch.totalLines
+    for (let i = 0; i < firstBatch.lines.length; i++) {
+      firstSession.cache.set(i, {
+        lineNo: firstBatch.lines[i].lineNo,
+        html: firstBatch.lines[i].html,
+      })
+    }
+    fullLogTotalLines.value = firstSession.totalLines
+    fullLogLoading.value = false
+    fullLogLoadingText.value = ''
+    await nextTick()
+    if (fullLogContainer.value) {
+      fullLogContainerHeight.value = fullLogContainer.value.clientHeight
+      fullLogContainer.value.scrollTop = 0
+      fullLogScrollTop.value = 0
+      _fullLogScrollHandler = () => {
+        if (_fullLogRafId) return
+        _fullLogRafId = requestAnimationFrame(() => {
+          _fullLogRafId = 0
+          if (fullLogContainer.value) {
+            const cur = fullLogActiveSession.value
+            const st = fullLogContainer.value!.scrollTop
+            fullLogScrollTop.value = st
+            if (cur) cur.scrollTop = st
+          }
+        })
+      }
+      fullLogContainer.value.addEventListener('scroll', _fullLogScrollHandler, { passive: true })
+      _fullLogResizeHandler = () => {
+        if (fullLogContainer.value) {
+          const newH = fullLogContainer.value.clientHeight
+          if (newH > 0 && newH !== fullLogContainerHeight.value) {
+            fullLogContainerHeight.value = newH
+          }
+        }
+      }
+      window.addEventListener('resize', _fullLogResizeHandler, { passive: true })
+      refreshVisibleLines()
+    }
+
+    const okCount = sessions.filter(s => s.downloaded).length
+    const failCount = sessions.length - okCount
+    let msg = `已加载 ${okCount} 个文件，当前：${firstSession.serverName} · ${firstSession.fileName}（${firstSession.totalLines} 行）`
+    if (failCount > 0) msg += `，${failCount} 个文件下载失败`
+    toast.success(msg)
+
+    // 后台并行预加载其他成功 session 的首段
+    for (let i = 0; i < sessions.length; i++) {
+      if (i === okIdx || !sessions[i].downloaded) continue
+      setTimeout(async () => {
+        try {
+          const batch = await getTauriAPI().readLogFileLines(sessions[i].localPath, 0, FULL_LOG_BATCH)
+          sessions[i].totalLines = batch.totalLines
+          for (let j = 0; j < batch.lines.length; j++) {
+            sessions[i].cache.set(j, {
+              lineNo: batch.lines[j].lineNo,
+              html: batch.lines[j].html,
+            })
+          }
+        } catch (e: any) {
+          sessions[i].loadError = `读取失败: ${e.message || String(e)}`
+        }
+      }, 500 + i * 200)
+    }
+  } catch (e: any) {
+    console.error('[LogAggregator] downloadAndShowLogs failed:', e)
+    fullLogError.value = e.message || String(e)
+    toast.error('离线查看失败: ' + (e.message || String(e)))
+  } finally {
+    if (fullLogLoading.value) {
+      fullLogLoading.value = false
+      fullLogLoadingText.value = ''
+    }
+  }
+}
+
+// 完整日志搜索匹配的上下导航已移至 fullLogNextMatch/fullLogPrevMatch（vim 式实现）
+
+async function copyFullLog() {
+  // 提示用户：大文件不支持一次性复制全部
+  toast.info('完整日志过大，请使用"下载日志"按钮保存到本地后再复制')
+}
+
 // 滚动状态
 const showScrollBottom = ref(false)
 // 虚拟滚动：只渲染可视区内的行
 const VIRTUAL_LINE_HEIGHT = 24    // px，匹配 contain-intrinsic-size: 1.5rem
-const OVERSCAN = 100               // 视口上下额外渲染的行数
+const OVERSCAN = 10                // 视口上下额外渲染的行数（5-15 足够流畅，原值 100 浪费 DOM）
 const scrollTop = ref(0)
 const containerHeight = ref(0)
+
+// 流式日志保留上限：优先用预设的 maxLines，默认 3000
+const MAX_LINES = computed(() => {
+  const v = selectedPreset.value?.maxLines
+  return (typeof v === 'number' && v >= 500 && v <= 50000) ? v : 3000
+})
 
 const totalItems = computed(() => displayLines.value.length)
 
@@ -416,6 +1535,15 @@ const serverColors = new Map<string, string>()
 const colorPalette = ['#4ade80', '#60a5fa', '#f472b6', '#fbbf24', '#a78bfa', '#34d399', '#f87171', '#38bdf8']
 let colorIndex = 0
 
+// 格式化字节数为人类可读字符串
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B'
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(2)} MB`
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
 function getServerColor(serverId: string): string {
   if (!serverColors.has(serverId)) {
     serverColors.set(serverId, colorPalette[colorIndex % colorPalette.length])
@@ -476,44 +1604,47 @@ function buildCommand(preset: any): string {
   }
 }
 
-// 检测日志级别
+// 检测日志级别（用单词边界避免 user_error_count 之类的误判）
+const _LEVEL_PATTERNS: Array<{ level: string; re: RegExp }> = [
+  { level: 'error', re: /\b(ERROR|FATAL|CRITICAL|EXCEPTION)\b/ },
+  { level: 'warn',  re: /\b(WARN|WARNING)\b/ },
+  { level: 'debug', re: /\bDEBUG\b/ },
+]
 function detectLevel(content: string): string {
-  const upper = content.toUpperCase()
-  if (upper.includes('ERROR') || upper.includes('FATAL') || upper.includes('CRITICAL') || upper.includes('EXCEPTION')) {return 'error'}
-  if (upper.includes('WARN') || upper.includes('WARNING')) {return 'warn'}
-  if (upper.includes('DEBUG')) {return 'debug'}
+  if (!content) return 'info'
+  // 仅扫前 200 字符够用，避免长行全文扫描
+  const head = content.length > 200 ? content.slice(0, 200).toUpperCase() : content.toUpperCase()
+  for (const p of _LEVEL_PATTERNS) {
+    if (p.re.test(head)) return p.level
+  }
   return 'info'
 }
 
 // 从日志行中解析时间戳，返回毫秒时间戳或 null
 // 支持常见格式：2026-05-29 10:30:15, 2026-05-29T10:30:15, May 29 10:30:15 等
+// 性能：流式高吞吐热点，使用预编译正则 + 一次匹配（替代多次 head.match 调用）
+const _TS_REGEX = /^(?:(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?|([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})|(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?)/
 function parseLogTimestamp(content: string): number | null {
   // 只检查行首 40 个字符（时间戳通常在行首）
-  const head = content.slice(0, 40)
+  const m = _TS_REGEX.exec(content)
+  if (!m) return null
 
-  // 格式1: 2026-05-29 10:30:15 或 2026-05-29T10:30:15（可选毫秒）
-  let m = head.match(/(\d{4})[-/](\d{2})[-/](\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
-  if (m) {
+  // 分支1: 完整日期时间
+  if (m[1]) {
     const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}${m[7] ? '.' + m[7].padEnd(3, '0') : ''}`)
-    if (!isNaN(d.getTime())) {return d.getTime()}
+    return isNaN(d.getTime()) ? null : d.getTime()
   }
-
-  // 格式2: May 29 10:30:15（syslog 风格）
-  m = head.match(/([A-Z][a-z]{2})\s+(\d{1,2})\s+(\d{2}):(\d{2}):(\d{2})/)
-  if (m) {
-    const d = new Date(`${m[1]} ${m[2]} ${new Date().getFullYear()} ${m[3]}:${m[4]}:${m[5]}`)
-    if (!isNaN(d.getTime())) {return d.getTime()}
+  // 分支2: syslog 风格
+  if (m[8]) {
+    const d = new Date(`${m[8]} ${m[9]} ${new Date().getFullYear()} ${m[10]}:${m[11]}:${m[12]}`)
+    return isNaN(d.getTime()) ? null : d.getTime()
   }
-
-  // 格式3: 仅时间 10:30:15（无日期，用今天补全）
-  m = head.match(/(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?/)
-  if (m) {
-    const now = new Date()
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), parseInt(m[1]), parseInt(m[2]), parseInt(m[3]), m[4] ? parseInt(m[4].padEnd(3, '0')) : 0)
-    if (!isNaN(d.getTime())) {return d.getTime()}
-  }
-
-  return null
+  // 分支3: 仅时间
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+    parseInt(m[13]), parseInt(m[14]), parseInt(m[15]),
+    m[16] ? parseInt(m[16].padEnd(3, '0')) : 0)
+  return isNaN(d.getTime()) ? null : d.getTime()
 }
 
 // 获取预设关键字
@@ -601,6 +1732,9 @@ function recalculateMatched() {
   for (const line of logLines.value) {
     line.matched = keywords.length === 0 || keywords.some(kw => line.content.toLowerCase().includes(kw))
   }
+  // 触发响应式更新：直接 mutate 对象属性不会让 ref 重新求值，
+  // 必须替换数组引用才能让 displayLines computed 重算
+  logLines.value = [...logLines.value]
 }
 
 // 选择预设并查询
@@ -763,6 +1897,8 @@ function scheduleFlush() {
     const presetKeywords = queryMode.value === 'stream' && selectedPreset.value?.keywords?.length
       ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
       : []
+    // 收集本批新增的 serverId，循环外批量 add（避免每行都触发响应式更新）
+    const seenServerIds = new Set<string>()
     let validCount = 0
     for (let i = 0; i < batch.length; i++) {
       const data = batch[i]
@@ -779,29 +1915,47 @@ function scheduleFlush() {
         matched: presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw)),
         sortKey: parsedTime ?? (now + validCount * 0.001)
       }
-      activeServers.value.add(data.serverId)
+      seenServerIds.add(data.serverId)
     }
 	    newLines.length = validCount
 
 	    // 批量追加（不排序，按服务器返回的原始顺序显示）
 	    logLines.value.push(...newLines)
 
+    // 批量更新 activeServers，避免循环内多次响应式触发
+    if (seenServerIds.size > 0) {
+      const merged = new Set(activeServers.value)
+      for (const id of seenServerIds) merged.add(id)
+      activeServers.value = merged
+    }
+
     // 智能裁剪：仅在超出上限时裁剪，避免每次 flush 都排序
-    const MAX_LINES = 3000
-    if (logLines.value.length > MAX_LINES) {
-      const overflow = logLines.value.length - MAX_LINES
+    const maxLines = MAX_LINES.value
+    if (logLines.value.length > maxLines) {
+      const overflow = logLines.value.length - maxLines
       // 原地删除头部多余元素，保持数组引用不变
       logLines.value.splice(0, overflow)
       // 同步调整虚拟滚动偏移量，避免裁剪后 visibleStart 索引错位（paddingTop 跳跃）
       if (!followMode.value && logContainer.value && scrollTop.value > 0) {
         const adjustedScroll = Math.max(0, scrollTop.value - overflow * VIRTUAL_LINE_HEIGHT)
+        // 标记程序化滚动，避免 onScroll 把 followMode 翻转为 false
+        scrollingFromRAFCount++
         logContainer.value.scrollTop = adjustedScroll
         scrollTop.value = adjustedScroll
+        // 用 rAF 重置，等浏览器派发完 scroll 事件后再放行 onScroll
+        requestAnimationFrame(() => { requestAnimationFrame(() => {
+          scrollingFromRAFCount--
+          if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+        }) })
       }
     }
     if (followMode.value) {
       nextTick(() => {
-        scrollToBottomSilent()
+        // 二次校验 followMode：nextTick 跨越了一个事件循环周期，
+        // 期间用户可能已经向上滚动，需在执行前再次确认
+        if (followMode.value) {
+          scrollToBottomSilent()
+        }
       })
     }
   }, 30) // 30ms flush，约 33fps，更流畅
@@ -819,12 +1973,25 @@ function scrollToBottomSilent() {
     pendingScroll = false
     return
   }
-  scrollingFromRAF = true
+  // 二次校验：调用方可能在 nextTick / setTimeout 上下文中延迟调用本函数，
+  // 到此刻用户可能已经手动向上滚动，需立即放弃，避免把用户拉回底部
+  if (!followMode.value) {
+    pendingScroll = false
+    return
+  }
+  scrollingFromRAFCount++
   logContainer.value.scrollTop = logContainer.value.scrollHeight
   // ⚡ 同步更新虚拟滚动 ref，与真实 DOM 位置保持一致
   scrollTop.value = logContainer.value.scrollTop
-  // 使用微任务延迟重置标志，避免 onScroll 误判
-  Promise.resolve().then(() => { scrollingFromRAF = false })
+  // 用双层 rAF 重置标志：浏览器在当前帧派发 scroll 事件，
+  // 第一帧 rAF 在事件派发后执行，第二帧 rAF 确保下一轮 scroll 也被吞掉，
+  // 避免微任务过早重置导致 onScroll 误判 followMode
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      scrollingFromRAFCount--
+      if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+    })
+  })
 }
 
 function scrollToBottom() {
@@ -851,11 +2018,15 @@ function scrollToLineIndex(idx: number) {
   const targetTop = idx * VIRTUAL_LINE_HEIGHT
   const halfVisible = containerHeight.value / 2
   if (logContainer.value) {
-    scrollingFromRAF = true
+    scrollingFromRAFCount++
     logContainer.value.scrollTop = Math.max(0, targetTop - halfVisible)
     // ⚡ 同步更新虚拟滚动 ref
     scrollTop.value = logContainer.value.scrollTop
-    Promise.resolve().then(() => { scrollingFromRAF = false })
+    // 用双层 rAF 等浏览器派发完 scroll 事件再放行 onScroll
+    requestAnimationFrame(() => { requestAnimationFrame(() => {
+      scrollingFromRAFCount--
+      if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+    }) })
   }
 }
 
@@ -890,35 +2061,55 @@ async function loadMoreHistory() {
       batchSize: 500,
     })
     if (result?.results && result.results.length > 0) {
+      // 预计算当前预设关键字，避免每行都重新计算
+      const presetKeywords = selectedPreset.value?.keywords?.length
+        ? selectedPreset.value.keywords.map((k: string) => k.toLowerCase())
+        : []
+      const kwMatch = (content: string) =>
+        presetKeywords.length === 0 || presetKeywords.some(kw => content.toLowerCase().includes(kw))
+
+      // 历史日志按时间正序回填：服务器返回的是"更早的行"，需要插入到现有头部之前
+      // 为保证 sortKey 单调，给每条历史行分配一个递减的小数偏移
+      const baseSortKey = (logLines.value[0]?.sortKey ?? Date.now())
+      const newLines: any[] = []
+      const now = Date.now()
       let addedCount = 0
       for (const serverResult of result.results) {
-        if (serverResult.lines && serverResult.lines.length > 0) {
-          for (let i = serverResult.lines.length - 1; i >= 0; i--) {
-            const content = serverResult.lines[i]
-            if (!content) continue
-            logLines.value.unshift({
-              id: `${serverResult.serverId}-more-${Date.now()}-${Math.random()}`,
-              serverId: serverResult.serverId,
-              serverName: serverResult.serverName || '',
-              timestamp: Date.now(),
-              content,
-              level: detectLevel(content),
-              matched: true,
-              sortKey: Date.now(),
-            })
-            addedCount++
-          }
+        if (!serverResult.lines || serverResult.lines.length === 0) continue
+        // 服务器返回顺序假设是"由新到旧"，倒序插入让最早的在最前
+        for (let i = serverResult.lines.length - 1; i >= 0; i--) {
+          const content = serverResult.lines[i]
+          if (!content) continue
+          const parsedTime = parseLogTimestamp(content)
+          newLines.push({
+            id: `${serverResult.serverId}-more-${now}-${Math.random()}-${i}`,
+            serverId: serverResult.serverId,
+            serverName: serverResult.serverName || '',
+            // 历史日志优先用内容解析到的时间，否则用 baseSortKey 递减保证排在最前
+            timestamp: parsedTime ?? now,
+            content,
+            level: detectLevel(content),
+            matched: kwMatch(content),
+            sortKey: parsedTime ?? (baseSortKey - (addedCount + 1)),
+          })
+          addedCount++
         }
       }
       if (addedCount > 0) {
+        // 一次性插入，避免多次响应式触发
+        logLines.value.splice(0, 0, ...newLines)
         // Adjust scroll position so the visible content doesn't jump
         const addedHeight = addedCount * VIRTUAL_LINE_HEIGHT
         if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
-          scrollingFromRAF = true
+          scrollingFromRAFCount++
           logContainer.value.scrollTop = scrollTop.value + addedHeight
           // ⚡ 同步虚拟滚动 ref
           scrollTop.value = logContainer.value.scrollTop
-          Promise.resolve().then(() => { scrollingFromRAF = false })
+          // 双层 rAF 重置标志，等浏览器派发完 scroll 事件
+          requestAnimationFrame(() => { requestAnimationFrame(() => {
+            scrollingFromRAFCount--
+            if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
+          }) })
         }
         toast.info(`已加载 ${addedCount} 条历史日志`)
       }
@@ -933,8 +2124,8 @@ async function loadMoreHistory() {
 // 滚动事件
 function onScroll() {
   if (!logContainer.value) {return}
-  // 程序化滚动期间，忽略 onScroll
-  if (scrollingFromRAF) {return}
+  // 程序化滚动期间，忽略 onScroll（计数器 > 0 表示有未完成的程序化滚动）
+  if (scrollingFromRAFCount > 0) {return}
 
   const el = logContainer.value
   scrollTop.value = el.scrollTop
@@ -947,7 +2138,7 @@ function onScroll() {
 
   // 用户向上滚动 → 停止自动追踪
   userScrolledUp.value = !atBottom && isStreaming.value
-  // 只有用户手动滚动时才改变 followMode（程序化滚动被 scrollingFromRAF 拦截）
+  // 只有用户手动滚动时才改变 followMode（程序化滚动被 scrollingFromRAFCount 拦截）
   if (!atBottom && isStreaming.value) {
     followMode.value = false
   } else if (atBottom) {
@@ -1006,6 +2197,10 @@ async function switchQueryMode(mode: 'stream' | 'search') {
   pendingScroll = false
   logLines.value = []
   hasSearched.value = false
+  // 重置搜索导航状态，避免切回搜索模式时显示陈旧的匹配索引
+  matchIndices.value = []
+  currentMatchIndex.value = -1
+  currentMatchId.value = null
 
   if (mode === 'stream') {
     console.log("[switchQueryMode] called")
@@ -1042,7 +2237,9 @@ function exportLogs() {
     return
   }
   const text = lines.map(l => {
-    const ts = l.timestamp ? new Date(l.timestamp).toISOString().slice(11, 19) : ''
+    // 优先用 sortKey（流式行有真实解析时间戳）；sortKey 缺失时退而求其次用 timestamp
+    const tsNum = l.sortKey ?? l.timestamp
+    const ts = tsNum ? new Date(tsNum).toISOString().slice(11, 19) : ''
     const shown = l.matched !== false
     return `[${ts}][${l.serverName}]${shown ? '' : ' [已过滤]'} ${l.content}`
   }).join('\n')
@@ -1217,14 +2414,22 @@ let cleanupLogsError: (() => void) | null = null
 let cleanupStreamStopped: (() => void) | null = null
 let _cleanupDataChanged: (() => void) | undefined
 let _cleanupKeyDown: (() => void) | undefined
+let _resizeObserver: ResizeObserver | null = null
 
 onMounted(async () => {
     console.log("[components/LogAggregator.vue] mounted")
   await Promise.all([loadPresets(), loadServers()])
 
-  // 初始化虚拟滚动容器高度
+  // 初始化虚拟滚动容器高度 + 监听后续尺寸变化（窗口 resize 等）
   if (logContainer.value) {
     containerHeight.value = logContainer.value.clientHeight
+    _resizeObserver = new ResizeObserver((entries) => {
+      const h = entries[0]?.contentRect.height
+      if (typeof h === 'number' && h > 0 && h !== containerHeight.value) {
+        containerHeight.value = h
+      }
+    })
+    _resizeObserver.observe(logContainer.value)
   }
 
   /* Event listeners for log streaming from Tauri backend */
@@ -1240,6 +2445,9 @@ onMounted(async () => {
   // N/N 快捷键搜索导航
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'n' || e.key === 'N') {
+      // 在输入框/文本域/contenteditable 中敲 n 是输入，不触发跳转
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return
       if (queryMode.value !== 'search' || matchIndices.value.length === 0) return
       e.preventDefault()
       if (e.shiftKey) {
@@ -1264,8 +2472,15 @@ onUnmounted(async () => {
   cleanupLogsError?.()
   cleanupStreamStopped?.()
   _cleanupDataChanged?.()
+  _resizeObserver?.disconnect()
+  _resizeObserver = null
   serverColors.clear()
   colorIndex = 0
+  // 清理下载进度监听
+  if (_downloadProgressUnlisten) {
+    try { _downloadProgressUnlisten() } catch {}
+    _downloadProgressUnlisten = null
+  }
 })
 
 // 用于记录切出前是否有活跃查询，等用户切回后自动恢复

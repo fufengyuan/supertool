@@ -365,6 +365,119 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
                 }
             }
         }
+        CicdCommands::Tools { scan_path, json } => {
+            // Detect installed build tools
+            let tools = rt.core.detect_tools();
+            let tool_paths = rt.core.detect_tool_paths();
+            let sdk_versions = rt.core.detect_sdk_versions();
+
+            let mut output = serde_json::json!({
+                "tools": tools,
+                "toolPaths": tool_paths,
+                "sdkVersions": sdk_versions,
+            });
+
+            // Optionally scan a project path for modules
+            if let Some(path) = scan_path {
+                let scan_result = rt.core.scan_project_modules(path);
+                output["projectScan"] = scan_result;
+            }
+
+            if *json {
+                print_json(&output);
+            } else {
+                println!("\n  🔧 构建工具检测:");
+                println!("  {}", "─".repeat(50));
+                println!("  工具状态:");
+                for (name, info) in &tools {
+                    let icon = if info.available { "✅" } else { "❌" };
+                    let version = info.version.as_deref().unwrap_or("-");
+                    let path = info.path.as_deref().unwrap_or("");
+                    println!("    {} {:<10} {:<16} {}", icon, name, version, path);
+                }
+                println!();
+                println!("  工具路径:");
+                println!("    JAVA_HOME  : {}", tool_paths.java_home);
+                println!("    MAVEN_HOME : {}", tool_paths.maven_home);
+                println!("    NODE_HOME  : {}", tool_paths.node_home);
+                if !tool_paths.npm_home.is_empty() {
+                    println!("    NPM_HOME   : {}", tool_paths.npm_home);
+                }
+                if !tool_paths.pnpm_home.is_empty() {
+                    println!("    PNPM_HOME  : {}", tool_paths.pnpm_home);
+                }
+                if !tool_paths.yarn_home.is_empty() {
+                    println!("    YARN_HOME  : {}", tool_paths.yarn_home);
+                }
+
+                // Print SDK versions
+                if let Some(sdk_obj) = sdk_versions.as_object() {
+                    println!();
+                    println!("  SDK 版本:");
+                    for (sdk_name, versions) in sdk_obj {
+                        if let Some(ver_arr) = versions.as_array() {
+                            let installed: Vec<String> = ver_arr
+                                .iter()
+                                .filter_map(|v| {
+                                    if v.get("installed").and_then(|i| i.as_bool()) == Some(true) {
+                                        v.get("version")
+                                            .and_then(|ver| ver.as_str())
+                                            .map(|s| s.to_string())
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect();
+                            if installed.is_empty() {
+                                println!("    {:<10} (无已安装版本)", sdk_name);
+                            } else {
+                                println!("    {:<10} {}", sdk_name, installed.join(", "));
+                            }
+                        }
+                    }
+                }
+
+                // Print project scan results
+                if let Some(scan) = output.get("projectScan") {
+                    println!();
+                    println!("  项目扫描:");
+                    let has_pom = scan
+                        .get("hasPomXml")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let has_gradle = scan
+                        .get("hasBuildGradle")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    let has_pkg = scan
+                        .get("hasPackageJson")
+                        .and_then(|v| v.as_bool())
+                        .unwrap_or(false);
+                    println!(
+                        "    pom.xml: {} | build.gradle: {} | package.json: {}",
+                        if has_pom { "✅" } else { "❌" },
+                        if has_gradle { "✅" } else { "❌" },
+                        if has_pkg { "✅" } else { "❌" }
+                    );
+                    if let Some(modules) = scan.get("modules").and_then(|v| v.as_array()) {
+                        if !modules.is_empty() {
+                            println!("    模块 ({}):", modules.len());
+                            for m in modules {
+                                let mname = m
+                                    .get("name")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                let mpath = m
+                                    .get("path")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("");
+                                println!("      {} ({})", mname, mpath);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }

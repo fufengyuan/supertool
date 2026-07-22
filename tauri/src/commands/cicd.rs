@@ -1273,6 +1273,258 @@ pub async fn read_log_file(file_path: String) -> Result<serde_json::Value, Strin
     }))
 }
 
+/// HTML 转义：仅处理 &, <, > 三个最常见字符，避免日志内容触发 HTML 解析
+fn html_escape(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
+/// 检测日志级别并返回对应的 Tailwind 类名（仅扫前 200 字符，性能优先）
+fn detect_level_class(line: &str) -> &'static str {
+    if line.is_empty() {
+        return "";
+    }
+    // 仅扫前 200 个字符（不是字节），避免在 UTF-8 多字节字符中间切片 panic
+    let head: String = line.chars().take(200).collect();
+    // 大小写不敏感：把 ASCII 字符转大写后再子串匹配，比 regex 快
+    let head_upper = head.to_ascii_uppercase();
+    if head_upper.contains("ERROR")
+        || head_upper.contains("FATAL")
+        || head_upper.contains("CRITICAL")
+        || head_upper.contains("EXCEPTION")
+    {
+        return "text-red-400";
+    }
+    if head_upper.contains("WARN") || head_upper.contains("WARNING") {
+        return "text-yellow-300";
+    }
+    if head_upper.contains("DEBUG") {
+        return "text-white/50";
+    }
+    ""
+}
+
+/// 分页读取日志文件：后端预计算每行的 HTML（转义 + 级别色包装 + 关键字高亮），
+/// 前端直接 v-html 渲染，避免在前端处理字符串性能瓶颈。
+///
+/// 参数：
+/// - filePath: 本地文件绝对路径
+/// - start: 起始行号（0-based，inclusive）
+/// - count: 读取行数（建议 50-200）
+/// - keyword: 可选关键字。非空时对返回的行做高亮（<mark> 包裹），不做过滤。
+///   匹配行号列表由 find_log_matches 单独获取。
+#[tauri::command(rename_all = "camelCase")]
+pub fn read_log_file_lines(
+    file_path: String,
+    start: usize,
+    count: usize,
+    keyword: Option<String>,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] read_log_file_lines() path={} start={} count={} keyword={:?}",
+        file_path,
+        start,
+        count,
+        keyword
+    );
+
+    if count == 0 {
+        return Ok(serde_json::json!({
+            "success": true,
+            "data": {
+                "totalLines": 0usize,
+                "lines": Vec::<serde_json::Value>::new(),
+                "start": 0usize,
+                "end": 0usize,
+            }
+        }));
+    }
+
+    let file = std::fs::File::open(&file_path)
+        .map_err(|e| format!("打开日志文件失败: {}", e))?;
+    use std::io::BufRead;
+    let reader = std::io::BufReader::new(file);
+
+    // 准备关键字正则（仅用于高亮，不过滤）
+    let kw = keyword
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let highlight_re = if let Some(kw_str) = kw {
+        let escaped = regex::escape(kw_str);
+        regex::Regex::new(&format!("({})", escaped)).ok()
+    } else {
+        None
+    };
+
+    // 计算单行 HTML 的闭包
+    let build_html = |line: &str, re: Option<&regex::Regex>| -> String {
+        let escaped = html_escape(line);
+        let highlighted = if let Some(re) = re {
+            re.replace_all(&escaped, "<mark>$1</mark>").to_string()
+        } else {
+            escaped
+        };
+        let cls = detect_level_class(line);
+        if cls.is_empty() {
+            highlighted
+        } else {
+            format!("<span class=\"{}\">{}</span>", cls, highlighted)
+        }
+    };
+
+    // 统一模式：按 [start, start+count) 区间读取，keyword 仅做高亮
+    let mut total_lines: usize = 0;
+    let end_exclusive = start.saturating_add(count);
+    let mut cached_lines: Vec<String> = Vec::with_capacity(count);
+
+    for line_result in reader.lines() {
+        let line = match line_result {
+            Ok(l) => l,
+            Err(_) => {
+                total_lines = total_lines.saturating_add(1);
+                continue;
+            }
+        };
+        let idx = total_lines;
+        total_lines = total_lines.saturating_add(1);
+
+        if idx >= start && idx < end_exclusive {
+            cached_lines.push(line);
+        }
+    }
+
+    let lines_json: Vec<serde_json::Value> = cached_lines
+        .iter()
+        .enumerate()
+        .map(|(i, line)| {
+            serde_json::json!({
+                "lineNo": start + i,
+                "html": build_html(line, highlight_re.as_ref()),
+            })
+        })
+        .collect();
+
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "totalLines": total_lines,
+            "lines": lines_json,
+            "start": start,
+            "end": end_exclusive.min(total_lines),
+        }
+    }))
+}
+
+/// 查找日志文件中所有匹配关键字的行号（0-based）。
+/// 用于 vim 式搜索：显示完整日志 + 高亮 + 上下跳转。
+#[tauri::command(rename_all = "camelCase")]
+pub fn find_log_matches(file_path: String, keyword: String) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] find_log_matches() path={} keyword={:?}",
+        file_path,
+        keyword
+    );
+
+    let kw = keyword.trim();
+    if kw.is_empty() {
+        return Ok(serde_json::json!({
+            "success": true,
+            "data": { "matchLineNos": Vec::<usize>::new() }
+        }));
+    }
+
+    let escaped = regex::escape(kw);
+    let re = regex::Regex::new(&format!("({})", escaped))
+        .map_err(|e| format!("正则编译失败: {}", e))?;
+
+    let file = std::fs::File::open(&file_path)
+        .map_err(|e| format!("打开日志文件失败: {}", e))?;
+    use std::io::BufRead;
+    let reader = std::io::BufReader::new(file);
+
+    let mut match_line_nos: Vec<usize> = Vec::new();
+    let mut line_no: usize = 0;
+    for line_result in reader.lines() {
+        match line_result {
+            Ok(l) => {
+                if re.is_match(&l) {
+                    match_line_nos.push(line_no);
+                }
+            }
+            Err(_) => {}
+        }
+        line_no = line_no.saturating_add(1);
+    }
+
+    Ok(serde_json::json!({
+        "success": true,
+        "data": { "matchLineNos": match_line_nos }
+    }))
+}
+
+/// 解压本地 .gz 文件到同目录下的 .decompressed 文件
+/// 用于离线日志查看：下载 .gz 后解压，再交给 read_log_file_lines 读取
+/// 返回解压后的文件路径
+#[tauri::command(rename_all = "camelCase")]
+pub fn gunzip_local_file(gz_path: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] gunzip_local_file() path={}", gz_path);
+
+    let gz_file = std::fs::File::open(&gz_path)
+        .map_err(|e| format!("打开 .gz 文件失败: {}", e))?;
+    let decoder = flate2::read::GzDecoder::new(gz_file);
+    use std::io::Read;
+
+    // 解压到同目录下，文件名去掉 .gz 后缀，加 .decompressed 防止冲突
+    let src_path = std::path::Path::new(&gz_path);
+    let file_stem = src_path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_else(|| "decompressed".to_string());
+    let parent = src_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+    let decompressed_path = parent.join(format!("{}.decompressed", file_stem));
+
+    let mut out_file = std::fs::File::create(&decompressed_path)
+        .map_err(|e| format!("创建解压文件失败: {}", e))?;
+    let mut buf = vec![0u8; 64 * 1024];
+    let mut decoder = decoder;
+    let mut total: u64 = 0;
+    loop {
+        let n = decoder
+            .read(&mut buf)
+            .map_err(|e| format!("解压读取失败: {}", e))?;
+        if n == 0 {
+            break;
+        }
+        std::io::Write::write_all(&mut out_file, &buf[..n])
+            .map_err(|e| format!("解压写入失败: {}", e))?;
+        total += n as u64;
+    }
+
+    log::info!(
+        "[Tauri CMD] gunzip_local_file() decompressed {} -> {} ({} bytes)",
+        gz_path,
+        decompressed_path.display(),
+        total
+    );
+
+    Ok(serde_json::json!({
+        "success": true,
+        "data": {
+            "decompressedPath": decompressed_path.to_string_lossy().to_string(),
+            "bytesWritten": total,
+        }
+    }))
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_rollback_history(
     core: State<'_, CoreService>,

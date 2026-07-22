@@ -271,6 +271,23 @@ pub enum ServerCommands {
         #[arg(short, long)]
         json: bool,
     },
+    ExecBatch {
+        id: String,
+        #[arg(long)]
+        script: String,
+        #[arg(long, default_value = "120")]
+        timeout: u64,
+    },
+    Rm {
+        id: String,
+        path: String,
+    },
+    JavaRestart {
+        id: String,
+        name: String,
+        #[arg(long, default_value = "60")]
+        timeout: u64,
+    },
 }
 
 #[derive(Subcommand)]
@@ -322,6 +339,12 @@ pub enum CicdCommands {
         #[arg(short = 'l', long, default_value = "20")]
         limit: usize,
     },
+    Tools {
+        #[arg(long)]
+        scan_path: Option<String>,
+        #[arg(short, long)]
+        json: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -351,6 +374,28 @@ pub enum DbCommands {
     Databases {
         #[arg(short = 'd')]
         db_id: String,
+        #[arg(short, long)]
+        json: bool,
+    },
+    Structure {
+        #[arg(short = 'd')]
+        db_id: String,
+        #[arg(long)]
+        db: Option<String>,
+        table: String,
+        #[arg(short, long)]
+        json: bool,
+    },
+    Data {
+        #[arg(short = 'd')]
+        db_id: String,
+        #[arg(long)]
+        db: Option<String>,
+        table: String,
+        #[arg(short = 'l', long, default_value = "100")]
+        limit: i64,
+        #[arg(long, default_value = "0")]
+        offset: i64,
         #[arg(short, long)]
         json: bool,
     },
@@ -425,6 +470,13 @@ pub enum LogCommands {
         preset_id: String,
         #[arg(short = 'l', long, default_value = "100")]
         lines: usize,
+    },
+    Context {
+        preset_id: String,
+        server_id: String,
+        line_num: usize,
+        #[arg(short = 'c', long, default_value = "20")]
+        context_lines: usize,
     },
     Add {
         name: String,

@@ -1,6 +1,6 @@
 [package]
 name = "supertool"
-version = "6.0.8"
+version = "6.1.0"
 description = "SuperTool - Tauri 2.0 Migration"
 authors = ["fufengyuan"]
 edition = "2024"
@@ -10,7 +10,7 @@ name = "supertool"
 path = "src/main.rs"
 
 [dependencies]
-tauri = { version = "2", features = [ "tray-icon", "devtools", "test"] }
+tauri = { version = "2", features = [ "tray-icon", "devtools", "test", "macos-private-api"] }
 tauri-plugin-notification = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"

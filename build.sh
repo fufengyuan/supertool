@@ -257,6 +257,24 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
             chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
             echo "✅ skills → ${CLAW_SKILLS}"
         fi
+
+        # ~/.trae-cn/skills/ (Trae IDE)
+        TRAE_SKILLS="${USER_HOME}/.trae-cn/skills"
+        if [ -d "$SKILLS_SRC" ]; then
+            mkdir -p "${TRAE_SKILLS}"
+            for skill_dir in "$SKILLS_SRC"/*/; do
+                [ -d "$skill_dir" ] || continue
+                skill_name=$(basename "$skill_dir")
+                [ -n "$skill_name" ] || continue
+                skill_file="${skill_dir}SKILL.md"
+                [ -f "$skill_file" ] || continue
+                target_dir="${TRAE_SKILLS}/${skill_name}"
+                mkdir -p "${target_dir}"
+                cp -f "$skill_file" "${target_dir}/SKILL.md"
+            done
+            chown -R "${LOGGED_IN_USER}" "${TRAE_SKILLS}" 2>/dev/null || true
+            echo "✅ skills → ${TRAE_SKILLS}"
+        fi
     fi
 fi
 echo "✅ SuperTool installation complete!"
@@ -637,6 +655,24 @@ if [ -n "$LOGGED_IN_USER" ] && [ "$LOGGED_IN_USER" != "root" ]; then
             done
             chown -R "${LOGGED_IN_USER}" "${CLAW_SKILLS}" 2>/dev/null || true
             echo "✅ skills → ${CLAW_SKILLS}"
+        fi
+
+        # ~/.trae-cn/skills/ (Trae IDE)
+        TRAE_SKILLS="${USER_HOME}/.trae-cn/skills"
+        if [ -d "$SKILLS_SRC" ]; then
+            mkdir -p "${TRAE_SKILLS}"
+            for skill_dir in "$SKILLS_SRC"/*/; do
+                [ -d "$skill_dir" ] || continue
+                skill_name=$(basename "$skill_dir")
+                [ -n "$skill_name" ] || continue
+                skill_file="${skill_dir}SKILL.md"
+                [ -f "$skill_file" ] || continue
+                target_dir="${TRAE_SKILLS}/${skill_name}"
+                mkdir -p "${target_dir}"
+                cp -f "$skill_file" "${target_dir}/SKILL.md"
+            done
+            chown -R "${LOGGED_IN_USER}" "${TRAE_SKILLS}" 2>/dev/null || true
+            echo "✅ skills → ${TRAE_SKILLS}"
         fi
     fi
 fi

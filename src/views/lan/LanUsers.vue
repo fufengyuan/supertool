@@ -209,6 +209,7 @@
 
 <script setup lang="ts">// @ts-nocheck
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { storeToRefs } from 'pinia'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { open } from '@tauri-apps/plugin-dialog'
 import { convertFileSrc } from '@tauri-apps/api/core'
@@ -232,7 +233,6 @@ interface LanPeer {
 
 const peers = ref<LanPeer[]>([]);
 const selectedPeer = ref<LanPeer | null>(null);
-const unreadCounts = ref<Record<string, number>>({});
 const lastSeenTimes = ref<Record<string, number>>({});
 const scanning = ref(false);
 const networkInfo = ref<{ address: string; ports: string; version: string } | null>(null);
@@ -240,6 +240,7 @@ const receivePath = ref<string>('');
 
 import { useLanStore } from '@/stores/lanStore'
 const lanStore = useLanStore()
+const { unreadCounts } = storeToRefs(lanStore)
 const permissionWarning = ref<{ type: 'warning' | 'error'; title: string; message: string } | null>(null)
 const checkingPermission = ref(false)
 
@@ -273,8 +274,8 @@ const offlineCount = computed(() => {
 // 排序：有未读消息 > 在线 > 按名称
 const sortedPeers = computed(() => {
   return [...peers.value].sort((a, b) => {
-    const aUnread = lanStore.unreadCounts.value[a.id] || 0;
-    const bUnread = lanStore.unreadCounts.value[b.id] || 0;
+    const aUnread = unreadCounts.value[a.id] || 0;
+    const bUnread = unreadCounts.value[b.id] || 0;
     if (aUnread > 0 && bUnread === 0) {return -1;}
     if (aUnread === 0 && bUnread > 0) {return 1;}
     const aOnline = getStatusClass(a) === 'online' ? 1 : 0;
@@ -364,7 +365,7 @@ async function loadUnreadCounts() {
   try {
     const userInfo = await getTauriAPI().lanGetUserInfo();
     const counts = await getTauriAPI().lanGetAllUnreadCounts(userInfo.id);
-    lanStore.unreadCounts.value = counts;
+    unreadCounts.value = counts;
   } catch (e) {
     console.warn('Failed to load unread counts:', e);
   }
@@ -450,6 +451,8 @@ onMounted(async () => {
       peer.avatarPath = data.avatarPath;
     }
   }));
+});
+
 onUnmounted(() => {
   window.removeEventListener('lan:reload-unread', loadUnreadCounts);
   cleanupIpcListeners.forEach(fn => fn());
@@ -524,13 +527,13 @@ async function saveProfile() {
 function selectPeer(peer: LanPeer) {
   selectedPeer.value = peer;
   // Clear unread count when selecting a peer
-  lanStore.unreadCounts.value[peer.id] = 0;
+  lanStore.markAsRead(peer.id);
   emit('select-peer', peer);
 }
 
 function openChat(peer: LanPeer) {
   selectedPeer.value = peer;
-  lanStore.unreadCounts.value[peer.id] = 0;
+  lanStore.markAsRead(peer.id);
   emit('open-chat', peer);
 }
 

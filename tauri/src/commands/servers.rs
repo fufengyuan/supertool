@@ -1,5 +1,5 @@
 use supertool_core::logic::CoreService;
-use tauri::State;
+use tauri::{Emitter, State};
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn get_all_servers(core: State<'_, CoreService>) -> Result<serde_json::Value, String> {
@@ -127,7 +127,7 @@ pub async fn sftp_upload_file(
 
 #[tauri::command(rename_all = "camelCase")]
 pub async fn sftp_download_file(
-    core: State<'_, supertool_core::logic::CoreService>,
+    core: State<'_, CoreService>,
     server_id: String,
     remote_path: String,
     local_path: String,
@@ -136,6 +136,55 @@ pub async fn sftp_download_file(
     core.ensure_ssh_connected(&server_id).await?;
     core.sftp_download_to_local(&server_id, &remote_path, &local_path)
         .await
+}
+
+/// 带进度事件的 SFTP 下载：通过 `sftp:download-progress` 事件上报进度
+/// 事件 payload: { downloadId, serverId, serverName, downloaded, total, fileName }
+#[tauri::command(rename_all = "camelCase")]
+pub async fn sftp_download_file_with_progress(
+    core: State<'_, CoreService>,
+    app_handle: tauri::AppHandle,
+    download_id: String,
+    server_id: String,
+    server_name: String,
+    remote_path: String,
+    local_path: String,
+    file_name: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] sftp_download_file_with_progress() downloadId={} server={}",
+        download_id,
+        server_name
+    );
+    core.ensure_ssh_connected(&server_id).await?;
+
+    let app_handle_clone = app_handle.clone();
+    let download_id_cb = download_id.clone();
+    let server_id_cb = server_id.clone();
+    let server_name_cb = server_name.clone();
+    let file_name_cb = file_name.clone();
+
+    let progress_cb = std::sync::Arc::new(move |downloaded: u64, total: u64| {
+        let _ = app_handle_clone.emit(
+            "sftp:download-progress",
+            serde_json::json!({
+                "downloadId": download_id_cb,
+                "serverId": server_id_cb,
+                "serverName": server_name_cb,
+                "fileName": file_name_cb,
+                "downloaded": downloaded,
+                "total": total,
+            }),
+        );
+    });
+
+    core.sftp_download_to_local_with_progress(
+        &server_id,
+        &remote_path,
+        &local_path,
+        progress_cb,
+    )
+    .await
 }
 
 #[tauri::command(rename_all = "camelCase")]

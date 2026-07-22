@@ -1443,6 +1443,10 @@ impl LanService {
                     "isImage": Self::is_image_file(&file_name),
                 }),
             );
+
+            // Play notification sound + show system notification for file (same as text message)
+            let content_preview = format!("[文件] {}", file_name);
+            crate::tray_notification::show_lan_message_notification(&from_name, &content_preview);
         }
     }
 

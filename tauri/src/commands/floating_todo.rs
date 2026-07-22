@@ -13,9 +13,11 @@ pub fn ensure_floating_todo<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Res
     )
     .title("待办悬浮窗")
     .inner_size(340.0, 500.0)
-    .min_inner_size(260.0, 300.0)
+    .min_inner_size(56.0, 56.0)
     .always_on_top(true)
     .decorations(false)
+    .transparent(true)
+    .accept_first_mouse(true)
     .skip_taskbar(true)
     .resizable(true)
     .build()?;

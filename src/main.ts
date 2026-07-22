@@ -40,6 +40,11 @@ app.use(i18n);
 
 // Global error handler
 window.onerror = function (msg, url, line, col, error) {
+  // Suppress the benign "ResizeObserver loop completed with undelivered notifications" warning.
+  // This is a known browser issue that doesn't affect functionality.
+  if (typeof msg === "string" && msg.includes("ResizeObserver loop")) {
+    return true;
+  }
   console.error("[GlobalError]", msg, `Line: ${line}, Col: ${col}`, error?.stack || "");
   return false;
 };

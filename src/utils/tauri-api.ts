@@ -540,9 +540,18 @@ export function useLanAPI() {
       const res = await tauriInvoke<any>('lan_get_user_info')
       return res.success ? (res.data ?? {}) : {}
     },
-    lanGetAllUnreadCounts: async (userId: string): Promise<any> => {
+    lanGetAllUnreadCounts: async (userId: string): Promise<Record<string, number>> => {
       const res = await tauriInvoke<any>('lan_get_all_unread_counts', { userId })
-      return res.success ? (res.data ?? {}) : {}
+      if (res.success && res.data) {
+        // Backend returns Record<peerId, { name, count }>; flatten to Record<peerId, number>
+        const data = res.data as Record<string, { name?: string; count: number }>
+        const result: Record<string, number> = {}
+        for (const [peerId, info] of Object.entries(data)) {
+          result[peerId] = info?.count ?? 0
+        }
+        return result
+      }
+      return {}
     },
     lanGetStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('lan_get_status')
@@ -615,8 +624,7 @@ export function useLanAPI() {
     lanGetMessagesBetween: async (userId1: string, userId2: string, limit: number, offset: number): Promise<any[]> => {
       const res = await tauriInvoke<any>('lan_get_messages_between', { userId1, userId2, limit, offset })
       if (res.success && res.data) {
-        const inner = res.data as any
-        return (inner.data ?? []) as any[]
+        return res.data as any[]
       }
       return []
     },
@@ -1806,6 +1814,9 @@ export interface TauriAPI {
   getDeployStepLogs: (deployLogId: string) => Promise<any>
   readLogFile: (logId: string) => Promise<any>
   writeLogFile: (logId: string, content: string) => Promise<any>
+  readLogFileLines: (filePath: string, start: number, count: number, keyword?: string) => Promise<any>
+  findLogMatches: (filePath: string, keyword: string) => Promise<number[]>
+  gunzipLocalFile: (gzPath: string) => Promise<{ decompressedPath: string; bytesWritten: number }>
   writeSystemLog: (level: string, prefix: string, message: string) => Promise<void>
   getServerMonitor: (serverId: string, commands: string[]) => Promise<any>
   listSftpDir: (serverId: string, path: string) => Promise<any>
@@ -1813,6 +1824,8 @@ export interface TauriAPI {
   deleteSftpFile: (serverId: string, filePath: string, isDir?: boolean) => Promise<any>
   getDownloadsDir: () => Promise<any>
   downloadFile: (serverId: string, remotePath: string, localPath: string) => Promise<any>
+  downloadFileWithProgress: (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
+  onSftpDownloadProgress: (handler: (payload: { downloadId: string; serverId: string; serverName: string; fileName: string; downloaded: number; total: number }) => void) => Promise<UnlistenFn>
   uploadFile: (serverId: string, localPath: string, remotePath: string) => Promise<any>
   uploadFolder: (serverId: string, localPath: string, remotePath: string) => Promise<any>
   uploadSessionStart: (serverId: string, remotePath: string) => Promise<any>
@@ -2542,6 +2555,16 @@ export function getTauriAPI(): TauriAPI {
     // SFTP Operations
     uploadFile: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_file', { serverId, remotePath, localPath }); },
     downloadFile: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_download_file', { serverId, remotePath, localPath }); },
+    // 带进度事件的下载：通过 'sftp:download-progress' 事件上报进度
+    downloadFileWithProgress: async (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string): Promise<any> => {
+      return tauriCall('sftp_download_file_with_progress', { downloadId, serverId, serverName, remotePath, localPath, fileName });
+    },
+    // 监听 SFTP 下载进度事件，返回 Promise<UnlistenFn>（取消监听）
+    onSftpDownloadProgress: async (handler: (payload: { downloadId: string; serverId: string; serverName: string; fileName: string; downloaded: number; total: number }) => void): Promise<UnlistenFn> => {
+      return listen('sftp:download-progress', (event: any) => {
+        handler(event.payload as any);
+      });
+    },
     uploadFolder: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_folder', { serverId, remotePath, localPath }); },
     getDownloadsDir: async (): Promise<any> => { return tauriCall('sftp_get_downloads_dir'); },
     // MFA
@@ -2551,6 +2574,22 @@ export function getTauriAPI(): TauriAPI {
     playSound: async (): Promise<any> => { return tauriCall('play_sound'); },
     // Log
     readLogFile: async (filePath: string): Promise<any> => { return tauriCall('read_log_file', { filePath }); },
+    // 分页读取日志文件：后端预拼接 HTML，前端只渲染
+    readLogFileLines: async (filePath: string, start: number, count: number, keyword?: string): Promise<{
+      totalLines: number;
+      lines: Array<{ lineNo: number; html: string }>;
+      start: number;
+      end: number;
+    }> => { return tauriCall('read_log_file_lines', { filePath, start, count, keyword: keyword ?? null }); },
+    // 查找日志文件中所有匹配关键字的行号（vim 式搜索）
+    findLogMatches: async (filePath: string, keyword: string): Promise<number[]> => {
+      const res = await tauriCall<{ matchLineNos: number[] }>('find_log_matches', { filePath, keyword });
+      return res?.matchLineNos ?? [];
+    },
+    // 解压本地 .gz 文件，返回解压后的文件路径
+    gunzipLocalFile: async (gzPath: string): Promise<{ decompressedPath: string; bytesWritten: number }> => {
+      return tauriCall('gunzip_local_file', { gzPath });
+    },
     // LAN Chat
     startLan: async (userId: string, userName: string) => tauriCall("lan_start", { userId, userName }),
     getUserInfo: async (userId: string) => tauriCall("lan_get_user_info"),
