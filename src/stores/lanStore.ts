@@ -9,7 +9,7 @@ export const useLanStore = defineStore('lan', () => {
     Object.values(unreadCounts.value).reduce((a, b) => a + b, 0)
   )
 
-  let cleanupFn: (() => void) | null = null
+  let cleanupFns: Array<() => void> = []
   let initCalled = false
 
   async function init() {
@@ -21,20 +21,20 @@ export const useLanStore = defineStore('lan', () => {
       const info = await getTauriAPI().lanGetUserInfo()
       if (info?.id) {
         const res = await getTauriAPI().lanGetAllUnreadCounts(info.id)
-        if (res?.data) {
-          unreadCounts.value = { ...res.data }
-          for (const peerId of Object.keys(res.data)) {
+        if (res && typeof res === 'object') {
+          unreadCounts.value = { ...res }
+          for (const peerId of Object.keys(res)) {
             peerNameMap.value[peerId] = peerId
           }
         }
       }
     } catch { /* lan not started yet */ }
 
-    // Listen for kanban task assignments and any other LAN events that may set text
-    cleanupFn = await getTauriAPI().lanOnMessage((data: any) => {
+    // Bump unread count for incoming text messages
+    cleanupFns.push(await getTauriAPI().lanOnMessage((data: any) => {
       if (!data || !data.from) return
       const senderId = data.from
-      const senderName = data.name || data.userName || senderId
+      const senderName = data.fromName || data.name || data.userName || senderId
       peerNameMap.value[senderId] = senderName
 
       if (!unreadCounts.value[senderId]) {
@@ -42,17 +42,28 @@ export const useLanStore = defineStore('lan', () => {
       }
       unreadCounts.value[senderId]++
 
-      // Show a brief toast notification via the tray/notification system
-      // The backend already fires notify_rust, but we also log to app
-      console.log(`[LAN] Message from ${senderName}: ${data.text?.substring(0, 80)}`)
-    })
+      console.log(`[LAN] Message from ${senderName}: ${data.content?.substring(0, 80)}`)
+    }))
+
+    // Bump unread count for incoming file messages (so user sees the badge even if chat is closed)
+    cleanupFns.push(await getTauriAPI().lanOnFileReceived((data: any) => {
+      if (!data || !data.fromUserId) return
+      const senderId = data.fromUserId
+      const senderName = data.fromUserName || senderId
+      peerNameMap.value[senderId] = senderName
+
+      if (!unreadCounts.value[senderId]) {
+        unreadCounts.value[senderId] = 0
+      }
+      unreadCounts.value[senderId]++
+
+      console.log(`[LAN] File from ${senderName}: ${data.fileName}`)
+    }))
   }
 
   function destroy() {
-    if (cleanupFn) {
-      cleanupFn()
-      cleanupFn = null
-    }
+    cleanupFns.forEach(fn => fn())
+    cleanupFns = []
     initCalled = false
   }
 

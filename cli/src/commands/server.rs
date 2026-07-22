@@ -543,6 +543,220 @@ done || echo "未找到 Java 进程""#;
                 }
             }
         }
+        ServerCommands::ExecBatch {
+            id,
+            script,
+            timeout,
+        } => {
+            // 拦截高危命令
+            if is_dangerous_command(script) {
+                anyhow::bail!("⚠️ 检测到高危命令，CLI 已拦截。如需执行请在 GUI 中手动操作。");
+            }
+            // 检查服务器是否开启执行审核
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers = servers.as_array().cloned().unwrap_or_default();
+            if let Some(server) = servers
+                .iter()
+                .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
+            {
+                if server
+                    .get("requiresApproval")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
+                    let name = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
+                    anyhow::bail!(
+                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                        name
+                    );
+                }
+            }
+            // Split script into lines (commands), filter empty lines
+            let commands: Vec<String> = script
+                .lines()
+                .map(|l| l.trim().to_string())
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .collect();
+            if commands.is_empty() {
+                anyhow::bail!("脚本为空或全是注释行");
+            }
+            println!("  📦 批量执行 ({} 条命令)...", commands.len());
+            // Execute each command sequentially
+            for (i, cmd) in commands.iter().enumerate() {
+                println!("  [{}] $ {}", i + 1, cmd);
+                let resp: serde_json::Value = runtime
+                    .core
+                    .exec_ssh_command(id, cmd)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    if let Some(output) = resp.get("output").and_then(|v| v.as_str()) {
+                        if !output.trim().is_empty() {
+                            for line in output.lines() {
+                                println!("        {}", line);
+                            }
+                        }
+                    }
+                } else {
+                    let err = resp
+                        .get("error")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("未知错误");
+                    eprintln!("        ❌ 失败: {}", err);
+                    anyhow::bail!("命令 #{} 执行失败: {}", i + 1, err);
+                }
+            }
+            print_success(&format!("批量执行完成 ({} 条命令)", commands.len()));
+            let _ = timeout;
+        }
+        ServerCommands::Rm { id, path } => {
+            // 拦截高危路径
+            let dangerous_paths = ["/", "/etc", "/usr", "/bin", "/boot", "/sys", "/proc"];
+            let normalized = path.trim_end_matches('/');
+            if dangerous_paths.contains(&normalized) {
+                anyhow::bail!(
+                    "⚠️ 拒绝删除高危路径: {}。如需删除请在 GUI 中手动操作。",
+                    path
+                );
+            }
+            let resp: serde_json::Value = runtime
+                .core
+                .sftp_delete_file(id, path)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            if resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                print_success(&format!("已删除: {}", path));
+            } else {
+                anyhow::bail!(
+                    "删除失败: {}",
+                    resp.get("error").and_then(|v| v.as_str()).unwrap_or("未知错误")
+                );
+            }
+        }
+        ServerCommands::JavaRestart {
+            id,
+            name,
+            timeout,
+        } => {
+            // Check server approval
+            let servers: serde_json::Value = runtime
+                .core
+                .get_all_servers()
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let servers = servers.as_array().cloned().unwrap_or_default();
+            if let Some(server) = servers
+                .iter()
+                .find(|s| s.get("id").and_then(|v| v.as_str()) == Some(id.as_str()))
+            {
+                if server
+                    .get("requiresApproval")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false)
+                {
+                    let sname = server.get("name").and_then(|v| v.as_str()).unwrap_or(id);
+                    anyhow::bail!(
+                        "⚠️ 服务器「{}」已开启执行审核，CLI 不支持远程命令执行。请在 GUI 中手动操作。",
+                        sname
+                    );
+                }
+            }
+
+            // Find the Java process by jar name
+            let find_cmd = format!(
+                r#"ps aux | grep 'java.*\.jar.*{}' | grep -v grep | awk '{{print $2}}'"#,
+                name
+            );
+            let find_resp: serde_json::Value = runtime
+                .core
+                .exec_ssh_command(id, &find_cmd)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let pids: Vec<String> = find_resp
+                .get("output")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .lines()
+                .filter(|l| !l.trim().is_empty())
+                .map(|l| l.trim().to_string())
+                .collect();
+
+            if pids.is_empty() {
+                anyhow::bail!("未找到匹配 '{}' 的 Java 进程", name);
+            }
+
+            println!("  🔄 找到 {} 个 Java 进程:", pids.len());
+            for pid in &pids {
+                println!("    PID: {}", pid);
+            }
+
+            // Kill the processes
+            for pid in &pids {
+                let kill_cmd = format!("kill {}", pid);
+                let kill_resp: serde_json::Value = runtime
+                    .core
+                    .exec_ssh_command(id, &kill_cmd)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                if kill_resp.get("success").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    println!("    ✅ 已发送 kill 信号给 PID {}", pid);
+                } else {
+                    eprintln!(
+                        "    ⚠️ kill PID {} 失败: {}",
+                        pid,
+                        kill_resp
+                            .get("error")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("未知")
+                    );
+                }
+            }
+
+            // Wait for the process to stop
+            println!("  ⏳ 等待进程退出...");
+            let mut stopped = false;
+            for _ in 0..(timeout / 5) {
+                std::thread::sleep(std::time::Duration::from_secs(5));
+                let check_cmd = format!(
+                    r#"ps aux | grep 'java.*\.jar.*{}' | grep -v grep | awk '{{print $2}}'"#,
+                    name
+                );
+                let check_resp: serde_json::Value = runtime
+                    .core
+                    .exec_ssh_command(id, &check_cmd)
+                    .await
+                    .map_err(|e| anyhow::anyhow!("{}", e))?;
+                let remaining: Vec<&str> = check_resp
+                    .get("output")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("")
+                    .lines()
+                    .filter(|l| !l.trim().is_empty())
+                    .collect();
+                if remaining.is_empty() {
+                    stopped = true;
+                    break;
+                }
+            }
+
+            if !stopped {
+                // Force kill
+                eprintln!("  ⚠️ 进程未在 {}s 内退出，发送 SIGKILL...", timeout);
+                let kill9_cmd = format!("kill -9 {}", pids.join(" "));
+                let _ = runtime.core.exec_ssh_command(id, &kill9_cmd).await;
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+
+            print_success(&format!(
+                "Java 进程 '{}' 已停止 ({} 个 PID)。请通过部署或启动脚本重新启动服务。",
+                name,
+                pids.len()
+            ));
+        }
     }
     Ok(())
 }

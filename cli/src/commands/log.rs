@@ -152,6 +152,50 @@ pub async fn cmd_log(runtime: &mut CliRuntime, action: &LogCommands) -> Result<(
                 }
             }
         }
+        LogCommands::Context {
+            preset_id,
+            server_id,
+            line_num,
+            context_lines,
+        } => {
+            let actual_id = resolve_preset_id(runtime, preset_id).await?;
+            let resp: serde_json::Value = runtime
+                .core
+                .log_context(&actual_id, server_id, *line_num, *context_lines)
+                .await
+                .map_err(|e| anyhow::anyhow!("{}", e))?;
+            let sname = resp
+                .get("serverName")
+                .and_then(|v| v.as_str())
+                .unwrap_or(server_id);
+            let start = resp.get("start").and_then(|v| v.as_u64()).unwrap_or(0);
+            let end = resp.get("end").and_then(|v| v.as_u64()).unwrap_or(0);
+            println!(
+                "\n  📋 日志上下文: {} (行 {} 周边, 范围 {}-{})",
+                sname, line_num, start, end
+            );
+            println!("  {}", "─".repeat(60));
+            if let Some(lines) = resp.get("lines").and_then(|v| v.as_array()) {
+                for l in lines {
+                    let ln = l
+                        .get("lineNum")
+                        .and_then(|v| v.as_u64())
+                        .unwrap_or(0);
+                    let content = l
+                        .get("content")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("");
+                    let marker = if ln as usize == *line_num {
+                        "▶"
+                    } else {
+                        " "
+                    };
+                    println!("  {} {:>6} │ {}", marker, ln, content);
+                }
+            } else {
+                println!("  (无上下文内容)");
+            }
+        }
     }
     Ok(())
 }

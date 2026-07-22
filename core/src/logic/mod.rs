@@ -1444,6 +1444,53 @@ impl CoreService {
         crate::db_ops::redis_delete_key(&conn, db_index, key).await
     }
 
+    /// Execute a raw Redis command string (e.g. "HGET key field", "LRANGE key 0 -1")
+    /// after SELECTing the given db_index. Used by CLI for operations not covered
+    /// by the dedicated helpers above.
+    pub async fn db_redis_exec(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        cmd_str: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        match &conn {
+            crate::db_pool::DbConnection::Redis(c) => {
+                redis::cmd("SELECT")
+                    .arg(db_index)
+                    .query_async::<()>(&mut c.clone())
+                    .await
+                    .map_err(|e| format!("Redis SELECT failed: {}", e))?;
+                crate::db_pool::execute_redis_command(c, cmd_str).await
+            }
+            _ => Err("Not a Redis connection".to_string()),
+        }
+    }
+
+    /// Set a Redis string key with optional TTL (0 = no expiry).
+    pub async fn db_redis_set_key(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        key: &str,
+        value: &str,
+        ttl: i64,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::redis_set_key(&conn, db_index, key, value, ttl).await
+    }
+
+    /// Get Redis key metadata (type + ttl).
+    pub async fn db_redis_key_info(
+        &self,
+        config: &crate::db_pool::DbConnectionConfig,
+        db_index: i64,
+        key: &str,
+    ) -> Result<serde_json::Value, String> {
+        let conn = connect_db(config).await?;
+        crate::db_ops::redis_key_info(&conn, db_index, key).await
+    }
+
     // ============ Log Stream (from log_stream module) ============
 
     pub fn logs_start_stream(

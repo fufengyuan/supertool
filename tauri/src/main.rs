@@ -440,6 +440,7 @@ fn main() {
             // SFTP commands
             commands::servers::sftp_upload_file,
             commands::servers::sftp_download_file,
+            commands::servers::sftp_download_file_with_progress,
             commands::servers::sftp_upload_folder,
             commands::servers::sftp_get_downloads_dir,
             commands::servers::list_sftp_dir,
@@ -600,6 +601,9 @@ fn main() {
             commands::cicd::rollback,
             commands::cicd::get_deploy_logs,
             commands::cicd::read_log_file,
+            commands::cicd::read_log_file_lines,
+            commands::cicd::find_log_matches,
+            commands::cicd::gunzip_local_file,
             commands::cicd::get_rollback_history,
             commands::cicd::get_deploy_modules,
             commands::cicd::get_deploy_step_logs,
