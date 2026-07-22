@@ -8,6 +8,7 @@
       <GlobalSearch ref="globalSearchRef" />
       <AboutDialog v-model="showAboutDialog" />
       <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
+      <ToolCommandPalette ref="toolPaletteRef" />
     </template>
   </div>
 </template>
@@ -20,6 +21,7 @@ import ToastContainer from '@/components/ui/ToastContainer.vue'
 import GlobalSearch from '@/components/GlobalSearch.vue'
 import AboutDialog from '@/components/AboutDialog.vue'
 import QuickSwitch from '@/components/QuickSwitch.vue'
+import ToolCommandPalette from '@/components/ToolCommandPalette.vue'
 import FloatingTodoPanel from '@/components/FloatingTodoPanel.vue'
 import { useAppStore } from '@/stores/appStore'
 import { useLanStore } from '@/stores/lanStore'
@@ -29,6 +31,7 @@ const isDark = ref(false)
 const showAboutDialog = ref(false)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
 const globalSearchRef = ref<InstanceType<typeof GlobalSearch> | null>(null)
+const toolPaletteRef = ref<InstanceType<typeof ToolCommandPalette> | null>(null)
 const router = useRouter()
 const appStore = useAppStore()
 
@@ -91,6 +94,19 @@ onMounted(async () => {
 
   // 添加全局双击事件监听
   document.addEventListener('dblclick', onDoubleClick)
+
+  // Cmd+K / Ctrl+K 唤起开发工具搜索弹窗
+  function onCmdK(e: KeyboardEvent) {
+    const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+    const mod = isMac ? e.metaKey : e.ctrlKey
+    if (mod && e.key === 'k') {
+      e.preventDefault()
+      toolPaletteRef.value?.open()
+    }
+  }
+  document.addEventListener('keydown', onCmdK)
+  unlistenFns.push(() => document.removeEventListener('keydown', onCmdK))
+
   const api = getTauriAPI()
   
   // Initialize LAN message store (persistent listener across navigation)
