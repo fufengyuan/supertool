@@ -1827,6 +1827,8 @@ export interface TauriAPI {
   downloadFileWithProgress: (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
   onSftpDownloadProgress: (handler: (payload: { downloadId: string; serverId: string; serverName: string; fileName: string; downloaded: number; total: number }) => void) => Promise<UnlistenFn>
   uploadFile: (serverId: string, localPath: string, remotePath: string) => Promise<any>
+  uploadFileWithProgress: (uploadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string) => Promise<any>
+  onSftpUploadProgress: (handler: (payload: { uploadId: string; serverId: string; serverName: string; fileName: string; uploaded: number; total: number; percent: number }) => void) => Promise<UnlistenFn>
   uploadFolder: (serverId: string, localPath: string, remotePath: string) => Promise<any>
   uploadSessionStart: (serverId: string, remotePath: string) => Promise<any>
   uploadSessionAdd: (sessionId: string, localPath: string, remotePath: string) => Promise<any>
@@ -2554,7 +2556,18 @@ export function getTauriAPI(): TauriAPI {
     createRepeatInstance: async (todoId: string): Promise<any> => { return tauriCall('create_repeat_instance', { todoId }); },
     // SFTP Operations
     uploadFile: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_file', { serverId, remotePath, localPath }); },
+    // 带进度事件的上传：通过 'sftp:upload-progress' 事件上报进度
+    uploadFileWithProgress: async (uploadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string): Promise<any> => {
+      return tauriCall('sftp_upload_file_with_progress', { uploadId, serverId, serverName, remotePath, localPath, fileName });
+    },
+    // 监听 SFTP 上传进度事件，返回 Promise<UnlistenFn>（取消监听）
+    onSftpUploadProgress: async (handler: (payload: { uploadId: string; serverId: string; serverName: string; fileName: string; uploaded: number; total: number; percent: number }) => void): Promise<UnlistenFn> => {
+      return listen('sftp:upload-progress', (event: any) => {
+        handler(event.payload as any);
+      });
+    },
     downloadFile: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_download_file', { serverId, remotePath, localPath }); },
+    uploadFolder: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_folder', { serverId, remotePath, localPath }); },
     // 带进度事件的下载：通过 'sftp:download-progress' 事件上报进度
     downloadFileWithProgress: async (downloadId: string, serverId: string, serverName: string, remotePath: string, localPath: string, fileName: string): Promise<any> => {
       return tauriCall('sftp_download_file_with_progress', { downloadId, serverId, serverName, remotePath, localPath, fileName });
@@ -2565,7 +2578,6 @@ export function getTauriAPI(): TauriAPI {
         handler(event.payload as any);
       });
     },
-    uploadFolder: async (serverId: string, remotePath: string, localPath: string): Promise<any> => { return tauriCall('sftp_upload_folder', { serverId, remotePath, localPath }); },
     getDownloadsDir: async (): Promise<any> => { return tauriCall('sftp_get_downloads_dir'); },
     // MFA
     parseOtpAuthUri: async (uri: string): Promise<any> => { return tauriCall('mfa_parse_uri', { uri }); },

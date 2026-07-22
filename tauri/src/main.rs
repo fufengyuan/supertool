@@ -439,6 +439,7 @@ fn main() {
             commands::servers::test_connection,
             // SFTP commands
             commands::servers::sftp_upload_file,
+            commands::servers::sftp_upload_file_with_progress,
             commands::servers::sftp_download_file,
             commands::servers::sftp_download_file_with_progress,
             commands::servers::sftp_upload_folder,

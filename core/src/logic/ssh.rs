@@ -676,39 +676,82 @@ impl SshService {
             .map_err(|e| format!("删除文件失败: {}", e))
     }
 
-    /// 上传文件到远程服务器
+    /// 上传文件到远程服务器（无进度回调）
     pub fn upload_file(
         &self,
         server_id: &str,
         local_path: &str,
         remote_path: &str,
     ) -> Result<u64, String> {
+        self.upload_file_with_progress(server_id, local_path, remote_path, None)
+    }
+
+    /// 上传文件到远程服务器，支持进度回调
+    /// progress_callback: 参数为 (已上传字节, 文件总字节)，每隔 ~100ms 调用一次
+    pub fn upload_file_with_progress(
+        &self,
+        server_id: &str,
+        local_path: &str,
+        remote_path: &str,
+        progress_callback: Option<&dyn Fn(u64, u64)>,
+    ) -> Result<u64, String> {
         let sftp_lock = self.get_sftp(server_id)?;
         let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let local = Path::new(local_path);
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
 
-        // 读取本地文件
-        let local_data = std::fs::read(local).map_err(|e| format!("读取本地文件失败: {}", e))?;
-        let file_size = local_data.len() as u64;
+        // 获取本地文件大小（用于进度计算）
+        let file_size = std::fs::metadata(local)
+            .map(|m| m.len())
+            .map_err(|e| format!("读取文件信息失败: {}", e))?;
 
-        // 创建远程文件并写入
+        // 打开本地文件（分块读取，避免一次性加载到内存）
+        let mut local_file = std::fs::File::open(local)
+            .map_err(|e| format!("打开本地文件失败: {}", e))?;
+
+        // 创建远程文件
         let mut remote_file = sftp
             .create(Path::new(&expanded_path))
             .map_err(|e| format!("创建远程文件失败: {}", e))?;
 
-        remote_file
-            .write_all(&local_data)
-            .map_err(|e| format!("写入远程文件失败: {}", e))?;
+        // 分块读取写入，支持进度回调
+        let chunk_size: usize = 64 * 1024; // 64KB chunks
+        let mut buffer = vec![0u8; chunk_size];
+        let mut uploaded: u64 = 0;
+        let mut last_report = std::time::Instant::now();
+
+        loop {
+            let n = local_file
+                .read(&mut buffer)
+                .map_err(|e| format!("读取本地文件失败: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            remote_file
+                .write_all(&buffer[..n])
+                .map_err(|e| format!("写入远程文件失败: {}", e))?;
+            uploaded += n as u64;
+
+            // 进度回调：每 100ms 上报一次，避免过于频繁
+            if let Some(cb) = progress_callback {
+                let now = std::time::Instant::now();
+                if now.duration_since(last_report).as_millis() >= 100 || uploaded == file_size {
+                    cb(uploaded, file_size);
+                    last_report = now;
+                }
+            }
+        }
+
+        remote_file.flush().ok();
 
         log::info!(
             "[SFTP] Uploaded {} ({}) to {}:{}",
             local_path,
-            file_size,
+            uploaded,
             server_id,
             expanded_path
         );
-        Ok(file_size)
+        Ok(uploaded)
     }
 
     /// 下载文件到本地

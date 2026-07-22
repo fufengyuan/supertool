@@ -227,6 +227,7 @@ const uploadFailed = ref(false); // 上传失败状态
 const downloadProgress = ref<{ file: string; percent: number } | null>(null); // 下载进度
 const downloadSpeed = ref(''); // 下载速率
 let progressCleanup: (() => void) | null = null;
+let uploadProgressCleanup: (() => void) | null = null;
 let downloadProgressCleanup: (() => void) | null = null;
 let uploadDoneCleanup: (() => void) | null = null;
 let disconnectCleanup: (() => void) | null = null;
@@ -325,28 +326,22 @@ function toggleSize() {
 
 onMounted(async () => {
   // 监听上传进度事件
-  /* TODO(tauri-events): progressCleanup = getTauriAPI().onSftpUploadProgress((data) => {
+  const unlistenUpload = await getTauriAPI().onSftpUploadProgress((data) => {
     if (data.serverId === props.server.id) {
-      uploadProgress.value = { file: data.message, percent: data.percent, speedFormatted: data.speedFormatted };
-      uploadMessage.value = data.message;
+      const percent = data.total > 0 ? Math.round((data.uploaded / data.total) * 100) : 0
+      // 计算速率
+      const speedText = data.total > 0 && data.uploaded > 0
+        ? `${formatBytes(data.uploaded)} / ${formatBytes(data.total)}`
+        : ''
+      uploadProgress.value = {
+        file: data.fileName,
+        percent,
+        speedFormatted: speedText,
+      }
     }
-  }) || null;
-  */
-  // 监听下载进度事件
-  /* TODO(tauri-events): downloadProgressCleanup = getTauriAPI().onSftpDownloadProgress((data) => {
-    if (data.serverId === props.server.id) {
-      downloadProgress.value = { file: data.message, percent: data.percent };
-      downloadSpeed.value = data.speedFormatted || '';
-    }
-  }) || null;
-  */
-  // 监听上传完成事件（清除进度条）
-  /* TODO(tauri-events): uploadDoneCleanup = getTauriAPI().onSftpUploadDone((data) => {
-    if (data.serverId === props.server.id) {
-      uploadProgress.value = null;
-    }
-  }) || null;
-  */
+  })
+  uploadProgressCleanup = unlistenUpload as any
+
   // 监听 SSH 断开事件，自动重连
   /* TODO(tauri-events): disconnectCleanup = getTauriAPI().onServerDisconnected((data) => {
     if (data.serverId === props.server.id) {
@@ -403,6 +398,10 @@ onUnmounted(() => {
     progressCleanup();
     progressCleanup = null;
   }
+  if (uploadProgressCleanup) {
+    uploadProgressCleanup();
+    uploadProgressCleanup = null;
+  }
   if (downloadProgressCleanup) {
     downloadProgressCleanup();
     downloadProgressCleanup = null;
@@ -416,6 +415,15 @@ onUnmounted(() => {
     disconnectCleanup = null;
   }
 });
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+  return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB'
+}
+
+let uploadIdCounter = 0
 
 async function loadDir() {
   try {
@@ -589,12 +597,19 @@ async function doUpload(filePaths: string[]) {
         : currentPath.value + '/' + fileName
 
       try {
-        await getTauriAPI().uploadFile(props.server.id, remotePath, filePath)
+        const uploadId = `upload-${Date.now()}-${++uploadIdCounter}`
+        await getTauriAPI().uploadFileWithProgress(
+          uploadId,
+          props.server.id,
+          props.server.name || props.server.id,
+          remotePath,
+          filePath,
+          fileName
+        )
         successCount++
       } catch (err: any) {
         toast.error(`上传失败 ${fileName}: ${err.message}`)
       }
-      uploadProgress.value = { file: fileName, percent: 100 }
     }
 
     uploadProgress.value = null
@@ -672,14 +687,12 @@ async function doDragUpload(entries) {
         ? currentPath.value + item.path.replace(/^\//, '')
         : currentPath.value + '/' + item.path.replace(/^\//, '')
 
-      uploadProgress.value = {
-        file: item.path.replace(/^\//, ''),
-        percent: Math.round(((i + 1) / totalFiles) * 100)
-      }
+      const fileName = item.path.replace(/^\//, '')
+      uploadProgress.value = { file: fileName, percent: 0 }
 
       // 直接通过 IPC 上传：将文件写入 Tauri 临时目录后上传
       const tempDir = await window.__TAURI__.path.tempDir()
-      const safeName = item.path.replace(/^\//, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
       const tempFilePath = `${tempDir}sftp_${Date.now()}_${safeName}`
 
       // Tauri v2 fs API: writeFile / mkdir / remove
@@ -689,7 +702,15 @@ async function doDragUpload(entries) {
       }
       await window.__TAURI__.fs.writeFile(tempFilePath, bytes)
 
-      await getTauriAPI().uploadFile(props.server.id, remotePath, tempFilePath)
+      const uploadId = `upload-${Date.now()}-${++uploadIdCounter}`
+      await getTauriAPI().uploadFileWithProgress(
+        uploadId,
+        props.server.id,
+        props.server.name || props.server.id,
+        remotePath,
+        tempFilePath,
+        fileName
+      )
 
       // 清理临时文件
       try { await window.__TAURI__.fs.remove(tempFilePath) } catch {}
@@ -744,24 +765,28 @@ async function doDragUploadFromPaths(paths: string[]) {
       await getTauriAPI().connectServer(props.server.id)
     }
 
-    const totalFiles = paths.length
     let successCount = 0
 
     for (let i = 0; i < paths.length; i++) {
       const localPath = paths[i]
       const fileName = localPath.split('/').pop() || localPath.split('\\').pop() || 'unknown'
 
-      uploadProgress.value = {
-        file: fileName,
-        percent: Math.round(((i + 1) / totalFiles) * 100)
-      }
+      uploadProgress.value = { file: fileName, percent: 0 }
 
       const remotePath = currentPath.value.endsWith('/')
         ? currentPath.value + fileName
         : currentPath.value + '/' + fileName
 
       try {
-        await getTauriAPI().uploadFile(props.server.id, remotePath, localPath)
+        const uploadId = `upload-${Date.now()}-${++uploadIdCounter}`
+        await getTauriAPI().uploadFileWithProgress(
+          uploadId,
+          props.server.id,
+          props.server.name || props.server.id,
+          remotePath,
+          localPath,
+          fileName
+        )
         successCount++
       } catch (err: any) {
         toast.error(`上传失败 ${fileName}: ${err.message}`)
