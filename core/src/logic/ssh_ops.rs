@@ -222,6 +222,28 @@ impl super::CoreService {
             .await?;
         Ok(json!({"success": true, "data": {"bytesDownloaded": size, "localPath": local_path}}))
     }
+
+    /// SFTP: 下载到本地路径，带进度回调（通过 progress_cb 上报已下载/总字节数）
+    /// 用于离线日志查看的下载进度展示
+    pub async fn sftp_download_to_local_with_progress(
+        &self,
+        server_id: &str,
+        remote_path: &str,
+        local_path: &str,
+        progress_cb: std::sync::Arc<dyn Fn(u64, u64) + Send + Sync>,
+    ) -> Result<Value, String> {
+        let sid = server_id.to_string();
+        let rp = remote_path.to_string();
+        let lp = local_path.to_string();
+        let ssh = self.clone_ssh();
+        let result = tokio::task::spawn_blocking(move || {
+            ssh.download_file_with_progress(&sid, &rp, &lp, Some(&|d, t| progress_cb(d, t)))
+        })
+        .await
+        .map_err(|e| format!("SSH 操作失败: {}", e))?;
+        let size = result?;
+        Ok(json!({"success": true, "data": {"bytesDownloaded": size, "localPath": local_path}}))
+    }
     /// SFTP: 上传文件到远程
     pub async fn sftp_upload_to_remote(
         &self,

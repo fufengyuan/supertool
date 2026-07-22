@@ -718,6 +718,19 @@ impl SshService {
         remote_path: &str,
         local_path: &str,
     ) -> Result<u64, String> {
+        // 无进度回调版本：直接调用带回调版本，传入 noop
+        self.download_file_with_progress(server_id, remote_path, local_path, None)
+    }
+
+    /// SFTP 下载文件到本地，支持进度回调
+    /// progress_callback: 参数为 (已下载字节, 文件总字节)，每隔 ~100ms 调用一次
+    pub fn download_file_with_progress(
+        &self,
+        server_id: &str,
+        remote_path: &str,
+        local_path: &str,
+        progress_callback: Option<&dyn Fn(u64, u64)>,
+    ) -> Result<u64, String> {
         let sftp_lock = self.get_sftp(server_id)?;
         let sftp = sftp_lock.lock().map_err(|e| e.to_string())?;
         let expanded_path = Self::expand_remote_path(&sftp, remote_path)?;
@@ -727,30 +740,59 @@ impl SshService {
             .open(Path::new(&expanded_path))
             .map_err(|e| format!("打开远程文件失败: {}", e))?;
 
-        // 读取远程文件内容
-        let mut contents = Vec::new();
-        remote_file
-            .read_to_end(&mut contents)
-            .map_err(|e| format!("读取远程文件失败: {}", e))?;
-
-        let file_size = contents.len() as u64;
+        // 获取文件大小（用于进度计算）
+        let file_size = sftp
+            .stat(Path::new(&expanded_path))
+            .map(|attr| attr.size.unwrap_or(0))
+            .unwrap_or(0);
 
         // 确保本地目录存在
         if let Some(parent) = Path::new(local_path).parent() {
             std::fs::create_dir_all(parent).map_err(|e| format!("创建本地目录失败: {}", e))?;
         }
 
-        // 写入本地文件
-        std::fs::write(local_path, &contents).map_err(|e| format!("写入本地文件失败: {}", e))?;
+        // 创建本地文件
+        let mut local_file = std::fs::File::create(local_path)
+            .map_err(|e| format!("创建本地文件失败: {}", e))?;
+
+        // 分块读取写入，支持进度回调
+        let chunk_size: usize = 64 * 1024;  // 64KB chunks
+        let mut buffer = vec![0u8; chunk_size];
+        let mut downloaded: u64 = 0;
+        let mut last_report = std::time::Instant::now();
+
+        loop {
+            let n = remote_file
+                .read(&mut buffer)
+                .map_err(|e| format!("读取远程文件失败: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            local_file
+                .write_all(&buffer[..n])
+                .map_err(|e| format!("写入本地文件失败: {}", e))?;
+            downloaded += n as u64;
+
+            // 进度回调：每 100ms 上报一次，避免过于频繁
+            if let Some(cb) = progress_callback {
+                let now = std::time::Instant::now();
+                if now.duration_since(last_report).as_millis() >= 100 || downloaded == file_size {
+                    cb(downloaded, file_size);
+                    last_report = now;
+                }
+            }
+        }
+
+        local_file.flush().ok();
 
         log::info!(
             "[SFTP] Downloaded {}:{} to {} ({})",
             server_id,
             remote_path,
             local_path,
-            file_size
+            downloaded
         );
-        Ok(file_size)
+        Ok(downloaded)
     }
 
     /// 递归上传目录
@@ -842,14 +884,39 @@ impl SshService {
     }
 
     /// 展开远程路径中的 ~ 为实际路径（使用 SFTP realpath）
+    /// openssh sftp-server 支持 ~ 语法；某些嵌入式/受限 sftp-server 不支持，
+    /// 此时分两步：realpath(".") 拿到 home 目录，再手工替换 ~ 前缀。
     fn expand_remote_path(sftp: &Sftp, remote_path: &str) -> Result<String, String> {
-        if remote_path.starts_with('~') {
-            let expanded = sftp
-                .realpath(Path::new(remote_path))
-                .map_err(|e| format!("展开路径 '~' 失败: {}", e))?;
-            Ok(expanded.to_string_lossy().to_string())
-        } else {
-            Ok(remote_path.to_string())
+        if !remote_path.starts_with('~') {
+            return Ok(remote_path.to_string());
+        }
+
+        // 先尝试直接 realpath（openssh 支持 ~ 语法）
+        match sftp.realpath(Path::new(remote_path)) {
+            Ok(p) => Ok(p.to_string_lossy().to_string()),
+            Err(e) => {
+                // 降级：realpath(".") 通常返回用户的 home 目录
+                let home = sftp
+                    .realpath(Path::new("."))
+                    .map_err(|e2| {
+                        format!(
+                            "展开路径 '~' 失败: {}（且无法获取 home 目录: {}）",
+                            e, e2
+                        )
+                    })?;
+                let home_str = home.to_string_lossy();
+
+                // 仅处理 ~ 和 ~/xxx 两种形式；~user/xxx 不展开，让后续操作抛原始错误
+                let expanded = if remote_path == "~" {
+                    home_str.to_string()
+                } else if let Some(rest) = remote_path.strip_prefix("~/") {
+                    format!("{}/{}", home_str.trim_end_matches('/'), rest)
+                } else {
+                    // ~user/xxx 不支持，保留原路径让 sftp.open 自己抛错
+                    return Ok(remote_path.to_string());
+                };
+                Ok(expanded)
+            }
         }
     }
 }
