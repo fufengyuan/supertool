@@ -125,6 +125,57 @@ pub async fn sftp_upload_file(
         .await
 }
 
+/// 带进度事件的 SFTP 上传：通过 `sftp:upload-progress` 事件上报进度
+/// 事件 payload: { uploadId, serverId, serverName, fileName, uploaded, total, speedFormatted }
+#[tauri::command(rename_all = "camelCase")]
+pub async fn sftp_upload_file_with_progress(
+    core: State<'_, CoreService>,
+    app_handle: tauri::AppHandle,
+    upload_id: String,
+    server_id: String,
+    server_name: String,
+    remote_path: String,
+    local_path: String,
+    file_name: String,
+) -> Result<serde_json::Value, String> {
+    log::info!(
+        "[Tauri CMD] sftp_upload_file_with_progress() uploadId={} server={}",
+        upload_id,
+        server_name
+    );
+    core.ensure_ssh_connected(&server_id).await?;
+
+    let app_handle_clone = app_handle.clone();
+    let upload_id_cb = upload_id.clone();
+    let server_id_cb = server_id.clone();
+    let server_name_cb = server_name.clone();
+    let file_name_cb = file_name.clone();
+
+    let progress_cb = std::sync::Arc::new(move |uploaded: u64, total: u64| {
+        let percent = if total > 0 { (uploaded * 100 / total) as u8 } else { 0 };
+        let _ = app_handle_clone.emit(
+            "sftp:upload-progress",
+            serde_json::json!({
+                "uploadId": upload_id_cb,
+                "serverId": server_id_cb,
+                "serverName": server_name_cb,
+                "fileName": file_name_cb,
+                "uploaded": uploaded,
+                "total": total,
+                "percent": percent,
+            }),
+        );
+    });
+
+    core.sftp_upload_to_remote_with_progress(
+        &server_id,
+        &local_path,
+        &remote_path,
+        progress_cb,
+    )
+    .await
+}
+
 #[tauri::command(rename_all = "camelCase")]
 pub async fn sftp_download_file(
     core: State<'_, CoreService>,

@@ -276,6 +276,26 @@ impl super::CoreService {
             Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
         }
     }
+    /// SFTP: 上传文件到远程，带进度回调（通过 progress_cb 上报已上传/总字节数）
+    pub async fn sftp_upload_to_remote_with_progress(
+        &self,
+        server_id: &str,
+        local_path: &str,
+        remote_path: &str,
+        progress_cb: std::sync::Arc<dyn Fn(u64, u64) + Send + Sync>,
+    ) -> Result<Value, String> {
+        let sid = server_id.to_string();
+        let lp = local_path.to_string();
+        let rp = remote_path.to_string();
+        let ssh = self.clone_ssh();
+        let result = tokio::task::spawn_blocking(move || {
+            ssh.upload_file_with_progress(&sid, &lp, &rp, Some(&|d, t| progress_cb(d, t)))
+        })
+        .await
+        .map_err(|e| format!("SSH 操作失败: {}", e))?;
+        let size = result?;
+        Ok(json!({"success": true, "data": {"bytesUploaded": size, "remotePath": remote_path}}))
+    }
     /// SFTP: 递归上传目录
     pub async fn sftp_upload_dir_recursive(
         &self,
