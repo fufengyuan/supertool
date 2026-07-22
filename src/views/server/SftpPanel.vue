@@ -342,6 +342,19 @@ onMounted(async () => {
   })
   uploadProgressCleanup = unlistenUpload as any
 
+  // 监听下载进度事件
+  const unlistenDownload = await getTauriAPI().onSftpDownloadProgress((data) => {
+    if (data.serverId === props.server.id) {
+      const percent = data.total > 0 ? Math.round((data.downloaded / data.total) * 100) : 0
+      const speedText = data.total > 0 && data.downloaded > 0
+        ? `${formatBytes(data.downloaded)} / ${formatBytes(data.total)}`
+        : ''
+      downloadProgress.value = { file: data.fileName, percent }
+      downloadSpeed.value = speedText
+    }
+  })
+  downloadProgressCleanup = unlistenDownload as any
+
   // 监听 SSH 断开事件，自动重连
   /* TODO(tauri-events): disconnectCleanup = getTauriAPI().onServerDisconnected((data) => {
     if (data.serverId === props.server.id) {
@@ -525,10 +538,14 @@ async function downloadFile(file) {
     downloadProgress.value = { file: file.name, percent: 0 }
     downloadSpeed.value = ''
 
-    await getTauriAPI().downloadFile(
+    const downloadId = `download-${Date.now()}-${++uploadIdCounter}`
+    await getTauriAPI().downloadFileWithProgress(
+      downloadId,
       props.server.id,
+      props.server.name || props.server.id,
       currentPath.value + '/' + file.name,
-      localPath
+      localPath,
+      file.name
     )
     downloadProgress.value = null
     downloadSpeed.value = ''
