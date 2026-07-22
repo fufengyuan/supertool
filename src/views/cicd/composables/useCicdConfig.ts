@@ -350,7 +350,10 @@ export function useCicdConfig() {
     { key: 'pnpm', name: 'pnpm', icon: '🟢' }, { key: 'yarn', name: 'Yarn', icon: '🔵' },
     { key: 'gradle', name: 'Gradle', icon: '🟠' }, { key: 'cargo', name: 'Cargo', icon: '🦀' },
   ];
-  const availableBuildTools = computed(() => buildToolDefs.map(td => ({ ...td, version: detectedTools.value[td.key]?.version })));
+  const availableBuildTools = computed(() => buildToolDefs.map(td => {
+    const det = detectedTools.value[td.key];
+    return { ...td, version: det?.version, path: det?.path, available: det?.available ?? false };
+  }));
   const addedModulePaths = computed(() => new Set(modules.value.map(m => m.modulePath || m.buildPath || '')));
 
   // Parent-build auto-detection state

@@ -377,13 +377,18 @@
                 <div
                   v-for="tool in availableBuildTools"
                   :key="tool.key"
-                  class="flex flex-col items-center px-2 py-3 border-2 border-base-content/10 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary"
-                  :class="{ 'border-primary bg-primary/10': config.buildTool === tool.key }"
+                  class="flex flex-col items-center px-2 py-3 border-2 border-base-content/10 rounded-xl cursor-pointer transition-all duration-150 relative hover:border-primary group"
+                  :class="{
+                    'border-primary bg-primary/10': config.buildTool === tool.key,
+                    'opacity-40': !tool.available && tool.key !== 'cargo'
+                  }"
+                  :title="tool.path ? `${tool.name} → ${tool.path}` : tool.available ? tool.name : `${tool.name}（未安装）`"
                   @click="config.buildTool = tool.key"
                 >
                   <span class="text-2xl mb-1">{{ tool.icon }}</span>
                   <span class="text-xs font-semibold text-base-content">{{ tool.name }}</span>
                   <span v-if="tool.version" class="text-[10px] text-base-content/60 mt-0.5">{{ tool.version.split(' ')[0] }}</span>
+                  <span v-else-if="!tool.available && tool.key !== 'cargo'" class="text-[10px] text-base-content/40 mt-0.5">未安装</span>
                 </div>
               </div>
 
@@ -411,12 +416,12 @@
                       v-if="sdkVersions.sdkman.java.length > 0"
                       v-model="selectedJavaVersion"
                       @change="onJavaVersionSelected"
-                      class="select select-bordered bg-base-200 text-xs w-[120px] min-w-[80px] cursor-pointer truncate"
-                      title="SDKMAN 版本"
+                      class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
+                      :title="selectedJavaVersion ? `${sdkVersions.sdkman.java.find(v => v.path === selectedJavaVersion)?.name || ''} → ${selectedJavaVersion}` : 'SDKMAN 版本'"
                     >
                       <option value="">版本…</option>
-                      <option v-for="v in sdkVersions.sdkman.java" :key="v.path" :value="v.path">
-                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }}
+                      <option v-for="v in sdkVersions.sdkman.java" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
+                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
                       </option>
                     </select>
                     <!-- SDKMAN 安装指引 -->
@@ -502,12 +507,12 @@
                       v-if="sdkVersions.nvm.node.length > 0"
                       v-model="selectedNodeVersion"
                       @change="onNodeVersionSelected"
-                      class="select select-bordered bg-base-200 text-xs w-[120px] min-w-[80px] cursor-pointer truncate"
-                      title="NVM 版本"
+                      class="select select-bordered bg-base-200 text-xs w-[200px] min-w-[120px] cursor-pointer truncate"
+                      :title="selectedNodeVersion ? `${sdkVersions.nvm.node.find(v => v.path === selectedNodeVersion)?.name || ''} → ${selectedNodeVersion}` : 'NVM 版本'"
                     >
                       <option value="">版本…</option>
-                      <option v-for="v in sdkVersions.nvm.node" :key="v.path" :value="v.path">
-                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }}
+                      <option v-for="v in sdkVersions.nvm.node" :key="v.path" :value="v.path" :title="`${v.name} → ${v.path}`">
+                        {{ v.name }}{{ v.isCurrent ? ' ★' : '' }} → {{ v.path }}
                       </option>
                     </select>
                     <!-- NVM 安装指引 -->

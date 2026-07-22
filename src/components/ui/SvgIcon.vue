@@ -103,6 +103,7 @@ const paths: Record<string, string> = {
   zap: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
   flame: '<path d="M12 2L9.09 9.09L2 12l7.09 2.91L12 22l2.91-7.09L22 12l-7.09-2.91L12 2z"/>',
   star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+  starOutline: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
   sparkles: '<polygon points="13 2 16 9 23 10 18 14.7 19.2 22 13 18.8 6.8 22 8 14.7 3 10 10 9 13 2"/>',
 
   // === Charts & Data ===

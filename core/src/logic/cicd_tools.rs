@@ -128,42 +128,66 @@ pub fn check_node(node_home: Option<String>) -> ToolDetectionResult {
 }
 
 pub fn detect_tools_impl() -> HashMap<String, ToolDetectionResult> {
+    use std::thread;
+    // 7 个工具并行检测（彼此无依赖），替代串行 11 次 shell 调用
+    let (java_t, maven_t, node_t, npm_t, pnpm_t, yarn_t, gradle_t) = thread::scope(|s| {
+        let j = s.spawn(|| check_java(None));
+        let m = s.spawn(|| check_maven(None));
+        let n = s.spawn(|| check_node(None));
+        let np = s.spawn(|| check_simple_tool("npm"));
+        let pn = s.spawn(|| check_simple_tool("pnpm"));
+        let ya = s.spawn(|| check_simple_tool("yarn"));
+        let gr = s.spawn(|| check_simple_tool("gradle"));
+        (j.join().unwrap(), m.join().unwrap(), n.join().unwrap(),
+         np.join().unwrap(), pn.join().unwrap(), ya.join().unwrap(), gr.join().unwrap())
+    });
     let mut tools = HashMap::new();
-    tools.insert("java".to_string(), check_java(None));
-    tools.insert("maven".to_string(), check_maven(None));
-    tools.insert("node".to_string(), check_node(None));
-    // Extra tools — used by SDK detection UI and NVM version listing
-    for (cmd, name) in &[("npm", "npm"), ("pnpm", "pnpm"), ("yarn", "yarn"), ("gradle", "gradle")] {
-        let out = run_command(&format!("{} --version 2>&1", cmd), None);
-        let path_out = run_command(&format!("which {}", cmd), None).stdout.trim().to_string();
-        if out.success {
-            let version = out.stdout.lines().next().map(|s| s.trim().to_string());
-            tools.insert(
-                name.to_string(),
-                ToolDetectionResult {
-                    available: true,
-                    version,
-                    path: if path_out.is_empty() { None } else { Some(path_out) },
-                },
-            );
-        } else {
-            tools.insert(
-                name.to_string(),
-                ToolDetectionResult { available: false, version: None, path: None },
-            );
-        }
-    }
+    tools.insert("java".to_string(), java_t);
+    tools.insert("maven".to_string(), maven_t);
+    tools.insert("node".to_string(), node_t);
+    tools.insert("npm".to_string(), npm_t);
+    tools.insert("pnpm".to_string(), pnpm_t);
+    tools.insert("yarn".to_string(), yarn_t);
+    tools.insert("gradle".to_string(), gradle_t);
     tools
 }
 
+/// 检测单个工具的版本和路径（用于 npm/pnpm/yarn/gradle）
+fn check_simple_tool(cmd: &str) -> ToolDetectionResult {
+    let out = run_command(&format!("{} --version 2>&1", cmd), None);
+    let path_out = run_command(&format!("which {}", cmd), None).stdout.trim().to_string();
+    if out.success {
+        let version = out.stdout.lines().next().map(|s| s.trim().to_string());
+        ToolDetectionResult {
+            available: true,
+            version,
+            path: if path_out.is_empty() { None } else { Some(path_out) },
+        }
+    } else {
+        ToolDetectionResult { available: false, version: None, path: None }
+    }
+}
+
 pub fn detect_tool_paths_impl() -> ToolPaths {
+    use std::thread;
+    // 6 个 which 命令并行执行，替代串行
+    let (mvn, java, node, npm, pnpm, yarn) = thread::scope(|s| {
+        let m = s.spawn(|| strip_bin(&find_path("mvn")));
+        let j = s.spawn(|| strip_bin(&find_path("java")));
+        let n = s.spawn(|| strip_bin(&find_path("node")));
+        let np = s.spawn(|| find_path("npm"));
+        let pn = s.spawn(|| find_path("pnpm"));
+        let ya = s.spawn(|| find_path("yarn"));
+        (m.join().unwrap(), j.join().unwrap(), n.join().unwrap(),
+         np.join().unwrap(), pn.join().unwrap(), ya.join().unwrap())
+    });
     ToolPaths {
-        maven_home: strip_bin(&find_path("mvn")),
-        java_home: strip_bin(&find_path("java")),
-        node_home: strip_bin(&find_path("node")),
-        npm_home: find_path("npm"),
-        pnpm_home: find_path("pnpm"),
-        yarn_home: find_path("yarn"),
+        maven_home: mvn,
+        java_home: java,
+        node_home: node,
+        npm_home: npm,
+        pnpm_home: pnpm,
+        yarn_home: yarn,
     }
 }
 
@@ -204,6 +228,18 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
 // 从 tailwind-migration 分支的 tauri/src/commands/cicd.rs 下沉到 core，供 CLI/GPUI 共用。
 // 用途：给定项目路径，返回 Maven <modules>/子目录 pom.xml/NPM package.json 的模块树。
 
+/// 模块扫描时跳过的目录名（Maven/NPM 共用，保持一致）。
+const SCAN_SKIP_DIRS: &[&str] = &[
+    "node_modules", "target", "dist", "build", ".git", ".idea", ".vscode",
+    "doc", "docs", "coverage", "test", "tests", "__pycache__", ".next", ".nuxt",
+];
+
+/// Maven `<modules>` 嵌套扫描最大深度。
+const MAX_MAVEN_MODULE_DEPTH: u8 = 3;
+
+/// `scan_subdirs_for_maven` 向下搜索 pom.xml 的最大层数。
+const MAX_SUBDIR_SCAN_DEPTH: u8 = 2;
+
 /// 扫描项目模块树。返回 `{"success": bool, "modules": [...], "error"?: "..."}`。
 ///
 /// 优先级：
@@ -221,7 +257,7 @@ pub fn scan_project_modules(project_path: &str) -> serde_json::Value {
     let mut modules = scan_maven_modules_recursive(path, path, 0);
 
     if modules.is_empty() {
-        modules = scan_subdirs_for_maven(path, path, 2);
+        modules = scan_subdirs_for_maven(path, path, MAX_SUBDIR_SCAN_DEPTH);
     }
 
     let modules = if modules.is_empty() {
@@ -254,13 +290,12 @@ fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) 
     use std::fs;
     if max_depth == 0 { return vec![]; }
     let mut modules = Vec::new();
-    let skip_dirs = ["node_modules", "target", "dist", ".git", ".idea", "doc", "docs"];
     if let Ok(entries) = fs::read_dir(current_path) {
         for entry in entries.flatten() {
             if let Ok(ft) = entry.file_type() {
                 if !ft.is_dir() { continue; }
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with('.') || skip_dirs.contains(&name.as_str()) { continue; }
+                if name.starts_with('.') || SCAN_SKIP_DIRS.contains(&name.as_str()) { continue; }
                 let sub_path = entry.path();
                 if sub_path.join("pom.xml").exists() {
                     let sub_modules = scan_maven_modules_recursive(root_path, &sub_path, 0);
@@ -294,7 +329,7 @@ fn scan_subdirs_for_maven(root_path: &Path, current_path: &Path, max_depth: u8) 
 
 fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -> Vec<serde_json::Value> {
     use std::fs;
-    if depth > 3 { return vec![]; }
+    if depth > MAX_MAVEN_MODULE_DEPTH { return vec![]; }
     let pom_path = base_path.join("pom.xml");
     if !pom_path.exists() { return vec![]; }
     let pom = match fs::read_to_string(&pom_path) {
@@ -361,7 +396,6 @@ fn scan_maven_modules_recursive(root_path: &Path, base_path: &Path, depth: u8) -
 fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
     use std::fs;
     let mut modules: Vec<serde_json::Value> = Vec::new();
-    let skip_dirs = ["node_modules", "target", "dist", ".git", "coverage"];
     if let Ok(entries) = fs::read_dir(base_path) {
         for entry in entries.flatten() {
             if let Ok(ft) = entry.file_type() {
@@ -370,7 +404,7 @@ fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
                     Ok(n) => n,
                     Err(_) => continue,
                 };
-                if skip_dirs.contains(&name.as_str()) || name.starts_with('.') { continue; }
+                if SCAN_SKIP_DIRS.contains(&name.as_str()) || name.starts_with('.') { continue; }
                 let pkg_json = entry.path().join("package.json");
                 if !pkg_json.exists() { continue; }
                 let mod_path = format!("./{}", name);
@@ -407,7 +441,12 @@ fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
 /// }
 /// ```
 pub fn detect_sdk_versions_impl() -> serde_json::Value {
-    let tools = detect_tools_impl();
+    detect_sdk_versions_with_tools(None)
+}
+
+/// 带 tools 参数的 SDK 版本检测，避免与 detect_tools_impl 重复执行 shell 命令
+pub fn detect_sdk_versions_with_tools(tools: Option<HashMap<String, ToolDetectionResult>>) -> serde_json::Value {
+    let tools = tools.unwrap_or_else(detect_tools_impl);
 
     // ── SDKMAN ──
     let home = std::env::var("HOME").unwrap_or_default();

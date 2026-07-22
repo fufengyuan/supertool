@@ -15,8 +15,8 @@
       </span>
 
       <!-- Name & path -->
-      <span class="font-semibold text-xs text-base-content min-w-[100px] flex-shrink-0">{{ node.name }}</span>
-      <span v-if="node.path && node.path !== '.'" class="font-mono text-[11px] text-base-content/60 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{{ node.path }}</span>
+      <span class="font-semibold text-xs text-base-content min-w-[100px] flex-shrink-0" :title="node.name">{{ node.name }}</span>
+      <span v-if="node.path && node.path !== '.'" class="font-mono text-[11px] text-base-content/60 flex-1 overflow-hidden text-ellipsis whitespace-nowrap" :title="node.path">{{ node.path }}</span>
 
       <!-- Add button -->
       <button
