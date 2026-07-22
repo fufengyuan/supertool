@@ -1,63 +1,60 @@
 <template>
-  <div class="max-w-[700px]">
-    <h3 class="text-lg font-bold text-base-content mb-5"><SvgIcon name="file" size="14" class="align-text-bottom" /> BASE64 编码/解码</h3>
+  <div class="flex flex-col h-full">
+    <h3 class="text-lg font-bold text-base-content mb-4"><SvgIcon name="file" size="14" class="align-text-bottom" /> BASE64 编码/解码</h3>
 
     <!-- Mode Toggle -->
-    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
-      <div>
-        <label class="text-xs font-medium text-base-content/60 mb-1 block">模式</label>
-        <div class="tool-btn-group">
-          <button
-            class="btn btn-ghost btn-sm"
-            :class="{ active: mode === 'encode' }"
-            @click="mode = 'encode'"
-          >编码</button>
-          <button
-            class="btn btn-ghost btn-sm"
-            :class="{ active: mode === 'decode' }"
-            @click="mode = 'decode'"
-          >解码</button>
+    <div class="flex flex-wrap gap-2.5 mb-4 items-center">
+      <label class="text-xs text-base-content/60">模式</label>
+      <div class="join">
+        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': mode === 'encode' }" @click="mode = 'encode'">编码</button>
+        <button class="btn btn-ghost join-item btn-sm" :class="{ 'btn-active': mode === 'decode' }" @click="mode = 'decode'">解码</button>
+      </div>
+
+      <label class="text-xs text-base-content/60 ml-2">URL-safe</label>
+      <input type="checkbox" v-model="urlSafe" class="toggle toggle-sm toggle-primary" />
+
+      <span v-if="parseError" class="text-error text-xs"><SvgIcon name="alertTriangle" size="14" class="align-text-bottom" /> {{ parseError }}</span>
+    </div>
+
+    <!-- Text Input/Output -->
+    <div class="grid grid-cols-2 gap-4 mb-4 flex-1 min-h-0">
+      <div class="flex flex-col">
+        <h4 class="text-sm font-semibold text-base-content mb-1.5">输入</h4>
+        <textarea
+          v-model="inputText"
+          class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[120px] resize-none"
+          :placeholder="mode === 'encode' ? '输入要编码的文本...' : '输入要解码的 Base64...'"
+        ></textarea>
+      </div>
+      <div class="flex flex-col">
+        <div class="flex items-center justify-between mb-1.5">
+          <h4 class="text-sm font-semibold text-base-content">输出</h4>
+          <div class="flex gap-1.5">
+            <button class="btn btn-ghost btn-xs" @click="copyResult" :disabled="!outputText">复制</button>
+            <button class="btn btn-ghost btn-xs" @click="useAsInput" :disabled="!outputText">→ 输入</button>
+          </div>
         </div>
+        <textarea v-model="outputText" class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[120px] resize-none" readonly placeholder="结果将显示在这里..."></textarea>
       </div>
     </div>
 
-    <!-- Text Input -->
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入</label>
-      <textarea
-        v-model="inputText"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
-        :placeholder="mode === 'encode' ? '输入要编码的文本...' : '输入要解码的 Base64...'"
-      ></textarea>
-    </div>
-
-    <div class="flex gap-2.5 mb-3 flex-wrap items-center">
-      <button class="btn btn-primary btn-sm" @click="process">
-        {{ mode === 'encode' ? '编码' : '解码' }}
-      </button>
-      <button class="btn btn-ghost btn-sm" @click="copyResult">复制结果</button>
+    <div class="flex gap-2.5 mb-4">
       <button class="btn btn-ghost btn-sm" @click="clearAll">清空</button>
+      <button class="btn btn-ghost btn-sm" @click="swapMode" :disabled="!inputText">⇄ 切换编/解码</button>
     </div>
 
-    <!-- Output -->
-    <div class="mb-5">
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输出</label>
-      <div class="mt-2.5 p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[300px] overflow-y-auto">{{ outputText || '结果将显示在这里...' }}</div>
-    </div>
-
-    <hr class="border-t border-base-content/10 my-5" />
+    <hr class="border-t border-base-content/10 my-3" />
 
     <!-- File Encoding -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文件编码</h4>
-      <input type="file" ref="fileInput" @change="handleFile" class="tool-file-input" />
-      <div v-if="fileBase64" class="file-result">
-        <div class="file-info">
-          <span class="file-name">{{ fileName }}</span>
-          <span class="file-size">{{ fileSize }}</span>
+    <div class="mb-4">
+      <h4 class="text-sm font-semibold text-base-content mb-2 flex items-center gap-1.5">文件编码</h4>
+      <input type="file" ref="fileInput" @change="handleFile" class="file-input file-input-bordered file-input-sm w-full max-w-xs" />
+      <div v-if="fileBase64" class="mt-2">
+        <div class="text-xs text-base-content/60 mb-1">
+          <span class="font-mono">{{ fileName }}</span> ({{ fileSize }})
         </div>
-        <div class="tool-result file-base64">{{ fileBase64 }}</div>
-        <div class="flex gap-2.5 mb-3 flex-wrap items-center" style="margin-top: 8px;">
+        <div class="p-2.5 bg-base-200 border border-base-content/10 rounded-lg font-mono text-xs whitespace-pre-wrap break-all max-h-[200px] overflow-y-auto">{{ fileBase64 }}</div>
+        <div class="flex gap-2 mt-2">
           <button class="btn btn-ghost btn-sm" @click="copyFileBase64">复制 Base64</button>
           <button class="btn btn-ghost btn-sm" @click="downloadBase64File">下载文件</button>
         </div>
@@ -66,20 +63,16 @@
     </div>
 
     <!-- File Decode (Base64 → File) -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文件解码</h4>
-      <label class="text-xs font-medium text-base-content/60 mb-1 block">输入 Base64 字符串</label>
+    <div class="mb-4">
+      <h4 class="text-sm font-semibold text-base-content mb-2 flex items-center gap-1.5">文件解码</h4>
       <textarea
         v-model="fileDecodeInput"
-        class="textarea textarea-bordered w-full min-h-[120px] font-mono text-xs"
+        class="textarea textarea-bordered w-full font-mono text-xs min-h-[80px] mb-2"
         placeholder="粘贴 Base64 字符串..."
       ></textarea>
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center" style="margin-top: 8px;">
-        <button class="btn btn-primary btn-sm" @click="decodeFile">解码并下载</button>
-      </div>
-      <div class="flex gap-2.5 mb-3 flex-wrap items-center" style="margin-top: 4px;">
-        <label class="text-xs font-medium text-base-content/60 mb-1 block">文件名</label>
-        <input v-model="decodeFileName" class="input input-bordered w-full font-mono text-xs" placeholder="decoded_file.txt" style="max-width: 300px;" />
+      <div class="flex gap-2 items-center">
+        <input v-model="decodeFileName" class="input input-bordered font-mono text-xs" placeholder="decoded_file.txt" style="max-width: 240px;" />
+        <button class="btn btn-primary btn-sm" @click="decodeFile" :disabled="!fileDecodeInput.trim()">解码并下载</button>
       </div>
     </div>
   </div>
@@ -87,15 +80,70 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref } from 'vue'
-import { copyText, downloadFile, readFileAsArrayBuffer } from '../toolUtils'
+import { ref, computed } from 'vue'
+import { copyText, readFileAsArrayBuffer } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
 
 const toast = useToast()
 
 const mode = ref<'encode' | 'decode'>('encode')
+const urlSafe = ref(false)
 const inputText = ref('')
-const outputText = ref('')
+
+const result = computed<{ output: string; error: string }>(() => {
+  const input = inputText.value.trim()
+  if (!input) {
+    return { output: '', error: '' }
+  }
+
+  try {
+    if (mode.value === 'encode') {
+      const encoded = btoa(unescape(encodeURIComponent(inputText.value)))
+      return {
+        output: urlSafe.value ? encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : encoded,
+        error: '',
+      }
+    } else {
+      let str = input
+      if (urlSafe.value) {
+        str = str.replace(/-/g, '+').replace(/_/g, '/')
+        // 补齐 padding
+        const pad = str.length % 4
+        if (pad) {str += '='.repeat(4 - pad)}
+      }
+      return { output: decodeURIComponent(escape(atob(str))), error: '' }
+    }
+  } catch (e: any) {
+    return { output: '', error: `${mode.value === 'encode' ? '编码' : '解码'}失败: ${e.message}` }
+  }
+})
+
+const outputText = computed(() => result.value.output)
+const parseError = computed(() => result.value.error)
+
+function copyResult() {
+  if (!outputText.value) {
+    toast.warning('没有可复制的结果')
+    return
+  }
+  copyText(outputText.value, toast)
+}
+
+function useAsInput() {
+  if (!outputText.value) {return}
+  inputText.value = outputText.value
+}
+
+function swapMode() {
+  if (outputText.value) {
+    inputText.value = outputText.value
+  }
+  mode.value = mode.value === 'encode' ? 'decode' : 'encode'
+}
+
+function clearAll() {
+  inputText.value = ''
+}
 
 // File encoding
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -107,37 +155,6 @@ const fileProcessing = ref(false)
 // File decoding
 const fileDecodeInput = ref('')
 const decodeFileName = ref('decoded_file')
-
-function process() {
-  if (!inputText.value.trim()) {
-    toast.warning('请输入文本')
-    return
-  }
-
-  try {
-    if (mode.value === 'encode') {
-      outputText.value = btoa(unescape(encodeURIComponent(inputText.value)))
-    } else {
-      outputText.value = decodeURIComponent(escape(atob(inputText.value.trim())))
-    }
-  } catch (e: any) {
-    toast.error(`${mode.value === 'encode' ? '编码' : '解码'}失败: ${e.message}`)
-    outputText.value = ''
-  }
-}
-
-function copyResult() {
-  if (!outputText.value) {
-    toast.warning('没有可复制的结果')
-    return
-  }
-  copyText(outputText.value, toast)
-}
-
-function clearAll() {
-  inputText.value = ''
-  outputText.value = ''
-}
 
 async function handleFile(event: Event) {
   const input = event.target as HTMLInputElement
@@ -153,8 +170,9 @@ async function handleFile(event: Event) {
     const buffer = await readFileAsArrayBuffer(file)
     const binary = new Uint8Array(buffer)
     let binaryString = ''
-    for (let i = 0; i < binary.length; i++) {
-      binaryString += String.fromCharCode(binary[i])
+    const chunkSize = 8192
+    for (let i = 0; i < binary.length; i += chunkSize) {
+      binaryString += String.fromCharCode.apply(null, Array.from(binary.subarray(i, i + chunkSize)) as unknown as number[])
     }
     fileBase64.value = btoa(binaryString)
   } catch (e: any) {
@@ -203,7 +221,13 @@ function decodeFile() {
   }
 
   try {
-    const binary = atob(fileDecodeInput.value.trim())
+    let str = fileDecodeInput.value.trim()
+    if (urlSafe.value) {
+      str = str.replace(/-/g, '+').replace(/_/g, '/')
+      const pad = str.length % 4
+      if (pad) {str += '='.repeat(4 - pad)}
+    }
+    const binary = atob(str)
     const bytes = new Uint8Array(binary.length)
     for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i)

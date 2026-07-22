@@ -73,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'// @ts-nocheck
+import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref } from 'vue'
 import CryptoJS from 'crypto-js'
 import { sm3 } from 'sm-crypto'
@@ -150,15 +150,17 @@ async function handleFileHash(event: Event) {
 
   try {
     const buffer = await readFileAsArrayBuffer(file)
-    const wordArray = CryptoJS.lib.WordArray.create(new Uint8Array(buffer))
+    const bytes = new Uint8Array(buffer)
+    const wordArray = CryptoJS.lib.WordArray.create(bytes)
+    // sm-crypto 的 sm3 接受 Array<number>，避免 TextDecoder 破坏二进制数据
+    const byteArray = Array.from(bytes)
 
-    const sm3Text = new TextDecoder().decode(new Uint8Array(buffer))
     fileHashResults.value = {
       MD5: CryptoJS.MD5(wordArray).toString(),
       SHA1: CryptoJS.SHA1(wordArray).toString(),
       SHA256: CryptoJS.SHA256(wordArray).toString(),
       SHA512: CryptoJS.SHA512(wordArray).toString(),
-      SM3: sm3(sm3Text),
+      SM3: sm3(byteArray),
     }
   } catch (e: any) {
     toast.error(`文件哈希计算失败: ${e.message}`)

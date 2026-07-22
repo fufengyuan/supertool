@@ -1,101 +1,109 @@
 <template>
-  <div>
-    <h3 class="text-lg font-bold text-base-content mb-5">文本处理</h3>
+  <div class="flex flex-col h-full">
+    <h3 class="text-lg font-bold text-base-content mb-4">文本处理</h3>
 
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">输入文本</h4>
-      <textarea v-model="input" class="textarea textarea-bordered w-full font-mono text-sm min-h-[120px]" placeholder="在此输入文本..." rows="6"></textarea>
+    <div class="grid grid-cols-2 gap-4 mb-4 flex-1 min-h-0">
+      <div class="flex flex-col">
+        <h4 class="text-sm font-semibold text-base-content mb-1.5">输入</h4>
+        <textarea v-model="input" class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[160px] resize-none" placeholder="在此输入文本..." rows="8"></textarea>
+      </div>
+      <div class="flex flex-col">
+        <div class="flex items-center justify-between mb-1.5">
+          <h4 class="text-sm font-semibold text-base-content">输出</h4>
+          <div class="flex gap-1.5">
+            <button class="btn btn-ghost btn-xs" @click="copyOutput" :disabled="!output" title="复制输出">复制</button>
+            <button class="btn btn-ghost btn-xs" @click="useAsInput" :disabled="!output" title="将输出移至输入">→ 输入</button>
+            <button class="btn btn-ghost btn-xs" @click="output = ''" :disabled="!output">清空输出</button>
+          </div>
+        </div>
+        <textarea v-model="output" class="textarea textarea-bordered w-full font-mono text-sm flex-1 min-h-[160px] resize-none" readonly placeholder="转换结果将显示在这里..."></textarea>
+      </div>
     </div>
 
     <!-- Case Conversion -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">大小写转换</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <button class="btn btn-ghost" @click="toUpper" :disabled="!input">大写 UPPER</button>
-        <button class="btn btn-ghost" @click="toLower" :disabled="!input">小写 lower</button>
-        <button class="btn btn-ghost" @click="toTitleCase" :disabled="!input">首字母大写</button>
-        <button class="btn btn-ghost" @click="toCamelCase" :disabled="!input">驼峰式</button>
-        <button class="btn btn-ghost" @click="toSnakeCase" :disabled="!input">蛇形命名</button>
-        <button class="btn btn-ghost" @click="toSentenceCase" :disabled="!input">句子首字母大写</button>
-        <button class="btn btn-ghost" @click="toAlternatingCase" :disabled="!input">交替大小写</button>
-        <button class="btn btn-ghost" @click="toInverseCase" :disabled="!input">反转大小写</button>
+    <div class="mb-3">
+      <h4 class="text-xs font-semibold text-base-content/60 mb-1.5">大小写转换</h4>
+      <div class="flex flex-wrap gap-1.5">
+        <button class="btn btn-ghost btn-sm" @click="toUpper" :disabled="!input">大写 UPPER</button>
+        <button class="btn btn-ghost btn-sm" @click="toLower" :disabled="!input">小写 lower</button>
+        <button class="btn btn-ghost btn-sm" @click="toTitleCase" :disabled="!input">首字母大写</button>
+        <button class="btn btn-ghost btn-sm" @click="toCamelCase" :disabled="!input">驼峰式</button>
+        <button class="btn btn-ghost btn-sm" @click="toSnakeCase" :disabled="!input">蛇形命名</button>
+        <button class="btn btn-ghost btn-sm" @click="toSentenceCase" :disabled="!input">句子首字母大写</button>
+        <button class="btn btn-ghost btn-sm" @click="toAlternatingCase" :disabled="!input">交替大小写</button>
+        <button class="btn btn-ghost btn-sm" @click="toInverseCase" :disabled="!input">反转大小写</button>
       </div>
     </div>
 
     <!-- Punctuation -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">标点符号转换</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <button class="btn btn-ghost" @click="cnToEnPunct" :disabled="!input">中文标点 → 英文</button>
-        <button class="btn btn-ghost" @click="enToCnPunct" :disabled="!input">英文标点 → 中文</button>
+    <div class="mb-3">
+      <h4 class="text-xs font-semibold text-base-content/60 mb-1.5">标点符号转换</h4>
+      <div class="flex flex-wrap gap-1.5">
+        <button class="btn btn-ghost btn-sm" @click="cnToEnPunct" :disabled="!input">中文标点 → 英文</button>
+        <button class="btn btn-ghost btn-sm" @click="enToCnPunct" :disabled="!input">英文标点 → 中文</button>
       </div>
     </div>
 
     <!-- Text Operations -->
-    <div class="mb-5">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本操作</h4>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <button class="btn btn-ghost" @click="dedupLines" :disabled="!input">行去重</button>
-        <button class="btn btn-ghost" @click="sortLines" :disabled="!input">字母排序</button>
-        <button class="btn btn-ghost" @click="sortLinesReverse" :disabled="!input">逆序排序</button>
-        <button class="btn btn-ghost" @click="sortLinesRandom" :disabled="!input">随机排序</button>
-        <button class="btn btn-ghost" @click="sortLinesByLength" :disabled="!input">按长度排序</button>
+    <div class="mb-3">
+      <h4 class="text-xs font-semibold text-base-content/60 mb-1.5">文本操作</h4>
+      <div class="flex flex-wrap gap-1.5 mb-1.5">
+        <button class="btn btn-ghost btn-sm" @click="dedupLines" :disabled="!input">行去重</button>
+        <button class="btn btn-ghost btn-sm" @click="sortLines" :disabled="!input">字母排序</button>
+        <button class="btn btn-ghost btn-sm" @click="sortLinesReverse" :disabled="!input">逆序排序</button>
+        <button class="btn btn-ghost btn-sm" @click="sortLinesRandom" :disabled="!input">随机排序</button>
+        <button class="btn btn-ghost btn-sm" @click="sortLinesByLength" :disabled="!input">按长度排序</button>
       </div>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <button class="btn btn-ghost" @click="trimLines" :disabled="!input">去除首尾空格</button>
-        <button class="btn btn-ghost" @click="removeEmptyLines" :disabled="!input">删除空行</button>
-        <button class="btn btn-ghost" @click="addLineNumbers" :disabled="!input">添加行号</button>
-        <button class="btn btn-ghost" @click="removeLineNumbers" :disabled="!input">删除行号</button>
-        <button class="btn btn-ghost" @click="reverseText" :disabled="!input">文本反转</button>
-        <button class="btn btn-ghost" @click="reverseLines" :disabled="!input">行序反转</button>
+      <div class="flex flex-wrap gap-1.5 mb-1.5">
+        <button class="btn btn-ghost btn-sm" @click="trimLines" :disabled="!input">去除首尾空格</button>
+        <button class="btn btn-ghost btn-sm" @click="removeEmptyLines" :disabled="!input">删除空行</button>
+        <button class="btn btn-ghost btn-sm" @click="addLineNumbers" :disabled="!input">添加行号</button>
+        <button class="btn btn-ghost btn-sm" @click="removeLineNumbers" :disabled="!input">删除行号</button>
+        <button class="btn btn-ghost btn-sm" @click="reverseText" :disabled="!input">文本反转</button>
+        <button class="btn btn-ghost btn-sm" @click="reverseLines" :disabled="!input">行序反转</button>
       </div>
-      <div class="flex flex-wrap gap-2.5 mb-3">
-        <button class="btn btn-ghost" @click="mergeLines" :disabled="!input">合并为单行</button>
-        <button class="btn btn-ghost" @click="splitByComma" :disabled="!input">逗号分行</button>
-        <button class="btn btn-ghost" @click="uniqueWords" :disabled="!input">词去重</button>
+      <div class="flex flex-wrap gap-1.5">
+        <button class="btn btn-ghost btn-sm" @click="mergeLines" :disabled="!input">合并为单行</button>
+        <button class="btn btn-ghost btn-sm" @click="splitByComma" :disabled="!input">逗号分行</button>
+        <button class="btn btn-ghost btn-sm" @click="uniqueWords" :disabled="!input">词去重</button>
       </div>
     </div>
 
-    <div class="flex flex-wrap gap-2.5 mb-3">
-      <button class="btn btn-primary" @click="copyOutput" :disabled="!input">复制结果</button>
-      <button class="btn btn-ghost" @click="clearAll">清空</button>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <button class="btn btn-ghost btn-sm" @click="clearAll">全部清空</button>
     </div>
 
     <!-- Statistics -->
-    <div class="mb-5" v-if="stats">
-      <h4 class="text-sm font-semibold text-base-content mb-2.5 flex items-center gap-1.5">文本统计</h4>
-      <div class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-3 bg-base-200 border border-base-content/10 rounded-box">
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.chars }}</span>
-          <span class="text-xs opacity-60">字符数</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.noSpaceChars }}</span>
-          <span class="text-xs opacity-60">无空格字符</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.words }}</span>
-          <span class="text-xs opacity-60">单词数</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.lines }}</span>
-          <span class="text-xs opacity-60">行数</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.bytes }}</span>
-          <span class="text-xs opacity-60">字节数</span>
-        </div>
-        <div class="flex flex-col items-center gap-1">
-          <span class="text-xl font-bold text-primary">{{ stats.chineseChars }}</span>
-          <span class="text-xs opacity-60">中文字符</span>
-        </div>
+    <div v-if="stats" class="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-3 p-3 bg-base-200 border border-base-content/10 rounded-box">
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.chars }}</span>
+        <span class="text-xs opacity-60">字符数</span>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.noSpaceChars }}</span>
+        <span class="text-xs opacity-60">无空格字符</span>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.words }}</span>
+        <span class="text-xs opacity-60">单词数</span>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.lines }}</span>
+        <span class="text-xs opacity-60">行数</span>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.bytes }}</span>
+        <span class="text-xs opacity-60">字节数</span>
+      </div>
+      <div class="flex flex-col items-center gap-1">
+        <span class="text-xl font-bold text-primary">{{ stats.chineseChars }}</span>
+        <span class="text-xs opacity-60">中文字符</span>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import SvgIcon from '@/components/ui/SvgIcon.vue'
 import { ref, computed } from 'vue'
 import { copyText } from '../toolUtils'
 import { useToast } from '@/composables/useToast'
@@ -103,13 +111,14 @@ import { useToast } from '@/composables/useToast'
 const toast = useToast()
 
 const input = ref('')
+const output = ref('')
 
 function transform(fn: (text: string) => string) {
   if (!input.value.trim()) {
     toast.warning('请输入文本')
     return
   }
-  input.value = fn(input.value)
+  output.value = fn(input.value)
 }
 
 /* ─── Case Conversion ─── */
@@ -170,8 +179,8 @@ function toInverseCase() {
 /* ─── Punctuation ─── */
 const cnPunctMap: [RegExp, string][] = [
   [/，/g, ','], [/。/g, '.'], [/！/g, '!'], [/？/g, '?'],
-  [/；/g, ';'], [/：/g, ':'], [/"'/g, '"'], [/"'/g, '"'],
-  [/'/g, "'"], [/'/g, "'"], [/（/g, '('], [/）/g, ')'],
+  [/；/g, ';'], [/：/g, ':'], [/“/g, '"'], [/”/g, '"'],
+  [/‘/g, "'"], [/’/g, "'"], [/（/g, '('], [/）/g, ')'],
   [/【/g, '['], [/】/g, ']'], [/《/g, '<'], [/》/g, '>'],
   [/……/g, '...'], [/—/g, '-'], [/·/g, '.'],
 ]
@@ -292,11 +301,18 @@ const stats = computed(() => {
 })
 
 async function copyOutput() {
-  if (!input.value) {return}
-  await copyText(input.value, toast)
+  if (!output.value) {return}
+  await copyText(output.value, toast)
+}
+
+function useAsInput() {
+  if (!output.value) {return}
+  input.value = output.value
+  output.value = ''
 }
 
 function clearAll() {
   input.value = ''
+  output.value = ''
 }
 </script>
