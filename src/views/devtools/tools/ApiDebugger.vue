@@ -199,6 +199,9 @@
             </span>
             <span class="text-xs text-base-content/60"><SvgIcon name="clock" size="14" class="inline-block align-text-bottom" /> {{ response.time }}ms</span>
             <span class="text-xs text-base-content/60"><SvgIcon name="package" size="14" class="inline-block align-text-bottom" /> {{ formatSize(response.size) }}</span>
+            <button class="btn btn-ghost btn-xs" @click="copyResponse" title="复制响应体">
+              <SvgIcon name="copy" size="12" /> 复制
+            </button>
           </div>
         </div>
         <div class="tabs tabs-bordered border-b-0 px-3 pt-1">
@@ -231,8 +234,11 @@
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getTauriAPI } from '../../../utils/tauri-api'
+import { useToast } from '@/composables/useToast'
+
+const toast = useToast()
 
 // ─── Types ───
 interface SavedRequest {
@@ -755,18 +761,33 @@ function classifyContentType(value: string): string {
 }
 
 // ─── Lifecycle ───
+function handleKeyDown(e: KeyboardEvent) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    e.preventDefault()
+    saveCurrentRequest()
+  }
+}
+
+async function copyResponse() {
+  if (!response.value) return
+  const text = formatResponseBody.value || response.value.body
+  try {
+    await navigator.clipboard.writeText(text)
+    toast.success('已复制响应')
+  } catch {
+    toast.error('复制失败')
+  }
+}
+
 onMounted(async () => {
   await loadRequests()
   if (savedRequests.value.length > 0) {
     loadRequest(savedRequests.value[0])
   }
+  document.addEventListener('keydown', handleKeyDown)
+})
 
-  // Ctrl+S / Cmd+S 快捷键保存
-  document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault()
-      saveCurrentRequest()
-    }
-  })
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeyDown)
 })
 </script>
