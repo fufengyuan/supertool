@@ -8,6 +8,8 @@ use supertool_core::logic::CoreService;
 use supertool_core::logic::cicd_deploy::{
     self, DeployConfig, DeployModuleConfig, DeployServerConfig,
 };
+// 从 core 复用类型和工具函数，避免重复定义
+use supertool_core::logic::cicd_tools::{ToolDetectionResult, ToolPaths, run_command};
 use tauri::{Emitter, State};
 
 // 部署取消状态管理：cancel_deploy 将 deploy_id 加入此集合，deploy 任务检查后提前退出
@@ -22,29 +24,6 @@ fn is_deploy_cancelled(deploy_id: &str) -> bool {
 }
 
 // =================== Types ===================
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ToolDetectionResult {
-    pub available: bool,
-    pub version: Option<String>,
-    pub path: Option<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct ToolPaths {
-    #[serde(rename = "mavenHome")]
-    pub maven_home: String,
-    #[serde(rename = "javaHome")]
-    pub java_home: String,
-    #[serde(rename = "nodeHome")]
-    pub node_home: String,
-    #[serde(rename = "npmHome")]
-    pub npm_home: String,
-    #[serde(rename = "pnpmHome")]
-    pub pnpm_home: String,
-    #[serde(rename = "yarnHome")]
-    pub yarn_home: String,
-}
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProjectScanResult {
@@ -107,191 +86,29 @@ pub fn detect_sdk_versions() -> serde_json::Value {
 #[tauri::command(rename_all = "camelCase")]
 pub fn check_java(java_home: Option<String>) -> ToolDetectionResult {
     log::info!("[Tauri CMD] check_java() called, javaHome={:?}", java_home);
-    let cmd = if let Some(ref home) = java_home {
-        let java_path = if Path::new(home).is_file() || home.ends_with("/java") {
-            home.clone()
-        } else {
-            format!("{}/bin/java", home)
-        };
-        format!("{} -version", java_path)
-    } else {
-        "java -version".to_string()
-    };
-    let result = run_command(&cmd, None);
-    let mut version = None;
-    let mut available = false;
-    if result.success || !result.stderr.is_empty() {
-        // java -version outputs to stderr
-        let output = if !result.stderr.is_empty() {
-            &result.stderr
-        } else {
-            &result.stdout
-        };
-        if let Some(line) = output.lines().next() {
-            let ver_str = line.trim().to_string();
-            if !ver_str.is_empty() {
-                version = Some(ver_str);
-                available = true;
-            }
-        }
-    }
-    let path = run_command("which java", None).stdout.trim().to_string();
-    ToolDetectionResult {
-        available,
-        version,
-        path: if path.is_empty() { None } else { Some(path) },
-    }
+    supertool_core::logic::cicd_tools::check_java(java_home)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn check_maven(maven_home: Option<String>) -> ToolDetectionResult {
-    log::info!(
-        "[Tauri CMD] check_maven() called, mavenHome={:?}",
-        maven_home
-    );
-    let cmd = if let Some(ref home) = maven_home {
-        // 智能检测: 如果路径以 mvn 结尾(是二进制)则直接使用, 否则当作 MAVEN_HOME 拼接 /bin/mvn
-        let mvn_path = if Path::new(home).is_file() || home.ends_with("/mvn") {
-            home.clone()
-        } else {
-            format!("{}/bin/mvn", home)
-        };
-        format!("{} -version", mvn_path)
-    } else {
-        "mvn -version".to_string()
-    };
-    let result = run_command(&cmd, None);
-    let mut version = None;
-    let available = result.success;
-    if available {
-        version = result.stdout.lines().next().map(|s| s.trim().to_string());
-    }
-    let path = run_command("which mvn", None).stdout.trim().to_string();
-    ToolDetectionResult {
-        available,
-        version,
-        path: if path.is_empty() { None } else { Some(path) },
-    }
+    log::info!("[Tauri CMD] check_maven() called, mavenHome={:?}", maven_home);
+    supertool_core::logic::cicd_tools::check_maven(maven_home)
 }
 
 #[tauri::command(rename_all = "camelCase")]
 pub fn check_node(node_home: Option<String>) -> ToolDetectionResult {
     log::info!("[Tauri CMD] check_node() called, nodeHome={:?}", node_home);
-    let cmd = if let Some(ref home) = node_home {
-        let node_path = if Path::new(home).is_file() || home.ends_with("/node") {
-            home.clone()
-        } else {
-            format!("{}/bin/node", home)
-        };
-        format!("{} -v", node_path)
-    } else {
-        "node -v".to_string()
-    };
-    let result = run_command(&cmd, None);
-    let mut version = None;
-    let available = result.success;
-    if available {
-        version = result.stdout.lines().next().map(|s| s.trim().to_string());
-    }
-    let path = run_command("which node", None).stdout.trim().to_string();
-    ToolDetectionResult {
-        available,
-        version,
-        path: if path.is_empty() { None } else { Some(path) },
-    }
+    supertool_core::logic::cicd_tools::check_node(node_home)
 }
 
 // =================== Implementation Functions ===================
 
 pub fn detect_tools_impl() -> HashMap<String, ToolDetectionResult> {
-    let mut tools = HashMap::new();
-    let tool_list = [
-        ("mvn", "maven"),
-        ("npm", "npm"),
-        ("node", "node"),
-        ("java", "java"),
-        ("gradle", "gradle"),
-        ("pnpm", "pnpm"),
-        ("yarn", "yarn"),
-    ];
-    for (cmd, name) in &tool_list {
-        let result = run_command(&format!("{} --version", cmd), None);
-        if result.success {
-            let version = result.stdout.lines().next().map(|s| s.trim().to_string());
-            let path = run_command(&format!("which {}", cmd), None)
-                .stdout
-                .trim()
-                .to_string();
-            tools.insert(
-                name.to_string(),
-                ToolDetectionResult {
-                    available: true,
-                    version,
-                    path: if path.is_empty() { None } else { Some(path) },
-                },
-            );
-        } else {
-            tools.insert(
-                name.to_string(),
-                ToolDetectionResult {
-                    available: false,
-                    version: None,
-                    path: None,
-                },
-            );
-        }
-    }
-    if let Some(maven) = tools.get_mut("maven") {
-        if maven.available {
-            maven.path = find_maven_home();
-        }
-    }
-    tools
+    supertool_core::logic::cicd_tools::detect_tools_impl()
 }
 
 pub fn detect_tool_paths_impl() -> ToolPaths {
-    fn find_path(cmd: &str) -> String {
-        let which = run_command(&format!("which {}", cmd), None);
-        if !which.stdout.trim().is_empty() {
-            return which.stdout.trim().to_string();
-        }
-        let whereis = run_command(&format!("whereis {}", cmd), None);
-        let parts: Vec<&str> = whereis.stdout.trim().split_whitespace().collect();
-        if parts.len() > 1 {
-            return parts[1].to_string();
-        }
-        String::new()
-    }
-    fn strip_bin(bin_path: &str) -> String {
-        if let Some(pos) = bin_path.rfind("/bin/") {
-            if pos > 0 {
-                return bin_path[..pos].to_string();
-            }
-        }
-        bin_path.to_string()
-    }
-    let mvn_bin = find_path("mvn");
-    let java_bin = find_path("java");
-    let node_bin = find_path("node");
-    let npm_bin = find_path("npm");
-    let pnpm_bin = find_path("pnpm");
-    let yarn_bin = find_path("yarn");
-    ToolPaths {
-        maven_home: mvn_bin,
-        java_home: if java_bin.is_empty() {
-            String::new()
-        } else {
-            strip_bin(&java_bin)
-        },
-        node_home: if node_bin.is_empty() {
-            String::new()
-        } else {
-            strip_bin(&node_bin)
-        },
-        npm_home: npm_bin,
-        pnpm_home: pnpm_bin,
-        yarn_home: yarn_bin,
-    }
+    supertool_core::logic::cicd_tools::detect_tool_paths_impl()
 }
 
 pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
@@ -419,66 +236,6 @@ pub fn scan_project_impl(local_path: &str) -> ProjectScanResult {
         result.suggested_deploy_path = Some("/home/nginxWebUI/ui".to_string());
     }
     result
-}
-
-struct CommandOutput {
-    stdout: String,
-    stderr: String,
-    success: bool,
-}
-
-fn run_command(cmd: &str, cwd: Option<&str>) -> CommandOutput {
-    let mut parts = cmd.split_whitespace();
-    let program = parts.next().unwrap_or("");
-    let args: Vec<&str> = parts.collect();
-    // 使用 user_shell_cmd 获取用户完整 PATH（含 Homebrew/sdkman/nvm 等）
-    let mut command = std::process::Command::new("sh");
-    let full_cmd = if args.is_empty() {
-        program.to_string()
-    } else {
-        format!("{} {}", program, args.join(" "))
-    };
-    command.arg("-c").arg(&full_cmd);
-    // 注入用户 shell 环境变量
-    let shell_env = supertool_core::logic::cicd_deploy::get_shell_env_for_command();
-    for (key, value) in &shell_env {
-        command.env(key, value);
-    }
-    command.stdout(std::process::Stdio::piped());
-    command.stderr(std::process::Stdio::piped());
-    if let Some(dir) = cwd {
-        command.current_dir(dir);
-    }
-    match command.output() {
-        Ok(output) => CommandOutput {
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-            success: output.status.success(),
-        },
-        Err(_) => CommandOutput {
-            stdout: String::new(),
-            stderr: String::new(),
-            success: false,
-        },
-    }
-}
-
-fn find_maven_home() -> Option<String> {
-    let mvn_path = run_command("which mvn", None).stdout.trim().to_string();
-    if mvn_path.is_empty() {
-        return None;
-    }
-    let resolved = if let Ok(path) = fs::canonicalize(&mvn_path) {
-        path.to_string_lossy().to_string()
-    } else {
-        mvn_path
-    };
-    if let Some(pos) = resolved.rfind("/bin/mvn") {
-        if pos > 0 {
-            return Some(resolved[..pos].to_string());
-        }
-    }
-    Some(resolved)
 }
 
 // =================== CICD Config CRUD Commands ===================
@@ -1638,258 +1395,7 @@ pub async fn delete_deploy_module(
 #[tauri::command(rename_all = "camelCase")]
 pub async fn scan_project_modules(project_path: String) -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] scan_project_modules() called");
-    let path = Path::new(&project_path);
-    if !path.exists() {
-        return Ok(serde_json::json!({ "success": false, "modules": [], "error": "路径不存在" }));
-    }
-
-    let mut modules = scan_maven_modules_recursive(path, path, 0);
-
-    // If no Maven modules at root, scan up to 2 levels deeper for pom.xml
-    // (e.g., pre-pay-service/SRC/yudao/pom.xml is 2 levels deep)
-    if modules.is_empty() {
-        log::info!("[scan_project_modules] No pom.xml at root, scanning subdirectories...");
-        modules = scan_subdirs_for_maven(path, path, 2);
-        log::info!(
-            "[scan_project_modules] Found {} modules in subdirectories",
-            modules.len()
-        );
-    }
-
-    // If no Maven modules found, scan Node.js packages
-    let modules = if modules.is_empty() {
-        scan_npm_modules(path)
-    } else {
-        modules
-    };
-
-    // If still empty, try top-level package.json
-    let modules = if modules.is_empty() && path.join("package.json").exists() {
-        if let Ok(content) = fs::read_to_string(path.join("package.json")) {
-            if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(name) = pkg.get("name").and_then(|n| n.as_str()) {
-                    vec![serde_json::json!({
-                        "name": name,
-                        "path": ".",
-                        "type": "npm",
-                        "children": []
-                    })]
-                } else {
-                    vec![]
-                }
-            } else {
-                vec![]
-            }
-        } else {
-            vec![]
-        }
-    } else {
-        modules
-    };
-
-    Ok(serde_json::json!({ "success": true, "modules": modules }))
-}
-
-/// Scan subdirectories for pom.xml files (up to `max_depth` levels)
-/// Returns modules with correct relative paths from the original root
-fn scan_subdirs_for_maven(
-    root_path: &Path,
-    current_path: &Path,
-    max_depth: u8,
-) -> Vec<serde_json::Value> {
-    if max_depth == 0 {
-        return vec![];
-    }
-    let mut modules = Vec::new();
-    let skip_dirs = [
-        "node_modules",
-        "target",
-        "dist",
-        ".git",
-        ".idea",
-        "doc",
-        "docs",
-    ];
-    if let Ok(entries) = fs::read_dir(current_path) {
-        for entry in entries.flatten() {
-            if let Ok(ft) = entry.file_type() {
-                if !ft.is_dir() {
-                    continue;
-                }
-                let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with('.') || skip_dirs.contains(&name.as_str()) {
-                    continue;
-                }
-                let sub_path = entry.path();
-                if sub_path.join("pom.xml").exists() {
-                    log::info!("[scan_subdirs] Found pom.xml at {}", sub_path.display());
-                    let sub_modules = scan_maven_modules_recursive(root_path, &sub_path, 0);
-                    if !sub_modules.is_empty() {
-                        // Compute relative prefix from root to this subdirectory
-                        let rel_prefix = sub_path
-                            .strip_prefix(root_path)
-                            .map(|p| format!("./{}", p.to_string_lossy()))
-                            .unwrap_or_else(|_| format!("./{}", name));
-                        let prefixed: Vec<serde_json::Value> = sub_modules
-                            .into_iter()
-                            .map(|mut m| {
-                                if let Some(p) = m.get("path").and_then(|v| v.as_str()) {
-                                    let full_path = if p == "." {
-                                        rel_prefix.clone()
-                                    } else {
-                                        format!("{}/{}", rel_prefix, p.trim_start_matches("./"))
-                                    };
-                                    m["path"] = serde_json::json!(full_path);
-                                }
-                                m
-                            })
-                            .collect();
-                        modules.extend(prefixed);
-                    }
-                } else {
-                    // Go deeper
-                    let deeper = scan_subdirs_for_maven(root_path, &sub_path, max_depth - 1);
-                    modules.extend(deeper);
-                }
-            }
-        }
-    }
-    modules
-}
-
-/// Recursively scan Maven modules from a pom.xml, up to 3 levels deep
-fn scan_maven_modules_recursive(
-    root_path: &Path,
-    base_path: &Path,
-    depth: u8,
-) -> Vec<serde_json::Value> {
-    if depth > 3 {
-        return vec![];
-    }
-
-    let pom_path = base_path.join("pom.xml");
-    if !pom_path.exists() {
-        return vec![];
-    }
-
-    let pom = match fs::read_to_string(&pom_path) {
-        Ok(content) => content,
-        Err(_) => return vec![],
-    };
-
-    let mut modules: Vec<serde_json::Value> = Vec::new();
-
-    // Extract <modules> section
-    if let Ok(re) = regex::Regex::new(r"<modules>\s*([\s\S]*?)</modules>") {
-        if let Some(cap) = re.captures(&pom) {
-            let module_re = regex::Regex::new(r"<module>\s*([^<]+?)\s*</module>").unwrap();
-            let child_names: Vec<String> = module_re
-                .captures_iter(&cap[1])
-                .map(|c| c[1].trim().to_string())
-                .filter(|m| !m.is_empty())
-                .collect();
-
-            for mod_name in &child_names {
-                // Resolve module path relative to base_path
-                let mod_rel_path = if mod_name.starts_with("./") || mod_name.starts_with("../") {
-                    mod_name.clone()
-                } else {
-                    format!("./{}", mod_name)
-                };
-
-                // Compute absolute path for recursive scanning
-                let mod_abs_path = base_path.join(mod_name);
-
-                // Extract artifactId from child pom.xml
-                let artifact_id = if mod_abs_path.join("pom.xml").exists() {
-                    if let Ok(child_pom) = fs::read_to_string(mod_abs_path.join("pom.xml")) {
-                        regex::Regex::new(r"<artifactId>\s*([^<]+?)\s*</artifactId>")
-                            .ok()
-                            .and_then(|re| re.captures(&child_pom))
-                            .map(|c| c[1].trim().to_string())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                // Recursively scan for nested sub-modules
-                let children = scan_maven_modules_recursive(root_path, &mod_abs_path, depth + 1);
-
-                modules.push(serde_json::json!({
-                    "name": artifact_id.as_ref().unwrap_or(mod_name),
-                    "path": mod_rel_path,
-                    "type": "maven",
-                    "artifactId": artifact_id,
-                    "children": children
-                }));
-            }
-        }
-    }
-
-    // If no <modules> section, treat this pom as a single module (only at depth 0)
-    if modules.is_empty() && depth == 0 {
-        if let Some(cap) = regex::Regex::new(r"<artifactId>\s*([^<]+?)\s*</artifactId>")
-            .ok()
-            .and_then(|re| re.captures(&pom))
-        {
-            modules.push(serde_json::json!({
-                "name": &cap[1],
-                "path": ".",
-                "type": "maven",
-                "artifactId": &cap[1],
-                "children": []
-            }));
-        }
-    }
-
-    modules
-}
-
-/// Scan sub-directories for Node.js packages with package.json
-fn scan_npm_modules(base_path: &Path) -> Vec<serde_json::Value> {
-    let mut modules: Vec<serde_json::Value> = Vec::new();
-    let skip_dirs = ["node_modules", "target", "dist", ".git", "coverage"];
-
-    if let Ok(entries) = fs::read_dir(base_path) {
-        for entry in entries.flatten() {
-            if let Ok(ft) = entry.file_type() {
-                if ft.is_dir() {
-                    let name = match entry.file_name().into_string() {
-                        Ok(n) => n,
-                        Err(_) => continue,
-                    };
-                    if skip_dirs.contains(&name.as_str()) || name.starts_with('.') {
-                        continue;
-                    }
-                    let pkg_json = entry.path().join("package.json");
-                    if pkg_json.exists() {
-                        let mod_path = format!("./{}", name);
-                        if !modules
-                            .iter()
-                            .any(|m| m.get("path").and_then(|p| p.as_str()) == Some(&mod_path))
-                        {
-                            if let Ok(content) = fs::read_to_string(&pkg_json) {
-                                if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content)
-                                {
-                                    let pkg_name =
-                                        pkg.get("name").and_then(|n| n.as_str()).unwrap_or(&name);
-                                    modules.push(serde_json::json!({
-                                        "name": pkg_name,
-                                        "path": mod_path,
-                                        "type": "npm",
-                                        "children": []
-                                    }));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    modules
+    Ok(supertool_core::logic::cicd_tools::scan_project_modules(&project_path))
 }
 
 // =================== Missing Tauri Commands ===================
