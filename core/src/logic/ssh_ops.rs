@@ -183,7 +183,7 @@ impl super::CoreService {
         let content = self
             .run_ssh_with_retry(server_id, move |ssh| ssh.download_file_base64(&sid, &rp))
             .await?;
-        Ok(json!({"content": content}))
+        Ok(json!({"success": true, "content": content}))
     }
     pub async fn sftp_create_dir(
         &self,
