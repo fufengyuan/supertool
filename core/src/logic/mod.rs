@@ -564,7 +564,16 @@ impl CoreService {
     }
 
     pub async fn cicd_deploy(&self, config_id: &str) -> Result<Value, String> {
-        self.cicd_deploy_inner(config_id, None, None).await
+        self.cicd_deploy_inner(config_id, None, None, None).await
+    }
+
+    /// 部署并支持覆盖分支（CLI --branch / GUI 临时选分支）
+    pub async fn cicd_deploy_with_branch(
+        &self,
+        config_id: &str,
+        branch: Option<String>,
+    ) -> Result<Value, String> {
+        self.cicd_deploy_inner(config_id, None, None, branch).await
     }
 
     /// Deploy with a live event channel and a cancellation flag.
@@ -578,7 +587,7 @@ impl CoreService {
         event_tx: std::sync::mpsc::Sender<crate::logic::cicd_deploy::ProgressEvent>,
         cancel_flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
     ) -> Result<Value, String> {
-        self.cicd_deploy_inner(config_id, Some(event_tx), Some(cancel_flag)).await
+        self.cicd_deploy_inner(config_id, Some(event_tx), Some(cancel_flag), None).await
     }
 
     async fn cicd_deploy_inner(
@@ -586,6 +595,7 @@ impl CoreService {
         config_id: &str,
         event_tx: Option<std::sync::mpsc::Sender<crate::logic::cicd_deploy::ProgressEvent>>,
         cancel_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+        branch_override: Option<String>,
     ) -> Result<Value, String> {
         // Get CICD config from DB
         let cicd_config = self
@@ -730,6 +740,15 @@ impl CoreService {
                 && cicd_config.build_tool.as_deref() == Some("maven"),
             build_mode: cicd_config.build_mode.clone(),
         };
+
+        // 覆盖分支：CLI --branch / GUI 临时选分支，非空才覆盖
+        let mut deploy_config = deploy_config;
+        if let Some(ref b) = branch_override {
+            if !b.is_empty() {
+                log::info!("[deploy] overriding branch: {} -> {}", deploy_config.branch, b);
+                deploy_config.branch = b.clone();
+            }
+        }
 
         // Create deploy_id and deploy log
         let deploy_id = uuid::Uuid::new_v4().to_string();

@@ -1,11 +1,11 @@
 ---
 name: stool-cli
 category: devops
-description: SuperTool `stool` CLI v6.0.8 — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志、MFA、笔记、记账、周报、Nginx、备份。
+description: SuperTool `stool` CLI v6.5.0 — AI Agent 专属运维工具。直连 `supertool-core` 共享库，零 UDS/HTTP 依赖。支持服务器管理、CI/CD、数据库、Git、日志、MFA、笔记、记账、周报、Nginx、备份。
 trigger: 使用 stool 命令、排查 CLI 失败、添加新 CLI 命令、AI 运维操作
 ---
 
-# SuperTool `stool` CLI v6.0.8
+# SuperTool `stool` CLI v6.5.0
 
 > AI Agent 专属运维工具 —— 直连 `supertool-core` 共享库，零 UDS/HTTP 依赖，完全独立运行。
 
@@ -98,7 +98,7 @@ stool server java-restart <id> <jar名称> [--timeout 60]   # kill → 等待 �
 ```bash
 stool cicd list [-j]
 stool cicd status <project_id> [-j]
-stool cicd deploy <config_id> [--stream] [--watch]    # --watch: 轮询直到完成
+stool cicd deploy <config_id> [--stream] [--watch] [-b <分支>]    # -b/--branch 覆盖配置中的 deployBranch
 stool cicd history <config_id> [-l 20] [--status success|failed] [-j]
 stool cicd step-logs <deploy_log_id> [-j]
 stool cicd rollback <config_id> <deploy_log_id>
@@ -272,7 +272,8 @@ pnpm tauri build              # 产物在 target/release/bundle/
 
 ### 部署 → 验证 → 回滚
 ```bash
-stool cicd deploy my-config-id --stream
+stool cicd deploy my-config-id --stream                    # 用配置中的默认分支
+stool cicd deploy my-config-id --stream -b dev             # 临时用 dev 分支部署
 stool server health prod-server-id
 stool log search prod-logs "ERROR" -l 30
 stool server diagnose prod-server-id
@@ -362,5 +363,7 @@ cli/src/
 - `/usr/local/share/supertool/skills/<name>/SKILL.md`
 - `~/.hermes/skills/<name>/SKILL.md`
 - `~/.claw/skills/<name>/SKILL.md`
+- `~/.trae-cn/skills/<name>/SKILL.md`（Trae IDE）
+- `~/.supertool/skills` → 符号链接到 `/usr/local/share/supertool/skills`
 
 App 启动时 `cli_installer` 检测版本差异，通过 AppleScript 提权自动安装 `/usr/local/bin/stool`。
