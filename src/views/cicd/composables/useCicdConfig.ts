@@ -602,10 +602,11 @@ export function useCicdConfig() {
   async function loadBranches() {
     const repoPath = config.value.localPath || selectedGitRepo.value?.path;
     const gitUrl = config.value.repoUrl;
-    if (!repoPath && !gitUrl) {return;}
+    // 本地路径优先；没有本地路径时用远程 URL（后端通过 git ls-remote 拉取）
+    const path = repoPath || gitUrl;
+    if (!path) {return;}
     loadingBranches.value = true;
     try {
-      const path = repoPath || gitUrl;
       const branches = await getTauriAPI().getGitBranches(path);
       availableBranches.value = (branches?.branches || branches || []).map((b: any) => typeof b === 'string' ? b : b.name);
       if (config.value.deployBranch && !availableBranches.value.includes(config.value.deployBranch)) {

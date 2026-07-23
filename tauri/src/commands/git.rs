@@ -37,14 +37,39 @@ pub struct RepoValidationResult {
 // =================== Commands ===================
 
 /// Get all branches (local + remote) for a git repo
+/// 支持两种输入：
+/// - 本地仓库路径：用 `git branch -a` 在该目录下执行
+/// - 远程 URL（http(s)://、git://、git@host:、ssh://）：用 `git ls-remote --heads <url>` 拉取，无需本地目录
 #[tauri::command(rename_all = "camelCase")]
 pub fn get_git_branches(repo_path: String) -> Result<Vec<GitBranch>, String> {
-    log::info!("[Tauri CMD] get_git_branches() called");
-    let output = Command::new(supertool_core::logic::git::find_git())
-        .args(["branch", "-a"])
-        .current_dir(&repo_path)
-        .output()
-        .map_err(|e| format!("Failed to run git branch: {}", e))?;
+    log::info!("[Tauri CMD] get_git_branches() called, input={}", repo_path);
+
+    let is_remote_url = repo_path.starts_with("http://")
+        || repo_path.starts_with("https://")
+        || repo_path.starts_with("git://")
+        || repo_path.starts_with("git@")
+        || repo_path.starts_with("ssh://");
+
+    let git_bin = supertool_core::logic::git::find_git();
+
+    let output = if is_remote_url {
+        // 远程 URL：用 ls-remote 拉取分支，不需要本地目录
+        Command::new(&git_bin)
+            .args(["ls-remote", "--heads", &repo_path])
+            .output()
+            .map_err(|e| format!("Failed to run git ls-remote: {}", e))?
+    } else {
+        // 本地路径：在目录内执行 branch -a
+        let path = Path::new(&repo_path);
+        if !path.exists() {
+            return Err(format!("仓库路径不存在: {}", repo_path));
+        }
+        Command::new(&git_bin)
+            .args(["branch", "-a"])
+            .current_dir(&repo_path)
+            .output()
+            .map_err(|e| format!("Failed to run git branch: {}", e))?
+    };
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -52,11 +77,32 @@ pub fn get_git_branches(repo_path: String) -> Result<Vec<GitBranch>, String> {
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
+
+    // 解析两种格式：
+    // branch -a:   "* main" / "  remotes/origin/dev"
+    // ls-remote:   "<sha>\trefs/heads/<name>"
     let branches: Vec<GitBranch> = stdout
         .lines()
         .filter(|line| !line.trim().is_empty())
-        .map(|line| {
+        .filter_map(|line| {
             let trimmed = line.trim();
+            if is_remote_url {
+                // ls-remote 格式：<sha>\trefs/heads/<name>
+                if let Some((_sha, ref_name)) = trimmed.split_once('\t') {
+                    let name = ref_name
+                        .strip_prefix("refs/heads/")
+                        .unwrap_or(ref_name)
+                        .to_string();
+                    if name.is_empty() { return None; }
+                    return Some(GitBranch {
+                        name,
+                        is_current: false,
+                        is_remote: true,
+                    });
+                }
+                return None;
+            }
+            // branch -a 格式
             let is_current = trimmed.starts_with('*');
             let is_remote = trimmed.contains("remotes/");
             let name = if is_current {
@@ -64,11 +110,11 @@ pub fn get_git_branches(repo_path: String) -> Result<Vec<GitBranch>, String> {
             } else {
                 trimmed.to_string()
             };
-            GitBranch {
+            Some(GitBranch {
                 name,
                 is_current,
                 is_remote,
-            }
+            })
         })
         .collect();
 
