@@ -8,9 +8,6 @@
       }
     ]"
     v-if="peer"
-    @dragover.prevent="onDragOver"
-    @dragleave="onDragLeave"
-    @drop.prevent="onDrop"
     @paste="onPaste"
   >
     <!-- 拖拽遮罩 -->
@@ -84,6 +81,7 @@
 <script setup lang="ts">
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import ChatMessage from './ChatMessage.vue';
 import ChatInput from './ChatInput.vue';
@@ -113,7 +111,6 @@ const selectedFiles = ref(new Map<string, string>()); // 保存 fileId → 文�
 
 // 拖拽状态
 const isDragOver = ref(false);
-let dragCounter = 0;
 
 // 分页 & 无限滚动
 const PAGE_SIZE = 50;
@@ -335,28 +332,7 @@ function openFileFolder(message: any) {
   }
 }
 
-// 拖拽事件处理
-function onDragOver() {
-  dragCounter++;
-  isDragOver.value = true;
-}
-
-function onDragLeave() {
-  dragCounter--;
-  if (dragCounter <= 0) {
-    isDragOver.value = false;
-    dragCounter = 0;
-  }
-}
-
-async function onDrop(event: DragEvent) {
-  isDragOver.value = false;
-  dragCounter = 0;
-  // File paths are handled by the electron-file-drop custom event from preload.
-  // The renderer's dataTransfer.files don't have .path with contextIsolation: true.
-}
-
-// 拖拽文件处理（通过 preload 的 electron-file-drop 自定义事件获取真实路径）
+// 拖拽文件处理（通过 Tauri 原生 onDragDropEvent 获取真实文件路径）
 async function handleDroppedFiles(paths: string[]) {
   if (!props.peer) {return;}
   for (const filePath of paths) {
@@ -366,22 +342,20 @@ async function handleDroppedFiles(paths: string[]) {
   }
 }
 
-const onFileDrop = (e: Event) => {
-  handleDroppedFiles((e as CustomEvent<string[]>).detail)
-};
-
-// 粘贴处理（支持粘贴图片发送）
+// 粘贴处理（支持粘贴图片/文件发送）
 async function onPaste(e: ClipboardEvent) {
   const items = e.clipboardData?.items;
   if (!items) {return;}
 
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
-    if (item.type.indexOf('image') !== -1) {
+    if (item.kind === 'file') {
       const file = item.getAsFile();
       if (!file || !props.peer) {return;}
 
-      // Convert clipboard image to base64 and save via IPC
+      // 阻止文件名被当作文本插入输入框
+      e.preventDefault();
+
       try {
         const arrayBuffer = await file.arrayBuffer();
         const blob = new Blob([arrayBuffer]);
@@ -392,13 +366,18 @@ async function onPaste(e: ClipboardEvent) {
           reader.readAsDataURL(blob);
         });
         const base64 = dataUrl.split(',')[1];
-        const fileName = `pasted_image_${Date.now()}.png`;
+        // 保留原始文件名；图片无名称时按扩展名兜底
+        let fileName = file.name;
+        if (!fileName) {
+          const ext = file.type.split('/')[1] || 'png';
+          fileName = `pasted_${Date.now()}.${ext}`;
+        }
         const tmpPath = await getTauriAPI().saveTempFile(base64, fileName);
         if (tmpPath) {
           await sendFile({ path: tmpPath, name: fileName, size: file.size });
         }
       } catch (err) {
-        console.error('[ChatPanel] Failed to paste image:', err);
+        console.error('[ChatPanel] Failed to paste file:', err);
       }
       break;
     }
@@ -760,13 +739,25 @@ onMounted(async () => {
         scrollToBottom();
       }
     }));
-  // Listen for dropped files from preload (has real file paths)
-  window.addEventListener('tauri-file-drop', onFileDrop);
+  // Tauri 原生拖拽事件监听（替代失效的 tauri-file-drop 自定义事件）
+  const win = getCurrentWebviewWindow();
+  const unlistenDragDrop = await win.onDragDropEvent(({ payload }) => {
+    if (payload.type === 'enter' || payload.type === 'over') {
+      isDragOver.value = true;
+    } else if (payload.type === 'drop' && payload.paths?.length > 0) {
+      isDragOver.value = false;
+      handleDroppedFiles(payload.paths);
+    } else if (payload.type === 'leave') {
+      isDragOver.value = false;
+    } else {
+      isDragOver.value = false;
+    }
+  });
+  cleanupFns.push(unlistenDragDrop as unknown as () => void);
 });
 
 onUnmounted(() => {
   cleanupFns.forEach(fn => fn());
   selectedFiles.value.clear();
-  window.removeEventListener('tauri-file-drop', onFileDrop);
 });
 </script>

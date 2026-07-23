@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SuperTool",
-  "version": "6.4.4",
+  "version": "6.5.1",
   "identifier": "com.fufengyuan.supertool.tauri",
   "build": {
     "beforeDevCommand": "pnpm run dev",
@@ -44,7 +44,8 @@
       "../resources/openvpn/linux-x64/openvpn",
       "../resources/openvpn/macos-arm64",
       "../resources/openvpn/macos-x64",
-      "../target/release/stool"
+      "../target/release/stool",
+      "../skills"
     ]
   }
 }
