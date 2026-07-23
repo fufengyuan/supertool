@@ -2621,8 +2621,10 @@ export function getTauriAPI(): TauriAPI {
     openFile: async (filePath: string) => tauriCall("lan_open_file", { filePath }),
     openFileFolder: async (filePath: string) => tauriCall("lan_open_file_folder", { filePath }),
     saveTempFile: async (base64Data: string, fileName: string): Promise<string | null> => {
-      const res = await tauriCall<any>('save_temp_file', { base64Data, fileName });
-      return res?.path ?? null;
+      // tauriCall 已解包：检查 success 后返回 res.data，所以 res 这里就是 { path: "..." }
+      const res = await tauriCall<any>('lan_save_temp_file', { base64Data, fileName });
+      if (!res) {return null;}
+      return typeof res === 'string' ? res : (res.path ?? null);
     },
     loadLocalFileAsBase64: async (filePath: string) => tauriCall("lan_load_local_file_as_base64", { filePath }),
     // SSH Terminal
