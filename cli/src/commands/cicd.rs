@@ -94,15 +94,19 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             config_id,
             stream,
             watch,
+            branch,
         } => {
             if *stream && *watch {
                 eprintln!("  ⚠️ --stream 和 --watch 互斥，同时指定时 --stream 优先");
+            }
+            if let Some(b) = branch {
+                eprintln!("  🌿 使用分支: {}", b);
             }
             if *stream {
                 // Stream mode: deploy blocks until complete, output progress inline
                 let resp = rt
                     .core
-                    .cicd_deploy(config_id)
+                    .cicd_deploy_with_branch(config_id, branch.clone())
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
                 if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {
@@ -133,7 +137,7 @@ pub async fn cmd_cicd(rt: &mut CliRuntime, action: &CicdCommands) -> Result<()> 
             } else {
                 let resp = rt
                     .core
-                    .cicd_deploy(config_id)
+                    .cicd_deploy_with_branch(config_id, branch.clone())
                     .await
                     .map_err(|e| anyhow::anyhow!("{}", e))?;
                 if resp.get("success").and_then(|v| v.as_bool()) == Some(false) {

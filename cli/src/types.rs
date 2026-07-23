@@ -307,6 +307,9 @@ pub enum CicdCommands {
         stream: bool,
         #[arg(long)]
         watch: bool,
+        /// 部署分支，覆盖配置中的 deployBranch
+        #[arg(short, long)]
+        branch: Option<String>,
     },
     History {
         config_id: String,
