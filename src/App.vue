@@ -10,6 +10,16 @@
       <QuickSwitch ref="quickSwitchRef" @select="onQuickSwitchSelect" />
       <ToolCommandPalette ref="toolPaletteRef" />
     </template>
+    <!-- 启动过渡页：等 webview 初始化（菜单监听器注册等）完成后淡出 -->
+    <Transition name="splash-fade">
+      <div v-if="showSplash" class="app-splash">
+        <div class="app-splash__icon">⚡</div>
+        <div class="app-splash__title">SuperTool</div>
+        <div class="app-splash__loader">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -29,6 +39,8 @@ import { useLanStore } from '@/stores/lanStore'
 const isFloatingTodo = ref(false)
 const isDark = ref(false)
 const showAboutDialog = ref(false)
+// 启动过渡页：floating-todo 窗口不显示
+const showSplash = ref(true)
 const quickSwitchRef = ref<InstanceType<typeof QuickSwitch> | null>(null)
 const globalSearchRef = ref<InstanceType<typeof GlobalSearch> | null>(null)
 const toolPaletteRef = ref<InstanceType<typeof ToolCommandPalette> | null>(null)
@@ -89,7 +101,10 @@ onMounted(async () => {
     const { getCurrentWebviewWindow } = await import('@tauri-apps/api/webviewWindow')
     const label = getCurrentWebviewWindow().label
     isFloatingTodo.value = label === 'floating-todo'
-    if (isFloatingTodo.value) return // floating window: skip global setup
+    if (isFloatingTodo.value) {
+      showSplash.value = false // floating window: skip splash
+      return // floating window: skip global setup
+    }
   } catch {} // not in Tauri, or webview not available
 
   // 添加全局双击事件监听
@@ -108,7 +123,7 @@ onMounted(async () => {
   unlistenFns.push(() => document.removeEventListener('keydown', onCmdK))
 
   const api = getTauriAPI()
-  
+
   // Initialize LAN message store (persistent listener across navigation)
   try {
     useLanStore().init()
@@ -121,7 +136,7 @@ onMounted(async () => {
     document.documentElement.setAttribute('data-theme', isDark.value ? 'dark' : 'light')
   } catch {}
 
-  // Menu shortcuts
+  // Menu shortcuts — 等这些监听器注册完成，菜单点击才会响应
   const unlistenAbout = await api.onMenuAbout(() => {
     showAboutDialog.value = true
   }).catch(() => () => {})
@@ -138,6 +153,10 @@ onMounted(async () => {
   }).catch(() => () => {})
   unlistenFns.push(unlistenSearch as () => void)
 
+  // 监听器已注册完成，淡出 splash
+  // 保留最小显示时间避免闪烁
+  setTimeout(() => { showSplash.value = false }, 300)
+
   // Initialize frequent menu with stored click data
   setTimeout(() => appStore.updateNativeFrequentMenu(), 500)
 })
@@ -149,3 +168,66 @@ onUnmounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a2e;
+  color: #fff;
+  user-select: none;
+  pointer-events: all;
+}
+:global([data-theme='light']) .app-splash {
+  background: #f5f5f7;
+  color: #1a1a2e;
+}
+.app-splash__icon {
+  font-size: 64px;
+  line-height: 1;
+  margin-bottom: 16px;
+  animation: app-splash-pulse 1.4s ease-in-out infinite;
+}
+.app-splash__title {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin-bottom: 18px;
+}
+.app-splash__loader {
+  display: flex;
+  gap: 6px;
+}
+.app-splash__loader span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.4;
+  animation: app-splash-bounce 1.2s ease-in-out infinite;
+}
+.app-splash__loader span:nth-child(2) { animation-delay: 0.15s; }
+.app-splash__loader span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes app-splash-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+@keyframes app-splash-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.4; }
+  50% { transform: translateY(-6px); opacity: 1; }
+}
+
+.splash-fade-leave-active {
+  transition: opacity 0.4s ease, visibility 0.4s ease;
+}
+.splash-fade-leave-to {
+  opacity: 0;
+  visibility: hidden;
+}
+</style>
