@@ -138,29 +138,48 @@
                 }"></span>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-base-content truncate">{{ peer.name }}</span>
-            <span v-if="unreadCounts[peer.id] > 0" class="badge badge-error badge-sm gap-1 min-w-5 h-5 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
-              {{ unreadCounts[peer.id] > 99 ? '99+' : unreadCounts[peer.id] }}
-            </span>
+          <!-- 备注编辑模式 -->
+          <div v-if="editingPeerId === peer.id" class="flex items-center gap-1" @click.stop>
+            <input
+              ref="remarkInputEl"
+              v-model="editingRemarkInput"
+              class="input input-bordered input-xs w-full h-7 text-sm py-0"
+              placeholder="输入备注名（清空则删除备注）"
+              @keydown.enter="saveRemark(peer)"
+              @keydown.esc="cancelEditRemark"
+              @blur="saveRemark(peer)"
+            />
           </div>
-          <div class="flex items-center gap-1 mt-0.5 text-xs text-base-content/60">
-            <span class="font-medium" :class="{
-              'text-green-500': getStatusClass(peer) === 'online',
-              'text-amber-500': getStatusClass(peer) === 'busy',
-              'text-gray-500': getStatusClass(peer) === 'away',
-              'text-gray-600': getStatusClass(peer) === 'offline',
-            }">{{ getStatusText(peer) }}</span>
-            <span class="opacity-40">·</span>
-            <span class="font-mono text-[11px] opacity-70">{{ peer.address }}</span>
-            <span v-if="peer.version"
-                  class="font-mono text-[10px] px-1 py-[1px] rounded-sm"
-                  :class="peer.version && peer.version.split('.')[0] !== '2' ? 'bg-amber-400/15 text-amber-400' : 'bg-green-400/15 text-green-400'"
-                  :title="peer.version === '2.0' ? '✅ 兼容' : '⚠️ 版本过低，无法发送消息'">v{{ peer.version }}</span>
-          </div>
+          <!-- 显示模式 -->
+          <template v-else>
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-medium text-base-content truncate">{{ getDisplayName(peer) }}</span>
+              <span v-if="getRemark(peer)" class="text-[11px] text-base-content/40 truncate italic max-w-[80px]" :title="peer.name">{{ peer.name }}</span>
+              <span v-if="unreadCounts[peer.id] > 0" class="badge badge-error badge-sm gap-1 min-w-5 h-5 shadow-[0_2px_8px_rgba(239,68,68,0.4)]">
+                {{ unreadCounts[peer.id] > 99 ? '99+' : unreadCounts[peer.id] }}
+              </span>
+            </div>
+            <div class="flex items-center gap-1 mt-0.5 text-xs text-base-content/60">
+              <span class="font-medium" :class="{
+                'text-green-500': getStatusClass(peer) === 'online',
+                'text-amber-500': getStatusClass(peer) === 'busy',
+                'text-gray-500': getStatusClass(peer) === 'away',
+                'text-gray-600': getStatusClass(peer) === 'offline',
+              }">{{ getStatusText(peer) }}</span>
+              <span class="opacity-40">·</span>
+              <span class="font-mono text-[11px] opacity-70">{{ peer.address }}</span>
+              <span v-if="peer.version"
+                    class="font-mono text-[10px] px-1 py-[1px] rounded-sm"
+                    :class="peer.version && peer.version.split('.')[0] !== '2' ? 'bg-amber-400/15 text-amber-400' : 'bg-green-400/15 text-green-400'"
+                    :title="peer.version === '2.0' ? '✅ 兼容' : '⚠️ 版本过低，无法发送消息'">v{{ peer.version }}</span>
+            </div>
+          </template>
         </div>
-        <div class="shrink-0 text-base-content/60 opacity-30 transition-all duration-200 group-hover:opacity-70">
-          <SvgIcon name="chevronRight" size="16" />
+        <div class="shrink-0 flex items-center gap-0.5 text-base-content/60 opacity-30 transition-all duration-200 group-hover:opacity-70">
+          <button v-if="editingPeerId !== peer.id" class="btn btn-ghost btn-xs btn-square h-7 min-h-7 w-7" title="设置备注" @click.stop="startEditRemark(peer)">
+            <SvgIcon name="pencil" size="13" />
+          </button>
+          <SvgIcon v-if="editingPeerId !== peer.id" name="chevronRight" size="16" />
         </div>
       </div>
     </div>
@@ -208,7 +227,7 @@
 </template>
 
 <script setup lang="ts">// @ts-nocheck
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { storeToRefs } from 'pinia'
 import { getTauriAPI } from '@/utils/tauri-api'
 import { open } from '@tauri-apps/plugin-dialog'
@@ -262,6 +281,64 @@ const emit = defineEmits<{
   'open-chat': [peer: LanPeer];
   'open-assign': [peer: LanPeer];
 }>();
+
+// 用户备注（昵称）
+const remarks = ref<Record<string, string>>({});
+const editingPeerId = ref<string | null>(null);
+const editingRemarkInput = ref('');
+const remarkInputEl = ref<any>(null);
+
+function getRemark(peer: LanPeer): string {
+  return remarks.value[peer.id] || '';
+}
+
+function getDisplayName(peer: LanPeer): string {
+  return remarks.value[peer.id] || peer.name;
+}
+
+async function loadRemarks() {
+  try {
+    remarks.value = await getTauriAPI().lanGetPeerRemarks();
+  } catch (e) {
+    console.warn('Failed to load peer remarks:', e);
+  }
+}
+
+function startEditRemark(peer: LanPeer) {
+  editingPeerId.value = peer.id;
+  editingRemarkInput.value = remarks.value[peer.id] || '';
+  nextTick(() => {
+    const el = remarkInputEl.value;
+    const input: HTMLInputElement | undefined = Array.isArray(el) ? el[0] : el;
+    input?.focus();
+    input?.select();
+  });
+}
+
+function cancelEditRemark() {
+  editingPeerId.value = null;
+  editingRemarkInput.value = '';
+}
+
+async function saveRemark(peer: LanPeer) {
+  if (editingPeerId.value !== peer.id) return;
+  const val = editingRemarkInput.value.trim();
+  const old = remarks.value[peer.id] || '';
+  editingPeerId.value = null;
+  editingRemarkInput.value = '';
+  if (val === old) return;
+  try {
+    await getTauriAPI().lanSetPeerRemark(peer.id, val);
+    if (val) {
+      remarks.value[peer.id] = val;
+    } else {
+      delete remarks.value[peer.id];
+    }
+  } catch (e: any) {
+    console.error('Failed to save remark:', e);
+    toast.error(`保存备注失败: ${e.message || e}`);
+  }
+}
 
 // 在线/离线计数（用于头部 badge）
 const onlineCount = computed(() => {
@@ -320,16 +397,31 @@ async function checkNetworkPermission() {
   try {
     const result = await getTauriAPI().lanCheckNetworkPermission()
     if (!result.success) {
-      const isTccBlocked = result.error?.includes('EHOSTUNREACH')
-        || result.error?.includes('Local Network Privacy')
-        || result.error?.includes('blocked')
-        || result.error?.includes('Permission')
+      const errStr = (result.error || '').toLowerCase()
+      // 后端 kind=tcc_blocked 表示明确的 PermissionDenied；兼容历史错误字符串
+      const isTccBlocked = result.kind === 'tcc_blocked'
+        || errStr.includes('eperm')
+        || errStr.includes('permissiondenied')
+        || errStr.includes('operation not permitted')
+        || errStr.includes('ehostunreach')
+        || errStr.includes('noroutetohost')
+        || errStr.includes('local network privacy')
+        || errStr.includes('blocked')
+      const isNetworkErr = !isTccBlocked
+        && (result.kind === 'AddrNotAvailable'
+          || errStr.includes('addrnotavailable')
+          || errStr.includes('network is down')
+          || errStr.includes('network is unreachable'))
       permissionWarning.value = {
         type: isTccBlocked ? 'error' : 'warning',
-        title: isTccBlocked ? '局域网访问被阻止' : '网络权限检测异常',
+        title: isTccBlocked
+          ? '局域网访问被阻止'
+          : (isNetworkErr ? '网络连接异常' : '网络权限检测异常'),
         message: isTccBlocked
-          ? `macOS 局域网隐私设置阻止了消息发送。请前往：系统设置 → 隐私与安全性 → 本地网络 → 启用 SuperTool。或临时关闭防火墙测试。`
-          : result.error || '无法确认网络权限状态'
+          ? 'macOS 局域网隐私设置阻止了消息发送。请前往：系统设置 → 隐私与安全性 → 本地网络 → 启用 SuperTool。或临时关闭防火墙测试。'
+          : (isNetworkErr
+              ? '未检测到可用的局域网连接，请检查 Wi-Fi/有线网络是否正常连接后重试。'
+              : (result.error || '无法确认网络权限状态'))
       }
     } else {
       permissionWarning.value = null
@@ -409,6 +501,7 @@ onMounted(async () => {
   }
 
   await loadUnreadCounts();
+  await loadRemarks();
   window.addEventListener('lan:reload-unread', loadUnreadCounts);
 
   cleanupIpcListeners.push(await getTauriAPI().onLanPeerDiscovered(async (peer: any) => {

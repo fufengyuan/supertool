@@ -237,11 +237,8 @@ export function useDatabaseAPI() {
       // 清理重复字段
       const { database, user, ...normalized } = config as any
       normalized.type = config.type === 'postgresql' ? 'postgres' : config.type
-      if (!normalized.username && user) {normalized.username = user}
-      // SQLite 没有 username/host/password，确保必填字段有默认值避免 Rust 反序列化失败
-      if (config.type === 'sqlite') {
-        normalized.username = normalized.username ?? ''
-      }
+      // username 是 Rust 端必填字段（String），所有类型都需要兜底默认值，否则反序列化失败
+      normalized.username = normalized.username || user || ''
       if (!normalized.dbName && database) {normalized.dbName = database}
       const res = await tauriInvoke<boolean>('db_connect', { config: normalized })
       return { success: res.success, error: res.error }
@@ -364,9 +361,13 @@ export function useDatabaseAPI() {
       return res.success && res.data?.success === true
     },
     // Redis 操作
-    dbRedisDatabases: async (id: string): Promise<number[]> => {
+    dbRedisDatabases: async (id: string): Promise<{ success: boolean; databases: Array<{ db: number; keys: number }> }> => {
       const res = await tauriInvoke<any>('db_redis_databases', { id })
-      return res.success && res.data ? (res.data.databases ?? [0]) : [0]
+      if (res.success && res.data) {
+        const databases = res.data.databases ?? [{ db: 0, keys: 0 }]
+        return { success: true, databases }
+      }
+      return { success: false, databases: [] }
     },
     dbRedisKeys: async (id: string, dbIndex: number, pattern: string): Promise<string[]> => {
       const res = await tauriInvoke<any>('db_redis_keys', { id, dbIndex, pattern })
@@ -399,52 +400,33 @@ export function useDatabaseAPI() {
       }
       return { success: false, folders: [], leaves: [], hasMore: false }
     },
-    dbRedisKeysByType: async (id: string, dbIndex: number, type: string): Promise<any> => {
-      const res = await tauriInvoke<any>('db_redis_keys_by_type', { id, dbIndex, type })
-      if (res.success && res.data) {
-        // 后端 SCAN 返回的是 [cursor, keys[]]
-        // 前端期望 { keysByType: { type: [keys] } }
-        // 这里做简单的兼容：把所有 key 归类为 type (如果指定) 或 'string'
-        const raw = res.data.result
-        let keys: string[] = []
-        if (Array.isArray(raw) && raw.length >= 2 && Array.isArray(raw[1])) {
-          keys = raw[1]
-        } else if (Array.isArray(raw)) {
-          keys = raw // Fallback if format is different
-        }
-        
-        // 简单分组（因为 SCAN 不返回类型）
-        const keysByType: Record<string, string[]> = {}
-        const targetType = type !== '*' ? type : 'string' // 默认归类
-        keysByType[targetType] = keys
-        
-        return { success: true, keysByType }
-      }
-      return { success: false, keysByType: {} }
+    dbRedisKeysByType: async (id: string, dbIndex: number, pattern: string): Promise<any> => {
+      const res = await tauriInvoke<any>('db_redis_keys_by_type', { id, dbIndex, pattern })
+      return res.success ? { success: true, keysByType: res.keysByType || {} } : { success: false, keysByType: {}, error: res.error }
     },
     dbRedisKeyInfo: async (id: string, dbIndex: number, key: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_key_info', { id, dbIndex, key })
-      return res.success && res.data ? (res.data.info ?? null) : null
+      return res.success ? { success: true, type: res.type, ttl: res.ttl, length: res.length } : { success: false, error: res.error || '未知错误' }
     },
     dbRedisKeyValue: async (id: string, dbIndex: number, key: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_key_value', { id, dbIndex, key })
-      return res.success && res.data ? res.data : null
+      return res.success ? { success: true, value: res.value, type: res.type } : { success: false, error: res.error || '未知错误' }
     },
     dbRedisSetKey: async (id: string, dbIndex: number, key: string, value: string, ttl?: number): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_set_key', { id, dbIndex, key, value, ttl: ttl ?? 0 })
-      return res.success && res.data?.success === true
+      return res.success === true
     },
     dbRedisAddKey: async (id: string, dbIndex: number, keyType: string, key: string, value: any): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_add_key', { id, dbIndex, keyType, key, value })
-      return res.success && res.data?.success === true
+      return res.success === true
     },
     dbRedisDeleteKey: async (id: string, dbIndex: number, key: string): Promise<boolean> => {
       const res = await tauriInvoke<any>('db_redis_delete_key', { id, dbIndex, key })
-      return res.success && res.data?.success === true
+      return res.success === true
     },
     dbRedisExec: async (id: string, dbIndex: number, command: string): Promise<any> => {
       const res = await tauriInvoke<any>('db_redis_exec', { id, dbIndex, command })
-      return res.success && res.data ? (res.data.result ?? null) : null
+      return res.success ? (res.result ?? null) : null
     },
     // CICD 工具检测
     detectToolPaths: async (): Promise<Record<string, string>> => {
@@ -575,6 +557,13 @@ export function useLanAPI() {
     lanSetAvatar: async (avatar: string): Promise<void> => {
       await tauriInvoke('lan_set_avatar', { avatar })
     },
+    lanSetPeerRemark: async (peerId: string, remark: string): Promise<void> => {
+      await tauriInvoke('lan_set_peer_remark', { peerId, remark })
+    },
+    lanGetPeerRemarks: async (): Promise<Record<string, string>> => {
+      const res = await tauriInvoke<any>('lan_get_peer_remarks')
+      return res.success && res.data ? (res.data.remarks ?? {}) : {}
+    },
     lanUploadAvatar: async (filePath: string): Promise<{ path: string; fullPath: string }> => {
       const res = await tauriInvoke<{ path: string; fullPath: string }>('lan_upload_avatar', { filePath })
       if (res.success && res.data) {return res.data}
@@ -699,13 +688,14 @@ export function useLanAPI() {
     lanOpenFileFolder: async (filePath: string): Promise<void> => {
       await tauriInvoke('lan_open_file_folder', { filePath })
     },
-    lanCheckNetworkPermission: async (): Promise<{ success: boolean; error?: string }> => {
-      const res = await tauriInvoke<{ granted?: boolean; error?: string }>('lan_check_network_permission')
+    lanCheckNetworkPermission: async (): Promise<{ success: boolean; error?: string; kind?: string }> => {
+      const res = await tauriInvoke<{ success?: boolean; data?: { granted?: boolean; error?: string; kind?: string } }>('lan_check_network_permission')
       if (!res.success) {
         return { success: false, error: res.error }
       }
-      const granted = res.data?.granted === true
-      return { success: granted, error: granted ? undefined : (res.data?.error ?? 'UDP broadcast test failed') }
+      const data = res.data
+      const granted = data?.granted === true
+      return { success: granted, error: granted ? undefined : (data?.error ?? 'UDP broadcast test failed'), kind: data?.kind }
     },
     lanGetPermissionStatus: async (): Promise<any> => {
       const res = await tauriInvoke<any>('lan_get_permission_status')
@@ -1385,7 +1375,9 @@ export function useDataBackupAPI() {
         rustArgs[rustKey] = v
       }
       const res = await tauriInvoke<any>('import_json', rustArgs)
-      return res.success ? (res.data ?? res) : { success: false, error: res.error }
+      // 后端返回 { success, importedCount, skippedCount, errors }，失败时也要保留这些字段
+      // 供前端区分"完全失败"与"部分成功"
+      return res
     },
     exportCsv: async (options: Record<string, unknown>): Promise<any> => {
       return await tauriInvoke<any>('export_csv', options)
@@ -1551,7 +1543,7 @@ export interface TauriAPI {
   dbBackupList: (id?: string) => Promise<any[]>
   dbBackupRestore: (id: string, file: string) => Promise<any>
   dbBackupDelete: (file: string) => Promise<boolean>
-  dbRedisDatabases: (id: string) => Promise<number[]>
+  dbRedisDatabases: (id: string) => Promise<{ success: boolean; databases: Array<{ db: number; keys: number }> }>
   dbRedisKeysTree: (id: string, dbIndex: number, pattern: string) => Promise<any>
   dbRedisKeysByType: (id: string, dbIndex: number, type: string) => Promise<any>
   dbRedisKeyInfo: (id: string, dbIndex: number, key: string) => Promise<any>
