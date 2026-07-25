@@ -234,7 +234,7 @@
             <h3 class="m-0 text-base font-semibold"><SvgIcon name="file" size="14" />  待执行 SQL ({{ selectedSqls.size }} 条)</h3>
             <div class="flex items-center gap-2">
               <button @click="copyAllSql" class="btn btn-ghost btn-sm"><SvgIcon name="file" size="14" />  复制全部</button>
-              <button @click="showSqlDialog = false" class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:text-base-content">×</button>
+              <button @click="showSqlDialog = false" class="w-7 h-7 border-none rounded-md bg-transparent text-base-content/60 text-lg cursor-pointer flex items-center justify-center hover:bg-base-200 hover:text-base-content"><SvgIcon name="x" size="16" /></button>
             </div>
           </div>
           <div class="px-5 py-4 overflow-y-auto flex-1">
@@ -250,7 +250,11 @@
 
     <!-- Execution Result -->
     <div v-if="execResult" class="bg-base-100 rounded-lg p-4 text-center" :class="{ 'border border-green-500': execResult.success, 'border border-red-500': !execResult.success }">
-      <h4 class="m-0 mb-2">{{ execResult.success ? '✅ 同步成功' : '❌ 同步失败' }}</h4>
+      <h4 class="m-0 mb-2 flex items-center justify-center gap-1.5">
+        <SvgIcon v-if="execResult.success" name="checkCircle" size="16" class="inline-block text-success" />
+        <SvgIcon v-else name="alertCircle" size="16" class="inline-block text-error" />
+        {{ execResult.success ? '同步成功' : '同步失败' }}
+      </h4>
       <p>已执行 {{ execResult.executed }} 项更改</p>
       <div v-if="execResult.errors.length > 0" class="text-left m-3 p-3 bg-red-100 rounded">
         <p>错误信息:</p>
@@ -401,7 +405,6 @@ async function onSourceChange() {
   if (!sourceId.value) {return}
   loadingSourceDb.value = true
   try {
-    console.log("[onSourceChange] called")
     const conn = connections.value.find(c => c.id === sourceId.value)
     if (conn) {
       await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
@@ -423,7 +426,6 @@ async function onTargetChange() {
   if (!targetId.value) {return}
   loadingTargetDb.value = true
   try {
-    console.log("[onTargetChange] called")
     const conn = connections.value.find(c => c.id === targetId.value)
     if (conn) {
       await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
@@ -444,7 +446,6 @@ async function onTargetChange() {
 async function loadSourceTables() {
   if (!sourceId.value || !sourceDb.value) {return}
   try {
-    console.log("[loadSourceTables] called")
     const res = await getTauriAPI().dbGetTables(sourceId.value, sourceDb.value)
     if (res?.success) {
       sourceTables.value = (res as any).tables || []
@@ -457,7 +458,6 @@ async function loadSourceTables() {
 async function loadTargetTables() {
   if (!targetId.value || !targetDb.value) {return}
   try {
-    console.log("[loadTargetTables] called")
     const res = await getTauriAPI().dbGetTables(targetId.value, targetDb.value)
     if (res?.success) {
       targetTables.value = (res as any).tables || []
@@ -482,12 +482,10 @@ function selectAllTables() {
 }
 
 function selectCommonTables() {
-    console.log("[selectCommonTables] called")
   selectedTables.value = [...commonTablesList.value]
 }
 
 function selectNone() {
-    console.log("[selectNone] called")
   selectedTables.value = []
 }
 
@@ -513,7 +511,6 @@ async function startCompare() {
   const allDiffs: StructureDiffItem[] = []
 
   try {
-    console.log("[startCompare] called")
     const res = await getTauriAPI().dbCompareStructures(
       sourceId.value,
       sourceDb.value,
@@ -562,7 +559,6 @@ function selectAll() {
 async function executeSync() {
   executing.value = true
   try {
-    console.log("[executeSync] called")
     const sqls = Array.from(selectedSqls.value)
     const res = await getTauriAPI().dbExecuteStructureSync(targetId.value, sqls, targetDb.value)
     if (res) {

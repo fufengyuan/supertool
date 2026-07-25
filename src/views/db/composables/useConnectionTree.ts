@@ -4,6 +4,24 @@ import { ref, watch, computed } from 'vue'
 import type { DBConnection } from '../../../composables/useDBManager'
 import { getTauriAPI } from '../../../utils/tauri-api'
 
+// ============ Context Menu SVG Icon Helper ============
+
+function ctxIcon(name: string): string {
+  const icons: Record<string, string> = {
+    terminal: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>',
+    archive: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="18" rx="2" ry="2"/><line x1="2" y1="9" x2="22" y2="9"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    barChart: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    file: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+  }
+  return icons[name] || ''
+}
+
 // ============ Emit Events Type ============
 type ConnectionTreeEmit = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -463,18 +481,18 @@ function getRedisRootNodes(connId: string, dbIndex: number): RedisTreeNode[] {
 function onRedisDatabaseContext(event: MouseEvent, conn: DBConnection, dbIndex: number) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '💻',
+      icon: ctxIcon('terminal'),
       label: '打开控制台',
       action: () => { emit('open-sql', conn.id); closeContextMenu() }
     },
     {
-      icon: '📦',
+      icon: ctxIcon('archive'),
       label: '消息队列',
       action: () => { emit('open-redis-queue', conn.id, dbIndex); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '🔄',
+      icon: ctxIcon('refresh'),
       label: '刷新',
       action: () => { emit('refresh-tables', conn.id); closeContextMenu() }
     }
@@ -485,13 +503,13 @@ function onRedisDatabaseContext(event: MouseEvent, conn: DBConnection, dbIndex: 
 function onRedisFolderContext(event: MouseEvent, conn: DBConnection, dbIndex: number, folderPath: string) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '➕',
+      icon: ctxIcon('plus'),
       label: '新建键',
       action: () => { emit('open-redis-key', conn.id, dbIndex, ''); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '📋',
+      icon: ctxIcon('copy'),
       label: '复制路径',
       action: () => {
         navigator.clipboard?.writeText(folderPath).catch(() => {})
@@ -500,7 +518,7 @@ function onRedisFolderContext(event: MouseEvent, conn: DBConnection, dbIndex: nu
     },
     { separator: true },
     {
-      icon: '🔄',
+      icon: ctxIcon('refresh'),
       label: '刷新',
       action: () => { emit('refresh-tables', conn.id); closeContextMenu() }
     }
@@ -511,13 +529,13 @@ function onRedisFolderContext(event: MouseEvent, conn: DBConnection, dbIndex: nu
 function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: number, key: string, _type: string) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '👁️',
+      icon: ctxIcon('eye'),
       label: '查看值',
       action: () => { emit('open-redis-key', conn.id, dbIndex, key); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '📋',
+      icon: ctxIcon('copy'),
       label: '复制键名',
       action: () => {
         navigator.clipboard?.writeText(key).catch(() => {})
@@ -525,7 +543,7 @@ function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: numbe
       }
     },
     {
-      icon: '🗑️',
+      icon: ctxIcon('trash'),
       label: '删除',
       action: async () => {
         try {
@@ -550,24 +568,24 @@ function onRedisKeyContext(event: MouseEvent, conn: DBConnection, dbIndex: numbe
 function onConnContext(event: MouseEvent, conn: DBConnection) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '📝',
+      icon: ctxIcon('pencil'),
       label: '新建查询',
       action: () => { emit('open-sql', conn.id); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '🔄',
+      icon: ctxIcon('refresh'),
       label: '刷新',
       action: () => { emit('refresh-tables', conn.id); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '✏️',
+      icon: ctxIcon('pencil'),
       label: '编辑连接',
       action: () => { emit('edit', conn); closeContextMenu() }
     },
     {
-      icon: '🗑️',
+      icon: ctxIcon('trash'),
       label: '删除连接',
       action: () => { emit('delete', conn.id); closeContextMenu() }
     }
@@ -578,13 +596,13 @@ function onConnContext(event: MouseEvent, conn: DBConnection) {
 function onDatabaseContext(event: MouseEvent, conn: DBConnection, dbName: string) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '📝',
+      icon: ctxIcon('pencil'),
       label: '新建查询',
       action: () => { emit('open-sql', conn.id); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '📋',
+      icon: ctxIcon('copy'),
       label: '复制数据库名称',
       action: () => {
         navigator.clipboard?.writeText(dbName).catch(() => {})
@@ -593,7 +611,7 @@ function onDatabaseContext(event: MouseEvent, conn: DBConnection, dbName: string
     },
     { separator: true },
     {
-      icon: '🔄',
+      icon: ctxIcon('refresh'),
       label: '刷新',
       action: () => { emit('refresh-tables', conn.id); closeContextMenu() }
     }
@@ -604,13 +622,13 @@ function onDatabaseContext(event: MouseEvent, conn: DBConnection, dbName: string
 function onFolderContext(event: MouseEvent, conn: DBConnection) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '📝',
+      icon: ctxIcon('pencil'),
       label: '新建查询',
       action: () => { emit('open-sql', conn.id); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '🔄',
+      icon: ctxIcon('refresh'),
       label: '刷新表列表',
       action: () => { emit('refresh-tables', conn.id); closeContextMenu() }
     }
@@ -621,18 +639,18 @@ function onFolderContext(event: MouseEvent, conn: DBConnection) {
 function onTableContext(event: MouseEvent, conn: DBConnection, table: string, dbName?: string) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '📊',
+      icon: ctxIcon('barChart'),
       label: '查看数据',
       action: () => { emit('open-table-data', conn.id, table, dbName); closeContextMenu() }
     },
     {
-      icon: '🏗️',
+      icon: ctxIcon('file'),
       label: '查看结构',
       action: () => { emit('open-table-structure', conn.id, table, dbName); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '📋',
+      icon: ctxIcon('copy'),
       label: '复制表名',
       action: () => {
         navigator.clipboard?.writeText(table).catch(() => {})
@@ -641,13 +659,13 @@ function onTableContext(event: MouseEvent, conn: DBConnection, table: string, db
     },
     { separator: true },
     {
-      icon: '📝',
+      icon: ctxIcon('pencil'),
       label: '生成 SELECT 查询',
       action: () => { emit('open-sql', conn.id, table, dbName); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '🗑️',
+      icon: ctxIcon('trash'),
       label: '删除表',
       action: () => { emit('delete-table', conn.id, table, dbName); closeContextMenu() }
     }
@@ -658,18 +676,18 @@ function onTableContext(event: MouseEvent, conn: DBConnection, table: string, db
 function onViewContext(event: MouseEvent, conn: DBConnection, view: string, dbName?: string) {
   const items: (ContextMenuItem | ContextMenuSeparator)[] = [
     {
-      icon: '📊',
+      icon: ctxIcon('barChart'),
       label: '查看数据',
       action: () => { emit('open-table-data', conn.id, view, dbName); closeContextMenu() }
     },
     {
-      icon: '🏗️',
+      icon: ctxIcon('file'),
       label: '查看结构',
       action: () => { emit('open-table-structure', conn.id, view, dbName); closeContextMenu() }
     },
     { separator: true },
     {
-      icon: '📋',
+      icon: ctxIcon('copy'),
       label: '复制视图名称',
       action: () => {
         navigator.clipboard?.writeText(view).catch(() => {})
@@ -684,10 +702,9 @@ function onViewContext(event: MouseEvent, conn: DBConnection, view: string, dbNa
 
 // Ensure connection is connected
 async function ensureConnected(conn: DBConnection) {
-  try {
-    await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
-  } catch (e) {
-    console.warn('[ConnectionTree] Failed to connect:', e)
+  const result = await getTauriAPI().dbConnect(JSON.parse(JSON.stringify(conn)))
+  if (!result.success) {
+    throw new Error(result.error || '连接失败')
   }
 }
 
@@ -882,9 +899,9 @@ watch(redisDbExpansionState, async (items) => {
         loadingRedisKeyTrees.value[key] = true
         try {
           await ensureConnected(item.conn)
-          logger.info(`[ConnectionTree] → Calling dbRedisKeysTree(${item.connId}, ${item.dbIndex}, '', false)`)
-          // Initial load: loadMore = false
-          const result = await getTauriAPI().dbRedisKeysTree(item.connId, item.dbIndex, '')
+          logger.info(`[ConnectionTree] → Calling dbRedisKeysTree(${item.connId}, ${item.dbIndex}, '*')`)
+          // Initial load: pattern '*' 匹配所有 key（空字符串在 Redis KEYS 中返回空数组）
+          const result = await getTauriAPI().dbRedisKeysTree(item.connId, item.dbIndex, '*')
           logger.info(`[ConnectionTree] → dbRedisKeysTree result:`, JSON.stringify(result).slice(0, 300))
           if (result && result.success) {
             const root: RedisTreeNode = {
@@ -947,8 +964,8 @@ async function loadMoreRedisKeys(connId: string, dbIndex: number) {
     const conn = props.sortedConnections.find(c => c.id === connId)
     if (conn) {await ensureConnected(conn)}
     
-    // Incremental load: loadMore = true
-    const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, '')
+    // Incremental load: pattern '*' 匹配所有 key
+    const result = await getTauriAPI().dbRedisKeysTree(connId, dbIndex, '*')
     if (result && result.success) {
       const root = redisKeyTrees.value[key]
       if (root) {

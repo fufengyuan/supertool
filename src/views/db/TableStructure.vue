@@ -49,7 +49,7 @@
 
     <!-- 加载状态 -->
     <div v-if="loading && !columns.length" class="flex items-center justify-center gap-2 p-12 text-base-content/60 text-sm">
-      <SvgIcon name="refresh" size="24" class="animate-spin" />
+      <span class="loading loading-spinner loading-sm"></span>
       <span>加载表结构中...</span>
     </div>
 
@@ -62,27 +62,17 @@
 
     <template v-else>
       <!-- Tab 切换 -->
-      <div class="tabs tabs-bordered px-4 shrink-0 bg-base-200" role="tablist">
-        <div
-          role="tab"
-          class="tab tab-sm"
-          :class="{ 'tab-active': activeTab === 'columns' }"
-          @click="activeTab = 'columns'"
-        >
+      <div class="flex items-center gap-1.5 px-4 py-2 shrink-0 bg-base-200 border-b border-base-content/10">
+        <button class="btn btn-xs gap-1.5" :class="activeTab === 'columns' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'columns'">
           <SvgIcon name="barChart" size="14" />
           字段 ({{ columns.length }})
           <span v-if="columnChangeCount > 0" class="badge badge-primary badge-sm">{{ columnChangeCount }}</span>
-        </div>
-        <div
-          role="tab"
-          class="tab tab-sm"
-          :class="{ 'tab-active': activeTab === 'indexes' }"
-          @click="activeTab = 'indexes'"
-        >
+        </button>
+        <button class="btn btn-xs gap-1.5" :class="activeTab === 'indexes' ? 'btn-primary' : 'btn-ghost'" @click="activeTab = 'indexes'">
           <SvgIcon name="file" size="14" />
           索引 ({{ groupedIndexes.length }})
           <span v-if="indexChangeCount > 0" class="badge badge-primary badge-sm">{{ indexChangeCount }}</span>
-        </div>
+        </button>
       </div>
 
       <!-- 字段 Tab -->
@@ -322,7 +312,17 @@
                 </td>
               </tr>
               <tr v-if="indexes.length === 0">
-                <td colspan="5" class="text-center p-8 text-base-content/60 text-sm">暂无索引，点击"添加索引"创建</td>
+                <td colspan="5" class="text-center p-8 text-base-content/60 text-sm">
+                  <div class="flex flex-col items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-base-200 border border-base-content/10 flex items-center justify-center">
+                      <SvgIcon name="file" size="24" stroke-width="1.5" class="text-base-content/30" />
+                    </div>
+                    <p class="m-0 text-sm">暂无索引</p>
+                    <button class="btn btn-primary btn-xs gap-1.5" @click="addIndex">
+                      <SvgIcon name="plus" size="14" /> 添加索引
+                    </button>
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -331,76 +331,43 @@
     </template>
 
     <!-- SQL 预览对话框 -->
-    <div v-if="showPreview" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in">
-      <div class="w-[720px] max-w-[90vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out] relative">
-        <button @click="showPreview = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
-          <SvgIcon name="x" size="16" />
-        </button>
-        <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-          <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
-            <SvgIcon name="code" size="18" />
-            SQL 预览
-          </h3>
-          <button class="btn btn-ghost btn-xs btn-square" @click="showPreview = false">
-            <SvgIcon name="x" size="16" />
-          </button>
-        </div>
-        <div class="px-5 py-4 overflow-y-auto flex-1">
-          <p class="text-sm text-base-content/60 m-0 mb-3">即将执行以下 {{ previewSqls.length }} 条 DDL 语句：</p>
-          <div class="bg-base-100 border border-base-content/10 rounded-lg p-3 font-mono text-xs leading-relaxed max-h-[400px] overflow-y-auto">
-            <div v-for="(sql, i) in previewSqls" :key="i" class="flex gap-2 py-1 border-b border-base-content/10 last:border-b-0">
-              <span class="text-base-content/60 select-none min-w-[20px] text-right shrink-0">{{ i + 1 }}</span>
-              <code class="text-success break-all">{{ sql }}</code>
-            </div>
-          </div>
-          <div v-if="previewError" class="mt-3 px-3 py-2 rounded-lg bg-error/10 text-error text-xs">{{ previewError }}</div>
-        </div>
-        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-base-content/10">
-          <button class="btn btn-ghost btn-xs" @click="showPreview = false">取消</button>
-          <button
-            class="btn btn-primary btn-xs"
-            :disabled="executing"
-            @click="executeSqls"
-          >
-            <SvgIcon v-if="executing" name="refresh" size="14" class="animate-spin" />
-            {{ executing ? '执行中...' : '确认执行' }}
-          </button>
+    <Modal v-model="showPreview" title="SQL 预览" width="720px">
+      <p class="text-sm text-base-content/60 m-0 mb-3">即将执行以下 {{ previewSqls.length }} 条 DDL 语句：</p>
+      <div class="bg-base-100 border border-base-content/10 rounded-lg p-3 font-mono text-xs leading-relaxed max-h-[400px] overflow-y-auto">
+        <div v-for="(sql, i) in previewSqls" :key="i" class="flex gap-2 py-1 border-b border-base-content/10 last:border-b-0">
+          <span class="text-base-content/60 select-none min-w-[20px] text-right shrink-0">{{ i + 1 }}</span>
+          <code class="text-success break-all">{{ sql }}</code>
         </div>
       </div>
-    </div>
+      <div v-if="previewError" class="mt-3 px-3 py-2 rounded-lg bg-error/10 text-error text-xs">{{ previewError }}</div>
+      <template #footer>
+        <button class="btn btn-ghost btn-xs" @click="showPreview = false">取消</button>
+        <button class="btn btn-primary btn-xs gap-1.5" :disabled="executing" @click="executeSqls">
+          <SvgIcon v-if="executing" name="refresh" size="14" class="animate-spin" />
+          {{ executing ? '执行中...' : '确认执行' }}
+        </button>
+      </template>
+    </Modal>
 
     <!-- CREATE TABLE SQL Modal -->
-    <div v-if="showCreateSqlModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[1000] fade-in">
-      <div class="w-[900px] max-w-[95vw] max-h-[80vh] bg-base-100 rounded-xl shadow-2xl flex flex-col overflow-hidden animate-[slideUp_0.2s_ease-out] relative">
-        <button @click="showCreateSqlModal = false" class="absolute top-3 right-3 btn btn-ghost btn-sm btn-square rounded-full" title="关闭">
-          <SvgIcon name="x" size="16" />
-        </button>
-        <div class="flex items-center justify-between px-5 py-4 border-b border-base-content/10">
-          <h3 class="flex items-center gap-2 text-lg font-semibold m-0">
-            <SvgIcon name="code" size="18" />
-            建表 SQL — {{ tableName }}
-          </h3>
-          <button class="btn btn-ghost btn-xs btn-square" @click="showCreateSqlModal = false">
-            <SvgIcon name="x" size="16" />
-          </button>
-        </div>
-        <div class="px-5 py-4 overflow-y-auto flex-1">
-          <div v-if="loadingCreateSql" class="text-center p-6 text-base-content/60">加载中...</div>
-          <pre v-else class="bg-base-200 text-base-content p-4 rounded-lg font-mono text-sm leading-relaxed max-h-[60vh] overflow-auto whitespace-pre-wrap break-all m-0">{{ createSql }}</pre>
-        </div>
-        <div class="flex items-center justify-end gap-2 px-5 py-3 border-t border-base-content/10">
-          <button class="btn btn-ghost btn-xs" @click="showCreateSqlModal = false">关闭</button>
-          <button class="btn btn-ghost btn-xs" @click="copyCreateSql" :disabled="!createSql">
-            📋 复制 SQL
-          </button>
-        </div>
+    <Modal v-model="showCreateSqlModal" :title="`建表 SQL — ${tableName}`" width="900px">
+      <div v-if="loadingCreateSql" class="flex items-center justify-center gap-2 p-6 text-base-content/60 text-sm">
+        <span class="loading loading-spinner loading-sm"></span> 加载中...
       </div>
-    </div>
+      <pre v-else class="bg-base-200 text-base-content p-4 rounded-lg font-mono text-sm leading-relaxed max-h-[60vh] overflow-auto whitespace-pre-wrap break-all m-0">{{ createSql }}</pre>
+      <template #footer>
+        <button class="btn btn-ghost btn-xs" @click="showCreateSqlModal = false">关闭</button>
+        <button class="btn btn-ghost btn-xs gap-1.5" @click="copyCreateSql" :disabled="!createSql">
+          <SvgIcon name="copy" size="14" /> 复制 SQL
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
 <script setup lang="ts">
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import Modal from '@/components/ui/Modal.vue'
 import { useTableStructure } from './composables/useTableStructure'
 import { ref, watch, nextTick } from 'vue'
 
