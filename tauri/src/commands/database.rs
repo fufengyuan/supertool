@@ -2255,10 +2255,59 @@ pub async fn db_backup_delete(file: String) -> Result<serde_json::Value, String>
 }
 
 // Redis operations
-#[allow(unused_variables)]
 #[tauri::command(rename_all = "camelCase")]
 pub async fn db_redis_databases(id: String) -> Result<serde_json::Value, String> {
-    Ok(serde_json::json!({ "success": true, "databases": [0] }))
+    let pool = CONNECTION_POOL.lock().await;
+    let conn = pool
+        .get(&id)
+        .ok_or_else(|| "Connection not found".to_string())?;
+    if let DbConnection::Redis(c) = conn {
+        // Query INFO keyspace to get per-db key counts
+        let info: String = redis::cmd("INFO")
+            .arg("keyspace")
+            .query_async(&mut c.clone())
+            .await
+            .map_err(|e| format!("Redis INFO failed: {}", e))?;
+
+        // Parse lines like: db0:keys=5,expires=0,avg_ttl=0
+        let mut databases: Vec<serde_json::Value> = Vec::new();
+        for line in info.lines() {
+            let line = line.trim();
+            if !line.starts_with("db") {
+                continue;
+            }
+            // Format: dbN:keys=K,...
+            if let Some(colon_idx) = line.find(':') {
+                let db_part = &line[..colon_idx]; // "db0"
+                let rest = &line[colon_idx + 1..]; // "keys=5,expires=0,avg_ttl=0"
+                if let Some(db_num_str) = db_part.strip_prefix("db") {
+                    if let Ok(db_num) = db_num_str.parse::<i64>() {
+                        let keys = rest
+                            .split(',')
+                            .find_map(|kv| {
+                                let mut parts = kv.splitn(2, '=');
+                                if parts.next() == Some("keys") {
+                                    parts.next().and_then(|v| v.parse::<i64>().ok())
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0);
+                        databases.push(serde_json::json!({ "db": db_num, "keys": keys }));
+                    }
+                }
+            }
+        }
+
+        // If no databases found in INFO (empty Redis), default to db0
+        if databases.is_empty() {
+            databases.push(serde_json::json!({ "db": 0, "keys": 0 }));
+        }
+
+        Ok(serde_json::json!({ "success": true, "databases": databases }))
+    } else {
+        Err("Not a Redis connection".to_string())
+    }
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -2319,7 +2368,7 @@ pub async fn db_redis_keys_tree(
 pub async fn db_redis_keys_by_type(
     id: String,
     db_index: i64,
-    type_filter: String,
+    pattern: String,
 ) -> Result<serde_json::Value, String> {
     let pool = CONNECTION_POOL.lock().await;
     let conn = pool
@@ -2331,12 +2380,15 @@ pub async fn db_redis_keys_by_type(
             .query_async::<()>(&mut c.clone())
             .await
             .map_err(|e| format!("Redis SELECT failed: {}", e))?;
-        // Incremental scan: collect all keys, then filter by type
+        // SCAN with MATCH pattern, then group by type
         let mut all_keys: Vec<String> = Vec::new();
         let mut cursor: String = "0".to_string();
+        let match_pattern = if pattern.is_empty() { "*" } else { &pattern };
         loop {
             let (new_cursor, batch): (String, Vec<String>) = redis::cmd("SCAN")
                 .arg(&cursor)
+                .arg("MATCH")
+                .arg(match_pattern)
                 .arg("COUNT")
                 .arg(1000)
                 .query_async(&mut c.clone())
@@ -2348,7 +2400,7 @@ pub async fn db_redis_keys_by_type(
                 break;
             }
         }
-        // Filter by type
+        // Group by type
         let mut keys_by_type: std::collections::HashMap<String, Vec<String>> =
             std::collections::HashMap::new();
         for key in all_keys {
@@ -2357,9 +2409,7 @@ pub async fn db_redis_keys_by_type(
                 .query_async(&mut c.clone())
                 .await
                 .map_err(|e| format!("Redis TYPE failed: {}", e))?;
-            if type_filter == "*" || type_filter == ktype {
-                keys_by_type.entry(ktype).or_default().push(key);
-            }
+            keys_by_type.entry(ktype).or_default().push(key);
         }
         Ok(serde_json::json!({ "success": true, "keysByType": keys_by_type }))
     } else {
@@ -2378,18 +2428,33 @@ pub async fn db_redis_key_info(
         .get(&id)
         .ok_or_else(|| "Connection not found".to_string())?;
     if let DbConnection::Redis(c) = conn {
-        let mut cmd = redis::Cmd::new();
-        cmd.arg("SELECT")
+        redis::cmd("SELECT")
             .arg(db_index)
-            .arg("TYPE")
+            .query_async::<()>(&mut c.clone())
+            .await
+            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
+        let key_type: String = redis::cmd("TYPE")
             .arg(&key)
-            .arg("TTL")
-            .arg(&key);
-        let result: redis::Value = cmd
             .query_async(&mut c.clone())
             .await
-            .map_err(|e| format!("Redis TYPE/TTL failed: {}", e))?;
-        Ok(serde_json::json!({ "success": true, "info": redis_value_to_json(&result) }))
+            .map_err(|e| format!("Redis TYPE failed: {}", e))?;
+        let ttl: i64 = redis::cmd("TTL")
+            .arg(&key)
+            .query_async(&mut c.clone())
+            .await
+            .map_err(|e| format!("Redis TTL failed: {}", e))?;
+        // Compute length based on type
+        let length: i64 = match key_type.as_str() {
+            "string" => redis::cmd("STRLEN").arg(&key).query_async(&mut c.clone()).await,
+            "hash" => redis::cmd("HLEN").arg(&key).query_async(&mut c.clone()).await,
+            "list" => redis::cmd("LLEN").arg(&key).query_async(&mut c.clone()).await,
+            "set" => redis::cmd("SCARD").arg(&key).query_async(&mut c.clone()).await,
+            "zset" => redis::cmd("ZCARD").arg(&key).query_async(&mut c.clone()).await,
+            "stream" => redis::cmd("XLEN").arg(&key).query_async(&mut c.clone()).await,
+            _ => Ok(0i64),
+        }
+        .map_err(|e| format!("Redis length command failed: {}", e))?;
+        Ok(serde_json::json!({ "success": true, "type": key_type, "ttl": ttl, "length": length }))
     } else {
         Err("Not a Redis connection".to_string())
     }
@@ -2406,8 +2471,11 @@ pub async fn db_redis_key_value(
         .get(&id)
         .ok_or_else(|| "Connection not found".to_string())?;
     if let DbConnection::Redis(c) = conn {
-        let mut cmd = redis::Cmd::new();
-        cmd.arg("SELECT").arg(db_index);
+        redis::cmd("SELECT")
+            .arg(db_index)
+            .query_async::<()>(&mut c.clone())
+            .await
+            .map_err(|e| format!("Redis SELECT failed: {}", e))?;
         let key_type: String = redis::cmd("TYPE")
             .arg(&key)
             .query_async(&mut c.clone())

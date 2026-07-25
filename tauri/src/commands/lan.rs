@@ -651,24 +651,91 @@ pub fn lan_check_network_permission() -> Result<serde_json::Value, String> {
     log::info!("[Tauri CMD] lan_check_network_permission() called");
     use std::net::UdpSocket;
 
-    match UdpSocket::bind("0.0.0.0:0") {
-        Ok(socket) => {
-            if let Err(e) = socket.set_broadcast(true) {
-                log::warn!("[lan_check_network_permission] set_broadcast failed: {}", e);
+    // 收集本地 IPv4 地址，用于计算定向广播地址（x.y.z.255）
+    let local_ips: Vec<std::net::Ipv4Addr> = match get_local_ipv4_addrs() {
+        Ok(ips) => ips,
+        Err(e) => {
+            log::warn!("[lan_check_network_permission] get_local_ipv4_addrs failed: {}", e);
+            Vec::new()
+        }
+    };
+
+    let socket = match UdpSocket::bind("0.0.0.0:0") {
+        Ok(s) => s,
+        Err(e) => {
+            log::warn!("[lan_check_network_permission] UDP bind failed: {}", e);
+            return Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": format!("UDP socket bind failed: {}", e), "kind": "bind_failed" } }));
+        }
+    };
+    if let Err(e) = socket.set_broadcast(true) {
+        log::warn!("[lan_check_network_permission] set_broadcast failed: {}", e);
+    }
+
+    // 候选广播目标：限制广播 + 各网卡的定向广播
+    let mut targets: Vec<String> = vec!["255.255.255.255:49152".to_string()];
+    for ip in &local_ips {
+        let octets = ip.octets();
+        // 跳过回环和链路本地
+        if octets[0] == 127 || (octets[0] == 169 && octets[1] == 254) {
+            continue;
+        }
+        targets.push(format!("{}.{}.{}.255:49152", octets[0], octets[1], octets[2]));
+    }
+
+    let mut last_err: Option<String> = None;
+    let mut last_kind: String = "unknown".to_string();
+    for addr in &targets {
+        match socket.send_to(&[0u8], addr) {
+            Ok(_) => {
+                log::info!("[lan_check_network_permission] broadcast OK via {}", addr);
+                return Ok(serde_json::json!({ "success": true, "data": { "granted": true } }));
             }
-            match socket.send_to(&[0u8], "255.255.255.255:49152") {
-                Ok(_) => Ok(serde_json::json!({ "success": true, "data": { "granted": true } })),
-                Err(e) => {
-                    log::warn!("[lan_check_network_permission] UDP broadcast failed: {}", e);
-                    Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": "UDP broadcast not permitted" } }))
+            Err(e) => {
+                let kind = e.kind();
+                log::warn!("[lan_check_network_permission] broadcast to {} failed: {} (kind={:?})", addr, e, kind);
+                // 权限拒绝是确定性失败，无需继续尝试
+                if kind == std::io::ErrorKind::PermissionDenied {
+                    return Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": format!("Operation not permitted (PermissionDenied): {}", e), "kind": "tcc_blocked" } }));
+                }
+                last_err = Some(format!("{}", e));
+                last_kind = format!("{:?}", kind);
+            }
+        }
+    }
+
+    let err_msg = last_err.unwrap_or_else(|| "UDP broadcast not permitted".to_string());
+    Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": err_msg, "kind": last_kind } }))
+}
+
+/// 获取本机所有非回环 IPv4 地址
+fn get_local_ipv4_addrs() -> Result<Vec<std::net::Ipv4Addr>, String> {
+    use std::process::Command;
+    // macOS: ifconfig，Linux: ip addr。优先 ifconfig（macOS 默认有），失败回退 ip
+    let out = Command::new("ifconfig").output();
+    let text = match out {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).to_string(),
+        Err(_) => {
+            let o = Command::new("ip").args(["-4", "addr"]).output()
+                .map_err(|e| format!("ip addr failed: {}", e))?;
+            String::from_utf8_lossy(&o.stdout).to_string()
+        }
+    };
+    let mut ips = Vec::new();
+    for line in text.lines() {
+        let trimmed = line.trim();
+        // ifconfig: "inet 192.168.1.5 netmask ..."
+        // ip addr:  "inet 192.168.1.5/24 brd ..."
+        if let Some(rest) = trimmed.strip_prefix("inet ") {
+            let addr_str = rest.split_whitespace().next().unwrap_or("");
+            let addr_clean = addr_str.split('/').next().unwrap_or("");
+            if let Ok(ip) = addr_clean.parse::<std::net::Ipv4Addr>() {
+                if !ip.is_loopback() && !ip.is_link_local() {
+                    ips.push(ip);
                 }
             }
         }
-        Err(e) => {
-            log::warn!("[lan_check_network_permission] UDP bind failed: {}", e);
-            Ok(serde_json::json!({ "success": true, "data": { "granted": false, "error": "UDP socket not available" } }))
-        }
     }
+    Ok(ips)
 }
 
 #[tauri::command(rename_all = "camelCase")]
@@ -868,4 +935,50 @@ pub fn lan_read_image_file(file_path: String) -> Result<serde_json::Value, Strin
             "url": format!("data:{};base64,{}", mime, base64_str)
         }
     }))
+}
+
+/// 设置局域网用户的备注名（本地存储，不会同步到其他设备）
+#[tauri::command(rename_all = "camelCase")]
+pub fn lan_set_peer_remark(peer_id: String, remark: String) -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] lan_set_peer_remark() called, peer={}, remark={}", peer_id, remark);
+    let result = with_lan(|lan| {
+        let key = format!("peer_remark:{}", peer_id);
+        if let Ok(conn) = lan.get_db_conn().lock() {
+            let trimmed = remark.trim();
+            if trimmed.is_empty() {
+                // 空备注 = 删除
+                let _ = conn.execute("DELETE FROM lan_settings WHERE key = ?1", rusqlite::params![key]);
+            } else {
+                let _ = lan::save_lan_setting(&conn, &key, trimmed);
+            }
+            serde_json::json!({ "success": true })
+        } else {
+            serde_json::json!({ "success": false, "error": "数据库锁定失败" })
+        }
+    });
+    Ok(result.unwrap_or(serde_json::json!({ "success": false, "error": "LAN 服务未启动" })))
+}
+
+/// 获取所有局域网用户的备注名（返回 { peerId: remark } 映射）
+#[tauri::command(rename_all = "camelCase")]
+pub fn lan_get_peer_remarks() -> Result<serde_json::Value, String> {
+    log::info!("[Tauri CMD] lan_get_peer_remarks() called");
+    let result = with_lan(|lan| {
+        let mut remarks = serde_json::Map::new();
+        if let Ok(conn) = lan.get_db_conn().lock() {
+            // 查询所有 peer_remark: 开头的设置项
+            if let Ok(mut stmt) = conn.prepare("SELECT key, value FROM lan_settings WHERE key LIKE 'peer_remark:%'") {
+                if let Ok(rows) = stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                }) {
+                    for row in rows.flatten() {
+                        let peer_id = row.0.strip_prefix("peer_remark:").unwrap_or(&row.0).to_string();
+                        remarks.insert(peer_id, serde_json::Value::String(row.1));
+                    }
+                }
+            }
+        }
+        serde_json::json!({ "success": true, "data": { "remarks": remarks } })
+    });
+    Ok(result.unwrap_or(serde_json::json!({ "success": true, "data": { "remarks": {} } })))
 }

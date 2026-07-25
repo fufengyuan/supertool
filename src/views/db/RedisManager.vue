@@ -269,6 +269,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Confirm dialog -->
+    <Modal :model-value="confirmDialog.show" @update:model-value="(v: boolean) => confirmDialog.show = v" :title="confirmDialog.title" width="440px">
+      <div class="flex gap-3 items-start">
+        <div class="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-error/10 text-error">
+          <SvgIcon name="alertTriangle" size="18" />
+        </div>
+        <p class="text-sm text-base-content/80 m-0 whitespace-pre-wrap leading-relaxed">{{ confirmDialog.message }}</p>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost btn-sm" @click="confirmDialog.show = false">取消</button>
+        <button class="btn btn-error btn-sm gap-1.5" @click="handleConfirm">
+          <SvgIcon name="check" size="14" /> 确认删除
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -276,6 +292,7 @@
 import * as logger from '../../services/logger'
 import { getTauriAPI } from '../../utils/tauri-api'
 import SvgIcon from '@/components/ui/SvgIcon.vue'
+import Modal from '@/components/ui/Modal.vue'
 import { ref, computed, watch, nextTick, onMounted } from 'vue'
 import { useToast } from '../../composables/useToast'
 
@@ -330,6 +347,22 @@ const consoleOutputRef = ref<HTMLDivElement | null>(null)
 
 // Add key dialog
 const showAddKeyDialog = ref(false)
+
+// Confirm dialog (replaces native confirm())
+const confirmDialog = ref<{ show: boolean; title: string; message: string; onConfirm: (() => void) | null }>({
+  show: false, title: '', message: '', onConfirm: null,
+})
+
+function showConfirm(title: string, message: string, onConfirm: () => void) {
+  confirmDialog.value = { show: true, title, message, onConfirm }
+}
+
+function handleConfirm() {
+  confirmDialog.value.onConfirm?.()
+  confirmDialog.value.show = false
+  confirmDialog.value.onConfirm = null
+}
+
 const newKey = ref({
   name: '',
   type: 'string',
@@ -408,7 +441,7 @@ async function selectKey(key: string) {
   try {
     await ensureConnected()
     // Get key info
-    const info = await getTauriAPI().dbRedisKeyInfo(props.connectionId, props.dbIndex, key)
+    const info = await getTauriAPI().dbRedisKeyInfo(props.connectionId, props.redisDbIndex ?? 0, key)
     logger.info('[RedisManager] keyInfo result:', JSON.stringify(info))
     if (info?.success) {
       keyInfo.value = { type: info.type || '', ttl: info.ttl ?? -1, length: info.length ?? 0 }
@@ -420,7 +453,7 @@ async function selectKey(key: string) {
     }
 
     // Get key value
-    const valResult = await getTauriAPI().dbRedisKeyValue(props.connectionId, props.dbIndex, key)
+    const valResult = await getTauriAPI().dbRedisKeyValue(props.connectionId, props.redisDbIndex ?? 0, key)
     logger.info(`[RedisManager] keyValue result: ${valResult?.success ? '(type=' + keyInfo.value.type + ', length=' + keyInfo.value.length + ')' : valResult?.error}`)
     if (valResult?.success) {
       const val = valResult.value as any
@@ -504,24 +537,25 @@ async function saveKey() {
 // Delete selected key
 async function deleteSelectedKey() {
   if (!selectedKey.value) {return}
-  if (!confirm(`确定要删除键 "${selectedKey.value}" 吗？`)) {return}
-
-  deleting.value = true
-  try {
-    const result = await getTauriAPI().dbRedisDeleteKey(props.connectionId, props.dbIndex, selectedKey.value)
-    if (result) {
-      toast.info('键已删除')
-      selectedKey.value = null
-      keyInfo.value = { type: '', ttl: -1, length: 0 }
-      await loadKeys()
-    } else {
-      toast.error('删除失败')
+  const keyToDelete = selectedKey.value
+  showConfirm('删除确认', `确定要删除键 "${keyToDelete}" 吗？`, async () => {
+    deleting.value = true
+    try {
+      const result = await getTauriAPI().dbRedisDeleteKey(props.connectionId, props.redisDbIndex ?? 0, keyToDelete)
+      if (result) {
+        toast.success('键已删除')
+        selectedKey.value = null
+        keyInfo.value = { type: '', ttl: -1, length: 0 }
+        await loadKeys()
+      } else {
+        toast.error('删除失败')
+      }
+    } catch (e: any) {
+      toast.error('删除失败: ' + (e?.message || '未知错误'))
+    } finally {
+      deleting.value = false
     }
-  } catch (e: any) {
-    toast.error('删除失败: ' + (e?.message || '未知错误'))
-  } finally {
-    deleting.value = false
-  }
+  })
 }
 
 // Hash operations
@@ -583,7 +617,7 @@ async function addNewKey() {
     const plainValue = JSON.parse(JSON.stringify(value))
     const result = await getTauriAPI().dbRedisAddKey(
       props.connectionId,
-      props.dbIndex,
+      props.redisDbIndex ?? 0,
       newKey.value.type,
       newKey.value.name,
       plainValue
@@ -613,7 +647,7 @@ async function executeConsole() {
   consoleExecuting.value = true
 
   try {
-    const result = await getTauriAPI().dbRedisExec(props.connectionId, props.dbIndex, cmd)
+    const result = await getTauriAPI().dbRedisExec(props.connectionId, props.redisDbIndex ?? 0, cmd)
     if (result) {
       const output = typeof result.result === 'object' ? JSON.stringify(result.result, null, 2) : String(result.result ?? '')
       consoleMessages.value.push({ type: 'output', prefix: '', content: output })
