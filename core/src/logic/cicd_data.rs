@@ -188,162 +188,191 @@ impl super::CoreService {
         let mut imported = 0;
         let mut skipped = 0;
 
-        let _ = self.with_db(|db| {
+        let tx_result = self.with_db(|db| {
             let conn = db.conn();
-            if mode == "replace" {
-                conn.execute_batch("DELETE FROM deploy_step_logs; DELETE FROM deploy_logs; DELETE FROM deploy_modules; DELETE FROM cicd_configs; DELETE FROM deploy_history;")
-                    .map_err(|e| e.to_string())?;
+
+            // 用事务包裹：replace 模式下 DELETE + INSERT 原子化，失败回滚避免数据丢失
+            if let Err(e) = conn.execute_batch("BEGIN IMMEDIATE") {
+                return Err(format!("开启事务失败: {}", e));
             }
 
-            // cicd_configs — 30 columns
-            if let Some(configs) = data.get("cicdConfigs").and_then(|v| v.as_array()) {
-                for c in configs {
-                    let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    if mode == "merge" {
-                        let exists: i64 = conn.prepare("SELECT COUNT(*) FROM cicd_configs WHERE id = ?")
-                            .ok().and_then(|mut s| s.query_row([id], |r| r.get(0)).ok()).unwrap_or(0);
-                        if exists > 0 { skipped += 1; continue; }
+            let result = (|| -> Result<(), String> {
+                if mode == "replace" {
+                    conn.execute_batch(
+                        "DELETE FROM deploy_step_logs; DELETE FROM deploy_logs; DELETE FROM deploy_modules; DELETE FROM cicd_configs; DELETE FROM deploy_history;"
+                    ).map_err(|e| e.to_string())?;
+                }
+
+                // cicd_configs — 30 columns
+                if let Some(configs) = data.get("cicdConfigs").and_then(|v| v.as_array()) {
+                    for c in configs {
+                        let id = c.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                        if mode == "merge" {
+                            let exists: i64 = conn.prepare("SELECT COUNT(*) FROM cicd_configs WHERE id = ?")
+                                .ok().and_then(|mut s| s.query_row([id], |r| r.get(0)).ok()).unwrap_or(0);
+                            if exists > 0 { skipped += 1; continue; }
+                        }
+                        let servers_val: Option<String> = c.get("servers").and_then(|v| v.as_str()).map(|s| s.to_string())
+                            .or_else(|| c.get("servers").map(|v| serde_json::to_string(v).unwrap_or_default()));
+                        let _ = conn.execute(
+                            "INSERT OR REPLACE INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt, gitRepoId, pnpmHome, yarnHome, buildMode)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)",
+                            rusqlite::params![
+                                id,
+                                c.get("name").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("deployBranch").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("mavenSettings").and_then(|v|v.as_str()),
+                                c.get("mavenProfile").and_then(|v|v.as_str()).unwrap_or("prod"),
+                                c.get("deployPath").and_then(|v|v.as_str()).unwrap_or("/"),
+                                if c.get("libSeparate").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                                c.get("restartScript").and_then(|v|v.as_str()).unwrap_or("./restart.sh"),
+                                c.get("healthCheckUrl").and_then(|v|v.as_str()),
+                                c.get("healthCheckTimeout").and_then(|v|v.as_i64()).unwrap_or(30),
+                                c.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("updatedAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("groupName").and_then(|v|v.as_str()).unwrap_or("未分组"),
+                                if c.get("parentBuildMode").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                                c.get("parentBuildPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                if c.get("requiresApproval").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                                c.get("buildTool").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("buildCommand").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("buildPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("repoUrl").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("localPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("npmScript").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("npmCustomScript").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("mavenHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("npmHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("javaHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("nodeHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                servers_val.unwrap_or_default(),
+                                c.get("lastDeployedAt").and_then(|v|v.as_str()),
+                                c.get("gitRepoId").and_then(|v|v.as_str()),
+                                c.get("pnpmHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("yarnHome").and_then(|v|v.as_str()).unwrap_or(""),
+                                c.get("buildMode").and_then(|v|v.as_str()).unwrap_or("local"),
+                            ]
+                        );
+                        imported += 1;
                     }
-                    let servers_val: Option<String> = c.get("servers").and_then(|v| v.as_str()).map(|s| s.to_string())
-                        .or_else(|| c.get("servers").map(|v| serde_json::to_string(v).unwrap_or_default()));
-                    let _ = conn.execute(
-                        "INSERT OR REPLACE INTO cicd_configs (id, name, deployBranch, mavenSettings, mavenProfile, deployPath, libSeparate, restartScript, healthCheckUrl, healthCheckTimeout, createdAt, updatedAt, groupName, parentBuildMode, parentBuildPath, requiresApproval, buildTool, buildCommand, buildPath, repoUrl, localPath, npmScript, npmCustomScript, mavenHome, npmHome, javaHome, nodeHome, servers, lastDeployedAt, gitRepoId, pnpmHome, yarnHome, buildMode)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)",
-                        rusqlite::params![
-                            id,
-                            c.get("name").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("deployBranch").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("mavenSettings").and_then(|v|v.as_str()),
-                            c.get("mavenProfile").and_then(|v|v.as_str()).unwrap_or("prod"),
-                            c.get("deployPath").and_then(|v|v.as_str()).unwrap_or("/"),
-                            if c.get("libSeparate").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
-                            c.get("restartScript").and_then(|v|v.as_str()).unwrap_or("./restart.sh"),
-                            c.get("healthCheckUrl").and_then(|v|v.as_str()),
-                            c.get("healthCheckTimeout").and_then(|v|v.as_i64()).unwrap_or(30),
-                            c.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("updatedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("groupName").and_then(|v|v.as_str()).unwrap_or("未分组"),
-                            if c.get("parentBuildMode").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
-                            c.get("parentBuildPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            if c.get("requiresApproval").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
-                            c.get("buildTool").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("buildCommand").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("buildPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("repoUrl").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("localPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("npmScript").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("npmCustomScript").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("mavenHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("npmHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("javaHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("nodeHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            servers_val.unwrap_or_default(),
-                            c.get("lastDeployedAt").and_then(|v|v.as_str()),
-                            c.get("gitRepoId").and_then(|v|v.as_str()),
-                            c.get("pnpmHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("yarnHome").and_then(|v|v.as_str()).unwrap_or(""),
-                            c.get("buildMode").and_then(|v|v.as_str()).unwrap_or("local"),
-                        ]
-                    );
-                    imported += 1;
+                }
+
+                // deploy_modules — 16 columns
+                if let Some(modules) = data.get("deployModules").and_then(|v| v.as_array()) {
+                    for m in modules {
+                        let _ = conn.execute(
+                            "INSERT OR REPLACE INTO deploy_modules (id, configId, moduleName, modulePath, artifactName, deployOrder, deployPath, enabled, createdAt, updatedAt, libFilterRules, buildCommand, buildPath, outputPath, buildTool, artifactType)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
+                            rusqlite::params![
+                                m.get("id").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("moduleName").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("modulePath").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("artifactName").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("deployOrder").and_then(|v|v.as_i64()).unwrap_or(0),
+                                m.get("deployPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                if m.get("enabled").and_then(|v|v.as_bool()).unwrap_or(true) { 1 } else { 0 },
+                                m.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("updatedAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("libFilterRules").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("buildCommand").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("buildPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("outputPath").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("buildTool").and_then(|v|v.as_str()).unwrap_or(""),
+                                m.get("artifactType").and_then(|v|v.as_str()).unwrap_or(""),
+                            ]
+                        );
+                        imported += 1;
+                    }
+                }
+
+                // deploy_logs
+                if let Some(logs) = data.get("deployLogs").and_then(|v| v.as_array()) {
+                    for l in logs {
+                        let _ = conn.execute(
+                            "INSERT OR REPLACE INTO deploy_logs (id, configId, status, startTime, endTime, errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths)
+                             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+                            rusqlite::params![
+                                l.get("id").and_then(|v|v.as_str()).unwrap_or(""),
+                                l.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
+                                l.get("status").and_then(|v|v.as_str()).unwrap_or(""),
+                                l.get("startTime").and_then(|v|v.as_str()).unwrap_or(""),
+                                l.get("endTime").and_then(|v|v.as_str()),
+                                l.get("errorMessage").and_then(|v|v.as_str()),
+                                l.get("progress").and_then(|v|v.as_i64()).unwrap_or(0),
+                                l.get("triggeredBy").and_then(|v|v.as_str()),
+                                l.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                l.get("logFilePath").and_then(|v|v.as_str()),
+                                l.get("artifactPaths").and_then(|v|v.as_str()),
+                            ]
+                        );
+                        imported += 1;
+                    }
+                }
+
+                // deploy_history
+                if let Some(history) = data.get("deployHistory").and_then(|v| v.as_array()) {
+                    for h in history {
+                        let _ = conn.execute(
+                            "INSERT OR REPLACE INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt)
+                             VALUES (?1,?2,?3,?4,?5,?6)",
+                            rusqlite::params![
+                                h.get("id").and_then(|v|v.as_str()).unwrap_or(""),
+                                h.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
+                                h.get("status").and_then(|v|v.as_str()).unwrap_or(""),
+                                h.get("deployedAt").and_then(|v|v.as_str()).unwrap_or(""),
+                                if h.get("rolledBack").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
+                                h.get("rolledBackAt").and_then(|v|v.as_str()),
+                            ]
+                        );
+                        imported += 1;
+                    }
+                }
+
+                // deploy_step_logs
+                if let Some(steps) = data.get("deployStepLogs").and_then(|v| v.as_array()) {
+                    for s in steps {
+                        let _ = conn.execute(
+                            "INSERT OR REPLACE INTO deploy_step_logs (id, deployLogId, stage, status, message, timestamp)
+                             VALUES (?1,?2,?3,?4,?5,?6)",
+                            rusqlite::params![
+                                s.get("id").and_then(|v|v.as_str()).unwrap_or(""),
+                                s.get("deployLogId").and_then(|v|v.as_str()).unwrap_or(""),
+                                s.get("stage").and_then(|v|v.as_str()).unwrap_or(""),
+                                s.get("status").and_then(|v|v.as_str()).unwrap_or(""),
+                                s.get("message").and_then(|v|v.as_str()),
+                                s.get("timestamp").and_then(|v|v.as_str()).unwrap_or(""),
+                            ]
+                        );
+                        imported += 1;
+                    }
+                }
+
+                Ok(())
+            })();
+
+            match result {
+                Ok(_) => {
+                    if let Err(e) = conn.execute_batch("COMMIT") {
+                        let _ = conn.execute_batch("ROLLBACK");
+                        return Err(format!("提交事务失败: {}", e));
+                    }
+                    Ok(())
+                }
+                Err(e) => {
+                    let _ = conn.execute_batch("ROLLBACK");
+                    Err(e)
                 }
             }
-
-            // deploy_modules — 16 columns
-            if let Some(modules) = data.get("deployModules").and_then(|v| v.as_array()) {
-                for m in modules {
-                    let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_modules (id, configId, moduleName, modulePath, artifactName, deployOrder, deployPath, enabled, createdAt, updatedAt, libFilterRules, buildCommand, buildPath, outputPath, buildTool, artifactType)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)",
-                        rusqlite::params![
-                            m.get("id").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("moduleName").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("modulePath").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("artifactName").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("deployOrder").and_then(|v|v.as_i64()).unwrap_or(0),
-                            m.get("deployPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            if m.get("enabled").and_then(|v|v.as_bool()).unwrap_or(true) { 1 } else { 0 },
-                            m.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("updatedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("libFilterRules").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("buildCommand").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("buildPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("outputPath").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("buildTool").and_then(|v|v.as_str()).unwrap_or(""),
-                            m.get("artifactType").and_then(|v|v.as_str()).unwrap_or(""),
-                        ]
-                    );
-                    imported += 1;
-                }
-            }
-
-            // deploy_logs
-            if let Some(logs) = data.get("deployLogs").and_then(|v| v.as_array()) {
-                for l in logs {
-                    let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_logs (id, configId, status, startTime, endTime, errorMessage, progress, triggeredBy, createdAt, logFilePath, artifactPaths)
-                         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-                        rusqlite::params![
-                            l.get("id").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("startTime").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("endTime").and_then(|v|v.as_str()),
-                            l.get("errorMessage").and_then(|v|v.as_str()),
-                            l.get("progress").and_then(|v|v.as_i64()).unwrap_or(0),
-                            l.get("triggeredBy").and_then(|v|v.as_str()),
-                            l.get("createdAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            l.get("logFilePath").and_then(|v|v.as_str()),
-                            l.get("artifactPaths").and_then(|v|v.as_str()),
-                        ]
-                    );
-                    imported += 1;
-                }
-            }
-
-            // deploy_history
-            if let Some(history) = data.get("deployHistory").and_then(|v| v.as_array()) {
-                for h in history {
-                    let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_history (id, configId, status, deployedAt, rolledBack, rolledBackAt)
-                         VALUES (?1,?2,?3,?4,?5,?6)",
-                        rusqlite::params![
-                            h.get("id").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("configId").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            h.get("deployedAt").and_then(|v|v.as_str()).unwrap_or(""),
-                            if h.get("rolledBack").and_then(|v|v.as_bool()).unwrap_or(false) { 1 } else { 0 },
-                            h.get("rolledBackAt").and_then(|v|v.as_str()),
-                        ]
-                    );
-                    imported += 1;
-                }
-            }
-
-            // deploy_step_logs
-            if let Some(steps) = data.get("deployStepLogs").and_then(|v| v.as_array()) {
-                for s in steps {
-                    let _ = conn.execute(
-                        "INSERT OR REPLACE INTO deploy_step_logs (id, deployLogId, stage, status, message, timestamp)
-                         VALUES (?1,?2,?3,?4,?5,?6)",
-                        rusqlite::params![
-                            s.get("id").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("deployLogId").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("stage").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("status").and_then(|v|v.as_str()).unwrap_or(""),
-                            s.get("message").and_then(|v|v.as_str()),
-                            s.get("timestamp").and_then(|v|v.as_str()).unwrap_or(""),
-                        ]
-                    );
-                    imported += 1;
-                }
-            }
-
-            Ok::<(), String>(())
         });
 
-        Ok((imported, skipped))
+        match tx_result {
+            Ok(_) => Ok((imported, skipped)),
+            Err(e) => {
+                log::error!("[CICD Import] 事务回滚: {}", e);
+                Err(e)
+            }
+        }
     }
 
     // ============ Log Presets ============
