@@ -2049,9 +2049,12 @@ function prevMatch() {
 }
 
 // ── 滚动到顶部自动加载更多历史日志 ──
+// 冷却时间：加载完成后短期内不再触发，避免 scrollTop 仍 < 50 时连续触发导致行数暴增
+let _loadMoreCooldownUntil = 0
 // TODO: Requires backend logs_load_more Tauri command. For now, gracefully degrades.
 async function loadMoreHistory() {
   if (queryMode.value !== 'stream' || !selectedPreset.value || !streamId.value || loadingMore.value) return
+  if (Date.now() < _loadMoreCooldownUntil) return
   loadingMore.value = true
   try {
     const result = await getTauriAPI().logsLoadMore({
@@ -2102,7 +2105,9 @@ async function loadMoreHistory() {
         const addedHeight = addedCount * VIRTUAL_LINE_HEIGHT
         if (!followMode.value && logContainer.value && scrollTop.value >= 0) {
           scrollingFromRAFCount++
-          logContainer.value.scrollTop = scrollTop.value + addedHeight
+          // 确保加载后 scrollTop 离开触发区（>100），避免 onScroll 立刻再次触发 loadMoreHistory
+          const newScrollTop = Math.max(100, scrollTop.value + addedHeight)
+          logContainer.value.scrollTop = newScrollTop
           // ⚡ 同步虚拟滚动 ref
           scrollTop.value = logContainer.value.scrollTop
           // 双层 rAF 重置标志，等浏览器派发完 scroll 事件
@@ -2111,6 +2116,8 @@ async function loadMoreHistory() {
             if (scrollingFromRAFCount < 0) scrollingFromRAFCount = 0
           }) })
         }
+        // 设置 2 秒冷却，避免连续触发
+        _loadMoreCooldownUntil = Date.now() + 2000
         toast.info(`已加载 ${addedCount} 条历史日志`)
       }
     }
