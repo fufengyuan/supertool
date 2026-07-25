@@ -159,6 +159,20 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_opener::init())
+        .on_window_event(|window, event| {
+            // 主窗口关闭时，退出整个应用（含 floating-todo 等子窗口）
+            // 否则悬浮窗会残留，只能强制退出
+            if window.label() == "main" {
+                if let tauri::WindowEvent::CloseRequested { .. } = event {
+                    log::info!("[Main] 主窗口关闭，退出应用");
+                    // 退出整个应用进程（会自动关闭所有窗口）
+                    tauri::AppHandle::<tauri::Wry>::exit(
+                        &window.app_handle(),
+                        0,
+                    );
+                }
+            }
+        })
         .setup(|app| {
             // Resolve data directory: check ~/.supertool_dir for custom path, fallback to ~/.supertool
             let home_dir = dirs::home_dir().expect("Failed to resolve home directory");
